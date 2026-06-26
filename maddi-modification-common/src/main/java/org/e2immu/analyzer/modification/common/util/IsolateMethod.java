@@ -1,8 +1,9 @@
 package org.e2immu.analyzer.modification.common.util;
 
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.ImportStatement;
+import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.output.Formatter;
@@ -54,9 +55,9 @@ public class IsolateMethod {
         OutputBuilder ob = runtime.newCompilationUnitPrinter(compilationUnit, true)
                 .print(importComputer, qualification,
                         runtime::newTypePrinter,
-                        (_, mi, f2) -> {
+                        (_, mi, _) -> {
                             if (mi.name().equals(METHOD_MARKER_NAME)) {
-                                return q -> runtime.newOutputBuilder().add(runtime.newText(methodString));
+                                return _ -> runtime.newOutputBuilder().add(runtime.newText(methodString));
                             }
                             return runtime.newMethodPrinter(mi);
                         },
@@ -113,7 +114,6 @@ public class IsolateMethod {
 
     class Data {
         private final TypeInfo originalType;
-        private final MethodInfo originalMethod;
         private final TypeInfo frame;
         final Map<TypeInfo, TypeInfo> typeMap = new HashMap<>();
         final Map<MethodInfo, MethodInfo> methodMap = new HashMap<>();
@@ -124,30 +124,19 @@ public class IsolateMethod {
         // package name -> a stub 'namespace' type reproducing that package, so a type referenced by its fully
         // qualified name (e.g. 'org.slf4j.Logger') keeps resolving and does not collide with a simply-named stub
         final Map<String, TypeInfo> namespaceMap = new HashMap<>();
-        // fully-qualified names of single-type imports, and packages of star imports, of the original source
-        final Set<String> importedFqns = new HashSet<>();
-        final Set<String> starImportPackages = new HashSet<>();
-        private final String originalPackage;
+        // simple names of the original type's member types: they are always referenced simply, so they get first
+        // claim on a frame slot; an external type with the same simple name must fall back to a namespace stub
+        final Set<String> originalMemberSimpleNames = new HashSet<>();
+        // simple name -> the (original) primary type that occupies that slot in the frame; used to detect a genuine
+        // simple-name collision, the situation that in source forces a fully-qualified (namespace) reference
+        final Map<String, TypeInfo> frameSimpleNameClaims = new HashMap<>();
 
         Data(MethodInfo originalMethod, TypeInfo frame) {
-            this.originalMethod = originalMethod;
             this.originalType = originalMethod.primaryType();
             this.frame = frame;
-            this.originalPackage = originalType.packageName();
-            for (ImportStatement is : originalType.compilationUnit().importStatements()) {
-                if (is.isStatic()) continue;
-                String s = is.importString();
-                if (is.isStar()) starImportPackages.add(s.substring(0, s.length() - 2)); // strip ".*"
-                else importedFqns.add(s);
-            }
-        }
-
-        // is the (primary) type referenced by its simple name in the original source? (imported, same package, or
-        // a star-imported package); if not, it must have been written out fully qualified
-        private boolean referencedSimply(TypeInfo primaryType) {
-            return importedFqns.contains(primaryType.fullyQualifiedName())
-                   || originalPackage.equals(primaryType.packageName())
-                   || starImportPackages.contains(primaryType.packageName());
+            originalType.recursiveSubTypeStream()
+                    .filter(t -> t != originalType)
+                    .forEach(t -> originalMemberSimpleNames.add(t.simpleName()));
         }
 
         // a chain of empty stub types reproducing a package, e.g. "org.slf4j" -> frame.org.slf4j
@@ -167,19 +156,13 @@ public class IsolateMethod {
             return ns;
         }
 
-        private TypeInfo ensureType(TypeInfo typeInfo) {
-            if (typeInfo.isPrimitive()
-                || typeInfo == originalType
-                // already one of the new types
-                || typeInfo.compilationUnitOrEnclosingType().isRight() && frame == typeInfo.compilationUnitOrEnclosingType().getRight()) {
+        // 'ds' are the detailed sources of the element that references 'typeInfo' in the pasted method text (or null
+        // if unavailable); they tell us how the reference was written, which decides where to place a primary type.
+        private TypeInfo ensureType(TypeInfo typeInfo, DetailedSources ds) {
+            if (typeInfo.isPrimitive() || typeInfo == originalType || isJdkType(typeInfo)) {
                 return typeInfo;// keep as is
             }
-            if (typeInfo.packageName().startsWith("java.")) {
-                if (!typeInfo.packageName().equals("java.lang")) {
-                    jdkTypesToImport.add(typeInfo);
-                }
-                return typeInfo; // keep as is
-            }
+
             TypeInfo inMap = typeMap.get(typeInfo);
             if (inMap != null) return inMap;
             LOGGER.info("Creating type {}", typeInfo);
@@ -190,11 +173,31 @@ public class IsolateMethod {
             TypeInfo enclosingStub;
             if (enclosing.isRight()) {
                 // a member type: nest in the frame (if nested in the original type) or in the enclosing type's stub
-                enclosingStub = enclosing.getRight() == originalType ? frame : ensureType(enclosing.getRight());
+                enclosingStub = enclosing.getRight() == originalType ? frame : ensureType(enclosing.getRight(), ds);
+            } else if (ds != null && ds.detail(typeInfo.packageName()) != null) {
+                // detailed sources say the package was written out (fully-qualified, e.g. 'a.b.C'): reproduce its
+                // package as a chain of namespace stubs so the qualified reference still resolves
+                enclosingStub = namespaceStub(typeInfo.packageName());
+            } else if (ds != null) {
+                // detailed sources present and the package was not written: referenced simply -> nest in the frame
+                frameSimpleNameClaims.put(typeInfo.simpleName(), typeInfo);
+                enclosingStub = frame;
             } else {
-                // a primary type: nest directly in the frame when it is referenced by its simple name, otherwise
-                // reproduce its package as a chain of namespace stubs so the qualified reference still resolves
-                enclosingStub = referencedSimply(typeInfo) ? frame : namespaceStub(typeInfo.packageName());
+                // no detailed sources: nest a primary type directly in the frame under its simple name -- the common
+                // case. Fall back to a chain of namespace stubs only on a genuine simple-name collision: when a member
+                // type of the original owns the slot, or another primary type already claimed it. That collision is
+                // exactly what forces a fully-qualified reference in source (e.g. 'org.slf4j.Logger' next to a nested
+                // 'Logger'), which the namespace chain resolves.
+                String simpleName = typeInfo.simpleName();
+                TypeInfo claimer = frameSimpleNameClaims.get(simpleName);
+                boolean collision = originalMemberSimpleNames.contains(simpleName)
+                                    || claimer != null && claimer != typeInfo;
+                if (collision) {
+                    enclosingStub = namespaceStub(typeInfo.packageName());
+                } else {
+                    frameSimpleNameClaims.put(simpleName, typeInfo);
+                    enclosingStub = frame;
+                }
             }
             TypeInfo stub = runtime.newTypeInfo(enclosingStub, typeInfo.simpleName());
             typeMap.put(typeInfo, stub); // before recursion: type bounds / fields may refer back to this stub
@@ -226,6 +229,10 @@ public class IsolateMethod {
         }
 
         private ParameterizedType ensureTypes(ParameterizedType pt) {
+            return ensureTypes(pt, null);
+        }
+
+        private ParameterizedType ensureTypes(ParameterizedType pt, DetailedSources ds) {
             if (pt.isPrimitiveExcludingVoid() || pt.typeInfo() != null && pt.typeInfo().isPrimitive()) return pt;
             if (pt.isReturnTypeOfConstructor()) return pt;
 
@@ -233,7 +240,7 @@ public class IsolateMethod {
                 TypeParameter origTp = pt.typeParameter();
                 // make sure the owning type is stubbed, which populates typeParameterMap for its parameters
                 if (origTp.getOwner().isLeft()) {
-                    ensureType(origTp.getOwner().getLeft());
+                    ensureType(origTp.getOwner().getLeft(), null);
                 }
                 TypeParameter newTp = typeParameterMap.get(origTp);
                 if (newTp != null) {
@@ -244,18 +251,14 @@ public class IsolateMethod {
                 return pt;
             }
             if (pt.typeInfo() == null) return pt;
-            TypeInfo newTypeInfo = ensureType(pt.typeInfo());
-            List<ParameterizedType> params = pt.parameters().stream().map(this::ensureTypes).toList();
+            // type arguments share the referencing element, hence the same detailed sources
+            TypeInfo newTypeInfo = ensureType(pt.typeInfo(), ds);
+            List<ParameterizedType> params = pt.parameters().stream().map(p -> ensureTypes(p, ds)).toList();
             return runtime.newParameterizedType(newTypeInfo, pt.arrays(), pt.wildcard(), params);
         }
 
         private void ensureField(TypeInfo owner, FieldInfo fieldInfo) {
-            if (owner.packageName().startsWith("java.")) {
-                if (!owner.packageName().equals("java.lang")) {
-                    jdkTypesToImport.add(owner);
-                }
-                return; // a field on a JDK type: do not stub (and never mutate the real, committed type)
-            }
+            if (isJdkType(owner)) return;
             FieldInfo inMap = fieldMap.get(fieldInfo);
             if (inMap != null) return;
             ParameterizedType newPt = ensureTypes(fieldInfo.type());
@@ -268,12 +271,7 @@ public class IsolateMethod {
         }
 
         private void ensureMethodInfo(TypeInfo owner, MethodInfo methodInfo) {
-            if (owner.packageName().startsWith("java.")) {
-                if (!owner.packageName().equals("java.lang")) {
-                    jdkTypesToImport.add(owner);
-                }
-                return;
-            }
+            if (isJdkType(owner)) return;
             MethodInfo inMap = methodMap.get(methodInfo);
             if (inMap != null) return;
             MethodInfo newMethod = runtime.newMethod(owner, methodInfo.name(),
@@ -316,6 +314,16 @@ public class IsolateMethod {
             owner.builder().addMethod(newMethod);
             methodMap.put(methodInfo, newMethod);
         }
+
+        private boolean isJdkType(TypeInfo owner) {
+            if (owner.packageName() == null || owner.packageName().startsWith("java.")) {
+                if (owner.packageName() != null && !owner.packageName().equals("java.lang")) {
+                    jdkTypesToImport.add(owner);
+                }
+                return true;
+            }
+            return false;
+        }
     }
 
     private class MyVisitor implements Predicate<Element> {
@@ -325,27 +333,43 @@ public class IsolateMethod {
             this.data = data;
         }
 
+        // detailed sources of an element (per-element, when the parse enabled them), null otherwise; they record
+        // how each type reference was written (simple, enclosing-qualified, or package-qualified)
+        private DetailedSources ds(Element e) {
+            Source s = e == null ? null : e.source();
+            return s == null ? null : s.detailedSources();
+        }
+
         @Override
         public boolean test(Element element) {
             switch (element) {
-                case TypeExpression te -> data.ensureTypes(te.parameterizedType());
-                case LocalVariableCreation lvc -> data.ensureTypes(lvc.localVariable().parameterizedType());
-                case InstanceOf instanceOf -> data.ensureTypes(instanceOf.testType());
-                case Cast cast -> data.ensureTypes(cast.parameterizedType());
-                case ClassExpression classExpression -> data.ensureTypes(classExpression.parameterizedType());
+                case TypeExpression te -> data.ensureTypes(te.parameterizedType(), ds(te));
+                case LocalVariableCreation lvc -> data.ensureTypes(lvc.localVariable().parameterizedType(), ds(lvc));
+                case InstanceOf instanceOf -> data.ensureTypes(instanceOf.testType(), ds(instanceOf));
+                case Cast cast -> data.ensureTypes(cast.parameterizedType(), ds(cast));
+                case ClassExpression classExpression ->
+                        data.ensureTypes(classExpression.parameterizedType(), ds(classExpression));
                 case Lambda lambda -> {
                     for (ParameterInfo pi : lambda.parameters()) {
-                        data.ensureTypes(pi.parameterizedType());
+                        data.ensureTypes(pi.parameterizedType(), ds(pi));
                     }
                     lambda.methodBody().visit(this);
                 }
                 case ConstructorCall cc -> {
                     if (cc.anonymousClass() != null) {
-                        cc.anonymousClass().visit(this);
+                        // TypeInfo.visit() is unsupported, so descend into the bodies of its members ourselves,
+                        // to reach references (types, calls, fields) that live only inside the anonymous class
+                        cc.anonymousClass().constructorAndMethodStream().forEach(mi -> {
+                            Block body = mi.methodBody();
+                            if (body != null) body.visit(this);
+                        });
+                        cc.anonymousClass().fields().forEach(fi -> {
+                            if (fi.initializer() != null) fi.initializer().visit(this);
+                        });
                     }
                     if (cc.constructor() != null) {
                         // stub the constructed type first, so the constructor lands on the stub, not the real type
-                        ParameterizedType constructed = data.ensureTypes(cc.parameterizedType());
+                        ParameterizedType constructed = data.ensureTypes(cc.parameterizedType(), ds(cc));
                         data.ensureMethodInfo(constructed.typeInfo(), cc.constructor());
                     }
                 }
@@ -356,7 +380,7 @@ public class IsolateMethod {
                         || mc.object() instanceof VariableExpression ve && ve.variable() instanceof This) {
                         owner = data.frame;
                     } else {
-                        ParameterizedType firstOwner = data.ensureTypes(mc.object().parameterizedType());
+                        ParameterizedType firstOwner = data.ensureTypes(mc.object().parameterizedType(), ds(mc.object()));
                         owner = firstOwner.typeInfo();
                     }
                     data.ensureMethodInfo(owner, mc.methodInfo());
@@ -368,7 +392,7 @@ public class IsolateMethod {
                         || mr.scope() instanceof VariableExpression ve && ve.variable() instanceof This) {
                         owner = data.frame;
                     } else {
-                        ParameterizedType scopeType = data.ensureTypes(mr.scope().parameterizedType());
+                        ParameterizedType scopeType = data.ensureTypes(mr.scope().parameterizedType(), ds(mr.scope()));
                         owner = scopeType.typeInfo();
                     }
                     data.ensureMethodInfo(owner, mr.methodInfo());
@@ -379,7 +403,7 @@ public class IsolateMethod {
                         if (fr.isDefaultScope()) {
                             owner = data.frame;
                         } else {
-                            ParameterizedType realOwner = data.ensureTypes(fr.scope().parameterizedType());
+                            ParameterizedType realOwner = data.ensureTypes(fr.scope().parameterizedType(), ds(fr.scope()));
                             owner = realOwner.typeInfo();
                         }
                         data.ensureField(owner, fr.fieldInfo());
@@ -417,12 +441,18 @@ public class IsolateMethod {
 
     private void visit(Data data, MethodInfo methodInfo) {
         for (ParameterInfo pi : methodInfo.parameters()) {
-            data.ensureTypes(pi.parameterizedType());
+            data.ensureTypes(pi.parameterizedType(), detailedSources(pi.source()));
         }
-        if (methodInfo.hasReturnValue()) data.ensureTypes(methodInfo.returnType());
+        if (methodInfo.hasReturnValue()) {
+            data.ensureTypes(methodInfo.returnType(), detailedSources(methodInfo.source()));
+        }
 
         MyVisitor myVisitor = new MyVisitor(data);
         methodInfo.methodBody().visit(myVisitor);
+    }
+
+    private static DetailedSources detailedSources(Source source) {
+        return source == null ? null : source.detailedSources();
     }
 
 }
