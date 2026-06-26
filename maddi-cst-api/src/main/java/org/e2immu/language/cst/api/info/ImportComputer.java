@@ -39,5 +39,7 @@ public interface ImportComputer {
     record Result(List<ImportDetails> imports, Qualification qualification) {
     }
 
+    void add(TypeInfo typeInfo);
+
     Result go(CompilationUnit compilationUnit, Qualification qualification);
 }

@@ -35,6 +35,7 @@ public class ImportComputerImpl implements ImportComputer {
 
     private final int minStar;
     private final Function<String, Collection<TypeInfo>> typesPerPackage;
+    private final Set<TypeInfo> extra = new HashSet<>();
 
     public ImportComputerImpl() {
         this(4, null);
@@ -43,6 +44,11 @@ public class ImportComputerImpl implements ImportComputer {
     public ImportComputerImpl(int minStar, Function<String, Collection<TypeInfo>> typesPerPackage) {
         this.minStar = minStar;
         this.typesPerPackage = typesPerPackage;
+    }
+
+    @Override
+    public void add(TypeInfo typeInfo) {
+        extra.add(typeInfo);
     }
 
     private static class PerPackage {
@@ -73,7 +79,7 @@ public class ImportComputerImpl implements ImportComputer {
         there are 2 mechanisms to determine imports: duplicate naming (addTypeReturnImport)
         and TypeReferenceNature.FULLY_QUALIFIED.
          */
-        Set<TypeInfo> typesReferenced = new HashSet<>();
+        Set<TypeInfo> typesReferenced = new HashSet<>(extra);
         boolean keepPrimary = qualification.typeNameRequired() == TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE;
         compilationUnit.types().stream()
                 .flatMap(typeInfo -> typeInfo.typesReferenced(null))
@@ -112,6 +118,7 @@ public class ImportComputerImpl implements ImportComputer {
                 }
             }
         });
+
         LOGGER.debug("Types per package: {}", typesPerPackage);
         Map<String, List<Comment>> originalComments = compilationUnit
                 .importStatements().stream()

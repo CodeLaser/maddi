@@ -1,4 +1,4 @@
-package org.e2immu.language.inspection.openjdk;
+package org.e2immu.analyzer.modification.common.util;
 
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.Element;
@@ -28,7 +28,16 @@ public class IsolateMethod {
         this.runtime = javaInspector.runtime();
     }
 
-    public TypeInfo isolate(MethodInfo methodInfo) {
+    public record Result(TypeInfo typeInfo, Set<TypeInfo> jdkTypesToImport) {
+    }
+
+    public String print(Result result) {
+        ImportComputer importComputer = javaInspector.importComputer(4, javaInspector.mainSources());
+        result.jdkTypesToImport.forEach(importComputer::add);
+        return javaInspector.print2(result.typeInfo.compilationUnit(), runtime.qualificationSimpleNames(), importComputer);
+    }
+
+    public Result isolate(MethodInfo methodInfo) {
         TypeInfo originalType = methodInfo.typeInfo().primaryType();
         org.e2immu.language.cst.api.runtime.Runtime runtime = javaInspector.runtime();
         CompilationUnit newCu = runtime.newCompilationUnitBuilder()
@@ -57,7 +66,7 @@ public class IsolateMethod {
                 .computeAccess()
                 .commit();
         newCu.setTypes(List.of(frame));
-        return frame;
+        return new Result(frame, data.jdkTypesToImport);
     }
 
     class Data {
@@ -66,7 +75,7 @@ public class IsolateMethod {
         final Map<MethodInfo, MethodInfo> methodMap = new HashMap<>();
         final Map<FieldInfo, FieldInfo> fieldMap = new HashMap<>();
         final Set<TypeParameter> typeParameters = new HashSet<>();
-        final Set<TypeInfo> javaLangToImport = new HashSet<>(); // TODO
+        final Set<TypeInfo> jdkTypesToImport = new HashSet<>(); // TODO
 
         Data(TypeInfo frame) {
             this.frame = frame;
@@ -78,7 +87,9 @@ public class IsolateMethod {
                 return typeInfo;// keep as is
             }
             if (typeInfo.packageName().startsWith("java.")) {
-                javaLangToImport.add(typeInfo);
+                if (!typeInfo.packageName().equals("java.lang")) {
+                    jdkTypesToImport.add(typeInfo);
+                }
                 return typeInfo; // keep as is
             }
             TypeInfo inMap = typeMap.get(typeInfo);
@@ -123,7 +134,9 @@ public class IsolateMethod {
 
         private void ensureMethodInfo(TypeInfo owner, MethodInfo methodInfo) {
             if (owner.packageName().startsWith("java.")) {
-                javaLangToImport.add(owner);
+                if (!owner.packageName().equals("java.lang")) {
+                    jdkTypesToImport.add(owner);
+                }
                 return;
             }
             MethodInfo inMap = methodMap.get(methodInfo);
