@@ -27,6 +27,7 @@ dependencies {
     implementation(project(":maddi-graph"))
     implementation(project(":maddi-util"))
     implementation(project(":maddi-cst-analysis"))
+    implementation(project(":maddi-cst-print"))
 
     testImplementation(project(":maddi-java-openjdk"))
     testImplementation(project(":maddi-inspection-resource"))

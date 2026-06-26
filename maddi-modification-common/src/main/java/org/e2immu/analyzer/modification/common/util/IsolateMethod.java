@@ -4,12 +4,17 @@ import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.*;
+import org.e2immu.language.cst.api.output.Formatter;
+import org.e2immu.language.cst.api.output.OutputBuilder;
+import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
+import org.e2immu.language.cst.print.FormattingOptionsImpl;
+import org.e2immu.language.cst.print.formatter2.Formatter2Impl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +24,7 @@ import java.util.function.Predicate;
 
 public class IsolateMethod {
     private static final Logger LOGGER = LoggerFactory.getLogger(IsolateMethod.class);
+    public static final String METHOD_MARKER_NAME = "_method_to_be_replaced_";
 
     private final JavaInspector javaInspector;
     private final Runtime runtime;
@@ -37,6 +43,26 @@ public class IsolateMethod {
         ImportComputer importComputer = javaInspector.importComputer(4, javaInspector.mainSources());
         result.jdkTypesToImport.forEach(importComputer::add);
         return javaInspector.print2(result.typeInfo.compilationUnit(), runtime.qualificationSimpleNames(), importComputer);
+    }
+
+    public String print(Result result, String methodString) {
+        ImportComputer importComputer = javaInspector.importComputer(4, javaInspector.mainSources());
+        result.jdkTypesToImport.forEach(importComputer::add);
+        CompilationUnit compilationUnit = result.typeInfo.compilationUnit();
+        Qualification qualification = runtime.qualificationSimpleNames();
+        OutputBuilder ob = runtime.newCompilationUnitPrinter(compilationUnit, true)
+                .print(importComputer, qualification,
+                        runtime::newTypePrinter,
+                        (_, mi, f2) -> {
+                            if (mi.name().equals(METHOD_MARKER_NAME)) {
+                                return q -> runtime.newOutputBuilder().add(runtime.newText(methodString));
+                            }
+                            return runtime.newMethodPrinter(mi);
+                        },
+                        runtime::newFieldPrinter,
+                        runtime::newTypePrinter);
+        Formatter formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
+        return formatter.write(ob);
     }
 
     public Result isolate(MethodInfo methodInfo) {
@@ -66,7 +92,13 @@ public class IsolateMethod {
                     .commit();
             frame.builder().addSubType(stub);
         });
-        frame.builder().commit();
+        MethodInfo methodMarker = runtime.newMethod(frame, METHOD_MARKER_NAME, runtime.methodTypeMethod());
+        methodMarker.builder().setSource(runtime.noSource()).setMethodBody(runtime.emptyBlock())
+                .setReturnType(runtime.voidParameterizedType()).setAccess(runtime.accessPackage())
+                .computeAccess().commit();
+        frame.builder()
+                .addMethod(methodMarker)
+                .commit();
         newCu.setTypes(List.of(frame));
         return new Result(frame, data.jdkTypesToImport);
     }

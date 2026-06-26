@@ -17,6 +17,7 @@ import java.io.IOException;
 
 import static org.e2immu.analyzer.modification.common.CommonTest.javaInspectorFactory;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestIsolateMethod1 {
 
@@ -131,10 +132,24 @@ public class TestIsolateMethod1 {
         TypeInfo X = javaInspector.parse("a.b.X", INPUT3);
         IsolateMethod.Result r = isolateMethod.isolate(X.findUniqueMethod("method", 1));
 
+        String methodString = """
+                void method(R r) {
+                    LOGGER.info("... {}", r);
+                }""";
         @Language("java")
         String expected = """
-                public class X_method { Logger LOGGER; class Logger {void info(String arg0, Object arg1) { } } class R { } }
+                public class X_method {
+                    Logger LOGGER;
+                    class Logger {void info(String arg0, Object arg1) { } }
+                    class R { }
+                    void method(R r) {
+                    LOGGER.info("... {}", r);
+                }
+                }
                 """;
-        assertEquals(expected, isolateMethod.print(r));
+        assertEquals(expected, isolateMethod.print(r, methodString));
+        javaInspector.invalidateAllSources();
+        TypeInfo XMethod = javaInspector.parse("X_method", expected);
+        assertNotNull(XMethod);
     }
 }
