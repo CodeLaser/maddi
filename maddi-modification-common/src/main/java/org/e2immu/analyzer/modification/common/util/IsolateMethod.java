@@ -52,12 +52,20 @@ public class IsolateMethod {
         result.jdkTypesToImport.forEach(importComputer::add);
         CompilationUnit compilationUnit = result.typeInfo.compilationUnit();
         Qualification qualification = runtime.qualificationSimpleNames();
+        // the @Override supertype (if any) is the sibling top-level type; print its method qualifying from the primary
+        // type, so the frame-nested types it references resolve as 'Frame.Nested' (simple names everywhere else)
+        TypeInfo overrideSuper = compilationUnit.types().stream()
+                .filter(t -> t != result.typeInfo).findFirst().orElse(null);
         OutputBuilder ob = runtime.newCompilationUnitPrinter(compilationUnit, true)
                 .print(importComputer, qualification,
                         runtime::newTypePrinter,
                         (_, mi, _) -> {
                             if (mi.name().equals(METHOD_MARKER_NAME)) {
                                 return _ -> runtime.newOutputBuilder().add(runtime.newText(methodString));
+                            }
+                            if (overrideSuper != null && mi.typeInfo() == overrideSuper) {
+                                return _ -> runtime.newMethodPrinter(mi)
+                                        .print(runtime.qualificationQualifyFromPrimaryType());
                             }
                             return runtime.newMethodPrinter(mi);
                         },
@@ -170,6 +178,9 @@ public class IsolateMethod {
         // simple name -> the (original) primary type that occupies that slot in the frame; used to detect a genuine
         // simple-name collision, the situation that in source forces a fully-qualified (namespace) reference
         final Map<String, TypeInfo> frameSimpleNameClaims = new HashMap<>();
+        // stub types of interface nature: a method added to one must be 'default' (not abstract), so that classes
+        // implementing the interface need not override it
+        final Set<TypeInfo> interfaceStubs = new HashSet<>();
 
         Data(MethodInfo originalMethod, TypeInfo frame) {
             this.originalType = originalMethod.primaryType();
@@ -241,15 +252,16 @@ public class IsolateMethod {
             }
             TypeInfo stub = runtime.newTypeInfo(enclosingStub, typeInfo.simpleName());
             typeMap.put(typeInfo, stub); // before recursion: type bounds / fields may refer back to this stub
-            // reproduce the real parent class only for exceptions, so the stub stays a Throwable subtype and the
-            // pasted method text ('throw new ...', 'throws ...') still compiles; everything else defaults to Object
-            // (a verbatim 'extends Record'/'extends Enum' would not compile, and other supertypes are not needed)
-            ParameterizedType parentClass = extendsThrowable(typeInfo)
-                    ? ensureTypes(typeInfo.parentClass()) : runtime.objectParameterizedType();
-            stub.builder().setParentClass(parentClass)
-                    // an annotation must stay an '@interface', otherwise a use '@Marker' in the pasted text would not
-                    // compile; everything else (including plain interfaces) is reproduced as a class, which suffices
-                    .setTypeNature(typeInfo.isAnnotation() ? runtime.typeNatureAnnotation() : runtime.typeNatureClass())
+            boolean isInterface = typeInfo.isInterface() && !typeInfo.isAnnotation();
+            if (isInterface) interfaceStubs.add(stub);
+            stub.builder().setParentClass(reproducedParentClass(typeInfo))
+                    // reproduce the nature: an annotation must stay '@interface' (a use '@Marker' would not compile),
+                    // an interface must stay 'interface' (so subtypes 'implements'/'extends' it and overload
+                    // resolution / generic bounds in the pasted text resolve as in the original); everything else is
+                    // a class
+                    .setTypeNature(typeInfo.isAnnotation() ? runtime.typeNatureAnnotation()
+                            : isInterface ? runtime.typeNatureInterface()
+                            : runtime.typeNatureClass())
                     .setSource(runtime.noSource())
                     .setAccess(runtime.accessPackage());
             if (typeInfo.isAnnotation()) {
@@ -257,6 +269,11 @@ public class IsolateMethod {
                 TypeInfo annotation = javaInspector.compiledTypesManager()
                         .getOrLoad(java.lang.annotation.Annotation.class);
                 stub.builder().addInterfaceImplemented(annotation.asSimpleParameterizedType());
+            } else {
+                // reproduce implemented/extended interfaces, so the subtype edges they create hold in the stubs
+                for (ParameterizedType itf : typeInfo.interfacesImplemented()) {
+                    stub.builder().addInterfaceImplemented(ensureTypes(itf));
+                }
             }
             // reproduce the type parameters, so 'Box<T>' becomes a generic stub 'class Box<T>'. Two passes: first
             // create+map all of them (a bound may reference a sibling or this type itself), then translate bounds.
@@ -274,6 +291,22 @@ public class IsolateMethod {
                 newTps.get(i).builder().setTypeBounds(newBounds).commit();
             }
             return stub;
+        }
+
+        // reproduce the real superclass so the subtype chain holds (e.g. a custom exception keeps 'extends Exception',
+        // a 'Dog' keeps 'extends Animal'); but 'extends Record'/'extends Enum' are compiler-managed and illegal to
+        // write, and an interface has no superclass, so those default to Object
+        private ParameterizedType reproducedParentClass(TypeInfo typeInfo) {
+            ParameterizedType parent = typeInfo.parentClass();
+            if (parent == null || parent.isJavaLangObject()) return runtime.objectParameterizedType();
+            TypeInfo pt = parent.typeInfo();
+            if (pt != null) {
+                String fqn = pt.fullyQualifiedName();
+                if ("java.lang.Record".equals(fqn) || "java.lang.Enum".equals(fqn)) {
+                    return runtime.objectParameterizedType();
+                }
+            }
+            return ensureTypes(parent);
         }
 
         private ParameterizedType ensureTypes(ParameterizedType pt) {
@@ -322,9 +355,13 @@ public class IsolateMethod {
             if (isJdkType(owner)) return;
             MethodInfo inMap = methodMap.get(methodInfo);
             if (inMap != null) return;
+            // a non-static method on an interface stub becomes 'default' (keeps the body): an abstract method would
+            // force every implementing class stub to override it
+            boolean ownerIsInterface = interfaceStubs.contains(owner);
             MethodInfo newMethod = runtime.newMethod(owner, methodInfo.name(),
                     methodInfo.isStatic() ? runtime.methodTypeStaticMethod() :
-                            methodInfo.isConstructor() ? runtime.methodTypeConstructor() : runtime.methodTypeMethod());
+                            methodInfo.isConstructor() ? runtime.methodTypeConstructor() :
+                                    ownerIsInterface ? runtime.methodTypeDefaultMethod() : runtime.methodTypeMethod());
             // reproduce the method's own type parameters, so a called generic method '<X> X foo(X x)' keeps its
             // <X> (and ensureTypes below can translate occurrences of X). Two passes for self-referential bounds.
             List<TypeParameter> origMethodTps = methodInfo.typeParameters();
@@ -353,7 +390,7 @@ public class IsolateMethod {
             }
             newMethod.builder()
                     .setReturnType(newReturnType)
-                    .setAccess(runtime.accessPackage())
+                    .setAccess(ownerIsInterface ? runtime.accessPublic() : runtime.accessPackage())
                     .setSource(runtime.noSource())
                     .computeAccess()
                     .setMethodBody(mb.build())
@@ -497,17 +534,6 @@ public class IsolateMethod {
             }
             return true;
         }
-    }
-
-    // does this type (transitively) extend java.lang.Throwable? (Throwable itself returns false: its parent is Object)
-    private static boolean extendsThrowable(TypeInfo typeInfo) {
-        ParameterizedType parent = typeInfo.parentClass();
-        while (parent != null && parent.typeInfo() != null) {
-            TypeInfo pt = parent.typeInfo();
-            if ("java.lang.Throwable".equals(pt.fullyQualifiedName())) return true;
-            parent = pt.parentClass();
-        }
-        return false;
     }
 
     // number of enclosing types up to the compilation unit (a primary type has depth 0)

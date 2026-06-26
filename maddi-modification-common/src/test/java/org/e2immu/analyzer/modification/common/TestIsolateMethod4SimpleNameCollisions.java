@@ -36,7 +36,7 @@ public class TestIsolateMethod4SimpleNameCollisions extends CommonIsolateMethodT
         String expected = """
                 public class X_method {
                     class Logger { String tag; }
-                    class org { class slf4j { class Logger {String getName() { return null; } } } }
+                    class org { class slf4j { interface Logger {default String getName() { return null; } } } }
                     String method(org.slf4j.Logger ext, Logger inner) {
                     return ext.getName() + inner.tag;
                 }

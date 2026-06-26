@@ -126,7 +126,8 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
                     : typeInfo.interfacesImplemented();
             if (!interfaces.isEmpty()) {
                 afterAnnotations.add(SpaceEnum.ONE)
-                        .add(typeInfo.isInteger() ? KeywordImpl.EXTENDS : KeywordImpl.IMPLEMENTS)
+                        // an interface 'extends' its super-interfaces; a class 'implements' them
+                        .add(typeInfo.isInterface() ? KeywordImpl.EXTENDS : KeywordImpl.IMPLEMENTS)
                         .add(SpaceEnum.ONE);
                 afterAnnotations.add(interfaces.stream()
                         .map(pi -> pi.print(insideType, false, DiamondEnum.SHOW_ALL))

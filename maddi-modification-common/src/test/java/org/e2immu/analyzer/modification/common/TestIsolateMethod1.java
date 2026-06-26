@@ -117,7 +117,7 @@ public class TestIsolateMethod1 extends CommonIsolateMethodTest {
         String expected = """
                 public class X_method {
                     static Logger LOGGER;
-                    class Logger {void info(String arg0, Object arg1) { } }
+                    interface Logger {default void info(String arg0, Object arg1) { } }
                     class R { }
                     void method(R r) {
                     LOGGER.info("... {}", r);
@@ -162,7 +162,7 @@ public class TestIsolateMethod1 extends CommonIsolateMethodTest {
                 import java.util.List;
                 public class X_method {
                     static Logger LOGGER;
-                    class Logger {void info(String arg0, Object arg1) { } }
+                    interface Logger {default void info(String arg0, Object arg1) { } }
                     class R { List<S> strings; }
                     class S { String s; }
                     void method(R r) {
