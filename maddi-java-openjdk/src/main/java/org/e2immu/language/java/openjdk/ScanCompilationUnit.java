@@ -107,6 +107,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         convertType.startCompilationUnit(this, elementStack);
     }
 
+    @Override
+    public CompilationUnit currentCompilationUnit() {
+        return compilationUnit;
+    }
+
     // result
     public List<TypeInfo> types() {
         return collectedPrimaryTypes;
