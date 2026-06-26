@@ -42,6 +42,10 @@ public class QualificationImpl implements Qualification {
     private final Set<TypeInfo> unqualifiedTypes = new HashSet<>();
     private final Map<TypeInfo, TypeNameImpl.Required> typesNotImported;
     private final Set<String> simpleTypeNames;
+    // simple names declared in this compilation unit; used only to block conflicting imports (a referenced type with
+    // the same simple name must be fully-qualified). Kept separate from simpleTypeNames, which also drives the
+    // simple-vs-qualified decision for *nested* types and must not be polluted by these reservations.
+    private final Set<String> declaredSimpleNames;
     private final QualificationImpl parent;
     private final QualificationImpl top;
     private final boolean doNotQualifyImplicit;
@@ -54,6 +58,7 @@ public class QualificationImpl implements Qualification {
         this.typeNameRequired = typeNameRequired;
         typesNotImported = new HashMap<>();
         simpleTypeNames = new HashSet<>();
+        declaredSimpleNames = new HashSet<>();
         this.doNotQualifyImplicit = doNotQualifyImplicit;
         this.decorator = decorator;
     }
@@ -64,6 +69,7 @@ public class QualificationImpl implements Qualification {
         top = pi.top;
         typesNotImported = null;
         simpleTypeNames = null;
+        declaredSimpleNames = null;
         this.typeNameRequired = parent.typeNameRequired();
         this.doNotQualifyImplicit = parent.doNotQualifyImplicit();
         this.decorator = pi.decorator;
@@ -146,6 +152,13 @@ public class QualificationImpl implements Qualification {
         unqualifiedTypes.add(typeInfo);
     }
 
+    // reserve a declared type's simple name so a referenced type with the same simple name (e.g. an imported
+    // java.util.ArrayList while this compilation unit declares its own 'ArrayList') is not imported, but
+    // fully-qualified instead -- otherwise both would print as the bare name and collide
+    public void reserveSimpleNameAgainstImport(String simpleName) {
+        if (declaredSimpleNames != null) declaredSimpleNames.add(simpleName);
+    }
+
     @Override
     public void addThis(This thisVar) {
         unqualifiedThis.add(thisVar);
@@ -169,7 +182,7 @@ public class QualificationImpl implements Qualification {
         assert typesNotImported != null; // to keep IntelliJ happy
         assert simpleTypeNames != null;
         // IMPROVE also code for subtypes!
-        if (simpleTypeNames.contains(typeInfo.simpleName())) {
+        if (simpleTypeNames.contains(typeInfo.simpleName()) || declaredSimpleNames.contains(typeInfo.simpleName())) {
             typesNotImported.put(typeInfo, TypeNameImpl.Required.FQN);
             return false;
         } else {
