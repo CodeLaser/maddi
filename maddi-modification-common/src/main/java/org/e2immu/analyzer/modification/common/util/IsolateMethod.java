@@ -12,6 +12,7 @@ import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
+import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
@@ -105,6 +106,7 @@ public class IsolateMethod {
 
         Data data = new Data(methodInfo, frame);
         visit(data, methodInfo);
+        data.addDummyInterfaceMethods();
 
         data.fieldMap.values().stream().sorted(Comparator.comparing(FieldInfo::name)).forEach(field -> {
             // add each field to its actual owner (the frame, or a stub type), mirroring how methods are added
@@ -114,6 +116,7 @@ public class IsolateMethod {
         // that enclosing stub is itself committed; includes the package 'namespace' stubs
         List<TypeInfo> allStubs = new ArrayList<>(data.typeMap.values());
         allStubs.addAll(data.namespaceMap.values());
+        if (data.originalTypeStub != null) allStubs.add(data.originalTypeStub);
         allStubs.stream()
                 .sorted(Comparator.comparingInt(IsolateMethod::enclosingDepth).reversed()
                         .thenComparing(TypeInfo::simpleName))
@@ -181,6 +184,9 @@ public class IsolateMethod {
         // original type parameter -> the freshly created one on the corresponding stub type
         final Map<TypeParameter, TypeParameter> typeParameterMap = new HashMap<>();
         final Set<TypeInfo> jdkTypesToImport = new HashSet<>(); // TODO
+        // a running counter handing every numeric constant a distinct value: such constants can be used as switch
+        // 'case' labels, which the compiler evaluates and requires to be distinct
+        int nextNumericConstant;
         // package name -> a stub 'namespace' type reproducing that package, so a type referenced by its fully
         // qualified name (e.g. 'org.slf4j.Logger') keeps resolving and does not collide with a simply-named stub
         final Map<String, TypeInfo> namespaceMap = new HashMap<>();
@@ -193,6 +199,10 @@ public class IsolateMethod {
         // stub types of interface nature: a method added to one must be 'default' (not abstract), so that classes
         // implementing the interface need not override it
         final Set<TypeInfo> interfaceStubs = new HashSet<>();
+        // a stub carrying the original type's simple name (e.g. 'C'), nested in the frame ('C_method'). The frame is
+        // renamed, so a self-reference written with the original name ('C.DAYS') no longer resolves to it; this stub
+        // gives that name back. Created lazily, only when such a reference is seen
+        TypeInfo originalTypeStub;
 
         Data(MethodInfo originalMethod, TypeInfo frame) {
             this.originalType = originalMethod.primaryType();
@@ -219,12 +229,28 @@ public class IsolateMethod {
             return ns;
         }
 
+        // the stub bearing the original type's simple name, nested in the frame, to host members referenced through
+        // that name (e.g. the static 'C.DAYS' inside class C, isolated into 'C_method'). Lazily created on first use
+        TypeInfo originalTypeStub() {
+            if (originalTypeStub == null) {
+                originalTypeStub = runtime.newTypeInfo(frame, originalType.simpleName());
+                originalTypeStub.builder()
+                        .setTypeNature(runtime.typeNatureClass())
+                        .setParentClass(runtime.objectParameterizedType())
+                        .setSource(runtime.noSource())
+                        .setAccess(runtime.accessPackage());
+            }
+            return originalTypeStub;
+        }
+
         // 'ds' are the detailed sources of the element that references 'typeInfo' in the pasted method text (or null
         // if unavailable); they tell us how the reference was written, which decides where to place a primary type.
         private TypeInfo ensureType(TypeInfo typeInfo, DetailedSources ds) {
-            if (typeInfo.isPrimitive() || typeInfo == originalType || isJdkType(typeInfo)) {
-                return typeInfo;// keep as is
-            }
+            if (typeInfo.isPrimitive()) return typeInfo;
+            // the original type, referenced by its own name (a 'C' parameter/local, 'new C()', 'C.staticMethod()'),
+            // resolves to the stub carrying that name -- the frame has been renamed and no longer answers to 'C'
+            if (typeInfo == originalType) return originalTypeStub();
+            if (isJdkType(typeInfo)) return typeInfo;
 
             TypeInfo inMap = typeMap.get(typeInfo);
             if (inMap != null) return inMap;
@@ -356,13 +382,22 @@ public class IsolateMethod {
             if (inMap != null) return;
             ParameterizedType newPt = ensureTypes(fieldInfo.type());
             FieldInfo newField = runtime.newFieldInfo(fieldInfo.name(), fieldInfo.isStatic(), newPt, owner);
+            boolean isInterfaceField = interfaceStubs.contains(owner);
+            // a numeric constant (an interface field, or a class 'static final' field) may appear as a switch 'case'
+            // label; those must be distinct compile-time constants, so hand each one a unique value
+            boolean numericConstant = newPt.isNumeric()
+                    && (isInterfaceField || fieldInfo.isStatic() && fieldInfo.isFinal());
             // an interface field is implicitly 'public static final', so it must have an initializer (a bare
             // 'String NAME;' does not compile in an interface); a class field may leave it empty
-            Expression initializer = interfaceStubs.contains(owner)
-                    ? runtime.nullValue(newPt) : runtime.newEmptyExpression();
+            Expression initializer = numericConstant ? runtime.newInt(nextNumericConstant++)
+                    : isInterfaceField ? runtime.nullValue(newPt)
+                    : runtime.newEmptyExpression();
             FieldInfo.Builder fieldBuilder = newField.builder().setInitializer(initializer)
                     .setAccess(runtime.accessPackage());
             if (fieldInfo.isStatic()) fieldBuilder.addFieldModifier(runtime.fieldModifierStatic());
+            // a class numeric constant needs 'final' to be a constant variable usable as a switch 'case' label;
+            // an interface field is implicitly final, so no explicit modifier is needed (or printed) there
+            if (numericConstant && !isInterfaceField) fieldBuilder.addFieldModifier(runtime.fieldModifierFinal());
             fieldBuilder.commit();
             fieldMap.put(fieldInfo, newField);
         }
@@ -408,9 +443,18 @@ public class IsolateMethod {
                 Expression expression = runtime.nullValue(newReturnType);
                 mb.addStatement(runtime.newReturnBuilder().setExpression(expression).build());
             }
+            // a method that overrides a public supertype method on a class stub must be public -- an override cannot
+            // reduce visibility. This covers java.lang.Object methods (toString/equals/...) as well as inherited
+            // interface methods (e.g. a custom 'ArrayList<I> extends java.util.ArrayList<I>' overriding Collection.add).
+            // computeAccess() derives the access from the modifier; an interface method is public implicitly
+            boolean overridesPublic = methodInfo.isOverloadOfJLOMethod()
+                    || methodInfo.overrides().stream().anyMatch(o -> o.access().isPublic());
+            if (!ownerIsInterface && overridesPublic) {
+                newMethod.builder().addMethodModifier(runtime.methodModifierPublic());
+            }
             newMethod.builder()
                     .setReturnType(newReturnType)
-                    .setAccess(ownerIsInterface ? runtime.accessPublic() : runtime.accessPackage())
+                    .setAccess(runtime.accessPackage())
                     .setSource(runtime.noSource())
                     .computeAccess()
                     .setMethodBody(mb.build())
@@ -418,6 +462,91 @@ public class IsolateMethod {
             LOGGER.info("Adding method {}", newMethod);
             owner.builder().addMethod(newMethod);
             methodMap.put(methodInfo, newMethod);
+        }
+
+        // an interface's abstract method together with the type-argument map that turns its (interface) type
+        // parameters into the concrete types the implementing stub sees (e.g. {E -> Long} for 'Iterable<Long>')
+        private record AbstractMethod(MethodInfo method, Map<NamedType, ParameterizedType> typeArguments) {
+        }
+
+        // a concrete class stub that implements an interface ('LongVector implements Iterable<Long>') and is
+        // instantiated ('new LongVector()') cannot be abstract, so it must provide (dummy) implementations of the
+        // interface's abstract methods, or it does not compile
+        private void addDummyInterfaceMethods() {
+            // fixpoint: adding a dummy implementation can reference a type that was not stubbed during the visit
+            // (e.g. it appears only in an interface method's signature), creating a new stub which itself may need
+            // dummy implementations. Keep going until every stub in the map has been processed.
+            Set<TypeInfo> processed = new HashSet<>();
+            boolean changed = true;
+            while (changed) {
+                changed = false;
+                for (Map.Entry<TypeInfo, TypeInfo> entry : new ArrayList<>(typeMap.entrySet())) {
+                    TypeInfo original = entry.getKey();
+                    TypeInfo stub = entry.getValue();
+                    if (!processed.add(stub)) continue;
+                    changed = true;
+                    // only concrete classes need (dummy) implementations; interfaces and annotations cannot have
+                    // method bodies, and an annotation implicitly implements java.lang.annotation.Annotation
+                    if (interfaceStubs.contains(stub) || stub.isInterface() || stub.isAnnotation()) continue;
+                    Map<String, AbstractMethod> required = new LinkedHashMap<>();
+                    // collect from the ORIGINAL interfaces: their type arguments are original types, so the translated
+                    // method signatures are original types that ensureTypes maps to existing stubs. Iterating the
+                    // stub's own (already reproduced) interfaces would translate to stub types and feed them back into
+                    // ensureType, stubbing them a second time (a stub-of-a-stub nested under a copy of the frame)
+                    for (ParameterizedType itf : original.interfacesImplemented()) {
+                        collectAbstractMethods(itf, required);
+                    }
+                    if (required.isEmpty()) continue;
+                    Set<String> present = new HashSet<>();
+                    stub.methodStream().forEach(m -> present.add(methodKey(m)));
+                    for (AbstractMethod am : required.values()) {
+                        if (present.add(methodKey(am.method))) {
+                            addDummyImplementation(stub, am);
+                        }
+                    }
+                }
+            }
+        }
+
+        private void collectAbstractMethods(ParameterizedType interfaceType, Map<String, AbstractMethod> result) {
+            TypeInfo itf = interfaceType.typeInfo();
+            if (itf == null || !itf.isInterface()) return;
+            Map<NamedType, ParameterizedType> typeArguments = interfaceType.initialTypeParameterMap();
+            itf.methodStream()
+                    .filter(m -> m.isAbstract() && !m.isStatic() && !m.isDefault())
+                    .forEach(m -> result.putIfAbsent(methodKey(m), new AbstractMethod(m, typeArguments)));
+            for (ParameterizedType superInterface : itf.interfacesImplemented()) {
+                collectAbstractMethods(superInterface.applyTranslation(runtime, typeArguments), result);
+            }
+        }
+
+        private void addDummyImplementation(TypeInfo stub, AbstractMethod am) {
+            MethodInfo abstractMethod = am.method;
+            MethodInfo dummy = runtime.newMethod(stub, abstractMethod.name(), runtime.methodTypeMethod());
+            abstractMethod.parameters().forEach(pi -> {
+                ParameterizedType type = ensureTypes(pi.parameterizedType().applyTranslation(runtime, am.typeArguments));
+                ParameterInfo np = dummy.builder().addParameter(pi.name(), type);
+                np.builder().setVarArgs(pi.isVarArgs()).setIsFinal(false).commit();
+            });
+            ParameterizedType returnType = ensureTypes(abstractMethod.returnType()
+                    .applyTranslation(runtime, am.typeArguments));
+            Block.Builder mb = runtime.newBlockBuilder();
+            if (!returnType.isVoid()) {
+                mb.addStatement(runtime.newReturnBuilder().setExpression(runtime.nullValue(returnType)).build());
+            }
+            dummy.builder()
+                    .addMethodModifier(runtime.methodModifierPublic())
+                    .setReturnType(returnType)
+                    .setAccess(runtime.accessPublic())
+                    .setSource(runtime.noSource())
+                    .computeAccess()
+                    .setMethodBody(mb.build())
+                    .commit();
+            stub.builder().addMethod(dummy);
+        }
+
+        private static String methodKey(MethodInfo m) {
+            return m.name() + "/" + m.parameters().size();
         }
 
         private boolean isJdkType(TypeInfo owner) {
@@ -482,7 +611,15 @@ public class IsolateMethod {
         @Override
         public boolean test(Element element) {
             switch (element) {
-                case TypeExpression te -> data.ensureTypes(te.parameterizedType(), ds(te));
+                // a bare type-expression is the qualifier of a static access; the field/method/constructor cases
+                // already stub its owner (routing a written 'X.member' to the original-type stub). Skip the original
+                // type here so an implicit self-qualifier ('staticMethod()', 'LOGGER') does not materialise an empty
+                // 'class X' stub; other types still get stubbed (e.g. a written 'Other.member')
+                case TypeExpression te -> {
+                    if (te.parameterizedType().typeInfo() != data.originalType) {
+                        data.ensureTypes(te.parameterizedType(), ds(te));
+                    }
+                }
                 case LocalVariableCreation lvc -> data.ensureTypes(lvc.localVariable().parameterizedType(), ds(lvc));
                 case InstanceOf instanceOf -> data.ensureTypes(instanceOf.testType(), ds(instanceOf));
                 case Cast cast -> data.ensureTypes(cast.parameterizedType(), ds(cast));
@@ -514,8 +651,12 @@ public class IsolateMethod {
                 }
                 case MethodCall mc -> {
                     TypeInfo owner;
+                    // an unqualified static self-call ('helper()') has a synthetic type-expression object (no source)
+                    // and belongs on the frame; a written 'C.helper()' has a real source and is routed through the
+                    // original-type stub via ensureTypes(object) below, so 'C.' keeps resolving
                     if (mc.object() == null
-                        || mc.methodInfo().isStatic() && mc.methodInfo().typeInfo() == data.originalType
+                        || mc.object().source() == null
+                           && mc.methodInfo().isStatic() && mc.methodInfo().typeInfo() == data.originalType
                         || mc.object() instanceof VariableExpression ve && ve.variable() instanceof This) {
                         owner = data.frame;
                     } else {
@@ -525,9 +666,11 @@ public class IsolateMethod {
                     data.ensureMethodInfo(owner, mc.methodInfo());
                 }
                 case MethodReference mr -> {
-                    // 'scope::method' (or 'Type::new'): the referenced method must be stubbed just like a call.
+                    // 'scope::method' (or 'Type::new'): the referenced method must be stubbed just like a call. A
+                    // written scope ('C::helper', source present) routes through the original-type stub via
+                    // ensureTypes(scope); only a synthetic scope or 'this::' belongs on the frame
                     TypeInfo owner;
-                    if (mr.methodInfo().typeInfo() == data.originalType
+                    if (mr.scope().source() == null && mr.methodInfo().typeInfo() == data.originalType
                         || mr.scope() instanceof VariableExpression ve && ve.variable() instanceof This) {
                         owner = data.frame;
                     } else {
@@ -542,8 +685,18 @@ public class IsolateMethod {
                         if (fr.isDefaultScope()) {
                             owner = data.frame;
                         } else {
-                            ParameterizedType realOwner = data.ensureTypes(fr.scope().parameterizedType(), ds(fr.scope()));
-                            owner = realOwner.typeInfo();
+                            // still stub the scope's own type (it may be referenced nowhere else), but place the
+                            // field on its DECLARING type, not on the scope type. An inherited field accessed via a
+                            // subtype ('paymentPeriod.residualValue', declared on PeriodData) belongs on the supertype
+                            // stub: the subtype inherits it via 'extends', and an access via the supertype resolves
+                            // too. Placing it on the scope type would, with the fieldMap dedup, drop it from the
+                            // supertype stub when the same field is later accessed there
+                            data.ensureTypes(fr.scope().parameterizedType(), ds(fr.scope()));
+                            TypeInfo declaringType = fr.fieldInfo().owner();
+                            // a field reached through the original type's own name ('C.DAYS') must land on a stub
+                            // carrying that name, not on the renamed frame, or the verbatim 'C.DAYS' will not resolve
+                            owner = declaringType == data.originalType ? data.originalTypeStub()
+                                    : data.ensureType(declaringType, null);
                         }
                         data.ensureField(owner, fr.fieldInfo());
                     }
