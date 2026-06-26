@@ -48,6 +48,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     // loadType is reachable more than once per type (LAZILY then LOAD_MEMBERS); annotations are appended, so
     // guard the type-level add to run exactly once
     private final Set<TypeInfo> typeAnnotationsLoaded = Collections.newSetFromMap(new IdentityHashMap<>());
+    // interfaces are likewise appended (addInterfaceImplemented), so a second pass would duplicate them: guard too
+    private final Set<TypeInfo> typeInterfacesLoaded = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<String, TypeInfo> predefinedTypes = new HashMap<>();
     private final Deque<Map<String, TypeParameter>> typeParameterStack = new ArrayDeque<>();
     private final Map<String, SourceSet> sourceSetMap;
@@ -249,9 +251,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     assert parentClass != null;
                     builder.setParentClass(parentClass);
                 }
-                for (Type type : cs.getInterfaces()) {
-                    ParameterizedType pt = convert(type);
-                    builder.addInterfaceImplemented(pt);
+                if (typeInterfacesLoaded.add(newTypeInfo)) {
+                    for (Type type : cs.getInterfaces()) {
+                        ParameterizedType pt = convert(type);
+                        builder.addInterfaceImplemented(pt);
+                    }
                 }
             }
 
