@@ -80,11 +80,13 @@ must grow **first**, then the bridge calls the new factory.
 **M0 — De-risk the dependency (D3). ✅ DONE — see §8.** The standalone Analysis API resolves, the spike
 compiles, and the session bootstraps. Approach confirmed viable.
 
-**M1 — Walking skeleton.** New `maddi-kotlin-k2` module (Kotlin, Gradle). One `KotlinScan` entry that:
-parses `class Foo { fun bar(): Int = 1 }`, walks the class symbol + its function symbol, and produces a
-CST `TypeInfo` with one `MethodInfo` (return type `Int`→`int`/boxed, empty-or-stub body, public access).
-Test asserts the `TypeInfo` shape via `maddi-cst-impl`, like `TestClass1` in java-openjdk. *(The spike
-test already proves steps 1–3 of this; M1 adds the CST conversion.)*
+**M1 — Walking skeleton. ✅ DONE.** `KotlinScan` (`maddi-kotlin-k2/src/main/kotlin`) builds a standalone
+session, walks each top-level class symbol and its declared function symbols, and emits a committed CST
+`TypeInfo`/`MethodInfo` via the `runtime.new…` factories. `KotlinScanTest` proves
+`class Foo { fun bar(): Int = 1 }` → a `TypeInfo("Foo")` with `findUniqueMethod("bar",0)` whose
+`returnType()` is the CST `int`. Method bodies are a stub empty block (deferred to M3); parameters,
+visibility, generics deferred to M2/M4. Commit lifecycle mirrors java-openjdk: per-method
+`builder().commitParameters().commit()`, then `type.builder()…commit()`, then `cu.setTypes(...)`.
 
 **M2 — Signatures & the type layer.** Real `ParameterizedType` conversion: parameters, return types,
 generics, `java.lang`↔Kotlin builtin mapping (`kotlin.Int`→`int`, `kotlin.String`→`String`). Touches
@@ -157,5 +159,6 @@ assertEquals("int", bar.returnType().fullyQualifiedName()); // or boxed Integer 
 
 ---
 
-*Next action: M1 — replace the spike's assertions with a `KotlinScan` that walks the resolved symbols
-and emits CST `TypeInfo`/`MethodInfo` via the `runtime.new…` factories (see §4, §6).*
+*Next action: M2 — real signatures & the type layer. Parameters (`ParameterInfo`), proper return/param
+type conversion with the Kotlin↔Java builtin mapping (`kotlin/Int`→int, `kotlin/Unit`→void,
+`kotlin/String`→String), generics, then the assessment's type-layer gaps (nullability, variance).*

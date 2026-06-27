@@ -26,6 +26,9 @@ group = "io.codelaser"
 val analysisApiVersion = "2.4.0"
 
 dependencies {
+    // The shared CST this front-end produces (Runtime factories, TypeInfo, ParameterizedType, ...).
+    api(project(":maddi-cst-api"))
+
     // The compiler itself (PSI + FIR internals the Analysis API sits on top of). Maven Central.
     implementation("org.jetbrains.kotlin:kotlin-compiler:$analysisApiVersion")
 
@@ -54,6 +57,10 @@ dependencies {
     // coroutines kotlin-compiler drags in is substituted out below so only this one is present.
     // (cf. detekt#9176; remove if KT-81457 ever folds this back upstream.)
     runtimeOnly("org.jetbrains.intellij.deps.kotlinx:kotlinx-coroutines-core:1.10.2-intellij-1")
+
+    // Test-only: a concrete Runtime, and SourceSet construction.
+    testImplementation(project(":maddi-cst-impl"))
+    testImplementation(project(":maddi-inspection-resource"))
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")
