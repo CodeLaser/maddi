@@ -33,6 +33,15 @@ import java.util.stream.Stream;
  * finalised by {@link Builder#commit()}, queried via {@link #hasBeenInspected()}) and
  * <em>analysis</em> (semantic properties attached by the analyser, queried via
  * {@link #hasBeenAnalyzed()}).
+ * <p>
+ * <b>Identity invariant.</b> Once inspected, an {@code Info} is immutable, and there is exactly one
+ * instance per (fully-qualified name, source set): no part of the system should ever hold two distinct
+ * {@code Info} objects for the same element. Consequently {@code Info} objects are meant to be compared
+ * by identity ({@code ==}). The value-based {@link Object#equals(Object) equals()}/{@code hashCode()}
+ * implementations (keyed on fully-qualified name and source set) are a consistency backstop that happens
+ * to agree with identity; they are not the contract. Any component that creates {@code Info} objects
+ * (a parser, a type loader) is responsible for de-duplicating to a single instance per name and source
+ * set.
  */
 public interface Info extends Element {
 
