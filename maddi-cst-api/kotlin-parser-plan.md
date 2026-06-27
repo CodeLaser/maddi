@@ -148,6 +148,30 @@ maddi clients — **its API must not change**, it's already used by the maddi & 
 - **M5c driver — TODO.** Extract `maddi-inspection-kotlin` implementing `JavaInspector` (D2): multi-file,
   preloading, a real receptacle `CompiledTypesManager`, round-trip print via `print2`.
 
+### Multi-source-set & mixed Kotlin/Java modules (design note)
+
+How the openjdk parser handles source sets (`JavaInspectorImpl`):
+- Source sets form a **dependency DAG** (`SourceSet.dependencies()`); `computeScanOrder()` topologically
+  linearizes it and **rejects cycles** (`"Cycles in the source set graph"`). External libraries are
+  excluded from the ordering and loaded on demand by `ClassSymbolScanner`.
+- Sets are scanned **one at a time, in dependency order**; a dependent set sees its dependencies' types
+  already inspected. `dependencies()` order = class-by-class priority.
+- **One shared `InfoByFqn` registry** is threaded through every source set, so single-instance per
+  (FQN, source set) holds across the whole project (see [[info-identity-equality]]).
+
+Consequences for Kotlin:
+- **Between source sets it is strictly one-directional** (no cycles) — Java→Kotlin *or* Kotlin→Java.
+- **A real mixed module is mutually referential** (Java refs Kotlin and vice versa) — that is *not* two
+  cyclic source sets. The compiler resolves it **asymmetrically, Kotlin-first**: `kotlinc` compiles
+  `.kt` while *reading* `.java` source (Kotlin resolves against Java source); then `javac` compiles
+  `.java` against Kotlin **bytecode**. So a mixed module is one unit, processed Kotlin-first, with both
+  parsers sharing one type registry.
+- **The shared registry is `InfoByFqn`.** Decision: promote `InfoByFqn` out of `maddi-java-openjdk` into
+  `maddi-inspection-resource` so both the openjdk parser and the Kotlin front-end use the same instance.
+  The Kotlin loader must `put`/`getType` against this shared `InfoByFqn` (keyed by JVM FQN, per M5b)
+  rather than mint private shells — otherwise a mixed program gets two `java.util.List` instances and
+  `==` breaks. This is the concrete mechanism that makes M5b's JVM-FQN mapping pay off.
+
 ## 6. First test to write (M1 acceptance)
 
 ```kotlin

@@ -25,6 +25,7 @@ import org.e2immu.language.cst.api.statement.Block
 import org.e2immu.language.cst.api.statement.Statement
 import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.api.type.ParameterizedType
+import org.e2immu.language.inspection.resource.InfoByFqn
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
@@ -57,12 +58,12 @@ import java.nio.file.Files
  */
 class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet) {
 
-    // Internal registry of the types in the current compilation, keyed by FQN, so references between them
-    // resolve. Library/external types are minted by the symbol scanner (loader) below.
-    private val sourceTypes = mutableMapOf<String, TypeInfo>()
+    // The one shared type registry (source + library types), so single-instance-per-(FQN, sourceSet)
+    // holds and can later be shared with the Java parser. Reset per parse() (single-use per call).
+    private lateinit var infoByFqn: InfoByFqn
 
-    // Loader/receptacle for library types (JDK, kotlin-stdlib, jars), keyed by JVM FQN.
-    private val symbolScanner = KotlinSymbolScanner(runtime)
+    // Loader/receptacle for library types (JDK, kotlin-stdlib, jars); deposits into infoByFqn by JVM FQN.
+    private lateinit var symbolScanner: KotlinSymbolScanner
 
     /** Parse one in-memory Kotlin source file and return its primary CST types. */
     fun parse(fileName: String, content: String): List<TypeInfo> {
@@ -84,7 +85,8 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
             }
         }
 
-        sourceTypes.clear()
+        infoByFqn = InfoByFqn()
+        symbolScanner = KotlinSymbolScanner(runtime, infoByFqn, sourceSet)
         val result = mutableListOf<TypeInfo>()
         session.modulesWithFiles.values.flatten().filterIsInstance<KtFile>().forEach { ktFile ->
             val compilationUnit = runtime.newCompilationUnitBuilder()
@@ -120,7 +122,7 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
                 .commit()
             typeInfo.builder().addOrSetTypeParameter(cstTp)
         }
-        sourceTypes[typeInfo.fullyQualifiedName()] = typeInfo
+        infoByFqn.put(typeInfo.fullyQualifiedName(), typeInfo, sourceSet)
         return typeInfo
     }
 
@@ -242,8 +244,9 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
             "kotlin.String" -> return runtime.stringParameterizedType()
             "kotlin.Any" -> return runtime.objectParameterizedType()
         }
-        // a sibling source type, or a library type loaded under its mapped JVM identity
-        val typeInfo = sourceTypes[type.classId.asFqNameString()]
+        // a sibling source type (resolved under its Kotlin FQN), or a library type loaded under its
+        // mapped JVM identity — both from the one shared registry
+        val typeInfo = infoByFqn.getType(type.classId.asFqNameString(), sourceSet)
             ?: symbolScanner.getOrLoad(mapToJvmFqn(type.classId), type.typeArguments.size)
         val typeArguments = type.typeArguments.map { projection ->
             val arg = projection.type?.let { mapType(it, owner) } ?: runtime.objectParameterizedType() // star

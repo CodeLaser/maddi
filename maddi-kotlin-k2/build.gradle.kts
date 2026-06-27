@@ -28,6 +28,8 @@ val analysisApiVersion = "2.4.0"
 dependencies {
     // The shared CST this front-end produces (Runtime factories, TypeInfo, ParameterizedType, ...).
     api(project(":maddi-cst-api"))
+    // The shared type registry (InfoByFqn) used across language front-ends.
+    implementation(project(":maddi-inspection-resource"))
 
     // The compiler itself (PSI + FIR internals the Analysis API sits on top of). Maven Central.
     implementation("org.jetbrains.kotlin:kotlin-compiler:$analysisApiVersion")
@@ -60,7 +62,6 @@ dependencies {
 
     // Test-only: a concrete Runtime, and SourceSet construction.
     testImplementation(project(":maddi-cst-impl"))
-    testImplementation(project(":maddi-inspection-resource"))
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")

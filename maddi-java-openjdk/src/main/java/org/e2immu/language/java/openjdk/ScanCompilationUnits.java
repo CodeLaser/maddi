@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import org.e2immu.language.inspection.resource.InfoByFqn;
 import org.e2immu.util.internal.graph.util.TimedLogger;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;

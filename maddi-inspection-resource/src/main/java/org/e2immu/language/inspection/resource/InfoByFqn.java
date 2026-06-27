@@ -1,4 +1,18 @@
-package org.e2immu.language.java.openjdk;
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package org.e2immu.language.inspection.resource;
 
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -8,6 +22,16 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.stream.Stream;
 
+/**
+ * The shared type registry: fully-qualified name -> {@link TypeInfo}, with multi-source-set resolution
+ * (when the same FQN exists in several source sets, {@link #getType} returns the one nearest in the
+ * source-set dependency graph). It enforces the single-instance invariant per (FQN, source set)
+ * (see the {@code Info} javadoc).
+ * <p>
+ * Promoted out of the openjdk parser so that every language front-end (the javac-based Java parser and
+ * the K2-based Kotlin parser) can thread the same instance and thereby share one {@code TypeInfo} per
+ * type across languages.
+ */
 public class InfoByFqn {
     private static final Logger LOGGER = LoggerFactory.getLogger(InfoByFqn.class);
 
@@ -26,11 +50,11 @@ public class InfoByFqn {
         return ti.compilationUnit().sourceSet() != null && !ti.compilationUnit().sourceSet().externalLibrary();
     }
 
-    void startOfNewSourceSet() {
+    public void startOfNewSourceSet() {
         loadedForThisSourceSet.clear();
     }
 
-    void put(String fqn, TypeInfo typeInfo, SourceSet sourceSetOfCurrentTask) {
+    public void put(String fqn, TypeInfo typeInfo, SourceSet sourceSetOfCurrentTask) {
         loadedForThisSourceSet.add(typeInfo);
         TypeInfo prev = singleTypeByFqn.put(fqn, typeInfo);
         List<TypeInfo> list;
@@ -47,8 +71,6 @@ public class InfoByFqn {
             } else if ((list = multiTypeByFqn.get(fqn)) != null) {
                 multiTypeByFqn.put(fqn, Stream.concat(list.stream(), Stream.of(typeInfo)).toList());
                 LOGGER.info("Appended to multi: {}", typeInfo.descriptor());
-                // } else {
-                //   LOGGER.info("Put in single (==): {}", typeInfo.descriptor());
             }
         } else if (prev != null) {
             LOGGER.info("Overwriting type {}, {} -> {}", typeInfo,
@@ -59,12 +81,10 @@ public class InfoByFqn {
             String prefix = typeInfo.fullyQualifiedName() + ".";
             singleTypeByFqn.keySet().removeIf(key -> key.startsWith(prefix));
             multiTypeByFqn.keySet().removeIf(key -> key.startsWith(prefix));
-            //} else {
-            //  LOGGER.info("Put in single (!=): {}", typeInfo.descriptor());
         }
     }
 
-    TypeInfo getType(String fullyQualifiedName, SourceSet sourceSetOfCurrentTask) {
+    public TypeInfo getType(String fullyQualifiedName, SourceSet sourceSetOfCurrentTask) {
         TypeInfo ti = singleTypeByFqn.get(fullyQualifiedName);
         if (ti != null) return ti;
         List<TypeInfo> multi = multiTypeByFqn.get(fullyQualifiedName);
@@ -74,7 +94,7 @@ public class InfoByFqn {
                 .map(m -> distance(m, sourceSetOfCurrentTask, m.compilationUnit().sourceSet()))
                 .sorted()
                 .findFirst()
-                .map(ClassSymbolScanner.TypeDistance::typeInfo)
+                .map(TypeDistance::typeInfo)
                 .orElseThrow();
     }
 
@@ -82,9 +102,19 @@ public class InfoByFqn {
         return loadedForThisSourceSet;
     }
 
-    private ClassSymbolScanner.TypeDistance distance(TypeInfo typeInfo,
-                                                     SourceSet sourceSetOfCurrentTask,
-                                                     SourceSet sourceSet) {
+    public record TypeDistance(TypeInfo typeInfo, int distance) implements Comparable<TypeDistance> {
+        @Override
+        public int compareTo(TypeDistance o) {
+            int c = Integer.compare(distance, o.distance);
+            if (c != 0) return c;
+            return typeInfo.compilationUnit().sourceSet().name()
+                    .compareTo(o.typeInfo.compilationUnit().sourceSet().name());
+        }
+    }
+
+    private TypeDistance distance(TypeInfo typeInfo,
+                                  SourceSet sourceSetOfCurrentTask,
+                                  SourceSet sourceSet) {
         int distance;
         if (sourceSetOfCurrentTask.equals(sourceSet)) {
             distance = -2; // top
@@ -93,7 +123,7 @@ public class InfoByFqn {
         } else {
             distance = computeDistance(sourceSetOfCurrentTask, sourceSet);
         }
-        return new ClassSymbolScanner.TypeDistance(typeInfo, distance);
+        return new TypeDistance(typeInfo, distance);
     }
 
     private record SourceSetDistance(SourceSet sourceSet, int distance) {
@@ -126,5 +156,4 @@ public class InfoByFqn {
         // Target was never reached
         return Integer.MAX_VALUE;
     }
-
 }

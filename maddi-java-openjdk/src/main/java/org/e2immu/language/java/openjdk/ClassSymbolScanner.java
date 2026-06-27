@@ -17,6 +17,7 @@ import org.e2immu.language.cst.api.type.Wildcard;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.api.resource.ParameterNameIndex;
 import org.e2immu.language.inspection.api.util.CreateSyntheticFieldsForGetSet;
+import org.e2immu.language.inspection.resource.InfoByFqn;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -1088,16 +1089,6 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     private SourceSet getSourceSet(String name) {
         return sourceSetMap.get(name);
-    }
-
-    record TypeDistance(TypeInfo typeInfo, int distance) implements Comparable<TypeDistance> {
-        @Override
-        public int compareTo(@NotNull ClassSymbolScanner.TypeDistance o) {
-            int c = Integer.compare(distance, o.distance);
-            if (c != 0) return c;
-            return typeInfo.compilationUnit().sourceSet().name()
-                    .compareTo(o.typeInfo.compilationUnit().sourceSet().name());
-        }
     }
 
     @Override
