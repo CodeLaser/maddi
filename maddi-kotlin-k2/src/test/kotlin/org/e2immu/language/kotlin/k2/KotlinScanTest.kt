@@ -15,6 +15,7 @@
 package org.e2immu.language.kotlin.k2
 
 import org.e2immu.language.cst.api.element.SourceSet
+import org.e2immu.language.cst.api.info.Variance
 import org.e2immu.language.cst.api.runtime.Runtime
 import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl
@@ -106,5 +107,30 @@ class KotlinScanTest {
         val boxed = nn.findUniqueMethod("boxed", 1)
         assertEquals(NullableState.NULLABLE, boxed.returnType().nullable())
         assertTrue(boxed.returnType().isBoxedExcludingVoid)
+    }
+
+    @Test
+    fun declarationSiteVariance() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "Variance.kt",
+            """
+            class Box<out T>
+            class Sink<in T>
+            class Pair<A, B>
+            """.trimIndent() + "\n"
+        ).associateBy { it.simpleName() }
+
+        val box = types.getValue("Box").typeParameters()
+        assertEquals(1, box.size)
+        assertEquals("T", box[0].simpleName())
+        assertEquals(Variance.COVARIANT, box[0].variance())
+
+        assertEquals(Variance.CONTRAVARIANT, types.getValue("Sink").typeParameters()[0].variance())
+
+        val pair = types.getValue("Pair").typeParameters()
+        assertEquals(2, pair.size)
+        assertEquals(Variance.INVARIANT, pair[0].variance())
+        assertEquals(Variance.INVARIANT, pair[1].variance())
     }
 }

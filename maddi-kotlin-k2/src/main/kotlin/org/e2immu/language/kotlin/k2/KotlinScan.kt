@@ -18,16 +18,18 @@ import org.e2immu.language.cst.api.element.CompilationUnit
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.MethodInfo
 import org.e2immu.language.cst.api.info.TypeInfo
+import org.e2immu.language.cst.api.info.Variance
 import org.e2immu.language.cst.api.runtime.Runtime
 import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.api.type.ParameterizedType
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
-import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
+import org.jetbrains.kotlin.types.Variance as KotlinVariance
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModule
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.psi.KtClassOrObject
@@ -84,9 +86,19 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
 
     /** Convert one top-level class/object declaration into a committed CST [TypeInfo]. */
     private fun KaSession.convertType(compilationUnit: CompilationUnit, declaration: KtClassOrObject): TypeInfo {
-        val classSymbol = declaration.symbol as KaClassSymbol
-        val simpleName = classSymbol.name?.asString() ?: error("anonymous top-level type")
+        val classSymbol = declaration.symbol as KaNamedClassSymbol
+        val simpleName = classSymbol.name.asString()
         val typeInfo = runtime.newTypeInfo(compilationUnit, simpleName)
+
+        // declaration-site type parameters, with their variance (out T / in T)
+        classSymbol.typeParameters.forEachIndexed { index, tp ->
+            val cstTp = runtime.newTypeParameter(index, tp.name.asString(), typeInfo)
+            cstTp.builder()
+                .setTypeBounds(listOf()) // bounds need class-type resolution (M5); variance is the point here
+                .setVariance(mapVariance(tp.variance))
+                .commit()
+            typeInfo.builder().addOrSetTypeParameter(cstTp)
+        }
 
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaNamedFunctionSymbol>()
@@ -141,5 +153,12 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
         return if (type.nullability == KaTypeNullability.NULLABLE)
             base.ensureBoxed(runtime).withNullable(NullableState.NULLABLE)
         else base
+    }
+
+    /** Kotlin declaration-site variance (`out`/`in`) -> CST [Variance]. */
+    private fun mapVariance(variance: KotlinVariance): Variance = when (variance) {
+        KotlinVariance.OUT_VARIANCE -> Variance.COVARIANT
+        KotlinVariance.IN_VARIANCE -> Variance.CONTRAVARIANT
+        KotlinVariance.INVARIANT -> Variance.INVARIANT
     }
 }
