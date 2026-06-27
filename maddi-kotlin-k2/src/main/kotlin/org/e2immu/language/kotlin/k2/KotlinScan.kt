@@ -30,8 +30,10 @@ import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
+import org.jetbrains.kotlin.analysis.api.types.KaClassType
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
+import org.jetbrains.kotlin.analysis.api.types.KaTypeParameterType
 import org.jetbrains.kotlin.types.Variance as KotlinVariance
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModule
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
@@ -53,6 +55,11 @@ import java.nio.file.Files
  */
 class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet) {
 
+    // Internal type manager (the analogue of openjdk's ClassSymbolScanner): TypeInfos created for the
+    // types in the current compilation, keyed by fully-qualified name, so references between them resolve.
+    // External/library types (the CompiledTypesManager's job) are a later increment.
+    private val sourceTypes = mutableMapOf<String, TypeInfo>()
+
     /** Parse one in-memory Kotlin source file and return its primary CST types. */
     fun parse(fileName: String, content: String): List<TypeInfo> {
         // Standalone resolves from source roots: lay the content down in a temp directory.
@@ -73,6 +80,7 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
             }
         }
 
+        sourceTypes.clear()
         val result = mutableListOf<TypeInfo>()
         session.modulesWithFiles.values.flatten().filterIsInstance<KtFile>().forEach { ktFile ->
             val compilationUnit = runtime.newCompilationUnitBuilder()
@@ -80,11 +88,13 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
                 .setURI(srcFile.toUri())
                 .setSourceSet(sourceSet)
                 .build()
+            val declarations = ktFile.declarations.filterIsInstance<KtClassOrObject>()
 
             analyze(ktFile) {
-                val types = ktFile.declarations
-                    .filterIsInstance<KtClassOrObject>()
-                    .map { convertType(compilationUnit, it) }
+                // pass A: create + register every type (and its type parameters) so later references resolve
+                val types = declarations.map { registerType(compilationUnit, it) }
+                // pass B: convert members now that all sibling types are known, and commit
+                declarations.zip(types).forEach { (declaration, typeInfo) -> convertMembers(declaration, typeInfo) }
                 compilationUnit.setTypes(types)
                 result.addAll(types)
             }
@@ -92,22 +102,27 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
         return result
     }
 
-    /** Convert one top-level class/object declaration into a committed CST [TypeInfo]. */
-    private fun KaSession.convertType(compilationUnit: CompilationUnit, declaration: KtClassOrObject): TypeInfo {
+    /** Pass A: create the [TypeInfo] and its type parameters, and register it by FQN. No members yet. */
+    private fun KaSession.registerType(compilationUnit: CompilationUnit, declaration: KtClassOrObject): TypeInfo {
         val classSymbol = declaration.symbol as KaNamedClassSymbol
-        val simpleName = classSymbol.name.asString()
-        val typeInfo = runtime.newTypeInfo(compilationUnit, simpleName)
+        val typeInfo = runtime.newTypeInfo(compilationUnit, classSymbol.name.asString())
 
         // declaration-site type parameters, with their variance (out T / in T)
         classSymbol.typeParameters.forEachIndexed { index, tp ->
             val cstTp = runtime.newTypeParameter(index, tp.name.asString(), typeInfo)
             cstTp.builder()
-                .setTypeBounds(listOf()) // bounds need class-type resolution (M5); variance is the point here
+                .setTypeBounds(listOf()) // bounds resolution is a later increment; variance is the point here
                 .setVariance(mapVariance(tp.variance))
                 .commit()
             typeInfo.builder().addOrSetTypeParameter(cstTp)
         }
+        sourceTypes[typeInfo.fullyQualifiedName()] = typeInfo
+        return typeInfo
+    }
 
+    /** Pass B: convert members and commit the type. */
+    private fun KaSession.convertMembers(declaration: KtClassOrObject, typeInfo: TypeInfo) {
+        val classSymbol = declaration.symbol as KaNamedClassSymbol
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaNamedFunctionSymbol>()
             .forEach { function -> typeInfo.builder().addMethod(convertMethod(typeInfo, function)) }
@@ -117,16 +132,15 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
             .setParentClass(runtime.objectParameterizedType())
             .setAccess(runtime.accessPublic())
             .commit()
-        return typeInfo
     }
 
     /** Convert one declared function symbol into a committed CST method (with parameters and body). */
     private fun KaSession.convertMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo {
         val method = runtime.newMethod(owner, function.name.asString(), runtime.methodTypeMethod())
-        val returnType = mapType(function.returnType)
+        val returnType = mapType(function.returnType, owner)
         val builder = method.builder()
         function.valueParameters.forEach { p ->
-            builder.addParameter(p.name.asString(), mapType(p.returnType))
+            builder.addParameter(p.name.asString(), mapType(p.returnType, owner))
         }
         builder
             .setReturnType(returnType)
@@ -189,29 +203,44 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
     }
 
     /**
-     * Map a resolved Kotlin type to a CST [ParameterizedType]. M2 scope: the Kotlin builtins that have a
-     * JVM-primitive or java.lang counterpart. A nullable Kotlin type (`T?`) is boxed (a nullable Int is
-     * `Integer`, not `int`) and tagged [NullableState.NULLABLE]; non-null types are left UNSPECIFIED so
-     * they stay equal to the predefined types and to Java's. User/class types and generics need a
-     * CompiledTypesManager (M5) and fall back to Object for now.
+     * Map a resolved Kotlin type to a CST [ParameterizedType], in the context of [owner] (whose type
+     * parameters a bare `T` may refer to). Handles: the Kotlin builtins with a JVM/java.lang counterpart;
+     * type parameters; and references to other types of the current compilation, with their generic
+     * arguments. A nullable `T?` is boxed and tagged [NullableState.NULLABLE]. External/library types
+     * (the CompiledTypesManager's job) still fall back to Object.
      */
-    private fun mapType(type: KaType): ParameterizedType {
-        val base = when (type.toString().substringBefore('?')) {
-            "kotlin/Int" -> runtime.intParameterizedType()
-            "kotlin/Long" -> runtime.longParameterizedType()
-            "kotlin/Short" -> runtime.shortParameterizedType()
-            "kotlin/Byte" -> runtime.byteParameterizedType()
-            "kotlin/Boolean" -> runtime.booleanParameterizedType()
-            "kotlin/Char" -> runtime.charParameterizedType()
-            "kotlin/Float" -> runtime.floatParameterizedType()
-            "kotlin/Double" -> runtime.doubleParameterizedType()
-            "kotlin/Unit" -> runtime.voidParameterizedType()
-            "kotlin/String" -> runtime.stringParameterizedType()
-            else -> runtime.objectParameterizedType() // kotlin/Any, user types, generics: refined later
+    private fun KaSession.mapType(type: KaType, owner: TypeInfo): ParameterizedType {
+        val base = when (type) {
+            is KaClassType -> mapClassType(type, owner)
+            is KaTypeParameterType ->
+                owner.typeParameters().firstOrNull { it.simpleName() == type.symbol.name.asString() }
+                    ?.let { runtime.newParameterizedType(it, 0, null) }
+                    ?: runtime.objectParameterizedType()
+            else -> runtime.objectParameterizedType()
         }
         return if (type.nullability == KaTypeNullability.NULLABLE)
             base.ensureBoxed(runtime).withNullable(NullableState.NULLABLE)
         else base
+    }
+
+    private fun KaSession.mapClassType(type: KaClassType, owner: TypeInfo): ParameterizedType {
+        when (type.classId.asFqNameString()) {
+            "kotlin.Int" -> return runtime.intParameterizedType()
+            "kotlin.Long" -> return runtime.longParameterizedType()
+            "kotlin.Short" -> return runtime.shortParameterizedType()
+            "kotlin.Byte" -> return runtime.byteParameterizedType()
+            "kotlin.Boolean" -> return runtime.booleanParameterizedType()
+            "kotlin.Char" -> return runtime.charParameterizedType()
+            "kotlin.Float" -> return runtime.floatParameterizedType()
+            "kotlin.Double" -> return runtime.doubleParameterizedType()
+            "kotlin.Unit" -> return runtime.voidParameterizedType()
+            "kotlin.String" -> return runtime.stringParameterizedType()
+        }
+        val sourceType = sourceTypes[type.classId.asFqNameString()] ?: return runtime.objectParameterizedType()
+        val typeArguments = type.typeArguments.map { projection ->
+            projection.type?.let { mapType(it, owner) } ?: runtime.objectParameterizedType() // star projection
+        }
+        return runtime.newParameterizedType(sourceType, typeArguments)
     }
 
     /** Kotlin declaration-site variance (`out`/`in`) -> CST [Variance]. */

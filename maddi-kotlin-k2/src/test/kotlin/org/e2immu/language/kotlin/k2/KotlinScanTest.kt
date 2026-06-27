@@ -166,4 +166,41 @@ class KotlinScanTest {
         val yes = b.findUniqueMethod("yes", 0).methodBody()
         assertEquals(runtime.newBoolean(true), (yes.statements()[0] as ReturnStatement).expression())
     }
+
+    @Test
+    fun sourceTypeResolution() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "Types.kt",
+            """
+            class A {
+                fun self(): A = this
+                fun other(): B = B()
+            }
+            class B
+            class Box<T> {
+                fun id(p: T): T = p
+                fun wrap(): Box<A> = Box<A>()
+            }
+            """.trimIndent() + "\n"
+        ).associateBy { it.simpleName() }
+        val a = types.getValue("A")
+        val b = types.getValue("B")
+        val box = types.getValue("Box")
+
+        // references to sibling source types resolve to their actual TypeInfo
+        assertEquals(a, a.findUniqueMethod("self", 0).returnType().typeInfo())
+        assertEquals(b, a.findUniqueMethod("other", 0).returnType().typeInfo())
+
+        // a bare T resolves to the class's type parameter (param and return)
+        val id = box.findUniqueMethod("id", 1)
+        assertEquals(box.typeParameters()[0], id.returnType().typeParameter())
+        assertEquals(box.typeParameters()[0], id.parameters()[0].parameterizedType().typeParameter())
+
+        // generic argument: Box<A> -> Box with one parameter A
+        val wrap = box.findUniqueMethod("wrap", 0).returnType()
+        assertEquals(box, wrap.typeInfo())
+        assertEquals(1, wrap.parameters().size)
+        assertEquals(a, wrap.parameters()[0].typeInfo())
+    }
 }
