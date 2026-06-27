@@ -250,4 +250,16 @@ class KotlinScanTest {
         assertEquals(model, service.findUniqueMethod("make", 0).returnType().typeInfo())
         assertEquals(service, model.findUniqueMethod("owner", 0).returnType().typeInfo())
     }
+
+    @Test
+    fun resolvesNonBuiltinJdkType() {
+        // UUID is not a Kotlin builtin; it only resolves if the session has the real JDK on its classpath
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "U.kt",
+            "import java.util.UUID\nclass U { fun id(): UUID = UUID.randomUUID() }\n"
+        )
+        val id = types.first().findUniqueMethod("id", 0).returnType()
+        assertEquals("java.util.UUID", id.typeInfo().fullyQualifiedName())
+    }
 }

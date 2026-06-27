@@ -149,9 +149,14 @@ maddi clients — **its API must not change**, it's already used by the maddi & 
   (register all files' types, then convert members) so references resolve **across files**, sharing one
   `InfoByFqn`; `parse(Map<name,content>)` drives a multi-file session. The session is now owned at the
   top so a driver can wire a classpath before calling `convert`.
-  *Remaining:* (a) **real library types** — give the standalone session the JDK + kotlin-stdlib classpath
-  (SDK/library modules) and deepen `KotlinSymbolScanner` to convert the *real* resolved `KaClassSymbol`
-  (supertypes, bounds, members) instead of an empty shell; (b) extract `maddi-inspection-kotlin` with an
+  **Real classpath — DONE.** `buildSession` now gives the standalone session the running JVM's JDK
+  (`buildKtSdkModule` + `addBinaryRootsFromJdkHome`) and this process's classpath
+  (`buildKtLibraryModule` over `java.class.path`) as dependencies, so any JDK/library type referenced in
+  Kotlin source resolves to a real symbol (verified: a non-builtin `java.util.UUID` resolves to FQN
+  `java.util.UUID`). Library types still get a shell `TypeInfo` (correct identity + arity), not yet a
+  full hierarchy/members.
+  *Remaining:* (a) **deepen library shells** — convert the *real* resolved `KaClassSymbol` (supertypes,
+  bounds, members) instead of an empty shell; (b) extract `maddi-inspection-kotlin` with an
   `InputConfiguration`-driven entry and a receptacle `CompiledTypesManager`; (c) `JavaInspector` surface,
   preloading, round-trip print via `print2`.
 
