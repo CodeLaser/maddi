@@ -16,6 +16,7 @@ package org.e2immu.language.kotlin.k2
 
 import org.e2immu.language.cst.api.element.CompilationUnit
 import org.e2immu.language.cst.api.element.SourceSet
+import org.e2immu.language.cst.api.info.MethodInfo
 import org.e2immu.language.cst.api.info.TypeInfo
 import org.e2immu.language.cst.api.runtime.Runtime
 import org.e2immu.language.cst.api.type.ParameterizedType
@@ -97,22 +98,41 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
         return typeInfo
     }
 
-    /** Convert one declared function symbol into a committed CST method. */
-    private fun KaSession.convertMethod(owner: TypeInfo, function: KaNamedFunctionSymbol) =
-        runtime.newMethod(owner, function.name.asString(), runtime.methodTypeMethod()).apply {
-            builder()
-                .setReturnType(mapType(function.returnType))
-                .setMethodBody(runtime.newBlockBuilder().build()) // bodies are M3
-                .addMethodModifier(runtime.methodModifierPublic())
-                .setAccess(runtime.accessPublic())
-                .commitParameters()
-                .commit()
+    /** Convert one declared function symbol into a committed CST method (with parameters). */
+    private fun KaSession.convertMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo {
+        val method = runtime.newMethod(owner, function.name.asString(), runtime.methodTypeMethod())
+        val builder = method.builder()
+        function.valueParameters.forEach { p ->
+            builder.addParameter(p.name.asString(), mapType(p.returnType))
         }
+        builder
+            .setReturnType(mapType(function.returnType))
+            .setMethodBody(runtime.newBlockBuilder().build()) // bodies are M3
+            .addMethodModifier(runtime.methodModifierPublic())
+            .setAccess(runtime.accessPublic())
+            .commitParameters()
+            .commit()
+        return method
+    }
 
-    /** Minimal type mapping for M1: Kotlin Int -> CST int, everything else -> Object (refined in M2). */
+    /**
+     * Map a resolved Kotlin type to a CST [ParameterizedType]. M2 scope: the Kotlin builtins that have a
+     * JVM-primitive or java.lang counterpart. Nullability is intentionally ignored here (M2a adds it to
+     * the CST type layer); user/class types and generics need a CompiledTypesManager (M5) and fall back
+     * to Object for now.
+     */
     private fun mapType(type: KaType): ParameterizedType =
         when (type.toString().substringBefore('?')) {
             "kotlin/Int" -> runtime.intParameterizedType()
-            else -> runtime.objectParameterizedType()
+            "kotlin/Long" -> runtime.longParameterizedType()
+            "kotlin/Short" -> runtime.shortParameterizedType()
+            "kotlin/Byte" -> runtime.byteParameterizedType()
+            "kotlin/Boolean" -> runtime.booleanParameterizedType()
+            "kotlin/Char" -> runtime.charParameterizedType()
+            "kotlin/Float" -> runtime.floatParameterizedType()
+            "kotlin/Double" -> runtime.doubleParameterizedType()
+            "kotlin/Unit" -> runtime.voidParameterizedType()
+            "kotlin/String" -> runtime.stringParameterizedType()
+            else -> runtime.objectParameterizedType() // kotlin/Any, user types, generics: refined later
         }
 }
