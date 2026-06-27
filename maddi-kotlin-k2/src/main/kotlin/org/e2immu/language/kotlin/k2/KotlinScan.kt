@@ -34,6 +34,8 @@ import org.jetbrains.kotlin.analysis.api.types.KaClassType
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
 import org.jetbrains.kotlin.analysis.api.types.KaTypeParameterType
+import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
+import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.types.Variance as KotlinVariance
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModule
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
@@ -55,10 +57,12 @@ import java.nio.file.Files
  */
 class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet) {
 
-    // Internal type manager (the analogue of openjdk's ClassSymbolScanner): TypeInfos created for the
-    // types in the current compilation, keyed by fully-qualified name, so references between them resolve.
-    // External/library types (the CompiledTypesManager's job) are a later increment.
+    // Internal registry of the types in the current compilation, keyed by FQN, so references between them
+    // resolve. Library/external types are minted by the symbol scanner (loader) below.
     private val sourceTypes = mutableMapOf<String, TypeInfo>()
+
+    // Loader/receptacle for library types (JDK, kotlin-stdlib, jars), keyed by JVM FQN.
+    private val symbolScanner = KotlinSymbolScanner(runtime)
 
     /** Parse one in-memory Kotlin source file and return its primary CST types. */
     fun parse(fileName: String, content: String): List<TypeInfo> {
@@ -224,6 +228,7 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
     }
 
     private fun KaSession.mapClassType(type: KaClassType, owner: TypeInfo): ParameterizedType {
+        // primitives / void / the predefined java.lang singletons: predefined PTs (exact instances)
         when (type.classId.asFqNameString()) {
             "kotlin.Int" -> return runtime.intParameterizedType()
             "kotlin.Long" -> return runtime.longParameterizedType()
@@ -235,12 +240,22 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
             "kotlin.Double" -> return runtime.doubleParameterizedType()
             "kotlin.Unit" -> return runtime.voidParameterizedType()
             "kotlin.String" -> return runtime.stringParameterizedType()
+            "kotlin.Any" -> return runtime.objectParameterizedType()
         }
-        val sourceType = sourceTypes[type.classId.asFqNameString()] ?: return runtime.objectParameterizedType()
+        // a sibling source type, or a library type loaded under its mapped JVM identity
+        val typeInfo = sourceTypes[type.classId.asFqNameString()]
+            ?: symbolScanner.getOrLoad(mapToJvmFqn(type.classId), type.typeArguments.size)
         val typeArguments = type.typeArguments.map { projection ->
-            projection.type?.let { mapType(it, owner) } ?: runtime.objectParameterizedType() // star projection
+            val arg = projection.type?.let { mapType(it, owner) } ?: runtime.objectParameterizedType() // star
+            if (arg.isPrimitiveExcludingVoid) arg.ensureBoxed(runtime) else arg // List<Int> -> List<Integer>
         }
-        return runtime.newParameterizedType(sourceType, typeArguments)
+        return runtime.newParameterizedType(typeInfo, typeArguments)
+    }
+
+    /** Kotlin's mapped types (List, String, Any, …) -> their JVM FQN; everything else keeps its own FQN. */
+    private fun mapToJvmFqn(classId: ClassId): String {
+        val mapped = JavaToKotlinClassMap.mapKotlinToJava(classId.asSingleFqName().toUnsafe())
+        return mapped?.asSingleFqName()?.asString() ?: classId.asFqNameString()
     }
 
     /** Kotlin declaration-site variance (`out`/`in`) -> CST [Variance]. */

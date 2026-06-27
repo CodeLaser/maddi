@@ -131,11 +131,22 @@ maddi clients — **its API must not change**, it's already used by the maddi & 
   `sourceTypes` map by FQN; pass B converts members so references resolve. `mapType` now resolves
   references to sibling source types (with generic arguments) and bare type parameters (`T`), in
   addition to the builtins. No CST API change.
-- **M5b external types — TODO.** Consume a `CompiledTypesManager` for library/JDK types
-  (`List`, `java.lang.*`, imported types). Needs the Kotlin→JVM FQN mapping (`kotlin.collections.List`
-  → `java.util.List`, etc.) and a constructed manager (classpath/bytecode wiring).
+- **M5b external/library types — DONE (first increment).** Reframed after studying `ClassSymbolScanner`:
+  the **Analysis API is the loader of jars+JDK** (as javac is for openjdk), so we don't bolt on maddi's
+  bytecode manager — we convert the resolved library symbols ourselves. `KotlinSymbolScanner` (the
+  `ClassSymbolScanner` analogue) is a receptacle seeded with `runtime.predefinedObjects()` plus lazy
+  shell-creation, keyed by **JVM FQN**. Decision: Kotlin's *mapped* types (`JavaToKotlinClassMap`) →
+  JVM FQN (`List`→`java.util.List`, `String`→`java.lang.String`, `Any`→`Object`), so the Kotlin
+  front-end emits the *same* `TypeInfo`s as the Java parsers (uniform CST; the shared
+  `CompiledTypesManager` — whose API we must not change — and analyzer `java.*` knowledge apply
+  directly). `Int` boxes to `Integer` in generic-argument position. Read-only vs mutable collapses to
+  one `java.util.List`; the read-only signal, if wanted, belongs in the `Info` **property map** as a
+  modification status, not a divergent type identity.
+  *Simplifications to revisit:* shells carry identity + arity but not a full hierarchy (parent=Object,
+  no interfaces/members); nested types (`Map.Entry`), raw types, and faithful type-parameter names
+  deferred.
 - **M5c driver — TODO.** Extract `maddi-inspection-kotlin` implementing `JavaInspector` (D2): multi-file,
-  preloading, round-trip print via `print2`.
+  preloading, a real receptacle `CompiledTypesManager`, round-trip print via `print2`.
 
 ## 6. First test to write (M1 acceptance)
 
