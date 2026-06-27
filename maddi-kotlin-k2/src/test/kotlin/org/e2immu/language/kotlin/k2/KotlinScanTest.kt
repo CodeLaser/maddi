@@ -17,6 +17,7 @@ package org.e2immu.language.kotlin.k2
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.Variance
 import org.e2immu.language.cst.api.runtime.Runtime
+import org.e2immu.language.cst.api.statement.ReturnStatement
 import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl
 import org.e2immu.language.inspection.resource.SourceSetImpl
@@ -132,5 +133,37 @@ class KotlinScanTest {
         assertEquals(2, pair.size)
         assertEquals(Variance.INVARIANT, pair[0].variance())
         assertEquals(Variance.INVARIANT, pair[1].variance())
+    }
+
+    @Test
+    fun bodies() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "Bodies.kt",
+            """
+            class Bodies {
+                fun one(): Int = 1
+                fun two(): Int { return 2 }
+                fun hi(): String = "hi"
+                fun yes(): Boolean = true
+            }
+            """.trimIndent() + "\n"
+        )
+        val b = types.first()
+
+        // expression body `= 1` -> { return 1; }
+        val one = b.findUniqueMethod("one", 0).methodBody()
+        assertEquals(1, one.statements().size)
+        assertEquals(runtime.newInt(1), (one.statements()[0] as ReturnStatement).expression())
+
+        // block body `{ return 2 }`
+        val two = b.findUniqueMethod("two", 0).methodBody()
+        assertEquals(runtime.newInt(2), (two.statements()[0] as ReturnStatement).expression())
+
+        // string + boolean literals
+        val hi = b.findUniqueMethod("hi", 0).methodBody()
+        assertEquals(runtime.newStringConstant("hi"), (hi.statements()[0] as ReturnStatement).expression())
+        val yes = b.findUniqueMethod("yes", 0).methodBody()
+        assertEquals(runtime.newBoolean(true), (yes.statements()[0] as ReturnStatement).expression())
     }
 }
