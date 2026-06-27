@@ -86,7 +86,8 @@ public class ComputePartOfConstructionFinalField {
 
         Set<MethodInfo> partOfConstruction = computePartOfConstruction(typeInfo, constructorsAndMethodsOfPrimaryType, callGraph);
         typeInfo.analysis().set(PART_OF_CONSTRUCTION, new ValueImpl.SetOfInfoImpl(partOfConstruction));
-        Map<FieldInfo, Boolean> effectivelyFinalFieldMap = computeEffectivelyFinalFields(typeInfo, callGraph, partOfConstruction);
+        Map<FieldInfo, Boolean> effectivelyFinalFieldMap = computeEffectivelyFinalFields(typeInfo, callGraph,
+                partOfConstruction, constructorsAndMethodsOfPrimaryType);
         for (Map.Entry<FieldInfo, Boolean> entry : effectivelyFinalFieldMap.entrySet()) {
             FieldInfo fieldInfo = entry.getKey();
             if (!fieldInfo.analysis().haveAnalyzedValueFor(PropertyImpl.FINAL_FIELD)) {
@@ -96,7 +97,9 @@ public class ComputePartOfConstructionFinalField {
         }
     }
 
-    private Map<FieldInfo, Boolean> computeEffectivelyFinalFields(TypeInfo typeInfo, G<Info> callGraph, Set<MethodInfo> partOfConstruction) {
+    private Map<FieldInfo, Boolean> computeEffectivelyFinalFields(TypeInfo typeInfo, G<Info> callGraph,
+                                                                  Set<MethodInfo> partOfConstruction,
+                                                                  List<MethodInfo> constructorsAndMethodsOfPrimaryType) {
         Map<FieldInfo, Boolean> effectivelyFinalFieldMap = new HashMap<>();
         for (FieldInfo fieldInfo : typeInfo.fields()) {
             assert fieldInfo.access() != null : "Field " + fieldInfo + " has null access.";
@@ -104,7 +107,8 @@ public class ComputePartOfConstructionFinalField {
             Boolean prev = effectivelyFinalFieldMap.put(fieldInfo, isFinal);
             assert prev == null;
 
-            // edges from field to method
+            // edges from field to method: these exist for methods declared directly in the field's owner
+            // (see ComputeCallGraph.handleFieldAccess)
             V<Info> v = callGraph.vertex(fieldInfo);
             if (v != null) {
                 Map<V<Info>, Long> edges = callGraph.edges(v);
@@ -113,11 +117,26 @@ public class ComputePartOfConstructionFinalField {
                         if (entry.getKey().t() instanceof MethodInfo methodInfo
                             && notInConstructionOfSameStaticType(methodInfo, fieldInfo, partOfConstruction)) {
                             // so methodInfo references toField... check whether that is an assignment, or simply a read
-                            boolean isAssigned = isAssigned(methodInfo, fieldInfo);
-                            if (isAssigned) {
+                            if (isAssigned(methodInfo, fieldInfo)) {
                                 effectivelyFinalFieldMap.put(fieldInfo, false);
                             }
                         }
+                    }
+                }
+            }
+
+            // a field can also be assigned from a method declared in a lambda / anonymous / local type enclosed
+            // by the field's owner; such a method has no field->method edge (its typeInfo is not the owner), so
+            // we check it directly. isAssigned returns false when the method does not assign the field.
+            if (effectivelyFinalFieldMap.get(fieldInfo)) {
+                for (MethodInfo methodInfo : constructorsAndMethodsOfPrimaryType) {
+                    TypeInfo methodType = methodInfo.typeInfo();
+                    if (methodType != fieldInfo.owner()
+                        && methodType.isEnclosedIn(fieldInfo.owner())
+                        && notInConstructionOfSameStaticType(methodInfo, fieldInfo, partOfConstruction)
+                        && isAssigned(methodInfo, fieldInfo)) {
+                        effectivelyFinalFieldMap.put(fieldInfo, false);
+                        break;
                     }
                 }
             }
@@ -145,7 +164,7 @@ public class ComputePartOfConstructionFinalField {
         Statement lastStatement = methodInfo.methodBody().lastStatement();
         if (lastStatement == null || lastStatement.isSynthetic()) return false;
         VariableData vd = VariableDataImpl.of(lastStatement);
-        assert vd != null;
+        if (vd == null) return false; // body not analyzed (e.g. doNotRecurseIntoAnonymous): nothing to inspect
         return vd.variableInfoContainerStream()
                 .filter(vic -> vic.variable() instanceof FieldReference fr && fr.fieldInfo() == fieldInfo)
                 .map(VariableInfoContainer::best)
