@@ -38,6 +38,8 @@ import org.jetbrains.kotlin.analysis.api.types.KaTypeParameterType
 import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.types.Variance as KotlinVariance
+import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtLibraryModule
+import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSdkModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModule
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.psi.KtClassOrObject
@@ -78,19 +80,42 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
             Files.createDirectories(file.parent ?: srcRoot)
             Files.writeString(file, content)
         }
-        val session = buildStandaloneAnalysisAPISession {
-            buildKtModuleProvider {
-                platform = JvmPlatforms.defaultJvmPlatform
-                addModule(
-                    buildKtSourceModule {
-                        moduleName = "main"
-                        platform = JvmPlatforms.defaultJvmPlatform
-                        addSourceRoot(srcRoot)
-                    }
-                )
-            }
-        }
+        val session = buildSession(srcRoot)
         return convert(session.modulesWithFiles.values.flatten().filterIsInstance<KtFile>())
+    }
+
+    /**
+     * Build a standalone session over [srcRoot], with the running JVM's JDK and this process's classpath
+     * (kotlin-stdlib, etc.) as library dependencies, so library types resolve to real symbols.
+     */
+    private fun buildSession(srcRoot: java.nio.file.Path) = buildStandaloneAnalysisAPISession {
+        buildKtModuleProvider {
+            val jvm = JvmPlatforms.defaultJvmPlatform
+            platform = jvm
+            val jdk = buildKtSdkModule {
+                platform = jvm
+                addBinaryRootsFromJdkHome(java.nio.file.Paths.get(System.getProperty("java.home")), isJre = false)
+                libraryName = "jdk"
+            }
+            addModule(jdk)
+            val classpathRoots = System.getProperty("java.class.path")
+                .split(java.io.File.pathSeparator)
+                .map { java.nio.file.Paths.get(it) }
+                .filter { Files.exists(it) }
+            val classpath = buildKtLibraryModule {
+                platform = jvm
+                addBinaryRoots(classpathRoots)
+                libraryName = "classpath"
+            }
+            addModule(classpath)
+            addModule(buildKtSourceModule {
+                moduleName = "main"
+                platform = jvm
+                addSourceRoot(srcRoot)
+                addRegularDependency(jdk)
+                addRegularDependency(classpath)
+            })
+        }
     }
 
     /**
