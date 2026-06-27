@@ -12,31 +12,18 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.info;
+package org.e2immu.language.cst.api.info;
 
-import org.e2immu.language.cst.api.element.JavaDoc;
-import org.e2immu.language.cst.api.info.Access;
-import org.e2immu.language.cst.api.info.Variance;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-
-import java.util.List;
-
-public interface TypeParameterInspection extends Inspection {
-    List<ParameterizedType> typeBounds();
-
-    boolean typeBoundsAreSet();
-
-    default Variance variance() {
-        return Variance.INVARIANT;
-    }
-
-    @Override
-    default Access access() {
-        throw new UnsupportedOperationException("There is no access for type parameters");
-    }
-
-    @Override
-    default JavaDoc javaDoc() {
-        throw new UnsupportedOperationException("There are no javadocs for type parameters");
-    }
+/**
+ * Declaration-site variance of a {@link TypeParameter}.
+ * <p>
+ * Java has no declaration-site variance (its variance is use-site, via wildcards in
+ * {@link org.e2immu.language.cst.api.type.ParameterizedType}); Java type parameters are therefore
+ * always {@link #INVARIANT}, the default everywhere. Kotlin annotates the parameter itself:
+ * {@code class Box<out T>} is {@link #COVARIANT}, {@code class Sink<in T>} is {@link #CONTRAVARIANT}.
+ */
+public enum Variance {
+    INVARIANT,
+    COVARIANT,      // Kotlin `out T`
+    CONTRAVARIANT,  // Kotlin `in T`
 }

@@ -15,6 +15,7 @@
 package org.e2immu.language.cst.impl.info;
 
 import org.e2immu.language.cst.api.info.TypeParameter;
+import org.e2immu.language.cst.api.info.Variance;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.type.TypeParameterImpl;
 
@@ -25,16 +26,23 @@ import java.util.List;
 public class TypeParameterInspectionImpl extends InspectionImpl implements TypeParameterInspection {
 
     private final List<ParameterizedType> typeBounds;
+    private final Variance variance;
 
-    public TypeParameterInspectionImpl(Inspection inspection, List<ParameterizedType> typeBounds) {
+    public TypeParameterInspectionImpl(Inspection inspection, List<ParameterizedType> typeBounds, Variance variance) {
         super(null, inspection.comments(), inspection.source(), inspection.isSynthetic(),
                 inspection.annotations(), null);
         this.typeBounds = typeBounds;
+        this.variance = variance;
     }
 
     @Override
     public List<ParameterizedType> typeBounds() {
         return typeBounds;
+    }
+
+    @Override
+    public Variance variance() {
+        return variance;
     }
 
     @Override
@@ -46,6 +54,7 @@ public class TypeParameterInspectionImpl extends InspectionImpl implements TypeP
         private List<ParameterizedType> typeBounds = new ArrayList<>();
         private final TypeParameterImpl typeParameter;
         private boolean typeBoundsAreSet;
+        private Variance variance = Variance.INVARIANT;
 
         public Builder(TypeParameterImpl typeParameter) {
             this.typeParameter = typeParameter;
@@ -68,7 +77,7 @@ public class TypeParameterInspectionImpl extends InspectionImpl implements TypeP
 
         @Override
         public void commit() {
-            TypeParameterInspection tpi = new TypeParameterInspectionImpl(this, List.copyOf(typeBounds));
+            TypeParameterInspection tpi = new TypeParameterInspectionImpl(this, List.copyOf(typeBounds), variance);
             typeParameter.commit(tpi);
         }
 
@@ -82,6 +91,17 @@ public class TypeParameterInspectionImpl extends InspectionImpl implements TypeP
         @Override
         public List<ParameterizedType> typeBounds() {
             return typeBounds;
+        }
+
+        @Override
+        public Builder setVariance(Variance variance) {
+            this.variance = variance;
+            return this;
+        }
+
+        @Override
+        public Variance variance() {
+            return variance;
         }
     }
 }

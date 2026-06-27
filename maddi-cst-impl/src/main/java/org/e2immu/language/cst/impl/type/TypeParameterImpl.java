@@ -168,6 +168,11 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
     }
 
     @Override
+    public org.e2immu.language.cst.api.info.Variance variance() {
+        return inspection.get().variance();
+    }
+
+    @Override
     public ParameterizedType asParameterizedType() {
         // NOTE: we do not add the type bounds
         return new ParameterizedTypeImpl(this, 0);

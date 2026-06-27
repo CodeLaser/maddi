@@ -54,6 +54,16 @@ public interface TypeParameter extends NamedType, Info {
     int getIndex();
 
     /**
+     * Declaration-site variance of this type parameter. Always {@link Variance#INVARIANT} for languages
+     * without declaration-site variance (Java); Kotlin's {@code out T}/{@code in T} produce
+     * {@link Variance#COVARIANT}/{@link Variance#CONTRAVARIANT}. Default keeps alternative
+     * implementations source-compatible.
+     */
+    default Variance variance() {
+        return Variance.INVARIANT;
+    }
+
+    /**
      * Returns a left {@link TypeInfo} when this parameter is declared on a type,
      * or a right {@link MethodInfo} when it is declared on a method.
      */
@@ -129,5 +139,9 @@ public interface TypeParameter extends NamedType, Info {
         /** Sets the upper bounds for this type parameter. */
         @Fluent
         Builder setTypeBounds(List<ParameterizedType> typeBounds);
+
+        /** Sets the declaration-site variance; defaults to {@link Variance#INVARIANT} if never called. */
+        @Fluent
+        Builder setVariance(Variance variance);
     }
 }

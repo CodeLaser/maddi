@@ -100,8 +100,14 @@ generics, `java.lang`↔Kotlin builtin mapping (`kotlin.Int`→`int`, `kotlin.St
   tags `T?` as `NULLABLE` and boxes nullable primitives via `ensureBoxed`; non-null stays UNSPECIFIED so
   it remains equal to predefined/Java types. Verified no regression in prepwork/inspection-openjdk/
   java-openjdk/cst-impl. (Pre-existing failures in modification-analyzer/-link are unrelated.)
-- **M2b variance** (`out T`/`in T` on `TypeParameter`) and full generics/class-type resolution (needs a
-  CompiledTypesManager, M5) still to do.
+- **M2b variance — DONE.** Added `Variance {INVARIANT, COVARIANT, CONTRAVARIANT}` to `cst-api` and a
+  `variance()` accessor on `TypeParameter` (+ `Builder.setVariance`), default `INVARIANT` (Java
+  unaffected — Java variance is use-site via wildcards). Stored in the `TypeParameterInspection` layer
+  (impl): field + 3-arg ctor + builder setter. The bridge converts a class's declaration-site type
+  parameters and maps Kotlin `out`/`in` → `COVARIANT`/`CONTRAVARIANT`. Verified green:
+  cst-impl/prepwork/inspection-openjdk/java-openjdk/cst-print.
+- **Generics & class-type resolution** (`List<String>`, user types, type-parameter *bounds*, using `T`
+  in signatures) still fall back to Object — needs a CompiledTypesManager (M5).
 
 **M3 — Member bodies.** Statements & expressions. Per the assessment these mostly *shoehorn* onto
 existing nodes; build a `ConvertExpression`/`ConvertStatement` pass for the bodies, operators-as-
