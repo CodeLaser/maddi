@@ -73,7 +73,9 @@ public class CodecImpl implements Codec {
     }
 
     public static String quote(String s) {
-        return "\"" + s.replace("\"", "\\\"") + "\"";
+        // escape backslashes first, then double quotes, so the result is valid JSON even for strings that
+        // contain '\' or end in '\' (which previously produced an unterminated string literal)
+        return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }
 
     private static String quoteNumber(String s) {
@@ -82,8 +84,26 @@ public class CodecImpl implements Codec {
     }
 
     public static String unquote(String s) {
-        String s1 = s.substring(1, s.length() - 1);
-        return s1.replace("\\\"", "\"");
+        String body = s.substring(1, s.length() - 1);
+        if (body.indexOf('\\') < 0) return body; // fast path: no escapes
+        // exact inverse of quote(): a backslash escapes the following '\' or '"'; any other backslash is
+        // passed through unchanged (we never emit other escapes, and must not corrupt e.g. a literal '\n')
+        StringBuilder sb = new StringBuilder(body.length());
+        int i = 0;
+        while (i < body.length()) {
+            char c = body.charAt(i);
+            if (c == '\\' && i + 1 < body.length()) {
+                char next = body.charAt(i + 1);
+                if (next == '\\' || next == '"') {
+                    sb.append(next);
+                    i += 2;
+                    continue;
+                }
+            }
+            sb.append(c);
+            i++;
+        }
+        return sb.toString();
     }
 
     @Override
@@ -554,10 +574,13 @@ public class CodecImpl implements Codec {
                     prev = Stream.of();
                 } else {
                     assert !typeInfo.isAnonymous();
-                    int index = typeAndSorted.subTypeIndex(typeInfo);
+                    // the sub-type's index must be looked up among the ENCLOSING type's sub-types, not in the
+                    // sub-type's own TypeAndSorted (which never contains itself); recurse with the enclosing TAS
+                    TypeInfo enclosingType = typeInfo.compilationUnitOrEnclosingType().getRight();
+                    TypeAndSorted enclosingTas = new TypeAndSorted(enclosingType);
+                    int index = enclosingTas.subTypeIndex(typeInfo);
                     s = "S" + typeInfo.simpleName() + "(" + index + ")";
-                    TypeInfo subType = typeInfo.compilationUnitOrEnclosingType().getRight();
-                    prev = encodeInfoOutOfContextStream(context, new TypeAndSorted(subType), subType);
+                    prev = encodeInfoOutOfContextStream(context, enclosingTas, enclosingType);
                 }
             }
             case MethodInfo methodInfo -> {
