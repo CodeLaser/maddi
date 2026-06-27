@@ -226,7 +226,7 @@ public class LinkCodec {
             if (info instanceof TypeInfo ti && Util.isContainerType(ti)) {
                 String s = "U" + ti.simpleName();
                 Stream<EncodedValue> pre = encodeInfoOutOfContextStream(context,
-                        null, // FIXME
+                        null, // tas unused for a type recursion: the base recomputes it from the info
                         ti.compilationUnitOrEnclosingType().getRight());
                 Stream<EncodedValue> post;
                 int n;
@@ -253,15 +253,15 @@ public class LinkCodec {
                     return streamSyntheticFieldDetails(context, fi, s);
                 }
             }
-            TypeAndSorted typeAndSorted = info instanceof TypeInfo ti && ti.compilationUnitOrEnclosingType().isRight()
-                    ? new TypeAndSorted(ti.compilationUnitOrEnclosingType().getRight())
-                    : new TypeAndSorted(info.typeInfo());
-            return super.encodeInfoOutOfContextStream(context, typeAndSorted, info);
+            // the base now derives the sub-type index from the enclosing type itself, so we no longer need to
+            // pre-compute the enclosing TypeAndSorted here (this used to work around a base-class bug). For a
+            // method/field/parameter the base needs the owning type's TypeAndSorted, which is info.typeInfo().
+            return super.encodeInfoOutOfContextStream(context, new TypeAndSorted(info.typeInfo()), info);
         }
 
         private @NotNull Stream<EncodedValue> streamSyntheticFieldDetails(Context context, FieldInfo fi, String s) {
             Stream<EncodedValue> pre = encodeInfoOutOfContextStream(context,
-                    null, // FIXME
+                    null, // tas unused for a type recursion: the base recomputes it from the info
                     fi.owner());
             Stream<EncodedValue> post = Stream.of(encodeType(context, fi.type()));
             return Stream.concat(Stream.concat(pre, Stream.of(encodeString(context, s))), post);
@@ -346,7 +346,7 @@ public class LinkCodec {
                     Stream<EncodedValue> arrays = Stream.of(encodeInt(context, type.arrays()));
                     // this one will add to duplication
                     Stream<EncodedValue> typeStream = encodeInfoOutOfContextStream(context,
-                            null, // FIXME
+                            null, // tas unused for a type recursion: the base recomputes it from the info
                             type.typeInfo());
                     List<EncodedValue> list = Stream.concat(Stream.concat(name, arrays), typeStream).toList();
                     return encodeList(context, list);
