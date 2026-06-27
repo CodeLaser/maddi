@@ -14,8 +14,10 @@
 
 package org.e2immu.language.kotlin.k2
 
+import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.TypeInfo
 import org.e2immu.language.cst.api.runtime.Runtime
+import org.e2immu.language.inspection.resource.InfoByFqn
 
 /**
  * The internal type loader for library/external types — the Kotlin analogue of openjdk's
@@ -24,19 +26,30 @@ import org.e2immu.language.cst.api.runtime.Runtime
  * job is to mint a CST [TypeInfo] for a referenced library type, keyed by its **JVM** fully-qualified
  * name (Kotlin's mapped types are translated to their JVM identity in [KotlinScan]).
  *
- * It is a thin receptacle plus lazy shell-creation: seeded with the runtime's predefined `java.lang`
- * types so `Object`/`String`/boxed primitives are the very same instances the Java parsers use. Shells
- * carry the correct identity (FQN) and arity (formal type parameters) — enough for generics — but not
- * yet a full hierarchy (parent is `Object`, no interfaces); deeper loading is a later increment.
+ * Like `ClassSymbolScanner`, it deposits into the shared [InfoByFqn] registry (so there is one
+ * `TypeInfo` per type across language front-ends, per the Info identity invariant), and reuses the
+ * runtime's predefined `java.lang` types so `Object`/`String`/boxed primitives are the very same
+ * instances the Java parsers use. Shells carry the correct identity (FQN) and arity (formal type
+ * parameters) — enough for generics — but not yet a full hierarchy (parent is `Object`, no interfaces);
+ * deeper loading is a later increment.
  */
-class KotlinSymbolScanner(private val runtime: Runtime) {
-
-    // receptacle: JVM FQN -> TypeInfo, seeded with the predefined java.lang types
-    private val byFqn: MutableMap<String, TypeInfo> =
-        runtime.predefinedObjects().associateBy { it.fullyQualifiedName() }.toMutableMap()
+class KotlinSymbolScanner(
+    private val runtime: Runtime,
+    private val infoByFqn: InfoByFqn,
+    private val librarySourceSet: SourceSet,
+) {
+    init {
+        // seed the predefined java.lang types into the shared registry
+        runtime.predefinedObjects().forEach { infoByFqn.put(it.fullyQualifiedName(), it, librarySourceSet) }
+    }
 
     /** Return the [TypeInfo] for a library type identified by its JVM FQN, creating a shell on first use. */
-    fun getOrLoad(jvmFqn: String, arity: Int): TypeInfo = byFqn.getOrPut(jvmFqn) { createShell(jvmFqn, arity) }
+    fun getOrLoad(jvmFqn: String, arity: Int): TypeInfo {
+        infoByFqn.getType(jvmFqn, librarySourceSet)?.let { return it }
+        val shell = createShell(jvmFqn, arity)
+        infoByFqn.put(jvmFqn, shell, librarySourceSet)
+        return shell
+    }
 
     private fun createShell(jvmFqn: String, arity: Int): TypeInfo {
         val packageName = jvmFqn.substringBeforeLast('.', missingDelimiterValue = "")
