@@ -16,10 +16,13 @@ package org.e2immu.language.kotlin.k2
 
 import org.e2immu.language.cst.api.element.CompilationUnit
 import org.e2immu.language.cst.api.element.SourceSet
+import org.e2immu.language.cst.api.expression.Expression
 import org.e2immu.language.cst.api.info.MethodInfo
 import org.e2immu.language.cst.api.info.TypeInfo
 import org.e2immu.language.cst.api.info.Variance
 import org.e2immu.language.cst.api.runtime.Runtime
+import org.e2immu.language.cst.api.statement.Block
+import org.e2immu.language.cst.api.statement.Statement
 import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.api.type.ParameterizedType
 import org.jetbrains.kotlin.analysis.api.KaSession
@@ -33,15 +36,20 @@ import org.jetbrains.kotlin.types.Variance as KotlinVariance
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModule
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtReturnExpression
 import java.nio.file.Files
 
 /**
- * M1 walking skeleton: turn Kotlin source into the shared CST, using the K2 Analysis API as the
- * resolved source of truth (the analogue of `maddi-java-openjdk`'s use of javac's Trees/Types).
+ * Turn Kotlin source into the shared CST, using the K2 Analysis API as the resolved source of truth
+ * (the analogue of `maddi-java-openjdk`'s use of javac's Trees/Types).
  *
- * Scope today: top-level classes and their declared functions, with return types. Parameters, bodies,
- * generics, nullability, properties and the rest arrive in later milestones (see kotlin-parser-plan.md).
+ * Scope today: top-level classes; declared functions with parameters, return types, nullability and a
+ * body (block/expression form, returns, literal constants); declaration-site type-parameter variance.
+ * Generics/class-type resolution, operators/references/calls in bodies, and properties arrive in later
+ * milestones (see kotlin-parser-plan.md).
  */
 class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet) {
 
@@ -112,21 +120,72 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
         return typeInfo
     }
 
-    /** Convert one declared function symbol into a committed CST method (with parameters). */
+    /** Convert one declared function symbol into a committed CST method (with parameters and body). */
     private fun KaSession.convertMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo {
         val method = runtime.newMethod(owner, function.name.asString(), runtime.methodTypeMethod())
+        val returnType = mapType(function.returnType)
         val builder = method.builder()
         function.valueParameters.forEach { p ->
             builder.addParameter(p.name.asString(), mapType(p.returnType))
         }
         builder
-            .setReturnType(mapType(function.returnType))
-            .setMethodBody(runtime.newBlockBuilder().build()) // bodies are M3
+            .setReturnType(returnType)
+            .setMethodBody(convertBody(function, returnType))
             .addMethodModifier(runtime.methodModifierPublic())
             .setAccess(runtime.accessPublic())
             .commitParameters()
             .commit()
         return method
+    }
+
+    /**
+     * Convert a function body into a CST [Block]. Handles the two Kotlin body forms — a block body
+     * `{ … }` and an expression body `= expr` (which becomes a single `return expr`, or an expression
+     * statement when the function returns Unit). M3 scope: literal constants and returns; expressions
+     * not yet understood become an explicit [Runtime.newEmptyExpression] placeholder rather than failing.
+     */
+    private fun KaSession.convertBody(function: KaNamedFunctionSymbol, returnType: ParameterizedType): Block {
+        val psi = function.psi as? KtNamedFunction ?: return runtime.newBlockBuilder().build()
+        val block = runtime.newBlockBuilder()
+        if (psi.hasBlockBody()) {
+            psi.bodyBlockExpression?.statements?.forEach { block.addStatement(convertStatement(it)) }
+        } else {
+            psi.bodyExpression?.let { body ->
+                val expr = convertExpression(body)
+                block.addStatement(
+                    if (returnType == runtime.voidParameterizedType()) runtime.newExpressionAsStatement(expr)
+                    else runtime.newReturnStatement(expr)
+                )
+            }
+        }
+        return block.build()
+    }
+
+    /** Convert one statement (Kotlin statements are expressions). */
+    private fun KaSession.convertStatement(statement: KtExpression): Statement =
+        if (statement is KtReturnExpression) {
+            val returned = statement.returnedExpression
+            runtime.newReturnStatement(if (returned == null) runtime.newEmptyExpression() else convertExpression(returned))
+        } else {
+            runtime.newExpressionAsStatement(convertExpression(statement))
+        }
+
+    /**
+     * Convert one expression. M3 handles compile-time constants (resolved via [evaluate]); anything else
+     * (calls, references, operators) becomes a labelled placeholder, to be filled in incrementally.
+     */
+    private fun KaSession.convertExpression(expression: KtExpression): Expression {
+        val constant = expression.evaluate()
+        if (constant != null) {
+            return when (val value = constant.value) {
+                is Int -> runtime.newInt(value)
+                is Boolean -> runtime.newBoolean(value)
+                is String -> runtime.newStringConstant(value)
+                null -> runtime.nullConstant()
+                else -> runtime.newEmptyExpression("k2-unsupported-constant:${value::class.simpleName}")
+            }
+        }
+        return runtime.newEmptyExpression("k2-unsupported-expr:${expression::class.simpleName}")
     }
 
     /**

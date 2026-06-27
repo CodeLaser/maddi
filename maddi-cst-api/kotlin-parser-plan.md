@@ -109,9 +109,15 @@ generics, `java.lang`↔Kotlin builtin mapping (`kotlin.Int`→`int`, `kotlin.St
 - **Generics & class-type resolution** (`List<String>`, user types, type-parameter *bounds*, using `T`
   in signatures) still fall back to Object — needs a CompiledTypesManager (M5).
 
-**M3 — Member bodies.** Statements & expressions. Per the assessment these mostly *shoehorn* onto
-existing nodes; build a `ConvertExpression`/`ConvertStatement` pass for the bodies, operators-as-
-`MethodCall`, `when`→switch, etc.
+**M3 — Member bodies.** *(First increment DONE.)* Statements & expressions; per the assessment these
+mostly *shoehorn* onto existing nodes.
+- **DONE:** body structure (block body `{ … }` and expression body `= expr` → `return`/expression
+  statement, Unit-aware); `return` statements; literal constants (Int/Boolean/String/null) resolved via
+  the session's `evaluate()`. Unsupported expressions become a labelled `newEmptyExpression`
+  placeholder (`k2-unsupported-expr:…`) so partial bodies never crash. No CST API change.
+- **TODO:** operators-as-`MethodCall` (`a + b`), variable/parameter references (`VariableExpression`),
+  method calls, `val`/`var` (`LocalVariableCreation`), `if`/`when` (→ `IfElse`/switch). Several of these
+  need the generics/class-type resolution below.
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API
