@@ -17,6 +17,10 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         mavenCentral()
+        // Kotlin K2 Analysis API ('*-for-ide' artifacts) — not on Maven Central. See maddi-kotlin-k2.
+        maven(url = "https://packages.jetbrains.team/maven/p/ij/intellij-dependencies")
+        maven(url = "https://www.jetbrains.com/intellij-repository/releases")
+        maven(url = "https://cache-redirector.jetbrains.com/intellij-third-party-dependencies")
     }
 }
 
@@ -38,6 +42,7 @@ include("maddi-util")
 include("maddi-java-parser")
 include("maddi-java-openjdk")
 include("maddi-java-bytecode")
+include("maddi-kotlin-k2")
 include("maddi-modification-analyzer")
 include("maddi-modification-common")
 include("maddi-modification-link")
