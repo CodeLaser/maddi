@@ -233,4 +233,21 @@ class KotlinScanTest {
         // Any -> java.lang.Object (the predefined instance)
         assertEquals(runtime.objectParameterizedType(), lib.findUniqueMethod("any", 0).returnType())
     }
+
+    @Test
+    fun crossFileReferences() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            mapOf(
+                "Service.kt" to "class Service { fun make(): Model = Model() }\n",
+                "Model.kt" to "class Model { fun owner(): Service = Service() }\n",
+            )
+        ).associateBy { it.simpleName() }
+        val service = types.getValue("Service")
+        val model = types.getValue("Model")
+
+        // a method in one file resolves to the TypeInfo declared in the other (single shared registry)
+        assertEquals(model, service.findUniqueMethod("make", 0).returnType().typeInfo())
+        assertEquals(service, model.findUniqueMethod("owner", 0).returnType().typeInfo())
+    }
 }

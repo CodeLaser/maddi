@@ -45,6 +45,7 @@ import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtReturnExpression
+import java.net.URI
 import java.nio.file.Files
 
 /**
@@ -65,13 +66,18 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
     // Loader/receptacle for library types (JDK, kotlin-stdlib, jars); deposits into infoByFqn by JVM FQN.
     private lateinit var symbolScanner: KotlinSymbolScanner
 
-    /** Parse one in-memory Kotlin source file and return its primary CST types. */
-    fun parse(fileName: String, content: String): List<TypeInfo> {
-        // Standalone resolves from source roots: lay the content down in a temp directory.
-        val srcRoot = Files.createTempDirectory("k2-src")
-        val srcFile = srcRoot.resolve(fileName)
-        Files.writeString(srcFile, content)
+    /** Parse one in-memory Kotlin source file and return its primary CST types (test convenience). */
+    fun parse(fileName: String, content: String): List<TypeInfo> = parse(mapOf(fileName to content))
 
+    /** Parse a set of in-memory Kotlin files (name -> content) in one shared session. */
+    fun parse(filesByName: Map<String, String>): List<TypeInfo> {
+        // Standalone resolves from source roots: lay the files down in a temp directory.
+        val srcRoot = Files.createTempDirectory("k2-src")
+        filesByName.forEach { (name, content) ->
+            val file = srcRoot.resolve(name)
+            Files.createDirectories(file.parent ?: srcRoot)
+            Files.writeString(file, content)
+        }
         val session = buildStandaloneAnalysisAPISession {
             buildKtModuleProvider {
                 platform = JvmPlatforms.defaultJvmPlatform
@@ -84,29 +90,47 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
                 )
             }
         }
+        return convert(session.modulesWithFiles.values.flatten().filterIsInstance<KtFile>())
+    }
 
+    /**
+     * Convert resolved Kotlin files into committed CST types, sharing one [InfoByFqn] across all files.
+     * A global two-pass — register every file's types first, then convert members — lets references
+     * resolve across files, not just within one. The session is owned by the caller (a driver may wire a
+     * real classpath before calling this); this is where multi-file projects are handled.
+     */
+    fun convert(ktFiles: List<KtFile>): List<TypeInfo> {
         infoByFqn = InfoByFqn()
         symbolScanner = KotlinSymbolScanner(runtime, infoByFqn, sourceSet)
-        val result = mutableListOf<TypeInfo>()
-        session.modulesWithFiles.values.flatten().filterIsInstance<KtFile>().forEach { ktFile ->
-            val compilationUnit = runtime.newCompilationUnitBuilder()
-                .setPackageName(ktFile.packageFqName.asString())
-                .setURI(srcFile.toUri())
-                .setSourceSet(sourceSet)
-                .build()
-            val declarations = ktFile.declarations.filterIsInstance<KtClassOrObject>()
 
-            analyze(ktFile) {
-                // pass A: create + register every type (and its type parameters) so later references resolve
-                val types = declarations.map { registerType(compilationUnit, it) }
-                // pass B: convert members now that all sibling types are known, and commit
-                declarations.zip(types).forEach { (declaration, typeInfo) -> convertMembers(declaration, typeInfo) }
-                compilationUnit.setTypes(types)
-                result.addAll(types)
-            }
+        // pass A (all files): create + register every type so cross-file references resolve
+        val perFile = ktFiles.map { ktFile ->
+            val compilationUnit = compilationUnitFor(ktFile)
+            val declarations = ktFile.declarations.filterIsInstance<KtClassOrObject>()
+            val types = analyze(ktFile) { declarations.map { registerType(compilationUnit, it) } }
+            FileConversion(ktFile, compilationUnit, declarations, types)
         }
-        return result
+        // pass B (all files): convert members, now that all sibling types are known
+        perFile.forEach { fc ->
+            analyze(fc.ktFile) { fc.declarations.zip(fc.types).forEach { (d, ti) -> convertMembers(d, ti) } }
+            fc.compilationUnit.setTypes(fc.types)
+        }
+        return perFile.flatMap { it.types }
     }
+
+    private class FileConversion(
+        val ktFile: KtFile,
+        val compilationUnit: CompilationUnit,
+        val declarations: List<KtClassOrObject>,
+        val types: List<TypeInfo>,
+    )
+
+    private fun compilationUnitFor(ktFile: KtFile): CompilationUnit =
+        runtime.newCompilationUnitBuilder()
+            .setPackageName(ktFile.packageFqName.asString())
+            .setURI(URI.create(ktFile.virtualFile?.url ?: "memory:/${ktFile.name}"))
+            .setSourceSet(sourceSet)
+            .build()
 
     /** Pass A: create the [TypeInfo] and its type parameters, and register it by FQN. No members yet. */
     private fun KaSession.registerType(compilationUnit: CompilationUnit, declaration: KtClassOrObject): TypeInfo {
