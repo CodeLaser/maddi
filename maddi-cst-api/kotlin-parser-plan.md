@@ -145,8 +145,15 @@ maddi clients — **its API must not change**, it's already used by the maddi & 
   *Simplifications to revisit:* shells carry identity + arity but not a full hierarchy (parent=Object,
   no interfaces/members); nested types (`Map.Entry`), raw types, and faithful type-parameter names
   deferred.
-- **M5c driver — TODO.** Extract `maddi-inspection-kotlin` implementing `JavaInspector` (D2): multi-file,
-  preloading, a real receptacle `CompiledTypesManager`, round-trip print via `print2`.
+- **M5c driver — IN PROGRESS.** Foundation done: `KotlinScan.convert(ktFiles)` does a **global** two-pass
+  (register all files' types, then convert members) so references resolve **across files**, sharing one
+  `InfoByFqn`; `parse(Map<name,content>)` drives a multi-file session. The session is now owned at the
+  top so a driver can wire a classpath before calling `convert`.
+  *Remaining:* (a) **real library types** — give the standalone session the JDK + kotlin-stdlib classpath
+  (SDK/library modules) and deepen `KotlinSymbolScanner` to convert the *real* resolved `KaClassSymbol`
+  (supertypes, bounds, members) instead of an empty shell; (b) extract `maddi-inspection-kotlin` with an
+  `InputConfiguration`-driven entry and a receptacle `CompiledTypesManager`; (c) `JavaInspector` surface,
+  preloading, round-trip print via `print2`.
 
 ### Multi-source-set & mixed Kotlin/Java modules (design note)
 
