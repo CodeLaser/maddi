@@ -69,7 +69,8 @@ class StandaloneApiSpike {
                 .filterIsInstance<KaNamedFunctionSymbol>()
                 .single { it.name.asString() == "bar" }
             assertNotNull(bar)
-            assertEquals("Int", bar.returnType.toString().substringAfterLast('.').substringBefore('?'))
+            // resolved return type renders as "kotlin/Int" (ClassId form)
+            assertEquals("kotlin/Int", bar.returnType.toString().substringBefore('?'))
         }
     }
 }

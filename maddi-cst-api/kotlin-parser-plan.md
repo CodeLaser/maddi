@@ -139,16 +139,23 @@ assertEquals("int", bar.returnType().fullyQualifiedName()); // or boxed Integer 
   `analysis-api-platform-interface-for-ide`, `symbol-light-classes-for-ide`,
   `analysis-api-standalone-for-ide`, plus `kotlin-compiler` (Maven Central).
 - **Standalone-runtime extras** (the `*-for-ide` jars are stripped; discovered by walking
-  `NoClassDefFoundError`): `kotlinx-serialization-json`, `caffeine`, and an IntelliJ-flavoured
-  `kotlinx-coroutines-core` (needs `kotlinx.coroutines.internal.intellij.*`). Chain may have 1–2 more
-  (fastutil/trove) before green — see the live status note below.
+  `NoClassDefFoundError`): `org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0`,
+  `com.github.ben-manes.caffeine:caffeine:3.1.8`, and the **IntelliJ-patched coroutines**
+  `org.jetbrains.intellij.deps.kotlinx:kotlinx-coroutines-core:1.10.2-intellij-1` (provides
+  `kotlinx.coroutines.internal.intellij.IntellijCoroutines`, absent upstream; cf. detekt#9176). The
+  upstream coroutines that `kotlin-compiler` drags in is substituted out via
+  `resolutionStrategy.dependencySubstitution` so only one set of `kotlinx.coroutines.*` is present.
+  That was the **complete** chain — no fastutil/trove needed.
 - **API surface:** the spike compiled against `buildStandaloneAnalysisAPISession`,
   `buildKtModuleProvider`/`buildKtSourceModule`, `analyze {}`, `KaClassSymbol`,
   `KaNamedFunctionSymbol` — all present. `buildKtModuleProvider` is a *member* of the session builder
   (not a top-level import).
-- **Session bootstraps and runs** into the `analyze {}` block; remaining failures were ordinary
-  runtime-classpath completion, not fundamental blockers.
+- **Session bootstraps, runs, and resolves — green.** `StandaloneApiSpike.resolvesSimpleClass()` passes:
+  it builds a standalone session over an in-memory `class Foo { fun bar(): Int = 1 }`, calls
+  `analyze {}`, and asserts the resolved class symbol (`Foo`), its function (`bar`), and return type
+  (`kotlin/Int`). End-to-end proof that the K2 Analysis API is usable as the CST source of truth.
 
 ---
 
-*Next action: finish the M0 runtime-classpath chain to a green spike, then start M1 (CST conversion).*
+*Next action: M1 — replace the spike's assertions with a `KotlinScan` that walks the resolved symbols
+and emits CST `TypeInfo`/`MethodInfo` via the `runtime.new…` factories (see §4, §6).*

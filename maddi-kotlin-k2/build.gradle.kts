@@ -49,9 +49,11 @@ dependencies {
     // Discovered empirically in M0 by following NoClassDefFoundError chains.
     runtimeOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     runtimeOnly("com.github.ben-manes.caffeine:caffeine:3.1.8")
-    // IntelliJ's coroutines carry kotlinx.coroutines.internal.intellij.*, absent from the 1.8.0
-    // that kotlin-compiler pulls. Force a version that includes it.
-    runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    // The Analysis API needs IntelliJ's *patched* coroutines, which add
+    // kotlinx.coroutines.internal.intellij.IntellijCoroutines (absent from upstream). The standard
+    // coroutines kotlin-compiler drags in is substituted out below so only this one is present.
+    // (cf. detekt#9176; remove if KT-81457 ever folds this back upstream.)
+    runtimeOnly("org.jetbrains.intellij.deps.kotlinx:kotlinx-coroutines-core:1.10.2-intellij-1")
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")
@@ -59,9 +61,10 @@ dependencies {
 }
 
 configurations.all {
-    resolutionStrategy {
-        force("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
-        force("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2")
+    resolutionStrategy.dependencySubstitution {
+        val intellijCoroutines = module("org.jetbrains.intellij.deps.kotlinx:kotlinx-coroutines-core:1.10.2-intellij-1")
+        substitute(module("org.jetbrains.kotlinx:kotlinx-coroutines-core")).using(intellijCoroutines)
+        substitute(module("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm")).using(intellijCoroutines)
     }
 }
 
