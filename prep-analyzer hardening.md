@@ -77,8 +77,17 @@ Severity: **H** high, **M** medium, **L** low.
 ## 4. Merge across complex control flow  (M, systemic)
 - [ ] **M** Merge completeness is entirely string-index coupled (`Util.atSameLevel:36-41`,
   `Assignments.lastAssignmentIsMergeInBlockOf:246-250`); any index-format change breaks merges silently.
-- [ ] **M** New-style switch completeness ignores whether a `default` exists
-  (`variable/impl/Assignments.java:222`): "all entries assign" ≠ definite assignment without default.
+- [x] **M** ~~New-style switch completeness ignores whether a `default` exists
+  (`variable/impl/Assignments.java:222`): "all entries assign" ≠ definite assignment without default.~~
+  **Fixed 2026-06-27.** Confirmed: a classic `switch(int)` with arms but no `default` wrongly got the `=M`
+  merge marker (`hasBeenDefined` true). `assignmentsRequiredForMerge` now sets the target to
+  `Integer.MAX_VALUE` (never complete) unless the switch is exhaustive: explicit `default` arm (condition is an
+  `EmptyExpression`) **or** a pattern arm (empty condition list — a pattern switch *statement* only compiles
+  when exhaustive, JLS 14.11.1.1). Verified maddi inserts **no** synthetic default for exhaustive sealed
+  switches, so the pattern-arm branch is needed to avoid regressing them. Regression test
+  `TestSwitchNoDefaultMerge` (no-default classic → not defined; with-default → defined; exhaustive sealed →
+  defined). Caveat: a modern exhaustive *enum* arrow-switch without `default` (all constants) is treated
+  conservatively as non-exhaustive — safe direction, matches classic Java DA.
 - [ ] **M** Labeled break targeting an outer loop while inside an old-style switch is mis-attributed to the
   switch break variable (`MethodAnalyzer.java:795-800`). Untested.
 - [ ] **M** Switch-**expression** branch assignments to outer vars treated as always-taken; the computed
