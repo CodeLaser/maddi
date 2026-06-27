@@ -58,7 +58,7 @@ public class TestExplicitConstructorInvocation extends CommonTest {
         }
         MethodInfo c1 = typeInfo.findConstructor(1);
         assertEquals("13-5:15-5", c1.source().compact2());
-        assertEquals("-@13:40-15:5", c1.methodBody().source().toString());
+        assertEquals("@13:40-15:5", c1.methodBody().source().toString());
         assertEquals(2, c1.methodBody().statements().size());
     }
 

@@ -72,6 +72,8 @@ public interface SwitchStatementOldStyle extends Statement {
 
         Stream<TypeReference> typesReferenced(Predicate<Element> predicate);
 
+        Stream<Variable> variables(DescendMode descendMode);
+
         /**
          * @return the {@code when} guard expression (Java 21), or an {@code EmptyExpression} when absent.
          */
