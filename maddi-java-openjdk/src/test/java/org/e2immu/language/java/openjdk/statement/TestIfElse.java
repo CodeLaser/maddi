@@ -45,6 +45,8 @@ public class TestIfElse extends CommonTest {
     public void test() {
         TypeInfo typeInfo = scan("a.b.C", INPUT);
         MethodInfo main = typeInfo.findUniqueMethod("main", 1);
+        // a method body is the top-level block: its source index is the empty string (not the '-' sentinel)
+        assertEquals("", main.methodBody().source().index());
         if (main.methodBody().statements().getFirst() instanceof IfElseStatement ifElse) {
             assertEquals("0", ifElse.source().index());
             // a statement's blocks are nested under it: the then-block is i.0, the else-block i.1

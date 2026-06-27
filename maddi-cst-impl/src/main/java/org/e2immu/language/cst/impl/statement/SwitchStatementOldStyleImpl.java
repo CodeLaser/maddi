@@ -138,7 +138,16 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
             if (whenExpression != null) s = Stream.concat(s, whenExpression.typesReferenced(predicate));
             return s;
         }
+
+        @Override
+        public Stream<Variable> variables(DescendMode descendMode) {
+            Stream<Variable> s = Stream.empty();
+            if (patternVariable != null) s = Stream.concat(s, patternVariable.variables(descendMode));
+            if (whenExpression != null) s = Stream.concat(s, whenExpression.variables(descendMode));
+            return s;
+        }
     }
+
 
     public static class Builder extends StatementImpl.Builder<SwitchStatementOldStyle.Builder> implements SwitchStatementOldStyle.Builder {
         private Expression selector;
@@ -280,7 +289,9 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
 
     @Override
     public Stream<Variable> variables(DescendMode descendMode) {
-        return Stream.empty();
+        return Stream.concat(Stream.concat(selector.variables(descendMode),
+                        switchLabels.stream().flatMap(sl -> sl.variables(descendMode))),
+                block.variables(descendMode));
     }
 
     @Override

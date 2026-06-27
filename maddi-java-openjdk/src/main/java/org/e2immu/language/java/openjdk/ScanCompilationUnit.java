@@ -678,7 +678,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 int addToStatementsSize = methodInfo.methodType().isCompactConstructor()
                                           && currentType.typeNature().isRecord()
                         ? methodInfo.parameters().size() : 0;
-                methodBody = parseBlock("-", node.getBody(), addToStatementsSize, false);
+                methodBody = parseBlock("", node.getBody(), addToStatementsSize, false);
                 elementStack.pop();
                 currentMethod = null;
             }
@@ -816,7 +816,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         if (blockBuilders.isEmpty()) return "-";
         BlockData bd = blockBuilders.getLast();
         String padded = StringUtil.pad(bd.blockBuilder.statements().size(), bd.numberOfStatements);
-        return ("-".equals(bd.index) ? "" : bd.index + ".") + padded;
+        return (bd.index.isEmpty() ? "" : bd.index + ".") + padded;
     }
 
     private Block parseBlock(String blockIndex, Tree node, LocalVariable... variablesToAdd) {
@@ -824,10 +824,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     }
 
     // the block source index: a sub-component block (an if/while/for/try body, an else, ...) sits at 'i.<blockIndex>'
-    // relative to its statement 'i'; a standalone '{ }' block, however, *is* the statement, so it keeps that index
+    // relative to its statement 'i'; a standalone '{ }' block, however, *is* the statement, so it keeps that index.
+    // The top-level block (a method body) has the empty block index, hence an empty source index.
     private Source blockSource(boolean blockAsStatement, String blockIndexAtStatement, Source source) {
-        return "-".equals(blockIndexAtStatement) || blockAsStatement ? source
-                : source.withIndex(blockIndexAtStatement);
+        return blockAsStatement ? source : source.withIndex(blockIndexAtStatement);
     }
 
     private Block parseBlock(String blockIndex, Tree node, int addToStatementsSize, boolean blockAsStatement,
@@ -839,7 +839,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             case JCTree.JCBlock block -> statements = block.stats;
             case JCTree.JCStatement statement -> statements = List.of(statement);
             case null -> {
-                String i = "-".equals(blockIndex) ? "-" : statementIndex() + "." + blockIndex;
+                String i = blockIndex.isEmpty() ? "" : statementIndex() + "." + blockIndex;
                 return runtime.newBlockBuilder()
                         .setSource(blockSource(blockAsStatement, i, source))
                         .addComments(commentsForNode(source))
@@ -863,7 +863,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             localVariableMap.put(lv.simpleName(), lv);
         }
         int n = statements.size() + addToStatementsSize;
-        String i = "-".equals(blockIndex) ? "-" : statementIndex() + "." + blockIndex;
+        String i = blockIndex.isEmpty() ? "" : statementIndex() + "." + blockIndex;
         blockBuilders.addLast(new BlockData(runtime.newBlockBuilder(), i, n));
 
         for (JCTree.JCStatement statement : statements) {
@@ -960,7 +960,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     .addMethodModifier(runtime.methodModifierStatic())
                     .commitParameters();
             currentMethod = methodInfo;
-            Block block = parseBlock("-", jcBlock);
+            Block block = parseBlock("", jcBlock);
             currentMethod = null;
             methodInfo.builder().setMethodBody(block);
             typeInfo.builder().addMethod(methodInfo);
@@ -978,7 +978,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         .addMethodModifier(runtime.methodModifierPrivate())
                         .commitParameters();
                 currentMethod = methodInfo;
-                Block block = parseBlock("-", node);
+                Block block = parseBlock("", node);
                 currentMethod = null;
                 methodInfo.builder().setMethodBody(block);
                 typeInfo.builder().addMethod(methodInfo);
@@ -1896,7 +1896,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         } else if (lambda.getBodyKind() == LambdaExpressionTree.BodyKind.STATEMENT) {
             MethodInfo outer = currentMethod;
             currentMethod = methodInfo;
-            methodBody = parseBlock("-", lambda.body);
+            methodBody = parseBlock("", lambda.body);
             currentMethod = outer;
         } else {
             throw new UnsupportedOperationException("NYI");
@@ -2410,7 +2410,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                                 .addMethodModifier(runtime.methodModifierPrivate())
                                 .commitParameters();
                         currentMethod = c2;
-                        Block block = parseBlock("-", jcBlock);
+                        Block block = parseBlock("", jcBlock);
                         currentMethod = null;
                         c2.builder().setMethodBody(block);
                         builder.addConstructor(c2);
