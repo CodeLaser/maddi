@@ -203,4 +203,34 @@ class KotlinScanTest {
         assertEquals(1, wrap.parameters().size)
         assertEquals(a, wrap.parameters()[0].typeInfo())
     }
+
+    @Test
+    fun libraryTypesMapToJvm() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "Lib.kt",
+            """
+            class Lib {
+                fun strings(): List<String> = listOf()
+                fun ints(): MutableList<Int> = mutableListOf()
+                fun any(): Any = this
+            }
+            """.trimIndent() + "\n"
+        )
+        val lib = types.first()
+
+        // List<String> -> java.util.List<java.lang.String>
+        val strings = lib.findUniqueMethod("strings", 0).returnType()
+        assertEquals("java.util.List", strings.typeInfo().fullyQualifiedName())
+        assertEquals(1, strings.parameters().size)
+        assertEquals(runtime.stringParameterizedType(), strings.parameters()[0])
+
+        // MutableList collapses to the same java.util.List; Int boxes to Integer in a generic argument
+        val ints = lib.findUniqueMethod("ints", 0).returnType()
+        assertEquals("java.util.List", ints.typeInfo().fullyQualifiedName())
+        assertTrue(ints.parameters()[0].isBoxedExcludingVoid)
+
+        // Any -> java.lang.Object (the predefined instance)
+        assertEquals(runtime.objectParameterizedType(), lib.findUniqueMethod("any", 0).returnType())
+    }
 }
