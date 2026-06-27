@@ -88,10 +88,20 @@ session, walks each top-level class symbol and its declared function symbols, an
 visibility, generics deferred to M2/M4. Commit lifecycle mirrors java-openjdk: per-method
 `builder().commitParameters().commit()`, then `type.builder()…commit()`, then `cu.setTypes(...)`.
 
-**M2 — Signatures & the type layer.** Real `ParameterizedType` conversion: parameters, return types,
-generics, `java.lang`↔Kotlin builtin mapping (`kotlin.Int`→`int`, `kotlin.String`→`String`). Touches
-the assessment's **type** gaps first: **nullable types** (M2a) and **declaration-site variance** (M2b).
-CST API changes land here.
+**M2 — Signatures & the type layer.** *(M2 signatures + M2a nullability ✅ DONE; M2b variance + generics
++ class-type resolution remain.)* Real `ParameterizedType` conversion: parameters, return types,
+generics, `java.lang`↔Kotlin builtin mapping (`kotlin.Int`→`int`, `kotlin.String`→`String`).
+- **M2a nullability — DONE.** Added `NullableState {UNSPECIFIED, NONNULL, NULLABLE}` to `cst-api` and a
+  `nullable()` / `withNullable()` dimension on `ParameterizedType` (default `UNSPECIFIED`, default
+  interface methods so other impls stay source-compatible). `ParameterizedTypeImpl` gets a 6-arg
+  canonical ctor (the 5-arg delegates → all existing call sites unchanged), folds `nullable` into
+  `equals` **but not `hashCode`** (equal→same-hash contract only; keeps hash-ordered collections across
+  the analyzer byte-stable). `fullyQualifiedName()` stays nullability-free (semantic key). The bridge
+  tags `T?` as `NULLABLE` and boxes nullable primitives via `ensureBoxed`; non-null stays UNSPECIFIED so
+  it remains equal to predefined/Java types. Verified no regression in prepwork/inspection-openjdk/
+  java-openjdk/cst-impl. (Pre-existing failures in modification-analyzer/-link are unrelated.)
+- **M2b variance** (`out T`/`in T` on `TypeParameter`) and full generics/class-type resolution (needs a
+  CompiledTypesManager, M5) still to do.
 
 **M3 — Member bodies.** Statements & expressions. Per the assessment these mostly *shoehorn* onto
 existing nodes; build a `ConvertExpression`/`ConvertStatement` pass for the bodies, operators-as-

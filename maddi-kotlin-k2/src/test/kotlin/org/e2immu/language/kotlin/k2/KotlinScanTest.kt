@@ -16,9 +16,11 @@ package org.e2immu.language.kotlin.k2
 
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.runtime.Runtime
+import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl
 import org.e2immu.language.inspection.resource.SourceSetImpl
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.URI
 
@@ -72,5 +74,37 @@ class KotlinScanTest {
 
         val flag = calc.findUniqueMethod("flag", 0)
         assertEquals(runtime.booleanParameterizedType(), flag.returnType())
+    }
+
+    @Test
+    fun nullability() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "Nn.kt",
+            """
+            class Nn {
+                fun maybe(s: String?): String? = s
+                fun never(s: String): String = s
+                fun boxed(i: Int?): Int? = i
+            }
+            """.trimIndent() + "\n"
+        )
+        val nn = types.first()
+
+        val maybe = nn.findUniqueMethod("maybe", 1)
+        // String? -> the String type tagged NULLABLE: same erased type, distinct nullability
+        assertEquals(NullableState.NULLABLE, maybe.returnType().nullable())
+        assertTrue(maybe.returnType().equalsFQN(runtime.stringParameterizedType()))
+        assertEquals(NullableState.NULLABLE, maybe.parameters()[0].parameterizedType().nullable())
+
+        // non-null String stays UNSPECIFIED and equal to the predefined String type
+        val never = nn.findUniqueMethod("never", 1)
+        assertEquals(NullableState.UNSPECIFIED, never.returnType().nullable())
+        assertEquals(runtime.stringParameterizedType(), never.returnType())
+
+        // Int? boxes to Integer and is NULLABLE (a nullable primitive cannot stay `int`)
+        val boxed = nn.findUniqueMethod("boxed", 1)
+        assertEquals(NullableState.NULLABLE, boxed.returnType().nullable())
+        assertTrue(boxed.returnType().isBoxedExcludingVoid)
     }
 }

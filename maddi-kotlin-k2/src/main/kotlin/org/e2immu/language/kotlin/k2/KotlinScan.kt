@@ -19,6 +19,7 @@ import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.MethodInfo
 import org.e2immu.language.cst.api.info.TypeInfo
 import org.e2immu.language.cst.api.runtime.Runtime
+import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.api.type.ParameterizedType
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.analyze
@@ -26,6 +27,7 @@ import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISe
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.types.KaType
+import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModule
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.psi.KtClassOrObject
@@ -117,12 +119,13 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
 
     /**
      * Map a resolved Kotlin type to a CST [ParameterizedType]. M2 scope: the Kotlin builtins that have a
-     * JVM-primitive or java.lang counterpart. Nullability is intentionally ignored here (M2a adds it to
-     * the CST type layer); user/class types and generics need a CompiledTypesManager (M5) and fall back
-     * to Object for now.
+     * JVM-primitive or java.lang counterpart. A nullable Kotlin type (`T?`) is boxed (a nullable Int is
+     * `Integer`, not `int`) and tagged [NullableState.NULLABLE]; non-null types are left UNSPECIFIED so
+     * they stay equal to the predefined types and to Java's. User/class types and generics need a
+     * CompiledTypesManager (M5) and fall back to Object for now.
      */
-    private fun mapType(type: KaType): ParameterizedType =
-        when (type.toString().substringBefore('?')) {
+    private fun mapType(type: KaType): ParameterizedType {
+        val base = when (type.toString().substringBefore('?')) {
             "kotlin/Int" -> runtime.intParameterizedType()
             "kotlin/Long" -> runtime.longParameterizedType()
             "kotlin/Short" -> runtime.shortParameterizedType()
@@ -135,4 +138,8 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
             "kotlin/String" -> runtime.stringParameterizedType()
             else -> runtime.objectParameterizedType() // kotlin/Any, user types, generics: refined later
         }
+        return if (type.nullability == KaTypeNullability.NULLABLE)
+            base.ensureBoxed(runtime).withNullable(NullableState.NULLABLE)
+        else base
+    }
 }
