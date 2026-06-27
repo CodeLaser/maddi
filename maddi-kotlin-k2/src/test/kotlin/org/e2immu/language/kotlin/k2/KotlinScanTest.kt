@@ -44,4 +44,33 @@ class KotlinScanTest {
         assertEquals(runtime.intParameterizedType(), bar.returnType())
         assertEquals("int", bar.returnType().fullyQualifiedName())
     }
+
+    @Test
+    fun parametersAndBuiltinTypes() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "Calc.kt",
+            """
+            class Calc {
+                fun add(a: Int, b: Long): Long = a + b
+                fun greet(name: String): Unit { }
+                fun flag(): Boolean = true
+            }
+            """.trimIndent() + "\n"
+        )
+        val calc = types.first()
+
+        val add = calc.findUniqueMethod("add", 2)
+        assertEquals(runtime.longParameterizedType(), add.returnType())
+        assertEquals("a", add.parameters()[0].name())
+        assertEquals(runtime.intParameterizedType(), add.parameters()[0].parameterizedType())
+        assertEquals(runtime.longParameterizedType(), add.parameters()[1].parameterizedType())
+
+        val greet = calc.findUniqueMethod("greet", 1)
+        assertEquals(runtime.voidParameterizedType(), greet.returnType())
+        assertEquals(runtime.stringParameterizedType(), greet.parameters()[0].parameterizedType())
+
+        val flag = calc.findUniqueMethod("flag", 0)
+        assertEquals(runtime.booleanParameterizedType(), flag.returnType())
+    }
 }
