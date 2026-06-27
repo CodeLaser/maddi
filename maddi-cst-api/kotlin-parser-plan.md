@@ -123,8 +123,19 @@ mostly *shoehorn* onto existing nodes.
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API
 addition from the assessment doc (priority order ranked there).
 
-**M5 — Driver & integration.** Extract `maddi-inspection-kotlin` implementing `JavaInspector` (D2):
-multi-file, classpath/`CompiledTypesManager`, preloading, round-trip print via `print2`.
+**M5 — Type manager, driver & integration.** Mirrors openjdk's split: `ClassSymbolScanner` is the
+*internal* type manager; `CompiledTypesManager` is the *external* one (shared across source sets, used by
+maddi clients — **its API must not change**, it's already used by the maddi & openjdk parsers).
+- **M5a internal source-type manager — DONE.** `KotlinScan` now does a two-pass scan: pass A creates +
+  registers every type of the current compilation (with its type parameters) in an internal
+  `sourceTypes` map by FQN; pass B converts members so references resolve. `mapType` now resolves
+  references to sibling source types (with generic arguments) and bare type parameters (`T`), in
+  addition to the builtins. No CST API change.
+- **M5b external types — TODO.** Consume a `CompiledTypesManager` for library/JDK types
+  (`List`, `java.lang.*`, imported types). Needs the Kotlin→JVM FQN mapping (`kotlin.collections.List`
+  → `java.util.List`, etc.) and a constructed manager (classpath/bytecode wiring).
+- **M5c driver — TODO.** Extract `maddi-inspection-kotlin` implementing `JavaInspector` (D2): multi-file,
+  preloading, round-trip print via `print2`.
 
 ## 6. First test to write (M1 acceptance)
 
