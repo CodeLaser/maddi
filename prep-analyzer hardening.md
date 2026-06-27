@@ -43,10 +43,21 @@ Severity: **H** high, **M** medium, **L** low.
 - Tests: **zero linked-variable tests in prepwork**; engine tests live in `maddi-modification-link`.
 
 ## 2. Part-of-construction / final-field detection  (H)
-- [ ] **H** `ComputePartOfConstructionFinalField.isAssigned` builds `VariableData` from **only the method's
-  last statement** (`callgraph/ComputePartOfConstructionFinalField.java:144-153`). A field assigned in a
-  branch/loop/before early-return that doesn't reach the last statement is missed → field wrongly reported
-  effectively final.
+- [x] **H** ~~`isAssigned` builds `VariableData` from only the method's last statement → branch/loop/early-return
+  assignments missed.~~ **Investigated + fixed 2026-06-27.** The audit's stated mechanism was *wrong*: the
+  last-statement `VariableData` is the cumulative merge of the whole body, so a field reference survives across
+  branches, loops and early returns (verified — early-return, switch-expression and trailing-assignment cases
+  all detect correctly). The **real** bug: a field assigned inside a **lambda / anonymous / local type** enclosed
+  by the field's owner is wrongly reported effectively final. Root cause: `ComputeCallGraph.handleFieldAccess`
+  only creates the `field -> method` edge when the accessing method's `typeInfo() == owner`; for a nested-scope
+  method it creates a `method -> field` edge instead, which `computeEffectivelyFinalFields` (walking edges *from*
+  the field) never sees. Fixing the edge direction in the call graph ripples into the link engine + analysis
+  order (broke ~40 link tests), so the fix stays in finality: `computeEffectivelyFinalFields` now also scans
+  `constructorsAndMethodsOfPrimaryType` for methods whose type `isEnclosedIn` the field owner (but isn't the
+  owner) and calls `isAssigned` on them directly; `isAssigned` now returns `false` (instead of `assert`) when a
+  body has no `VariableData` (e.g. `doNotRecurseIntoAnonymous`). Regression test
+  `TestFinalFieldBranchAssignment` (lambda, anonymous, early-return, switch-expr, + final positive control).
+  Note: link tests on the `openjdk` branch were **already failing before** this change (pre-existing).
 - [ ] **M** Method-less primary types (interface with only constants) never get `FINAL_FIELD` /
   `PART_OF_CONSTRUCTION` computed (`:58-74`).
 - [ ] **M** Cross-type / inherited-field assignment not modeled by the same-static-type narrowing
