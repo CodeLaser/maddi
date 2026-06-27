@@ -88,15 +88,30 @@ Severity: **H** high, **M** medium, **L** low.
   `TestSwitchNoDefaultMerge` (no-default classic → not defined; with-default → defined; exhaustive sealed →
   defined). Caveat: a modern exhaustive *enum* arrow-switch without `default` (all constants) is treated
   conservatively as non-exhaustive — safe direction, matches classic Java DA.
-- [ ] **M** Labeled break targeting an outer loop while inside an old-style switch is mis-attributed to the
-  switch break variable (`MethodAnalyzer.java:795-800`). Untested.
+- [x] **M** ~~Labeled break targeting an outer loop while inside an old-style switch is mis-attributed to the
+  switch break variable (`MethodAnalyzer.java:795-800`). Untested.~~ **Fixed 2026-06-27.** Root cause was
+  deeper than stated: the code read `BreakStatement.label()` (the statement's *own* label, ~always null on a
+  break) instead of `goToLabel()` (the break's *target*), so labeled breaks were never resolved at all. Two
+  spots fixed: (1) `analyzeEval` now assigns the synthetic switch break variable only when
+  `InternalVariables.breakTargetsNearestOldStyleSwitch(bs)` — it resolves the break target from the shared
+  loop/switch stack (unlabeled → innermost; labeled → `goToLabel()` via the label map) and checks it is the
+  nearest enclosing old-style switch; this also fixes the *unlabeled* break that targets a loop **nested inside**
+  the switch (previously also mis-attributed). (2) `handleStatement` `breakCountsInLoop` had the identical
+  `label()`→`goToLabel()` bug (feeds `noBreakStatementsInside` loop-merge completeness) — fixed too. Regression
+  test `TestSwitchLabeledBreak` (labeled break to outer loop; unlabeled break to nested loop).
 - [ ] **M** Switch-**expression** branch assignments to outer vars treated as always-taken; the computed
   sub-block `VariableData` is discarded (`MethodAnalyzer.java:1004-1029`).
 - [ ] **M** Negative-pattern scope uses `!`-literal parity (`MethodAnalyzer.java:1180`), so `!=`, `==false`,
   short-circuit-derived negations get the wrong pattern-variable scope.
 - [ ] **M** Old-style switch fall-through (`MethodAnalyzer.java:528-587,684-699`) — most bespoke/order-sensitive
   code; low external test density.
-- [ ] **L** `continue` (esp. labeled) never adjusts `breakCountsInLoop` (`MethodAnalyzer.java:184-191`).
+- [x] **L** ~~`continue` (esp. labeled) never adjusts `breakCountsInLoop` (`MethodAnalyzer.java:184-191`).~~
+  **Fixed 2026-06-27.** A labeled `continue L` abruptly completes every loop nested inside `L` and enclosing the
+  statement; for an infinite inner loop with no break, the `noBreakStatementsInside` path wrongly produced the
+  "body definitely executes" merge (`<idx>=M`) even though `continue L` can cut the body short. `handleStatement`
+  now increments `breakCountsInLoop` for each loop strictly between the `continue` and its target (unlabeled
+  continue only continues the innermost loop, so it is not an abrupt exit and is left alone). Regression test
+  `TestLabeledContinue` (continue-outer drops the spurious merge; truly-infinite keeps it).
 - [ ] **L** `Assignments.java:238` `UnsupportedOperationException("NYI")` — latent trap for any future
   sub-block statement type not in the enumerated list.
 
