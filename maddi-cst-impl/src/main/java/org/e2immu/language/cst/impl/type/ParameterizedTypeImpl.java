@@ -27,6 +27,7 @@ import org.e2immu.language.cst.api.runtime.PredefinedWithoutParameterizedType;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.Diamond;
 import org.e2immu.language.cst.api.type.NamedType;
+import org.e2immu.language.cst.api.type.NullableState;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.Wildcard;
 import org.e2immu.language.cst.impl.element.ElementImpl;
@@ -59,6 +60,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     private final int arrays;
     private final Wildcard wildcard;
     private final List<ParameterizedType> parameters;
+    private final NullableState nullable;
 
     public ParameterizedTypeImpl(TypeParameter typeParameter, int arrays) {
         this(null, typeParameter, List.of(), arrays, null);
@@ -97,12 +99,33 @@ public class ParameterizedTypeImpl implements ParameterizedType {
                                  List<ParameterizedType> parameters,
                                  int arrays,
                                  Wildcard wildcard) {
+        this(typeInfo, typeParameter, parameters, arrays, wildcard, NullableState.UNSPECIFIED);
+    }
+
+    public ParameterizedTypeImpl(TypeInfo typeInfo,
+                                 TypeParameter typeParameter,
+                                 List<ParameterizedType> parameters,
+                                 int arrays,
+                                 Wildcard wildcard,
+                                 NullableState nullable) {
         this.typeParameter = typeParameter;
         this.typeInfo = typeInfo;
         this.arrays = arrays;
         this.wildcard = wildcard;
         this.parameters = parameters;
+        this.nullable = nullable;
         assert parameters.stream().noneMatch(ParameterizedType::isPrimitiveExcludingVoid);
+    }
+
+    @Override
+    public NullableState nullable() {
+        return nullable;
+    }
+
+    @Override
+    public ParameterizedType withNullable(NullableState nullable) {
+        if (this.nullable == nullable) return this;
+        return new ParameterizedTypeImpl(typeInfo, typeParameter, parameters, arrays, wildcard, nullable);
     }
 
     @Override
@@ -114,7 +137,8 @@ public class ParameterizedTypeImpl implements ParameterizedType {
                && Objects.equals(typeParameter, that.typeParameter)
                && Objects.equals(typeInfo, that.typeInfo)
                && Objects.equals(wildcard, that.wildcard)
-               && Objects.equals(parameters, that.parameters);
+               && Objects.equals(parameters, that.parameters)
+               && nullable == that.nullable;
     }
 
     @Override
@@ -131,6 +155,10 @@ public class ParameterizedTypeImpl implements ParameterizedType {
 
     @Override
     public int hashCode() {
+        // nullable is intentionally excluded: the equals/hashCode contract only requires equal->same
+        // hash. Keeping it out leaves every type's hash unchanged from before nullability existed, so
+        // hash-ordered collections across the analyzer keep their iteration order (Java types are all
+        // UNSPECIFIED anyway). Types differing only in nullability simply share a hash bucket.
         return Objects.hash(typeParameter, typeInfo, arrays, wildcard, parameters);
     }
 

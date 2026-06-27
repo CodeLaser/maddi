@@ -31,6 +31,17 @@ import java.util.stream.Stream;
 
 public interface ParameterizedType {
 
+    // Nullability as a first-class dimension of the type (Kotlin String?). Languages that do not track
+    // nullability always see UNSPECIFIED, leaving their behaviour unchanged. Default methods keep any
+    // alternative implementation source-compatible.
+    default NullableState nullable() {
+        return NullableState.UNSPECIFIED;
+    }
+
+    default ParameterizedType withNullable(NullableState nullable) {
+        return this;
+    }
+
     ParameterizedType applyTranslation(PredefinedWithoutParameterizedType predefined,
                                        Map<NamedType, ParameterizedType> translate);
 
