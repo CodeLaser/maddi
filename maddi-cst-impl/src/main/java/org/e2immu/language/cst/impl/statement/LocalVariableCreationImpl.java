@@ -276,8 +276,13 @@ public class LocalVariableCreationImpl extends StatementImpl implements LocalVar
 
     @Override
     public LocalVariableCreation withAdditionalLocalVariable(LocalVariableCreation singleLvc) {
-        Source mergeDetailedSources = source().mergeDetailedSources(singleLvc.source().detailedSources());
-        return new LocalVariableCreationImpl(comments(), mergeDetailedSources, annotations(), label(), localVariable,
+        // the merged statement must span from the first declarator up to and including the newly added one;
+        // keeping only source() would truncate the statement's source at the first declarator's comma.
+        Source mergedDetails = source().mergeDetailedSources(singleLvc.source().detailedSources());
+        Source spanned = source().max(singleLvc.source())
+                .withIndex(source().index())
+                .withDetailedSources(mergedDetails.detailedSources());
+        return new LocalVariableCreationImpl(comments(), spanned, annotations(), label(), localVariable,
                 Stream.concat(otherLocalVariables.stream(), Stream.of(singleLvc.localVariable())).toList(), modifiers);
     }
 

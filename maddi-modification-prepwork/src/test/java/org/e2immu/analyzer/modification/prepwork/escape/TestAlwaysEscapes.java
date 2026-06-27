@@ -340,4 +340,89 @@ public class TestAlwaysEscapes extends CommonTest {
         assertTrue(s1.finallyBlock().alwaysEscapes());
     }
 
+
+    // BUG #1: in a 'while(true)' body, an earlier (conditional) 'break' is masked by a later unconditional escape:
+    // the block reduction uses 'or', where ALWAYS has priority over BREAK, so the loop no longer sees the break and
+    // is wrongly marked as always-escaping. The loop can in fact be left via the break.
+    @Language("java")
+    private static final String INPUT8 = """
+            package a.b;
+            class X {
+                static int method1(java.util.List<String> list) {
+                    while (true) {
+                        if (list.isEmpty()) break;
+                        return list.size();
+                    }
+                    return -1;
+                }
+            }
+            """;
+
+    @DisplayName("break masked by a later return inside while(true)")
+    @Test
+    public void test8() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT8);
+        MethodInfo method = X.findUniqueMethod("method1", 1);
+        ComputeAlwaysEscapes.go(method);
+        Statement s0 = method.methodBody().statements().getFirst();
+        // the while can be left through the break, so it does not always escape
+        assertFalse(s0.alwaysEscapes());
+    }
+
+
+    // BUG #2: a new-style switch statement without a 'default' (and not provably exhaustive) can fall through, but the
+    // reduce(ALWAYS, and) over the entries reports it as always-escaping when every listed case escapes.
+    @Language("java")
+    private static final String INPUT9 = """
+            package a.b;
+            class X {
+                static int method1(int x) {
+                    switch (x) {
+                        case 1 -> { return 1; }
+                        case 2 -> { return 2; }
+                    }
+                    return 0;
+                }
+            }
+            """;
+
+    @DisplayName("new-style switch without default falls through")
+    @Test
+    public void test9() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT9);
+        MethodInfo method = X.findUniqueMethod("method1", 1);
+        ComputeAlwaysEscapes.go(method);
+        Statement s0 = method.methodBody().statements().getFirst();
+        // no default: control reaches the 'return 0' below, so the switch does not always escape
+        assertFalse(s0.alwaysEscapes());
+    }
+
+
+    // BUG #3: a 'break' inside an (old-style) switch leaves the switch, not an enclosing loop, but it is propagated as
+    // a loop BREAK. The 'while(true)' is therefore wrongly judged able to exit, while it is in fact infinite.
+    @Language("java")
+    private static final String INPUT10 = """
+            package a.b;
+            class X {
+                static int method1(int x) {
+                    while (true) {
+                        switch (x) {
+                            case 1: break;
+                        }
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("switch break inside while(true) does not exit the loop")
+    @Test
+    public void test10() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT10);
+        MethodInfo method = X.findUniqueMethod("method1", 1);
+        ComputeAlwaysEscapes.go(method);
+        Statement s0 = method.methodBody().statements().getFirst();
+        // the switch break exits the switch only; the while(true) is infinite and always escapes
+        assertTrue(s0.alwaysEscapes());
+    }
+
 }

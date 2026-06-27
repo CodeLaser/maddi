@@ -1122,6 +1122,9 @@ public class MethodAnalyzer {
                                                   Set<TypeInfo> typeHierarchy,
                                                   VariableInfoMap closure) {
             VariableData vd = analysis.getOrNull(VariableDataImpl.VARIABLE_DATA, VariableDataImpl.class);
+            // null when the inner type's body was not analyzed (e.g. options.doNotRecurseIntoAnonymous()): there
+            // is no variable data to copy enclosing-variable reads from, so there is nothing to do
+            if (vd == null) return;
             vd.variableInfoStream().forEach(vi -> {
                 Variable v = vi.variable();
                 boolean accept = acceptForCopy(v, localFields, typeHierarchy, closure);
