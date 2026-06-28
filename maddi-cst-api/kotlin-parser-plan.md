@@ -155,8 +155,15 @@ maddi clients — **its API must not change**, it's already used by the maddi & 
   Kotlin source resolves to a real symbol (verified: a non-builtin `java.util.UUID` resolves to FQN
   `java.util.UUID`). Library types still get a shell `TypeInfo` (correct identity + arity), not yet a
   full hierarchy/members.
-  *Remaining:* (a) **deepen library shells** — convert the *real* resolved `KaClassSymbol` (supertypes,
-  bounds, members) instead of an empty shell; (b) extract `maddi-inspection-kotlin` with an
+  **Deepen library shells — DONE (hierarchy).** `loadLibraryType` converts a non-mapped library/JDK type
+  from its real `KaNamedClassSymbol` (the analogue of `ClassSymbolScanner.loadType` LAZILY): type nature,
+  type-parameter arity, and the supertype hierarchy (parent class + interfaces), registered before its
+  supertypes load so cycles terminate. Verified: `java.util.UUID` resolves with parent `Object` and
+  interfaces `java.io.Serializable` + `java.lang.Comparable`. Mapped types (`List`, `String`, …) stay
+  shells — their Kotlin-builtin symbol is not the Java view, so deepening them needs the actual Java
+  symbol (later).
+  *Remaining:* (a) type-parameter **bounds** and **members** (methods/fields) on loaded library types;
+  deepen **mapped** types from their Java symbol; (b) extract `maddi-inspection-kotlin` with an
   `InputConfiguration`-driven entry and a receptacle `CompiledTypesManager`; (c) `JavaInspector` surface,
   preloading, round-trip print via `print2`.
 

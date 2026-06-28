@@ -262,4 +262,20 @@ class KotlinScanTest {
         val id = types.first().findUniqueMethod("id", 0).returnType()
         assertEquals("java.util.UUID", id.typeInfo().fullyQualifiedName())
     }
+
+    @Test
+    fun deepensLibraryTypeHierarchy() {
+        // a non-mapped library type is loaded from its real symbol: nature + supertype hierarchy
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "U.kt",
+            "import java.util.UUID\nclass U { fun id(): UUID = UUID.randomUUID() }\n"
+        )
+        val uuid = types.first().findUniqueMethod("id", 0).returnType().typeInfo()
+
+        assertEquals(runtime.objectParameterizedType(), uuid.parentClass())
+        val interfaceFqns = uuid.interfacesImplemented().map { it.typeInfo().fullyQualifiedName() }.toSet()
+        assertTrue(interfaceFqns.contains("java.io.Serializable"), "interfaces were $interfaceFqns")
+        assertTrue(interfaceFqns.contains("java.lang.Comparable"), "interfaces were $interfaceFqns")
+    }
 }
