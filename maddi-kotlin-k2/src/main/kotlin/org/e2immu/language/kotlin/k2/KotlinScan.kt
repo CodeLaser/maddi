@@ -62,14 +62,16 @@ import java.nio.file.Files
  * Generics/class-type resolution, operators/references/calls in bodies, and properties arrive in later
  * milestones (see kotlin-parser-plan.md).
  */
-class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet) {
-
+class KotlinScan(
+    private val runtime: Runtime,
+    private val sourceSet: SourceSet,
     // The one shared type registry (source + library types), so single-instance-per-(FQN, sourceSet)
-    // holds and can later be shared with the Java parser. Reset per parse() (single-use per call).
-    private lateinit var infoByFqn: InfoByFqn
-
-    // Loader/receptacle for library types (JDK, kotlin-stdlib, jars); deposits into infoByFqn by JVM FQN.
-    private lateinit var symbolScanner: KotlinSymbolScanner
+    // holds and can be shared (with a CompiledTypesManager receptacle, and later the Java parser). A
+    // driver passes a shared instance; standalone callers get a fresh one. One scan per instance.
+    private val infoByFqn: InfoByFqn = InfoByFqn(),
+) {
+    // Loader for library types (JDK, kotlin-stdlib, jars); deposits into infoByFqn by JVM FQN.
+    private val symbolScanner = KotlinSymbolScanner(runtime, infoByFqn, sourceSet)
 
     // One-level guard: while loading a library type's members, types referenced by those member
     // signatures are loaded hierarchy-only (no members), to bound the cascade.
@@ -132,9 +134,6 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
      * real classpath before calling this); this is where multi-file projects are handled.
      */
     fun convert(ktFiles: List<KtFile>): List<TypeInfo> {
-        infoByFqn = InfoByFqn()
-        symbolScanner = KotlinSymbolScanner(runtime, infoByFqn, sourceSet)
-
         // pass A (all files): create + register every type so cross-file references resolve
         val perFile = ktFiles.map { ktFile ->
             val compilationUnit = compilationUnitFor(ktFile)

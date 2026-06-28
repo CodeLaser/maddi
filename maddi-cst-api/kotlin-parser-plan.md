@@ -172,9 +172,15 @@ maddi clients — **its API must not change**, it's already used by the maddi & 
   constructors not loaded; type-parameter **bounds** deferred; a type loaded hierarchy-only (as a
   supertype or member-signature type) won't gain members if later referenced directly (needs a
   `COMPLETE`-style re-load, à la `ClassSymbolScanner`).
-  *Remaining:* deepen **mapped** types from their Java symbol; (b) extract `maddi-inspection-kotlin` with
-  an `InputConfiguration`-driven entry and a receptacle `CompiledTypesManager`; (c) `JavaInspector`
-  surface, preloading, round-trip print via `print2`.
+  **Module extracted — DONE.** `maddi-inspection-kotlin` (the analogue of `maddi-inspection-openjdk`)
+  holds `KotlinInspector` (an `InputConfiguration`-driven driver that owns the shared `InfoByFqn` and
+  drives `KotlinScan`) and `KotlinCompiledTypesManager` — a receptacle that is a **view over the shared
+  `InfoByFqn`** (its `get` delegates to `getType`). Verified: after `parse`, the manager's
+  `get("java.util.UUID")` returns the **same instance** (`assertSame`) the scan produced. `KotlinScan`
+  now takes the `InfoByFqn` as a constructor arg so the driver owns it.
+  *Remaining:* deepen **mapped** types from their Java symbol; member modifiers (static/modality/
+  visibility), fields, constructors; multi-source-set ordering; classpath from `InputConfiguration`
+  (currently the running process's); the full `JavaInspector` surface; round-trip print via `print2`.
 
 ### Multi-source-set & mixed Kotlin/Java modules (design note)
 
