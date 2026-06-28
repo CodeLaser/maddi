@@ -188,11 +188,9 @@ class KotlinScan(
             .filterIsInstance<KaNamedFunctionSymbol>()
             .forEach { function -> typeInfo.builder().addMethod(convertMethod(typeInfo, function)) }
 
-        typeInfo.builder()
-            .setTypeNature(runtime.typeNatureClass())
-            .setParentClass(runtime.objectParameterizedType())
-            .setAccess(runtime.accessPublic())
-            .commit()
+        val builder = typeInfo.builder()
+        applyHierarchy(builder, typeInfo, classSymbol)
+        builder.setAccess(runtime.accessPublic()).commit()
     }
 
     /** Convert one declared function symbol into a committed CST method (with parameters and body). */
@@ -337,18 +335,9 @@ class KotlinScan(
         }
         infoByFqn.put(jvmFqn, typeInfo, sourceSet) // register before loading supertypes (cycles)
 
-        var parentClass: ParameterizedType? = null
         val builder = typeInfo.builder()
-        symbol.superTypes.forEach { superType ->
-            val pt = mapType(superType, typeInfo)
-            if (pt.isJavaLangObject) return@forEach
-            val superKind = (superType as? KaClassType)?.symbol?.let { (it as? KaClassSymbol)?.classKind }
-            if (superKind == KaClassKind.INTERFACE) builder.addInterfaceImplemented(pt) else parentClass = pt
-        }
-        builder
-            .setTypeNature(natureFor(symbol.classKind))
-            .setParentClass(parentClass ?: runtime.objectParameterizedType())
-            .setAccess(runtime.accessPublic())
+        applyHierarchy(builder, typeInfo, symbol)
+        builder.setAccess(runtime.accessPublic())
 
         // Members, one level deep: skip while already loading members (bounds the cascade — types named
         // only by these signatures are loaded hierarchy-only).
@@ -380,6 +369,19 @@ class KotlinScan(
             .commitParameters()
             .commit()
         return method
+    }
+
+    /** Set type nature and supertypes (parent class + interfaces) from the resolved class symbol. */
+    private fun KaSession.applyHierarchy(builder: TypeInfo.Builder, owner: TypeInfo, classSymbol: KaClassSymbol) {
+        var parentClass: ParameterizedType? = null
+        classSymbol.superTypes.forEach { superType ->
+            val pt = mapType(superType, owner)
+            if (pt.isJavaLangObject) return@forEach // implicit Any/Object supertype
+            val superKind = (superType as? KaClassType)?.symbol?.let { (it as? KaClassSymbol)?.classKind }
+            if (superKind == KaClassKind.INTERFACE) builder.addInterfaceImplemented(pt) else parentClass = pt
+        }
+        builder.setTypeNature(natureFor(classSymbol.classKind))
+            .setParentClass(parentClass ?: runtime.objectParameterizedType())
     }
 
     private fun natureFor(kind: KaClassKind): TypeNature = when (kind) {

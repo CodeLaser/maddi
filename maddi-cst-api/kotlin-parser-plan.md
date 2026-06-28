@@ -122,6 +122,11 @@ mostly *shoehorn* onto existing nodes.
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API
 addition from the assessment doc (priority order ranked there).
+- **Type structure — DONE.** Source types now get their real **nature** (interface/enum/annotation via
+  `classKind`; `object`/`data class` → class for now) and **supertypes** (parent class + interfaces),
+  via a shared `applyHierarchy` helper reused by source and library loading. Verified:
+  `class Circle : Base(), Shape` → parent `Base`, interface `Shape` (both source types); `interface`/
+  `enum class`/`object` natures classify correctly.
 
 **M5 — Type manager, driver & integration.** Mirrors openjdk's split: `ClassSymbolScanner` is the
 *internal* type manager; `CompiledTypesManager` is the *external* one (shared across source sets, used by
