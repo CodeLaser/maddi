@@ -277,5 +277,15 @@ class KotlinScanTest {
         val interfaceFqns = uuid.interfacesImplemented().map { it.typeInfo().fullyQualifiedName() }.toSet()
         assertTrue(interfaceFqns.contains("java.io.Serializable"), "interfaces were $interfaceFqns")
         assertTrue(interfaceFqns.contains("java.lang.Comparable"), "interfaces were $interfaceFqns")
+
+        // members are loaded (signatures): the directly-referenced library type has its real methods
+        val methodNames = uuid.methods().map { it.name() }.toSet()
+        assertTrue(methodNames.contains("toString"), "methods were $methodNames")
+        assertTrue(methodNames.contains("compareTo"), "methods were $methodNames")
+        // a method with a simple return type resolves it: getMostSignificantBits(): long
+        assertEquals(
+            runtime.longParameterizedType(),
+            uuid.findUniqueMethod("getMostSignificantBits", 0).returnType()
+        )
     }
 }
