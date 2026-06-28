@@ -25,10 +25,13 @@ import org.e2immu.language.cst.api.statement.Block
 import org.e2immu.language.cst.api.statement.Statement
 import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.api.type.ParameterizedType
+import org.e2immu.language.cst.api.type.TypeNature
 import org.e2immu.language.inspection.resource.InfoByFqn
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
+import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
+import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
@@ -293,15 +296,65 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
             "kotlin.String" -> return runtime.stringParameterizedType()
             "kotlin.Any" -> return runtime.objectParameterizedType()
         }
-        // a sibling source type (resolved under its Kotlin FQN), or a library type loaded under its
-        // mapped JVM identity — both from the one shared registry
-        val typeInfo = infoByFqn.getType(type.classId.asFqNameString(), sourceSet)
-            ?: symbolScanner.getOrLoad(mapToJvmFqn(type.classId), type.typeArguments.size)
+        val kotlinFqn = type.classId.asFqNameString()
+        // already known (a sibling source type, or a previously loaded library type), else load it:
+        val typeInfo = infoByFqn.getType(kotlinFqn, sourceSet) ?: run {
+            val jvmFqn = mapToJvmFqn(type.classId)
+            if (jvmFqn != kotlinFqn) symbolScanner.getOrLoad(jvmFqn, type.typeArguments.size) // mapped -> shell
+            else loadLibraryType(type.symbol as KaNamedClassSymbol, jvmFqn) // non-mapped -> deepen from symbol
+        }
+        return parameterize(typeInfo, type, owner)
+    }
+
+    /** Build the parameterized type for [typeInfo], converting and boxing the use-site type arguments. */
+    private fun KaSession.parameterize(typeInfo: TypeInfo, type: KaClassType, owner: TypeInfo): ParameterizedType {
         val typeArguments = type.typeArguments.map { projection ->
             val arg = projection.type?.let { mapType(it, owner) } ?: runtime.objectParameterizedType() // star
             if (arg.isPrimitiveExcludingVoid) arg.ensureBoxed(runtime) else arg // List<Int> -> List<Integer>
         }
         return runtime.newParameterizedType(typeInfo, typeArguments)
+    }
+
+    /**
+     * Load a non-mapped library/JDK type from its real resolved symbol (the analogue of openjdk's
+     * `ClassSymbolScanner.loadType` in LAZILY mode): type nature, type-parameter arity, and the
+     * supertype hierarchy (parent class + interfaces). The type is registered *before* its supertypes
+     * are loaded so self/cyclic references terminate. Type-parameter bounds and members are deferred.
+     */
+    private fun KaSession.loadLibraryType(symbol: KaNamedClassSymbol, jvmFqn: String): TypeInfo {
+        infoByFqn.getType(jvmFqn, sourceSet)?.let { return it }
+        val typeInfo = runtime.newTypeInfo(
+            runtime.newCompilationUnitStub(jvmFqn.substringBeforeLast('.', "")),
+            jvmFqn.substringAfterLast('.')
+        )
+        symbol.typeParameters.forEachIndexed { i, tp ->
+            val cstTp = runtime.newTypeParameter(i, tp.name.asString(), typeInfo)
+            cstTp.builder().setTypeBounds(listOf()).commit() // bounds deferred
+            typeInfo.builder().addOrSetTypeParameter(cstTp)
+        }
+        infoByFqn.put(jvmFqn, typeInfo, sourceSet) // register before loading supertypes (cycles)
+
+        var parentClass: ParameterizedType? = null
+        val builder = typeInfo.builder()
+        symbol.superTypes.forEach { superType ->
+            val pt = mapType(superType, typeInfo)
+            if (pt.isJavaLangObject) return@forEach
+            val superKind = (superType as? KaClassType)?.symbol?.let { (it as? KaClassSymbol)?.classKind }
+            if (superKind == KaClassKind.INTERFACE) builder.addInterfaceImplemented(pt) else parentClass = pt
+        }
+        builder
+            .setTypeNature(natureFor(symbol.classKind))
+            .setParentClass(parentClass ?: runtime.objectParameterizedType())
+            .setAccess(runtime.accessPublic())
+            .commit()
+        return typeInfo
+    }
+
+    private fun natureFor(kind: KaClassKind): TypeNature = when (kind) {
+        KaClassKind.INTERFACE -> runtime.typeNatureInterface()
+        KaClassKind.ANNOTATION_CLASS -> runtime.typeNatureAnnotation()
+        KaClassKind.ENUM_CLASS -> runtime.typeNatureEnum()
+        else -> runtime.typeNatureClass()
     }
 
     /** Kotlin's mapped types (List, String, Any, …) -> their JVM FQN; everything else keeps its own FQN. */
