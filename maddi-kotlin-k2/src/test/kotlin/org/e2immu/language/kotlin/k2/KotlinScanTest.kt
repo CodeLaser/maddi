@@ -22,6 +22,7 @@ import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl
 import org.e2immu.language.inspection.resource.SourceSetImpl
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.URI
@@ -315,5 +316,35 @@ class KotlinScanTest {
         assertEquals(types.getValue("Base"), circle.parentClass().typeInfo())
         val ifaces = circle.interfacesImplemented().map { it.typeInfo() }.toSet()
         assertTrue(ifaces.contains(types.getValue("Shape")), "interfaces were $ifaces")
+    }
+
+    @Test
+    fun visibilityAndModifiers() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            mapOf(
+                "V.kt" to """
+                    abstract class Base {
+                        abstract fun f(): Int
+                        private fun secret(): Int = 1
+                    }
+                    open class Sub : Base() { override fun f(): Int = 0 }
+                    class Final
+                """.trimIndent() + "\n"
+            )
+        ).associateBy { it.simpleName() }
+
+        val base = types.getValue("Base")
+        // abstract class -> abstract type modifier; abstract fun -> abstract method modifier
+        assertTrue(base.typeModifiers().contains(runtime.typeModifierAbstract()))
+        assertTrue(base.findUniqueMethod("f", 0).methodModifiers().contains(runtime.methodModifierAbstract()))
+        // private fun -> private (access + modifier)
+        val secret = base.findUniqueMethod("secret", 0)
+        assertEquals(runtime.accessPrivate(), secret.access())
+        assertTrue(secret.methodModifiers().contains(runtime.methodModifierPrivate()))
+
+        // Kotlin default is final; `open` removes it
+        assertTrue(types.getValue("Final").typeModifiers().contains(runtime.typeModifierFinal()))
+        assertFalse(types.getValue("Sub").typeModifiers().contains(runtime.typeModifierFinal()))
     }
 }

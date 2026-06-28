@@ -127,6 +127,11 @@ addition from the assessment doc (priority order ranked there).
   via a shared `applyHierarchy` helper reused by source and library loading. Verified:
   `class Circle : Base(), Shape` → parent `Base`, interface `Shape` (both source types); `interface`/
   `enum class`/`object` natures classify correctly.
+- **Visibility & modifiers — DONE.** `accessFor`/`addMethodModifiers` map Kotlin visibility
+  (`private`/`protected`/`public`; `internal`→public for now — no CST `Access` yet) and modality
+  (`abstract`/`final`; `open`→none) onto types (Access + type modifier) and methods (Access + method
+  modifiers), at all four sites (source/library × type/method). Verified: `abstract class`/`abstract fun`
+  carry abstract, `private fun` is private, Kotlin-default classes are `final`, `open` classes are not.
 
 **M5 — Type manager, driver & integration.** Mirrors openjdk's split: `ClassSymbolScanner` is the
 *internal* type manager; `CompiledTypesManager` is the *external* one (shared across source sets, used by
