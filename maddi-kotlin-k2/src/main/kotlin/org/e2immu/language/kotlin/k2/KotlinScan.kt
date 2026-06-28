@@ -71,6 +71,10 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
     // Loader/receptacle for library types (JDK, kotlin-stdlib, jars); deposits into infoByFqn by JVM FQN.
     private lateinit var symbolScanner: KotlinSymbolScanner
 
+    // One-level guard: while loading a library type's members, types referenced by those member
+    // signatures are loaded hierarchy-only (no members), to bound the cascade.
+    private var loadingMembers = false
+
     /** Parse one in-memory Kotlin source file and return its primary CST types (test convenience). */
     fun parse(fileName: String, content: String): List<TypeInfo> = parse(mapOf(fileName to content))
 
@@ -346,8 +350,37 @@ class KotlinScan(private val runtime: Runtime, private val sourceSet: SourceSet)
             .setTypeNature(natureFor(symbol.classKind))
             .setParentClass(parentClass ?: runtime.objectParameterizedType())
             .setAccess(runtime.accessPublic())
-            .commit()
+
+        // Members, one level deep: skip while already loading members (bounds the cascade — types named
+        // only by these signatures are loaded hierarchy-only).
+        if (!loadingMembers) {
+            loadingMembers = true
+            try {
+                symbol.declaredMemberScope.declarations
+                    .filterIsInstance<KaNamedFunctionSymbol>()
+                    .forEach { builder.addMethod(convertLibraryMethod(typeInfo, it)) }
+            } finally {
+                loadingMembers = false
+            }
+        }
+        builder.commit()
         return typeInfo
+    }
+
+    /** A library method: signature only (params + return type), no body (the analogue of a class-file method). */
+    private fun KaSession.convertLibraryMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo {
+        val method = runtime.newMethod(owner, function.name.asString(), runtime.methodTypeMethod())
+        val builder = method.builder()
+        function.valueParameters.forEach { p -> builder.addParameter(p.name.asString(), mapType(p.returnType, owner)) }
+        builder
+            .setReturnType(mapType(function.returnType, owner))
+            .setMethodBody(runtime.emptyBlock())
+            .setMissingData(runtime.methodMissingMethodBody()) // no body available (like a class-file method)
+            .addMethodModifier(runtime.methodModifierPublic())
+            .setAccess(runtime.accessPublic())
+            .commitParameters()
+            .commit()
+        return method
     }
 
     private fun natureFor(kind: KaClassKind): TypeNature = when (kind) {

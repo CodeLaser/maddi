@@ -162,10 +162,19 @@ maddi clients — **its API must not change**, it's already used by the maddi & 
   interfaces `java.io.Serializable` + `java.lang.Comparable`. Mapped types (`List`, `String`, …) stay
   shells — their Kotlin-builtin symbol is not the Java view, so deepening them needs the actual Java
   symbol (later).
-  *Remaining:* (a) type-parameter **bounds** and **members** (methods/fields) on loaded library types;
-  deepen **mapped** types from their Java symbol; (b) extract `maddi-inspection-kotlin` with an
-  `InputConfiguration`-driven entry and a receptacle `CompiledTypesManager`; (c) `JavaInspector` surface,
-  preloading, round-trip print via `print2`.
+  **Members — DONE (methods).** `loadLibraryType` now also loads method signatures (params + return
+  type, no body + `methodMissingMethodBody` marker) on a *directly-referenced* library type. A one-level
+  reentrancy guard (`loadingMembers`) keeps the cascade bounded: types named only by member signatures
+  load hierarchy-only. Verified: `java.util.UUID` has `toString`/`compareTo`, and
+  `getMostSignificantBits(): long` resolves.
+  *Known gaps:* inherited/method-level **type parameters** resolve to Object (e.g. `compareTo`'s `T`
+  from `Comparable<T>`); static-ness/modality/visibility not yet mapped (all public); fields &
+  constructors not loaded; type-parameter **bounds** deferred; a type loaded hierarchy-only (as a
+  supertype or member-signature type) won't gain members if later referenced directly (needs a
+  `COMPLETE`-style re-load, à la `ClassSymbolScanner`).
+  *Remaining:* deepen **mapped** types from their Java symbol; (b) extract `maddi-inspection-kotlin` with
+  an `InputConfiguration`-driven entry and a receptacle `CompiledTypesManager`; (c) `JavaInspector`
+  surface, preloading, round-trip print via `print2`.
 
 ### Multi-source-set & mixed Kotlin/Java modules (design note)
 
