@@ -288,4 +288,32 @@ class KotlinScanTest {
             uuid.findUniqueMethod("getMostSignificantBits", 0).returnType()
         )
     }
+
+    @Test
+    fun typeNatureAndSupertypes() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            mapOf(
+                "Shapes.kt" to """
+                    interface Shape
+                    abstract class Base
+                    class Circle : Base(), Shape
+                    enum class Color { RED, GREEN }
+                    object Registry
+                """.trimIndent() + "\n"
+            )
+        ).associateBy { it.simpleName() }
+
+        // type natures classify correctly
+        assertTrue(types.getValue("Shape").typeNature().isInterface)
+        assertTrue(types.getValue("Color").typeNature().isEnum)
+        assertTrue(types.getValue("Circle").typeNature().isClass)
+        assertTrue(types.getValue("Registry").typeNature().isClass) // object -> class
+
+        // source supertypes: Circle extends Base, implements Shape (both source types)
+        val circle = types.getValue("Circle")
+        assertEquals(types.getValue("Base"), circle.parentClass().typeInfo())
+        val ifaces = circle.interfacesImplemented().map { it.typeInfo() }.toSet()
+        assertTrue(ifaces.contains(types.getValue("Shape")), "interfaces were $ifaces")
+    }
 }
