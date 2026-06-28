@@ -17,6 +17,7 @@ package org.e2immu.language.kotlin.k2
 import org.e2immu.language.cst.api.element.CompilationUnit
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.expression.Expression
+import org.e2immu.language.cst.api.info.Access
 import org.e2immu.language.cst.api.info.MethodInfo
 import org.e2immu.language.cst.api.info.TypeInfo
 import org.e2immu.language.cst.api.info.Variance
@@ -32,8 +33,11 @@ import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
+import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
@@ -190,7 +194,7 @@ class KotlinScan(
 
         val builder = typeInfo.builder()
         applyHierarchy(builder, typeInfo, classSymbol)
-        builder.setAccess(runtime.accessPublic()).commit()
+        builder.setAccess(accessFor(classSymbol)).commit()
     }
 
     /** Convert one declared function symbol into a committed CST method (with parameters and body). */
@@ -204,10 +208,9 @@ class KotlinScan(
         builder
             .setReturnType(returnType)
             .setMethodBody(convertBody(function, returnType))
-            .addMethodModifier(runtime.methodModifierPublic())
-            .setAccess(runtime.accessPublic())
-            .commitParameters()
-            .commit()
+            .setAccess(accessFor(function))
+        addMethodModifiers(builder, function)
+        builder.commitParameters().commit()
         return method
     }
 
@@ -337,7 +340,7 @@ class KotlinScan(
 
         val builder = typeInfo.builder()
         applyHierarchy(builder, typeInfo, symbol)
-        builder.setAccess(runtime.accessPublic())
+        builder.setAccess(accessFor(symbol))
 
         // Members, one level deep: skip while already loading members (bounds the cascade — types named
         // only by these signatures are loaded hierarchy-only).
@@ -364,10 +367,9 @@ class KotlinScan(
             .setReturnType(mapType(function.returnType, owner))
             .setMethodBody(runtime.emptyBlock())
             .setMissingData(runtime.methodMissingMethodBody()) // no body available (like a class-file method)
-            .addMethodModifier(runtime.methodModifierPublic())
-            .setAccess(runtime.accessPublic())
-            .commitParameters()
-            .commit()
+            .setAccess(accessFor(function))
+        addMethodModifiers(builder, function)
+        builder.commitParameters().commit()
         return method
     }
 
@@ -382,6 +384,12 @@ class KotlinScan(
         }
         builder.setTypeNature(natureFor(classSymbol.classKind))
             .setParentClass(parentClass ?: runtime.objectParameterizedType())
+        when (classSymbol.modality) {
+            KaSymbolModality.ABSTRACT -> builder.addTypeModifier(runtime.typeModifierAbstract())
+            KaSymbolModality.SEALED -> builder.addTypeModifier(runtime.typeModifierSealed())
+            KaSymbolModality.FINAL -> builder.addTypeModifier(runtime.typeModifierFinal())
+            else -> {} // OPEN
+        }
     }
 
     private fun natureFor(kind: KaClassKind): TypeNature = when (kind) {
@@ -389,6 +397,29 @@ class KotlinScan(
         KaClassKind.ANNOTATION_CLASS -> runtime.typeNatureAnnotation()
         KaClassKind.ENUM_CLASS -> runtime.typeNatureEnum()
         else -> runtime.typeNatureClass()
+    }
+
+    // Kotlin `internal` (module visibility) has no CST Access yet -> mapped to public for now.
+    private fun accessFor(symbol: KaDeclarationSymbol): Access = when (symbol.visibility) {
+        KaSymbolVisibility.PRIVATE -> runtime.accessPrivate()
+        KaSymbolVisibility.PROTECTED -> runtime.accessProtected()
+        KaSymbolVisibility.PACKAGE_PRIVATE -> runtime.accessPackage()
+        else -> runtime.accessPublic() // PUBLIC, INTERNAL, LOCAL, UNKNOWN
+    }
+
+    private fun addMethodModifiers(builder: MethodInfo.Builder, symbol: KaDeclarationSymbol) {
+        when (symbol.visibility) {
+            KaSymbolVisibility.PRIVATE -> builder.addMethodModifier(runtime.methodModifierPrivate())
+            KaSymbolVisibility.PROTECTED -> builder.addMethodModifier(runtime.methodModifierProtected())
+            KaSymbolVisibility.PUBLIC, KaSymbolVisibility.INTERNAL ->
+                builder.addMethodModifier(runtime.methodModifierPublic())
+            else -> {}
+        }
+        when (symbol.modality) {
+            KaSymbolModality.ABSTRACT -> builder.addMethodModifier(runtime.methodModifierAbstract())
+            KaSymbolModality.FINAL -> builder.addMethodModifier(runtime.methodModifierFinal())
+            else -> {} // OPEN -> no modifier (overridable is the JVM default)
+        }
     }
 
     /** Kotlin's mapped types (List, String, Any, …) -> their JVM FQN; everything else keeps its own FQN. */
