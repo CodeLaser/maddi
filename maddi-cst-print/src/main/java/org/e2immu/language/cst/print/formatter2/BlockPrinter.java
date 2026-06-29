@@ -27,8 +27,41 @@ public class BlockPrinter {
     private static final Logger LOGGER = LoggerFactory.getLogger(BlockPrinter.class);
     public static final int GUIDE_SPLIT = 10;
 
+    /*
+    A guide block (parameter list, argument list, method chain, …) marks one of these levels at
+    each boundary between its sub-blocks. The level governs what happens at that boundary in the
+    two layout paths: chop-down (one element per line) and greedy fill (pack until overflow).
+
+    Listed weakest → strongest; callers can compare with `compareTo(...) >= 0`.
+
+      NONE_IF_COMPACT
+        No separator is wanted at this boundary at all — no space, no newline. Used between
+        segments that visually belong together, e.g. the dots in a method chain
+        `foo.bar().baz()`. Greedy fill will not even insert a space here when staying on the
+        same line; the chop-down loop still splits at every boundary (its existing behaviour),
+        but no extra space is ever inserted into the joined line.
+
+      SINGLE_NEWLINE
+        The "ordinary" split candidate. Chop-down always breaks here. Greedy fill keeps the
+        boundary on the same line and inserts a single space if there isn't one already,
+        unless the next chunk would overflow the line — then it breaks with one newline and
+        continuation indent.
+
+      FORCED_NEWLINE
+        Like SINGLE_NEWLINE but greedy MUST break here, regardless of remaining budget. Used
+        to isolate sub-blocks that themselves wrap a nested guide block (a structured arg
+        like `inner(x, y, z)` inside another call), so the structured arg sits on its own
+        rendered line instead of being glued to its flat neighbours. Chop-down treats it
+        identically to SINGLE_NEWLINE (one newline, no blank line).
+
+      DOUBLE_NEWLINE
+        Strongest level. Break with a blank line in between (newline + newline + indent).
+        Used when both neighbours themselves wrapped onto multiple lines, so the eye gets a
+        breathing space between the two multi-line blocks. Always honoured by both layout
+        paths and never demoted by `isolateNestedGuide`.
+     */
     enum SplitLevel {
-        NONE_IF_COMPACT, SINGLE_NEWLINE, DOUBLE_NEWLINE;
+        NONE_IF_COMPACT, SINGLE_NEWLINE, FORCED_NEWLINE, DOUBLE_NEWLINE;
     }
 
     // split level (the higher the better) to position to 'doubleSplit'
@@ -93,28 +126,71 @@ public class BlockPrinter {
         StringBuilder sb = new StringBuilder();
         boolean hasBeenSplit = false;
         Output prevOutput = null;
+        boolean prevHasNestedGuide = false;
         for (OutputElement element : block.elements()) {
-            if (element instanceof Formatter2Impl.Block sub) {
-                Output output = write(sub, options);
-                SplitLevel splitLevel;
-                if (prevOutput != null && prevOutput.hasBeenSplit && output.hasBeenSplit) {
-                    splitLevel = SplitLevel.DOUBLE_NEWLINE;
-                } else if (output.spaceLevel().isNoSpace()) {
-                    splitLevel = SplitLevel.NONE_IF_COMPACT;
-                } else {
-                    splitLevel = SplitLevel.SINGLE_NEWLINE;
-                    if(output.spaceLevel().isNewLine()) { // TODO is this a hack? to ensure that the NEWLINE of '//' passes
-                        hasBeenSplit = true;
-                    }
-                }
-                guideSplits.put(sb.length(), splitLevel);
-                sb.append(output.string);
-                hasBeenSplit |= output.hasBeenSplit;
-                prevOutput = output;
-            } else throw new UnsupportedOperationException();
+            if (!(element instanceof Formatter2Impl.Block sub)) throw new UnsupportedOperationException();
+            Output output = write(sub, options);
+            boolean currentHasNestedGuide = containsNestedGuideBlock(sub);
+            SplitLevel splitLevel = baseSplitLevel(prevOutput, output);
+            splitLevel = isolateNestedGuide(splitLevel, prevHasNestedGuide, currentHasNestedGuide);
+            if (splitLevel == SplitLevel.SINGLE_NEWLINE && output.spaceLevel().isNewLine()) {
+                // TODO is this a hack? to ensure that the NEWLINE of '//' passes
+                hasBeenSplit = true;
+            }
+            guideSplits.put(sb.length(), splitLevel);
+            sb.append(output.string);
+            hasBeenSplit |= output.hasBeenSplit;
+            prevOutput = output;
+            prevHasNestedGuide = currentHasNestedGuide;
         }
         Line.SpaceLevel spaceLevel = hasBeenSplit ? Line.SpaceLevel.NEWLINE : Line.SpaceLevel.NO_SPACE;
         return new Output(sb.toString(), hasBeenSplit, splitInfo, spaceLevel);
+    }
+
+    /*
+    The base level computed purely from the previous and current sub-block outputs —
+    independent of any "force isolation" decision based on nested guide blocks.
+     */
+    private static SplitLevel baseSplitLevel(Output prevOutput, Output output) {
+        if (prevOutput != null && prevOutput.hasBeenSplit && output.hasBeenSplit) {
+            return SplitLevel.DOUBLE_NEWLINE;
+        }
+        if (output.spaceLevel().isNoSpace()) {
+            return SplitLevel.NONE_IF_COMPACT;
+        }
+        return SplitLevel.SINGLE_NEWLINE;
+    }
+
+    /*
+    Promote the split at the boundary BEFORE the current sub-block to FORCED_NEWLINE when
+    either neighbour wraps a nested guide block (a method-call arg-list, a generic
+    parameter list, etc.). That keeps a structured argument visually isolated from the
+    arguments around it, both before and after, without affecting DOUBLE_NEWLINE.
+     */
+    private static SplitLevel isolateNestedGuide(SplitLevel base,
+                                                 boolean prevHasNestedGuide,
+                                                 boolean currentHasNestedGuide) {
+        // DOUBLE_NEWLINE outranks FORCED_NEWLINE (blank line). NONE_IF_COMPACT is a deliberate
+        // "no separator wanted" marker (method chains: `.map(...).findAny()`) — leave it alone
+        // even if its segments wrap nested guide blocks.
+        if (base == SplitLevel.DOUBLE_NEWLINE || base == SplitLevel.NONE_IF_COMPACT) return base;
+        if (!prevHasNestedGuide && !currentHasNestedGuide) return base;
+        return SplitLevel.FORCED_NEWLINE;
+    }
+
+    /*
+    True when the sub-block's element list contains (anywhere, recursively) another
+    guide-typed Block. Every argument in a guide block is itself a Block, so a plain
+    structural check would over-match; we look specifically for a *guide* underneath.
+     */
+    private static boolean containsNestedGuideBlock(Formatter2Impl.Block sub) {
+        for (OutputElement e : sub.elements()) {
+            if (e instanceof Formatter2Impl.Block nested) {
+                if (nested.guide() != null) return true;
+                if (containsNestedGuideBlock(nested)) return true;
+            }
+        }
+        return false;
     }
 
     /*
@@ -169,7 +245,7 @@ public class BlockPrinter {
         int indent = sub.tab() * options.spacesInTab();
         int addToLine = output.endPos() + splits.size();
         if (output.hasBeenSplit || addToLine > line.available()) {
-            splitOutputOfBlock(line, output, indent, splits);
+            splitOutputOfBlock(line, output, indent, splits, options);
             return true;
         }
         Line.SpaceLevel spaceLevel = line.spaceLevel();
@@ -195,22 +271,98 @@ public class BlockPrinter {
     }
 
 
-    private static void splitOutputOfBlock(Line line, Output output, int indent, TreeMap<Integer, SplitLevel> splits) {
+    private static void splitOutputOfBlock(Line line, Output output, int indent, TreeMap<Integer, SplitLevel> splits,
+                                           FormattingOptions options) {
         LOGGER.debug("We need to split, and we'll split along all '{}' splits: {}; each line will be indented {}",
                 GUIDE_SPLIT, splits, indent);
         boolean allowSplitAtPosition0 = line.isNotEmptyDoesNotEndInNewLine();
 
+        // 3b fallback: if the sub-block already contains newlines (a nested block had to wrap),
+        // greedy fill would be visually confusing, so revert to chop-down.
+        boolean greedy = options.wrapStyle() == FormattingOptions.WrapStyle.GREEDY_FILL
+                && !output.string.contains("\n");
+
+        int availableBeforeAppend = line.available();
         int start = line.length();
         line.appendBeforeSplit(output.string);
-        for (Map.Entry<Integer, SplitLevel> entry : splits.entrySet()) {
-            int relativePos = entry.getKey();
-            int pos = relativePos + start;
-            assert pos < line.length();
-            if (allowSplitAtPosition0 || pos > 0) {
-                boolean doubleSplit = entry.getValue() == SplitLevel.DOUBLE_NEWLINE;
-                start += line.carryOutSplit(pos, indent, doubleSplit);
-            } // else: we never split at the beginning of the line, there must be something already
+
+        if (greedy) {
+            greedyFill(line, output.string, indent, splits, start,
+                    availableBeforeAppend, options.lengthOfLine(), allowSplitAtPosition0);
+        } else {
+            for (Map.Entry<Integer, SplitLevel> entry : splits.entrySet()) {
+                int relativePos = entry.getKey();
+                int pos = relativePos + start;
+                assert pos < line.length();
+                if (allowSplitAtPosition0 || pos > 0) {
+                    boolean doubleSplit = entry.getValue() == SplitLevel.DOUBLE_NEWLINE;
+                    start += line.carryOutSplit(pos, indent, doubleSplit);
+                } // else: we never split at the beginning of the line, there must be something already
+            }
         }
         line.computeAvailable();
+    }
+
+    /*
+    Greedy line fill: walk the candidate split positions and only insert a break when the next
+    chunk would not fit on the remaining budget of the current rendered line. DOUBLE_NEWLINE
+    positions are always split (when allowed); position 0 is never split unless allowed.
+     */
+    private static void greedyFill(Line line, String content, int indent,
+                                   TreeMap<Integer, SplitLevel> splits, int start,
+                                   int availableOnCurrentLine, int lengthOfLine,
+                                   boolean allowSplitAtPosition0) {
+        Integer[] positions = splits.keySet().toArray(new Integer[0]);
+        int n = positions.length;
+        if (n == 0) return;
+        int contentLength = content.length();
+        int subLineBudget = lengthOfLine - indent;
+
+        // chunk 0 = content[0 .. positions[0]) — always stays on the current line.
+        int remainingOnLine = availableOnCurrentLine - positions[0];
+        int cumulativeShift = 0;
+
+        for (int i = 0; i < n; i++) {
+            int p = positions[i];
+            int nextBoundary = (i + 1 < n) ? positions[i + 1] : contentLength;
+            char atP = content.charAt(p);
+            // If we split at a space, the space is consumed by the inserted "\n + indent",
+            // so the rendered chunk on the new sub-line is one char shorter.
+            int chunkWidthIfSplit = (atP == ' ') ? (nextBoundary - p - 1) : (nextBoundary - p);
+            int chunkWidthIfNotSplit = nextBoundary - p;
+
+            SplitLevel level = splits.get(p);
+            boolean canSplit = allowSplitAtPosition0 || (p + start) > 0;
+            boolean mustSplit = level == SplitLevel.DOUBLE_NEWLINE || level == SplitLevel.FORCED_NEWLINE;
+            boolean doubleNewline = level == SplitLevel.DOUBLE_NEWLINE;
+
+            boolean shouldSplit;
+            if (mustSplit) {
+                shouldSplit = canSplit;
+            } else if (!canSplit) {
+                shouldSplit = false;
+            } else {
+                shouldSplit = chunkWidthIfNotSplit > remainingOnLine;
+            }
+
+            if (shouldSplit) {
+                int actualPos = p + start + cumulativeShift;
+                cumulativeShift += line.carryOutSplit(actualPos, indent, doubleNewline);
+                remainingOnLine = subLineBudget - chunkWidthIfSplit;
+            } else {
+                // mirror appendAndInsertSpaceSplits: keep elements visually separated when they
+                // remain on the same line (a Guide ".mid()" between two symbols has no space).
+                // Position 0 is skipped — the preceding context (e.g. "(") decides whether a
+                // separator belongs there, not this block.
+                if (level != SplitLevel.NONE_IF_COMPACT && p > 0) {
+                    int actualPos = p + start + cumulativeShift;
+                    if (line.ensureSpace(actualPos)) {
+                        cumulativeShift += 1;
+                        remainingOnLine -= 1;
+                    }
+                }
+                remainingOnLine -= chunkWidthIfNotSplit;
+            }
+        }
     }
 }
