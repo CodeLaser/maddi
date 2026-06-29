@@ -121,9 +121,18 @@ mostly *shoehorn* onto existing nodes.
   (`VariableExpression(FieldReference)`, params shadow fields). Needed reordering members so properties
   (→ backing fields) exist before method bodies convert, and committing params before the body so
   `method.parameters()` is available. Verified: `fun id(p:Int)=p` → param; `= this` → This; `=v` → field.
-- **TODO:** operators-as-`MethodCall` (`a + b`), method calls, qualified access (`a.b`, `obj.f()`),
-  assignments, `val`/`var` (`LocalVariableCreation`), `if`/`when` (→ `IfElse`/switch). Resolution beyond
-  bare names (locals, imports, qualified) still falls back to a labelled placeholder.
+- **Operators — DONE.** `a + b` etc. → CST `BinaryOperator` whose operator is the corresponding
+  **`Runtime` operator method** (`plusOperatorInt`, `lessOperatorInt`, `andOperatorBool`,
+  `plusOperatorString`, …), mirroring java-openjdk's selection. Only built-in operators on
+  primitive/String operands are emitted; overloaded operators and Kotlin `==` on objects (`.equals()`)
+  fall back to a method-call placeholder.
+- **Method calls & qualified access — DONE.** `f(...)` (implicit `this`) and `obj.f(...)` → CST
+  `MethodCall` (callee resolved by name + arity on the receiver/enclosing type — works for source &
+  loaded-library types); `obj.x` → `VariableExpression(FieldReference scope=obj)`. *Gaps:* inherited-only
+  callees and overload ambiguity (same arity) aren't resolved; extension/infix/operator-overload calls,
+  named/default args not handled.
+- **TODO:** assignments, `val`/`var` (`LocalVariableCreation`), `if`/`when` (→ `IfElse`/switch),
+  lambdas, string templates.
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API

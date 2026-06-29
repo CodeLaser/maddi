@@ -55,7 +55,9 @@ import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModu
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
@@ -427,8 +429,52 @@ class KotlinScan(
             is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method)
                 ?: runtime.newEmptyExpression("k2-unresolved-ref:${expression.getReferencedName()}")
             is KtBinaryExpression -> convertBinary(expression, method)
+            is KtCallExpression -> convertCall(expression, null, true, method) // f(...) on implicit this
+            is KtDotQualifiedExpression -> convertQualified(expression, method) // obj.f(...) or obj.x
             else -> runtime.newEmptyExpression("k2-unsupported-expr:${expression::class.simpleName}")
         }
+    }
+
+    /** `obj.f(...)` (method call) or `obj.x` (property/field access). */
+    private fun KaSession.convertQualified(expression: KtDotQualifiedExpression, method: MethodInfo): Expression {
+        val receiver = convertExpression(expression.receiverExpression, method)
+        val receiverType = expression.receiverExpression.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
+        return when (val selector = expression.selectorExpression) {
+            is KtCallExpression -> convertCall(selector, receiver to receiverType, false, method)
+            is KtNameReferenceExpression -> {
+                val field = receiverType?.fields()?.firstOrNull { it.name() == selector.getReferencedName() }
+                    ?: return runtime.newEmptyExpression("k2-unresolved-access:${selector.getReferencedName()}")
+                variableExpression(runtime.newFieldReference(field, receiver, field.type())) // obj.x -> field access
+            }
+            else -> runtime.newEmptyExpression("k2-unsupported-selector")
+        }
+    }
+
+    /**
+     * Build a CST [org.e2immu.language.cst.api.expression.MethodCall]. The callee [MethodInfo] is resolved
+     * by name + arity on the receiver's type (or the enclosing type for an implicit `this`); inherited-only
+     * methods and overload ambiguity are not yet handled (those fall back to a placeholder).
+     */
+    private fun KaSession.convertCall(
+        call: KtCallExpression, receiver: Pair<Expression, TypeInfo?>?, implicitThis: Boolean, method: MethodInfo,
+    ): Expression {
+        val name = (call.calleeExpression as? KtNameReferenceExpression)?.getReferencedName()
+            ?: return runtime.newEmptyExpression("k2-unsupported-callee")
+        val arguments = call.valueArguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, method) } }
+        val ownerType = receiver?.second ?: method.typeInfo()
+        val callee = ownerType.methods().firstOrNull { it.name() == name && it.parameters().size == arguments.size }
+            ?: return runtime.newEmptyExpression("k2-unresolved-call:$name")
+        val obj = receiver?.first ?: variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
+        val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
+        return runtime.newMethodCallBuilder()
+            .setObject(obj)
+            .setObjectIsImplicit(implicitThis)
+            .setMethodInfo(callee)
+            .setParameterExpressions(arguments)
+            .setConcreteReturnType(returnType)
+            .setTypeArguments(listOf())
+            .setSource(runtime.noSource())
+            .build()
     }
 
     /**
