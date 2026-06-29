@@ -224,8 +224,13 @@ mostly *shoehorn* onto existing nodes.
   static backing field + static accessors whose field access is qualified by the facade type
   (`Type.field`, not `this.field`); `convertProperty`/`buildGetter`/`buildSetter`/`assignFieldFromParam`
   took a `static` flag + shared `fieldAccessScope`/`methodType` helpers, `setGetSetField` tagging intact.
-  Verified: `val version: Int = 1` → static field `version` + static `getVersion`. *Next on the facade:*
-  `@file:JvmName`, then top-level **extension** functions (receiver-as-first-param).
+  Verified: `val version: Int = 1` → static field `version` + static `getVersion`.
+- **Top-level extension functions — DONE (declaration side).** `convertMethod` prepends an extension's
+  receiver (`function.receiverParameter`) as a synthetic first parameter `$receiver`, so
+  `fun String.tag(suffix: String)` → facade static `tag(String $receiver, String suffix)` — exactly the
+  JVM shape (also applies to member extensions). Verified arity/types. *Next:* call-site resolution
+  (`"abc".tag(x)` → `ExtKt.tag("abc", x)`, receiver as arg 0) and body `this`/unqualified-receiver-member
+  → the receiver param (currently a placeholder). Then `@file:JvmName`.
 - **Reusable note:** the facade is the file-level container ONLY; companion objects / named objects map
   to their own JVM types (`Outer$Companion` + `Companion` field, `INSTANCE` singletons) via the same
   *synthesize-and-register* mechanism, not the facade itself.
