@@ -816,6 +816,31 @@ class KotlinScanTest {
     }
 
     @Test
+    fun overloadDisambiguation() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val o = scan.parse(
+            "O.kt",
+            """
+            class O {
+                fun handle(x: Int): Int = x
+                fun handle(x: String): Int = 0
+                fun callInt(): Int = handle(1)
+                fun callStr(): Int = handle("a")
+            }
+            """.trimIndent() + "\n"
+        ).first()
+
+        // handle(1) resolves to the Int overload, handle("a") to the String overload
+        val intCall = (o.findUniqueMethod("callInt", 0).methodBody().statements().first() as ReturnStatement)
+            .expression() as MethodCall
+        assertEquals(runtime.intParameterizedType(), intCall.methodInfo().parameters().single().parameterizedType())
+
+        val strCall = (o.findUniqueMethod("callStr", 0).methodBody().statements().first() as ReturnStatement)
+            .expression() as MethodCall
+        assertTrue(strCall.methodInfo().parameters().single().parameterizedType().isJavaLangString)
+    }
+
+    @Test
     fun internalVisibility() {
         val scan = KotlinScan(runtime, sourceSet)
         val mod = scan.parse("Mod.kt", "internal class Mod { internal fun work(): Int = 1 }\n").first()

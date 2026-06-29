@@ -204,8 +204,11 @@ mostly *shoehorn* onto existing nodes.
   `typeModifierInternal`/`methodModifierInternal` for `internal` declarations → eventual access
   `INTERNAL`. Java gates (`cst-impl`, `modification-prepwork`, `inspection-openjdk`, `java-openjdk`) all
   green. Verified: `internal class Mod { internal fun work() }` → both `access() == accessInternal()`.
-- **TODO:** overload disambiguation; extension/infix calls; `..` rangeTo; negated `!is`; `internal` field
-  modifier on backing fields (currently always private, which is correct — the accessors carry visibility).
+- **Overload disambiguation — DONE.** `resolveCallee` collects every name+arity candidate across the
+  hierarchy (`collectMethods`) and picks by argument type: exact `ParameterizedType` match, then erased
+  `TypeInfo` match, else first. Verified: `handle(1)` → the `Int` overload, `handle("a")` → the `String`
+  overload. *Gap:* matching is exact/erased, not full assignability (boxing/widening/generics).
+- **TODO:** extension/infix calls; `..` rangeTo; negated `!is`.
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API
