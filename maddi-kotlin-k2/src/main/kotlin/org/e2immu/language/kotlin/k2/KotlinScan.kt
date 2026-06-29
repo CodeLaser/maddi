@@ -15,6 +15,7 @@
 package org.e2immu.language.kotlin.k2
 
 import org.e2immu.language.cst.api.element.CompilationUnit
+import org.e2immu.language.cst.api.element.RecordPattern
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.expression.Expression
 import org.e2immu.language.cst.api.expression.Lambda
@@ -83,6 +84,8 @@ import org.jetbrains.kotlin.psi.KtReturnExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateEntryWithExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
 import org.jetbrains.kotlin.psi.KtThisExpression
+import org.jetbrains.kotlin.psi.KtWhenConditionInRange
+import org.jetbrains.kotlin.psi.KtWhenConditionIsPattern
 import org.jetbrains.kotlin.psi.KtWhenConditionWithExpression
 import org.jetbrains.kotlin.psi.KtWhenExpression
 import org.jetbrains.kotlin.psi.KtWhileExpression
@@ -502,19 +505,65 @@ class KotlinScan(
                                        locals: Map<String, Variable>): Expression =
         statement.subjectExpression?.let { convertExpression(it, method, locals) } ?: runtime.newBoolean(true)
 
+    /**
+     * Build the switch entries for a `when`. Following the modern-Java pattern-switch model: a `is T` arm
+     * is a **type pattern** carried on [SwitchEntry.patternVariable] (a [RecordPattern]), *not* a condition
+     * expression — so it is compatible with how the analyzer reads pattern switches. Value arms (`v ->`)
+     * are case-label conditions; `in range` is a `contains` call condition (`!in` negated).
+     */
     private fun KaSession.whenEntries(statement: KtWhenExpression, method: MethodInfo,
-                                      locals: Map<String, Variable>): List<SwitchEntry> =
-        statement.entries.map { entry ->
-            val conditions = if (entry.isElse) listOf(runtime.newEmptyExpression())
-            else entry.conditions.mapNotNull { condition ->
-                (condition as? KtWhenConditionWithExpression)?.expression?.let { convertExpression(it, method, locals) }
-            }
-            runtime.newSwitchEntryBuilder()
-                .addConditions(conditions)
+                                      locals: Map<String, Variable>): List<SwitchEntry> {
+        val subject = statement.subjectExpression?.let { convertExpression(it, method, locals) }
+        return statement.entries.map { entry ->
+            val builder = runtime.newSwitchEntryBuilder()
                 .setWhenExpression(runtime.newEmptyExpression()) // no Kotlin guard
                 .setStatement(convertBlock(entry.expression, method, locals))
-                .build()
+                .setSource(runtime.noSource())
+            if (entry.isElse) {
+                builder.addConditions(listOf(runtime.newEmptyExpression())) // default
+            } else {
+                val conditions = mutableListOf<Expression>()
+                entry.conditions.forEach { condition ->
+                    when (condition) {
+                        is KtWhenConditionWithExpression ->
+                            condition.expression?.let { conditions.add(convertExpression(it, method, locals)) }
+                        is KtWhenConditionIsPattern -> // `is T` -> a type pattern on patternVariable
+                            if (!condition.isNegated) typePattern(condition, method)?.let { builder.setPatternVariable(it) }
+                        is KtWhenConditionInRange -> condition.rangeExpression
+                            ?.let { convertExpression(it, method, locals) }
+                            ?.let { range -> containsCall(range, subject)?.let { conditions.add(maybeNegate(it, condition.isNegated)) } }
+                    }
+                }
+                builder.addConditions(conditions)
+            }
+            builder.build()
         }
+    }
+
+    /** A Kotlin `is T` arm as a type-pattern [RecordPattern] (Kotlin smartcasts the subject, so the bound
+     * variable is synthetic). Negated `!is` is not representable as a pattern and is dropped. */
+    private fun KaSession.typePattern(condition: KtWhenConditionIsPattern, method: MethodInfo): RecordPattern? {
+        val type = condition.typeReference?.type?.let { mapType(it, method.typeInfo()) } ?: return null
+        return runtime.newRecordPatternBuilder()
+            .setLocalVariable(runtime.newLocalVariable("it", type))
+            .setSource(runtime.noSource()).build()
+    }
+
+    private fun maybeNegate(expression: Expression, negated: Boolean): Expression =
+        if (!negated) expression
+        else runtime.newUnaryOperator(listOf(), runtime.noSource(), runtime.logicalNotOperatorBool(),
+            expression, runtime.precedenceUnary())
+
+    /** `x in range` -> `range.contains(x)`, when the range type has a unary `contains` method. */
+    private fun containsCall(range: Expression, subject: Expression?): Expression? {
+        val containsOn = range.parameterizedType().typeInfo() ?: return null
+        val contains = containsOn.methods().firstOrNull { it.name() == "contains" && it.parameters().size == 1 } ?: return null
+        return runtime.newMethodCallBuilder()
+            .setObject(range).setObjectIsImplicit(false).setMethodInfo(contains)
+            .setParameterExpressions(listOf(subject ?: runtime.newEmptyExpression()))
+            .setConcreteReturnType(runtime.booleanParameterizedType())
+            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+    }
 
     private fun isAssignment(token: com.intellij.psi.tree.IElementType): Boolean =
         token == KtTokens.EQ || augmentedOperator(token) != null
