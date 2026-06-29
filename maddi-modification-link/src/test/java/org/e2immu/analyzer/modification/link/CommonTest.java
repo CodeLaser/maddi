@@ -5,8 +5,10 @@ import ch.qos.logback.classic.Logger;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +48,12 @@ public abstract class CommonTest {
         lar.go(ANALYZED_RESULTS);
 
         prepAnalyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+    }
+
+    // the openjdk parser keeps the implicit super() as a (synthetic) first statement of a constructor; the
+    // maddi parser omits it. Tests that index into constructor statements use this to skip it.
+    protected static List<Statement> realStatements(MethodInfo methodInfo) {
+        return methodInfo.methodBody().statements().stream().filter(s -> !s.isSynthetic()).toList();
     }
 
     protected static <K, V> String nice(Map<K, V> map) {

@@ -246,7 +246,7 @@ public class TestBoundTypeParameter extends CommonTest {
         MethodInfo constructor = X.findConstructor(1);
         MethodLinkedVariables mlvConstructor = linkComputer.doMethod(constructor);
 
-        VariableData vd = VariableDataImpl.of(constructor.methodBody().statements().getFirst());
+        VariableData vd = VariableDataImpl.of(realStatements(constructor).getFirst());
         VariableInfo viList = vd.variableInfo("a.b.X.list");
         assertEquals("this.list.§ts⊆0:in.§ts", viList.linkedVariables().toString());
 
