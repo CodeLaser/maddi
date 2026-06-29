@@ -291,4 +291,28 @@ class TypeStructureTest : KotlinScanTestBase() {
         val fieldRef = (call.`object`() as VariableExpression).variable() as FieldReference
         assertEquals("Companion", fieldRef.fieldInfo().name())
     }
+
+    @Test
+    fun namedObjectSingleton() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "Obj.kt",
+            "object Registry { fun size(): Int = 0 }\n" +
+                "class User { fun count(): Int = Registry.size() }\n"
+        ).associateBy { it.simpleName() }
+
+        // a named object gets a `public static final INSTANCE` field typed as itself
+        val registry = types.getValue("Registry")
+        val instance = registry.fields().single { it.name() == "INSTANCE" }
+        assertTrue(instance.isStatic)
+        assertEquals(registry, instance.type().typeInfo())
+
+        // `Registry.size()` -> Registry.INSTANCE.size()
+        val call = (types.getValue("User").findUniqueMethod("count", 0)
+            .methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(call is MethodCall)
+        assertEquals("size", (call as MethodCall).methodInfo().name())
+        val fieldRef = (call.`object`() as VariableExpression).variable() as FieldReference
+        assertEquals("INSTANCE", fieldRef.fieldInfo().name())
+    }
 }

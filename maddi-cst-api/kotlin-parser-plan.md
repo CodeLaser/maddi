@@ -261,8 +261,15 @@ mostly *shoehorn* onto existing nodes.
   (`containingClassOrObject` is a companion `KtObjectDeclaration`), maps the enclosing class via its
   `classId` FQN, finds the `Companion` subtype + field. Works for the unqualified form too (receiver-
   independent). Verified: `WithCompanion.create()` → `MethodCall` to the companion `create`, object =
-  `Companion` field access. *Next:* `@JvmStatic`/`const` forwarders on the enclosing class; named/anonymous
-  `object` declarations (own `INSTANCE` singleton types).
+  `Companion` field access.
+- **Named `object` declarations — DONE.** A top-level/nested `object` already registers as a type (it is a
+  `KtClassOrObject`); `convertMembers` now adds a `public static final INSTANCE` field of its own type
+  (`classKind == OBJECT`), and `objectCall` (in `convertCall`, for qualified calls only) routes
+  `Object.member()` → `Object.INSTANCE.member()`. The `Companion`/`INSTANCE` field and the singleton
+  member-call are factored into shared `singletonField` / `singletonMemberCall` helpers. Verified:
+  `object Registry { fun size() }` → `INSTANCE` field typed as Registry; `Registry.size()` →
+  `Registry.INSTANCE.size()`. *Next:* `@JvmStatic`/`const` forwarders on the enclosing class; anonymous
+  `object` expressions (own nested type, like lambdas).
 - **TODO:** `@file:JvmName` facade name; extension-function calls (facade + receiver-as-first-param);
   companion/named objects (own JVM types via the synthesize-and-register pattern); `..` rangeTo (rangeTo
   on the primitive `Int` has no member to resolve); negated `!is`.

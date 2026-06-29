@@ -312,7 +312,23 @@ class KotlinScan(
             .forEach { ctor -> typeInfo.builder().addConstructor(convertConstructorStructure(typeInfo, ctor)) }
         // companion object -> a nested `Companion` type + a static field on the enclosing class
         classSymbol.companionObject?.let { convertCompanion(typeInfo, it) }
+        // a named object (singleton) gets a `public static final INSTANCE` field of its own type
+        if (classSymbol.classKind == KaClassKind.OBJECT) {
+            typeInfo.builder().addField(singletonField(typeInfo, "INSTANCE", typeInfo.asParameterizedType()))
+        }
         // access + type commit happen in finalizeType (pass B2), after delegations are wired
+    }
+
+    /** A `public static final <type> <name>` singleton field (the `INSTANCE`/`Companion` handle). */
+    private fun singletonField(holder: TypeInfo, name: String, type: ParameterizedType): FieldInfo {
+        val field = runtime.newFieldInfo(name, true, type, holder)
+        field.builder()
+            .addFieldModifier(runtime.fieldModifierPublic())
+            .addFieldModifier(runtime.fieldModifierStatic())
+            .addFieldModifier(runtime.fieldModifierFinal())
+            .setInitializer(runtime.newEmptyExpression())
+            .computeAccess().commit()
+        return field
     }
 
     /**
@@ -342,15 +358,8 @@ class KotlinScan(
             .forEach { function -> companion.builder().addMethod(convertMethod(companion, function)) }
         companion.builder().commit()
 
-        // the singleton instance: `public static final <Companion> Companion` on the enclosing class
-        val field = runtime.newFieldInfo(name, true, companion.asParameterizedType(), enclosing)
-        field.builder()
-            .addFieldModifier(runtime.fieldModifierPublic())
-            .addFieldModifier(runtime.fieldModifierStatic())
-            .addFieldModifier(runtime.fieldModifierFinal())
-            .setInitializer(runtime.newEmptyExpression())
-            .computeAccess().commit()
-        enclosing.builder().addField(field)
+        // the singleton handle: `public static final <Companion> Companion` on the enclosing class
+        enclosing.builder().addField(singletonField(enclosing, name, companion.asParameterizedType()))
     }
 
     /** Pass B1: a constructor's structure — parameters only. Body/delegation come in [finalizeType]. */
@@ -935,6 +944,8 @@ class KotlinScan(
         }
         // a companion call `Outer.member(args)` routes through the singleton: `Outer.Companion.member(args)`
         companionCall(name, calleeSymbol, arguments, call, method)?.let { return it }
+        // a qualified call on a named object `Object.member(args)` routes through `Object.INSTANCE`
+        if (receiver != null) objectCall(name, calleeSymbol, arguments, call, method)?.let { return it }
 
         val ownerType = receiver?.second ?: method.typeInfo()
         val callee = resolveCallee(ownerType, name, arguments)
@@ -990,13 +1001,34 @@ class KotlinScan(
         val companion = enclosing.subTypes().firstOrNull { it.simpleName() == companionName } ?: return null
         val companionField = enclosing.fields().firstOrNull { it.name() == companionName } ?: return null
         val callee = resolveCallee(companion, name, arguments) ?: return null
-        val companionAccess = runtime.newVariableExpressionBuilder()
-            .setVariable(runtime.newFieldReference(companionField,
-                runtime.newTypeExpression(enclosing.asParameterizedType(), runtime.diamondNo()), companionField.type()))
+        return singletonMemberCall(enclosing, companionField, callee, arguments, call, method)
+    }
+
+    /**
+     * Build a call `Object.member(args)` through a singleton: `<holder>.<field>.member(args)`, where the
+     * call's object is a field access of the singleton (`Outer.Companion` or `Object.INSTANCE`).
+     */
+    private fun KaSession.objectCall(name: String, calleeSymbol: KaNamedFunctionSymbol?, arguments: List<Expression>,
+                                     call: KtCallExpression, method: MethodInfo): Expression? {
+        val objectDecl = (calleeSymbol?.psi as? KtNamedFunction)?.containingClassOrObject as? KtObjectDeclaration ?: return null
+        if (objectDecl.isCompanion()) return null // companions go through companionCall
+        val fqn = (objectDecl.symbol as? KaNamedClassSymbol)?.classId?.asFqNameString() ?: return null
+        val objectType = infoByFqn.getType(fqn, sourceSet) ?: return null
+        val instanceField = objectType.fields().firstOrNull { it.name() == "INSTANCE" } ?: return null
+        val callee = resolveCallee(objectType, name, arguments) ?: return null
+        return singletonMemberCall(objectType, instanceField, callee, arguments, call, method)
+    }
+
+    /** The `MethodCall` of a singleton member: object = a field access of [singletonField] on [holder]. */
+    private fun KaSession.singletonMemberCall(holder: TypeInfo, singletonField: FieldInfo, callee: MethodInfo,
+                                              arguments: List<Expression>, call: KtCallExpression, method: MethodInfo): Expression {
+        val access = runtime.newVariableExpressionBuilder()
+            .setVariable(runtime.newFieldReference(singletonField,
+                runtime.newTypeExpression(holder.asParameterizedType(), runtime.diamondNo()), singletonField.type()))
             .setSource(runtime.noSource()).build()
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
         return runtime.newMethodCallBuilder()
-            .setObject(companionAccess).setObjectIsImplicit(false).setMethodInfo(callee)
+            .setObject(access).setObjectIsImplicit(false).setMethodInfo(callee)
             .setParameterExpressions(arguments).setConcreteReturnType(returnType)
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
