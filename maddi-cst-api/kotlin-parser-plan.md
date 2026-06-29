@@ -156,8 +156,11 @@ mostly *shoehorn* onto existing nodes.
   `Break/ContinueStatement`; augmented assignment `+=`/`-=`/`*=`/`/=`/`%=` → `Assignment` with the
   `assign*OperatorInt` method (`setAssignmentOperator`); string templates `"… $x ${e} …"` → folded
   `StringConcat` of literal/escape/interpolation parts. Verified.
-- **TODO:** lambdas (→ `Lambda`), `when`-as-expression (→ `SwitchExpression`), `when` `is`/`in`
-  conditions; resolution niceties (inherited callees, overloads, extension/infix calls).
+- **`when` as expression — DONE.** `= when (n) { … }` → `SwitchExpression` (shared entry-building with the
+  statement form; selector, entries, result type). Verified: 3-arm grade function.
+- **TODO:** lambdas (→ `Lambda`: needs a synthetic anonymous type + SAM method + functional-interface
+  resolution — the largest remaining piece), `when` `is`/`in` conditions (→ InstanceOf / contains
+  MethodCall); resolution niceties (inherited callees, overloads, extension/infix calls).
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API

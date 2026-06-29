@@ -27,6 +27,7 @@ import org.e2immu.language.cst.api.info.Variance
 import org.e2immu.language.cst.api.runtime.Runtime
 import org.e2immu.language.cst.api.statement.Block
 import org.e2immu.language.cst.api.statement.Statement
+import org.e2immu.language.cst.api.statement.SwitchEntry
 import org.e2immu.language.cst.api.variable.LocalVariable
 import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.api.type.ParameterizedType
@@ -487,24 +488,29 @@ class KotlinScan(
      * (per the CST-for-Kotlin assessment). `is`/`in` conditions are skipped for now.
      */
     private fun KaSession.convertWhen(statement: KtWhenExpression, method: MethodInfo,
-                                      locals: Map<String, LocalVariable>): Statement {
-        val selector = statement.subjectExpression?.let { convertExpression(it, method, locals) } ?: runtime.newBoolean(true)
-        val builder = runtime.newSwitchStatementNewStyleBuilder().setSelector(selector).setSource(runtime.noSource())
-        statement.entries.forEach { entry ->
+                                      locals: Map<String, LocalVariable>): Statement =
+        runtime.newSwitchStatementNewStyleBuilder()
+            .setSelector(whenSelector(statement, method, locals))
+            .addSwitchEntries(whenEntries(statement, method, locals))
+            .setSource(runtime.noSource()).build()
+
+    private fun KaSession.whenSelector(statement: KtWhenExpression, method: MethodInfo,
+                                       locals: Map<String, LocalVariable>): Expression =
+        statement.subjectExpression?.let { convertExpression(it, method, locals) } ?: runtime.newBoolean(true)
+
+    private fun KaSession.whenEntries(statement: KtWhenExpression, method: MethodInfo,
+                                      locals: Map<String, LocalVariable>): List<SwitchEntry> =
+        statement.entries.map { entry ->
             val conditions = if (entry.isElse) listOf(runtime.newEmptyExpression())
             else entry.conditions.mapNotNull { condition ->
                 (condition as? KtWhenConditionWithExpression)?.expression?.let { convertExpression(it, method, locals) }
             }
-            builder.addSwitchEntry(
-                runtime.newSwitchEntryBuilder()
-                    .addConditions(conditions)
-                    .setWhenExpression(runtime.newEmptyExpression()) // no Kotlin guard
-                    .setStatement(convertBlock(entry.expression, method, locals))
-                    .build()
-            )
+            runtime.newSwitchEntryBuilder()
+                .addConditions(conditions)
+                .setWhenExpression(runtime.newEmptyExpression()) // no Kotlin guard
+                .setStatement(convertBlock(entry.expression, method, locals))
+                .build()
         }
-        return builder.build()
-    }
 
     private fun isAssignment(token: com.intellij.psi.tree.IElementType): Boolean =
         token == KtTokens.EQ || augmentedOperator(token) != null
@@ -572,6 +578,12 @@ class KotlinScan(
                 }
                 parts.reduceOrNull { acc, part -> runtime.newStringConcat(acc, part) } ?: runtime.newStringConstant("")
             }
+            is KtWhenExpression -> runtime.newSwitchExpressionBuilder() // when as an expression
+                .setSelector(whenSelector(expression, method, locals))
+                .addSwitchEntries(whenEntries(expression, method, locals))
+                .setParameterizedType(expression.expressionType?.let { mapType(it, method.typeInfo()) }
+                    ?: runtime.objectParameterizedType())
+                .setSource(runtime.noSource()).build()
             else -> runtime.newEmptyExpression("k2-unsupported-expr:${expression::class.simpleName}")
         }
     }
