@@ -58,6 +58,8 @@ import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtReturnExpression
+import org.jetbrains.kotlin.psi.KtSecondaryConstructor
+import org.jetbrains.kotlin.psi.KtSuperTypeCallEntry
 import java.net.URI
 import java.nio.file.Files
 
@@ -149,9 +151,14 @@ class KotlinScan(
             val types = analyze(ktFile) { declarations.map { registerType(compilationUnit, it) } }
             FileConversion(ktFile, compilationUnit, declarations, types)
         }
-        // pass B (all files): convert members, now that all sibling types are known
+        // pass B1 (all files): members + constructor structures (no body), now that all types are known
         perFile.forEach { fc ->
             analyze(fc.ktFile) { fc.declarations.zip(fc.types).forEach { (d, ti) -> convertMembers(d, ti) } }
+        }
+        // pass B2 (all files): wire constructor this(...)/super(...) delegations — now every constructor
+        // exists, so even super() to another source type resolves — then commit.
+        perFile.forEach { fc ->
+            analyze(fc.ktFile) { fc.declarations.zip(fc.types).forEach { (d, ti) -> finalizeType(d, ti) } }
             fc.compilationUnit.setTypes(fc.types)
         }
         return perFile.flatMap { it.types }
@@ -198,14 +205,72 @@ class KotlinScan(
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
             .forEach { property -> convertProperty(typeInfo, property) }
-        // constructors after properties, so the property backing fields exist to be assigned
+        // constructor structures (params); bodies + delegations are wired in pass B2 (finalizeType)
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaConstructorSymbol>()
-            .forEach { ctor -> convertConstructor(typeInfo, ctor) }
+            .forEach { ctor -> typeInfo.builder().addConstructor(convertConstructorStructure(typeInfo, ctor)) }
 
-        val builder = typeInfo.builder()
-        applyHierarchy(builder, typeInfo, classSymbol)
-        builder.setAccess(accessFor(classSymbol)).commit()
+        applyHierarchy(typeInfo.builder(), typeInfo, classSymbol)
+        // access + type commit happen in finalizeType (pass B2), after delegations are wired
+    }
+
+    /** Pass B1: a constructor's structure — parameters only. Body/delegation come in [finalizeType]. */
+    private fun KaSession.convertConstructorStructure(owner: TypeInfo, ctor: KaConstructorSymbol): MethodInfo {
+        val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())
+        val builder = constructor.builder()
+        ctor.valueParameters.forEach { p -> builder.addParameter(p.name.asString(), mapType(p.returnType, owner)) }
+        builder.setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
+            .setAccess(accessFor(ctor))
+            .commitParameters()
+        return constructor
+    }
+
+    /**
+     * Pass B2: wire each constructor's body — an [org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation]
+     * for an explicit `this(...)`/`super(...)` (resolved against the now-complete set of constructors),
+     * followed by the property-field assignments — then commit the constructors and the type.
+     */
+    private fun KaSession.finalizeType(declaration: KtClassOrObject, typeInfo: TypeInfo) {
+        val classSymbol = declaration.symbol as KaNamedClassSymbol
+        val ctorSymbols = classSymbol.declaredMemberScope.declarations.filterIsInstance<KaConstructorSymbol>().toList()
+        ctorSymbols.zip(typeInfo.constructors()).forEach { (sym, cst) ->
+            val body = runtime.newBlockBuilder()
+            explicitConstructorInvocation(typeInfo, declaration, sym)?.let { body.addStatement(it) }
+            cst.parameters().forEach { param ->
+                typeInfo.fields().firstOrNull { it.name() == param.name() }
+                    ?.let { body.addStatement(assignFieldFromParam(typeInfo, it, param)) }
+            }
+            cst.builder().setMethodBody(body.build()).commit()
+        }
+        typeInfo.builder().setAccess(accessFor(classSymbol)).commit()
+    }
+
+    /** Build the `this(...)`/`super(...)` invocation for a constructor, or null if there is none (or it is unresolved). */
+    private fun KaSession.explicitConstructorInvocation(
+        owner: TypeInfo, declaration: KtClassOrObject, ctor: KaConstructorSymbol,
+    ): Statement? {
+        val (isSuper, arguments) = when (val psi = ctor.psi) {
+            is KtSecondaryConstructor -> {
+                val delegation = psi.getDelegationCall()
+                if (delegation.isImplicit) return null // implicit super() — not represented
+                !delegation.isCallToThis to delegation.valueArguments
+            }
+            else -> { // primary constructor: an explicit super-type call `class Sub : Base(args)`
+                val superCall = declaration.superTypeListEntries.filterIsInstance<KtSuperTypeCallEntry>().firstOrNull()
+                    ?: return null
+                true to superCall.valueArguments
+            }
+        }
+        val targetType = (if (isSuper) owner.parentClass()?.typeInfo() else owner) ?: return null
+        // resolve the target constructor by arity (refine to full overload resolution later)
+        val target = targetType.constructors().firstOrNull { it.parameters().size == arguments.size } ?: return null
+        val argExpressions = arguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e) } }
+        return runtime.newExplicitConstructorInvocationBuilder()
+            .setIsSuper(isSuper)
+            .setMethodInfo(target)
+            .setParameterExpressions(argExpressions)
+            .setSource(runtime.newParserSource("0", 0, 0, 0, 0)) // must be the first statement (index "0")
+            .build()
     }
 
     /**
@@ -281,29 +346,6 @@ class KotlinScan(
         return runtime.newExpressionAsStatementBuilder().setExpression(assignment).setSource(source).build()
     }
 
-    /**
-     * Convert a Kotlin constructor (primary or secondary). The body assigns the backing fields for the
-     * parameters that correspond to properties (primary-constructor `val`/`var`), so the field-init /
-     * immutability analysis sees them initialised. Fits the existing `newConstructor`/`addConstructor` API.
-     */
-    private fun KaSession.convertConstructor(owner: TypeInfo, ctor: KaConstructorSymbol) {
-        val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())
-        val builder = constructor.builder()
-        val body = runtime.newBlockBuilder()
-        ctor.valueParameters.forEach { p ->
-            val param = builder.addParameter(p.name.asString(), mapType(p.returnType, owner))
-            owner.fields().firstOrNull { it.name() == param.name() }?.let { field ->
-                body.addStatement(assignFieldFromParam(owner, field, param))
-            }
-        }
-        builder
-            .setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
-            .setMethodBody(body.build())
-            .setAccess(accessFor(ctor))
-            .commitParameters()
-            .commit()
-        owner.builder().addConstructor(constructor)
-    }
 
     /** JavaBean accessor name, matching the JVM names Kotlin generates (and that maddi recognises). */
     private fun accessorName(prefix: String, fieldName: String): String =

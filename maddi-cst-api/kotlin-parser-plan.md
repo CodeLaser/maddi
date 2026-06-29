@@ -132,8 +132,15 @@ addition from the assessment doc (priority order ranked there).
   that correspond to properties (`this.x = x`), so the field-init/immutability analysis sees them
   initialised (reuses the same `assignFieldFromParam` helper as the setter). Verified:
   `class Point(val x: Int, var name: String)` → constructor(x, name) with a 2-assignment body;
-  `class Multi(val a) { constructor() : this(0) }` → 2 constructors. *Gap:* secondary-constructor
-  delegation (`: this(0)`) and explicit bodies not yet converted.
+  `class Multi(val a) { constructor() : this(0) }` → 2 constructors.
+  - **Delegation (`this(...)`/`super(...)`) — DONE** via `ExplicitConstructorInvocation`. The scan is now
+    a 3-pass: A register types, B1 members + constructor *structures* (no body), B2 wire each
+    constructor's body (delegation ECI first, then field assignments) and commit — so even `super()` to
+    another *source* type resolves (all constructors exist by B2). A primary super-type call
+    `class Sub : Base(5)` and a secondary `: this(0)` both become an ECI (`isSuper` set, target resolved
+    by arity, args via `convertExpression`). Verified. *Gaps:* target resolved by arity only (not full
+    overload resolution); `super()` to a library type whose constructors aren't loaded is skipped;
+    implicit `super()` is not emitted.
 - **Properties — DONE (harmonized with maddi's getter/setter normalization).** A Kotlin property
   (`val`/`var`, incl. primary-constructor `val x: Int`) becomes a backing `FieldInfo` (private; `val`→
   final) **plus accessor methods whose bodies maddi already recognises**: `getX() { return this.x; }`
