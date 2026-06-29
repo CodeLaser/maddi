@@ -16,9 +16,13 @@ package org.e2immu.language.kotlin.k2
 
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.Variance
+import org.e2immu.language.cst.api.expression.VariableExpression
+import org.e2immu.language.cst.api.info.ParameterInfo
 import org.e2immu.language.cst.api.runtime.Runtime
 import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation
 import org.e2immu.language.cst.api.statement.ReturnStatement
+import org.e2immu.language.cst.api.variable.FieldReference
+import org.e2immu.language.cst.api.variable.This
 import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl
 import org.e2immu.language.inspection.resource.SourceSetImpl
@@ -419,5 +423,36 @@ class KotlinScanTest {
         assertTrue(secEci is ExplicitConstructorInvocation)
         assertFalse((secEci as ExplicitConstructorInvocation).isSuper)
         assertEquals(multi, secEci.methodInfo().typeInfo())
+    }
+
+    @Test
+    fun expressionBodyReferences() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val holder = scan.parse(
+            "R.kt",
+            """
+            class Holder(val v: Int) {
+                fun id(p: Int): Int = p
+                fun self(): Holder = this
+                fun read(): Int = v
+            }
+            """.trimIndent() + "\n"
+        ).first()
+
+        fun returnedExpr(name: String, n: Int) =
+            (holder.findUniqueMethod(name, n).methodBody().statements().first() as ReturnStatement).expression()
+
+        // parameter reference: `= p`
+        val p = (returnedExpr("id", 1) as VariableExpression).variable()
+        assertTrue(p is ParameterInfo)
+        assertEquals("p", (p as ParameterInfo).name())
+
+        // `this`
+        assertTrue((returnedExpr("self", 0) as VariableExpression).variable() is This)
+
+        // field/property reference: `= v`
+        val v = (returnedExpr("read", 0) as VariableExpression).variable()
+        assertTrue(v is FieldReference)
+        assertEquals("v", (v as FieldReference).fieldInfo().name())
     }
 }
