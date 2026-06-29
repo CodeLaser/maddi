@@ -80,6 +80,8 @@ import org.jetbrains.kotlin.psi.KtIfExpression
 import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtObjectDeclaration
+import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
 import org.jetbrains.kotlin.psi.KtEscapeStringTemplateEntry
 import org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
 import org.jetbrains.kotlin.psi.KtProperty
@@ -931,6 +933,8 @@ class KotlinScan(
         if (receiver != null && calleeSymbol?.receiverParameter != null) {
             extensionCall(name, receiver.first, arguments, calleeSymbol, call, method)?.let { return it }
         }
+        // a companion call `Outer.member(args)` routes through the singleton: `Outer.Companion.member(args)`
+        companionCall(name, calleeSymbol, arguments, call, method)?.let { return it }
 
         val ownerType = receiver?.second ?: method.typeInfo()
         val callee = resolveCallee(ownerType, name, arguments)
@@ -968,6 +972,33 @@ class KotlinScan(
             .setTypeArguments(listOf())
             .setSource(runtime.noSource())
             .build()
+    }
+
+    /**
+     * Build a companion-member call `Outer.member(args)` as `Outer.Companion.member(args)`: the call's
+     * object is a field access of the `Companion` singleton on the enclosing class. Returns null when the
+     * callee isn't a companion member or its types aren't in this compilation.
+     */
+    private fun KaSession.companionCall(name: String, calleeSymbol: KaNamedFunctionSymbol?, arguments: List<Expression>,
+                                        call: KtCallExpression, method: MethodInfo): Expression? {
+        val companionDecl = (calleeSymbol?.psi as? KtNamedFunction)?.containingClassOrObject as? KtObjectDeclaration ?: return null
+        if (!companionDecl.isCompanion()) return null
+        val enclosingFqn = (companionDecl.containingClassOrObject?.symbol as? KaNamedClassSymbol)?.classId?.asFqNameString()
+            ?: return null
+        val enclosing = infoByFqn.getType(enclosingFqn, sourceSet) ?: return null
+        val companionName = companionDecl.name ?: "Companion"
+        val companion = enclosing.subTypes().firstOrNull { it.simpleName() == companionName } ?: return null
+        val companionField = enclosing.fields().firstOrNull { it.name() == companionName } ?: return null
+        val callee = resolveCallee(companion, name, arguments) ?: return null
+        val companionAccess = runtime.newVariableExpressionBuilder()
+            .setVariable(runtime.newFieldReference(companionField,
+                runtime.newTypeExpression(enclosing.asParameterizedType(), runtime.diamondNo()), companionField.type()))
+            .setSource(runtime.noSource()).build()
+        val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
+        return runtime.newMethodCallBuilder()
+            .setObject(companionAccess).setObjectIsImplicit(false).setMethodInfo(callee)
+            .setParameterExpressions(arguments).setConcreteReturnType(returnType)
+            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
 
     /** The file-facade [TypeInfo] that holds a (source) top-level extension function, via its containing file. */
