@@ -81,7 +81,7 @@ public class TestBreakVariable extends CommonTest {
     @DisplayName("used to fix issue involving non-existent variables in ComputeLinkCompletion")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("B", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }

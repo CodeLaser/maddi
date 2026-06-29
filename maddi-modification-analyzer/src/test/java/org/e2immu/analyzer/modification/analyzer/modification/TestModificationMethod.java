@@ -68,7 +68,7 @@ public class TestModificationMethod extends CommonTest {
     @DisplayName("simple method modification")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
         Value.SetOfInfo poc = X.analysis().getOrDefault(PART_OF_CONSTRUCTION, EMPTY_PART_OF_CONSTRUCTION);

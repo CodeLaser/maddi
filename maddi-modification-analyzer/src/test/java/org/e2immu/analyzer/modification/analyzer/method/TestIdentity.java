@@ -65,7 +65,7 @@ public class TestIdentity extends CommonTest {
     @DisplayName("using @Identity method")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("ExceptionUtils", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -92,7 +92,7 @@ public class TestIdentity extends CommonTest {
     @DisplayName("should not be @Identity method, two return statements")
     @Test
     public void test2() {
-        TypeInfo B = javaInspector.parse(INPUT2);
+        TypeInfo B = javaInspector.parse("X", INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(B);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -145,14 +145,16 @@ public class TestIdentity extends CommonTest {
     @DisplayName("should not be @Identity method, num has been re-assigned")
     @Test
     public void test3() {
-        TypeInfo B = javaInspector.parse(INPUT3);
+        TypeInfo B = javaInspector.parse("X", INPUT3);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
 
         MethodInfo method = B.findUniqueMethod("method", 2);
         VariableData vd = VariableDataImpl.of(method.methodBody().lastStatement());
         VariableInfo viRv = vd.variableInfo(method.fullyQualifiedName());
-        assertEquals("D:-, A:[1.0.0, 3]", viRv.assignments().toString());
+        // the openjdk parser zero-pads statement indices to the block's digit width (this method body has >= 10
+        // statements), so '1' -> '01' and '3' -> '03'
+        assertEquals("D:-, A:[01.0.0, 03]", viRv.assignments().toString());
         assertEquals("method→1:num,method←0:amb", viRv.linkedVariables().toString());
 
         assertFalse(method.isIdentity());
@@ -180,7 +182,7 @@ public class TestIdentity extends CommonTest {
     @DisplayName("should not be @Identity method")
     @Test
     public void test4() {
-        TypeInfo B = javaInspector.parse(INPUT4);
+        TypeInfo B = javaInspector.parse("B", INPUT4);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
 
@@ -210,7 +212,7 @@ public class TestIdentity extends CommonTest {
     @DisplayName("should not be @Identity method: long to int cast")
     @Test
     public void test5() {
-        TypeInfo B = javaInspector.parse(INPUT5);
+        TypeInfo B = javaInspector.parse("B", INPUT5);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
 
@@ -243,7 +245,7 @@ public class TestIdentity extends CommonTest {
     @DisplayName("identity and variables linked to object")
     @Test
     public void test6() {
-        TypeInfo X = javaInspector.parse(INPUT6);
+        TypeInfo X = javaInspector.parse("a.b.ii.C1", INPUT6);
         List<Info> ao = prepWork(X);
         analyzer.go(ao);
 

@@ -67,7 +67,7 @@ public class TestWriteAnalysisSyntheticFields extends CommonTest {
 
     @Test
     public void test1() throws IOException {
-        TypeInfo Try = javaInspector.parse(INPUT1);
+        TypeInfo Try = javaInspector.parse("a.b.Try", INPUT1);
         TypeInfo TryDataImpl = Try.findSubType("TryDataImpl");
 
         List<Info> ao = prepWork(Try);
@@ -102,7 +102,7 @@ public class TestWriteAnalysisSyntheticFields extends CommonTest {
         LOGGER.info("Encoded: {}", written);
 
         javaInspector.invalidateAllSources();
-        TypeInfo Try1 = javaInspector.parse(INPUT1);
+        TypeInfo Try1 = javaInspector.parse("a.b.Try", INPUT1);
         TypeInfo TryDataImpl1 = Try1.findSubType("TryDataImpl");
         LoadAnalysisResults load = new LoadAnalysisResults(javaInspector.runtime(), javaInspector.mainSources());
         load.go(codec, written);

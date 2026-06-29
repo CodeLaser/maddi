@@ -51,7 +51,7 @@ public class TestCastCharToInt extends CommonTest {
     @DisplayName("assign char from int")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("X", INPUT1);
         List<Info> ao = prepWork(X);
         analyzer.go(ao);
         MethodInfo method = X.findUniqueMethod("method", 1);

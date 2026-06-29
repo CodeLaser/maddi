@@ -52,7 +52,7 @@ public class TestWarnForWrongIndependentHC extends CommonTest {
     @DisplayName("issue in LinkHelper INDEPENDENT_HC while both target and source are byte[]")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("Function15634639_file755568", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }

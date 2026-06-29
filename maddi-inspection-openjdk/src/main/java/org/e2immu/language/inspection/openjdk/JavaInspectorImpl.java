@@ -159,7 +159,12 @@ public class JavaInspectorImpl implements JavaInspector {
 
     @Override
     public void onlyPreload() {
-        parse(Map.of("a.b.X", "class X { } "), new JavaInspector.ParseOptions.Builder().build());
+        // a throwaway compilation unit whose sole purpose is to trigger the configured preloads. Its package is
+        // kept consistent with (and unique to) its key, so the warmup type never collides with a type a test
+        // later parses — in particular a default-package 'X' (the old "a.b.X" key with package-less content
+        // registered a default-package X, which then clashed with such tests).
+        parse(Map.of("e2immu.preload.WarmUp", "package e2immu.preload; public class WarmUp { }"),
+                new JavaInspector.ParseOptions.Builder().build());
     }
 
     // main method, generally called with empty map; only tests use the map

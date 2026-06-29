@@ -70,7 +70,7 @@ public class TestModificationField extends CommonTest {
     @DisplayName("simple field modification")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.Function63498_file16492", INPUT1);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
 
@@ -170,7 +170,7 @@ public class TestModificationField extends CommonTest {
     @DisplayName("field assignment vs modification")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         List<Info> analysisOrder = prepAnalyzer.doPrimaryType(X);
 
         String simpleOrder = analysisOrder.stream().map(i -> i.info() + ":" + i.simpleName()).sorted().collect(Collectors.joining(", "));

@@ -38,9 +38,22 @@ dependencies {
     testImplementation(project(":maddi-java-bytecode"))
     testImplementation(project(":maddi-java-parser"))
 
+    testImplementation(project(":maddi-inspection-openjdk"))
+    testImplementation(project(":maddi-java-openjdk"))
+
+    testImplementation(testFixtures(project(":maddi-modification-common")))
+
     testRuntimeOnly(project(":maddi-aapi-archive"))
 }
 tasks.withType<Test> {
     maxHeapSize = "2G"
     maxParallelForks = 4
+
+    jvmArgs(
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+    )
 }
