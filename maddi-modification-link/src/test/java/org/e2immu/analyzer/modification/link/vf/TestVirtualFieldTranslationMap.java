@@ -270,7 +270,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
                     add(ii);
                 }
                 void method(List list) {
-                   list.forEach(j -> add(j));
+                   list.forEach(j -> add((II)j));
                 }
             }
             """;

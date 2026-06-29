@@ -79,8 +79,8 @@ public class TestTrack1 extends CommonTest {
             analyzer.doMethod(makeList);
             VariableData vdMethod = VariableDataImpl.of(makeList);
             assertNotNull(vdMethod);
-            String expect = javaInspector.isOpenJdk() ? "a.b.X.makeList(), oc:10-16:java.util.LinkedList"
-                    : "a.b.X.makeList(), oc:10-16:java.util.LinkedList<T>";
+            // both parsers now infer the diamond type argument (openjdk via the resolved new-expression type)
+            String expect = "a.b.X.makeList(), oc:10-16:java.util.LinkedList<T>";
             assertEquals(expect, vdMethod.knownVariableNamesToString());
         }
         {
@@ -88,18 +88,10 @@ public class TestTrack1 extends CommonTest {
             analyzer.doMethod(makeList);
             VariableData vdMethod = VariableDataImpl.of(makeList);
             assertNotNull(vdMethod);
-            String expect;
-            if (javaInspector.isOpenJdk()) {
-                expect = """
-                        a.b.X.LOGGER, a.b.X.makeList4(boolean), a.b.X.makeList4(boolean):0:b, \
-                        oc:27-28:java.util.LinkedList, oc:31-16:java.util.ArrayList\
-                        """;
-            } else {
-                expect = """
-                        a.b.X.LOGGER, a.b.X.makeList4(boolean), a.b.X.makeList4(boolean):0:b, \
-                        oc:27-28:java.util.LinkedList<T>, oc:31-16:java.util.ArrayList<T>\
-                        """;
-            }
+            String expect = """
+                    a.b.X.LOGGER, a.b.X.makeList4(boolean), a.b.X.makeList4(boolean):0:b, \
+                    oc:27-28:java.util.LinkedList<T>, oc:31-16:java.util.ArrayList<T>\
+                    """;
             assertEquals(expect, vdMethod.knownVariableNamesToString());
         }
     }
