@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.expression.Expression
 import org.e2immu.language.cst.api.info.Access
 import org.e2immu.language.cst.api.info.FieldInfo
 import org.e2immu.language.cst.api.info.MethodInfo
+import org.e2immu.language.cst.api.info.ParameterInfo
 import org.e2immu.language.cst.api.info.TypeInfo
 import org.e2immu.language.cst.api.info.Variance
 import org.e2immu.language.cst.api.runtime.Runtime
@@ -34,6 +35,7 @@ import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
@@ -196,6 +198,10 @@ class KotlinScan(
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
             .forEach { property -> convertProperty(typeInfo, property) }
+        // constructors after properties, so the property backing fields exist to be assigned
+        classSymbol.declaredMemberScope.declarations
+            .filterIsInstance<KaConstructorSymbol>()
+            .forEach { ctor -> convertConstructor(typeInfo, ctor) }
 
         val builder = typeInfo.builder()
         applyHierarchy(builder, typeInfo, classSymbol)
@@ -251,25 +257,52 @@ class KotlinScan(
                                       property: KaPropertySymbol): MethodInfo {
         val setter = runtime.newMethod(owner, accessorName("set", field.name()), runtime.methodTypeMethod())
         val value = setter.builder().addParameter("value", type)
-        val source = runtime.noSource()
-        val thisExpr = runtime.newVariableExpressionBuilder()
-            .setVariable(runtime.newThis(owner.asParameterizedType())).setSource(source).build()
-        val assignField = runtime.newAssignmentBuilder()
-            .setTarget(runtime.newVariableExpressionBuilder()
-                .setVariable(runtime.newFieldReference(field, thisExpr, type)).setSource(source).build())
-            .setValue(runtime.newVariableExpressionBuilder().setVariable(value).setSource(source).build())
-            .setSource(source).build()
         setter.builder()
             .setReturnType(runtime.voidParameterizedType())
-            .setMethodBody(runtime.newBlockBuilder()
-                .addStatement(runtime.newExpressionAsStatementBuilder().setExpression(assignField).setSource(source).build())
-                .build())
+            .setMethodBody(runtime.newBlockBuilder().addStatement(assignFieldFromParam(owner, field, value)).build())
             .addMethodModifier(runtime.methodModifierPublic())
             .setAccess(accessFor(property))
             .commitParameters()
         runtime.setGetSetField(setter, field, true, -1, false)
         setter.builder().commit()
         return setter
+    }
+
+    /** Build the statement `this.field = param`. */
+    private fun assignFieldFromParam(owner: TypeInfo, field: FieldInfo, param: ParameterInfo): Statement {
+        val source = runtime.noSource()
+        val thisExpr = runtime.newVariableExpressionBuilder()
+            .setVariable(runtime.newThis(owner.asParameterizedType())).setSource(source).build()
+        val assignment = runtime.newAssignmentBuilder()
+            .setTarget(runtime.newVariableExpressionBuilder()
+                .setVariable(runtime.newFieldReference(field, thisExpr, field.type())).setSource(source).build())
+            .setValue(runtime.newVariableExpressionBuilder().setVariable(param).setSource(source).build())
+            .setSource(source).build()
+        return runtime.newExpressionAsStatementBuilder().setExpression(assignment).setSource(source).build()
+    }
+
+    /**
+     * Convert a Kotlin constructor (primary or secondary). The body assigns the backing fields for the
+     * parameters that correspond to properties (primary-constructor `val`/`var`), so the field-init /
+     * immutability analysis sees them initialised. Fits the existing `newConstructor`/`addConstructor` API.
+     */
+    private fun KaSession.convertConstructor(owner: TypeInfo, ctor: KaConstructorSymbol) {
+        val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())
+        val builder = constructor.builder()
+        val body = runtime.newBlockBuilder()
+        ctor.valueParameters.forEach { p ->
+            val param = builder.addParameter(p.name.asString(), mapType(p.returnType, owner))
+            owner.fields().firstOrNull { it.name() == param.name() }?.let { field ->
+                body.addStatement(assignFieldFromParam(owner, field, param))
+            }
+        }
+        builder
+            .setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
+            .setMethodBody(body.build())
+            .setAccess(accessFor(ctor))
+            .commitParameters()
+            .commit()
+        owner.builder().addConstructor(constructor)
     }
 
     /** JavaBean accessor name, matching the JVM names Kotlin generates (and that maddi recognises). */
