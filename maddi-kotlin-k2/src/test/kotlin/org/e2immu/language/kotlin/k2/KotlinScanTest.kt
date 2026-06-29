@@ -860,6 +860,16 @@ class KotlinScanTest {
     }
 
     @Test
+    fun facadeJvmName() {
+        val scan = KotlinScan(runtime, sourceSet)
+        // `@file:JvmName` overrides the default `<File>Kt` facade name
+        val types = scan.parse("Custom.kt", "@file:JvmName(\"CustomFacade\")\nfun hello(): String = \"hi\"\n")
+            .associateBy { it.simpleName() }
+        assertNotNull(types["CustomFacade"], "types were ${types.keys}")
+        assertTrue(types["CustomFacade"]!!.findUniqueMethod("hello", 0).isStatic)
+    }
+
+    @Test
     fun extensionThisIsReceiver() {
         val scan = KotlinScan(runtime, sourceSet)
         val ext = scan.parse("E2.kt", "fun String.echo(): String = this\n")

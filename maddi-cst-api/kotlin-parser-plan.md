@@ -236,9 +236,12 @@ mostly *shoehorn* onto existing nodes.
   prepended as arg 0. Verified: `s.tag("x")` → `ExtKt.tag(s, "x")`.
 - **Extension body `this` — DONE.** `this` (and so `this.member`) in an extension body resolves to the
   synthetic `$receiver` parameter (`receiverParam(method)` = first param named `$receiver`). Verified:
-  `fun String.echo(): String = this` → returns the `$receiver` param. *Gaps:* library/stdlib extension
-  calls (facade not in this compilation → placeholder); implicit-receiver extension calls;
-  *unqualified* receiver-member access (`length` rather than `this.length`); `@file:JvmName`.
+  `fun String.echo(): String = this` → returns the `$receiver` param.
+- **`@file:JvmName` — DONE.** `facadeSimpleName` honours `@file:JvmName("X")` (read from
+  `fileAnnotationList`) before the default `<File>Kt`. Used for both facade creation and extension-call
+  facade lookup, so they stay consistent. Verified: `@file:JvmName("CustomFacade")` → type `CustomFacade`.
+  *Remaining extension gaps:* library/stdlib extension calls (facade not in this compilation → placeholder);
+  implicit-receiver extension calls; *unqualified* receiver-member access (`length` rather than `this.length`).
 - **Reusable note:** the facade is the file-level container ONLY; companion objects / named objects map
   to their own JVM types (`Outer$Companion` + `Companion` field, `INSTANCE` singletons) via the same
   *synthesize-and-register* mechanism, not the facade itself.

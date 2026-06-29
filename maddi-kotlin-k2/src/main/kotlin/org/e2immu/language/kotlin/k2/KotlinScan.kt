@@ -253,10 +253,22 @@ class KotlinScan(
         return facade
     }
 
-    /** Kotlin's JVM file-facade class name: the file name (sans extension), first letter upper-cased, + "Kt". */
+    /**
+     * Kotlin's JVM file-facade class name: `@file:JvmName("X")` wins; otherwise the file name (sans
+     * extension), first letter upper-cased, + "Kt".
+     */
     private fun facadeSimpleName(ktFile: KtFile): String {
+        jvmNameOverride(ktFile)?.let { return it }
         val base = ktFile.name.substringAfterLast('/').removeSuffix(".kts").removeSuffix(".kt")
         return base.replaceFirstChar { it.uppercaseChar() } + "Kt"
+    }
+
+    /** The string in a `@file:JvmName("…")` annotation, or null. */
+    private fun jvmNameOverride(ktFile: KtFile): String? {
+        val jvmName = ktFile.fileAnnotationList?.annotationEntries
+            ?.firstOrNull { it.shortName?.asString() == "JvmName" } ?: return null
+        val literal = jvmName.valueArguments.firstOrNull()?.getArgumentExpression() as? KtStringTemplateExpression
+        return (literal?.entries?.singleOrNull() as? KtLiteralStringTemplateEntry)?.text
     }
 
     /**
