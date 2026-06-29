@@ -143,6 +143,13 @@ public interface JavaInspector {
 
     ParseOptions failFast();
 
+    // when enabled, class-file methods receive faithful formal parameter names (from the shipped
+    // .paramnames.gz index) instead of javac's synthetic arg0, arg1, ... Must be set before any class-file
+    // loading (e.g. before onlyPreload()). Default implementation is a no-op (loaders that already read real
+    // names, such as the congocc-based one, do not need it).
+    default void setParameterNames(boolean parameterNames) {
+    }
+
     default ImportComputer importComputer(int minStar, SourceSet sourceSetOfRequest) {
         return runtime().newImportComputer(minStar, packageName ->
                 compiledTypesManager().primaryTypesInPackageEnsureLoaded(packageName, sourceSetOfRequest));
