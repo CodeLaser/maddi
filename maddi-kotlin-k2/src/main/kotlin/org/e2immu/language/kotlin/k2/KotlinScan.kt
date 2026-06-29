@@ -704,7 +704,9 @@ class KotlinScan(
             }
         }
         return when (expression) {
-            is KtThisExpression -> variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
+            // in an extension function body, `this` is the receiver (the synthetic first parameter)
+            is KtThisExpression -> receiverParam(method)?.let { variableExpression(it) }
+                ?: variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
             is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method, locals)
                 ?: runtime.newEmptyExpression("k2-unresolved-ref:${expression.getReferencedName()}")
             is KtBinaryExpression -> convertBinary(expression, method, locals)
@@ -989,6 +991,10 @@ class KotlinScan(
             .setConcreteReturnType(expression.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType())
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
+
+    /** The synthetic extension-receiver parameter (`$receiver`) of an extension method, or null. */
+    private fun receiverParam(method: MethodInfo): ParameterInfo? =
+        method.parameters().firstOrNull()?.takeIf { it.name() == "\$receiver" }
 
     /** Resolve a bare name: a local, else a parameter, else a field (locals shadow params shadow fields). */
     private fun resolveReference(name: String, method: MethodInfo, locals: Map<String, Variable>): Expression? {

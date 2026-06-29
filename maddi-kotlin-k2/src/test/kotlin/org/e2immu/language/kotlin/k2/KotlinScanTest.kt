@@ -860,6 +860,18 @@ class KotlinScanTest {
     }
 
     @Test
+    fun extensionThisIsReceiver() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val ext = scan.parse("E2.kt", "fun String.echo(): String = this\n")
+            .associateBy { it.simpleName() }.getValue("E2Kt")
+
+        // `this` in an extension body resolves to the synthetic receiver parameter
+        val ret = (ext.findUniqueMethod("echo", 1).methodBody().statements().first() as ReturnStatement).expression()
+        val variable = (ret as VariableExpression).variable() as ParameterInfo
+        assertEquals("\$receiver", variable.name())
+    }
+
+    @Test
     fun operatorFunctionAndInfix() {
         val scan = KotlinScan(runtime, sourceSet)
         val v = scan.parse(
