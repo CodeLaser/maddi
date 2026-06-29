@@ -25,6 +25,7 @@ import org.e2immu.language.cst.api.info.ParameterInfo
 import org.e2immu.language.cst.api.runtime.Runtime
 import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement
+import org.e2immu.language.cst.api.statement.ForEachStatement
 import org.e2immu.language.cst.api.statement.IfElseStatement
 import org.e2immu.language.cst.api.statement.LocalVariableCreation
 import org.e2immu.language.cst.api.statement.ReturnStatement
@@ -586,5 +587,33 @@ class KotlinScanTest {
         // if as an expression -> InlineConditional
         val sign = (flow.findUniqueMethod("sign", 1).methodBody().statements().first() as ReturnStatement).expression()
         assertTrue(sign is InlineConditional)
+    }
+
+    @Test
+    fun forLoop() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val loop = scan.parse(
+            "Loop.kt",
+            """
+            class Loop {
+                fun sum(items: List<Int>): Int {
+                    var total = 0
+                    for (x in items) { total = total + x }
+                    return total
+                }
+            }
+            """.trimIndent() + "\n"
+        ).first()
+
+        val forStmt = loop.findUniqueMethod("sum", 1).methodBody().statements()[1] // after `var total = 0`
+        assertTrue(forStmt is ForEachStatement)
+        // loop variable `x`, and the iterated expression is the parameter `items`
+        assertEquals("x", (forStmt as ForEachStatement).initializer().localVariable().simpleName())
+        assertTrue(forStmt.expression() is VariableExpression)
+
+        // body `total = total + x`: x resolves to the loop variable
+        val assign = (forStmt.block().statements().first() as ExpressionAsStatement).expression() as Assignment
+        val x = (assign.value() as BinaryOperator).rhs()
+        assertTrue((x as VariableExpression).variable() is LocalVariable)
     }
 }
