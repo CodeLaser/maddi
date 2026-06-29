@@ -480,6 +480,8 @@ class KotlinScan(
         val method = runtime.newMethod(owner, function.name.asString(), methodType)
         val returnType = mapType(function.returnType, owner)
         val builder = method.builder()
+        // an extension function's receiver becomes the synthetic first parameter (the JVM model)
+        function.receiverParameter?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner)) }
         function.valueParameters.forEach { p ->
             builder.addParameter(p.name.asString(), mapType(p.returnType, owner))
         }

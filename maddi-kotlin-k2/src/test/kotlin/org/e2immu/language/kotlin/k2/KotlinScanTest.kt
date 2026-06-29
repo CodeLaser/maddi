@@ -838,6 +838,18 @@ class KotlinScanTest {
     }
 
     @Test
+    fun topLevelExtensionFunction() {
+        val scan = KotlinScan(runtime, sourceSet)
+        // `fun String.tag(...)` compiles to a static facade method with the receiver as the first parameter
+        val types = scan.parse("Ext.kt", "fun String.tag(suffix: String): String = suffix\n").associateBy { it.simpleName() }
+
+        val tag = types["ExtKt"]!!.findUniqueMethod("tag", 2)
+        assertTrue(tag.isStatic)
+        assertTrue(tag.parameters()[0].parameterizedType().isJavaLangString) // the String receiver, prepended
+        assertEquals("suffix", tag.parameters()[1].name())
+    }
+
+    @Test
     fun operatorFunctionAndInfix() {
         val scan = KotlinScan(runtime, sourceSet)
         val v = scan.parse(
