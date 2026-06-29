@@ -71,6 +71,8 @@ import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtReturnExpression
 import org.jetbrains.kotlin.psi.KtThisExpression
+import org.jetbrains.kotlin.psi.KtWhenConditionWithExpression
+import org.jetbrains.kotlin.psi.KtWhenExpression
 import org.jetbrains.kotlin.psi.KtWhileExpression
 import org.jetbrains.kotlin.psi.KtSecondaryConstructor
 import org.jetbrains.kotlin.psi.KtSuperTypeCallEntry
@@ -455,7 +457,34 @@ class KotlinScan(
                 .setBlock(convertBlock(statement.body, method, locals + (name to loopVariable)))
                 .setSource(runtime.noSource()).build()
         }
+        statement is KtWhenExpression -> convertWhen(statement, method, locals)
         else -> runtime.newExpressionAsStatement(convertExpression(statement, method, locals))
+    }
+
+    /**
+     * `when (subject) { v -> …; a, b -> …; else -> … }` -> [SwitchStatementNewStyle]. Each arm becomes a
+     * [SwitchEntry] (its `when`-condition expressions are the case labels; `else` is a single
+     * `EmptyExpression`), the body a block. A subject-less `when { … }` uses a `true` placeholder selector
+     * (per the CST-for-Kotlin assessment). `is`/`in` conditions are skipped for now.
+     */
+    private fun KaSession.convertWhen(statement: KtWhenExpression, method: MethodInfo,
+                                      locals: Map<String, LocalVariable>): Statement {
+        val selector = statement.subjectExpression?.let { convertExpression(it, method, locals) } ?: runtime.newBoolean(true)
+        val builder = runtime.newSwitchStatementNewStyleBuilder().setSelector(selector).setSource(runtime.noSource())
+        statement.entries.forEach { entry ->
+            val conditions = if (entry.isElse) listOf(runtime.newEmptyExpression())
+            else entry.conditions.mapNotNull { condition ->
+                (condition as? KtWhenConditionWithExpression)?.expression?.let { convertExpression(it, method, locals) }
+            }
+            builder.addSwitchEntry(
+                runtime.newSwitchEntryBuilder()
+                    .addConditions(conditions)
+                    .setWhenExpression(runtime.newEmptyExpression()) // no Kotlin guard
+                    .setStatement(convertBlock(entry.expression, method, locals))
+                    .build()
+            )
+        }
+        return builder.build()
     }
 
     /** Convert a control-flow branch/body (a `{ … }` block or a single statement) into a CST [Block]. */
