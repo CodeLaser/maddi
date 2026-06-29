@@ -53,6 +53,8 @@ import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtLibraryMod
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSdkModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModule
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
@@ -424,8 +426,49 @@ class KotlinScan(
             is KtThisExpression -> variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
             is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method)
                 ?: runtime.newEmptyExpression("k2-unresolved-ref:${expression.getReferencedName()}")
+            is KtBinaryExpression -> convertBinary(expression, method)
             else -> runtime.newEmptyExpression("k2-unsupported-expr:${expression::class.simpleName}")
         }
+    }
+
+    /**
+     * Convert a binary expression to a CST [org.e2immu.language.cst.api.expression.BinaryOperator] whose
+     * operator is the corresponding `Runtime` operator method (e.g. `plusOperatorInt`). Only built-in
+     * operators on primitive/String operands are emitted; overloaded operators (and Kotlin `==` on
+     * objects, which is `.equals()`) fall back to a placeholder, to be handled as method calls.
+     */
+    private fun KaSession.convertBinary(expression: KtBinaryExpression, method: MethodInfo): Expression {
+        val left = expression.left?.let { convertExpression(it, method) }
+        val right = expression.right?.let { convertExpression(it, method) }
+        if (left == null || right == null) return runtime.newEmptyExpression("k2-binary-operand")
+        val numeric = left.isNumeric && right.isNumeric
+        val stringPlus = left.parameterizedType().isJavaLangString || right.parameterizedType().isJavaLangString
+        val opAndPrecedence = when (expression.operationToken) {
+            KtTokens.PLUS -> when {
+                stringPlus -> runtime.plusOperatorString() to runtime.precedenceAdditive()
+                numeric -> runtime.plusOperatorInt() to runtime.precedenceAdditive()
+                else -> null
+            }
+            KtTokens.MINUS -> if (numeric) runtime.minusOperatorInt() to runtime.precedenceAdditive() else null
+            KtTokens.MUL -> if (numeric) runtime.multiplyOperatorInt() to runtime.precedenceMultiplicative() else null
+            KtTokens.DIV -> if (numeric) runtime.divideOperatorInt() to runtime.precedenceMultiplicative() else null
+            KtTokens.PERC -> if (numeric) runtime.remainderOperatorInt() to runtime.precedenceMultiplicative() else null
+            KtTokens.LT -> if (numeric) runtime.lessOperatorInt() to runtime.precedenceRelational() else null
+            KtTokens.GT -> if (numeric) runtime.greaterOperatorInt() to runtime.precedenceRelational() else null
+            KtTokens.LTEQ -> if (numeric) runtime.lessEqualsOperatorInt() to runtime.precedenceRelational() else null
+            KtTokens.GTEQ -> if (numeric) runtime.greaterEqualsOperatorInt() to runtime.precedenceRelational() else null
+            KtTokens.EQEQ -> if (numeric) runtime.equalsOperatorInt() to runtime.precedenceEquality() else null
+            KtTokens.EXCLEQ -> if (numeric) runtime.notEqualsOperatorInt() to runtime.precedenceEquality() else null
+            KtTokens.ANDAND -> runtime.andOperatorBool() to runtime.precedenceLogicalAnd()
+            KtTokens.OROR -> runtime.orOperatorBool() to runtime.precedenceLogicalOr()
+            else -> null
+        } ?: return runtime.newEmptyExpression("k2-unsupported-operator:${expression.operationToken}")
+        val (operator, precedence) = opAndPrecedence
+        val resultType = expression.expressionType?.let { mapType(it, method.typeInfo()) } ?: operator.returnType()
+        return runtime.newBinaryOperatorBuilder()
+            .setLhs(left).setRhs(right).setOperator(operator)
+            .setPrecedence(precedence).setParameterizedType(resultType)
+            .setSource(runtime.noSource()).build()
     }
 
     /** Resolve a bare name to a parameter of [method], else a field of its type (params shadow fields). */
