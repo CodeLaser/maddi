@@ -45,6 +45,7 @@ import org.e2immu.language.cst.impl.runtime.RuntimeImpl
 import org.e2immu.language.inspection.resource.SourceSetImpl
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.URI
@@ -813,6 +814,19 @@ class KotlinScanTest {
         assertEquals(runtime.accessPublic(), types.getValue("Api").findUniqueMethod("call", 0).access())
         // a private method is private
         assertEquals(runtime.accessPrivate(), types.getValue("Impl").findUniqueMethod("secret", 0).access())
+    }
+
+    @Test
+    fun fileFacade() {
+        val scan = KotlinScan(runtime, sourceSet)
+        // a top-level function lives on the JVM file facade `GreetKt` as a static method
+        val types = scan.parse("Greet.kt", "fun greet(name: String): String = \"hi\"\n").associateBy { it.simpleName() }
+
+        val facade = types["GreetKt"]
+        assertNotNull(facade, "facade types were ${types.keys}")
+        val greet = facade!!.findUniqueMethod("greet", 1)
+        assertTrue(greet.isStatic)
+        assertTrue(greet.returnType().isJavaLangString)
     }
 
     @Test

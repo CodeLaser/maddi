@@ -180,20 +180,29 @@ class KotlinScan(
         val perFile = ktFiles.map { ktFile ->
             val compilationUnit = compilationUnitFor(ktFile)
             val declarations = ktFile.declarations.filterIsInstance<KtClassOrObject>()
-            val types = analyze(ktFile) { declarations.map { registerType(compilationUnit, it) } }
-            FileConversion(ktFile, compilationUnit, declarations, types)
+            // top-level functions live on the JVM file facade `<FileName>Kt` (a synthetic static container)
+            val topLevelFunctions = ktFile.declarations.filterIsInstance<KtNamedFunction>()
+            val (types, facade) = analyze(ktFile) {
+                declarations.map { registerType(compilationUnit, it) } to
+                        (if (topLevelFunctions.isEmpty()) null else registerFacade(compilationUnit, ktFile))
+            }
+            FileConversion(ktFile, compilationUnit, declarations, types, facade, topLevelFunctions)
         }
         // pass B1 (all files): members + constructor structures (no body), now that all types are known
         perFile.forEach { fc ->
-            analyze(fc.ktFile) { fc.declarations.zip(fc.types).forEach { (d, ti) -> convertMembers(d, ti) } }
+            analyze(fc.ktFile) {
+                fc.declarations.zip(fc.types).forEach { (d, ti) -> convertMembers(d, ti) }
+                fc.facade?.let { convertFacadeMembers(it, fc.topLevelFunctions) }
+            }
         }
         // pass B2 (all files): wire constructor this(...)/super(...) delegations — now every constructor
         // exists, so even super() to another source type resolves — then commit.
         perFile.forEach { fc ->
             analyze(fc.ktFile) { fc.declarations.zip(fc.types).forEach { (d, ti) -> finalizeType(d, ti) } }
-            fc.compilationUnit.setTypes(fc.types)
+            fc.facade?.builder()?.commit()
+            fc.compilationUnit.setTypes(fc.allTypes())
         }
-        return perFile.flatMap { it.types }
+        return perFile.flatMap { it.allTypes() }
     }
 
     private class FileConversion(
@@ -201,7 +210,11 @@ class KotlinScan(
         val compilationUnit: CompilationUnit,
         val declarations: List<KtClassOrObject>,
         val types: List<TypeInfo>,
-    )
+        val facade: TypeInfo?,
+        val topLevelFunctions: List<KtNamedFunction>,
+    ) {
+        fun allTypes(): List<TypeInfo> = if (facade == null) types else types + facade
+    }
 
     private fun compilationUnitFor(ktFile: KtFile): CompilationUnit =
         runtime.newCompilationUnitBuilder()
@@ -226,6 +239,32 @@ class KotlinScan(
         }
         infoByFqn.put(typeInfo.fullyQualifiedName(), typeInfo, sourceSet)
         return typeInfo
+    }
+
+    /** Pass A: create + register the file-facade [TypeInfo] `<FileName>Kt`. Members are added in pass B1. */
+    private fun registerFacade(compilationUnit: CompilationUnit, ktFile: KtFile): TypeInfo {
+        val facade = runtime.newTypeInfo(compilationUnit, facadeSimpleName(ktFile))
+        infoByFqn.put(facade.fullyQualifiedName(), facade, sourceSet)
+        return facade
+    }
+
+    /** Kotlin's JVM file-facade class name: the file name (sans extension), first letter upper-cased, + "Kt". */
+    private fun facadeSimpleName(ktFile: KtFile): String {
+        val base = ktFile.name.substringAfterLast('/').removeSuffix(".kts").removeSuffix(".kt")
+        return base.replaceFirstChar { it.uppercaseChar() } + "Kt"
+    }
+
+    /** Pass B1: the file facade is a final public class holding the top-level functions as static methods. */
+    private fun KaSession.convertFacadeMembers(facade: TypeInfo, functions: List<KtNamedFunction>) {
+        facade.builder()
+            .setTypeNature(runtime.typeNatureClass())
+            .setParentClass(runtime.objectParameterizedType())
+            .addTypeModifier(runtime.typeModifierPublic())
+            .addTypeModifier(runtime.typeModifierFinal())
+            .computeAccess() // top-level: eventual access == the public modifier; needed before members
+        functions.forEach { fn ->
+            (fn.symbol as? KaNamedFunctionSymbol)?.let { facade.builder().addMethod(convertMethod(facade, it, static = true)) }
+        }
     }
 
     /** Pass B: convert members and commit the type. */
@@ -408,9 +447,14 @@ class KotlinScan(
     private fun accessorName(prefix: String, fieldName: String): String =
         prefix + fieldName.replaceFirstChar { it.uppercaseChar() }
 
-    /** Convert one declared function symbol into a committed CST method (with parameters and body). */
-    private fun KaSession.convertMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo {
-        val method = runtime.newMethod(owner, function.name.asString(), runtime.methodTypeMethod())
+    /**
+     * Convert one declared function symbol into a committed CST method (with parameters and body).
+     * [static] marks top-level functions, which the JVM emits as static members of the file facade.
+     */
+    private fun KaSession.convertMethod(owner: TypeInfo, function: KaNamedFunctionSymbol,
+                                        static: Boolean = false): MethodInfo {
+        val methodType = if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
+        val method = runtime.newMethod(owner, function.name.asString(), methodType)
         val returnType = mapType(function.returnType, owner)
         val builder = method.builder()
         function.valueParameters.forEach { p ->
@@ -421,6 +465,7 @@ class KotlinScan(
             .setReturnType(returnType)
             .setMethodBody(convertBody(function, returnType, method))
         addMethodModifiers(builder, function)
+        if (static) builder.addMethodModifier(runtime.methodModifierStatic())
         builder.computeAccess().commit() // eventual access from the visibility modifier + owner type
         return method
     }
