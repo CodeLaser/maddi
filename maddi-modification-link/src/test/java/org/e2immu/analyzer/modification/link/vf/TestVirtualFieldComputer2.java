@@ -71,7 +71,7 @@ public class TestVirtualFieldComputer2 extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(B);
         MethodInfo method = B.findConstructor(1);
-        Assignment assignment = (Assignment) method.methodBody().statements().getFirst().expression();
+        Assignment assignment = (Assignment) method.methodBody().statements().get(1).expression();
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         assertEquals("Type java.util.HashSet<C>", assignment.value().parameterizedType().toString());
         VirtualFieldComputer.VfTm vfTm = vfc.compute(assignment.value().parameterizedType(), true);
@@ -105,7 +105,7 @@ public class TestVirtualFieldComputer2 extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(B);
         MethodInfo method = B.findConstructor(0);
-        Assignment assignment = (Assignment) method.methodBody().statements().getFirst().expression();
+        Assignment assignment = (Assignment) method.methodBody().statements().get(1).expression();
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         assertEquals("Type java.util.HashMap<Long,Integer[]>", assignment.value().parameterizedType().toString());
         VirtualFieldComputer.VfTm vfTm = vfc.compute(assignment.value().parameterizedType(), true);

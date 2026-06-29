@@ -73,7 +73,7 @@ public class TestStaticValuesRecord extends CommonTest {
         MethodLinkedVariables mlvConstructor = constructor.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(constructor));
         ParameterInfo setParam = constructor.parameters().getFirst();
         {
-            Statement s0 = constructor.methodBody().statements().getFirst();
+            Statement s0 = realStatements(constructor).getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
 
             VariableInfo vi0SetField = vd0.variableInfo(setFr);
@@ -83,7 +83,7 @@ public class TestStaticValuesRecord extends CommonTest {
             assertEquals("0:set→this.set,0:set.§m≡this.set.§m", vi0SetParam.linkedVariables().toString());
         }
         {
-            Statement s1 = constructor.methodBody().statements().get(1);
+            Statement s1 = realStatements(constructor).get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
 
             VariableInfo vi1SetField = vd1.variableInfo(setFr);
@@ -214,7 +214,7 @@ public class TestStaticValuesRecord extends CommonTest {
             import java.util.Set;
             class X {
                 record R<T>(Set<T> set, int n) {}
-                static <T> T method(Set<T> in) {
+                static <T> int method(Set<T> in) {
                     R<T> r = new R<>(in, 3);
                     R<T> s = r;
                     return s.n;
@@ -257,7 +257,7 @@ public class TestStaticValuesRecord extends CommonTest {
             import java.util.Set;
             class X {
                 record R<T>(T t) {}
-                int method(Set<String> in) {
+                Set<String> method(Set<String> in) {
                     R<Set<String>> r = new R<>(in);
                     return r.t();
                 }
@@ -679,7 +679,7 @@ public class TestStaticValuesRecord extends CommonTest {
                     @GetSet("variables") Object variable(int i);
                 }
                 record RI(Function<String,Integer> function, Object[] variables) implements R {
-                    Object variable(int i) { return variables[i]; }
+                    public Object variable(int i) { return variables[i]; }
                 }
                 static class Builder {
                     Function<String,Integer> function;

@@ -182,13 +182,30 @@ public class MethodAnalyzer {
             if (statement instanceof SwitchStatementOldStyle || statement instanceof LoopStatement) {
                 loopSwitchStack.push(statement);
             } else if (statement instanceof BreakStatement bs) {
+                // the break's TARGET is goToLabel(), not label() (which is the statement's own label, almost
+                // always null on a break); an unlabeled break targets the innermost loop/switch
                 String loopIndex;
-                if (bs.label() == null) {
+                if (bs.goToLabel() == null) {
                     loopIndex = loopSwitchStack.peek().source().index();
                 } else {
-                    loopIndex = labelToStatementIndex.get(bs.label());
+                    loopIndex = labelToStatementIndex.get(bs.goToLabel());
                 }
                 breakCountsInLoop.merge(loopIndex, 1, Integer::sum);
+            } else if (statement instanceof ContinueStatement cs && cs.goToLabel() != null) {
+                // a labeled 'continue L' abruptly completes every loop nested inside L (and enclosing this
+                // statement): like a break, those inner loops then have an abrupt exit, so the infinite-loop
+                // "never exits / always definitely executes the body" merge (noBreakStatementsInside) must not
+                // apply to them. The target loop L itself is continued, not exited. An unlabeled continue only
+                // continues the innermost loop, so it is not an abrupt exit and needs no adjustment.
+                String targetIndex = labelToStatementIndex.get(cs.goToLabel());
+                for (int i = loopSwitchStack.size() - 1; i >= 0; i--) {
+                    Statement s = loopSwitchStack.get(i);
+                    String si = s.source().index();
+                    if (si.equals(targetIndex)) break;
+                    if (s instanceof LoopStatement) {
+                        breakCountsInLoop.merge(si, 1, Integer::sum);
+                    }
+                }
             }
         }
 
@@ -238,6 +255,34 @@ public class MethodAnalyzer {
             if (breakVariable != null) return breakVariable;
             if (parent == null) return null;
             return parent.bv();
+        }
+
+        /*
+        The break variable of an old-style switch (the one returned by bv()) models "control breaks out of THIS
+        switch into its continuation". It may therefore only be assigned by a 'break' that actually targets that
+        switch. An unlabeled 'break' nested inside a loop targets the loop, and a labeled 'break' typically targets
+        an outer loop (or an outer switch); none of these exits the nearest old-style switch, so attributing them
+        to its break variable is wrong. We resolve the break's target from the shared loop/switch stack (top = the
+        target of an unlabeled break) and the label map, and check it is the nearest enclosing old-style switch.
+         */
+        boolean breakTargetsNearestOldStyleSwitch(BreakStatement bs) {
+            SwitchStatementOldStyle nearest = null;
+            for (int i = loopSwitchStack.size() - 1; i >= 0; i--) {
+                if (loopSwitchStack.get(i) instanceof SwitchStatementOldStyle oss) {
+                    nearest = oss;
+                    break;
+                }
+            }
+            if (nearest == null) return false;
+            // the break's TARGET is goToLabel(), not label() (which is the statement's own label)
+            String targetIndex;
+            if (bs.goToLabel() == null) {
+                if (loopSwitchStack.isEmpty()) return false;
+                targetIndex = loopSwitchStack.peek().source().index();
+            } else {
+                targetIndex = labelToStatementIndex.get(bs.goToLabel());
+            }
+            return nearest.source().index().equals(targetIndex);
         }
     }
 
@@ -793,7 +838,7 @@ public class MethodAnalyzer {
             }
         } else {
             LocalVariable bv = iv.bv();
-            if (statement instanceof BreakStatement && bv != null) {
+            if (statement instanceof BreakStatement bs && bv != null && iv.breakTargetsNearestOldStyleSwitch(bs)) {
                 v.assignedAdd(bv);
                 if (!v.knownVariableNames.contains(bv.fullyQualifiedName())) {
                     v.seenFirstTime.put(bv, v.index);

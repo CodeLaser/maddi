@@ -89,6 +89,10 @@ public class IsolateMethod {
     }
 
     public Result isolate(MethodInfo methodInfo) {
+        return isolate(methodInfo, null);
+    }
+
+    public Result isolate(MethodInfo methodInfo, String customClassName) {
         TypeInfo originalType = methodInfo.typeInfo().primaryType();
         org.e2immu.language.cst.api.runtime.Runtime runtime = javaInspector.runtime();
         CompilationUnit newCu = runtime.newCompilationUnitBuilder()
@@ -96,8 +100,11 @@ public class IsolateMethod {
                 .setSourceSet(originalType.compilationUnit().sourceSet())
                 .setURI(originalType.compilationUnit().uri())
                 .build();
+        String simpleName = customClassName == null
+                ? originalType.simpleName() + "_" + methodInfo.name()
+                : customClassName;
         TypeInfo frame = runtime
-                .newTypeInfo(newCu, originalType.simpleName() + "_" + methodInfo.name());
+                .newTypeInfo(newCu, simpleName);
         frame.builder().setSource(runtime.noSource())
                 .setTypeNature(runtime.typeNatureClass())
                 .setParentClass(runtime.objectParameterizedType())
@@ -386,7 +393,7 @@ public class IsolateMethod {
             // a numeric constant (an interface field, or a class 'static final' field) may appear as a switch 'case'
             // label; those must be distinct compile-time constants, so hand each one a unique value
             boolean numericConstant = newPt.isNumeric()
-                    && (isInterfaceField || fieldInfo.isStatic() && fieldInfo.isFinal());
+                                      && (isInterfaceField || fieldInfo.isStatic() && fieldInfo.isFinal());
             // an interface field is implicitly 'public static final', so it must have an initializer (a bare
             // 'String NAME;' does not compile in an interface); a class field may leave it empty
             Expression initializer = numericConstant ? runtime.newInt(nextNumericConstant++)
@@ -448,7 +455,7 @@ public class IsolateMethod {
             // interface methods (e.g. a custom 'ArrayList<I> extends java.util.ArrayList<I>' overriding Collection.add).
             // computeAccess() derives the access from the modifier; an interface method is public implicitly
             boolean overridesPublic = methodInfo.isOverloadOfJLOMethod()
-                    || methodInfo.overrides().stream().anyMatch(o -> o.access().isPublic());
+                                      || methodInfo.overrides().stream().anyMatch(o -> o.access().isPublic());
             if (!ownerIsInterface && overridesPublic) {
                 newMethod.builder().addMethodModifier(runtime.methodModifierPublic());
             }

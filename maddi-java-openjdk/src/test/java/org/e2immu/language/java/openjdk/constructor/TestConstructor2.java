@@ -21,9 +21,10 @@ import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -46,7 +47,13 @@ public class TestConstructor2 extends CommonTest {
 
     @Test
     public void test1() {
-        scan("a.b.Key", INPUT1);
+        TypeInfo key = scan("a.b.Key", INPUT1);
+        MethodInfo constructor = key.findConstructor(2);
+        List<Statement> statements = constructor.methodBody().statements();
+        assertEquals(3, statements.size());
+        assertSame(runtime.noSource(), statements.getFirst().source());
+        assertEquals("0", statements.get(1).source().index());
+        assertEquals("1", statements.get(2).source().index());
     }
 
     @Language("java")

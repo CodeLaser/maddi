@@ -95,7 +95,7 @@ public class TestStreamBasics extends CommonTest {
                 public X method(List<X> in, Predicate<X> predicate) {
                     return in.stream().filter(predicate).findFirst().orElseThrow();
                 }
-                public List<X> method1(List<X> in, Predicate<X> predicate) {
+                public X method1(List<X> in, Predicate<X> predicate) {
                     Stream<X> stream = in.stream();
                     Stream<X> stream1 = stream.filter(predicate);
                     Optional<X> optional = stream1.findFirst();
@@ -154,7 +154,7 @@ public class TestStreamBasics extends CommonTest {
             import java.util.function.Predicate;
             import java.util.stream.Stream;
             public class C<X extends Comparable<? super X>> {
-                public X method(Set<X> in) {
+                public List<X> method(Set<X> in) {
                     return in.stream().sorted().toList();
                 }
                 public List<X> method1(Set<X> in) {

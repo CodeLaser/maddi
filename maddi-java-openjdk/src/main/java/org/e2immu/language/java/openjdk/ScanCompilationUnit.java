@@ -409,9 +409,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         // going to commit the methods, so we'll sort
         // they may be out of order because of the ClassSymbolScanner
         // this is expensive but essential when reproducing code
-        builder.methods().sort(Comparator.comparing(MethodInfo::source));
-        builder.fields().sort(Comparator.comparing(FieldInfo::source));
-        builder.subTypes().sort(Comparator.comparing(TypeInfo::source));
+        // synthetic members (e.g. @GetSet backing fields created during scanning) have no source; sort them
+        // last rather than letting the comparator NPE on a null source
+        builder.methods().sort(Comparator.comparing(MethodInfo::source, Comparator.nullsLast(Comparator.naturalOrder())));
+        builder.fields().sort(Comparator.comparing(FieldInfo::source, Comparator.nullsLast(Comparator.naturalOrder())));
+        builder.subTypes().sort(Comparator.comparing(TypeInfo::source, Comparator.nullsLast(Comparator.naturalOrder())));
 
         builder.addTrailingComments(trailingCommentsForNode(source))
                 .addComments(commentsForNode(source))
@@ -812,11 +814,40 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         blockBuilders.getLast().blockBuilder.addStatement(statement);
     }
 
+    // walk outward through the enclosing-type chain (starting at 'start') to the innermost type that is
+    // assignable to 'methodOwner', i.e. that can invoke an unqualified instance method declared/inherited there.
+    // This is the type of the implicit 'this' receiver. Falls back to 'start' if nothing matches (should not
+    // happen for code that compiled).
+    private TypeInfo enclosingThisForMethod(TypeInfo start, TypeInfo methodOwner) {
+        if (start == methodOwner) return start; // fast path: own method
+        ParameterizedType ownerType = methodOwner.asParameterizedType();
+        TypeInfo t = start;
+        while (t != null && !runtime.isAssignableFrom(ownerType, t.asParameterizedType())) {
+            if (t.enclosingMethod() != null) {
+                t = t.enclosingMethod().typeInfo();
+            } else if (t.compilationUnitOrEnclosingType().isRight()) {
+                t = t.compilationUnitOrEnclosingType().getRight();
+            } else {
+                t = null;
+            }
+        }
+        return t == null ? start : t;
+    }
+
     private String statementIndex() {
         if (blockBuilders.isEmpty()) return "-";
         BlockData bd = blockBuilders.getLast();
-        String padded = StringUtil.pad(bd.blockBuilder.statements().size(), bd.numberOfStatements);
+        List<Statement> statements = bd.blockBuilder.statements();
+        // a synthetic (implicit) super() occupies the first slot of a constructor body but is not a written
+        // statement; the maddi/congocc parser omits it, so it must not shift the index of the real statements
+        // (which start at 0). The synthetic super() itself keeps its null index (noSource).
+        int adjust = !statements.isEmpty() && isSyntheticConstructorInvocation(statements.getFirst()) ? 1 : 0;
+        String padded = StringUtil.pad(statements.size() - adjust, bd.numberOfStatements - adjust);
         return (bd.index.isEmpty() ? "" : bd.index + ".") + padded;
+    }
+
+    private static boolean isSyntheticConstructorInvocation(Statement statement) {
+        return statement instanceof ExplicitConstructorInvocation && statement.isSynthetic();
     }
 
     private Block parseBlock(String blockIndex, Tree node, LocalVariable... variablesToAdd) {
@@ -2217,8 +2248,16 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                                 .setDiamond(runtime.diamondNo())
                                 .build();
                     } else {
+                        // the receiver of an unqualified instance-method call is 'this' of the innermost type,
+                        // in the enclosing-type chain starting at currentType, that can actually invoke the
+                        // method (i.e. that is assignable to the method's declaring type). For an own/inherited
+                        // method that is currentType; for a method from an enclosing type (e.g. an enclosing
+                        // method called inside an anonymous class, possibly several levels up, possibly inherited
+                        // by that enclosing type) it is the matching enclosing instance — otherwise its field
+                        // modifications would be wrongly attributed to the anonymous/inner type.
+                        TypeInfo thisType = enclosingThisForMethod(currentType, methodInfo.typeInfo());
                         object = runtime.newVariableExpressionBuilder()
-                                .setVariable(runtime.newThis(currentType.asParameterizedType()))
+                                .setVariable(runtime.newThis(thisType.asParameterizedType()))
                                 .setSource(runtime.noSource()).build();
                     }
                     concreteReturnType = convertType.convert(methodInvocation.type);
@@ -2426,6 +2465,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
         } else {
             concreteReturnType = convertType.convertTree(newClass.clazz, dsb);
+            // for a diamond 'new X<>(...)' the syntactic tree has no type arguments, so convertTree yields a raw
+            // type; javac, however, fully infers them (incl. target-typing) into the resolved type. Use that, so
+            // downstream analysis (linking, virtual fields) sees the real type arguments. We still ran convertTree
+            // above to populate detailed sources for the base type name; the diamond suppresses arg printing.
+            if (diamond == runtime.diamondYes() && newClass.clazz.type instanceof Type.ClassType) {
+                concreteReturnType = convertType.convert(newClass.clazz.type);
+            }
             anonymousType = null;
             if (newClass.constructor instanceof Symbol.MethodSymbol ms) {
                 constructor = typeData.getOrLoadMethod(ms);
