@@ -18,14 +18,17 @@ import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.Variance
 import org.e2immu.language.cst.api.expression.Assignment
 import org.e2immu.language.cst.api.expression.BinaryOperator
+import org.e2immu.language.cst.api.expression.InlineConditional
 import org.e2immu.language.cst.api.expression.MethodCall
 import org.e2immu.language.cst.api.expression.VariableExpression
 import org.e2immu.language.cst.api.info.ParameterInfo
 import org.e2immu.language.cst.api.runtime.Runtime
 import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement
+import org.e2immu.language.cst.api.statement.IfElseStatement
 import org.e2immu.language.cst.api.statement.LocalVariableCreation
 import org.e2immu.language.cst.api.statement.ReturnStatement
+import org.e2immu.language.cst.api.statement.WhileStatement
 import org.e2immu.language.cst.api.variable.FieldReference
 import org.e2immu.language.cst.api.variable.LocalVariable
 import org.e2immu.language.cst.api.variable.This
@@ -556,5 +559,32 @@ class KotlinScanTest {
         assertTrue(assign.variableTarget() is FieldReference) // count
         val rhs = assign.value() as BinaryOperator             // count + step
         assertTrue((rhs.rhs() as VariableExpression).variable() is LocalVariable) // step resolves to the local
+    }
+
+    @Test
+    fun controlFlow() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val flow = scan.parse(
+            "Flow.kt",
+            """
+            class Flow {
+                fun classify(n: Int): Int { if (n > 0) { return 1 } else { return 0 } }
+                fun countdown(n: Int): Int { var i = n; while (i > 0) { i = i - 1 }; return i }
+                fun sign(n: Int): Int = if (n > 0) 1 else 0
+            }
+            """.trimIndent() + "\n"
+        ).first()
+
+        // if statement, with a relational-operator condition
+        val ifStmt = flow.findUniqueMethod("classify", 1).methodBody().statements().first()
+        assertTrue(ifStmt is IfElseStatement)
+        assertTrue((ifStmt as IfElseStatement).expression() is BinaryOperator)
+
+        // while statement (after the `var i = n` local)
+        assertTrue(flow.findUniqueMethod("countdown", 1).methodBody().statements()[1] is WhileStatement)
+
+        // if as an expression -> InlineConditional
+        val sign = (flow.findUniqueMethod("sign", 1).methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(sign is InlineConditional)
     }
 }

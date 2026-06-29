@@ -138,7 +138,12 @@ mostly *shoehorn* onto existing nodes.
   with `val step = 1; count = count + step; return count` produces the local, a field assignment, and the
   local resolving inside the `+` operator. *Gaps:* augmented assignments (`+=`), destructuring, nested
   block scoping (flat map for now).
-- **TODO:** `if`/`when` (→ `IfElse`/switch), loops, lambdas, string templates, augmented assignment.
+- **Control flow — DONE (if/while).** `if`/`else` as a statement → `IfElseStatement`; `while` →
+  `WhileStatement`; `if` as an expression → `InlineConditional`. A shared `convertBlock` converts a
+  branch/body (a `{…}` block or a single statement) into a CST `Block`, with a child `locals` scope per
+  block. Verified: `if (n>0){…}else{…}`, `while (i>0){…}`, `= if (n>0) 1 else 0`.
+- **TODO:** `when` (→ switch), `for`/`do-while` loops, `break`/`continue`, lambdas, string templates,
+  augmented assignment.
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API

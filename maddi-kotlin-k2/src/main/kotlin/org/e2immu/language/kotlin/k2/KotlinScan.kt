@@ -58,16 +58,19 @@ import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModu
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtBlockExpression
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtIfExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtReturnExpression
 import org.jetbrains.kotlin.psi.KtThisExpression
+import org.jetbrains.kotlin.psi.KtWhileExpression
 import org.jetbrains.kotlin.psi.KtSecondaryConstructor
 import org.jetbrains.kotlin.psi.KtSuperTypeCallEntry
 import java.net.URI
@@ -429,7 +432,29 @@ class KotlinScan(
         statement is KtReturnExpression -> runtime.newReturnStatement(
             statement.returnedExpression?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression()
         )
+        statement is KtIfExpression -> runtime.newIfElseBuilder()
+            .setExpression(statement.condition?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
+            .setIfBlock(convertBlock(statement.then, method, locals))
+            .setElseBlock(convertBlock(statement.`else`, method, locals))
+            .setSource(runtime.noSource()).build()
+        statement is KtWhileExpression -> runtime.newWhileBuilder()
+            .setExpression(statement.condition?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
+            .setBlock(convertBlock(statement.body, method, locals))
+            .setSource(runtime.noSource()).build()
         else -> runtime.newExpressionAsStatement(convertExpression(statement, method, locals))
+    }
+
+    /** Convert a control-flow branch/body (a `{ … }` block or a single statement) into a CST [Block]. */
+    private fun KaSession.convertBlock(body: KtExpression?, method: MethodInfo,
+                                       locals: Map<String, LocalVariable>): Block {
+        val block = runtime.newBlockBuilder()
+        val childLocals = locals.toMutableMap() // a nested block has its own scope
+        when (body) {
+            null -> {}
+            is KtBlockExpression -> body.statements.forEach { block.addStatement(convertStatement(it, method, childLocals)) }
+            else -> block.addStatement(convertStatement(body, method, childLocals))
+        }
+        return block.build()
     }
 
     /**
@@ -455,6 +480,11 @@ class KotlinScan(
             is KtBinaryExpression -> convertBinary(expression, method, locals)
             is KtCallExpression -> convertCall(expression, null, true, method, locals) // f(...) on implicit this
             is KtDotQualifiedExpression -> convertQualified(expression, method, locals) // obj.f(...) or obj.x
+            is KtIfExpression -> runtime.newInlineConditionalBuilder() // if as an expression: a ? b : c
+                .setCondition(expression.condition?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
+                .setIfTrue(expression.then?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
+                .setIfFalse(expression.`else`?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
+                .setSource(runtime.noSource()).build(runtime)
             else -> runtime.newEmptyExpression("k2-unsupported-expr:${expression::class.simpleName}")
         }
     }
