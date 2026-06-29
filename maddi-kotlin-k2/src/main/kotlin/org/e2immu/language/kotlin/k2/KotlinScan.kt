@@ -846,13 +846,38 @@ class KotlinScan(
             KtTokens.ANDAND -> runtime.andOperatorBool() to runtime.precedenceLogicalAnd()
             KtTokens.OROR -> runtime.orOperatorBool() to runtime.precedenceLogicalOr()
             else -> null
-        } ?: return runtime.newEmptyExpression("k2-unsupported-operator:${expression.operationToken}")
+        } ?: return operatorFunctionCall(expression, left, right, method)
         val (operator, precedence) = opAndPrecedence
         val resultType = expression.expressionType?.let { mapType(it, method.typeInfo()) } ?: operator.returnType()
         return runtime.newBinaryOperatorBuilder()
             .setLhs(left).setRhs(right).setOperator(operator)
             .setPrecedence(precedence).setParameterizedType(resultType)
             .setSource(runtime.noSource()).build()
+    }
+
+    /**
+     * Fallback for a binary expression that is not a built-in operator: an overloaded operator
+     * (`a + b` → `a.plus(b)`) or a named infix call (`a foo b` → `a.foo(b)`). The Kotlin operator-function
+     * name is fixed per token; an infix call uses the reference name. Resolved on the left operand's type.
+     */
+    private fun KaSession.operatorFunctionCall(expression: KtBinaryExpression, left: Expression, right: Expression,
+                                               method: MethodInfo): Expression {
+        val functionName = when (expression.operationToken) {
+            KtTokens.PLUS -> "plus"
+            KtTokens.MINUS -> "minus"
+            KtTokens.MUL -> "times"
+            KtTokens.DIV -> "div"
+            KtTokens.PERC -> "rem"
+            KtTokens.IDENTIFIER -> expression.operationReference.getReferencedName() // infix function
+            else -> null
+        } ?: return runtime.newEmptyExpression("k2-unsupported-operator:${expression.operationToken}")
+        val callee = left.parameterizedType().typeInfo()?.let { resolveCallee(it, functionName, listOf(right)) }
+            ?: return runtime.newEmptyExpression("k2-unresolved-operator:$functionName")
+        return runtime.newMethodCallBuilder()
+            .setObject(left).setObjectIsImplicit(false).setMethodInfo(callee)
+            .setParameterExpressions(listOf(right))
+            .setConcreteReturnType(expression.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType())
+            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
 
     /** Resolve a bare name: a local, else a parameter, else a field (locals shadow params shadow fields). */

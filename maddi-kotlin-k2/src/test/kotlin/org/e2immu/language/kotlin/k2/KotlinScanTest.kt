@@ -816,6 +816,32 @@ class KotlinScanTest {
     }
 
     @Test
+    fun operatorFunctionAndInfix() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val v = scan.parse(
+            "V.kt",
+            """
+            class V(val x: Int) {
+                operator fun plus(o: V): V = V(x + o.x)
+                infix fun upTo(o: V): Int = o.x - x
+                fun addOp(a: V, b: V): V = a + b
+                fun infixCall(a: V, b: V): Int = a upTo b
+            }
+            """.trimIndent() + "\n"
+        ).first()
+
+        // `a + b` on objects -> a.plus(b)
+        val plus = (v.findUniqueMethod("addOp", 2).methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(plus is MethodCall)
+        assertEquals("plus", (plus as MethodCall).methodInfo().name())
+
+        // `a upTo b` (infix) -> a.upTo(b)
+        val infix = (v.findUniqueMethod("infixCall", 2).methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(infix is MethodCall)
+        assertEquals("upTo", (infix as MethodCall).methodInfo().name())
+    }
+
+    @Test
     fun overloadDisambiguation() {
         val scan = KotlinScan(runtime, sourceSet)
         val o = scan.parse(
