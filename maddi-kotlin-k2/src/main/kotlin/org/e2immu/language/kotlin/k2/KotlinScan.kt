@@ -81,6 +81,7 @@ import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtObjectDeclaration
+import org.jetbrains.kotlin.psi.KtObjectLiteralExpression
 import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
 import org.jetbrains.kotlin.psi.KtEscapeStringTemplateEntry
 import org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
@@ -776,6 +777,7 @@ class KotlinScan(
             is KtCallExpression -> convertCall(expression, null, true, method, locals) // f(...) on implicit this
             is KtDotQualifiedExpression -> convertQualified(expression, method, locals) // obj.f(...) or obj.x
             is KtLambdaExpression -> convertLambda(expression, method, locals)
+            is KtObjectLiteralExpression -> convertObjectLiteral(expression, method, locals)
             is KtIfExpression -> runtime.newInlineConditionalBuilder() // if as an expression: a ? b : c
                 .setCondition(expression.condition?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
                 .setIfTrue(expression.then?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
@@ -910,6 +912,50 @@ class KotlinScan(
         type.interfacesImplemented().forEach { iface ->
             iface.typeInfo()?.let { collectMethods(it, name, arity, visited, acc) }
         }
+    }
+
+    /**
+     * Convert an anonymous `object : Super { … }` expression to a CST [ConstructorCall] of a synthetic
+     * anonymous type (the JVM model — like a lambda's type, but with arbitrary members and supertypes).
+     * The supertypes are split into a parent class + implemented interfaces; the members become the
+     * anonymous type's members. (Captured outer variables in member bodies are a later refinement.)
+     */
+    private fun KaSession.convertObjectLiteral(expression: KtObjectLiteralExpression, method: MethodInfo,
+                                               locals: Map<String, Variable>): Expression {
+        val symbol = expression.objectDeclaration.symbol as? KaClassSymbol
+        val enclosing = method.typeInfo()
+        val anon = runtime.newAnonymousType(enclosing, enclosing.builder().getAndIncrementAnonymousTypes())
+        val builder = anon.builder()
+            .setTypeNature(runtime.typeNatureClass())
+            .setAccess(runtime.accessPrivate())
+            .setEnclosingMethod(method)
+
+        var parentClass: ParameterizedType? = null
+        val interfaces = mutableListOf<ParameterizedType>()
+        symbol?.superTypes?.forEach { superType ->
+            val pt = mapType(superType, enclosing)
+            if (pt.isJavaLangObject) return@forEach
+            val kind = (superType as? KaClassType)?.symbol?.let { (it as? KaClassSymbol)?.classKind }
+            if (kind == KaClassKind.INTERFACE) interfaces.add(pt) else parentClass = pt
+        }
+        builder.setParentClass(parentClass ?: runtime.objectParameterizedType())
+        interfaces.forEach { builder.addInterfaceImplemented(it) }
+        val concreteReturnType = parentClass ?: interfaces.firstOrNull() ?: runtime.objectParameterizedType()
+
+        symbol?.declaredMemberScope?.declarations?.filterIsInstance<KaPropertySymbol>()
+            ?.forEach { property -> convertProperty(anon, property) }
+        symbol?.declaredMemberScope?.declarations?.filterIsInstance<KaNamedFunctionSymbol>()
+            ?.forEach { function -> anon.builder().addMethod(convertMethod(anon, function)) }
+        builder.commit()
+
+        return runtime.newConstructorCallBuilder()
+            .setConcreteReturnType(concreteReturnType)
+            .setAnonymousClass(anon)
+            .setDiamond(runtime.diamondNo())
+            .setParameterExpressions(listOf())
+            .setTypeArguments(listOf())
+            .setSource(runtime.noSource())
+            .build()
     }
 
     /** Whether a lambda's last statement is a value-producing expression (so it becomes the return value). */
