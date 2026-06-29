@@ -840,13 +840,23 @@ class KotlinScanTest {
     @Test
     fun topLevelExtensionFunction() {
         val scan = KotlinScan(runtime, sourceSet)
-        // `fun String.tag(...)` compiles to a static facade method with the receiver as the first parameter
-        val types = scan.parse("Ext.kt", "fun String.tag(suffix: String): String = suffix\n").associateBy { it.simpleName() }
+        val ext = scan.parse(
+            "Ext.kt",
+            "fun String.tag(suffix: String): String = suffix\nfun use(s: String): String = s.tag(\"x\")\n"
+        ).associateBy { it.simpleName() }.getValue("ExtKt")
 
-        val tag = types["ExtKt"]!!.findUniqueMethod("tag", 2)
+        // declaration: `fun String.tag(...)` -> static facade method with the receiver as the first parameter
+        val tag = ext.findUniqueMethod("tag", 2)
         assertTrue(tag.isStatic)
-        assertTrue(tag.parameters()[0].parameterizedType().isJavaLangString) // the String receiver, prepended
+        assertTrue(tag.parameters()[0].parameterizedType().isJavaLangString)
         assertEquals("suffix", tag.parameters()[1].name())
+
+        // call site: `s.tag("x")` -> ExtKt.tag(s, "x") with the receiver as argument 0
+        val call = (ext.findUniqueMethod("use", 1).methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(call is MethodCall)
+        assertEquals(tag, (call as MethodCall).methodInfo())
+        assertEquals(2, call.parameterExpressions().size)
+        assertTrue((call.parameterExpressions()[0] as VariableExpression).variable() is ParameterInfo) // s
     }
 
     @Test
