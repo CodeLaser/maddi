@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.Variance
 import org.e2immu.language.cst.api.expression.Assignment
 import org.e2immu.language.cst.api.expression.BinaryOperator
+import org.e2immu.language.cst.api.expression.ConstructorCall
 import org.e2immu.language.cst.api.expression.EmptyExpression
 import org.e2immu.language.cst.api.expression.InlineConditional
 import org.e2immu.language.cst.api.expression.Lambda
@@ -346,6 +347,25 @@ class ExpressionTest : KotlinScanTestBase() {
         val strCall = (o.findUniqueMethod("callStr", 0).methodBody().statements().first() as ReturnStatement)
             .expression() as MethodCall
         assertTrue(strCall.methodInfo().parameters().single().parameterizedType().isJavaLangString)
+    }
+
+    @Test
+    fun anonymousObjectExpression() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "Anon.kt",
+            "interface Greeter { fun greet(): String }\n" +
+                "class Factory { fun make(): Greeter = object : Greeter { override fun greet(): String = \"hi\" } }\n"
+        ).associateBy { it.simpleName() }
+
+        // `object : Greeter { … }` -> a ConstructorCall of a synthetic anonymous type implementing Greeter
+        val expr = (types.getValue("Factory").findUniqueMethod("make", 0)
+            .methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(expr is ConstructorCall)
+        val anon = (expr as ConstructorCall).anonymousClass()
+        assertNotNull(anon)
+        assertEquals(1, anon!!.methods().count { it.name() == "greet" })
+        assertTrue(anon.interfacesImplemented().any { it.typeInfo() == types.getValue("Greeter") })
     }
 
 }

@@ -268,8 +268,15 @@ mostly *shoehorn* onto existing nodes.
   `Object.member()` → `Object.INSTANCE.member()`. The `Companion`/`INSTANCE` field and the singleton
   member-call are factored into shared `singletonField` / `singletonMemberCall` helpers. Verified:
   `object Registry { fun size() }` → `INSTANCE` field typed as Registry; `Registry.size()` →
-  `Registry.INSTANCE.size()`. *Next:* `@JvmStatic`/`const` forwarders on the enclosing class; anonymous
-  `object` expressions (own nested type, like lambdas).
+  `Registry.INSTANCE.size()`.
+- **Anonymous `object` expressions — DONE.** `object : Super { … }` → a CST `ConstructorCall` of a
+  synthetic anonymous type (`newAnonymousType`, like a lambda's type but with arbitrary members +
+  supertypes): superTypes split into parent class + interfaces, members converted, `setAnonymousClass` on
+  the ConstructorCall (null constructor/object). Verified: `object : Greeter { override fun greet() }` →
+  ConstructorCall whose anonymous class implements Greeter and has `greet`. *Gap:* captured outer
+  variables in member bodies (same limitation lambdas had before the capture fix).
+- **Family complete** (facade · companion · named object · anonymous object · lambda). *Remaining
+  refinement:* `@JvmStatic`/`const` forwarders surfaced on the enclosing class.
 - **TODO:** `@file:JvmName` facade name; extension-function calls (facade + receiver-as-first-param);
   companion/named objects (own JVM types via the synthesize-and-register pattern); `..` rangeTo (rangeTo
   on the primitive `Int` has no member to resolve); negated `!is`.
