@@ -372,4 +372,25 @@ class KotlinScanTest {
         val setName = point.findUniqueMethod("setName", 1)
         assertEquals(fields.getValue("name"), setName.getSetField().field())
     }
+
+    @Test
+    fun constructors() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "C.kt",
+            """
+            class Point(val x: Int, var name: String)
+            class Multi(val a: Int) { constructor() : this(0) }
+            """.trimIndent() + "\n"
+        ).associateBy { it.simpleName() }
+
+        // primary constructor: parameters, and a body that assigns the property backing fields
+        val pc = types.getValue("Point").findConstructor(2)
+        assertEquals(listOf("x", "name"), pc.parameters().map { it.name() })
+        assertEquals(runtime.intParameterizedType(), pc.parameters()[0].parameterizedType())
+        assertEquals(2, pc.methodBody().statements().size) // this.x = x; this.name = name;
+
+        // primary + secondary constructor both present
+        assertEquals(2, types.getValue("Multi").constructors().size)
+    }
 }

@@ -127,6 +127,13 @@ addition from the assessment doc (priority order ranked there).
   via a shared `applyHierarchy` helper reused by source and library loading. Verified:
   `class Circle : Base(), Shape` → parent `Base`, interface `Shape` (both source types); `interface`/
   `enum class`/`object` natures classify correctly.
+- **Constructors — DONE.** Primary and secondary constructors convert to CST constructors via the
+  existing `newConstructor`/`addConstructor` API; the body assigns the backing fields for parameters
+  that correspond to properties (`this.x = x`), so the field-init/immutability analysis sees them
+  initialised (reuses the same `assignFieldFromParam` helper as the setter). Verified:
+  `class Point(val x: Int, var name: String)` → constructor(x, name) with a 2-assignment body;
+  `class Multi(val a) { constructor() : this(0) }` → 2 constructors. *Gap:* secondary-constructor
+  delegation (`: this(0)`) and explicit bodies not yet converted.
 - **Properties — DONE (harmonized with maddi's getter/setter normalization).** A Kotlin property
   (`val`/`var`, incl. primary-constructor `val x: Int`) becomes a backing `FieldInfo` (private; `val`→
   final) **plus accessor methods whose bodies maddi already recognises**: `getX() { return this.x; }`
