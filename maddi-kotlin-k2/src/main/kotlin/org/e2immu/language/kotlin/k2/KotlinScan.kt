@@ -746,15 +746,33 @@ class KotlinScan(
         return runtime.newLambdaBuilder().setMethodInfo(sam).setOutputVariants(outputVariants).setSource(runtime.noSource()).build()
     }
 
-    /** Resolve a method by name + arity on [type] or its supertypes (so inherited callees resolve). */
-    private fun findMethod(type: TypeInfo, name: String, arity: Int, visited: MutableSet<TypeInfo>): MethodInfo? {
-        if (!visited.add(type)) return null
-        type.methods().firstOrNull { it.name() == name && it.parameters().size == arity }?.let { return it }
-        type.parentClass()?.typeInfo()?.let { findMethod(it, name, arity, visited)?.let { m -> return m } }
-        type.interfacesImplemented().forEach { iface ->
-            iface.typeInfo()?.let { findMethod(it, name, arity, visited)?.let { m -> return m } }
+    /**
+     * Resolve the callee by name + arity on [type] or its supertypes (so inherited callees resolve), then
+     * disambiguate overloads by matching the parameter types against the argument types: an exact
+     * [ParameterizedType] match wins, then a match on the erased [TypeInfo], else the first candidate.
+     */
+    private fun resolveCallee(type: TypeInfo, name: String, arguments: List<Expression>): MethodInfo? {
+        val candidates = mutableListOf<MethodInfo>()
+        collectMethods(type, name, arguments.size, mutableSetOf(), candidates)
+        if (candidates.size <= 1) return candidates.firstOrNull()
+        val argTypes = arguments.map { it.parameterizedType() }
+        fun matches(predicate: (ParameterizedType, ParameterizedType) -> Boolean) = candidates.firstOrNull { c ->
+            c.parameters().withIndex().all { (i, p) -> predicate(p.parameterizedType(), argTypes[i]) }
         }
-        return null
+        return matches { p, a -> p == a }
+            ?: matches { p, a -> p.typeInfo() != null && p.typeInfo() == a.typeInfo() }
+            ?: candidates.first()
+    }
+
+    /** Collect every method named [name] with [arity] parameters on [type] and its supertypes. */
+    private fun collectMethods(type: TypeInfo, name: String, arity: Int, visited: MutableSet<TypeInfo>,
+                               acc: MutableList<MethodInfo>) {
+        if (!visited.add(type)) return
+        type.methods().filterTo(acc) { it.name() == name && it.parameters().size == arity }
+        type.parentClass()?.typeInfo()?.let { collectMethods(it, name, arity, visited, acc) }
+        type.interfacesImplemented().forEach { iface ->
+            iface.typeInfo()?.let { collectMethods(it, name, arity, visited, acc) }
+        }
     }
 
     /** Whether a lambda's last statement is a value-producing expression (so it becomes the return value). */
@@ -767,8 +785,9 @@ class KotlinScan(
 
     /**
      * Build a CST [org.e2immu.language.cst.api.expression.MethodCall]. The callee [MethodInfo] is resolved
-     * by name + arity on the receiver's type (or the enclosing type for an implicit `this`); inherited-only
-     * methods and overload ambiguity are not yet handled (those fall back to a placeholder).
+     * by name + arity on the receiver's type (or the enclosing type for an implicit `this`), searching
+     * supertypes and disambiguating overloads by argument type (see [resolveCallee]); an unresolved call
+     * falls back to a placeholder.
      */
     private fun KaSession.convertCall(
         call: KtCallExpression, receiver: Pair<Expression, TypeInfo?>?, implicitThis: Boolean, method: MethodInfo,
@@ -780,7 +799,7 @@ class KotlinScan(
         val trailingLambdas = call.lambdaArguments.mapNotNull { it.getLambdaExpression()?.let { l -> convertExpression(l, method, locals) } }
         val arguments = valueArgs + trailingLambdas
         val ownerType = receiver?.second ?: method.typeInfo()
-        val callee = findMethod(ownerType, name, arguments.size, mutableSetOf())
+        val callee = resolveCallee(ownerType, name, arguments)
             ?: return runtime.newEmptyExpression("k2-unresolved-call:$name")
         val obj = receiver?.first ?: variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
