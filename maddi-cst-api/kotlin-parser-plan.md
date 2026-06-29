@@ -228,9 +228,14 @@ mostly *shoehorn* onto existing nodes.
 - **Top-level extension functions — DONE (declaration side).** `convertMethod` prepends an extension's
   receiver (`function.receiverParameter`) as a synthetic first parameter `$receiver`, so
   `fun String.tag(suffix: String)` → facade static `tag(String $receiver, String suffix)` — exactly the
-  JVM shape (also applies to member extensions). Verified arity/types. *Next:* call-site resolution
-  (`"abc".tag(x)` → `ExtKt.tag("abc", x)`, receiver as arg 0) and body `this`/unqualified-receiver-member
-  → the receiver param (currently a placeholder). Then `@file:JvmName`.
+  JVM shape (also applies to member extensions).
+- **Extension call sites — DONE.** `convertCall` resolves the callee symbol (`resolveSymbol(KtCallElement)`,
+  `@OptIn(KaExperimentalApi)`); when it's an extension with an explicit receiver, `extensionCall` routes to
+  the facade's static method (found via the symbol's containing `KtFile` → `extensionFacade`) as
+  `<File>Kt.ext(receiver, args…)` — a static-form `MethodCall` (object = facade `TypeExpression`), receiver
+  prepended as arg 0. Verified: `s.tag("x")` → `ExtKt.tag(s, "x")`. *Gaps:* library/stdlib extensions
+  (facade not in this compilation → falls through to placeholder); implicit-receiver extension calls; body
+  `this`/unqualified-receiver-member → the receiver param. Then `@file:JvmName`.
 - **Reusable note:** the facade is the file-level container ONLY; companion objects / named objects map
   to their own JVM types (`Outer$Companion` + `Companion` field, `INSTANCE` singletons) via the same
   *synthesize-and-register* mechanism, not the facade itself.

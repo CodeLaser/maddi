@@ -36,8 +36,10 @@ import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.api.type.ParameterizedType
 import org.e2immu.language.cst.api.type.TypeNature
 import org.e2immu.language.inspection.resource.InfoByFqn
+import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.analyze
+import org.jetbrains.kotlin.analysis.api.components.resolveSymbol
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
@@ -859,6 +861,7 @@ class KotlinScan(
      * supertypes and disambiguating overloads by argument type (see [resolveCallee]); an unresolved call
      * falls back to a placeholder.
      */
+    @OptIn(KaExperimentalApi::class) // resolveSymbol(KtCallElement)
     private fun KaSession.convertCall(
         call: KtCallExpression, receiver: Pair<Expression, TypeInfo?>?, implicitThis: Boolean, method: MethodInfo,
         locals: Map<String, Variable>,
@@ -868,6 +871,13 @@ class KotlinScan(
         val valueArgs = call.valueArguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, method, locals) } }
         val trailingLambdas = call.lambdaArguments.mapNotNull { it.getLambdaExpression()?.let { l -> convertExpression(l, method, locals) } }
         val arguments = valueArgs + trailingLambdas
+
+        // an extension call `recv.ext(args)` routes to the facade's static `ext(recv, args)` (receiver as arg 0)
+        val calleeSymbol = call.resolveSymbol() as? KaNamedFunctionSymbol
+        if (receiver != null && calleeSymbol?.receiverParameter != null) {
+            extensionCall(name, receiver.first, arguments, calleeSymbol, call, method)?.let { return it }
+        }
+
         val ownerType = receiver?.second ?: method.typeInfo()
         val callee = resolveCallee(ownerType, name, arguments)
             ?: return runtime.newEmptyExpression("k2-unresolved-call:$name")
@@ -882,6 +892,36 @@ class KotlinScan(
             .setTypeArguments(listOf())
             .setSource(runtime.noSource())
             .build()
+    }
+
+    /**
+     * Build an extension-function call as a static call on the file facade with the receiver as argument 0
+     * (the JVM shape): `recv.ext(args)` → `<File>Kt.ext(recv, args)`. Returns null when the facade or the
+     * static method can't be resolved (e.g. a library extension whose facade isn't in this compilation).
+     */
+    private fun KaSession.extensionCall(name: String, receiverExpr: Expression, arguments: List<Expression>,
+                                        symbol: KaNamedFunctionSymbol, call: KtCallExpression, method: MethodInfo): Expression? {
+        val facade = extensionFacade(symbol) ?: return null
+        val facadeArgs = listOf(receiverExpr) + arguments
+        val callee = resolveCallee(facade, name, facadeArgs) ?: return null
+        val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
+        return runtime.newMethodCallBuilder()
+            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObjectIsImplicit(false)
+            .setMethodInfo(callee)
+            .setParameterExpressions(facadeArgs)
+            .setConcreteReturnType(returnType)
+            .setTypeArguments(listOf())
+            .setSource(runtime.noSource())
+            .build()
+    }
+
+    /** The file-facade [TypeInfo] that holds a (source) top-level extension function, via its containing file. */
+    private fun extensionFacade(symbol: KaNamedFunctionSymbol): TypeInfo? {
+        val ktFile = (symbol.psi as? KtNamedFunction)?.containingKtFile ?: return null
+        val pkg = ktFile.packageFqName
+        val fqn = (if (pkg.isRoot) "" else pkg.asString() + ".") + facadeSimpleName(ktFile)
+        return infoByFqn.getType(fqn, sourceSet)
     }
 
     /**
