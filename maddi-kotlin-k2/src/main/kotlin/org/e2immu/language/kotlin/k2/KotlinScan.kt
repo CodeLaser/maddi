@@ -1014,6 +1014,14 @@ class KotlinScan(
         method.parameters().firstOrNull { it.name() == name }?.let { return variableExpression(it) }
         method.typeInfo().fields().firstOrNull { it.name() == name }
             ?.let { return variableExpression(runtime.newFieldReference(it)) }
+        // unqualified access to a member of the extension receiver: `name` means `$receiver.name`
+        receiverParam(method)?.let { receiver ->
+            receiver.parameterizedType().typeInfo()?.fields()?.firstOrNull { it.name() == name }?.let { field ->
+                return runtime.newVariableExpressionBuilder()
+                    .setVariable(runtime.newFieldReference(field, variableExpression(receiver), field.type()))
+                    .setSource(runtime.noSource()).build()
+            }
+        }
         return null
     }
 
