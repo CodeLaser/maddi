@@ -89,7 +89,7 @@ public class IsolateMethod {
     }
 
     public Result isolate(MethodInfo methodInfo) {
-        return isolate(methodInfo, "R" + methodInfo.name());
+        return isolate(methodInfo, null);
     }
 
     public Result isolate(MethodInfo methodInfo, String customClassName) {
