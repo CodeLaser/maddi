@@ -55,4 +55,19 @@ class KotlinAnalyzerSmokeTest {
         assertTrue(names.contains("x"), "variables: $names")
         assertTrue(names.contains("y"), "variables: $names")
     }
+
+    @Test
+    fun analyzerRunsOnAKotlinClass() {
+        // a class with a primary-constructor property (-> backing field + getter/setter) and a method
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "Counter.kt",
+            "class Counter(var count: Int) { fun inc() { count = count + 1 } }\n"
+        )
+        // full prep analysis over the primary type: constructor body, accessors, and inc()
+        PrepAnalyzer(runtime).doPrimaryTypes(types.toSet())
+
+        val inc = types.first().findUniqueMethod("inc", 0)
+        val variableData = VariableDataImpl.of(inc.methodBody().lastStatement())
+        assertNotNull(variableData)
+    }
 }
