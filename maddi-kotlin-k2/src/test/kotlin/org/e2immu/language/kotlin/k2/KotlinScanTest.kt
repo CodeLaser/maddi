@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.expression.Assignment
 import org.e2immu.language.cst.api.expression.BinaryOperator
 import org.e2immu.language.cst.api.expression.EmptyExpression
 import org.e2immu.language.cst.api.expression.InlineConditional
+import org.e2immu.language.cst.api.expression.Lambda
 import org.e2immu.language.cst.api.expression.MethodCall
 import org.e2immu.language.cst.api.expression.StringConcat
 import org.e2immu.language.cst.api.expression.SwitchExpression
@@ -703,5 +704,26 @@ class KotlinScanTest {
 
         // do-while
         assertTrue(more.findUniqueMethod("spin", 0).methodBody().statements().first() is DoStatement)
+    }
+
+    @Test
+    fun lambda() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val lam = scan.parse(
+            "Lam.kt",
+            "class Lam { fun makeInc(): (Int) -> Int = { x -> x + 1 } }\n"
+        ).first()
+
+        val ret = (lam.findUniqueMethod("makeInc", 0).methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(ret is Lambda)
+        // the SAM `invoke(x: Int): Int`
+        val sam = (ret as Lambda).methodInfo()
+        assertEquals("invoke", sam.name())
+        assertEquals("x", sam.parameters().single().name())
+        assertEquals(runtime.intParameterizedType(), sam.parameters().single().parameterizedType())
+        assertEquals(runtime.intParameterizedType(), sam.returnType())
+        // body `return x + 1`, with x resolving to the lambda parameter
+        val plus = (sam.methodBody().statements().first() as ReturnStatement).expression() as BinaryOperator
+        assertTrue((plus.lhs() as VariableExpression).variable() is ParameterInfo)
     }
 }
