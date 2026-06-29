@@ -17,6 +17,7 @@ package org.e2immu.language.kotlin.k2
 import org.e2immu.language.cst.api.element.CompilationUnit
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.expression.Expression
+import org.e2immu.language.cst.api.expression.VariableExpression
 import org.e2immu.language.cst.api.info.Access
 import org.e2immu.language.cst.api.info.FieldInfo
 import org.e2immu.language.cst.api.info.MethodInfo
@@ -26,6 +27,7 @@ import org.e2immu.language.cst.api.info.Variance
 import org.e2immu.language.cst.api.runtime.Runtime
 import org.e2immu.language.cst.api.statement.Block
 import org.e2immu.language.cst.api.statement.Statement
+import org.e2immu.language.cst.api.variable.LocalVariable
 import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.api.type.ParameterizedType
 import org.e2immu.language.cst.api.type.TypeNature
@@ -41,6 +43,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
+import org.jetbrains.kotlin.analysis.api.symbols.KaVariableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
 import org.jetbrains.kotlin.analysis.api.types.KaType
@@ -62,6 +65,7 @@ import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtReturnExpression
 import org.jetbrains.kotlin.psi.KtThisExpression
 import org.jetbrains.kotlin.psi.KtSecondaryConstructor
@@ -271,7 +275,7 @@ class KotlinScan(
         val targetType = (if (isSuper) owner.parentClass()?.typeInfo() else owner) ?: return null
         // resolve the target constructor by arity (refine to full overload resolution later)
         val target = targetType.constructors().firstOrNull { it.parameters().size == arguments.size } ?: return null
-        val argExpressions = arguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, constructor) } }
+        val argExpressions = arguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, constructor, emptyMap()) } }
         return runtime.newExplicitConstructorInvocationBuilder()
             .setIsSuper(isSuper)
             .setMethodInfo(target)
@@ -386,11 +390,12 @@ class KotlinScan(
                                       method: MethodInfo): Block {
         val psi = function.psi as? KtNamedFunction ?: return runtime.newBlockBuilder().build()
         val block = runtime.newBlockBuilder()
+        val locals = mutableMapOf<String, LocalVariable>() // names in scope; references resolve against this
         if (psi.hasBlockBody()) {
-            psi.bodyBlockExpression?.statements?.forEach { block.addStatement(convertStatement(it, method)) }
+            psi.bodyBlockExpression?.statements?.forEach { block.addStatement(convertStatement(it, method, locals)) }
         } else {
             psi.bodyExpression?.let { body ->
-                val expr = convertExpression(body, method)
+                val expr = convertExpression(body, method, locals)
                 block.addStatement(
                     if (returnType == runtime.voidParameterizedType()) runtime.newExpressionAsStatement(expr)
                     else runtime.newReturnStatement(expr)
@@ -400,21 +405,40 @@ class KotlinScan(
         return block.build()
     }
 
-    /** Convert one statement (Kotlin statements are expressions). */
-    private fun KaSession.convertStatement(statement: KtExpression, method: MethodInfo): Statement =
-        if (statement is KtReturnExpression) {
-            val returned = statement.returnedExpression
-            runtime.newReturnStatement(if (returned == null) runtime.newEmptyExpression() else convertExpression(returned, method))
-        } else {
-            runtime.newExpressionAsStatement(convertExpression(statement, method))
+    /** Convert one statement: a local `val`/`var`, an assignment, a `return`, or an expression statement. */
+    private fun KaSession.convertStatement(statement: KtExpression, method: MethodInfo,
+                                           locals: MutableMap<String, LocalVariable>): Statement = when {
+        statement is KtProperty && statement.isLocal -> {
+            val name = statement.name ?: "_"
+            val type = (statement.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
+                ?: runtime.objectParameterizedType()
+            val initializer = statement.initializer?.let { convertExpression(it, method, locals) }
+                ?: runtime.newEmptyExpression()
+            val local = runtime.newLocalVariable(name, type, initializer)
+            locals[name] = local
+            runtime.newLocalVariableCreation(local)
         }
+        statement is KtBinaryExpression && statement.operationToken == KtTokens.EQ -> {
+            val target = statement.left?.let { convertExpression(it, method, locals) } as? VariableExpression
+            val value = statement.right?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression()
+            if (target == null) runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-assign-target"))
+            else runtime.newExpressionAsStatement(
+                runtime.newAssignmentBuilder().setTarget(target).setValue(value).setSource(runtime.noSource()).build()
+            )
+        }
+        statement is KtReturnExpression -> runtime.newReturnStatement(
+            statement.returnedExpression?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression()
+        )
+        else -> runtime.newExpressionAsStatement(convertExpression(statement, method, locals))
+    }
 
     /**
      * Convert one expression in the context of the enclosing [method]. Handles compile-time constants,
      * `this`, and bare references (to a parameter or a field/property of the enclosing type). Calls,
      * operators, qualified access and the rest become a labelled placeholder, filled in incrementally.
      */
-    private fun KaSession.convertExpression(expression: KtExpression, method: MethodInfo): Expression {
+    private fun KaSession.convertExpression(expression: KtExpression, method: MethodInfo,
+                                            locals: Map<String, LocalVariable>): Expression {
         expression.evaluate()?.let { constant ->
             return when (val value = constant.value) {
                 is Int -> runtime.newInt(value)
@@ -426,21 +450,22 @@ class KotlinScan(
         }
         return when (expression) {
             is KtThisExpression -> variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
-            is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method)
+            is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method, locals)
                 ?: runtime.newEmptyExpression("k2-unresolved-ref:${expression.getReferencedName()}")
-            is KtBinaryExpression -> convertBinary(expression, method)
-            is KtCallExpression -> convertCall(expression, null, true, method) // f(...) on implicit this
-            is KtDotQualifiedExpression -> convertQualified(expression, method) // obj.f(...) or obj.x
+            is KtBinaryExpression -> convertBinary(expression, method, locals)
+            is KtCallExpression -> convertCall(expression, null, true, method, locals) // f(...) on implicit this
+            is KtDotQualifiedExpression -> convertQualified(expression, method, locals) // obj.f(...) or obj.x
             else -> runtime.newEmptyExpression("k2-unsupported-expr:${expression::class.simpleName}")
         }
     }
 
     /** `obj.f(...)` (method call) or `obj.x` (property/field access). */
-    private fun KaSession.convertQualified(expression: KtDotQualifiedExpression, method: MethodInfo): Expression {
-        val receiver = convertExpression(expression.receiverExpression, method)
+    private fun KaSession.convertQualified(expression: KtDotQualifiedExpression, method: MethodInfo,
+                                           locals: Map<String, LocalVariable>): Expression {
+        val receiver = convertExpression(expression.receiverExpression, method, locals)
         val receiverType = expression.receiverExpression.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         return when (val selector = expression.selectorExpression) {
-            is KtCallExpression -> convertCall(selector, receiver to receiverType, false, method)
+            is KtCallExpression -> convertCall(selector, receiver to receiverType, false, method, locals)
             is KtNameReferenceExpression -> {
                 val field = receiverType?.fields()?.firstOrNull { it.name() == selector.getReferencedName() }
                     ?: return runtime.newEmptyExpression("k2-unresolved-access:${selector.getReferencedName()}")
@@ -457,10 +482,11 @@ class KotlinScan(
      */
     private fun KaSession.convertCall(
         call: KtCallExpression, receiver: Pair<Expression, TypeInfo?>?, implicitThis: Boolean, method: MethodInfo,
+        locals: Map<String, LocalVariable>,
     ): Expression {
         val name = (call.calleeExpression as? KtNameReferenceExpression)?.getReferencedName()
             ?: return runtime.newEmptyExpression("k2-unsupported-callee")
-        val arguments = call.valueArguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, method) } }
+        val arguments = call.valueArguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, method, locals) } }
         val ownerType = receiver?.second ?: method.typeInfo()
         val callee = ownerType.methods().firstOrNull { it.name() == name && it.parameters().size == arguments.size }
             ?: return runtime.newEmptyExpression("k2-unresolved-call:$name")
@@ -483,9 +509,10 @@ class KotlinScan(
      * operators on primitive/String operands are emitted; overloaded operators (and Kotlin `==` on
      * objects, which is `.equals()`) fall back to a placeholder, to be handled as method calls.
      */
-    private fun KaSession.convertBinary(expression: KtBinaryExpression, method: MethodInfo): Expression {
-        val left = expression.left?.let { convertExpression(it, method) }
-        val right = expression.right?.let { convertExpression(it, method) }
+    private fun KaSession.convertBinary(expression: KtBinaryExpression, method: MethodInfo,
+                                        locals: Map<String, LocalVariable>): Expression {
+        val left = expression.left?.let { convertExpression(it, method, locals) }
+        val right = expression.right?.let { convertExpression(it, method, locals) }
         if (left == null || right == null) return runtime.newEmptyExpression("k2-binary-operand")
         val numeric = left.isNumeric && right.isNumeric
         val stringPlus = left.parameterizedType().isJavaLangString || right.parameterizedType().isJavaLangString
@@ -517,8 +544,9 @@ class KotlinScan(
             .setSource(runtime.noSource()).build()
     }
 
-    /** Resolve a bare name to a parameter of [method], else a field of its type (params shadow fields). */
-    private fun resolveReference(name: String, method: MethodInfo): Expression? {
+    /** Resolve a bare name: a local, else a parameter, else a field (locals shadow params shadow fields). */
+    private fun resolveReference(name: String, method: MethodInfo, locals: Map<String, LocalVariable>): Expression? {
+        locals[name]?.let { return variableExpression(it) }
         method.parameters().firstOrNull { it.name() == name }?.let { return variableExpression(it) }
         method.typeInfo().fields().firstOrNull { it.name() == name }
             ?.let { return variableExpression(runtime.newFieldReference(it)) }
