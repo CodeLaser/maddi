@@ -185,7 +185,19 @@ mostly *shoehorn* onto existing nodes.
   `greet()` resolves to `Base.greet`. *Gaps:* overload disambiguation (still first-by-arity); supertype
   methods must already be converted (declaration/file order); `Object`'s methods aren't on the predefined
   type, so inherited `toString`/`equals` still don't resolve.
-- **TODO:** overload disambiguation; extension/infix calls; `internal` as real CST `Access`; `..` rangeTo;
+- **Access via `computeAccess()` — DONE.** `Access` is the *eventual/computed* accessibility (distinct
+  from the declared modifier — a `public` member in a `private` class is eventually restricted). The
+  front-end now sets the **visibility modifier** (type modifier on the type; method modifier on
+  methods/accessors/constructors; field modifier on backing fields) and calls `computeAccess()` — the
+  same canonical path java-openjdk uses — instead of hand-mapping visibility → `Access`. Ordering:
+  `convertMembers`/`loadLibraryType` compute the **type** access right after `applyHierarchy`, before any
+  member's `computeAccess()` (which reads `owner().access()`). Verified: an abstract interface method is
+  `public`; a `private` method is `private`. NB the CST combines with the owner only for **fields** (not
+  methods) at inspection time — the full eventual restriction for methods is the analyzer's job.
+- **`internal` reframed:** it is a *modifier*, not an `Access` level (Access is eventual). CST has no
+  `internal` modifier yet, so Kotlin `internal` still maps to a `public` modifier — adding a real
+  `internal` modifier to the CST is the proper future step, not an Access level.
+- **TODO:** overload disambiguation; extension/infix calls; `internal` CST *modifier*; `..` rangeTo;
   negated `!is`.
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,

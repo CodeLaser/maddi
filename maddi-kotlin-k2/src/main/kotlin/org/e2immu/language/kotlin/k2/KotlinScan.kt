@@ -20,9 +20,9 @@ import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.expression.Expression
 import org.e2immu.language.cst.api.expression.Lambda
 import org.e2immu.language.cst.api.expression.VariableExpression
-import org.e2immu.language.cst.api.info.Access
 import org.e2immu.language.cst.api.info.FieldInfo
 import org.e2immu.language.cst.api.info.MethodInfo
+import org.e2immu.language.cst.api.info.MethodModifier
 import org.e2immu.language.cst.api.info.ParameterInfo
 import org.e2immu.language.cst.api.info.TypeInfo
 import org.e2immu.language.cst.api.info.Variance
@@ -233,6 +233,7 @@ class KotlinScan(
         val classSymbol = declaration.symbol as KaNamedClassSymbol
         // hierarchy first, so method bodies can resolve inherited callees via parentClass/interfaces
         applyHierarchy(typeInfo.builder(), typeInfo, classSymbol)
+        typeInfo.builder().computeAccess() // eventual type access, needed before members' computeAccess()
         // properties before methods, so a method body can reference the backing fields
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
@@ -253,8 +254,8 @@ class KotlinScan(
         val builder = constructor.builder()
         ctor.valueParameters.forEach { p -> builder.addParameter(p.name.asString(), mapType(p.returnType, owner)) }
         builder.setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
-            .setAccess(accessFor(ctor))
-            .commitParameters()
+        visibilityMethodModifier(ctor)?.let { builder.addMethodModifier(it) }
+        builder.commitParameters().computeAccess()
         return constructor
     }
 
@@ -275,7 +276,7 @@ class KotlinScan(
             }
             cst.builder().setMethodBody(body.build()).commit()
         }
-        typeInfo.builder().setAccess(accessFor(classSymbol)).commit()
+        typeInfo.builder().commit() // access already computed in convertMembers (B1)
     }
 
     /** Build the `this(...)`/`super(...)` invocation for a constructor, or null if there is none (or it is unresolved). */
@@ -329,10 +330,9 @@ class KotlinScan(
         val field = runtime.newFieldInfo(name, false, type, owner)
         val fieldBuilder = field.builder()
             .addFieldModifier(runtime.fieldModifierPrivate())
-            .setAccess(runtime.accessPrivate())
             .setInitializer(runtime.newEmptyExpression())
         if (isVal) fieldBuilder.addFieldModifier(runtime.fieldModifierFinal())
-        fieldBuilder.commit()
+        fieldBuilder.computeAccess().commit()
         owner.builder().addField(field)
 
         owner.builder().addMethod(buildGetter(owner, field, type, property))
@@ -343,8 +343,9 @@ class KotlinScan(
     private fun KaSession.buildComputedGetter(owner: TypeInfo, property: KaPropertySymbol,
                                               type: ParameterizedType): MethodInfo {
         val getter = runtime.newMethod(owner, accessorName("get", property.name.asString()), runtime.methodTypeMethod())
-        getter.builder().setReturnType(type).addMethodModifier(runtime.methodModifierPublic())
-            .setAccess(accessFor(property)).commitParameters()
+        getter.builder().setReturnType(type)
+        addMethodModifiers(getter.builder(), property)
+        getter.builder().commitParameters().computeAccess()
         val accessor = (property.psi as? KtProperty)?.getter
         val body = runtime.newBlockBuilder()
         val expressionBody = accessor?.bodyExpression
@@ -368,9 +369,8 @@ class KotlinScan(
         getter.builder()
             .setReturnType(type)
             .setMethodBody(runtime.newBlockBuilder().addStatement(returnField).build())
-            .addMethodModifier(runtime.methodModifierPublic())
-            .setAccess(accessFor(property))
-            .commitParameters()
+        addMethodModifiers(getter.builder(), property)
+        getter.builder().commitParameters().computeAccess()
         runtime.setGetSetField(getter, field, false, -1, false)
         getter.builder().commit()
         return getter
@@ -383,9 +383,8 @@ class KotlinScan(
         setter.builder()
             .setReturnType(runtime.voidParameterizedType())
             .setMethodBody(runtime.newBlockBuilder().addStatement(assignFieldFromParam(owner, field, value)).build())
-            .addMethodModifier(runtime.methodModifierPublic())
-            .setAccess(accessFor(property))
-            .commitParameters()
+        addMethodModifiers(setter.builder(), property)
+        setter.builder().commitParameters().computeAccess()
         runtime.setGetSetField(setter, field, true, -1, false)
         setter.builder().commit()
         return setter
@@ -421,9 +420,8 @@ class KotlinScan(
         builder
             .setReturnType(returnType)
             .setMethodBody(convertBody(function, returnType, method))
-            .setAccess(accessFor(function))
         addMethodModifiers(builder, function)
-        builder.commit()
+        builder.computeAccess().commit() // eventual access from the visibility modifier + owner type
         return method
     }
 
@@ -926,7 +924,7 @@ class KotlinScan(
 
         val builder = typeInfo.builder()
         applyHierarchy(builder, typeInfo, symbol)
-        builder.setAccess(accessFor(symbol))
+        builder.computeAccess()
 
         // Members, one level deep: skip while already loading members (bounds the cascade — types named
         // only by these signatures are loaded hierarchy-only).
@@ -953,9 +951,8 @@ class KotlinScan(
             .setReturnType(mapType(function.returnType, owner))
             .setMethodBody(runtime.emptyBlock())
             .setMissingData(runtime.methodMissingMethodBody()) // no body available (like a class-file method)
-            .setAccess(accessFor(function))
         addMethodModifiers(builder, function)
-        builder.commitParameters().commit()
+        builder.commitParameters().computeAccess().commit()
         return method
     }
 
@@ -976,6 +973,13 @@ class KotlinScan(
             KaSymbolModality.FINAL -> builder.addTypeModifier(runtime.typeModifierFinal())
             else -> {} // OPEN
         }
+        // visibility as a modifier; the *eventual* access is computed (computeAccess) from it + the enclosing type
+        when (classSymbol.visibility) {
+            KaSymbolVisibility.PRIVATE -> builder.addTypeModifier(runtime.typeModifierPrivate())
+            KaSymbolVisibility.PROTECTED -> builder.addTypeModifier(runtime.typeModifierProtected())
+            KaSymbolVisibility.PUBLIC, KaSymbolVisibility.INTERNAL -> builder.addTypeModifier(runtime.typeModifierPublic())
+            else -> {}
+        }
     }
 
     private fun natureFor(kind: KaClassKind): TypeNature = when (kind) {
@@ -985,22 +989,16 @@ class KotlinScan(
         else -> runtime.typeNatureClass()
     }
 
-    // Kotlin `internal` (module visibility) has no CST Access yet -> mapped to public for now.
-    private fun accessFor(symbol: KaDeclarationSymbol): Access = when (symbol.visibility) {
-        KaSymbolVisibility.PRIVATE -> runtime.accessPrivate()
-        KaSymbolVisibility.PROTECTED -> runtime.accessProtected()
-        KaSymbolVisibility.PACKAGE_PRIVATE -> runtime.accessPackage()
-        else -> runtime.accessPublic() // PUBLIC, INTERNAL, LOCAL, UNKNOWN
+    // Kotlin `internal` (module visibility) has no CST modifier yet -> treated as public for now.
+    private fun visibilityMethodModifier(symbol: KaDeclarationSymbol): MethodModifier? = when (symbol.visibility) {
+        KaSymbolVisibility.PRIVATE -> runtime.methodModifierPrivate()
+        KaSymbolVisibility.PROTECTED -> runtime.methodModifierProtected()
+        KaSymbolVisibility.PUBLIC, KaSymbolVisibility.INTERNAL -> runtime.methodModifierPublic()
+        else -> null
     }
 
     private fun addMethodModifiers(builder: MethodInfo.Builder, symbol: KaDeclarationSymbol) {
-        when (symbol.visibility) {
-            KaSymbolVisibility.PRIVATE -> builder.addMethodModifier(runtime.methodModifierPrivate())
-            KaSymbolVisibility.PROTECTED -> builder.addMethodModifier(runtime.methodModifierProtected())
-            KaSymbolVisibility.PUBLIC, KaSymbolVisibility.INTERNAL ->
-                builder.addMethodModifier(runtime.methodModifierPublic())
-            else -> {}
-        }
+        visibilityMethodModifier(symbol)?.let { builder.addMethodModifier(it) }
         when (symbol.modality) {
             KaSymbolModality.ABSTRACT -> builder.addMethodModifier(runtime.methodModifierAbstract())
             KaSymbolModality.FINAL -> builder.addMethodModifier(runtime.methodModifierFinal())

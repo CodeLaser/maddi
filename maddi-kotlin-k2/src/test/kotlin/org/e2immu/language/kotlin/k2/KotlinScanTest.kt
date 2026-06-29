@@ -796,4 +796,22 @@ class KotlinScanTest {
         assertEquals("greet", (call as MethodCall).methodInfo().name())
         assertEquals(types.getValue("Base"), call.methodInfo().typeInfo())
     }
+
+    @Test
+    fun accessIsComputed() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "Acc.kt",
+            """
+            interface Api { fun call(): Int }
+            class Impl { private fun secret(): Int = 1 }
+            """.trimIndent() + "\n"
+        ).associateBy { it.simpleName() }
+
+        // access() is the computed value (computeAccess), not a hand-mapped visibility:
+        // an abstract interface method is public (interface special-casing in computeAccess)
+        assertEquals(runtime.accessPublic(), types.getValue("Api").findUniqueMethod("call", 0).access())
+        // a private method is private
+        assertEquals(runtime.accessPrivate(), types.getValue("Impl").findUniqueMethod("secret", 0).access())
+    }
 }
