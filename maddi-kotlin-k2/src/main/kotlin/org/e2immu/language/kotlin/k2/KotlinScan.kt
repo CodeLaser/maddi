@@ -64,6 +64,7 @@ import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtForExpression
 import org.jetbrains.kotlin.psi.KtIfExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
@@ -441,6 +442,19 @@ class KotlinScan(
             .setExpression(statement.condition?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
             .setBlock(convertBlock(statement.body, method, locals))
             .setSource(runtime.noSource()).build()
+        statement is KtForExpression -> {
+            // for (x in iterable) { … } -> ForEachStatement; x is a local in scope for the body
+            val parameter = statement.loopParameter
+            val name = parameter?.name ?: "_"
+            val type = (parameter?.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
+                ?: runtime.objectParameterizedType()
+            val loopVariable = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
+            runtime.newForEachBuilder()
+                .setInitializer(runtime.newLocalVariableCreation(loopVariable))
+                .setExpression(statement.loopRange?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
+                .setBlock(convertBlock(statement.body, method, locals + (name to loopVariable)))
+                .setSource(runtime.noSource()).build()
+        }
         else -> runtime.newExpressionAsStatement(convertExpression(statement, method, locals))
     }
 

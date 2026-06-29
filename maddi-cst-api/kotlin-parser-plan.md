@@ -142,7 +142,11 @@ mostly *shoehorn* onto existing nodes.
   `WhileStatement`; `if` as an expression → `InlineConditional`. A shared `convertBlock` converts a
   branch/body (a `{…}` block or a single statement) into a CST `Block`, with a child `locals` scope per
   block. Verified: `if (n>0){…}else{…}`, `while (i>0){…}`, `= if (n>0) 1 else 0`.
-- **TODO:** `when` (→ switch), `for`/`do-while` loops, `break`/`continue`, lambdas, string templates,
+- **`for` loops — DONE.** `for (x in iterable) { … }` → `ForEachStatement` (initializer = the loop
+  variable as a `LocalVariableCreation`, expression = the iterable, block = the body); the loop variable
+  is added to the body's `locals` scope. Verified: `for (x in items) { total = total + x }` with `x`
+  resolving to the loop variable in the body.
+- **TODO:** `when` (→ switch), `do-while`, `break`/`continue`, lambdas, string templates,
   augmented assignment.
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
