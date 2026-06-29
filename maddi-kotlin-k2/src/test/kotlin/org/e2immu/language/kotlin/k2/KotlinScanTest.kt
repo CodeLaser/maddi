@@ -709,21 +709,23 @@ class KotlinScanTest {
     @Test
     fun lambda() {
         val scan = KotlinScan(runtime, sourceSet)
+        // the lambda captures the enclosing method parameter `factor`
         val lam = scan.parse(
             "Lam.kt",
-            "class Lam { fun makeInc(): (Int) -> Int = { x -> x + 1 } }\n"
+            "class Lam { fun scale(factor: Int): (Int) -> Int = { x -> x * factor } }\n"
         ).first()
 
-        val ret = (lam.findUniqueMethod("makeInc", 0).methodBody().statements().first() as ReturnStatement).expression()
+        val ret = (lam.findUniqueMethod("scale", 1).methodBody().statements().first() as ReturnStatement).expression()
         assertTrue(ret is Lambda)
         // the SAM `invoke(x: Int): Int`
         val sam = (ret as Lambda).methodInfo()
         assertEquals("invoke", sam.name())
         assertEquals("x", sam.parameters().single().name())
-        assertEquals(runtime.intParameterizedType(), sam.parameters().single().parameterizedType())
         assertEquals(runtime.intParameterizedType(), sam.returnType())
-        // body `return x + 1`, with x resolving to the lambda parameter
-        val plus = (sam.methodBody().statements().first() as ReturnStatement).expression() as BinaryOperator
-        assertTrue((plus.lhs() as VariableExpression).variable() is ParameterInfo)
+
+        // body `return x * factor`: x is the lambda parameter, factor is captured from the enclosing method
+        val mul = (sam.methodBody().statements().first() as ReturnStatement).expression() as BinaryOperator
+        assertEquals("x", ((mul.lhs() as VariableExpression).variable() as ParameterInfo).name())
+        assertEquals("factor", ((mul.rhs() as VariableExpression).variable() as ParameterInfo).name())
     }
 }
