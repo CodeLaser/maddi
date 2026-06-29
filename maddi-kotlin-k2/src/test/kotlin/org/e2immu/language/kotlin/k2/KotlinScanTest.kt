@@ -16,6 +16,7 @@ package org.e2immu.language.kotlin.k2
 
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.Variance
+import org.e2immu.language.cst.api.expression.BinaryOperator
 import org.e2immu.language.cst.api.expression.VariableExpression
 import org.e2immu.language.cst.api.info.ParameterInfo
 import org.e2immu.language.cst.api.runtime.Runtime
@@ -454,5 +455,34 @@ class KotlinScanTest {
         val v = (returnedExpr("read", 0) as VariableExpression).variable()
         assertTrue(v is FieldReference)
         assertEquals("v", (v as FieldReference).fieldInfo().name())
+    }
+
+    @Test
+    fun binaryOperators() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val op = scan.parse(
+            "Op.kt",
+            """
+            class Op {
+                fun add(a: Int, b: Int): Int = a + b
+                fun lt(a: Int, b: Int): Boolean = a < b
+            }
+            """.trimIndent() + "\n"
+        ).first()
+
+        fun returnedExpr(name: String) =
+            (op.findUniqueMethod(name, 2).methodBody().statements().first() as ReturnStatement).expression()
+
+        // a + b -> BinaryOperator whose operator is the Runtime's plusOperatorInt, result int
+        val add = returnedExpr("add")
+        assertTrue(add is BinaryOperator)
+        assertEquals(runtime.plusOperatorInt(), (add as BinaryOperator).operator())
+        assertEquals(runtime.intParameterizedType(), add.parameterizedType())
+        assertTrue(add.lhs() is VariableExpression && add.rhs() is VariableExpression)
+
+        // a < b -> lessOperatorInt, result boolean
+        val lt = returnedExpr("lt") as BinaryOperator
+        assertEquals(runtime.lessOperatorInt(), lt.operator())
+        assertEquals(runtime.booleanParameterizedType(), lt.parameterizedType())
     }
 }
