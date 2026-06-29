@@ -166,10 +166,12 @@ mostly *shoehorn* onto existing nodes.
   the implicit return; lambda params resolve via the SAM, outer locals are captured. Trailing-lambda call
   syntax (`list.map { … }`) is wired into `convertCall` (lambda arguments appended). Implicit `it`
   materialised for single-param function types. Verified: `fun makeInc(): (Int)->Int = { x -> x + 1 }`.
-  *Gaps:* captured outer *parameters* not resolved; SAM hard-coded to `invoke` (Java SAM-conversion
-  targets not handled).
+  The lambda body is converted in the **enclosing method's context** with the lambda's own parameters
+  added to scope, so it captures outer locals, parameters and fields (verified: `{ x -> x * factor }`
+  resolves both the lambda param `x` and the captured enclosing param `factor`). *Gaps:* SAM hard-coded
+  to `invoke` (Java SAM-conversion targets not handled); `this`/labelled-`this` in receiver lambdas.
 - **TODO:** `when` `is`/`in` conditions (→ InstanceOf / contains MethodCall); resolution niceties
-  (inherited callees, overloads, extension/infix calls); captured outer parameters.
+  (inherited callees, overloads, extension/infix calls); `internal` as real CST `Access`; computed properties.
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API

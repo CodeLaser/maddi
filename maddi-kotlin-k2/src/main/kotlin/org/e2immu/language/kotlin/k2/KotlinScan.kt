@@ -30,6 +30,7 @@ import org.e2immu.language.cst.api.statement.Block
 import org.e2immu.language.cst.api.statement.Statement
 import org.e2immu.language.cst.api.statement.SwitchEntry
 import org.e2immu.language.cst.api.variable.LocalVariable
+import org.e2immu.language.cst.api.variable.Variable
 import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.api.type.ParameterizedType
 import org.e2immu.language.cst.api.type.TypeNature
@@ -407,7 +408,7 @@ class KotlinScan(
                                       method: MethodInfo): Block {
         val psi = function.psi as? KtNamedFunction ?: return runtime.newBlockBuilder().build()
         val block = runtime.newBlockBuilder()
-        val locals = mutableMapOf<String, LocalVariable>() // names in scope; references resolve against this
+        val locals = mutableMapOf<String, Variable>() // names in scope; references resolve against this
         if (psi.hasBlockBody()) {
             psi.bodyBlockExpression?.statements?.forEach { block.addStatement(convertStatement(it, method, locals)) }
         } else {
@@ -424,7 +425,7 @@ class KotlinScan(
 
     /** Convert one statement: a local `val`/`var`, an assignment, a `return`, or an expression statement. */
     private fun KaSession.convertStatement(statement: KtExpression, method: MethodInfo,
-                                           locals: MutableMap<String, LocalVariable>): Statement = when {
+                                           locals: MutableMap<String, Variable>): Statement = when {
         statement is KtProperty && statement.isLocal -> {
             val name = statement.name ?: "_"
             val type = (statement.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
@@ -491,18 +492,18 @@ class KotlinScan(
      * (per the CST-for-Kotlin assessment). `is`/`in` conditions are skipped for now.
      */
     private fun KaSession.convertWhen(statement: KtWhenExpression, method: MethodInfo,
-                                      locals: Map<String, LocalVariable>): Statement =
+                                      locals: Map<String, Variable>): Statement =
         runtime.newSwitchStatementNewStyleBuilder()
             .setSelector(whenSelector(statement, method, locals))
             .addSwitchEntries(whenEntries(statement, method, locals))
             .setSource(runtime.noSource()).build()
 
     private fun KaSession.whenSelector(statement: KtWhenExpression, method: MethodInfo,
-                                       locals: Map<String, LocalVariable>): Expression =
+                                       locals: Map<String, Variable>): Expression =
         statement.subjectExpression?.let { convertExpression(it, method, locals) } ?: runtime.newBoolean(true)
 
     private fun KaSession.whenEntries(statement: KtWhenExpression, method: MethodInfo,
-                                      locals: Map<String, LocalVariable>): List<SwitchEntry> =
+                                      locals: Map<String, Variable>): List<SwitchEntry> =
         statement.entries.map { entry ->
             val conditions = if (entry.isElse) listOf(runtime.newEmptyExpression())
             else entry.conditions.mapNotNull { condition ->
@@ -530,7 +531,7 @@ class KotlinScan(
 
     /** Convert a control-flow branch/body (a `{ … }` block or a single statement) into a CST [Block]. */
     private fun KaSession.convertBlock(body: KtExpression?, method: MethodInfo,
-                                       locals: Map<String, LocalVariable>): Block {
+                                       locals: Map<String, Variable>): Block {
         val block = runtime.newBlockBuilder()
         val childLocals = locals.toMutableMap() // a nested block has its own scope
         when (body) {
@@ -547,7 +548,7 @@ class KotlinScan(
      * operators, qualified access and the rest become a labelled placeholder, filled in incrementally.
      */
     private fun KaSession.convertExpression(expression: KtExpression, method: MethodInfo,
-                                            locals: Map<String, LocalVariable>): Expression {
+                                            locals: Map<String, Variable>): Expression {
         expression.evaluate()?.let { constant ->
             return when (val value = constant.value) {
                 is Int -> runtime.newInt(value)
@@ -594,7 +595,7 @@ class KotlinScan(
 
     /** `obj.f(...)` (method call) or `obj.x` (property/field access). */
     private fun KaSession.convertQualified(expression: KtDotQualifiedExpression, method: MethodInfo,
-                                           locals: Map<String, LocalVariable>): Expression {
+                                           locals: Map<String, Variable>): Expression {
         val receiver = convertExpression(expression.receiverExpression, method, locals)
         val receiverType = expression.receiverExpression.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         return when (val selector = expression.selectorExpression) {
@@ -617,7 +618,7 @@ class KotlinScan(
      * not yet resolved). Implicit `it` is materialised when the function type has one parameter.
      */
     private fun KaSession.convertLambda(lambda: KtLambdaExpression, method: MethodInfo,
-                                        locals: Map<String, LocalVariable>): Expression {
+                                        locals: Map<String, Variable>): Expression {
         val enclosingType = method.typeInfo()
         val anonymousType = runtime.newAnonymousType(enclosingType, enclosingType.builder().getAndIncrementAnonymousTypes())
         anonymousType.builder()
@@ -646,16 +647,19 @@ class KotlinScan(
         val returnType = functionType?.returnType?.let { mapType(it, enclosingType) } ?: runtime.objectParameterizedType()
         samBuilder.setReturnType(returnType).setAccess(runtime.accessPublic()).setSynthetic(true).commitParameters()
 
-        // body: the lambda's block; its last expression becomes the (implicit) return value
+        // body: the lambda's block; its last expression becomes the (implicit) return value.
+        // Converted in the *enclosing* method's context (so captured outer params/fields resolve), with
+        // the lambda's own parameters added to the in-scope variables.
         val block = runtime.newBlockBuilder()
-        val bodyLocals = locals.toMutableMap()
+        val bodyScope: MutableMap<String, Variable> = locals.toMutableMap()
+        sam.parameters().forEach { bodyScope[it.name()] = it }
         val statements = lambda.bodyExpression?.statements.orEmpty()
         val voidReturn = returnType == runtime.voidParameterizedType()
         statements.forEachIndexed { i, stmt ->
             block.addStatement(
                 if (i == statements.lastIndex && !voidReturn && isLambdaResultExpression(stmt))
-                    runtime.newReturnStatement(convertExpression(stmt, sam, bodyLocals))
-                else convertStatement(stmt, sam, bodyLocals)
+                    runtime.newReturnStatement(convertExpression(stmt, method, bodyScope))
+                else convertStatement(stmt, method, bodyScope)
             )
         }
         samBuilder.setMethodBody(block.build()).commit()
@@ -684,7 +688,7 @@ class KotlinScan(
      */
     private fun KaSession.convertCall(
         call: KtCallExpression, receiver: Pair<Expression, TypeInfo?>?, implicitThis: Boolean, method: MethodInfo,
-        locals: Map<String, LocalVariable>,
+        locals: Map<String, Variable>,
     ): Expression {
         val name = (call.calleeExpression as? KtNameReferenceExpression)?.getReferencedName()
             ?: return runtime.newEmptyExpression("k2-unsupported-callee")
@@ -714,7 +718,7 @@ class KotlinScan(
      * objects, which is `.equals()`) fall back to a placeholder, to be handled as method calls.
      */
     private fun KaSession.convertBinary(expression: KtBinaryExpression, method: MethodInfo,
-                                        locals: Map<String, LocalVariable>): Expression {
+                                        locals: Map<String, Variable>): Expression {
         val left = expression.left?.let { convertExpression(it, method, locals) }
         val right = expression.right?.let { convertExpression(it, method, locals) }
         if (left == null || right == null) return runtime.newEmptyExpression("k2-binary-operand")
@@ -749,7 +753,7 @@ class KotlinScan(
     }
 
     /** Resolve a bare name: a local, else a parameter, else a field (locals shadow params shadow fields). */
-    private fun resolveReference(name: String, method: MethodInfo, locals: Map<String, LocalVariable>): Expression? {
+    private fun resolveReference(name: String, method: MethodInfo, locals: Map<String, Variable>): Expression? {
         locals[name]?.let { return variableExpression(it) }
         method.parameters().firstOrNull { it.name() == name }?.let { return variableExpression(it) }
         method.typeInfo().fields().firstOrNull { it.name() == name }
@@ -757,7 +761,7 @@ class KotlinScan(
         return null
     }
 
-    private fun variableExpression(variable: org.e2immu.language.cst.api.variable.Variable): Expression =
+    private fun variableExpression(variable: Variable): Expression =
         runtime.newVariableExpressionBuilder().setVariable(variable).setSource(runtime.noSource()).build()
 
     /**
