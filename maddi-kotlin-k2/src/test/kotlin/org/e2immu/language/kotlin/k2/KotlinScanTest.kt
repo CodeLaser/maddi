@@ -17,6 +17,7 @@ package org.e2immu.language.kotlin.k2
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.Variance
 import org.e2immu.language.cst.api.runtime.Runtime
+import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation
 import org.e2immu.language.cst.api.statement.ReturnStatement
 import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl
@@ -392,5 +393,31 @@ class KotlinScanTest {
 
         // primary + secondary constructor both present
         assertEquals(2, types.getValue("Multi").constructors().size)
+    }
+
+    @Test
+    fun constructorDelegation() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "D.kt",
+            """
+            open class Base(val x: Int)
+            class Sub : Base(5)
+            class Multi(val a: Int) { constructor() : this(0) }
+            """.trimIndent() + "\n"
+        ).associateBy { it.simpleName() }
+
+        // primary super-type call `Sub : Base(5)` -> super(...) targeting Base's constructor
+        val subEci = types.getValue("Sub").findConstructor(0).methodBody().statements().first()
+        assertTrue(subEci is ExplicitConstructorInvocation)
+        assertTrue((subEci as ExplicitConstructorInvocation).isSuper)
+        assertEquals(types.getValue("Base"), subEci.methodInfo().typeInfo())
+
+        // secondary `constructor() : this(0)` -> this(...) targeting another Multi constructor
+        val multi = types.getValue("Multi")
+        val secEci = multi.findConstructor(0).methodBody().statements().first()
+        assertTrue(secEci is ExplicitConstructorInvocation)
+        assertFalse((secEci as ExplicitConstructorInvocation).isSuper)
+        assertEquals(multi, secEci.methodInfo().typeInfo())
     }
 }
