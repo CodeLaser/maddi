@@ -233,9 +233,12 @@ mostly *shoehorn* onto existing nodes.
   `@OptIn(KaExperimentalApi)`); when it's an extension with an explicit receiver, `extensionCall` routes to
   the facade's static method (found via the symbol's containing `KtFile` → `extensionFacade`) as
   `<File>Kt.ext(receiver, args…)` — a static-form `MethodCall` (object = facade `TypeExpression`), receiver
-  prepended as arg 0. Verified: `s.tag("x")` → `ExtKt.tag(s, "x")`. *Gaps:* library/stdlib extensions
-  (facade not in this compilation → falls through to placeholder); implicit-receiver extension calls; body
-  `this`/unqualified-receiver-member → the receiver param. Then `@file:JvmName`.
+  prepended as arg 0. Verified: `s.tag("x")` → `ExtKt.tag(s, "x")`.
+- **Extension body `this` — DONE.** `this` (and so `this.member`) in an extension body resolves to the
+  synthetic `$receiver` parameter (`receiverParam(method)` = first param named `$receiver`). Verified:
+  `fun String.echo(): String = this` → returns the `$receiver` param. *Gaps:* library/stdlib extension
+  calls (facade not in this compilation → placeholder); implicit-receiver extension calls;
+  *unqualified* receiver-member access (`length` rather than `this.length`); `@file:JvmName`.
 - **Reusable note:** the facade is the file-level container ONLY; companion objects / named objects map
   to their own JVM types (`Outer$Companion` + `Companion` field, `INSTANCE` singletons) via the same
   *synthesize-and-register* mechanism, not the facade itself.
