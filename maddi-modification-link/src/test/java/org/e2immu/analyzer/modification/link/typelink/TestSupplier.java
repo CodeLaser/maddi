@@ -26,13 +26,14 @@ public class TestSupplier extends CommonTest {
     private static final String INPUT1 = """
             package a.b;
             import java.util.Optional;
+            import java.util.function.Supplier;
             public class C<X> {
                 public X method(Optional<X> optional, X alternative) {
                     X x = optional.orElseGet(() -> alternative);
                     return x;
                 }
                 public X method2(Optional<X> optional, X alternative) {
-                    var lambda = () -> alternative;
+                    Supplier<X> lambda = () -> alternative;
                     X x = optional.orElseGet(lambda);
                     return x;
                 }
@@ -217,13 +218,14 @@ public class TestSupplier extends CommonTest {
             package a.b;
             import java.util.Optional;
             import java.util.List;
+            import java.util.function.Supplier;
             public class C<X> {
-                public X method(Optional<List<X>> optional, List<X> main) {
+                public List<X> method(Optional<List<X>> optional, List<X> main) {
                     List<X> xList = optional.orElseGet(() -> main.subList(0, 2));
                     return xList;
                 }
-                public X method2(Optional<List<X>> optional, List<X> main) {
-                    var lambda = () -> main.subList(0, 2);
+                public List<X> method2(Optional<List<X>> optional, List<X> main) {
+                    Supplier<List<X>> lambda = () -> main.subList(0, 2);
                     List<X> xList = optional.orElseGet(lambda);
                     return xList;
                 }
@@ -291,13 +293,14 @@ public class TestSupplier extends CommonTest {
             import java.util.AbstractMap;
             import java.util.Map;
             import java.util.Optional;
+            import java.util.function.Supplier;
             public class C<X, Y> {
                 public Map.Entry<X, Y> method(Optional<Map.Entry<X, Y>> optional, X altX, Y altY) {
                     Map.Entry<X, Y> entry = optional.orElseGet(() -> new AbstractMap.SimpleEntry<>(altX, altY));
                     return entry;
                 }
                 public Map.Entry<X, Y> method2(Optional<Map.Entry<X, Y>> optional, X altX, Y altY) {
-                    var lambda = () -> new AbstractMap.SimpleEntry<>(altX, altY);
+                    Supplier<Map.Entry<X, Y>> lambda = () -> new AbstractMap.SimpleEntry<>(altX, altY);
                     Map.Entry<X, Y> entry = optional.orElseGet(lambda);
                     return entry;
                 }

@@ -63,6 +63,12 @@ public class Test2 extends CommonTest {
                 private final Builder builder;
                 private Graph graph;
 
+                X(Set<TypeInfo> primaryTypes, Collection<ModuleInfo> moduleInfos, Builder builder) {
+                    this.primaryTypes = primaryTypes;
+                    this.moduleInfos = moduleInfos;
+                    this.builder = builder;
+                }
+
                 public X go() {
                     primaryTypes.forEach(this::go);
                     moduleInfos.forEach(this::go);

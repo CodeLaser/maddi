@@ -16,6 +16,7 @@ import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import org.e2immu.language.inspection.api.resource.ParameterNameIndex;
 import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.e2immu.language.inspection.resource.InfoByFqn;
 import org.e2immu.language.inspection.resource.SummaryImpl;
@@ -33,13 +34,18 @@ import org.slf4j.LoggerFactory;
 import javax.tools.*;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import java.util.zip.GZIPInputStream;
 
 public class JavaInspectorImpl implements JavaInspector {
     private static final Logger LOGGER = LoggerFactory.getLogger(JavaInspectorImpl.class);
@@ -54,6 +60,13 @@ public class JavaInspectorImpl implements JavaInspector {
     private final JavaCompiler javaCompiler;
     private final InfoByFqn infoByFqn = new InfoByFqn();
     private final List<String> preload = new ArrayList<>();
+    private boolean parameterNames;
+    private ParameterNameIndex parameterNameIndex; // lazily loaded when parameterNames is on
+
+    // the JDK modules for which a faithful parameter-name index is shipped in maddi-aapi-archive
+    private static final List<String> PARAMETER_NAME_MODULES = List.of("java.base", "java.desktop", "java.net.http");
+    private static final String PARAMETER_NAME_RESOURCE_PREFIX =
+            "/org/e2immu/analyzer/aapi/archive/parameterNames/";
 
     public JavaInspectorImpl() {
         this(false, false);
@@ -98,6 +111,35 @@ public class JavaInspectorImpl implements JavaInspector {
         return FAIL_FAST;
     }
 
+    @Override
+    public void setParameterNames(boolean parameterNames) {
+        this.parameterNames = parameterNames;
+    }
+
+    // lazily load and merge the per-module .paramnames.gz indices shipped in maddi-aapi-archive
+    private ParameterNameIndex parameterNameIndex() {
+        if (parameterNameIndex == null) {
+            ParameterNameIndex index = new ParameterNameIndex();
+            for (String module : PARAMETER_NAME_MODULES) {
+                String resource = PARAMETER_NAME_RESOURCE_PREFIX + module + ".paramnames.gz";
+                try (InputStream in = JavaInspectorImpl.class.getResourceAsStream(resource)) {
+                    if (in == null) {
+                        LOGGER.warn("No parameter-name index resource {} (is maddi-aapi-archive on the classpath?)", resource);
+                        continue;
+                    }
+                    try (Reader r = new InputStreamReader(new GZIPInputStream(in), StandardCharsets.UTF_8)) {
+                        index.putAll(ParameterNameIndex.read(r));
+                    }
+                } catch (IOException e) {
+                    LOGGER.warn("Cannot read parameter-name index {}: {}", resource, e.toString());
+                }
+            }
+            LOGGER.info("Loaded faithful parameter-name index: {} methods", index.size());
+            parameterNameIndex = index;
+        }
+        return parameterNameIndex;
+    }
+
     // do a preload, with a real recursive load as long as we stay in the package
     // NOTE: module::package java.base::java.util.concurrent
     @Override
@@ -134,7 +176,7 @@ public class JavaInspectorImpl implements JavaInspector {
         for (SourceSet sourceSet : linearization) {
             try {
                 singleSourceSet(summary, sourcesByFqn, infoByFqn, sourceSet, !parseOptions.failFast(),
-                        parseOptions.ignoreModule());
+                        parseOptions.ignoreModule(), parseOptions.parameterNames() || parameterNames);
             } catch (IOException ioe) {
                 LOGGER.error("Caught exception", ioe);
                 throw new UnsupportedOperationException("TODO error handling");
@@ -151,7 +193,7 @@ public class JavaInspectorImpl implements JavaInspector {
             try {
                 Map<String, String> sourcesByFqn = sourcesByFqnBySourceSet.get(sourceSet);
                 singleSourceSet(summary, sourcesByFqn, infoByFqn, sourceSet, !parseOptions.failFast(),
-                        parseOptions.ignoreModule());
+                        parseOptions.ignoreModule(), parseOptions.parameterNames() || parameterNames);
             } catch (IOException ioe) {
                 LOGGER.error("Caught exception", ioe);
                 throw new UnsupportedOperationException("TODO error handling");
@@ -212,7 +254,8 @@ public class JavaInspectorImpl implements JavaInspector {
             String input = Files.readString(javaFile);
             Summary summary = new SummaryImpl(parseOptions.failFast());
             singleSourceSet(summary, Map.of(className, input), infoByFqn, sourceSet,
-                    !parseOptions.failFast(), parseOptions.ignoreModule());
+                    !parseOptions.failFast(), parseOptions.ignoreModule(),
+                    parseOptions.parameterNames() || parameterNames);
             return summary;
         } catch (IOException e) {
             LOGGER.error("Caught exception", e);
@@ -225,17 +268,19 @@ public class JavaInspectorImpl implements JavaInspector {
                                  InfoByFqn infoByFqn,
                                  SourceSet sourceSet,
                                  boolean ignoreErrors,
-                                 boolean ignoreModule) throws IOException {
+                                 boolean ignoreModule,
+                                 boolean parameterNames) throws IOException {
         MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
         JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics);
         if (javacTask == null) {
             LOGGER.warn("Have no sources in source set {}", sourceSet.name());
             return;
         }
-        // TODO when parseOptions.parameterNames() is set, load the ParameterNameIndex (the .paramnames.gz
-        //  resources) and pass it here instead of null, so class-file methods get faithful parameter names
+        // when parameter names are requested, class-file methods get faithful formal parameter names from the
+        // shipped index instead of javac's synthetic arg0, arg1, ...
+        ParameterNameIndex pni = parameterNames ? parameterNameIndex() : null;
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
-                javacTask, sourceSet, infoByFqn, true, diagnostics, preload, null);
+                javacTask, sourceSet, infoByFqn, true, diagnostics, preload, pni);
         ScanCompilationUnits.Result scanned = scanCompilationUnits.scan();
 
         // copy from scanned into summary

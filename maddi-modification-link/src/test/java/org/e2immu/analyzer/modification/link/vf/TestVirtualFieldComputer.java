@@ -267,7 +267,7 @@ public class TestVirtualFieldComputer extends CommonTest {
     @DisplayName("C<X,Y>")
     @Test
     public void test10() {
-        TypeInfo C = javaInspector.parse(INPUT10);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT10);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         VirtualFields vf = vfc.compute(C);
         // this could be correct, could be wrong, depending on other methods being present or absent
@@ -284,7 +284,7 @@ public class TestVirtualFieldComputer extends CommonTest {
             package a.b;
             import org.e2immu.annotation.Independent;
             import java.util.List;
-            public class C<X> {
+            public abstract class C<X> {
                 record R<V>(V v) { }
                 @Independent(hc = true)
                 abstract List<R<X>> method(List<X> list);

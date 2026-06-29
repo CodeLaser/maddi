@@ -25,7 +25,8 @@ public record FormattingOptionsImpl(int lengthOfLine,
                                 boolean compact,
                                 boolean allFieldsRequireThis,
                                 boolean allStaticFieldsRequireType,
-                                boolean skipComments) implements FormattingOptions {
+                                boolean skipComments,
+                                WrapStyle wrapStyle) implements FormattingOptions {
 
     public static final FormattingOptions DEFAULT = new Builder().build();
 
@@ -40,12 +41,14 @@ public record FormattingOptionsImpl(int lengthOfLine,
         private boolean allFieldsRequireThis;
         private boolean allStaticFieldsRequireType;
         private boolean skipComments;
+        private FormattingOptions.WrapStyle wrapStyle;
 
         public Builder() {
             this.lengthOfLine = 120;
             this.spacesInTab = 4;
             this.tabsForLineSplit = 2;
             this.binaryOperatorsAtEndOfLine = true;
+            this.wrapStyle = FormattingOptions.WrapStyle.CHOP_DOWN;
         }
 
         public Builder(FormattingOptions options) {
@@ -53,6 +56,7 @@ public record FormattingOptionsImpl(int lengthOfLine,
             this.spacesInTab = options.spacesInTab();
             this.tabsForLineSplit = options.tabsForLineSplit();
             this.binaryOperatorsAtEndOfLine = options.binaryOperatorsAtEndOfLine();
+            this.wrapStyle = options.wrapStyle();
         }
 
         public Builder setLengthOfLine(int lengthOfLine) {
@@ -99,10 +103,15 @@ public record FormattingOptionsImpl(int lengthOfLine,
             return this;
         }
 
+        public Builder setWrapStyle(FormattingOptions.WrapStyle wrapStyle) {
+            this.wrapStyle = wrapStyle;
+            return this;
+        }
+
         @NotModified
         public FormattingOptions build() {
             return new FormattingOptionsImpl(lengthOfLine, spacesInTab, tabsForLineSplit, binaryOperatorsAtEndOfLine, compact,
-                    allFieldsRequireThis, allStaticFieldsRequireType, skipComments);
+                    allFieldsRequireThis, allStaticFieldsRequireType, skipComments, wrapStyle);
         }
     }
 }

@@ -21,6 +21,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfoContainer;
+import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.statement.*;
 
 import java.util.*;
@@ -219,8 +220,12 @@ public class Assignments {
         int n;
         if (statement instanceof IfElseStatement) {
             n = 2;
-        } else if (statement instanceof SwitchStatementNewStyle) {
-            n = (int) statement.subBlockStream().count();
+        } else if (statement instanceof SwitchStatementNewStyle sns) {
+            // a variable assigned in every arm is only definitely assigned afterwards if the switch is
+            // exhaustive: it has an explicit 'default', or it is a pattern switch (a pattern switch STATEMENT
+            // only compiles when exhaustive, JLS 14.11.1.1). A classic constant switch (int/String/enum labels)
+            // without default is NOT exhaustive: a selector value matching no arm falls through unassigned.
+            n = newStyleSwitchIsExhaustive(sns) ? (int) statement.subBlockStream().count() : Integer.MAX_VALUE;
         } else if (statement instanceof Block
                    || statement instanceof SynchronizedStatement
                    || statement instanceof DoStatement && !statement.expression().isBoolValueTrue()) {
@@ -238,6 +243,23 @@ public class Assignments {
             throw new UnsupportedOperationException("NYI");
         }
         return new CompleteMergeByCounting(n - blocksWithReturn);
+    }
+
+    /*
+    A new-style (arrow) switch makes a variable assigned-in-every-arm definitely assigned afterwards only when it
+    is exhaustive. Two cases qualify:
+    - an explicit 'default ->' arm: its single condition is an EmptyExpression;
+    - a pattern arm ('case Type t ->', 'case Record(..) ->', 'case null, default ->'): its condition list is
+      empty (the pattern lives in patternVariable()). A switch statement that uses patterns is required to be
+      exhaustive to compile, so we can rely on that here.
+    A classic constant switch (int/String/enum constant labels) without 'default' is not exhaustive.
+     */
+    private static boolean newStyleSwitchIsExhaustive(SwitchStatementNewStyle sns) {
+        for (SwitchEntry entry : sns.entries()) {
+            List<Expression> conditions = entry.conditions();
+            if (conditions.isEmpty() || conditions.stream().anyMatch(Expression::isEmpty)) return true;
+        }
+        return false;
     }
 
     /*

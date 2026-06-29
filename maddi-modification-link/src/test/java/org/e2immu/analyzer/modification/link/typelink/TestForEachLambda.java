@@ -78,7 +78,8 @@ public class TestForEachLambda extends CommonTest {
         Statement lambdaAdd = lambda.methodBody().statements().getFirst();
         VariableData vdLambda = VariableDataImpl.of(lambdaAdd);
         // so while we refer to this.set.§$s, we don't have it in the known variables
-        assertEquals("a.b.X.$0.accept(a.b.X.II):0:j, a.b.X.this", vdLambda.knownVariableNamesToString());
+        assertEquals("a.b.X.$0.accept(a.b.X.II), a.b.X.$0.accept(a.b.X.II):0:j, a.b.X.this",
+                vdLambda.knownVariableNamesToString());
         VariableInfo viJ = vdLambda.variableInfo(lambdaMethod.parameters().getFirst());
         assertEquals("0:j∈this.set.§$s", viJ.linkedVariables().toString());
 
@@ -183,7 +184,7 @@ public class TestForEachLambda extends CommonTest {
         Statement lambdaAdd = lambda.methodBody().statements().getFirst();
         VariableData vdLambda = VariableDataImpl.of(lambdaAdd);
         assertEquals("""
-                a.b.X.$0.accept(a.b.X.II):0:j, a.b.X.method(java.util.List,a.b.X):1:x\
+                a.b.X.$0.accept(a.b.X.II), a.b.X.$0.accept(a.b.X.II):0:j, a.b.X.method(java.util.List,a.b.X):1:x\
                 """, vdLambda.knownVariableNamesToString());
         VariableInfo viJ = vdLambda.variableInfo(lambdaMethod.parameters().getFirst());
         assertEquals("0:j∈1:x.set.§$s", viJ.linkedVariables().toString());
@@ -466,9 +467,9 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
         assertEquals("""
-                [0:map.§$$s[-1]~a.b.X.this.map*.§$$s[-1],\
-                0:map.§$$s[-2]~a.b.X.this.map*.§$$s[-2],\
-                0:map.§$$s~a.b.X.this.map*.§$$s] --> -\
+                [0:map.§$$s[-1]~this.map*.§$$s[-1],\
+                0:map.§$$s[-2]~this.map*.§$$s[-2],\
+                0:map.§$$s~this.map*.§$$s] --> -\
                 """, mlvMethod.toString());
     }
 

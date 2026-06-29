@@ -64,9 +64,10 @@ public class TestVarargs extends CommonTest {
 
     @Language("java")
     private static final String INPUT2 = """
+            package a.b;
             import java.util.Map;
             import java.util.Vector;
-            
+
             public class X {
             
                 public Map<String, Comparable<?>> executeAutoitFile(String fullPath, String workDir,
@@ -88,7 +89,7 @@ public class TestVarargs extends CommonTest {
     @DisplayName("varargs 2")
     @Test
     public void test2() {
-        TypeInfo B = javaInspector.parse("X", INPUT2);
+        TypeInfo B = javaInspector.parse("a.b.X", INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(B);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);

@@ -391,7 +391,9 @@ public class TestStream extends CommonTest {
         MethodInfo swap = C.findUniqueMethod("swap", 1);
 
         // test SimpleEntry constructor x, y
-        TypeInfo simpleEntry = javaInspector.compiledTypesManager().get(AbstractMap.SimpleEntry.class);
+        // get(nested.class) resolves by canonical name, which the openjdk loader does not key nested types on;
+        // fetch the enclosing type and navigate to the sub-type instead
+        TypeInfo simpleEntry = javaInspector.compiledTypesManager().get(AbstractMap.class).findSubType("SimpleEntry");
         MethodInfo constructor1 = simpleEntry.findConstructor(2);
         assertEquals("java.util.AbstractMap.SimpleEntry.<init>(Object,Object)", constructor1.fullyQualifiedName());
         MethodLinkedVariables tlvConstructor1 = constructor1.analysis().getOrNull(METHOD_LINKS,

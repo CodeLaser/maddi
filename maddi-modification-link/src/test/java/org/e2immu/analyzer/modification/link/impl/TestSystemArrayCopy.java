@@ -92,7 +92,7 @@ public class TestSystemArrayCopy extends CommonTest {
                 }
                 T[] ts;
                 public void go(T[] input) {
-                    ts = copy(input);
+                    ts = (T[]) copy(input);
                 }
             }
             """;

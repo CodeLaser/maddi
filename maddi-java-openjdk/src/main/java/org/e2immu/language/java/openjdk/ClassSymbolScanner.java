@@ -632,6 +632,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             List<ParameterizedType> paramTypes = ms.params.stream().map(p -> convert(p.type))
                     .collect(Collectors.toList());
             List<String> realNames = lookupParameterNames(typeInfo, name, paramTypes);
+            // VARARGS is a method-level flag (ACC_VARARGS); it applies to the method's last parameter, which is
+            // not itself marked on the parameter symbol when loaded from a class file
+            boolean methodIsVarargs = (ms.flags() & Flags.VARARGS) != 0;
+            int lastParamIndex = ms.params.size() - 1;
             int pIndex = 0;
             for (Symbol.VarSymbol parameter : ms.params) {
                 ParameterizedType pt = paramTypes.get(pIndex);
@@ -639,7 +643,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                         ? realNames.get(pIndex) : parameter.getSimpleName().toString();
                 ParameterInfo parameterInfo = builder.addParameter(paramName, pt);
                 long flags = parameter.flags();
-                if ((flags & Flags.VARARGS) != 0) parameterInfo.builder().setVarArgs(true);
+                if (methodIsVarargs && pIndex == lastParamIndex) parameterInfo.builder().setVarArgs(true);
                 if ((flags & Flags.FINAL) != 0) parameterInfo.builder().setIsFinal(true);
                 parameterInfo.builder().addAnnotations(loadAnnotations(parameter));
                 parameterInfo.builder().commit();
