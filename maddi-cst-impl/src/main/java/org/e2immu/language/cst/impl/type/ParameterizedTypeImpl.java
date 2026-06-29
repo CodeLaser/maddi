@@ -409,11 +409,13 @@ public class ParameterizedTypeImpl implements ParameterizedType {
                    || typeParameter.typeBounds().size() == 1 && typeParameter.typeBounds().getFirst().isJavaLangObject());
     }
 
+    // IMPORTANT: only to be used by maddi parser internals
     @Override
     public boolean isAssignableFrom(Predefined runtime, ParameterizedType other) {
         return new IsAssignableFrom(runtime, this, other).execute();
     }
 
+    // IMPORTANT: only to be used by maddi parser internals
     @Override
     public int numericIsAssignableFrom(Predefined runtime, ParameterizedType other) {
         return new IsAssignableFrom(runtime, this, other).execute(false, false,

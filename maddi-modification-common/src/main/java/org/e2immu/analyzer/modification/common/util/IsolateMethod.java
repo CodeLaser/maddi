@@ -88,6 +88,10 @@ public class IsolateMethod {
         return formatter.write(ob);
     }
 
+    public Result isolate(MethodInfo methodInfo) {
+        return isolate(methodInfo, "R" + methodInfo.name());
+    }
+
     public Result isolate(MethodInfo methodInfo, String customClassName) {
         TypeInfo originalType = methodInfo.typeInfo().primaryType();
         org.e2immu.language.cst.api.runtime.Runtime runtime = javaInspector.runtime();
