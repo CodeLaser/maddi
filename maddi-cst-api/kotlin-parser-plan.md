@@ -210,9 +210,11 @@ addition from the assessment doc (priority order ranked there).
   accessor is tagged via `runtime.setGetSetField` (mirroring `RecordSynthetics.createAccessor`), so the
   analyzer's getter/setter normalisation (`GetSetHelper`) treats Kotlin property access identically to a
   Java field access. Verified: `class Point(val x: Int, var name: String)` → fields x(final)/name,
-  accessors getX/getName/setName, each `getSetField().field()` linked to its field. *Gaps:* computed
-  properties (no backing field) still get a spurious field; custom accessor bodies, delegates, and the
-  `PropertyInfo`-node model deferred.
+  accessors getX/getName/setName, each `getSetField().field()` linked to its field. **Computed properties
+  — DONE:** a property with `hasBackingField == false` (e.g. `val sum get() = x + y`) becomes just a
+  getter with its real (converted) body — no field, no field-tagging (verified: `Point` has x/y but not
+  `sum`; `getSum()` returns `x + y`). *Gaps:* custom accessor bodies on backing-field properties,
+  delegates, and the `PropertyInfo`-node model deferred.
 - **Visibility & modifiers — DONE.** `accessFor`/`addMethodModifiers` map Kotlin visibility
   (`private`/`protected`/`public`; `internal`→public for now — no CST `Access` yet) and modality
   (`abstract`/`final`; `open`→none) onto types (Access + type modifier) and methods (Access + method

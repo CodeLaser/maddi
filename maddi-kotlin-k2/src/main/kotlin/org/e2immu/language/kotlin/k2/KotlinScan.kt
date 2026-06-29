@@ -43,6 +43,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
@@ -318,6 +319,13 @@ class KotlinScan(
         val type = mapType(property.returnType, owner)
         val isVal = property.isVal
 
+        // a computed property (custom getter, no backing field, e.g. `val sum get() = x + y`) becomes just
+        // a getter with its real body — no field, no getter/setter field tagging.
+        if ((property as? KaKotlinPropertySymbol)?.hasBackingField == false) {
+            owner.builder().addMethod(buildComputedGetter(owner, property, type))
+            return
+        }
+
         val field = runtime.newFieldInfo(name, false, type, owner)
         val fieldBuilder = field.builder()
             .addFieldModifier(runtime.fieldModifierPrivate())
@@ -329,6 +337,24 @@ class KotlinScan(
 
         owner.builder().addMethod(buildGetter(owner, field, type, property))
         if (!isVal) owner.builder().addMethod(buildSetter(owner, field, type, property))
+    }
+
+    /** A computed property's getter: its real (custom) body, no field-access tagging. */
+    private fun KaSession.buildComputedGetter(owner: TypeInfo, property: KaPropertySymbol,
+                                              type: ParameterizedType): MethodInfo {
+        val getter = runtime.newMethod(owner, accessorName("get", property.name.asString()), runtime.methodTypeMethod())
+        getter.builder().setReturnType(type).addMethodModifier(runtime.methodModifierPublic())
+            .setAccess(accessFor(property)).commitParameters()
+        val accessor = (property.psi as? KtProperty)?.getter
+        val body = runtime.newBlockBuilder()
+        val expressionBody = accessor?.bodyExpression
+        if (expressionBody != null) {
+            body.addStatement(runtime.newReturnStatement(convertExpression(expressionBody, getter, emptyMap())))
+        } else {
+            accessor?.bodyBlockExpression?.statements?.forEach { body.addStatement(convertStatement(it, getter, mutableMapOf())) }
+        }
+        getter.builder().setMethodBody(body.build()).commit()
+        return getter
     }
 
     private fun KaSession.buildGetter(owner: TypeInfo, field: FieldInfo, type: ParameterizedType,

@@ -754,4 +754,27 @@ class KotlinScanTest {
         val pattern = entry.patternVariable()
         assertEquals(runtime.intParameterizedType(), pattern.localVariable().parameterizedType())
     }
+
+    @Test
+    fun computedProperty() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val point = scan.parse(
+            "Point.kt",
+            """
+            class Point(val x: Int, val y: Int) {
+                val sum: Int get() = x + y
+            }
+            """.trimIndent() + "\n"
+        ).first()
+
+        // x, y have backing fields; the computed `sum` does NOT
+        val fieldNames = point.fields().map { it.name() }.toSet()
+        assertTrue(fieldNames.contains("x") && fieldNames.contains("y"), "fields were $fieldNames")
+        assertFalse(fieldNames.contains("sum"))
+
+        // getSum() carries the real computed body `return x + y`
+        val ret = (point.findUniqueMethod("getSum", 0).methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(ret is BinaryOperator)
+        assertEquals(runtime.plusOperatorInt(), (ret as BinaryOperator).operator())
+    }
 }
