@@ -269,4 +269,26 @@ class TypeStructureTest : KotlinScanTestBase() {
         assertTrue(field.isStatic)
         assertEquals(companion, field.type().typeInfo())
     }
+
+    @Test
+    fun companionCallRouting() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "CC.kt",
+            "class WithCompanion { companion object { fun create(): Int = 1 } }\n" +
+                "class Caller { fun make(): Int = WithCompanion.create() }\n"
+        ).associateBy { it.simpleName() }
+
+        val create = types.getValue("WithCompanion").subTypes().single { it.simpleName() == "Companion" }
+            .methods().single { it.name() == "create" }
+
+        // `WithCompanion.create()` -> WithCompanion.Companion.create()
+        val call = (types.getValue("Caller").findUniqueMethod("make", 0)
+            .methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(call is MethodCall)
+        assertEquals(create, (call as MethodCall).methodInfo())
+        // the call's object is the `Companion` singleton field access
+        val fieldRef = (call.`object`() as VariableExpression).variable() as FieldReference
+        assertEquals("Companion", fieldRef.fieldInfo().name())
+    }
 }

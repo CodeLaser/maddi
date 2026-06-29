@@ -254,9 +254,15 @@ mostly *shoehorn* onto existing nodes.
   `addSubType`, registered in `InfoByFqn`), populated with the companion's members as instance members,
   plus a `public static final <Companion> Companion` field on the enclosing class. Nested type access via
   `computeAccess` (combines with enclosing). Verified: `class WithCompanion { companion object { fun
-  create() } }` → subtype `Companion` with `create`, and a static `Companion` field typed as it. *Next:*
-  `Outer.member()` call routing (→ `Outer.Companion.member()`); `@JvmStatic`/`const` forwarders on the
-  enclosing class; named/anonymous `object` declarations (own `INSTANCE` singleton types).
+  create() } }` → subtype `Companion` with `create`, and a static `Companion` field typed as it.
+- **Companion call routing — DONE.** `companionCall` (in `convertCall`, after the extension check) routes
+  `Outer.member(args)` → `Outer.Companion.member(args)`: the call's object is a field access of the
+  `Companion` singleton on the enclosing class. Detects a companion callee via the PSI
+  (`containingClassOrObject` is a companion `KtObjectDeclaration`), maps the enclosing class via its
+  `classId` FQN, finds the `Companion` subtype + field. Works for the unqualified form too (receiver-
+  independent). Verified: `WithCompanion.create()` → `MethodCall` to the companion `create`, object =
+  `Companion` field access. *Next:* `@JvmStatic`/`const` forwarders on the enclosing class; named/anonymous
+  `object` declarations (own `INSTANCE` singleton types).
 - **TODO:** `@file:JvmName` facade name; extension-function calls (facade + receiver-as-first-param);
   companion/named objects (own JVM types via the synthesize-and-register pattern); `..` rangeTo (rangeTo
   on the primitive `Int` has no member to resolve); negated `!is`.
