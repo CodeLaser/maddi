@@ -17,6 +17,7 @@ package org.e2immu.language.kotlin.k2
 import org.e2immu.language.cst.api.element.CompilationUnit
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.expression.Expression
+import org.e2immu.language.cst.api.expression.Lambda
 import org.e2immu.language.cst.api.expression.VariableExpression
 import org.e2immu.language.cst.api.info.Access
 import org.e2immu.language.cst.api.info.FieldInfo
@@ -47,6 +48,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
 import org.jetbrains.kotlin.analysis.api.symbols.KaVariableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
+import org.jetbrains.kotlin.analysis.api.types.KaFunctionType
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
 import org.jetbrains.kotlin.analysis.api.types.KaTypeParameterType
@@ -70,6 +72,7 @@ import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtForExpression
 import org.jetbrains.kotlin.psi.KtIfExpression
+import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtEscapeStringTemplateEntry
@@ -561,6 +564,7 @@ class KotlinScan(
             is KtBinaryExpression -> convertBinary(expression, method, locals)
             is KtCallExpression -> convertCall(expression, null, true, method, locals) // f(...) on implicit this
             is KtDotQualifiedExpression -> convertQualified(expression, method, locals) // obj.f(...) or obj.x
+            is KtLambdaExpression -> convertLambda(expression, method, locals)
             is KtIfExpression -> runtime.newInlineConditionalBuilder() // if as an expression: a ? b : c
                 .setCondition(expression.condition?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
                 .setIfTrue(expression.then?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
@@ -605,6 +609,75 @@ class KotlinScan(
     }
 
     /**
+     * Convert a Kotlin lambda `{ x -> … }` to a CST [Lambda]: a synthetic anonymous type implementing the
+     * lambda's functional-interface type, with a single `invoke` method carrying the parameters, the
+     * (concrete) return type, and the converted body. The three [ParameterizedType]s — functional
+     * interface, return type, parameter types — come from the lambda's resolved function type. The
+     * lambda's own parameters resolve via the SAM method; outer locals are captured (outer parameters are
+     * not yet resolved). Implicit `it` is materialised when the function type has one parameter.
+     */
+    private fun KaSession.convertLambda(lambda: KtLambdaExpression, method: MethodInfo,
+                                        locals: Map<String, LocalVariable>): Expression {
+        val enclosingType = method.typeInfo()
+        val anonymousType = runtime.newAnonymousType(enclosingType, enclosingType.builder().getAndIncrementAnonymousTypes())
+        anonymousType.builder()
+            .setAccess(runtime.accessPrivate())
+            .setTypeNature(runtime.typeNatureClass())
+            .setParentClass(runtime.objectParameterizedType())
+
+        val functionType = lambda.expressionType as? KaFunctionType
+        val functionalType = lambda.expressionType?.let { mapType(it, enclosingType) } ?: runtime.objectParameterizedType()
+        val sam = runtime.newMethod(anonymousType, "invoke", runtime.methodTypeMethod())
+        val samBuilder = sam.builder()
+        val outputVariants = mutableListOf<Lambda.OutputVariant>()
+
+        val parameters = lambda.valueParameters
+        if (parameters.isNotEmpty()) {
+            parameters.forEachIndexed { i, p ->
+                val type = (p.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, enclosingType) }
+                    ?: functionType?.parameterTypes?.getOrNull(i)?.let { mapType(it, enclosingType) }
+                    ?: runtime.objectParameterizedType()
+                samBuilder.addParameter(p.name ?: "p$i", type)
+                outputVariants.add(runtime.lambdaOutputVariantEmpty())
+            }
+        } else if (functionType != null && functionType.parameterTypes.size == 1) {
+            samBuilder.addParameter("it", mapType(functionType.parameterTypes[0], enclosingType)) // implicit `it`
+        }
+        val returnType = functionType?.returnType?.let { mapType(it, enclosingType) } ?: runtime.objectParameterizedType()
+        samBuilder.setReturnType(returnType).setAccess(runtime.accessPublic()).setSynthetic(true).commitParameters()
+
+        // body: the lambda's block; its last expression becomes the (implicit) return value
+        val block = runtime.newBlockBuilder()
+        val bodyLocals = locals.toMutableMap()
+        val statements = lambda.bodyExpression?.statements.orEmpty()
+        val voidReturn = returnType == runtime.voidParameterizedType()
+        statements.forEachIndexed { i, stmt ->
+            block.addStatement(
+                if (i == statements.lastIndex && !voidReturn && isLambdaResultExpression(stmt))
+                    runtime.newReturnStatement(convertExpression(stmt, sam, bodyLocals))
+                else convertStatement(stmt, sam, bodyLocals)
+            )
+        }
+        samBuilder.setMethodBody(block.build()).commit()
+
+        anonymousType.builder()
+            .addMethod(sam)
+            .addInterfaceImplemented(functionalType)
+            .setEnclosingMethod(method)
+            .setSingleAbstractMethod(sam)
+            .commit()
+        return runtime.newLambdaBuilder().setMethodInfo(sam).setOutputVariants(outputVariants).setSource(runtime.noSource()).build()
+    }
+
+    /** Whether a lambda's last statement is a value-producing expression (so it becomes the return value). */
+    private fun isLambdaResultExpression(statement: KtExpression): Boolean = when (statement) {
+        is KtProperty, is KtReturnExpression, is KtForExpression, is KtWhileExpression, is KtDoWhileExpression,
+        is KtBreakExpression, is KtContinueExpression -> false
+        is KtBinaryExpression -> !isAssignment(statement.operationToken)
+        else -> true
+    }
+
+    /**
      * Build a CST [org.e2immu.language.cst.api.expression.MethodCall]. The callee [MethodInfo] is resolved
      * by name + arity on the receiver's type (or the enclosing type for an implicit `this`); inherited-only
      * methods and overload ambiguity are not yet handled (those fall back to a placeholder).
@@ -615,7 +688,9 @@ class KotlinScan(
     ): Expression {
         val name = (call.calleeExpression as? KtNameReferenceExpression)?.getReferencedName()
             ?: return runtime.newEmptyExpression("k2-unsupported-callee")
-        val arguments = call.valueArguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, method, locals) } }
+        val valueArgs = call.valueArguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, method, locals) } }
+        val trailingLambdas = call.lambdaArguments.mapNotNull { it.getLambdaExpression()?.let { l -> convertExpression(l, method, locals) } }
+        val arguments = valueArgs + trailingLambdas
         val ownerType = receiver?.second ?: method.typeInfo()
         val callee = ownerType.methods().firstOrNull { it.name() == name && it.parameters().size == arguments.size }
             ?: return runtime.newEmptyExpression("k2-unresolved-call:$name")

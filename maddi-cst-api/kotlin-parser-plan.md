@@ -158,9 +158,18 @@ mostly *shoehorn* onto existing nodes.
   `StringConcat` of literal/escape/interpolation parts. Verified.
 - **`when` as expression — DONE.** `= when (n) { … }` → `SwitchExpression` (shared entry-building with the
   statement form; selector, entries, result type). Verified: 3-arm grade function.
-- **TODO:** lambdas (→ `Lambda`: needs a synthetic anonymous type + SAM method + functional-interface
-  resolution — the largest remaining piece), `when` `is`/`in` conditions (→ InstanceOf / contains
-  MethodCall); resolution niceties (inherited callees, overloads, extension/infix calls).
+- **Lambdas — DONE.** `{ x -> … }` → CST `Lambda`: a synthetic anonymous type (`newAnonymousType`)
+  implementing the lambda's functional-interface type, with a single `invoke` SAM method carrying the
+  parameters + concrete return type + converted body, wired via `addInterfaceImplemented` /
+  `setEnclosingMethod` / `setSingleAbstractMethod`. The three `ParameterizedType`s (functional interface,
+  return type, parameter types) come from the resolved `KaFunctionType`. The last body expression becomes
+  the implicit return; lambda params resolve via the SAM, outer locals are captured. Trailing-lambda call
+  syntax (`list.map { … }`) is wired into `convertCall` (lambda arguments appended). Implicit `it`
+  materialised for single-param function types. Verified: `fun makeInc(): (Int)->Int = { x -> x + 1 }`.
+  *Gaps:* captured outer *parameters* not resolved; SAM hard-coded to `invoke` (Java SAM-conversion
+  targets not handled).
+- **TODO:** `when` `is`/`in` conditions (→ InstanceOf / contains MethodCall); resolution niceties
+  (inherited callees, overloads, extension/infix calls); captured outer parameters.
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API
