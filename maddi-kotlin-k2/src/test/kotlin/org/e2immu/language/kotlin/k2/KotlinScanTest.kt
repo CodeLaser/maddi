@@ -728,4 +728,30 @@ class KotlinScanTest {
         assertEquals("x", ((mul.lhs() as VariableExpression).variable() as ParameterInfo).name())
         assertEquals("factor", ((mul.rhs() as VariableExpression).variable() as ParameterInfo).name())
     }
+
+    @Test
+    fun whenIsConditions() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val m = scan.parse(
+            "M.kt",
+            """
+            class M {
+                fun describe(o: Any): String = when (o) {
+                    is Int -> "int"
+                    is String -> "string"
+                    else -> "other"
+                }
+            }
+            """.trimIndent() + "\n"
+        ).first()
+
+        val sw = (m.findUniqueMethod("describe", 1).methodBody().statements().first() as ReturnStatement)
+            .expression() as SwitchExpression
+        assertEquals(3, sw.entries().size)
+        // `is Int ->` is a TYPE PATTERN on the entry (modern-Java compatible), not a condition expression
+        val entry = sw.entries()[0]
+        assertTrue(entry.conditions().isEmpty())
+        val pattern = entry.patternVariable()
+        assertEquals(runtime.intParameterizedType(), pattern.localVariable().parameterizedType())
+    }
 }

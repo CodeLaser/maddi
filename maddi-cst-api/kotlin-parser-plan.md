@@ -170,8 +170,16 @@ mostly *shoehorn* onto existing nodes.
   added to scope, so it captures outer locals, parameters and fields (verified: `{ x -> x * factor }`
   resolves both the lambda param `x` and the captured enclosing param `factor`). *Gaps:* SAM hard-coded
   to `invoke` (Java SAM-conversion targets not handled); `this`/labelled-`this` in receiver lambdas.
-- **TODO:** `when` `is`/`in` conditions (→ InstanceOf / contains MethodCall); resolution niceties
-  (inherited callees, overloads, extension/infix calls); `internal` as real CST `Access`; computed properties.
+- **`when` `is`/`in` conditions — DONE (Java-pattern-compatible).** Per the modern-Java pattern-switch
+  model, `is T` is a **type pattern** carried on `SwitchEntry.patternVariable()` (a `RecordPattern` whose
+  `localVariable` is typed `T`), with empty `conditions` — *not* an `InstanceOf` condition — so it matches
+  how the analyzer reads pattern switches (cf. java-openjdk `doSwitchEntries`). Value arms (`v ->`) are
+  case-label conditions; `in range` → a `contains` call condition (`!in` negated via
+  `newUnaryOperator`+`logicalNotOperatorBool`). Verified: `when (o) { is Int -> …; is String -> … }` →
+  per-arm `patternVariable` typed Int/String. *Gaps:* negated `!is` (not a pattern) dropped; Kotlin
+  smartcast binds the subject (the pattern's bound variable is synthetic); `in 0..10` needs `..` rangeTo.
+- **TODO:** resolution niceties (inherited callees, overloads, extension/infix calls); `internal` as real
+  CST `Access`; computed properties; `..` rangeTo.
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API
