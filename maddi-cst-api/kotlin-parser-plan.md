@@ -146,8 +146,14 @@ mostly *shoehorn* onto existing nodes.
   variable as a `LocalVariableCreation`, expression = the iterable, block = the body); the loop variable
   is added to the body's `locals` scope. Verified: `for (x in items) { total = total + x }` with `x`
   resolving to the loop variable in the body.
-- **TODO:** `when` (→ switch), `do-while`, `break`/`continue`, lambdas, string templates,
-  augmented assignment.
+- **`when` — DONE (statement, subject form).** `when (subject) { v -> …; a, b -> …; else -> … }` →
+  `SwitchStatementNewStyle`: selector = the subject, one `SwitchEntry` per arm (the arm's
+  `when`-condition expressions are the case labels — comma-lists give multiple; `else` is a single
+  `EmptyExpression`), the body a block. Subject-less `when { … }` uses a `true` placeholder selector.
+  Verified: 3 arms incl. a `1, 2 ->` comma arm and `else`. *Gaps:* `is T`/`in range` conditions skipped;
+  `when` as an **expression** (→ `SwitchExpression`) still a placeholder.
+- **TODO:** `do-while`, `break`/`continue`, lambdas, string templates, augmented assignment,
+  `when`-expression, `is`/`in` conditions.
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API

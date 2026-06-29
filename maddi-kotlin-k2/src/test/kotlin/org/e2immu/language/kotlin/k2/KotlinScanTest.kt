@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.Variance
 import org.e2immu.language.cst.api.expression.Assignment
 import org.e2immu.language.cst.api.expression.BinaryOperator
+import org.e2immu.language.cst.api.expression.EmptyExpression
 import org.e2immu.language.cst.api.expression.InlineConditional
 import org.e2immu.language.cst.api.expression.MethodCall
 import org.e2immu.language.cst.api.expression.VariableExpression
@@ -29,6 +30,7 @@ import org.e2immu.language.cst.api.statement.ForEachStatement
 import org.e2immu.language.cst.api.statement.IfElseStatement
 import org.e2immu.language.cst.api.statement.LocalVariableCreation
 import org.e2immu.language.cst.api.statement.ReturnStatement
+import org.e2immu.language.cst.api.statement.SwitchStatementNewStyle
 import org.e2immu.language.cst.api.statement.WhileStatement
 import org.e2immu.language.cst.api.variable.FieldReference
 import org.e2immu.language.cst.api.variable.LocalVariable
@@ -615,5 +617,33 @@ class KotlinScanTest {
         val assign = (forStmt.block().statements().first() as ExpressionAsStatement).expression() as Assignment
         val x = (assign.value() as BinaryOperator).rhs()
         assertTrue((x as VariableExpression).variable() is LocalVariable)
+    }
+
+    @Test
+    fun whenStatement() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val w = scan.parse(
+            "W.kt",
+            """
+            class W {
+                fun describe(n: Int): String {
+                    var r = "?"
+                    when (n) {
+                        0 -> r = "zero"
+                        1, 2 -> r = "small"
+                        else -> r = "other"
+                    }
+                    return r
+                }
+            }
+            """.trimIndent() + "\n"
+        ).first()
+
+        val sw = w.findUniqueMethod("describe", 1).methodBody().statements()[1] // after `var r = "?"`
+        assertTrue(sw is SwitchStatementNewStyle)
+        assertTrue((sw as SwitchStatementNewStyle).expression() is VariableExpression) // selector is `n`
+        assertEquals(3, sw.entries().size)
+        assertEquals(2, sw.entries()[1].conditions().size)               // the `1, 2 ->` arm
+        assertTrue(sw.entries()[2].conditions()[0] is EmptyExpression)   // the `else` arm
     }
 }
