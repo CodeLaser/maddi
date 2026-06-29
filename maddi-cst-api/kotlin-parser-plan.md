@@ -178,8 +178,15 @@ mostly *shoehorn* onto existing nodes.
   `newUnaryOperator`+`logicalNotOperatorBool`). Verified: `when (o) { is Int -> …; is String -> … }` →
   per-arm `patternVariable` typed Int/String. *Gaps:* negated `!is` (not a pattern) dropped; Kotlin
   smartcast binds the subject (the pattern's bound variable is synthetic); `in 0..10` needs `..` rangeTo.
-- **TODO:** resolution niceties (inherited callees, overloads, extension/infix calls); `internal` as real
-  CST `Access`; computed properties; `..` rangeTo.
+- **Inherited-callee resolution — DONE.** `convertCall` resolves the callee by name + arity on the
+  receiver/enclosing type **or its supertypes** (`findMethod` walks parentClass + interfaces, with a
+  visited guard). `convertMembers` now applies the hierarchy **before** converting method bodies, so
+  `parentClass` is available during resolution. Verified: `class Sub : Base()` calling inherited
+  `greet()` resolves to `Base.greet`. *Gaps:* overload disambiguation (still first-by-arity); supertype
+  methods must already be converted (declaration/file order); `Object`'s methods aren't on the predefined
+  type, so inherited `toString`/`equals` still don't resolve.
+- **TODO:** overload disambiguation; extension/infix calls; `internal` as real CST `Access`; `..` rangeTo;
+  negated `!is`.
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API

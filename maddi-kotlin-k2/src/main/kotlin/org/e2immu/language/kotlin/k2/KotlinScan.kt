@@ -231,6 +231,8 @@ class KotlinScan(
     /** Pass B: convert members and commit the type. */
     private fun KaSession.convertMembers(declaration: KtClassOrObject, typeInfo: TypeInfo) {
         val classSymbol = declaration.symbol as KaNamedClassSymbol
+        // hierarchy first, so method bodies can resolve inherited callees via parentClass/interfaces
+        applyHierarchy(typeInfo.builder(), typeInfo, classSymbol)
         // properties before methods, so a method body can reference the backing fields
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
@@ -242,8 +244,6 @@ class KotlinScan(
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaConstructorSymbol>()
             .forEach { ctor -> typeInfo.builder().addConstructor(convertConstructorStructure(typeInfo, ctor)) }
-
-        applyHierarchy(typeInfo.builder(), typeInfo, classSymbol)
         // access + type commit happen in finalizeType (pass B2), after delegations are wired
     }
 
@@ -748,6 +748,17 @@ class KotlinScan(
         return runtime.newLambdaBuilder().setMethodInfo(sam).setOutputVariants(outputVariants).setSource(runtime.noSource()).build()
     }
 
+    /** Resolve a method by name + arity on [type] or its supertypes (so inherited callees resolve). */
+    private fun findMethod(type: TypeInfo, name: String, arity: Int, visited: MutableSet<TypeInfo>): MethodInfo? {
+        if (!visited.add(type)) return null
+        type.methods().firstOrNull { it.name() == name && it.parameters().size == arity }?.let { return it }
+        type.parentClass()?.typeInfo()?.let { findMethod(it, name, arity, visited)?.let { m -> return m } }
+        type.interfacesImplemented().forEach { iface ->
+            iface.typeInfo()?.let { findMethod(it, name, arity, visited)?.let { m -> return m } }
+        }
+        return null
+    }
+
     /** Whether a lambda's last statement is a value-producing expression (so it becomes the return value). */
     private fun isLambdaResultExpression(statement: KtExpression): Boolean = when (statement) {
         is KtProperty, is KtReturnExpression, is KtForExpression, is KtWhileExpression, is KtDoWhileExpression,
@@ -771,7 +782,7 @@ class KotlinScan(
         val trailingLambdas = call.lambdaArguments.mapNotNull { it.getLambdaExpression()?.let { l -> convertExpression(l, method, locals) } }
         val arguments = valueArgs + trailingLambdas
         val ownerType = receiver?.second ?: method.typeInfo()
-        val callee = ownerType.methods().firstOrNull { it.name() == name && it.parameters().size == arguments.size }
+        val callee = findMethod(ownerType, name, arguments.size, mutableSetOf())
             ?: return runtime.newEmptyExpression("k2-unresolved-call:$name")
         val obj = receiver?.first ?: variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
