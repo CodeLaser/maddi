@@ -281,6 +281,15 @@ mostly *shoehorn* onto existing nodes.
   `symbol.annotations.contains(ClassId "kotlin/jvm/JvmStatic")` and `KaKotlinPropertySymbol.isConst`).
   Verified: `companion object { const val MAX; @JvmStatic fun reset() }` → static `MAX` field + static
   `reset` on the enclosing class.
+- **Tier-1 analyzer integration — STARTED.** `maddi-inspection-kotlin` test now feeds Kotlin-derived CST
+  into maddi's `PrepAnalyzer` (`KotlinAnalyzerSmokeTest`, shared runtime). **First real gap found & fixed:
+  statement source indices.** The analyzer requires every statement to carry a hierarchical
+  `source().index()` (`"0"`, `"1"`, `"1.0.0"`, …) — the front-end used `noSource()` (NPE in
+  `MethodAnalyzer.doStatement`). Now threaded through body construction (`statementsToBlock` + `indexed` +
+  `pad`, mirroring the Java parser's `statementIndex()`): method bodies, nested blocks (if/while/for/
+  do/when entries), lambda bodies, computed getters, and constructor bodies are all indexed. `doMethod`
+  runs end-to-end on a Kotlin method (variable data sees the param + local). *Next Tier-1:* `doPrimaryTypes`
+  on a class (constructor + property/getter-setter), then a mixed Java+Kotlin module.
 - **Family complete** (facade · companion(+@JvmStatic/const) · named object · anonymous object · lambda).
   Narrow remaining edges: captured outer vars in anonymous-object/lambda member bodies (lambdas done),
   library/implicit-receiver extension calls, `..` rangeTo, negated `!is`.

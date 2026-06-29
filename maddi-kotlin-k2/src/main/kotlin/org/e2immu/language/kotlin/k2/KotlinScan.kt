@@ -425,12 +425,14 @@ class KotlinScan(
         val classSymbol = declaration.symbol as KaNamedClassSymbol
         val ctorSymbols = classSymbol.declaredMemberScope.declarations.filterIsInstance<KaConstructorSymbol>().toList()
         ctorSymbols.zip(typeInfo.constructors()).forEach { (sym, cst) ->
-            val body = runtime.newBlockBuilder()
-            explicitConstructorInvocation(typeInfo, declaration, sym, cst)?.let { body.addStatement(it) }
+            val statements = mutableListOf<Statement>()
+            explicitConstructorInvocation(typeInfo, declaration, sym, cst)?.let { statements.add(it) } // index "0"
             cst.parameters().forEach { param ->
                 typeInfo.fields().firstOrNull { it.name() == param.name() }
-                    ?.let { body.addStatement(assignFieldFromParam(typeInfo, it, param, false)) }
+                    ?.let { statements.add(assignFieldFromParam(typeInfo, it, param, false)) }
             }
+            val body = runtime.newBlockBuilder()
+            statements.forEachIndexed { i, s -> body.addStatement(indexed(s, pad(i, statements.size))) }
             cst.builder().setMethodBody(body.build()).commit()
         }
         typeInfo.builder().commit() // access already computed in convertMembers (B1)
@@ -522,9 +524,11 @@ class KotlinScan(
         val body = runtime.newBlockBuilder()
         val expressionBody = accessor?.bodyExpression
         if (expressionBody != null) {
-            body.addStatement(runtime.newReturnStatement(convertExpression(expressionBody, getter, emptyMap())))
+            body.addStatement(indexed(runtime.newReturnStatement(convertExpression(expressionBody, getter, emptyMap())), "0"))
         } else {
-            accessor?.bodyBlockExpression?.statements?.forEach { body.addStatement(convertStatement(it, getter, mutableMapOf())) }
+            val statements = accessor?.bodyBlockExpression?.statements.orEmpty()
+            val scope = mutableMapOf<String, Variable>()
+            statements.forEachIndexed { i, s -> body.addStatement(convertStatement(s, getter, scope, pad(i, statements.size))) }
         }
         getter.builder().setMethodBody(body.build()).commit()
         return getter
@@ -612,25 +616,47 @@ class KotlinScan(
     private fun KaSession.convertBody(function: KaNamedFunctionSymbol, returnType: ParameterizedType,
                                       method: MethodInfo): Block {
         val psi = function.psi as? KtNamedFunction ?: return runtime.newBlockBuilder().build()
-        val block = runtime.newBlockBuilder()
         val locals = mutableMapOf<String, Variable>() // names in scope; references resolve against this
         if (psi.hasBlockBody()) {
-            psi.bodyBlockExpression?.statements?.forEach { block.addStatement(convertStatement(it, method, locals)) }
-        } else {
-            psi.bodyExpression?.let { body ->
-                val expr = convertExpression(body, method, locals)
-                block.addStatement(
-                    if (returnType == runtime.voidParameterizedType()) runtime.newExpressionAsStatement(expr)
-                    else runtime.newReturnStatement(expr)
-                )
-            }
+            return statementsToBlock(psi.bodyBlockExpression?.statements.orEmpty(), method, locals, "")
+        }
+        val block = runtime.newBlockBuilder()
+        psi.bodyExpression?.let { body ->
+            val expr = convertExpression(body, method, locals)
+            val statement = if (returnType == runtime.voidParameterizedType()) runtime.newExpressionAsStatement(expr)
+            else runtime.newReturnStatement(expr)
+            block.addStatement(indexed(statement, "0"))
+        }
+        return block.build()
+    }
+
+    /** The analyzer requires every statement to carry a hierarchical source index ("0", "1", "1.0.0", …). */
+    private fun indexed(statement: Statement, index: String): Statement =
+        statement.withSource(runtime.noSource().withIndex(index))
+
+    /** Zero-pad [i] to the width of the largest index in a block of [n] statements (so they sort in order). */
+    private fun pad(i: Int, n: Int): String =
+        i.toString().padStart((n - 1).coerceAtLeast(0).toString().length, '0')
+
+    /** Build a block whose statements are indexed `<blockIndex>.<j>` (or just `<j>` at the method root). */
+    private fun KaSession.statementsToBlock(statements: List<KtExpression>, method: MethodInfo,
+                                            locals: MutableMap<String, Variable>, blockIndex: String): Block {
+        val block = runtime.newBlockBuilder()
+        if (blockIndex.isNotEmpty()) block.setSource(runtime.noSource().withIndex(blockIndex))
+        statements.forEachIndexed { j, s ->
+            val childIndex = if (blockIndex.isEmpty()) pad(j, statements.size) else "$blockIndex.${pad(j, statements.size)}"
+            block.addStatement(convertStatement(s, method, locals, childIndex))
         }
         return block.build()
     }
 
     /** Convert one statement: a local `val`/`var`, an assignment, a `return`, or an expression statement. */
     private fun KaSession.convertStatement(statement: KtExpression, method: MethodInfo,
-                                           locals: MutableMap<String, Variable>): Statement = when {
+                                           locals: MutableMap<String, Variable>, index: String): Statement =
+        indexed(rawStatement(statement, method, locals, index), index)
+
+    private fun KaSession.rawStatement(statement: KtExpression, method: MethodInfo,
+                                       locals: MutableMap<String, Variable>, index: String): Statement = when {
         statement is KtProperty && statement.isLocal -> {
             val name = statement.name ?: "_"
             val type = (statement.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
@@ -656,12 +682,12 @@ class KotlinScan(
         )
         statement is KtIfExpression -> runtime.newIfElseBuilder()
             .setExpression(statement.condition?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
-            .setIfBlock(convertBlock(statement.then, method, locals))
-            .setElseBlock(convertBlock(statement.`else`, method, locals))
+            .setIfBlock(convertBlock(statement.then, method, locals, "$index.0"))
+            .setElseBlock(convertBlock(statement.`else`, method, locals, "$index.1"))
             .setSource(runtime.noSource()).build()
         statement is KtWhileExpression -> runtime.newWhileBuilder()
             .setExpression(statement.condition?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
-            .setBlock(convertBlock(statement.body, method, locals))
+            .setBlock(convertBlock(statement.body, method, locals, "$index.0"))
             .setSource(runtime.noSource()).build()
         statement is KtForExpression -> {
             // for (x in iterable) { … } -> ForEachStatement; x is a local in scope for the body
@@ -673,13 +699,13 @@ class KotlinScan(
             runtime.newForEachBuilder()
                 .setInitializer(runtime.newLocalVariableCreation(loopVariable))
                 .setExpression(statement.loopRange?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
-                .setBlock(convertBlock(statement.body, method, locals + (name to loopVariable)))
+                .setBlock(convertBlock(statement.body, method, locals + (name to loopVariable), "$index.0"))
                 .setSource(runtime.noSource()).build()
         }
-        statement is KtWhenExpression -> convertWhen(statement, method, locals)
+        statement is KtWhenExpression -> convertWhen(statement, method, locals, index)
         statement is KtDoWhileExpression -> runtime.newDoBuilder()
             .setExpression(statement.condition?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
-            .setBlock(convertBlock(statement.body, method, locals))
+            .setBlock(convertBlock(statement.body, method, locals, "$index.0"))
             .setSource(runtime.noSource()).build()
         statement is KtBreakExpression -> runtime.newBreakBuilder()
             .also { b -> statement.getLabelName()?.let { b.setGoToLabel(it) } } // break@label
@@ -697,10 +723,10 @@ class KotlinScan(
      * (per the CST-for-Kotlin assessment). `is`/`in` conditions are skipped for now.
      */
     private fun KaSession.convertWhen(statement: KtWhenExpression, method: MethodInfo,
-                                      locals: Map<String, Variable>): Statement =
+                                      locals: Map<String, Variable>, index: String): Statement =
         runtime.newSwitchStatementNewStyleBuilder()
             .setSelector(whenSelector(statement, method, locals))
-            .addSwitchEntries(whenEntries(statement, method, locals))
+            .addSwitchEntries(whenEntries(statement, method, locals, index))
             .setSource(runtime.noSource()).build()
 
     private fun KaSession.whenSelector(statement: KtWhenExpression, method: MethodInfo,
@@ -714,12 +740,13 @@ class KotlinScan(
      * are case-label conditions; `in range` is a `contains` call condition (`!in` negated).
      */
     private fun KaSession.whenEntries(statement: KtWhenExpression, method: MethodInfo,
-                                      locals: Map<String, Variable>): List<SwitchEntry> {
+                                      locals: Map<String, Variable>, prefix: String): List<SwitchEntry> {
         val subject = statement.subjectExpression?.let { convertExpression(it, method, locals) }
-        return statement.entries.map { entry ->
+        return statement.entries.mapIndexed { k, entry ->
+            val blockIndex = if (prefix.isEmpty()) "$k" else "$prefix.$k"
             val builder = runtime.newSwitchEntryBuilder()
                 .setWhenExpression(runtime.newEmptyExpression()) // no Kotlin guard
-                .setStatement(convertBlock(entry.expression, method, locals))
+                .setStatement(convertBlock(entry.expression, method, locals, blockIndex))
                 .setSource(runtime.noSource())
             if (entry.isElse) {
                 builder.addConditions(listOf(runtime.newEmptyExpression())) // default
@@ -782,15 +809,13 @@ class KotlinScan(
 
     /** Convert a control-flow branch/body (a `{ … }` block or a single statement) into a CST [Block]. */
     private fun KaSession.convertBlock(body: KtExpression?, method: MethodInfo,
-                                       locals: Map<String, Variable>): Block {
-        val block = runtime.newBlockBuilder()
+                                       locals: Map<String, Variable>, blockIndex: String): Block {
         val childLocals = locals.toMutableMap() // a nested block has its own scope
-        when (body) {
-            null -> {}
-            is KtBlockExpression -> body.statements.forEach { block.addStatement(convertStatement(it, method, childLocals)) }
-            else -> block.addStatement(convertStatement(body, method, childLocals))
+        return when (body) {
+            null -> runtime.newBlockBuilder().setSource(runtime.noSource().withIndex(blockIndex)).build()
+            is KtBlockExpression -> statementsToBlock(body.statements, method, childLocals, blockIndex)
+            else -> statementsToBlock(listOf(body), method, childLocals, blockIndex)
         }
-        return block.build()
     }
 
     /**
@@ -839,7 +864,7 @@ class KotlinScan(
             }
             is KtWhenExpression -> runtime.newSwitchExpressionBuilder() // when as an expression
                 .setSelector(whenSelector(expression, method, locals))
-                .addSwitchEntries(whenEntries(expression, method, locals))
+                .addSwitchEntries(whenEntries(expression, method, locals, ""))
                 .setParameterizedType(expression.expressionType?.let { mapType(it, method.typeInfo()) }
                     ?: runtime.objectParameterizedType())
                 .setSource(runtime.noSource()).build()
@@ -910,10 +935,11 @@ class KotlinScan(
         val statements = lambda.bodyExpression?.statements.orEmpty()
         val voidReturn = returnType == runtime.voidParameterizedType()
         statements.forEachIndexed { i, stmt ->
+            val index = pad(i, statements.size)
             block.addStatement(
                 if (i == statements.lastIndex && !voidReturn && isLambdaResultExpression(stmt))
-                    runtime.newReturnStatement(convertExpression(stmt, method, bodyScope))
-                else convertStatement(stmt, method, bodyScope)
+                    indexed(runtime.newReturnStatement(convertExpression(stmt, method, bodyScope)), index)
+                else convertStatement(stmt, method, bodyScope, index)
             )
         }
         samBuilder.setMethodBody(block.build()).commit()
