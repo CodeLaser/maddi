@@ -347,4 +347,29 @@ class KotlinScanTest {
         assertTrue(types.getValue("Final").typeModifiers().contains(runtime.typeModifierFinal()))
         assertFalse(types.getValue("Sub").typeModifiers().contains(runtime.typeModifierFinal()))
     }
+
+    @Test
+    fun propertiesBecomeFieldsAndTaggedAccessors() {
+        val scan = KotlinScan(runtime, sourceSet)
+        // primary-constructor val + a mutable var
+        val point = scan.parse("Point.kt", "class Point(val x: Int, var name: String)\n").first()
+
+        // backing fields, with val -> final
+        val fields = point.fields().associateBy { it.name() }
+        assertTrue(fields.getValue("x").isFinal)
+        assertFalse(fields.getValue("name").isFinal)
+        assertEquals(runtime.intParameterizedType(), fields.getValue("x").type())
+
+        // JavaBean-named accessors: getX/getName always, setName only for the var
+        val methodNames = point.methods().map { it.name() }.toSet()
+        assertTrue(methodNames.containsAll(listOf("getX", "getName", "setName")), "methods were $methodNames")
+        assertFalse(methodNames.contains("setX")) // val: no setter
+
+        // harmonization: the accessors are tagged as getter/setter for their field (maddi normalization)
+        val getX = point.findUniqueMethod("getX", 0)
+        assertEquals(fields.getValue("x"), getX.getSetField().field())
+        assertEquals(runtime.intParameterizedType(), getX.returnType())
+        val setName = point.findUniqueMethod("setName", 1)
+        assertEquals(fields.getValue("name"), setName.getSetField().field())
+    }
 }

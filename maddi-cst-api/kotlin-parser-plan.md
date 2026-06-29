@@ -127,6 +127,16 @@ addition from the assessment doc (priority order ranked there).
   via a shared `applyHierarchy` helper reused by source and library loading. Verified:
   `class Circle : Base(), Shape` → parent `Base`, interface `Shape` (both source types); `interface`/
   `enum class`/`object` natures classify correctly.
+- **Properties — DONE (harmonized with maddi's getter/setter normalization).** A Kotlin property
+  (`val`/`var`, incl. primary-constructor `val x: Int`) becomes a backing `FieldInfo` (private; `val`→
+  final) **plus accessor methods whose bodies maddi already recognises**: `getX() { return this.x; }`
+  and (for `var`) `setX(v) { this.x = v; }`, JavaBean-named to match the JVM names Kotlin generates. Each
+  accessor is tagged via `runtime.setGetSetField` (mirroring `RecordSynthetics.createAccessor`), so the
+  analyzer's getter/setter normalisation (`GetSetHelper`) treats Kotlin property access identically to a
+  Java field access. Verified: `class Point(val x: Int, var name: String)` → fields x(final)/name,
+  accessors getX/getName/setName, each `getSetField().field()` linked to its field. *Gaps:* computed
+  properties (no backing field) still get a spurious field; custom accessor bodies, delegates, and the
+  `PropertyInfo`-node model deferred.
 - **Visibility & modifiers — DONE.** `accessFor`/`addMethodModifiers` map Kotlin visibility
   (`private`/`protected`/`public`; `internal`→public for now — no CST `Access` yet) and modality
   (`abstract`/`final`; `open`→none) onto types (Access + type modifier) and methods (Access + method

@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.element.CompilationUnit
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.expression.Expression
 import org.e2immu.language.cst.api.info.Access
+import org.e2immu.language.cst.api.info.FieldInfo
 import org.e2immu.language.cst.api.info.MethodInfo
 import org.e2immu.language.cst.api.info.TypeInfo
 import org.e2immu.language.cst.api.info.Variance
@@ -36,6 +37,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
@@ -191,11 +193,88 @@ class KotlinScan(
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaNamedFunctionSymbol>()
             .forEach { function -> typeInfo.builder().addMethod(convertMethod(typeInfo, function)) }
+        classSymbol.declaredMemberScope.declarations
+            .filterIsInstance<KaPropertySymbol>()
+            .forEach { property -> convertProperty(typeInfo, property) }
 
         val builder = typeInfo.builder()
         applyHierarchy(builder, typeInfo, classSymbol)
         builder.setAccess(accessFor(classSymbol)).commit()
     }
+
+    /**
+     * Convert a Kotlin property (`val`/`var`, incl. primary-constructor `val x: Int`) into a backing
+     * [FieldInfo] plus accessor methods whose bodies maddi already recognises as getters/setters:
+     * `getX() { return this.x; }` and (for `var`) `setX(v) { this.x = v; }`. Each accessor is tagged via
+     * `runtime.setGetSetField`, so the analyzer's getter/setter normalisation treats Kotlin property
+     * access identically to a Java field access. (Computed properties without a backing field are a
+     * later refinement; here they also get a backing field.)
+     */
+    private fun KaSession.convertProperty(owner: TypeInfo, property: KaPropertySymbol) {
+        val name = property.name.asString()
+        val type = mapType(property.returnType, owner)
+        val isVal = property.isVal
+
+        val field = runtime.newFieldInfo(name, false, type, owner)
+        val fieldBuilder = field.builder()
+            .addFieldModifier(runtime.fieldModifierPrivate())
+            .setAccess(runtime.accessPrivate())
+            .setInitializer(runtime.newEmptyExpression())
+        if (isVal) fieldBuilder.addFieldModifier(runtime.fieldModifierFinal())
+        fieldBuilder.commit()
+        owner.builder().addField(field)
+
+        owner.builder().addMethod(buildGetter(owner, field, type, property))
+        if (!isVal) owner.builder().addMethod(buildSetter(owner, field, type, property))
+    }
+
+    private fun KaSession.buildGetter(owner: TypeInfo, field: FieldInfo, type: ParameterizedType,
+                                      property: KaPropertySymbol): MethodInfo {
+        val getter = runtime.newMethod(owner, accessorName("get", field.name()), runtime.methodTypeMethod())
+        val source = runtime.noSource()
+        val returnField = runtime.newReturnBuilder()
+            .setExpression(runtime.newVariableExpressionBuilder()
+                .setVariable(runtime.newFieldReference(field)).setSource(source).build())
+            .setSource(source).build()
+        getter.builder()
+            .setReturnType(type)
+            .setMethodBody(runtime.newBlockBuilder().addStatement(returnField).build())
+            .addMethodModifier(runtime.methodModifierPublic())
+            .setAccess(accessFor(property))
+            .commitParameters()
+        runtime.setGetSetField(getter, field, false, -1, false)
+        getter.builder().commit()
+        return getter
+    }
+
+    private fun KaSession.buildSetter(owner: TypeInfo, field: FieldInfo, type: ParameterizedType,
+                                      property: KaPropertySymbol): MethodInfo {
+        val setter = runtime.newMethod(owner, accessorName("set", field.name()), runtime.methodTypeMethod())
+        val value = setter.builder().addParameter("value", type)
+        val source = runtime.noSource()
+        val thisExpr = runtime.newVariableExpressionBuilder()
+            .setVariable(runtime.newThis(owner.asParameterizedType())).setSource(source).build()
+        val assignField = runtime.newAssignmentBuilder()
+            .setTarget(runtime.newVariableExpressionBuilder()
+                .setVariable(runtime.newFieldReference(field, thisExpr, type)).setSource(source).build())
+            .setValue(runtime.newVariableExpressionBuilder().setVariable(value).setSource(source).build())
+            .setSource(source).build()
+        setter.builder()
+            .setReturnType(runtime.voidParameterizedType())
+            .setMethodBody(runtime.newBlockBuilder()
+                .addStatement(runtime.newExpressionAsStatementBuilder().setExpression(assignField).setSource(source).build())
+                .build())
+            .addMethodModifier(runtime.methodModifierPublic())
+            .setAccess(accessFor(property))
+            .commitParameters()
+        runtime.setGetSetField(setter, field, true, -1, false)
+        setter.builder().commit()
+        return setter
+    }
+
+    /** JavaBean accessor name, matching the JVM names Kotlin generates (and that maddi recognises). */
+    private fun accessorName(prefix: String, fieldName: String): String =
+        prefix + fieldName.replaceFirstChar { it.uppercaseChar() }
 
     /** Convert one declared function symbol into a committed CST method (with parameters and body). */
     private fun KaSession.convertMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo {
