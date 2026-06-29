@@ -208,7 +208,14 @@ mostly *shoehorn* onto existing nodes.
   hierarchy (`collectMethods`) and picks by argument type: exact `ParameterizedType` match, then erased
   `TypeInfo` match, else first. Verified: `handle(1)` → the `Int` overload, `handle("a")` → the `String`
   overload. *Gap:* matching is exact/erased, not full assignability (boxing/widening/generics).
-- **TODO:** extension/infix calls; `..` rangeTo; negated `!is`.
+- **Operator-function & infix calls — DONE.** When a binary expression isn't a built-in primitive/String
+  operator, `operatorFunctionCall` resolves it as a method call on the left operand: overloaded operators
+  use the fixed Kotlin name (`+`→`plus`, `-`→`minus`, `*`→`times`, `/`→`div`, `%`→`rem`), a named infix
+  (`a foo b`) uses the reference name, both via `resolveCallee`. Verified: `a + b` on `V` → `a.plus(b)`;
+  `a upTo b` → `a.upTo(b)`. *Gaps:* comparison/equality operator-functions (`<`→`compareTo`, `==`→`equals`)
+  not desugared (they're more than a call); extension-function receivers still unresolved (members only).
+- **TODO:** extension-function calls (needs a CST receiver convention); `..` rangeTo (rangeTo on the
+  primitive `Int` has no member to resolve); negated `!is` (no positive pattern equivalent).
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API
