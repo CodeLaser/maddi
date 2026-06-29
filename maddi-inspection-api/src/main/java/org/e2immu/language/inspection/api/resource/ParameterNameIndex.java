@@ -82,6 +82,11 @@ public class ParameterNameIndex {
         namesByKey.put(key(methodInfo), methodInfo.parameters().stream().map(ParameterInfo::name).toList());
     }
 
+    // merge another index into this one (e.g. one per JDK module read from a .paramnames.gz resource)
+    public void putAll(ParameterNameIndex other) {
+        namesByKey.putAll(other.namesByKey);
+    }
+
     /** adds all methods and constructors of {@code typeInfo} and, recursively, of its subtypes */
     public void putRecursively(TypeInfo typeInfo) {
         typeInfo.constructorAndMethodStream().forEach(this::put);

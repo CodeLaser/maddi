@@ -26,13 +26,14 @@ public class TestSupplier extends CommonTest {
     private static final String INPUT1 = """
             package a.b;
             import java.util.Optional;
+            import java.util.function.Supplier;
             public class C<X> {
                 public X method(Optional<X> optional, X alternative) {
                     X x = optional.orElseGet(() -> alternative);
                     return x;
                 }
                 public X method2(Optional<X> optional, X alternative) {
-                    var lambda = () -> alternative;
+                    Supplier<X> lambda = () -> alternative;
                     X x = optional.orElseGet(lambda);
                     return x;
                 }

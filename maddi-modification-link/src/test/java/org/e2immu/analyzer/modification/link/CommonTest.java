@@ -40,6 +40,7 @@ public abstract class CommonTest {
         SourceSet testProtocol = testProtocolSourceSet();
         javaInspector = org.e2immu.analyzer.modification.common.CommonTest.javaInspectorFactory().withSources(testProtocol);
         runtime = javaInspector.runtime();
+        javaInspector.setParameterNames(true); // faithful class-file parameter names; must precede any loading
         javaInspector.onlyPreload(); // we'll run more later
         LoadAnalysisResults lar = new LoadAnalysisResults(javaInspector.runtime(), testProtocol);
         lar.go(ANALYZED_RESULTS);
