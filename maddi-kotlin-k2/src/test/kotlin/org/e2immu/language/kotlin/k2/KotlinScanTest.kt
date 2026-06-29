@@ -16,14 +16,18 @@ package org.e2immu.language.kotlin.k2
 
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.Variance
+import org.e2immu.language.cst.api.expression.Assignment
 import org.e2immu.language.cst.api.expression.BinaryOperator
 import org.e2immu.language.cst.api.expression.MethodCall
 import org.e2immu.language.cst.api.expression.VariableExpression
 import org.e2immu.language.cst.api.info.ParameterInfo
 import org.e2immu.language.cst.api.runtime.Runtime
 import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation
+import org.e2immu.language.cst.api.statement.ExpressionAsStatement
+import org.e2immu.language.cst.api.statement.LocalVariableCreation
 import org.e2immu.language.cst.api.statement.ReturnStatement
 import org.e2immu.language.cst.api.variable.FieldReference
+import org.e2immu.language.cst.api.variable.LocalVariable
 import org.e2immu.language.cst.api.variable.This
 import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl
@@ -520,5 +524,37 @@ class KotlinScanTest {
         val peek = returned("Box", "peek", 1)
         assertTrue((peek as VariableExpression).variable() is FieldReference)
         assertEquals("v", (peek.variable() as FieldReference).fieldInfo().name())
+    }
+
+    @Test
+    fun localsAndAssignment() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val counter = scan.parse(
+            "Counter.kt",
+            """
+            class Counter {
+                var count: Int = 0
+                fun bump(): Int {
+                    val step = 1
+                    count = count + step
+                    return count
+                }
+            }
+            """.trimIndent() + "\n"
+        ).first()
+        val body = counter.findUniqueMethod("bump", 0).methodBody()
+        assertEquals(3, body.statements().size)
+
+        // local `val step = 1`
+        val lvc = body.statements()[0]
+        assertTrue(lvc is LocalVariableCreation)
+        assertEquals("step", (lvc as LocalVariableCreation).localVariable().simpleName())
+        assertEquals(runtime.intParameterizedType(), lvc.localVariable().parameterizedType())
+
+        // `count = count + step` -> assignment to the field, rhs references the local
+        val assign = ((body.statements()[1] as ExpressionAsStatement).expression()) as Assignment
+        assertTrue(assign.variableTarget() is FieldReference) // count
+        val rhs = assign.value() as BinaryOperator             // count + step
+        assertTrue((rhs.rhs() as VariableExpression).variable() is LocalVariable) // step resolves to the local
     }
 }

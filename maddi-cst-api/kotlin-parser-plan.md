@@ -131,8 +131,14 @@ mostly *shoehorn* onto existing nodes.
   loaded-library types); `obj.x` → `VariableExpression(FieldReference scope=obj)`. *Gaps:* inherited-only
   callees and overload ambiguity (same arity) aren't resolved; extension/infix/operator-overload calls,
   named/default args not handled.
-- **TODO:** assignments, `val`/`var` (`LocalVariableCreation`), `if`/`when` (→ `IfElse`/switch),
-  lambdas, string templates.
+- **Assignments & local `val`/`var` — DONE.** A block body now threads a `locals` scope: a local
+  `val`/`var` becomes a `LocalVariableCreation` (name, type from the symbol, converted initializer) and
+  is added to the scope; references resolve **local → parameter → field**. `x = e` becomes an
+  `Assignment` (target a `VariableExpression`; non-assignable targets → placeholder). Verified: a body
+  with `val step = 1; count = count + step; return count` produces the local, a field assignment, and the
+  local resolving inside the `+` operator. *Gaps:* augmented assignments (`+=`), destructuring, nested
+  block scoping (flat map for now).
+- **TODO:** `if`/`when` (→ `IfElse`/switch), loops, lambdas, string templates, augmented assignment.
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API
