@@ -123,23 +123,23 @@ public class TestAnalysisHintsComposer extends CommonTest {
                     class TypeDescriptor$ {
                         //interface OfField implements TypeDescriptor
                         class OfField<F extends TypeDescriptor.OfField<F>> {
+                            F arrayType() { return null; }
+                            F componentType() { return null; }
                             boolean isArray() { return false; }
                             boolean isPrimitive() { return false; }
-                            F componentType() { return null; }
-                            F arrayType() { return null; }
                         }
                 
                         //interface OfMethod implements TypeDescriptor
                         class OfMethod<F extends TypeDescriptor.OfField<F>, M extends TypeDescriptor.OfMethod<F, M>> {
-                            int parameterCount() { return 0; }
-                            F parameterType(int i) { return null; }
-                            F returnType() { return null; }
-                            F [] parameterArray() { return null; }
-                            List<F> parameterList() { return null; }
-                            M changeReturnType(F f) { return null; }
                             M changeParameterType(int i, F f) { return null; }
+                            M changeReturnType(F f) { return null; }
                             M dropParameterTypes(int i, int i1) { return null; }
                             M insertParameterTypes(int i, F ... f) { return null; }
+                            F [] parameterArray() { return null; }
+                            int parameterCount() { return 0; }
+                            List<F> parameterList() { return null; }
+                            F parameterType(int i) { return null; }
+                            F returnType() { return null; }
                         }
                         String descriptorString() { return null; }
                     }
