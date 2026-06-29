@@ -116,6 +116,9 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
         private boolean notEmptyOrSyntheticAccessorAndReferringTo(MethodInfo mi, FieldInfo fieldInfo) {
             if (!mi.methodBody().isEmpty()) {
                 VariableData vd = VariableDataImpl.of(mi.methodBody().lastStatement());
+                // null when the last statement carries no variable data, e.g. a constructor whose only
+                // statement is the synthetic super() (openjdk keeps it; it has no variable data): no field refs
+                if (vd == null) return false;
                 return vd.variableInfoStream().anyMatch(vi ->
                         vi.variable() instanceof FieldReference fr && fr.fieldInfo() == fieldInfo);
             }

@@ -56,7 +56,7 @@ public class TestNullInHCSFindAll extends CommonTest {
     @DisplayName("@Identity method")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("Function1152888_file1952792", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }

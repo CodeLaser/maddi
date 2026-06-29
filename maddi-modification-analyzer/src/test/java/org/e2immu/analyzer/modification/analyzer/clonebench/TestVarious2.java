@@ -51,7 +51,7 @@ public class TestVarious2 extends CommonTest {
     @DisplayName("null formalToConcrete translation map in ExpressionVisitor")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("Function925996_file124449", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -128,7 +128,7 @@ public class TestVarious2 extends CommonTest {
     @DisplayName("null pointer in WriteLinksAndModification")
     @Test
     public void test2() {
-        TypeInfo B = javaInspector.parse(INPUT2);
+        TypeInfo B = javaInspector.parse("Function3998254_file1352239", INPUT2);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -188,7 +188,7 @@ public class TestVarious2 extends CommonTest {
     @DisplayName("writing casts on an immutable Map")
     @Test
     public void test3() {
-        TypeInfo B = javaInspector.parse(INPUT3);
+        TypeInfo B = javaInspector.parse("Function5100944_file1476424", INPUT3);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -343,7 +343,7 @@ public class TestVarious2 extends CommonTest {
     @DisplayName("MLV can be null in TypeModIndyAnalyzerImpl")
     @Test
     public void test4() {
-        TypeInfo B = javaInspector.parse(INPUT4);
+        TypeInfo B = javaInspector.parse("a.b.TestNioLock", INPUT4);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -398,7 +398,7 @@ public class TestVarious2 extends CommonTest {
     @DisplayName("expansion of LinkGraph.ensureArraysWhenSubIsIndex")
     @Test
     public void test5() {
-        TypeInfo B = javaInspector.parse(INPUT5);
+        TypeInfo B = javaInspector.parse("a.b.Function4382409_file1762255", INPUT5);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }

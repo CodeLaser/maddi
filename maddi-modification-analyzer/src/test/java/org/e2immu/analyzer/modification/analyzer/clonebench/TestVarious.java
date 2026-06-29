@@ -57,7 +57,7 @@ public class TestVarious extends CommonTest {
     @DisplayName("empty block causes issues")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("Function9837402_file1210466", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -123,7 +123,7 @@ public class TestVarious extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo B = javaInspector.parse(INPUT2);
+        TypeInfo B = javaInspector.parse("X", INPUT2);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -194,7 +194,7 @@ public class TestVarious extends CommonTest {
 
     @Test
     public void test3() {
-        TypeInfo B = javaInspector.parse(INPUT3);
+        TypeInfo B = javaInspector.parse("X", INPUT3);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -211,8 +211,8 @@ public class TestVarious extends CommonTest {
                   int index = 0;
                   for (byte b : bytes) {
                     int v = b & 0xFF;
-                    hex[index++] = HEX_CHAR_TABLE[v >>> 4];
-                    hex[index++] = HEX_CHAR_TABLE[v & 0xF];
+                    hex[index++] = (byte) HEX_CHAR_TABLE[v >>> 4];
+                    hex[index++] = (byte) HEX_CHAR_TABLE[v & 0xF];
                   }
                   return new String(hex, StandardCharsets.US_ASCII);
                 }
@@ -222,7 +222,7 @@ public class TestVarious extends CommonTest {
     @DisplayName("parameterized type issue in compute linked variables, for-loop")
     @Test
     public void test4() {
-        TypeInfo B = javaInspector.parse(INPUT4);
+        TypeInfo B = javaInspector.parse("a.b.X", INPUT4);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -268,7 +268,7 @@ public class TestVarious extends CommonTest {
     @DisplayName("not part of primary")
     @Test
     public void test5() {
-        TypeInfo B = javaInspector.parse(INPUT5);
+        TypeInfo B = javaInspector.parse("Function1277812_file269662", INPUT5);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -303,7 +303,7 @@ public class TestVarious extends CommonTest {
     @DisplayName("makeSub")
     @Test
     public void test6() {
-        TypeInfo B = javaInspector.parse(INPUT6);
+        TypeInfo B = javaInspector.parse("X", INPUT6);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -333,7 +333,7 @@ public class TestVarious extends CommonTest {
     @DisplayName("don't make subs of the null constant")
     @Test
     public void test7() {
-        TypeInfo B = javaInspector.parse(INPUT7);
+        TypeInfo B = javaInspector.parse("X", INPUT7);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -377,7 +377,7 @@ public class TestVarious extends CommonTest {
     @DisplayName("array access with method array expression")
     @Test
     public void test8() {
-        TypeInfo B = javaInspector.parse(INPUT8);
+        TypeInfo B = javaInspector.parse("X", INPUT8);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -405,7 +405,7 @@ public class TestVarious extends CommonTest {
     @DisplayName("subs of index type cannot be made unless the arrays are available")
     @Test
     public void test9() {
-        TypeInfo B = javaInspector.parse(INPUT9);
+        TypeInfo B = javaInspector.parse("X", INPUT9);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -440,7 +440,7 @@ public class TestVarious extends CommonTest {
     @DisplayName("more restrictions on subs of index type")
     @Test
     public void test10() {
-        TypeInfo B = javaInspector.parse(INPUT10);
+        TypeInfo B = javaInspector.parse("X", INPUT10);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -465,7 +465,7 @@ public class TestVarious extends CommonTest {
     @DisplayName("more restrictions on subs of index type")
     @Test
     public void test11() {
-        TypeInfo B = javaInspector.parse(INPUT11);
+        TypeInfo B = javaInspector.parse("X", INPUT11);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -511,7 +511,7 @@ public class TestVarious extends CommonTest {
     @DisplayName("bugfix for array initializer directly in local variable creation")
     @Test
     public void test12() {
-        TypeInfo B = javaInspector.parse(INPUT12);
+        TypeInfo B = javaInspector.parse("X", INPUT12);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -542,7 +542,7 @@ public class TestVarious extends CommonTest {
     @DisplayName("omit null constant from constants to be replaced")
     @Test
     public void test13() {
-        TypeInfo B = javaInspector.parse(INPUT13);
+        TypeInfo B = javaInspector.parse("X", INPUT13);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -701,7 +701,7 @@ public class TestVarious extends CommonTest {
     @DisplayName("illegal links to constants")
     @Test
     public void test14() {
-        TypeInfo B = javaInspector.parse(INPUT14);
+        TypeInfo B = javaInspector.parse("X", INPUT14);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
 
@@ -777,7 +777,7 @@ public class TestVarious extends CommonTest {
     @DisplayName("equals() and hashCode() for LinkNatureImpl")
     @Test
     public void test15() {
-        TypeInfo B = javaInspector.parse(INPUT15);
+        TypeInfo B = javaInspector.parse("X", INPUT15);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }

@@ -44,7 +44,7 @@ public class TestIndependentOfEnum extends CommonTest {
     @DisplayName("independent of serializable enum")
     @Test
     public void test1() {
-        TypeInfo E = javaInspector.parse(INPUT1);
+        TypeInfo E = javaInspector.parse("E", INPUT1);
         assertFalse(E.isExtensible());
         FieldInfo A = E.getFieldByName("A", true);
         assertFalse(A.type().typeInfo().isExtensible());

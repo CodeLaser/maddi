@@ -58,7 +58,7 @@ public class TestModificationFunctional extends CommonTest {
     @DisplayName("MR as direct parameter")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
 
@@ -112,7 +112,7 @@ public class TestModificationFunctional extends CommonTest {
     @DisplayName("MR encapsulated in record")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
 
@@ -180,7 +180,7 @@ public class TestModificationFunctional extends CommonTest {
     @DisplayName("MR encapsulated in 2 records")
     @Test
     public void test2b() {
-        TypeInfo X = javaInspector.parse(INPUT2b);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2b);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
 
@@ -265,7 +265,7 @@ public class TestModificationFunctional extends CommonTest {
     @DisplayName("MR encapsulated by interfaces")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT3);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
         TypeInfo R = X.findSubType("R");
@@ -346,7 +346,7 @@ public class TestModificationFunctional extends CommonTest {
     @DisplayName("Method indirection")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT4);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
 
@@ -457,7 +457,7 @@ public class TestModificationFunctional extends CommonTest {
     @DisplayName("ThrowingFunction: propagation part 1")
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT5);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
 
@@ -589,7 +589,7 @@ public class TestModificationFunctional extends CommonTest {
     @DisplayName("ThrowingFunction: propagation part 2")
     @Test
     public void test6() {
-        TypeInfo X = javaInspector.parse(INPUT6);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT6);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
 
@@ -749,7 +749,7 @@ public class TestModificationFunctional extends CommonTest {
     @DisplayName("ThrowingFunction: propagation part 3, not returning TryData")
     @Test
     public void test7() {
-        TypeInfo X = javaInspector.parse(INPUT7);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT7);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
 
@@ -886,7 +886,7 @@ public class TestModificationFunctional extends CommonTest {
     @DisplayName("ThrowingFunction: propagation part 4, different parameter")
     @Test
     public void test8() {
-        TypeInfo X = javaInspector.parse(INPUT8);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT8);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
 

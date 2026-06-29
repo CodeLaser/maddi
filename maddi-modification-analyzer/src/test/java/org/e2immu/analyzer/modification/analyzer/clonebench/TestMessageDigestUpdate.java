@@ -135,7 +135,7 @@ public class TestMessageDigestUpdate extends CommonTest {
     @DisplayName("test loading of AAPI")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("Function18985881_file1268519", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
