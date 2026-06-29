@@ -152,8 +152,12 @@ mostly *shoehorn* onto existing nodes.
   `EmptyExpression`), the body a block. Subject-less `when { … }` uses a `true` placeholder selector.
   Verified: 3 arms incl. a `1, 2 ->` comma arm and `else`. *Gaps:* `is T`/`in range` conditions skipped;
   `when` as an **expression** (→ `SwitchExpression`) still a placeholder.
-- **TODO:** `do-while`, `break`/`continue`, lambdas, string templates, augmented assignment,
-  `when`-expression, `is`/`in` conditions.
+- **Residue batch — DONE.** `do-while` → `DoStatement`; `break`/`continue` (incl. `@label`) →
+  `Break/ContinueStatement`; augmented assignment `+=`/`-=`/`*=`/`/=`/`%=` → `Assignment` with the
+  `assign*OperatorInt` method (`setAssignmentOperator`); string templates `"… $x ${e} …"` → folded
+  `StringConcat` of literal/escape/interpolation parts. Verified.
+- **TODO:** lambdas (→ `Lambda`), `when`-as-expression (→ `SwitchExpression`), `when` `is`/`in`
+  conditions; resolution niceties (inherited callees, overloads, extension/infix calls).
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API
