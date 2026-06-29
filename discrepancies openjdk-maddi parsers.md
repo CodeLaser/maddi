@@ -55,3 +55,31 @@ Localized to `ParseMethodDeclaration`:
 
 Body and statements already match and must not be touched. Do **not** change the `CommonParse.source(Node)`
 default of `""` — it is used widely and would ripple far beyond methods/parameters.
+
+---
+
+## 2026-06-29 — constructor statement indices shifted by the synthetic `super()`  (RESOLVED)
+
+Input: `class X { int a, b; X(int x, int y) { a = x; b = y; } }`.
+
+- **maddi/congocc**: no implicit `super()` statement; `a = x` at index `0`, `b = y` at `1`.
+- **openjdk (before)**: javac inserts a synthetic `super();` (index `null`, `isSynthetic()`) at list slot 0, so the
+  real statements were numbered from `1` (`a = x` → `1`, `b = y` → `2`). This broke `TestAssignmentsConstructor`
+  under the openjdk parser.
+
+**Fix (openjdk, `ScanCompilationUnit.statementIndex()`):** a leading synthetic `ExplicitConstructorInvocation`
+no longer counts towards the statement position (nor the padding width), so real statements start at `0`, matching
+maddi. The synthetic `super()` itself remains in the body (with its null index) — records and the call graph rely
+on it — it simply does not shift the index of the written statements.
+
+## 2026-06-29 — NPE sorting fields with a null (synthetic) source  (RESOLVED)
+
+Input: the `@GetSet` interface in `TestGetSet` test4 (`@GetSet Function ... function();` etc.).
+
+- Synthetic `@GetSet` backing fields are created on the interface during scanning and have **no source**.
+- **openjdk (before)**: `continueType` sorts members for code reproduction
+  (`builder.fields().sort(Comparator.comparing(FieldInfo::source))`); the null source made `Comparator.comparing`
+  throw an NPE, aborting the whole compilation unit. maddi does not perform this sort, so it never crashed.
+
+**Fix (openjdk, `ScanCompilationUnit.continueType`):** the method/field/sub-type sorts use
+`Comparator.nullsLast(...)`, so source-less synthetic members sort last instead of crashing.

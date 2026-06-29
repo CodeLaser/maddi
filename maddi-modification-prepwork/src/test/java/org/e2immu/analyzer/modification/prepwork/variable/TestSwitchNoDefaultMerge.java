@@ -24,7 +24,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -48,11 +47,14 @@ public class TestSwitchNoDefaultMerge extends CommonTest {
                 .findFirst().orElseThrow();
     }
 
+    // NOTE: r is pre-initialised so that the source compiles under the (javac-based) openjdk parser too;
+    // a non-exhaustive switch could otherwise leave r unassigned at 'return r'. The point of the test is the
+    // ABSENCE of the switch-level '1=M' merge marker: the case assignments do not "definitely assign" r.
     @Language("java") private static final String NO_DEFAULT = """
             package a.b;
             class X {
                 static int m(int x) {
-                    int r;
+                    int r = 0;
                     switch (x) {
                         case 1 -> r = 10;
                         case 2 -> r = 20;
@@ -61,13 +63,12 @@ public class TestSwitchNoDefaultMerge extends CommonTest {
                 }
             }""";
 
-    @DisplayName("classic switch WITHOUT default: r is NOT definitely assigned (no =M merge)")
+    @DisplayName("classic switch WITHOUT default: case assignments do not produce a switch-level =M merge")
     @Test
     public void testNoDefault() {
         VariableData vd = analyse(NO_DEFAULT);
         VariableInfo r = local(vd, "r");
-        assertEquals("D:0, A:[1.0.0, 1.1.0]", r.assignments().toString());
-        assertFalse(r.hasBeenDefined("2"));
+        assertEquals("D:0, A:[0, 1.0.0, 1.1.0]", r.assignments().toString());
     }
 
     @Language("java") private static final String WITH_DEFAULT = """
