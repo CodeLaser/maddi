@@ -275,8 +275,15 @@ mostly *shoehorn* onto existing nodes.
   the ConstructorCall (null constructor/object). Verified: `object : Greeter { override fun greet() }` →
   ConstructorCall whose anonymous class implements Greeter and has `greet`. *Gap:* captured outer
   variables in member bodies (same limitation lambdas had before the capture fix).
-- **Family complete** (facade · companion · named object · anonymous object · lambda). *Remaining
-  refinement:* `@JvmStatic`/`const` forwarders surfaced on the enclosing class.
+- **`@JvmStatic`/`const` forwarders — DONE.** `addCompanionStatics` surfaces, on the *enclosing* class,
+  what the JVM also emits there: a companion `const val` → a `public static final` field; a companion
+  `@JvmStatic fun` → a static forwarder method delegating to `Companion.member(...)` (detected via
+  `symbol.annotations.contains(ClassId "kotlin/jvm/JvmStatic")` and `KaKotlinPropertySymbol.isConst`).
+  Verified: `companion object { const val MAX; @JvmStatic fun reset() }` → static `MAX` field + static
+  `reset` on the enclosing class.
+- **Family complete** (facade · companion(+@JvmStatic/const) · named object · anonymous object · lambda).
+  Narrow remaining edges: captured outer vars in anonymous-object/lambda member bodies (lambdas done),
+  library/implicit-receiver extension calls, `..` rangeTo, negated `!is`.
 - **TODO:** `@file:JvmName` facade name; extension-function calls (facade + receiver-as-first-param);
   companion/named objects (own JVM types via the synthesize-and-register pattern); `..` rangeTo (rangeTo
   on the primitive `Int` has no member to resolve); negated `!is`.
