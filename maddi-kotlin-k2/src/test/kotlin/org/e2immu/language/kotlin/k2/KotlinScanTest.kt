@@ -860,6 +860,19 @@ class KotlinScanTest {
     }
 
     @Test
+    fun extensionUnqualifiedReceiverMember() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val facade = scan.parse("Box.kt", "class Box(val v: Int)\nfun Box.unwrap(): Int = v\n")
+            .associateBy { it.simpleName() }.getValue("BoxKt")
+
+        // `v` (unqualified) in `Box.unwrap` is access to the receiver's field -> $receiver.v
+        val ret = (facade.findUniqueMethod("unwrap", 1).methodBody().statements().first() as ReturnStatement).expression()
+        val fieldRef = (ret as VariableExpression).variable() as FieldReference
+        assertEquals("v", fieldRef.fieldInfo().name())
+        assertEquals("\$receiver", (fieldRef.scope() as VariableExpression).variable().simpleName())
+    }
+
+    @Test
     fun facadeJvmName() {
         val scan = KotlinScan(runtime, sourceSet)
         // `@file:JvmName` overrides the default `<File>Kt` facade name

@@ -240,8 +240,12 @@ mostly *shoehorn* onto existing nodes.
 - **`@file:JvmName` — DONE.** `facadeSimpleName` honours `@file:JvmName("X")` (read from
   `fileAnnotationList`) before the default `<File>Kt`. Used for both facade creation and extension-call
   facade lookup, so they stay consistent. Verified: `@file:JvmName("CustomFacade")` → type `CustomFacade`.
+- **Unqualified receiver-member access — DONE.** `resolveReference` falls back to the extension
+  receiver's fields: a bare `name` that is a field of the `$receiver` type becomes `$receiver.name`.
+  Verified: `fun Box.unwrap(): Int = v` → `$receiver.v`. (Receiver *methods* called unqualified, and
+  library-type receiver members, remain a gap.)
   *Remaining extension gaps:* library/stdlib extension calls (facade not in this compilation → placeholder);
-  implicit-receiver extension calls; *unqualified* receiver-member access (`length` rather than `this.length`).
+  implicit-receiver extension calls; unqualified receiver-*method* calls.
 - **Reusable note:** the facade is the file-level container ONLY; companion objects / named objects map
   to their own JVM types (`Outer$Companion` + `Companion` field, `INSTANCE` singletons) via the same
   *synthesize-and-register* mechanism, not the facade itself.
