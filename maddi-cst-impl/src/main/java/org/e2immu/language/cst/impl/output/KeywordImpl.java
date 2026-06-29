@@ -40,6 +40,7 @@ public record KeywordImpl(String keyword) implements Keyword {
     public static final Keyword IMPLEMENTS = new KeywordImpl("implements");
     public static final Keyword IMPORT = new KeywordImpl("import");
     public static final Keyword INTERFACE = new KeywordImpl("interface");
+    public static final Keyword INTERNAL = new KeywordImpl("internal");
     public static final Keyword LENGTH = new KeywordImpl("length");
     public static final Keyword NATIVE = new KeywordImpl("native");
     public static final Keyword NEW = new KeywordImpl("new");

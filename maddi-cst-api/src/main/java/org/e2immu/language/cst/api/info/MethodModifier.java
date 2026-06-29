@@ -24,9 +24,9 @@ import org.e2immu.language.cst.api.output.element.Keyword;
  */
 public interface MethodModifier extends Modifier {
 
-    /** Returns {@code true} if this modifier controls visibility ({@code public}, {@code protected}, or {@code private}). */
+    /** Returns {@code true} if this modifier controls visibility ({@code public}, {@code protected}, {@code private}, or {@code internal}). */
    default boolean isAccessModifier() {
-       return isPublic() || isPrivate() || isProtected();
+       return isPublic() || isPrivate() || isProtected() || isInternal();
    }
 
     /** Returns {@code true} if this is the {@code public} modifier. */
@@ -37,6 +37,9 @@ public interface MethodModifier extends Modifier {
 
     /** Returns {@code true} if this is the {@code protected} modifier. */
     boolean isProtected();
+
+    /** Returns {@code true} if this is the {@code internal} modifier (module visibility, e.g. Kotlin {@code internal}). */
+    boolean isInternal();
 
     /** Returns {@code true} if this is the {@code abstract} modifier. */
     boolean isAbstract();

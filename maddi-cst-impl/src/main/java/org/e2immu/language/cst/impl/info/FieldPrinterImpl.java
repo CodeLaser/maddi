@@ -80,6 +80,7 @@ public class FieldPrinterImpl implements FieldPrinter {
         if (access.isPublic()) return FieldModifierEnum.PUBLIC;
         if (access.isPrivate()) return FieldModifierEnum.PRIVATE;
         if (access.isProtected()) return FieldModifierEnum.PROTECTED;
+        if (access.isInternal()) return FieldModifierEnum.INTERNAL;
         throw new UnsupportedOperationException();
     }
 

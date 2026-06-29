@@ -411,6 +411,7 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
                 if (typeModifier.isPublic()) return AccessEnum.PUBLIC;
                 if (typeModifier.isPrivate()) return AccessEnum.PRIVATE;
                 if (typeModifier.isProtected()) return AccessEnum.PROTECTED;
+                if (typeModifier.isInternal()) return AccessEnum.INTERNAL;
             }
             return AccessEnum.PACKAGE;
         }

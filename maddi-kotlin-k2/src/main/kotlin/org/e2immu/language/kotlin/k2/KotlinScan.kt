@@ -977,7 +977,8 @@ class KotlinScan(
         when (classSymbol.visibility) {
             KaSymbolVisibility.PRIVATE -> builder.addTypeModifier(runtime.typeModifierPrivate())
             KaSymbolVisibility.PROTECTED -> builder.addTypeModifier(runtime.typeModifierProtected())
-            KaSymbolVisibility.PUBLIC, KaSymbolVisibility.INTERNAL -> builder.addTypeModifier(runtime.typeModifierPublic())
+            KaSymbolVisibility.INTERNAL -> builder.addTypeModifier(runtime.typeModifierInternal()) // Kotlin module visibility
+            KaSymbolVisibility.PUBLIC -> builder.addTypeModifier(runtime.typeModifierPublic())
             else -> {}
         }
     }
@@ -989,11 +990,11 @@ class KotlinScan(
         else -> runtime.typeNatureClass()
     }
 
-    // Kotlin `internal` (module visibility) has no CST modifier yet -> treated as public for now.
     private fun visibilityMethodModifier(symbol: KaDeclarationSymbol): MethodModifier? = when (symbol.visibility) {
         KaSymbolVisibility.PRIVATE -> runtime.methodModifierPrivate()
         KaSymbolVisibility.PROTECTED -> runtime.methodModifierProtected()
-        KaSymbolVisibility.PUBLIC, KaSymbolVisibility.INTERNAL -> runtime.methodModifierPublic()
+        KaSymbolVisibility.INTERNAL -> runtime.methodModifierInternal() // Kotlin module visibility
+        KaSymbolVisibility.PUBLIC -> runtime.methodModifierPublic()
         else -> null
     }
 

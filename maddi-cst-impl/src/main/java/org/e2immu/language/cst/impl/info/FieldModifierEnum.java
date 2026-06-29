@@ -23,6 +23,7 @@ public enum FieldModifierEnum implements FieldModifier {
     PUBLIC(KeywordImpl.PUBLIC),
     PRIVATE(KeywordImpl.PRIVATE),
     PROTECTED(KeywordImpl.PROTECTED),
+    INTERNAL(KeywordImpl.INTERNAL),
     VOLATILE(KeywordImpl.VOLATILE),
     TRANSIENT(KeywordImpl.TRANSIENT),
     FINAL(KeywordImpl.FINAL),
@@ -72,5 +73,10 @@ public enum FieldModifierEnum implements FieldModifier {
     @Override
     public boolean isPublic() {
         return this == PUBLIC;
+    }
+
+    @Override
+    public boolean isInternal() {
+        return this == INTERNAL;
     }
 }

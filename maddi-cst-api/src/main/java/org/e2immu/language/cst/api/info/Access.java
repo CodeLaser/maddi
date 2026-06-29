@@ -59,4 +59,7 @@ public interface Access {
 
     /** Returns {@code true} if this element has package-private (default) visibility. */
     boolean isPackage();
+
+    /** Returns {@code true} if this element has {@code internal} (module) visibility, e.g. Kotlin {@code internal}. */
+    boolean isInternal();
 }

@@ -98,6 +98,11 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     }
 
     @Override
+    public Access accessInternal() {
+        return InspectionImpl.AccessEnum.INTERNAL;
+    }
+
+    @Override
     public Access accessPackage() {
         return InspectionImpl.AccessEnum.PACKAGE;
     }
@@ -175,6 +180,11 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     @Override
     public FieldModifier fieldModifierFinal() {
         return FieldModifierEnum.FINAL;
+    }
+
+    @Override
+    public FieldModifier fieldModifierInternal() {
+        return FieldModifierEnum.INTERNAL;
     }
 
     @Override
@@ -288,6 +298,11 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     @Override
     public MethodModifier methodModifierDefault() {
         return MethodModifierEnum.DEFAULT;
+    }
+
+    @Override
+    public MethodModifier methodModifierInternal() {
+        return MethodModifierEnum.INTERNAL;
     }
 
     @Override
@@ -1318,6 +1333,11 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     @Override
     public TypeModifier typeModifierFinal() {
         return TypeModifierEnum.FINAL;
+    }
+
+    @Override
+    public TypeModifier typeModifierInternal() {
+        return TypeModifierEnum.INTERNAL;
     }
 
     @Override

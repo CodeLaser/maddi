@@ -54,6 +54,7 @@ public record FlagHelper(Runtime runtime) {
             case "sealed" -> runtime.typeModifierSealed();
             case "non-sealed" -> runtime.typeModifierNonSealed();
             case "final" -> runtime.typeModifierFinal();
+            case "internal" -> runtime.typeModifierInternal();
             default -> null;
         };
     }
@@ -69,6 +70,7 @@ public record FlagHelper(Runtime runtime) {
             case "abstract" -> runtime.methodModifierAbstract();
             case "default" -> runtime.methodModifierDefault();
             case "native" -> runtime.methodModifierNative();
+            case "internal" -> runtime.methodModifierInternal();
             default -> null;
         };
     }
@@ -82,6 +84,7 @@ public record FlagHelper(Runtime runtime) {
             case "static" -> runtime.fieldModifierStatic();
             case "volatile" -> runtime.fieldModifierVolatile();
             case "transient" -> runtime.fieldModifierTransient();
+            case "internal" -> runtime.fieldModifierInternal();
             default -> null;
         };
     }

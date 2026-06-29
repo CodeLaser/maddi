@@ -316,6 +316,7 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
                 if (methodModifier.isPrivate()) return AccessEnum.PRIVATE;
                 if (methodModifier.isPublic()) return AccessEnum.PUBLIC;
                 if (methodModifier.isProtected()) return AccessEnum.PROTECTED;
+                if (methodModifier.isInternal()) return AccessEnum.INTERNAL;
             }
             return AccessEnum.PACKAGE;
         }
