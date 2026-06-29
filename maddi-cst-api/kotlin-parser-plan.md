@@ -220,14 +220,18 @@ mostly *shoehorn* onto existing nodes.
   char upper-cased, + `Kt`), registers it in `InfoByFqn` (pass A), and adds its top-level functions as
   **static** methods (`methodTypeStaticMethod` + static modifier; `convertMethod(static=true)`). It is a
   final public class committed in pass B2 and returned among the parsed types. Verified: `Greet.kt` with
-  `fun greet(name: String): String` → type `GreetKt` with static `greet`. *Next on the facade:* top-level
-  properties (static field + static accessors — body has no `this`), `@file:JvmName`, then it becomes the
-  home for top-level **extension** functions (the receiver-as-first-param plan).
+  `fun greet(name: String): String` → type `GreetKt` with static `greet`. **Top-level properties — DONE:**
+  static backing field + static accessors whose field access is qualified by the facade type
+  (`Type.field`, not `this.field`); `convertProperty`/`buildGetter`/`buildSetter`/`assignFieldFromParam`
+  took a `static` flag + shared `fieldAccessScope`/`methodType` helpers, `setGetSetField` tagging intact.
+  Verified: `val version: Int = 1` → static field `version` + static `getVersion`. *Next on the facade:*
+  `@file:JvmName`, then top-level **extension** functions (receiver-as-first-param).
 - **Reusable note:** the facade is the file-level container ONLY; companion objects / named objects map
   to their own JVM types (`Outer$Companion` + `Companion` field, `INSTANCE` singletons) via the same
   *synthesize-and-register* mechanism, not the facade itself.
-- **TODO:** top-level properties on the facade; extension-function calls (facade + receiver-as-first-param);
-  `..` rangeTo (rangeTo on the primitive `Int` has no member to resolve); negated `!is`.
+- **TODO:** `@file:JvmName` facade name; extension-function calls (facade + receiver-as-first-param);
+  companion/named objects (own JVM types via the synthesize-and-register pattern); `..` rangeTo (rangeTo
+  on the primitive `Int` has no member to resolve); negated `!is`.
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API
