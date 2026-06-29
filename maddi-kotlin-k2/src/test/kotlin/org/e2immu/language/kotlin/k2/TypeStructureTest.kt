@@ -315,4 +315,22 @@ class TypeStructureTest : KotlinScanTestBase() {
         val fieldRef = (call.`object`() as VariableExpression).variable() as FieldReference
         assertEquals("INSTANCE", fieldRef.fieldInfo().name())
     }
+
+    @Test
+    fun companionJvmStaticAndConst() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val config = scan.parse(
+            "Config.kt",
+            "class Config { companion object { const val MAX = 10\n" +
+                "@JvmStatic fun reset(): Int = 0 } }\n"
+        ).first()
+
+        // `const val` is surfaced as a static final field on the enclosing class
+        val max = config.fields().single { it.name() == "MAX" }
+        assertTrue(max.isStatic)
+
+        // `@JvmStatic fun` is surfaced as a static forwarder method on the enclosing class
+        val reset = config.findUniqueMethod("reset", 0)
+        assertTrue(reset.isStatic)
+    }
 }

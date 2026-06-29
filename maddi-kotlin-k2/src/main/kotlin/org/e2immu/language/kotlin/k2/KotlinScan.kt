@@ -360,7 +360,49 @@ class KotlinScan(
         companion.builder().commit()
 
         // the singleton handle: `public static final <Companion> Companion` on the enclosing class
-        enclosing.builder().addField(singletonField(enclosing, name, companion.asParameterizedType()))
+        val companionField = singletonField(enclosing, name, companion.asParameterizedType())
+        enclosing.builder().addField(companionField)
+        addCompanionStatics(enclosing, companion, companionField, companionSymbol)
+    }
+
+    /**
+     * Surface companion members that the JVM also emits on the enclosing class: `const val` → a
+     * `public static final` field on the enclosing class; `@JvmStatic fun` → a static forwarder method on
+     * the enclosing class delegating to `Companion.member(...)`.
+     */
+    private fun KaSession.addCompanionStatics(enclosing: TypeInfo, companion: TypeInfo, companionField: FieldInfo,
+                                              companionSymbol: KaNamedClassSymbol) {
+        companionSymbol.declaredMemberScope.declarations.filterIsInstance<KaPropertySymbol>()
+            .filter { (it as? KaKotlinPropertySymbol)?.isConst == true }
+            .forEach { property ->
+                enclosing.builder().addField(
+                    singletonField(enclosing, property.name.asString(), mapType(property.returnType, enclosing)))
+            }
+
+        val jvmStatic = ClassId.fromString("kotlin/jvm/JvmStatic")
+        companionSymbol.declaredMemberScope.declarations.filterIsInstance<KaNamedFunctionSymbol>()
+            .filter { it.annotations.contains(jvmStatic) }
+            .forEach { function ->
+                val target = companion.methods().firstOrNull {
+                    it.name() == function.name.asString() && it.parameters().size == function.valueParameters.size
+                } ?: return@forEach
+                val forwarder = runtime.newMethod(enclosing, function.name.asString(), runtime.methodTypeStaticMethod())
+                val builder = forwarder.builder()
+                val params = function.valueParameters.map { builder.addParameter(it.name.asString(), mapType(it.returnType, enclosing)) }
+                val returnType = mapType(function.returnType, enclosing)
+                builder.setReturnType(returnType)
+                    .addMethodModifier(runtime.methodModifierPublic())
+                    .addMethodModifier(runtime.methodModifierStatic())
+                    .commitParameters()
+                val delegate = runtime.newMethodCallBuilder()
+                    .setObject(singletonAccess(enclosing, companionField)).setObjectIsImplicit(false)
+                    .setMethodInfo(target).setParameterExpressions(params.map { variableExpression(it) })
+                    .setConcreteReturnType(returnType).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+                val statement = if (returnType == runtime.voidParameterizedType())
+                    runtime.newExpressionAsStatement(delegate) else runtime.newReturnStatement(delegate)
+                builder.setMethodBody(runtime.newBlockBuilder().addStatement(statement).build()).computeAccess().commit()
+                enclosing.builder().addMethod(forwarder)
+            }
     }
 
     /** Pass B1: a constructor's structure — parameters only. Body/delegation come in [finalizeType]. */
@@ -1068,16 +1110,19 @@ class KotlinScan(
     /** The `MethodCall` of a singleton member: object = a field access of [singletonField] on [holder]. */
     private fun KaSession.singletonMemberCall(holder: TypeInfo, singletonField: FieldInfo, callee: MethodInfo,
                                               arguments: List<Expression>, call: KtCallExpression, method: MethodInfo): Expression {
-        val access = runtime.newVariableExpressionBuilder()
-            .setVariable(runtime.newFieldReference(singletonField,
-                runtime.newTypeExpression(holder.asParameterizedType(), runtime.diamondNo()), singletonField.type()))
-            .setSource(runtime.noSource()).build()
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
         return runtime.newMethodCallBuilder()
-            .setObject(access).setObjectIsImplicit(false).setMethodInfo(callee)
+            .setObject(singletonAccess(holder, singletonField)).setObjectIsImplicit(false).setMethodInfo(callee)
             .setParameterExpressions(arguments).setConcreteReturnType(returnType)
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
+
+    /** A field-access expression `Holder.field` of the singleton [field] (scoped to the [holder] type). */
+    private fun singletonAccess(holder: TypeInfo, field: FieldInfo): Expression =
+        runtime.newVariableExpressionBuilder()
+            .setVariable(runtime.newFieldReference(field,
+                runtime.newTypeExpression(holder.asParameterizedType(), runtime.diamondNo()), field.type()))
+            .setSource(runtime.noSource()).build()
 
     /** The file-facade [TypeInfo] that holds a (source) top-level extension function, via its containing file. */
     private fun extensionFacade(symbol: KaNamedFunctionSymbol): TypeInfo? {
