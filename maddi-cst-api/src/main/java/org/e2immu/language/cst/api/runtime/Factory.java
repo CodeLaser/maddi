@@ -40,6 +40,8 @@ import java.util.stream.Collector;
 
 public interface Factory {
 
+    Access accessInternal();
+
     Access accessPackage();
 
     Access accessPrivate();
@@ -71,6 +73,8 @@ public interface Factory {
     Block emptyBlock();
 
     FieldModifier fieldModifierFinal();
+
+    FieldModifier fieldModifierInternal();
 
     FieldModifier fieldModifierPrivate();
 
@@ -117,6 +121,8 @@ public interface Factory {
     MethodModifier methodModifierDefault();
 
     MethodModifier methodModifierFinal();
+
+    MethodModifier methodModifierInternal();
 
     MethodModifier methodModifierNative();
 
@@ -528,6 +534,8 @@ public interface Factory {
     TypeModifier typeModifierAbstract();
 
     TypeModifier typeModifierFinal();
+
+    TypeModifier typeModifierInternal();
 
     TypeModifier typeModifierNonSealed();
 

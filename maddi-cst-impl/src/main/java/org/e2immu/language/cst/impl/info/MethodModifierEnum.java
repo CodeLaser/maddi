@@ -23,6 +23,7 @@ public enum MethodModifierEnum implements MethodModifier {
     PUBLIC(KeywordImpl.PUBLIC),
     PRIVATE(KeywordImpl.PRIVATE),
     PROTECTED(KeywordImpl.PROTECTED),
+    INTERNAL(KeywordImpl.INTERNAL),
     ABSTRACT(KeywordImpl.ABSTRACT),
     DEFAULT(KeywordImpl.DEFAULT),
     FINAL(KeywordImpl.FINAL),
@@ -49,6 +50,11 @@ public enum MethodModifierEnum implements MethodModifier {
     @Override
     public boolean isProtected() {
         return this == PROTECTED;
+    }
+
+    @Override
+    public boolean isInternal() {
+        return this == INTERNAL;
     }
 
     @Override

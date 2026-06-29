@@ -194,11 +194,18 @@ mostly *shoehorn* onto existing nodes.
   member's `computeAccess()` (which reads `owner().access()`). Verified: an abstract interface method is
   `public`; a `private` method is `private`. NB the CST combines with the owner only for **fields** (not
   methods) at inspection time — the full eventual restriction for methods is the analyzer's job.
-- **`internal` reframed:** it is a *modifier*, not an `Access` level (Access is eventual). CST has no
-  `internal` modifier yet, so Kotlin `internal` still maps to a `public` modifier — adding a real
-  `internal` modifier to the CST is the proper future step, not an Access level.
-- **TODO:** overload disambiguation; extension/infix calls; `internal` CST *modifier*; `..` rangeTo;
-  negated `!is`.
+- **`internal` — DONE (shared CST + front-end).** Added a real **`internal` modifier** to
+  `TypeModifier`/`MethodModifier`/`FieldModifier` (+ enum impls, `KeywordImpl.INTERNAL`, `Factory`
+  `{type,method,field}ModifierInternal()`) AND a real **`INTERNAL` value to `Access`** (for later code
+  analysis): `AccessEnum` is now `PRIVATE(0),PACKAGE(1),PROTECTED(2),INTERNAL(3),PUBLIC(4)` — internal
+  just below public (combine = most-restrictive still holds). The three `accessFromX` helpers map the
+  internal modifier → `INTERNAL`; the three printers' Access→Modifier converters gained an internal
+  branch; `FlagHelper` keyword parsing gained `"internal"`. The Kotlin front-end now emits
+  `typeModifierInternal`/`methodModifierInternal` for `internal` declarations → eventual access
+  `INTERNAL`. Java gates (`cst-impl`, `modification-prepwork`, `inspection-openjdk`, `java-openjdk`) all
+  green. Verified: `internal class Mod { internal fun work() }` → both `access() == accessInternal()`.
+- **TODO:** overload disambiguation; extension/infix calls; `..` rangeTo; negated `!is`; `internal` field
+  modifier on backing fields (currently always private, which is correct — the accessors carry visibility).
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API

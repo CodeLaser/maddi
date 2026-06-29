@@ -142,6 +142,7 @@ public record MethodPrinterImpl(TypeInfo typeInfo, MethodInfo methodInfo, boolea
             if (access.isPrivate()) accessModifier = MethodModifierEnum.PRIVATE;
             else if (access.isProtected()) accessModifier = MethodModifierEnum.PROTECTED;
             else if (access.isPublic()) accessModifier = MethodModifierEnum.PUBLIC;
+            else if (access.isInternal()) accessModifier = MethodModifierEnum.INTERNAL;
             else throw new UnsupportedOperationException();
 
             result.add(accessModifier);

@@ -224,6 +224,7 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
         if (access.isPublic()) return TypeModifierEnum.PUBLIC;
         if (access.isProtected()) return TypeModifierEnum.PROTECTED;
         if (access.isPrivate()) return TypeModifierEnum.PRIVATE;
+        if (access.isInternal()) return TypeModifierEnum.INTERNAL;
         throw new UnsupportedOperationException();
     }
 

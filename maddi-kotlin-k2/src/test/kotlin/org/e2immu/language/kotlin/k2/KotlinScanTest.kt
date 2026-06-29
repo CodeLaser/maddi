@@ -814,4 +814,16 @@ class KotlinScanTest {
         // a private method is private
         assertEquals(runtime.accessPrivate(), types.getValue("Impl").findUniqueMethod("secret", 0).access())
     }
+
+    @Test
+    fun internalVisibility() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val mod = scan.parse("Mod.kt", "internal class Mod { internal fun work(): Int = 1 }\n").first()
+
+        // Kotlin `internal` maps to the new CST internal modifier + internal (eventual) access
+        assertEquals(runtime.accessInternal(), mod.access())
+        val work = mod.findUniqueMethod("work", 0)
+        assertEquals(runtime.accessInternal(), work.access())
+        assertTrue(work.methodModifiers().contains(runtime.methodModifierInternal()))
+    }
 }

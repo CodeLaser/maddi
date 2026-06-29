@@ -29,6 +29,9 @@ public interface TypeModifier extends Modifier {
     /** Returns {@code true} if this is the {@code protected} modifier. */
     boolean isProtected();
 
+    /** Returns {@code true} if this is the {@code internal} modifier (module visibility, e.g. Kotlin {@code internal}). */
+    boolean isInternal();
+
     /** Returns {@code true} if this is the {@code abstract} modifier. */
     boolean isAbstract();
 
@@ -44,8 +47,8 @@ public interface TypeModifier extends Modifier {
     /** Returns {@code true} if this is the {@code non-sealed} modifier. */
     boolean isNonSealed();
 
-    /** Returns {@code true} if this modifier controls visibility ({@code public}, {@code protected}, or {@code private}). */
+    /** Returns {@code true} if this modifier controls visibility ({@code public}, {@code protected}, {@code private}, or {@code internal}). */
     default boolean isAccessModifier() {
-        return isPrivate() || isProtected() || isPublic();
+        return isPrivate() || isProtected() || isPublic() || isInternal();
     }
 }

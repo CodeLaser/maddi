@@ -23,6 +23,7 @@ public enum TypeModifierEnum implements TypeModifier {
     PUBLIC(KeywordImpl.PUBLIC),
     PRIVATE(KeywordImpl.PRIVATE),
     PROTECTED(KeywordImpl.PROTECTED),
+    INTERNAL(KeywordImpl.INTERNAL),
 
     ABSTRACT(KeywordImpl.ABSTRACT),
     FINAL(KeywordImpl.FINAL),
@@ -50,6 +51,11 @@ public enum TypeModifierEnum implements TypeModifier {
     @Override
     public boolean isProtected() {
         return this == PROTECTED;
+    }
+
+    @Override
+    public boolean isInternal() {
+        return this == INTERNAL;
     }
 
     @Override

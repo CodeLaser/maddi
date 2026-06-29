@@ -83,6 +83,7 @@ public class FieldInspectionImpl extends InspectionImpl implements FieldInspecti
                 if (fieldModifier.isProtected()) return AccessEnum.PROTECTED;
                 if (fieldModifier.isPrivate()) return AccessEnum.PRIVATE;
                 if (fieldModifier.isPublic()) return AccessEnum.PUBLIC;
+                if (fieldModifier.isInternal()) return AccessEnum.INTERNAL;
             }
             return AccessEnum.PACKAGE;
         }

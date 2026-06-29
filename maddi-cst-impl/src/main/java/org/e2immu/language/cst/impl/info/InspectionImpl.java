@@ -36,7 +36,9 @@ public abstract class InspectionImpl implements Inspection {
     private final JavaDoc javaDoc;
 
     public enum AccessEnum implements Access {
-        PRIVATE(0), PACKAGE(1), PROTECTED(2), PUBLIC(3);
+        // INTERNAL (module visibility, e.g. Kotlin `internal`) sits just below PUBLIC: more restrictive
+        // than public, less than the rest. Levels are relative (combine = most restrictive = lowest level).
+        PRIVATE(0), PACKAGE(1), PROTECTED(2), INTERNAL(3), PUBLIC(4);
 
         private final int level;
 
@@ -73,6 +75,11 @@ public abstract class InspectionImpl implements Inspection {
         @Override
         public boolean isProtected() {
             return this == PROTECTED;
+        }
+
+        @Override
+        public boolean isInternal() {
+            return this == INTERNAL;
         }
 
         @Override
