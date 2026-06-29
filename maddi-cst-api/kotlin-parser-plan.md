@@ -249,6 +249,14 @@ mostly *shoehorn* onto existing nodes.
 - **Reusable note:** the facade is the file-level container ONLY; companion objects / named objects map
   to their own JVM types (`Outer$Companion` + `Companion` field, `INSTANCE` singletons) via the same
   *synthesize-and-register* mechanism, not the facade itself.
+- **Companion objects — DONE (structural).** `convertCompanion` (called from `convertMembers` after the
+  enclosing access is computed) creates a nested type `Outer.Companion` (`newTypeInfo(enclosing,name)` +
+  `addSubType`, registered in `InfoByFqn`), populated with the companion's members as instance members,
+  plus a `public static final <Companion> Companion` field on the enclosing class. Nested type access via
+  `computeAccess` (combines with enclosing). Verified: `class WithCompanion { companion object { fun
+  create() } }` → subtype `Companion` with `create`, and a static `Companion` field typed as it. *Next:*
+  `Outer.member()` call routing (→ `Outer.Companion.member()`); `@JvmStatic`/`const` forwarders on the
+  enclosing class; named/anonymous `object` declarations (own `INSTANCE` singleton types).
 - **TODO:** `@file:JvmName` facade name; extension-function calls (facade + receiver-as-first-param);
   companion/named objects (own JVM types via the synthesize-and-register pattern); `..` rangeTo (rangeTo
   on the primitive `Int` has no member to resolve); negated `!is`.

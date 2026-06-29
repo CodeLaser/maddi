@@ -308,7 +308,47 @@ class KotlinScan(
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaConstructorSymbol>()
             .forEach { ctor -> typeInfo.builder().addConstructor(convertConstructorStructure(typeInfo, ctor)) }
+        // companion object -> a nested `Companion` type + a static field on the enclosing class
+        classSymbol.companionObject?.let { convertCompanion(typeInfo, it) }
         // access + type commit happen in finalizeType (pass B2), after delegations are wired
+    }
+
+    /**
+     * Convert a Kotlin `companion object` to its JVM shape: a nested type `Outer.Companion` holding the
+     * companion's members (as instance members of the singleton), plus a `public static final Companion`
+     * field on the enclosing class. (`@JvmStatic`/`const` forwarders onto the enclosing class, and
+     * `Outer.member()` call routing, are later refinements.)
+     */
+    private fun KaSession.convertCompanion(enclosing: TypeInfo, companionSymbol: KaNamedClassSymbol) {
+        val name = companionSymbol.name?.asString() ?: "Companion"
+        val companion = runtime.newTypeInfo(enclosing, name)
+        companion.builder()
+            .setTypeNature(runtime.typeNatureClass())
+            .setParentClass(runtime.objectParameterizedType())
+            .addTypeModifier(runtime.typeModifierPublic())
+            .addTypeModifier(runtime.typeModifierStatic()) // a nested object is a static nested class on the JVM
+            .addTypeModifier(runtime.typeModifierFinal())
+            .computeAccess() // nested: combines with the (already-computed) enclosing access
+        enclosing.builder().addSubType(companion)
+        infoByFqn.put(companion.fullyQualifiedName(), companion, sourceSet)
+
+        companionSymbol.declaredMemberScope.declarations
+            .filterIsInstance<KaPropertySymbol>()
+            .forEach { property -> convertProperty(companion, property) }
+        companionSymbol.declaredMemberScope.declarations
+            .filterIsInstance<KaNamedFunctionSymbol>()
+            .forEach { function -> companion.builder().addMethod(convertMethod(companion, function)) }
+        companion.builder().commit()
+
+        // the singleton instance: `public static final <Companion> Companion` on the enclosing class
+        val field = runtime.newFieldInfo(name, true, companion.asParameterizedType(), enclosing)
+        field.builder()
+            .addFieldModifier(runtime.fieldModifierPublic())
+            .addFieldModifier(runtime.fieldModifierStatic())
+            .addFieldModifier(runtime.fieldModifierFinal())
+            .setInitializer(runtime.newEmptyExpression())
+            .computeAccess().commit()
+        enclosing.builder().addField(field)
     }
 
     /** Pass B1: a constructor's structure — parameters only. Body/delegation come in [finalizeType]. */

@@ -251,4 +251,22 @@ class TypeStructureTest : KotlinScanTestBase() {
         assertEquals(runtime.accessInternal(), work.access())
         assertTrue(work.methodModifiers().contains(runtime.methodModifierInternal()))
     }
+
+    @Test
+    fun companionObject() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val foo = scan.parse(
+            "WC.kt",
+            "class WithCompanion { companion object { fun create(): Int = 1 } }\n"
+        ).first()
+
+        // a nested `Companion` type holds the companion's members (JVM: Outer$Companion)
+        val companion = foo.subTypes().single { it.simpleName() == "Companion" }
+        assertEquals(1, companion.methods().count { it.name() == "create" })
+
+        // a public static final `Companion` field on the enclosing class, typed as the companion
+        val field = foo.fields().single { it.name() == "Companion" }
+        assertTrue(field.isStatic)
+        assertEquals(companion, field.type().typeInfo())
+    }
 }
