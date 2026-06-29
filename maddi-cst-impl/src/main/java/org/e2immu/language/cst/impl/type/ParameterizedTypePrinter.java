@@ -168,13 +168,17 @@ public class ParameterizedTypePrinter {
             outputBuilder.add(TypeNameImpl.typeName(typeInfo, qualification.qualifierRequired(typeInfo), false));
         }
         if (!typeParameters.isEmpty() && diamond != DiamondEnum.NO) {
-            outputBuilder.add(SymbolEnum.LEFT_ANGLE_BRACKET);
             if (diamond == DiamondEnum.SHOW_ALL) {
+                outputBuilder.add(SymbolEnum.LEFT_ANGLE_BRACKET);
                 outputBuilder.add(typeParameters.stream().map(tp -> print(qualification,
                                 tp, false, DiamondEnum.SHOW_ALL, false, printTypeBounds))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
+                outputBuilder.add(SymbolEnum.RIGHT_ANGLE_BRACKET);
+            } else {
+                // diamond YES: emit the dedicated <> token (no surrounding space), matching the no-parameters
+                // path above; building it from separate < and > leaves a stray space before a following '('
+                outputBuilder.add(SymbolEnum.DIAMOND);
             }
-            outputBuilder.add(SymbolEnum.RIGHT_ANGLE_BRACKET);
         }
         return outputBuilder;
     }
