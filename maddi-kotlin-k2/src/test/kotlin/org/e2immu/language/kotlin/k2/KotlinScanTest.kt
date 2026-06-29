@@ -777,4 +777,23 @@ class KotlinScanTest {
         assertTrue(ret is BinaryOperator)
         assertEquals(runtime.plusOperatorInt(), (ret as BinaryOperator).operator())
     }
+
+    @Test
+    fun inheritedCall() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "Inh.kt",
+            """
+            open class Base { fun greet(): String = "hi" }
+            class Sub : Base() { fun delegate(): String = greet() }
+            """.trimIndent() + "\n"
+        ).associateBy { it.simpleName() }
+
+        // greet() is inherited from Base; the call resolves up the hierarchy to Base.greet
+        val call = (types.getValue("Sub").findUniqueMethod("delegate", 0)
+            .methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(call is MethodCall)
+        assertEquals("greet", (call as MethodCall).methodInfo().name())
+        assertEquals(types.getValue("Base"), call.methodInfo().typeInfo())
+    }
 }
