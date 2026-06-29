@@ -819,14 +819,22 @@ class KotlinScanTest {
     @Test
     fun fileFacade() {
         val scan = KotlinScan(runtime, sourceSet)
-        // a top-level function lives on the JVM file facade `GreetKt` as a static method
-        val types = scan.parse("Greet.kt", "fun greet(name: String): String = \"hi\"\n").associateBy { it.simpleName() }
+        // top-level function + property live on the JVM file facade `GreetKt` as static members
+        val types = scan.parse(
+            "Greet.kt",
+            "val version: Int = 1\nfun greet(name: String): String = \"hi\"\n"
+        ).associateBy { it.simpleName() }
 
         val facade = types["GreetKt"]
         assertNotNull(facade, "facade types were ${types.keys}")
         val greet = facade!!.findUniqueMethod("greet", 1)
         assertTrue(greet.isStatic)
         assertTrue(greet.returnType().isJavaLangString)
+
+        // top-level property -> a static backing field + a static getter
+        val version = facade.fields().single { it.name() == "version" }
+        assertTrue(version.isStatic)
+        assertTrue(facade.findUniqueMethod("getVersion", 0).isStatic)
     }
 
     @Test

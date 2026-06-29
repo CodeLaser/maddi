@@ -180,19 +180,21 @@ class KotlinScan(
         val perFile = ktFiles.map { ktFile ->
             val compilationUnit = compilationUnitFor(ktFile)
             val declarations = ktFile.declarations.filterIsInstance<KtClassOrObject>()
-            // top-level functions live on the JVM file facade `<FileName>Kt` (a synthetic static container)
+            // top-level functions/properties live on the JVM file facade `<FileName>Kt` (a static container)
             val topLevelFunctions = ktFile.declarations.filterIsInstance<KtNamedFunction>()
+            val topLevelProperties = ktFile.declarations.filterIsInstance<KtProperty>()
+            val hasFacade = topLevelFunctions.isNotEmpty() || topLevelProperties.isNotEmpty()
             val (types, facade) = analyze(ktFile) {
                 declarations.map { registerType(compilationUnit, it) } to
-                        (if (topLevelFunctions.isEmpty()) null else registerFacade(compilationUnit, ktFile))
+                        (if (hasFacade) registerFacade(compilationUnit, ktFile) else null)
             }
-            FileConversion(ktFile, compilationUnit, declarations, types, facade, topLevelFunctions)
+            FileConversion(ktFile, compilationUnit, declarations, types, facade, topLevelFunctions, topLevelProperties)
         }
         // pass B1 (all files): members + constructor structures (no body), now that all types are known
         perFile.forEach { fc ->
             analyze(fc.ktFile) {
                 fc.declarations.zip(fc.types).forEach { (d, ti) -> convertMembers(d, ti) }
-                fc.facade?.let { convertFacadeMembers(it, fc.topLevelFunctions) }
+                fc.facade?.let { convertFacadeMembers(it, fc.topLevelFunctions, fc.topLevelProperties) }
             }
         }
         // pass B2 (all files): wire constructor this(...)/super(...) delegations — now every constructor
@@ -212,6 +214,7 @@ class KotlinScan(
         val types: List<TypeInfo>,
         val facade: TypeInfo?,
         val topLevelFunctions: List<KtNamedFunction>,
+        val topLevelProperties: List<KtProperty>,
     ) {
         fun allTypes(): List<TypeInfo> = if (facade == null) types else types + facade
     }
@@ -254,14 +257,21 @@ class KotlinScan(
         return base.replaceFirstChar { it.uppercaseChar() } + "Kt"
     }
 
-    /** Pass B1: the file facade is a final public class holding the top-level functions as static methods. */
-    private fun KaSession.convertFacadeMembers(facade: TypeInfo, functions: List<KtNamedFunction>) {
+    /**
+     * Pass B1: the file facade is a final public class holding the top-level functions and properties as
+     * static members (the JVM emits top-level declarations exactly this way).
+     */
+    private fun KaSession.convertFacadeMembers(facade: TypeInfo, functions: List<KtNamedFunction>,
+                                               properties: List<KtProperty>) {
         facade.builder()
             .setTypeNature(runtime.typeNatureClass())
             .setParentClass(runtime.objectParameterizedType())
             .addTypeModifier(runtime.typeModifierPublic())
             .addTypeModifier(runtime.typeModifierFinal())
             .computeAccess() // top-level: eventual access == the public modifier; needed before members
+        properties.forEach { p ->
+            (p.symbol as? KaPropertySymbol)?.let { convertProperty(facade, it, static = true) }
+        }
         functions.forEach { fn ->
             (fn.symbol as? KaNamedFunctionSymbol)?.let { facade.builder().addMethod(convertMethod(facade, it, static = true)) }
         }
@@ -311,7 +321,7 @@ class KotlinScan(
             explicitConstructorInvocation(typeInfo, declaration, sym, cst)?.let { body.addStatement(it) }
             cst.parameters().forEach { param ->
                 typeInfo.fields().firstOrNull { it.name() == param.name() }
-                    ?.let { body.addStatement(assignFieldFromParam(typeInfo, it, param)) }
+                    ?.let { body.addStatement(assignFieldFromParam(typeInfo, it, param, false)) }
             }
             cst.builder().setMethodBody(body.build()).commit()
         }
@@ -354,7 +364,7 @@ class KotlinScan(
      * access identically to a Java field access. (Computed properties without a backing field are a
      * later refinement; here they also get a backing field.)
      */
-    private fun KaSession.convertProperty(owner: TypeInfo, property: KaPropertySymbol) {
+    private fun KaSession.convertProperty(owner: TypeInfo, property: KaPropertySymbol, static: Boolean = false) {
         val name = property.name.asString()
         val type = mapType(property.returnType, owner)
         val isVal = property.isVal
@@ -362,26 +372,41 @@ class KotlinScan(
         // a computed property (custom getter, no backing field, e.g. `val sum get() = x + y`) becomes just
         // a getter with its real body — no field, no getter/setter field tagging.
         if ((property as? KaKotlinPropertySymbol)?.hasBackingField == false) {
-            owner.builder().addMethod(buildComputedGetter(owner, property, type))
+            owner.builder().addMethod(buildComputedGetter(owner, property, type, static))
             return
         }
 
-        val field = runtime.newFieldInfo(name, false, type, owner)
+        val field = runtime.newFieldInfo(name, static, type, owner)
         val fieldBuilder = field.builder()
             .addFieldModifier(runtime.fieldModifierPrivate())
             .setInitializer(runtime.newEmptyExpression())
         if (isVal) fieldBuilder.addFieldModifier(runtime.fieldModifierFinal())
+        if (static) fieldBuilder.addFieldModifier(runtime.fieldModifierStatic())
         fieldBuilder.computeAccess().commit()
         owner.builder().addField(field)
 
-        owner.builder().addMethod(buildGetter(owner, field, type, property))
-        if (!isVal) owner.builder().addMethod(buildSetter(owner, field, type, property))
+        owner.builder().addMethod(buildGetter(owner, field, type, property, static))
+        if (!isVal) owner.builder().addMethod(buildSetter(owner, field, type, property, static))
     }
+
+    private fun methodType(static: Boolean) =
+        if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
+
+    /** Scope for a backing-field access: `this` for an instance member, the owning type for a static one. */
+    private fun fieldAccessScope(owner: TypeInfo, static: Boolean): Expression =
+        if (static) runtime.newTypeExpression(owner.asParameterizedType(), runtime.diamondNo())
+        else runtime.newVariableExpressionBuilder()
+            .setVariable(runtime.newThis(owner.asParameterizedType())).setSource(runtime.noSource()).build()
+
+    private fun fieldReadExpression(owner: TypeInfo, field: FieldInfo, static: Boolean): Expression =
+        runtime.newVariableExpressionBuilder()
+            .setVariable(runtime.newFieldReference(field, fieldAccessScope(owner, static), field.type()))
+            .setSource(runtime.noSource()).build()
 
     /** A computed property's getter: its real (custom) body, no field-access tagging. */
     private fun KaSession.buildComputedGetter(owner: TypeInfo, property: KaPropertySymbol,
-                                              type: ParameterizedType): MethodInfo {
-        val getter = runtime.newMethod(owner, accessorName("get", property.name.asString()), runtime.methodTypeMethod())
+                                              type: ParameterizedType, static: Boolean): MethodInfo {
+        val getter = runtime.newMethod(owner, accessorName("get", property.name.asString()), methodType(static))
         getter.builder().setReturnType(type)
         addMethodModifiers(getter.builder(), property)
         getter.builder().commitParameters().computeAccess()
@@ -398,12 +423,11 @@ class KotlinScan(
     }
 
     private fun KaSession.buildGetter(owner: TypeInfo, field: FieldInfo, type: ParameterizedType,
-                                      property: KaPropertySymbol): MethodInfo {
-        val getter = runtime.newMethod(owner, accessorName("get", field.name()), runtime.methodTypeMethod())
+                                      property: KaPropertySymbol, static: Boolean): MethodInfo {
+        val getter = runtime.newMethod(owner, accessorName("get", field.name()), methodType(static))
         val source = runtime.noSource()
         val returnField = runtime.newReturnBuilder()
-            .setExpression(runtime.newVariableExpressionBuilder()
-                .setVariable(runtime.newFieldReference(field)).setSource(source).build())
+            .setExpression(fieldReadExpression(owner, field, static))
             .setSource(source).build()
         getter.builder()
             .setReturnType(type)
@@ -416,12 +440,12 @@ class KotlinScan(
     }
 
     private fun KaSession.buildSetter(owner: TypeInfo, field: FieldInfo, type: ParameterizedType,
-                                      property: KaPropertySymbol): MethodInfo {
-        val setter = runtime.newMethod(owner, accessorName("set", field.name()), runtime.methodTypeMethod())
+                                      property: KaPropertySymbol, static: Boolean): MethodInfo {
+        val setter = runtime.newMethod(owner, accessorName("set", field.name()), methodType(static))
         val value = setter.builder().addParameter("value", type)
         setter.builder()
             .setReturnType(runtime.voidParameterizedType())
-            .setMethodBody(runtime.newBlockBuilder().addStatement(assignFieldFromParam(owner, field, value)).build())
+            .setMethodBody(runtime.newBlockBuilder().addStatement(assignFieldFromParam(owner, field, value, static)).build())
         addMethodModifiers(setter.builder(), property)
         setter.builder().commitParameters().computeAccess()
         runtime.setGetSetField(setter, field, true, -1, false)
@@ -429,14 +453,13 @@ class KotlinScan(
         return setter
     }
 
-    /** Build the statement `this.field = param`. */
-    private fun assignFieldFromParam(owner: TypeInfo, field: FieldInfo, param: ParameterInfo): Statement {
+    /** Build the statement `this.field = param` (or `Type.field = param` for a static backing field). */
+    private fun assignFieldFromParam(owner: TypeInfo, field: FieldInfo, param: ParameterInfo, static: Boolean): Statement {
         val source = runtime.noSource()
-        val thisExpr = runtime.newVariableExpressionBuilder()
-            .setVariable(runtime.newThis(owner.asParameterizedType())).setSource(source).build()
         val assignment = runtime.newAssignmentBuilder()
             .setTarget(runtime.newVariableExpressionBuilder()
-                .setVariable(runtime.newFieldReference(field, thisExpr, field.type())).setSource(source).build())
+                .setVariable(runtime.newFieldReference(field, fieldAccessScope(owner, static), field.type()))
+                .setSource(source).build())
             .setValue(runtime.newVariableExpressionBuilder().setVariable(param).setSource(source).build())
             .setSource(source).build()
         return runtime.newExpressionAsStatementBuilder().setExpression(assignment).setSource(source).build()
