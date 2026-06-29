@@ -59,8 +59,11 @@ import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtBlockExpression
+import org.jetbrains.kotlin.psi.KtBreakExpression
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtContinueExpression
+import org.jetbrains.kotlin.psi.KtDoWhileExpression
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
@@ -68,8 +71,12 @@ import org.jetbrains.kotlin.psi.KtForExpression
 import org.jetbrains.kotlin.psi.KtIfExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtEscapeStringTemplateEntry
+import org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtReturnExpression
+import org.jetbrains.kotlin.psi.KtStringTemplateEntryWithExpression
+import org.jetbrains.kotlin.psi.KtStringTemplateExpression
 import org.jetbrains.kotlin.psi.KtThisExpression
 import org.jetbrains.kotlin.psi.KtWhenConditionWithExpression
 import org.jetbrains.kotlin.psi.KtWhenExpression
@@ -424,13 +431,15 @@ class KotlinScan(
             locals[name] = local
             runtime.newLocalVariableCreation(local)
         }
-        statement is KtBinaryExpression && statement.operationToken == KtTokens.EQ -> {
+        statement is KtBinaryExpression && isAssignment(statement.operationToken) -> {
             val target = statement.left?.let { convertExpression(it, method, locals) } as? VariableExpression
             val value = statement.right?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression()
             if (target == null) runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-assign-target"))
-            else runtime.newExpressionAsStatement(
-                runtime.newAssignmentBuilder().setTarget(target).setValue(value).setSource(runtime.noSource()).build()
-            )
+            else {
+                val builder = runtime.newAssignmentBuilder().setTarget(target).setValue(value).setSource(runtime.noSource())
+                augmentedOperator(statement.operationToken)?.let { builder.setAssignmentOperator(it) } // x += y
+                runtime.newExpressionAsStatement(builder.build())
+            }
         }
         statement is KtReturnExpression -> runtime.newReturnStatement(
             statement.returnedExpression?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression()
@@ -458,6 +467,16 @@ class KotlinScan(
                 .setSource(runtime.noSource()).build()
         }
         statement is KtWhenExpression -> convertWhen(statement, method, locals)
+        statement is KtDoWhileExpression -> runtime.newDoBuilder()
+            .setExpression(statement.condition?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
+            .setBlock(convertBlock(statement.body, method, locals))
+            .setSource(runtime.noSource()).build()
+        statement is KtBreakExpression -> runtime.newBreakBuilder()
+            .also { b -> statement.getLabelName()?.let { b.setGoToLabel(it) } } // break@label
+            .setSource(runtime.noSource()).build()
+        statement is KtContinueExpression -> runtime.newContinueBuilder()
+            .also { b -> statement.getLabelName()?.let { b.setGoToLabel(it) } } // continue@label
+            .setSource(runtime.noSource()).build()
         else -> runtime.newExpressionAsStatement(convertExpression(statement, method, locals))
     }
 
@@ -485,6 +504,19 @@ class KotlinScan(
             )
         }
         return builder.build()
+    }
+
+    private fun isAssignment(token: com.intellij.psi.tree.IElementType): Boolean =
+        token == KtTokens.EQ || augmentedOperator(token) != null
+
+    /** The compound-assignment operator method for `+=`/`-=`/etc., or null for plain `=` (or a non-assignment). */
+    private fun augmentedOperator(token: com.intellij.psi.tree.IElementType): MethodInfo? = when (token) {
+        KtTokens.PLUSEQ -> runtime.assignPlusOperatorInt()
+        KtTokens.MINUSEQ -> runtime.assignMinusOperatorInt()
+        KtTokens.MULTEQ -> runtime.assignMultiplyOperatorInt()
+        KtTokens.DIVEQ -> runtime.assignDivideOperatorInt()
+        KtTokens.PERCEQ -> runtime.assignRemainderOperatorInt()
+        else -> null
     }
 
     /** Convert a control-flow branch/body (a `{ … }` block or a single statement) into a CST [Block]. */
@@ -528,6 +560,18 @@ class KotlinScan(
                 .setIfTrue(expression.then?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
                 .setIfFalse(expression.`else`?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
                 .setSource(runtime.noSource()).build(runtime)
+            is KtStringTemplateExpression -> { // "$x ${e} literal" -> folded StringConcat of the parts
+                val parts = expression.entries.map { entry ->
+                    when (entry) {
+                        is KtLiteralStringTemplateEntry -> runtime.newStringConstant(entry.text)
+                        is KtEscapeStringTemplateEntry -> runtime.newStringConstant(entry.unescapedValue)
+                        is KtStringTemplateEntryWithExpression ->
+                            entry.expression?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression()
+                        else -> runtime.newStringConstant("")
+                    }
+                }
+                parts.reduceOrNull { acc, part -> runtime.newStringConcat(acc, part) } ?: runtime.newStringConstant("")
+            }
             else -> runtime.newEmptyExpression("k2-unsupported-expr:${expression::class.simpleName}")
         }
     }

@@ -21,9 +21,12 @@ import org.e2immu.language.cst.api.expression.BinaryOperator
 import org.e2immu.language.cst.api.expression.EmptyExpression
 import org.e2immu.language.cst.api.expression.InlineConditional
 import org.e2immu.language.cst.api.expression.MethodCall
+import org.e2immu.language.cst.api.expression.StringConcat
 import org.e2immu.language.cst.api.expression.VariableExpression
 import org.e2immu.language.cst.api.info.ParameterInfo
 import org.e2immu.language.cst.api.runtime.Runtime
+import org.e2immu.language.cst.api.statement.BreakStatement
+import org.e2immu.language.cst.api.statement.DoStatement
 import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement
 import org.e2immu.language.cst.api.statement.ForEachStatement
@@ -645,5 +648,37 @@ class KotlinScanTest {
         assertEquals(3, sw.entries().size)
         assertEquals(2, sw.entries()[1].conditions().size)               // the `1, 2 ->` arm
         assertTrue(sw.entries()[2].conditions()[0] is EmptyExpression)   // the `else` arm
+    }
+
+    @Test
+    fun residueBatch() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val more = scan.parse(
+            "More.kt",
+            """
+            class More {
+                fun add(a: Int): Int { var s = 0; s += a; return s }
+                fun greet(name: String): String = "Hi ${'$'}name"
+                fun stop() { while (true) { break } }
+                fun spin() { do { } while (false) }
+            }
+            """.trimIndent() + "\n"
+        ).first()
+
+        // augmented assignment `s += a` -> Assignment with the assign-plus operator method
+        val sPlus = (more.findUniqueMethod("add", 1).methodBody().statements()[1] as ExpressionAsStatement)
+            .expression() as Assignment
+        assertEquals(runtime.assignPlusOperatorInt(), sPlus.assignmentOperator())
+
+        // string template "Hi $name" -> StringConcat
+        val greet = (more.findUniqueMethod("greet", 1).methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(greet is StringConcat)
+
+        // break inside a while loop
+        val whileStmt = more.findUniqueMethod("stop", 0).methodBody().statements().first() as WhileStatement
+        assertTrue(whileStmt.block().statements().first() is BreakStatement)
+
+        // do-while
+        assertTrue(more.findUniqueMethod("spin", 0).methodBody().statements().first() is DoStatement)
     }
 }
