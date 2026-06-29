@@ -17,6 +17,7 @@ package org.e2immu.language.kotlin.k2
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.Variance
 import org.e2immu.language.cst.api.expression.BinaryOperator
+import org.e2immu.language.cst.api.expression.MethodCall
 import org.e2immu.language.cst.api.expression.VariableExpression
 import org.e2immu.language.cst.api.info.ParameterInfo
 import org.e2immu.language.cst.api.runtime.Runtime
@@ -484,5 +485,40 @@ class KotlinScanTest {
         val lt = returnedExpr("lt") as BinaryOperator
         assertEquals(runtime.lessOperatorInt(), lt.operator())
         assertEquals(runtime.booleanParameterizedType(), lt.parameterizedType())
+    }
+
+    @Test
+    fun methodCallsAndQualifiedAccess() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "Calls.kt",
+            """
+            class Calc {
+                fun base(): Int = 1
+                fun viaThis(): Int = base()
+            }
+            class Client { fun use(c: Calc): Int = c.base() }
+            class Box(val v: Int) { fun peek(other: Box): Int = other.v }
+            """.trimIndent() + "\n"
+        ).associateBy { it.simpleName() }
+
+        fun returned(t: String, name: String, n: Int) =
+            (types.getValue(t).findUniqueMethod(name, n).methodBody().statements().first() as ReturnStatement).expression()
+
+        // implicit-this call: base()
+        val viaThis = returned("Calc", "viaThis", 0)
+        assertTrue(viaThis is MethodCall)
+        assertTrue((viaThis as MethodCall).objectIsImplicit())
+        assertEquals("base", viaThis.methodInfo().name())
+
+        // receiver call: c.base()
+        val use = returned("Client", "use", 1) as MethodCall
+        assertFalse(use.objectIsImplicit())
+        assertEquals(types.getValue("Calc"), use.methodInfo().typeInfo())
+
+        // qualified property access: other.v -> field reference
+        val peek = returned("Box", "peek", 1)
+        assertTrue((peek as VariableExpression).variable() is FieldReference)
+        assertEquals("v", (peek.variable() as FieldReference).fieldInfo().name())
     }
 }
