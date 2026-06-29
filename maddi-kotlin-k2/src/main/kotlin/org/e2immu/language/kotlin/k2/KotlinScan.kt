@@ -56,8 +56,10 @@ import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtReturnExpression
+import org.jetbrains.kotlin.psi.KtThisExpression
 import org.jetbrains.kotlin.psi.KtSecondaryConstructor
 import org.jetbrains.kotlin.psi.KtSuperTypeCallEntry
 import java.net.URI
@@ -199,12 +201,13 @@ class KotlinScan(
     /** Pass B: convert members and commit the type. */
     private fun KaSession.convertMembers(declaration: KtClassOrObject, typeInfo: TypeInfo) {
         val classSymbol = declaration.symbol as KaNamedClassSymbol
-        classSymbol.declaredMemberScope.declarations
-            .filterIsInstance<KaNamedFunctionSymbol>()
-            .forEach { function -> typeInfo.builder().addMethod(convertMethod(typeInfo, function)) }
+        // properties before methods, so a method body can reference the backing fields
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
             .forEach { property -> convertProperty(typeInfo, property) }
+        classSymbol.declaredMemberScope.declarations
+            .filterIsInstance<KaNamedFunctionSymbol>()
+            .forEach { function -> typeInfo.builder().addMethod(convertMethod(typeInfo, function)) }
         // constructor structures (params); bodies + delegations are wired in pass B2 (finalizeType)
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaConstructorSymbol>()
@@ -235,7 +238,7 @@ class KotlinScan(
         val ctorSymbols = classSymbol.declaredMemberScope.declarations.filterIsInstance<KaConstructorSymbol>().toList()
         ctorSymbols.zip(typeInfo.constructors()).forEach { (sym, cst) ->
             val body = runtime.newBlockBuilder()
-            explicitConstructorInvocation(typeInfo, declaration, sym)?.let { body.addStatement(it) }
+            explicitConstructorInvocation(typeInfo, declaration, sym, cst)?.let { body.addStatement(it) }
             cst.parameters().forEach { param ->
                 typeInfo.fields().firstOrNull { it.name() == param.name() }
                     ?.let { body.addStatement(assignFieldFromParam(typeInfo, it, param)) }
@@ -247,7 +250,7 @@ class KotlinScan(
 
     /** Build the `this(...)`/`super(...)` invocation for a constructor, or null if there is none (or it is unresolved). */
     private fun KaSession.explicitConstructorInvocation(
-        owner: TypeInfo, declaration: KtClassOrObject, ctor: KaConstructorSymbol,
+        owner: TypeInfo, declaration: KtClassOrObject, ctor: KaConstructorSymbol, constructor: MethodInfo,
     ): Statement? {
         val (isSuper, arguments) = when (val psi = ctor.psi) {
             is KtSecondaryConstructor -> {
@@ -264,7 +267,7 @@ class KotlinScan(
         val targetType = (if (isSuper) owner.parentClass()?.typeInfo() else owner) ?: return null
         // resolve the target constructor by arity (refine to full overload resolution later)
         val target = targetType.constructors().firstOrNull { it.parameters().size == arguments.size } ?: return null
-        val argExpressions = arguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e) } }
+        val argExpressions = arguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, constructor) } }
         return runtime.newExplicitConstructorInvocationBuilder()
             .setIsSuper(isSuper)
             .setMethodInfo(target)
@@ -359,12 +362,13 @@ class KotlinScan(
         function.valueParameters.forEach { p ->
             builder.addParameter(p.name.asString(), mapType(p.returnType, owner))
         }
+        builder.commitParameters() // so method.parameters() is available while converting the body
         builder
             .setReturnType(returnType)
-            .setMethodBody(convertBody(function, returnType))
+            .setMethodBody(convertBody(function, returnType, method))
             .setAccess(accessFor(function))
         addMethodModifiers(builder, function)
-        builder.commitParameters().commit()
+        builder.commit()
         return method
     }
 
@@ -374,14 +378,15 @@ class KotlinScan(
      * statement when the function returns Unit). M3 scope: literal constants and returns; expressions
      * not yet understood become an explicit [Runtime.newEmptyExpression] placeholder rather than failing.
      */
-    private fun KaSession.convertBody(function: KaNamedFunctionSymbol, returnType: ParameterizedType): Block {
+    private fun KaSession.convertBody(function: KaNamedFunctionSymbol, returnType: ParameterizedType,
+                                      method: MethodInfo): Block {
         val psi = function.psi as? KtNamedFunction ?: return runtime.newBlockBuilder().build()
         val block = runtime.newBlockBuilder()
         if (psi.hasBlockBody()) {
-            psi.bodyBlockExpression?.statements?.forEach { block.addStatement(convertStatement(it)) }
+            psi.bodyBlockExpression?.statements?.forEach { block.addStatement(convertStatement(it, method)) }
         } else {
             psi.bodyExpression?.let { body ->
-                val expr = convertExpression(body)
+                val expr = convertExpression(body, method)
                 block.addStatement(
                     if (returnType == runtime.voidParameterizedType()) runtime.newExpressionAsStatement(expr)
                     else runtime.newReturnStatement(expr)
@@ -392,21 +397,21 @@ class KotlinScan(
     }
 
     /** Convert one statement (Kotlin statements are expressions). */
-    private fun KaSession.convertStatement(statement: KtExpression): Statement =
+    private fun KaSession.convertStatement(statement: KtExpression, method: MethodInfo): Statement =
         if (statement is KtReturnExpression) {
             val returned = statement.returnedExpression
-            runtime.newReturnStatement(if (returned == null) runtime.newEmptyExpression() else convertExpression(returned))
+            runtime.newReturnStatement(if (returned == null) runtime.newEmptyExpression() else convertExpression(returned, method))
         } else {
-            runtime.newExpressionAsStatement(convertExpression(statement))
+            runtime.newExpressionAsStatement(convertExpression(statement, method))
         }
 
     /**
-     * Convert one expression. M3 handles compile-time constants (resolved via [evaluate]); anything else
-     * (calls, references, operators) becomes a labelled placeholder, to be filled in incrementally.
+     * Convert one expression in the context of the enclosing [method]. Handles compile-time constants,
+     * `this`, and bare references (to a parameter or a field/property of the enclosing type). Calls,
+     * operators, qualified access and the rest become a labelled placeholder, filled in incrementally.
      */
-    private fun KaSession.convertExpression(expression: KtExpression): Expression {
-        val constant = expression.evaluate()
-        if (constant != null) {
+    private fun KaSession.convertExpression(expression: KtExpression, method: MethodInfo): Expression {
+        expression.evaluate()?.let { constant ->
             return when (val value = constant.value) {
                 is Int -> runtime.newInt(value)
                 is Boolean -> runtime.newBoolean(value)
@@ -415,8 +420,24 @@ class KotlinScan(
                 else -> runtime.newEmptyExpression("k2-unsupported-constant:${value::class.simpleName}")
             }
         }
-        return runtime.newEmptyExpression("k2-unsupported-expr:${expression::class.simpleName}")
+        return when (expression) {
+            is KtThisExpression -> variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
+            is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method)
+                ?: runtime.newEmptyExpression("k2-unresolved-ref:${expression.getReferencedName()}")
+            else -> runtime.newEmptyExpression("k2-unsupported-expr:${expression::class.simpleName}")
+        }
     }
+
+    /** Resolve a bare name to a parameter of [method], else a field of its type (params shadow fields). */
+    private fun resolveReference(name: String, method: MethodInfo): Expression? {
+        method.parameters().firstOrNull { it.name() == name }?.let { return variableExpression(it) }
+        method.typeInfo().fields().firstOrNull { it.name() == name }
+            ?.let { return variableExpression(runtime.newFieldReference(it)) }
+        return null
+    }
+
+    private fun variableExpression(variable: org.e2immu.language.cst.api.variable.Variable): Expression =
+        runtime.newVariableExpressionBuilder().setVariable(variable).setSource(runtime.noSource()).build()
 
     /**
      * Map a resolved Kotlin type to a CST [ParameterizedType], in the context of [owner] (whose type

@@ -115,9 +115,15 @@ mostly *shoehorn* onto existing nodes.
   statement, Unit-aware); `return` statements; literal constants (Int/Boolean/String/null) resolved via
   the session's `evaluate()`. Unsupported expressions become a labelled `newEmptyExpression`
   placeholder (`k2-unsupported-expr:…`) so partial bodies never crash. No CST API change.
-- **TODO:** operators-as-`MethodCall` (`a + b`), variable/parameter references (`VariableExpression`),
-  method calls, `val`/`var` (`LocalVariableCreation`), `if`/`when` (→ `IfElse`/switch). Several of these
-  need the generics/class-type resolution below.
+- **References — DONE (first expression increment).** `convertExpression` now threads the enclosing
+  method and handles `this` (→ `VariableExpression(This)`) and bare name references: to a **parameter**
+  (`VariableExpression(ParameterInfo)`) or, failing that, a **field/property** of the enclosing type
+  (`VariableExpression(FieldReference)`, params shadow fields). Needed reordering members so properties
+  (→ backing fields) exist before method bodies convert, and committing params before the body so
+  `method.parameters()` is available. Verified: `fun id(p:Int)=p` → param; `= this` → This; `=v` → field.
+- **TODO:** operators-as-`MethodCall` (`a + b`), method calls, qualified access (`a.b`, `obj.f()`),
+  assignments, `val`/`var` (`LocalVariableCreation`), `if`/`when` (→ `IfElse`/switch). Resolution beyond
+  bare names (locals, imports, qualified) still falls back to a labelled placeholder.
 
 **M4 — Kotlin-specific info.** `PropertyInfo`, primary constructors, extension receiver, `suspend`,
 `object`/`data`/`companion`, `internal` access, default parameter values — each gated on its CST API
