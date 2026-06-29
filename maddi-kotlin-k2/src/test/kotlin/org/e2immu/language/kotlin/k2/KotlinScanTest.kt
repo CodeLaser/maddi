@@ -22,6 +22,7 @@ import org.e2immu.language.cst.api.expression.EmptyExpression
 import org.e2immu.language.cst.api.expression.InlineConditional
 import org.e2immu.language.cst.api.expression.MethodCall
 import org.e2immu.language.cst.api.expression.StringConcat
+import org.e2immu.language.cst.api.expression.SwitchExpression
 import org.e2immu.language.cst.api.expression.VariableExpression
 import org.e2immu.language.cst.api.info.ParameterInfo
 import org.e2immu.language.cst.api.runtime.Runtime
@@ -648,6 +649,28 @@ class KotlinScanTest {
         assertEquals(3, sw.entries().size)
         assertEquals(2, sw.entries()[1].conditions().size)               // the `1, 2 ->` arm
         assertTrue(sw.entries()[2].conditions()[0] is EmptyExpression)   // the `else` arm
+    }
+
+    @Test
+    fun whenExpression() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val g = scan.parse(
+            "G.kt",
+            """
+            class G {
+                fun grade(n: Int): String = when (n) {
+                    0 -> "zero"
+                    1, 2 -> "small"
+                    else -> "other"
+                }
+            }
+            """.trimIndent() + "\n"
+        ).first()
+
+        // `= when (n) { … }` -> a SwitchExpression with 3 arms
+        val grade = (g.findUniqueMethod("grade", 1).methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(grade is SwitchExpression)
+        assertEquals(3, (grade as SwitchExpression).entries().size)
     }
 
     @Test
