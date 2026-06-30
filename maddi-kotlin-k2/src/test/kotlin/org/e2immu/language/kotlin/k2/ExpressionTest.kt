@@ -368,4 +368,20 @@ class ExpressionTest : KotlinScanTestBase() {
         assertTrue(anon.interfacesImplemented().any { it.typeInfo() == types.getValue("Greeter") })
     }
 
+    @Test
+    fun destructuringDeclaration() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val d = scan.parse(
+            "D.kt",
+            "data class Pair2(val first: Int, val second: Int)\n" +
+                "class D { fun use(p: Pair2): Int { val (a, b) = p; return a } }\n"
+        ).associateBy { it.simpleName() }.getValue("D")
+
+        // `val (a, b) = p` -> one LocalVariableCreation declaring both a and b
+        val lvc = d.findUniqueMethod("use", 1).methodBody().statements().first() as LocalVariableCreation
+        assertEquals("a", lvc.localVariable().simpleName())
+        assertEquals(1, lvc.otherLocalVariables().size)
+        assertEquals("b", lvc.otherLocalVariables().first().simpleName())
+    }
+
 }
