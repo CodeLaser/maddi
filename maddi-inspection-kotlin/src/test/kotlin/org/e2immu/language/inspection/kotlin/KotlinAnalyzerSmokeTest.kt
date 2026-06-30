@@ -88,4 +88,36 @@ class KotlinAnalyzerSmokeTest {
         // the method, its parameter `p` (Kotlin Int -> JVM int), and the local `a`
         assertEquals("X.m(int), X.m(int):0:p, a", vd.knownVariableNamesToString())
     }
+
+    @Test
+    fun controlFlowVariableData() {
+        // var a = 0 (0); if (p>0) { a=1 (1.0.0) } else { a=2 (1.1.0) } (1); return a (2)
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "C.kt",
+            "class C { fun m(p: Int): Int { var a = 0; if (p > 0) { a = 1 } else { a = 2 }; return a } }\n"
+        )
+        val m = types.first().findUniqueMethod("m", 1)
+        PrepAnalyzer(runtime).doMethod(m)
+
+        val vd = VariableDataImpl.of(m.methodBody().lastStatement())
+        // assigned in the init (0), then-branch (1.0.0), else-branch (1.1.0), merged at the if (1=M):
+        // proves the nested statement indices AND the analyzer's branch-merge logic work on Kotlin
+        assertEquals("D:0, A:[0, 1.0.0, 1.1.0, 1=M]", vd.variableInfo("a").assignments().toString())
+    }
+
+    @Test
+    fun propertyAssignmentTrackedAsFieldModification() {
+        // `value` is a `var` property -> backing field; `value = value + 1` assigns that field
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "Box.kt",
+            "class Box(var value: Int) { fun update() { value = value + 1 } }\n"
+        )
+        val update = types.first().findUniqueMethod("update", 0)
+        PrepAnalyzer(runtime).doMethod(update)
+
+        val vd = VariableDataImpl.of(update.methodBody().lastStatement())
+        // the analyzer sees a write to the backing field `Box.value` (the getter/setter harmonization
+        // makes Kotlin property access look like Java field access)
+        assertEquals("Box.this, Box.value", vd.knownVariableNamesToString())
+    }
 }
