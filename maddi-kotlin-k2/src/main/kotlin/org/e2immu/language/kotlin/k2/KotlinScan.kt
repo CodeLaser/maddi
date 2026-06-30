@@ -14,8 +14,10 @@
 
 package org.e2immu.language.kotlin.k2
 
+import com.intellij.psi.PsiElement
 import org.e2immu.language.cst.api.element.CompilationUnit
 import org.e2immu.language.cst.api.element.RecordPattern
+import org.e2immu.language.cst.api.element.Source
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.expression.Expression
 import org.e2immu.language.cst.api.expression.Lambda
@@ -258,6 +260,7 @@ class KotlinScan(
     private fun KaSession.registerType(compilationUnit: CompilationUnit, declaration: KtClassOrObject): TypeInfo {
         val classSymbol = declaration.symbol as KaNamedClassSymbol
         val typeInfo = runtime.newTypeInfo(compilationUnit, classSymbol.name.asString())
+        typeInfo.builder().setSource(declarationSource(declaration, declaration.nameIdentifier, typeInfo)) // name detail
 
         // declaration-site type parameters, with their variance (out T / in T)
         classSymbol.typeParameters.forEachIndexed { index, tp ->
@@ -605,13 +608,29 @@ class KotlinScan(
             builder.addParameter(p.name.asString(), mapType(p.returnType, owner))
         }
         builder.commitParameters() // so method.parameters() is available while converting the body
+        val psi = function.psi as? KtNamedFunction
         builder
             .setReturnType(returnType)
+            .setSource(declarationSource(psi, psi?.nameIdentifier, method)) // name detail keyed by the MethodInfo
             .setMethodBody(convertBody(function, returnType, method))
         addMethodModifiers(builder, function)
         if (static) builder.addMethodModifier(runtime.methodModifierStatic())
         builder.computeAccess().commit() // eventual access from the visibility modifier + owner type
         return method
+    }
+
+    /**
+     * The whole-declaration source of [declaration] with a `DetailedSources` entry mapping [nameKey] to the
+     * precise position of [nameIdentifier] — like `dsb.put(ti, …)` in the Java parser. `DetailedSources` is
+     * identity-keyed, so we key by the single-instance Info element (TypeInfo/MethodInfo), which is more
+     * robust than the Java parser's name-String key. Returns `noSource()` for a synthetic declaration.
+     */
+    private fun declarationSource(declaration: PsiElement?, nameIdentifier: PsiElement?, nameKey: Any): Source {
+        if (declaration == null) return runtime.noSource()
+        val whole = sourceOf(runtime, declaration, "-")
+        return if (nameIdentifier == null) whole
+        else whole.withDetailedSources(runtime.newDetailedSourcesBuilder()
+            .put(nameKey, sourceOf(runtime, nameIdentifier, "-")).build())
     }
 
 

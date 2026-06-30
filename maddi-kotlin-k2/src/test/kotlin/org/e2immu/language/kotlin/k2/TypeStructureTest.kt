@@ -333,4 +333,30 @@ class TypeStructureTest : KotlinScanTestBase() {
         val reset = config.findUniqueMethod("reset", 0)
         assertTrue(reset.isStatic)
     }
+
+    @Test
+    fun declarationNameDetailedSources() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val widget = scan.parse(
+            "Widget.kt",
+            "class Widget {\n" +       // `Widget` at line 1, cols 7..12
+                "    fun render(): Int = 1\n" + // `render` at line 2, cols 9..14
+                "}\n"
+        ).first()
+
+        // the type's name (DetailedSources entry keyed by the TypeInfo)
+        val typeName = widget.source().detailedSources().detail(widget)
+        assertNotNull(typeName)
+        assertEquals(1, typeName.beginLine())
+        assertEquals(7, typeName.beginPos())
+        assertEquals(12, typeName.endPos())
+
+        // the method's name (keyed by the MethodInfo)
+        val render = widget.findUniqueMethod("render", 0)
+        val methodName = render.source().detailedSources().detail(render)
+        assertNotNull(methodName)
+        assertEquals(2, methodName.beginLine())
+        assertEquals(9, methodName.beginPos())
+        assertEquals(14, methodName.endPos())
+    }
 }

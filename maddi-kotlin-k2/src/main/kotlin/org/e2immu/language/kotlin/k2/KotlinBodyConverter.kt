@@ -186,21 +186,7 @@ internal class KotlinBodyConverter(
                                            locals: MutableMap<String, Variable>, index: String): Statement =
         rawStatement(statement, method, locals, index).withSource(source(statement, index))
 
-    /**
-     * Real 1-based source positions (end column inclusive) for a PSI element, carrying the statement
-     * [index] — computed from the file's [com.intellij.openapi.editor.Document] (line offsets cached). Falls
-     * back to an indexed [Runtime.noSource] when no document is available (e.g. a synthetic element).
-     */
-    private fun source(psi: PsiElement, index: String): Source {
-        val document = psi.containingFile?.viewProvider?.document ?: return runtime.noSource().withIndex(index)
-        val range = psi.textRange ?: return runtime.noSource().withIndex(index)
-        val lastOffset = (range.endOffset - 1).coerceAtLeast(range.startOffset) // inclusive last character
-        val startLine = document.getLineNumber(range.startOffset)
-        val endLine = document.getLineNumber(lastOffset)
-        return runtime.newParserSource(index,
-            startLine + 1, range.startOffset - document.getLineStartOffset(startLine) + 1,
-            endLine + 1, lastOffset - document.getLineStartOffset(endLine) + 1)
-    }
+    private fun source(psi: PsiElement, index: String): Source = sourceOf(runtime, psi, index)
 
     private fun KaSession.rawStatement(statement: KtExpression, method: MethodInfo,
                                        locals: MutableMap<String, Variable>, index: String): Statement = when {
