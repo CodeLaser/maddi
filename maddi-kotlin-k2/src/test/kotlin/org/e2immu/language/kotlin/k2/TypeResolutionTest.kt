@@ -181,4 +181,18 @@ class TypeResolutionTest : KotlinScanTestBase() {
         )
     }
 
+    @Test
+    fun libraryTypeLoadsInheritedMembers() {
+        // the full member scope is flattened: Random does not declare equals/hashCode (Object does), yet they
+        // must sit on Random so calls resolve -- this is what memberScope (vs declaredMemberScope) buys us
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse("R.kt", "import java.util.Random\nclass R { fun r(): Random = Random() }\n")
+        val random = types.first().findUniqueMethod("r", 0).returnType().typeInfo()
+        val methodNames = random.methods().map { it.name() }.toSet()
+
+        assertTrue(methodNames.contains("nextInt"), "declared method missing; methods were $methodNames")
+        assertTrue(methodNames.contains("equals"), "inherited method missing; methods were $methodNames")
+        assertTrue(methodNames.contains("hashCode"), "inherited method missing; methods were $methodNames")
+    }
+
 }
