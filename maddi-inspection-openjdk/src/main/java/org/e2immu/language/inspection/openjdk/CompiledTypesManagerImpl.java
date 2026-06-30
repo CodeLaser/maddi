@@ -4,7 +4,9 @@ import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.SourceFile;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
 
+import java.net.URI;
 import java.util.*;
 
 // important: this class should not retain any references to OpenJDK structures
@@ -65,5 +67,15 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                 .filter(ti -> ti.isPrimaryType() && ti.packageName().equals(packageName)
                               && sourceSetOfRequest.dependencies().contains(ti.compilationUnit().sourceSet()))
                 .toList();
+    }
+
+    private final SourceSet ANY = new SourceSetImpl.Builder()
+            .setName("any source set will do")
+            .setUri(URI.create("file:/"))
+            .build();
+
+    @Override
+    public boolean packageContainsTypes(String packageName) {
+        return !primaryTypesInPackageEnsureLoaded(packageName, ANY).isEmpty();
     }
 }
