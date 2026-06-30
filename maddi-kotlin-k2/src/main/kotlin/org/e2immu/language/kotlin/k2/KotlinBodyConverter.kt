@@ -14,6 +14,7 @@
 
 package org.e2immu.language.kotlin.k2
 import org.e2immu.language.cst.api.element.CompilationUnit
+import org.e2immu.language.cst.api.element.DetailedSources
 import org.e2immu.language.cst.api.element.RecordPattern
 import org.e2immu.language.cst.api.element.Source
 import org.e2immu.language.cst.api.element.SourceSet
@@ -674,13 +675,16 @@ internal class KotlinBodyConverter(
             ?: return runtime.newEmptyExpression("k2-unresolved-call:$name")
         val obj = receiver?.first ?: variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
-        // DetailedSources (layer 2): the precise position of the callee identifier (distinct from the whole
-        // call). Keyed by the resolved MethodInfo (a robust single-instance key — the call-site name String
-        // would differ from the declaration's). Java derives call-site name positions via its second-pass
-        // scanResult, so this key convention is the one to reconcile if Java grows a dsb entry here.
-        val detailed = runtime.newDetailedSourcesBuilder()
-            .also { dsb -> call.calleeExpression?.let { dsb.put(callee, source(it, "-")) } }
-            .build()
+        // DetailedSources (layer 2), mirroring exactly what the Java parser records for a method call: the
+        // closing parenthesis (END_OF_ARGUMENT_LIST) and the argument commas (ARGUMENT_COMMAS) -- both shared
+        // marker singletons, hence language-unaware. Java reads these from its 2nd-pass scanResult; the K2
+        // PSI gives them faithfully from this single parse. (Java records no call-site *name* here.)
+        val argumentList = call.valueArgumentList
+        val dsb = runtime.newDetailedSourcesBuilder()
+        argumentList?.rightParenthesis?.let { dsb.put(DetailedSources.END_OF_ARGUMENT_LIST, source(it, "-")) }
+        val commas = argumentList?.node?.getChildren(null).orEmpty()
+            .filter { it.elementType == KtTokens.COMMA }.map { source(it.psi, "-") }
+        if (commas.isNotEmpty()) dsb.putList(DetailedSources.ARGUMENT_COMMAS, commas)
         return runtime.newMethodCallBuilder()
             .setObject(obj)
             .setObjectIsImplicit(implicitThis)
@@ -688,7 +692,7 @@ internal class KotlinBodyConverter(
             .setParameterExpressions(arguments)
             .setConcreteReturnType(returnType)
             .setTypeArguments(listOf())
-            .setSource(runtime.noSource().withDetailedSources(detailed))
+            .setSource(runtime.noSource().withDetailedSources(dsb.build()))
             .build()
     }
 
