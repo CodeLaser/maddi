@@ -130,6 +130,15 @@ public class ScanCompilationUnits {
         if (detailedSources) {
             LOGGER.info("Collected {} class symbols for source set {}", topLevelClassSymbols.size(), sourceSet.name());
             int nThreads = java.lang.Runtime.getRuntime().availableProcessors();
+            // Extract everything the parallel task 1 needs from javac (source content, is-module) on THIS (main)
+            // thread, BEFORE launching the pipeline. javac's trees and file manager are not thread-safe, and task 1
+            // runs concurrently with task 2's javac work (symbol resolution etc.) on the shared Context; touching
+            // javac from the task-1 worker threads corrupts that state (e.g. JCCompilationUnit.starImportScope set
+            // to null). The congocc-based SourceCodeScan itself is javac-free, so once fed plain content it is safe.
+            Map<CompilationUnitTree, CharSequence> contentByUnit = new IdentityHashMap<>();
+            for (CompilationUnitTree unit : units) {
+                contentByUnit.put(unit, unit.getSourceFile().getCharContent(false));
+            }
             try (ExecutorService task1Executor = Executors.newFixedThreadPool(nThreads);
                  ExecutorService task2Executor = Executors.newSingleThreadExecutor()) {
 
@@ -137,9 +146,11 @@ public class ScanCompilationUnits {
                 AtomicInteger done = new AtomicInteger();
 
                 for (CompilationUnitTree unit : units) {
-                    // Task 1 fires immediately, in parallel
+                    boolean isModule = unit.getModule() != null;
+                    CharSequence content = contentByUnit.get(unit);
+                    // Task 1 fires immediately, in parallel; it only touches the (javac-free) congocc parser
                     CompletableFuture<SourceCodeScan.Result> task1 = CompletableFuture.supplyAsync(
-                            () -> doSourceCodeScan(unit), task1Executor);
+                            () -> new SourceCodeScan(runtime).go(content, isModule), task1Executor);
 
                     // Task 2 waits for: (a) this item's task 1 (the scanResult), AND (b) previous item's task 2 (sequence!)
                     previousTask2 = previousTask2.thenCombineAsync(task1, (_, scanResult) -> {
@@ -167,15 +178,6 @@ public class ScanCompilationUnits {
         return new Result(List.copyOf(primaryTypes), List.copyOf(modules), List.copyOf(preloads));
     }
 
-    private SourceCodeScan.@NotNull Result doSourceCodeScan(CompilationUnitTree unit) {
-        boolean isModule = unit.getModule() != null;
-        try {
-            CharSequence content = unit.getSourceFile().getCharContent(false);
-            return new SourceCodeScan(runtime).go(content, isModule);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     private void singleCompilationUnit(CompilationUnitTree unit,
                                        SourceCodeScan.Result scanResult,

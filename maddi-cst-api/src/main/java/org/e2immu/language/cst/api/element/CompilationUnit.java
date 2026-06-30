@@ -76,6 +76,8 @@ public interface CompilationUnit extends Element {
         @Fluent
         Builder addImportStatement(ImportStatement importStatement);
 
+        String packageName();
+
         @Fluent
         Builder setURI(URI uri);
 
