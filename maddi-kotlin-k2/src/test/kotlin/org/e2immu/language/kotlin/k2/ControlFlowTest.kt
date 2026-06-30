@@ -36,6 +36,8 @@ import org.e2immu.language.cst.api.statement.IfElseStatement
 import org.e2immu.language.cst.api.statement.LocalVariableCreation
 import org.e2immu.language.cst.api.statement.ReturnStatement
 import org.e2immu.language.cst.api.statement.SwitchStatementNewStyle
+import org.e2immu.language.cst.api.statement.ThrowStatement
+import org.e2immu.language.cst.api.statement.TryStatement
 import org.e2immu.language.cst.api.statement.WhileStatement
 import org.e2immu.language.cst.api.variable.FieldReference
 import org.e2immu.language.cst.api.variable.LocalVariable
@@ -188,6 +190,27 @@ class ControlFlowTest : KotlinScanTestBase() {
         assertTrue(entry.conditions().isEmpty())
         val pattern = entry.patternVariable()
         assertEquals(runtime.intParameterizedType(), pattern.localVariable().parameterizedType())
+    }
+
+    @Test
+    fun tryCatchFinallyAndThrow() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val t = scan.parse(
+            "T.kt",
+            "class T {\n" +
+                "    fun risky(): Int { try { return 1 } catch (e: RuntimeException) { return 2 } finally { val y = 3 } }\n" +
+                "    fun boom() { throw IllegalStateException(\"x\") }\n" +
+                "}\n"
+        ).first()
+
+        // try { … } catch (e: RuntimeException) { … } finally { … }
+        val tryStmt = t.findUniqueMethod("risky", 0).methodBody().statements().first() as TryStatement
+        assertEquals(1, tryStmt.catchClauses().size)
+        assertEquals("e", tryStmt.catchClauses().first().catchVariable().simpleName())
+        assertNotNull(tryStmt.finallyBlock())
+
+        // throw IllegalStateException(...)
+        assertTrue(t.findUniqueMethod("boom", 0).methodBody().statements().first() is ThrowStatement)
     }
 
 }
