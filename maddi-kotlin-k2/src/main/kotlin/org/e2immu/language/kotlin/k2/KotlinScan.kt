@@ -631,9 +631,10 @@ class KotlinScan(
         function.valueParameters.forEach { p ->
             val parameterType = mapType(p.returnType, owner)
             val parameterInfo = builder.addParameter(p.name.asString(), parameterType)
-            // type-reference detail (recursing into generics), keyed by each nested type's TypeInfo
+            // name (keyed by parameterInfo.name(), like the Java parser) + type-reference detail (into generics)
             val parameterPsi = p.psi as? KtParameter
             parameterInfo.builder().setSource(declarationSource(parameterPsi) {
+                putPsi(runtime, parameterInfo.name(), parameterPsi?.nameIdentifier)
                 putTypeReference(runtime, parameterType, parameterPsi?.typeReference)
             })
         }

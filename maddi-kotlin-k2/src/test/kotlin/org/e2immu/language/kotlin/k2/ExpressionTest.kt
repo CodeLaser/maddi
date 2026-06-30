@@ -411,6 +411,12 @@ class ExpressionTest : KotlinScanTestBase() {
         val rightParenthesis = ds.detail(DetailedSources.END_OF_ARGUMENT_LIST)
         assertNotNull(rightParenthesis)
         assertEquals(24, rightParenthesis.beginPos())
+
+        // the call-site method name, keyed by methodInfo.name() (mirroring the Java parser)
+        val nameSource = ds.detail(call.methodInfo().name())
+        assertNotNull(nameSource)
+        assertEquals(16, nameSource.beginPos())
+        assertEquals(18, nameSource.endPos()) // `sum`
     }
 
     @Test

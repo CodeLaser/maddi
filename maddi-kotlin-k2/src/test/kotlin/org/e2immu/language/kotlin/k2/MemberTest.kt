@@ -197,6 +197,12 @@ class MemberTest : KotlinScanTestBase() {
         assertEquals(2, typeSource.beginLine())
         assertEquals(18, typeSource.beginPos())
         assertEquals(20, typeSource.endPos())
+
+        // the parameter name, keyed by parameterInfo.name() (mirroring the Java parser)
+        val nameSource = parameter.source().detailedSources().detail(parameter.name())
+        assertNotNull(nameSource)
+        assertEquals(11, nameSource.beginPos())
+        assertEquals(15, nameSource.endPos()) // `count`
     }
 
     @Test
