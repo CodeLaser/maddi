@@ -87,6 +87,7 @@ import org.jetbrains.kotlin.psi.KtObjectLiteralExpression
 import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
 import org.jetbrains.kotlin.psi.KtEscapeStringTemplateEntry
 import org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
+import org.jetbrains.kotlin.psi.KtCallableDeclaration
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.kotlin.psi.KtProperty
@@ -514,9 +515,12 @@ class KotlinScan(
             .setInitializer(runtime.newEmptyExpression())
         if (isVal) fieldBuilder.addFieldModifier(runtime.fieldModifierFinal())
         if (static) fieldBuilder.addFieldModifier(runtime.fieldModifierStatic())
-        // name detail keyed by the field's own name String (mirroring Java's field-decl dsb.put(name, ...))
-        fieldBuilder.setSource(declarationSource(property.psi,
-            listOf(field.name() to (property.psi as? KtNamedDeclaration)?.nameIdentifier)))
+        // name keyed by field.name(), type reference keyed by its TypeInfo -- mirroring the Java parser
+        val fieldDetails = buildList<Pair<Any, PsiElement?>> {
+            add(field.name() to (property.psi as? KtNamedDeclaration)?.nameIdentifier)
+            type.typeInfo()?.let { add(it to (property.psi as? KtCallableDeclaration)?.typeReference) }
+        }
+        fieldBuilder.setSource(declarationSource(property.psi, fieldDetails))
         fieldBuilder.computeAccess().commit()
         owner.builder().addField(field)
 
@@ -630,10 +634,14 @@ class KotlinScan(
         }
         builder.commitParameters() // so method.parameters() is available while converting the body
         val psi = function.psi as? KtNamedFunction
+        // name keyed by method.name(), return-type reference keyed by its TypeInfo -- mirroring the Java parser
+        val methodDetails = buildList<Pair<Any, PsiElement?>> {
+            add(method.name() to psi?.nameIdentifier)
+            returnType.typeInfo()?.let { add(it to psi?.typeReference) }
+        }
         builder
             .setReturnType(returnType)
-            // name detail keyed by the method's own name String (== method.name()), mirroring the Java parser
-            .setSource(declarationSource(psi, listOf(method.name() to psi?.nameIdentifier)))
+            .setSource(declarationSource(psi, methodDetails))
             .setMethodBody(convertBody(function, returnType, method))
         addMethodModifiers(builder, function)
         if (static) builder.addMethodModifier(runtime.methodModifierStatic())

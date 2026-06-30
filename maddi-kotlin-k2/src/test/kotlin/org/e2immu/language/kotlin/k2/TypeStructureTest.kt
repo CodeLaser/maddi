@@ -365,6 +365,13 @@ class TypeStructureTest : KotlinScanTestBase() {
         assertEquals(2, methodName.beginLine())
         assertEquals(9, methodName.beginPos())
         assertEquals(14, methodName.endPos())
+
+        // the return-type reference `Int`, keyed by its TypeInfo (mirroring Java's pt.typeInfo())
+        val returnType = render.source().detailedSources().detail(render.returnType().typeInfo())
+        assertNotNull(returnType)
+        assertEquals(2, returnType.beginLine())
+        assertEquals(19, returnType.beginPos())
+        assertEquals(21, returnType.endPos())
     }
 
     @Test

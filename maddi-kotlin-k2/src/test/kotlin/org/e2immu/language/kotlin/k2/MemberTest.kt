@@ -170,6 +170,13 @@ class MemberTest : KotlinScanTestBase() {
         assertEquals(2, nameSource.beginLine())
         assertEquals(9, nameSource.beginPos())
         assertEquals(13, nameSource.endPos())
+
+        // the field's type reference `Int`, keyed by its TypeInfo (mirroring Java's pt.typeInfo())
+        val typeSource = value.source().detailedSources().detail(value.type().typeInfo())
+        assertNotNull(typeSource)
+        assertEquals(2, typeSource.beginLine())
+        assertEquals(16, typeSource.beginPos())
+        assertEquals(18, typeSource.endPos())
     }
 
     @Test
