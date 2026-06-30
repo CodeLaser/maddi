@@ -344,8 +344,8 @@ class TypeStructureTest : KotlinScanTestBase() {
                 "}\n"
         ).first()
 
-        // the type's name (DetailedSources entry keyed by the TypeInfo)
-        val typeName = widget.source().detailedSources().detail(widget)
+        // the type's name (keyed by its own simple-name String, mirroring Java: detail(typeInfo.simpleName()))
+        val typeName = widget.source().detailedSources().detail(widget.simpleName())
         assertNotNull(typeName)
         assertEquals(1, typeName.beginLine())
         assertEquals(7, typeName.beginPos())
