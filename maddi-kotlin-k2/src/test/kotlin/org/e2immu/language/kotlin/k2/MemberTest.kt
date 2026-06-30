@@ -14,6 +14,7 @@
 
 package org.e2immu.language.kotlin.k2
 
+import org.e2immu.language.cst.api.element.DetailedSources
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.Variance
 import org.e2immu.language.cst.api.expression.Assignment
@@ -196,6 +197,38 @@ class MemberTest : KotlinScanTestBase() {
         assertEquals(2, typeSource.beginLine())
         assertEquals(18, typeSource.beginPos())
         assertEquals(20, typeSource.endPos())
+    }
+
+    @Test
+    fun genericTypeArgumentDetailedSources() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val c = scan.parse(
+            "C.kt",
+            "class Box<A, B>\n" +
+                "class X\n" +
+                "class Y\n" +
+                "class C {\n" +
+                "    fun m(p: Box<X, Y>) {}\n" + // Box 14..16, X at 18, comma 19, Y at 21
+                "}\n"
+        ).associateBy { it.simpleName() }.getValue("C")
+
+        val type = c.findUniqueMethod("m", 1).parameters().first().parameterizedType()
+        val ds = c.findUniqueMethod("m", 1).parameters().first().source().detailedSources()
+
+        // outer Box keyed by its TypeInfo
+        val outer = ds.detail(type.typeInfo())
+        assertNotNull(outer)
+        assertEquals(14, outer.beginPos())
+        assertEquals(16, outer.endPos())
+
+        // type-argument commas (the comma between X and Y), keyed by the shared marker
+        val commas = ds.details(DetailedSources.TYPE_ARGUMENT_COMMAS)
+        assertEquals(1, commas.size)
+        assertEquals(19, commas.first().beginPos())
+
+        // nested type arguments X and Y, each keyed by its own TypeInfo
+        assertEquals(18, ds.detail(type.parameters()[0].typeInfo()).beginPos())
+        assertEquals(21, ds.detail(type.parameters()[1].typeInfo()).beginPos())
     }
 
 }
