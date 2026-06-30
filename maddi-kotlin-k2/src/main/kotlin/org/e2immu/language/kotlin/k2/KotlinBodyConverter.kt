@@ -524,9 +524,14 @@ internal class KotlinBodyConverter(
         val selectorResult = when (val selector = expression.selectorExpression) {
             is KtCallExpression -> convertCall(selector, receiver to receiverType, false, method, locals)
             is KtNameReferenceExpression -> {
-                val field = receiverType?.fields()?.firstOrNull { it.name() == selector.getReferencedName() }
-                    ?: return runtime.newEmptyExpression("k2-unresolved-access:${selector.getReferencedName()}")
-                variableExpression(runtime.newFieldReference(field, receiver, field.type())) // obj.x -> field access
+                val name = selector.getReferencedName()
+                val field = receiverType?.fields()?.firstOrNull { it.name() == name }
+                when {
+                    field != null -> variableExpression(runtime.newFieldReference(field, receiver, field.type())) // obj.x
+                    // property idiom backed by an accessor method: `list.size`->size(), `obj.name`->getName()
+                    else -> receiverType?.let { resolveAccessor(it, name) }?.let { accessorCall(receiver, it) }
+                        ?: runtime.newEmptyExpression("k2-unresolved-access:$name")
+                }
             }
             else -> runtime.newEmptyExpression("k2-unsupported-selector")
         }
@@ -677,6 +682,23 @@ internal class KotlinBodyConverter(
      * disambiguate overloads by matching the parameter types against the argument types: an exact
      * [ParameterizedType] match wins, then a match on the erased [TypeInfo], else the first candidate.
      */
+    /**
+     * The no-arg accessor method behind a Kotlin property idiom on a Java type: `size`->`size()`,
+     * `name`->`getName()`, `empty`->`isEmpty()`. Used when `obj.x` has no field of that name.
+     */
+    private fun resolveAccessor(type: TypeInfo, propertyName: String): MethodInfo? {
+        val capitalized = propertyName.replaceFirstChar { it.uppercaseChar() }
+        return resolveCallee(type, propertyName, listOf())          // size(), length()
+            ?: resolveCallee(type, "get$capitalized", listOf())     // getName()
+            ?: resolveCallee(type, "is$capitalized", listOf())      // isEmpty() (boolean)
+    }
+
+    /** A no-arg getter call `receiver.getter()` (the desugaring of a property idiom). */
+    private fun accessorCall(receiver: Expression, getter: MethodInfo): Expression =
+        runtime.newMethodCallBuilder().setObject(receiver).setObjectIsImplicit(false).setMethodInfo(getter)
+            .setParameterExpressions(listOf()).setConcreteReturnType(getter.returnType()).setTypeArguments(listOf())
+            .setSource(runtime.noSource()).build()
+
     private fun resolveCallee(type: TypeInfo, name: String, arguments: List<Expression>): MethodInfo? {
         val candidates = mutableListOf<MethodInfo>()
         collectMethods(type, name, arguments.size, mutableSetOf(), candidates)

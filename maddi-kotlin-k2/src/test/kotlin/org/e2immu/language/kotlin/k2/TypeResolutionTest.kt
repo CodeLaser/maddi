@@ -250,4 +250,20 @@ class TypeResolutionTest : KotlinScanTestBase() {
         assertEquals("iterator", (ret.`object`() as MethodCall).methodInfo().name())
     }
 
+    @Test
+    fun propertyIdiomsResolve() {
+        val scan = KotlinScan(runtime, sourceSet)
+
+        // `list.size`: K2 surfaces `size` as a synthetic property -> loaded as a field on java.util.List
+        val a = scan.parse("A.kt", "class A { fun m(list: List<String>): Int { return list.size } }\n").first()
+        val size = (a.findUniqueMethod("m", 1).methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(size is VariableExpression, "list.size -> ${size::class.simpleName}")
+
+        // `f.name`: a JavaBean getter (getName()) accessed as a property -- resolves via a field or, failing
+        // that, the resolveAccessor fallback (-> getName() call); either way, not a placeholder
+        val b = scan.parse("B.kt", "class B { fun m(f: java.io.File): String { return f.name } }\n").first()
+        val name = (b.findUniqueMethod("m", 1).methodBody().statements().first() as ReturnStatement).expression()
+        assertFalse(name is EmptyExpression, "f.name did not resolve")
+    }
+
 }
