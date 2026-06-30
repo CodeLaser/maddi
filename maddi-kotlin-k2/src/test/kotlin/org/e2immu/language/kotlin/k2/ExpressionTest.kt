@@ -14,6 +14,7 @@
 
 package org.e2immu.language.kotlin.k2
 
+import org.e2immu.language.cst.api.element.DetailedSources
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.Variance
 import org.e2immu.language.cst.api.expression.Assignment
@@ -385,31 +386,31 @@ class ExpressionTest : KotlinScanTestBase() {
     }
 
     @Test
-    fun detailedSourcesForCallName() {
+    fun detailedSourcesForCallArguments() {
         val scan = KotlinScan(runtime, sourceSet)
         val c = scan.parse(
             "C.kt",
             "class C {\n" +
-                "    fun foo(x: Int): Int = x\n" +
+                "    fun sum(a: Int, b: Int): Int = a + b\n" +
                 "    fun caller(): Int {\n" +
-                "        return foo(7)\n" + // `foo` at cols 16..18, the whole call `foo(7)` at 16..21
+                "        return sum(1, 2)\n" + // comma at col 21, `)` at col 24, whole call at 16..24
                 "    }\n" +
                 "}\n"
         ).first()
 
-        val foo = c.findUniqueMethod("foo", 1)
         val call = (c.findUniqueMethod("caller", 0).methodBody().statements().first() as ReturnStatement)
             .expression() as MethodCall
+        val ds = call.source().detailedSources()
 
-        // the MethodCall's own source spans the whole call
-        assertEquals(16, call.source().beginPos())
-        assertEquals(21, call.source().endPos())
+        // mirrors the Java parser's method-call entries (shared marker singletons -> language-unaware)
+        val commas = ds.details(DetailedSources.ARGUMENT_COMMAS)
+        assertEquals(1, commas.size)
+        assertEquals(4, commas.first().beginLine())
+        assertEquals(21, commas.first().beginPos())
 
-        // DetailedSources pinpoints just the callee identifier `foo` (keyed by the resolved MethodInfo)
-        val nameSource = call.source().detailedSources().detail(foo)
-        assertNotNull(nameSource)
-        assertEquals(16, nameSource.beginPos())
-        assertEquals(18, nameSource.endPos())
+        val rightParenthesis = ds.detail(DetailedSources.END_OF_ARGUMENT_LIST)
+        assertNotNull(rightParenthesis)
+        assertEquals(24, rightParenthesis.beginPos())
     }
 
     @Test
