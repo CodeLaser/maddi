@@ -180,7 +180,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 ImportStatement is = parseImportStatement(importTree);
                 compilationUnitBuilder.addImportStatement(is);
             }
-            Source source = sourceForNode(node);
+            DetailedSources.Builder cuDsb = runtime.newDetailedSourcesBuilder();
+            if (node.getPackageName() != null) {
+                // the package name, keyed by the package-name string
+                cuDsb.put(node.getPackageName().toString(), sourceForNode(node.getPackageName()));
+            }
+            Source source = sourceForNode(node, cuDsb);
             compilationUnitBuilder.setSource(source)
                     .addComments(commentsForNode(source))
                     .addTrailingComments(trailingCommentsForNode(source));
@@ -403,6 +408,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             attachModifiers(scanSource(jcClassDecl), dsb, flagHelper::typeModifier);
             // the class/interface/enum/record/@interface keyword, keyed by the TypeNature object
             dsb.putIfNotNull(typeInfo.typeNature(), scanResult.findTypeKeyword(scanSource(jcClassDecl)));
+            // the type's simple name, keyed by the simple-name string
+            dsb.putIfNotNull(typeInfo.simpleName(), scanResult.findTypeName(scanSource(jcClassDecl)));
         }
         Source source = sourceForNode(jcClassDecl, dsb);
 

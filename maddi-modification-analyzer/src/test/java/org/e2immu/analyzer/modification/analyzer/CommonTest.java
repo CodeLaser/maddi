@@ -15,6 +15,7 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
+import org.e2immu.support.SetOnceMap;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.LoggerFactory;
@@ -23,9 +24,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults.ANALYZED_RESULTS;
 import static org.e2immu.language.inspection.resource.SourceSetImpl.testProtocolSourceSet;
@@ -40,7 +39,7 @@ public abstract class CommonTest {
     protected final String[] jmods;
     // per-directory source sets a clone-bench style test needs registered for openjdk single-file parsing; each
     // must be distinct so identically-named types in different directories do not collide (keyed by (fqn, set))
-    protected final Map<String, SourceSet> openJdkSourceSetsByName = new HashMap<>();
+    protected final SetOnceMap<String, SourceSet> openJdkSourceSetsByName = new SetOnceMap<>();
 
     protected CommonTest() {
         this.jmods = new String[0];

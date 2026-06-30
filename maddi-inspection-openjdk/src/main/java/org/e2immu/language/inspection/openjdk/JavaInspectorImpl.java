@@ -289,6 +289,8 @@ public class JavaInspectorImpl implements JavaInspector {
         ScanCompilationUnits.Result scanned = scanCompilationUnits.scan();
 
         // copy from scanned into summary
+        // register the source set so it appears in ParseResult.sourceSetsByName() (mirrors the congocc inspector)
+        summary.ensureSourceSet(sourceSet);
         for (TypeInfo typeInfo : scanned.primaryTypes()) {
             summary.addType(typeInfo);
             assert typeInfo.hasBeenInspected();
