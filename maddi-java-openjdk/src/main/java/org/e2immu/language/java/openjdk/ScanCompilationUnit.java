@@ -183,7 +183,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             DetailedSources.Builder cuDsb = runtime.newDetailedSourcesBuilder();
             if (node.getPackageName() != null) {
                 // the package name, keyed by the package-name string
-                cuDsb.put(node.getPackageName().toString(), sourceForNode(node.getPackageName()));
+                String packageName = compilationUnitBuilder.packageName();
+                assert packageName != null;
+                cuDsb.put(packageName, sourceForNode(node.getPackageName()));
             }
             Source source = sourceForNode(node, cuDsb);
             compilationUnitBuilder.setSource(source)
@@ -569,7 +571,24 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 }
                 jcMethod.thrown.forEach(e -> convertType.convertTree(e, dsb));
 
-                // FIXME parameters, type parameters: how to?
+                // The method (and hence its parameters) may have been created earlier from its symbol -- e.g. via a
+                // method reference scanned before this declaration is reached -- in which case the parameters carry
+                // no source yet (their commit was deferred in ClassSymbolScanner.addMethodToType). Set the sources
+                // now from the declaration, then commit. See TestParameterInfoSource.
+                var jcParameters = jcMethod.getParameters();
+                List<ParameterInfo> existingParameters = methodInfo.parameters();
+                for (int pIndex = 0; pIndex < existingParameters.size() && pIndex < jcParameters.size(); pIndex++) {
+                    ParameterInfo parameterInfo = existingParameters.get(pIndex);
+                    if (parameterInfo.source() == null) {
+                        JCTree.JCVariableDecl jcVariableDecl = jcParameters.get(pIndex);
+                        DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
+                        convertTypeWithAnnotations(jcVariableDecl.getType(), dsbParam, ignored -> {
+                        });
+                        setParameterSource(jcVariableDecl, parameterInfo, dsbParam,
+                                methodInfo.isConstructor(), methodInfo, currentType);
+                    }
+                }
+                builder.commitParameters();
             } else {
                 // construction of the method
                 if (isConstructor) {
@@ -638,22 +657,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         AnnotationExpression ae = convertAnnotation(annotation);
                         parameterInfo.builder().addAnnotation(ae);
                     }
-                    if (scanResult != null) {
-                        Source paramKey = scanSource(jcVariableDecl);
-                        dsbParam.putIfNotNull(DetailedSources.PRECEDING_COMMA, scanResult.findPrecedingComma(paramKey));
-                        dsbParam.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, scanResult.findSucceedingComma(paramKey));
-                        attachParameterFinal(paramKey, dsbParam);
-                    }
-                    Source source;
-                    if (isConstructor && currentType.typeNature().isRecord()
-                        && (methodInfo.isCompactConstructor() || methodInfo.isSynthetic())) {
-                        Source base = sourceForNode(jcVariableDecl);
-                        String string = jcVariableDecl.toString();
-                        source = extendSource(base, string, name).withDetailedSources(dsbParam.build());
-                    } else {
-                        source = sourceForNode(jcVariableDecl, dsbParam);
-                    }
-                    parameterInfo.builder().setSource(source).commit();
+                    setParameterSource(jcVariableDecl, parameterInfo, dsbParam, isConstructor, methodInfo, currentType);
                     parameterMap.put(parameterInfo.simpleName(), parameterInfo);
                 }
 
@@ -1114,24 +1118,21 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         Map<String, Element> map = elementStack.push();
         if (!node.getInitializer().isEmpty()) {
             if (node.getInitializer().getFirst() instanceof JCTree.JCVariableDecl) {
-                // sequence of LVCs, but we want them all together in one statement
-                LocalVariableCreation.Builder lvcBuilder = null;
+                // sequence of LVCs, but we want them all together in one statement. Keep the fully-built (and
+                // hence sourced; see continueLocalVariableCreation) LocalVariableCreation that parseBlock yields,
+                // and merge any further declarators into it -- rebuilding from just the LocalVariable would drop
+                // the source (and detailed sources). withAdditionalLocalVariable spans the merged source.
+                LocalVariableCreation built = null;
                 for (StatementTree statementTree : node.getInitializer()) {
                     Block initBlock = parseBlock("?", statementTree);
                     assert !initBlock.statements().isEmpty();
                     Statement first = initBlock.statements().getFirst();
                     if (first instanceof LocalVariableCreation f) {
-                        LocalVariable lv = f.localVariable();
-                        if (lvcBuilder == null) {
-                            lvcBuilder = runtime.newLocalVariableCreationBuilder().setLocalVariable(lv);
-                        } else {
-                            lvcBuilder.addOtherLocalVariable(lv);
-                        }
-                        map.put(lv.simpleName(), lv);
+                        built = built == null ? f : built.withAdditionalLocalVariable(f);
+                        map.put(f.localVariable().simpleName(), f.localVariable());
                     } else throw new UnsupportedOperationException("NYI");
                 }
-                assert lvcBuilder != null;
-                LocalVariableCreation built = lvcBuilder.build();
+                assert built != null;
                 forBuilder.addInitializer(built);
             } else {
                 for (StatementTree statementTree : node.getInitializer()) {
@@ -1419,7 +1420,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     // known after the initializer (which may even create the anonymous type it infers), so keep the
                     // original order there. Fields (currentMethod == null) keep the original order too.
                     boolean explicitTypeLocal = currentMethod != null
-                            && !variableDecl.declaredUsingVar() && variableDecl.vartype != null;
+                                                && !variableDecl.declaredUsingVar() && variableDecl.vartype != null;
                     currentExpression = null;
                     if (explicitTypeLocal) {
                         type = convertTypeWithAnnotations(variableDecl.vartype, dsb, annots::add);
@@ -1526,6 +1527,36 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         Source s1 = lvc1.source();
         Source s2 = lvc2.source();
         return s1.beginPos() == s2.beginPos() && s1.beginLine() == s2.beginLine();
+    }
+
+    // Computes and sets (committing the builder) the source of a method/constructor parameter. The given dsbParam
+    // must already carry the parameter type's detailed sources; this adds the surrounding commas, a 'final'
+    // modifier, and — keyed by parameterInfo.name() — the parameter NAME, so callers can do
+    // pi.source().detailedSources().detail(pi.name()). Shared by both the freshly-built and the already-known
+    // (method-reference/override) method paths in visitMethod.
+    private void setParameterSource(JCTree.JCVariableDecl jcVariableDecl, ParameterInfo parameterInfo,
+                                    DetailedSources.Builder dsbParam, boolean isConstructor,
+                                    MethodInfo methodInfo, TypeInfo currentType) {
+        if (scanResult != null) {
+            Source paramKey = scanSource(jcVariableDecl);
+            dsbParam.putIfNotNull(DetailedSources.PRECEDING_COMMA, scanResult.findPrecedingComma(paramKey));
+            dsbParam.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, scanResult.findSucceedingComma(paramKey));
+            attachParameterFinal(paramKey, dsbParam);
+        }
+        // the parameter name; keyed by the exact parameterInfo.name() instance (DetailedSources is identity-keyed,
+        // callers look up with pi.name()). javac's variableDecl.pos points at the name.
+        String name = parameterInfo.name();
+        dsbParam.put(name, sourceOfIdentifier(name.isEmpty() ? "_" : name, jcVariableDecl.pos));
+        Source source;
+        if (isConstructor && currentType.typeNature().isRecord()
+            && (methodInfo.isCompactConstructor() || methodInfo.isSynthetic())) {
+            Source base = sourceForNode(jcVariableDecl);
+            String string = jcVariableDecl.toString();
+            source = extendSource(base, string, name).withDetailedSources(dsbParam.build());
+        } else {
+            source = sourceForNode(jcVariableDecl, dsbParam);
+        }
+        parameterInfo.builder().setSource(source).commit();
     }
 
     private @NotNull LocalVariableCreation continueLocalVariableCreation(JCTree.JCVariableDecl variableDecl,
@@ -2335,6 +2366,15 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             addStatement(statement);
             currentExpression = null; // as a marker for ExpressionAsStatement
         } else {
+            // the method's simple name, e.g. detail("add") for 'list.add(...)'. Keyed by methodInfo.name() (NOT
+            // javac's identifier string): DetailedSources uses an IdentityHashMap, and callers look the entry up
+            // with mc.methodInfo().name(), so the key must be that exact String instance. For an
+            // 'object.method(...)' call the name is the last identifier of the member-select span; for an implicit
+            // call ('method(...)') the method-select identifier is the name itself.
+            Source methodNameSource = methodSelect instanceof MemberSelectTree mstName
+                    ? lastIdentifierSource(sourceForNode(mstName), methodInfo.name())
+                    : sourceForNode(methodSelect);
+            dsb.put(methodInfo.name(), methodNameSource);
             currentExpression = runtime.newMethodCallBuilder()
                     .setSource(sourceForNode(node, dsb))
                     .setObjectIsImplicit(objectIsImplicit)
@@ -2713,6 +2753,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     }
 
     // -- HELPERS ------------------
+
+    // the source of the trailing identifier of a span (e.g. 'add' in 'list.add'): same end as the span, beginning
+    // 'identifier.length()' characters before the (inclusive) end, on the end line
+    private Source lastIdentifierSource(Source span, String identifier) {
+        return runtime.newParserSource(span.index(), span.endLine(),
+                span.endPos() - identifier.length() + 1, span.endLine(), span.endPos());
+    }
 
     private Source sourceOfIdentifier(String identifier, int pos) {
         long line = lineMap.getLineNumber(pos);

@@ -181,6 +181,11 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
         private final List<Comment> trailingComments = new ArrayList<>();
 
         @Override
+        public String packageName() {
+            return packageName;
+        }
+
+        @Override
         public CompilationUnit.Builder addTrailingComments(List<Comment> comments) {
             this.trailingComments.addAll(comments);
             return this;
