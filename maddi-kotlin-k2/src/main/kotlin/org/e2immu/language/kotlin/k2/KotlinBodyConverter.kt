@@ -71,6 +71,7 @@ import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtContinueExpression
 import org.jetbrains.kotlin.psi.KtDoWhileExpression
+import org.jetbrains.kotlin.psi.KtDestructuringDeclaration
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
@@ -242,7 +243,35 @@ internal class KotlinBodyConverter(
             .setExpression(statement.thrownExpression?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
             .setSource(runtime.noSource()).build()
         statement is KtTryExpression -> convertTry(statement, method, locals, index)
+        statement is KtDestructuringDeclaration -> convertDestructuring(statement, method, locals)
         else -> runtime.newExpressionAsStatement(convertExpression(statement, method, locals))
+    }
+
+    /**
+     * `val (a, b) = p` -> a multi-variable [LocalVariableCreation] where each local's initializer is the
+     * matching `p.componentN()` call (when that component resolves on `p`'s type; else a placeholder). The
+     * locals enter scope so later references resolve.
+     */
+    private fun KaSession.convertDestructuring(statement: KtDestructuringDeclaration, method: MethodInfo,
+                                               locals: MutableMap<String, Variable>): Statement {
+        val initializer = statement.initializer?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression()
+        val sourceType = initializer.parameterizedType().typeInfo()
+        val variables = statement.entries.mapIndexed { i, entry ->
+            val name = entry.name ?: "_"
+            val type = (entry.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
+                ?: runtime.objectParameterizedType()
+            val component = sourceType?.let { resolveCallee(it, "component${i + 1}", listOf()) }
+            val componentInit = component?.let {
+                runtime.newMethodCallBuilder().setObject(initializer).setObjectIsImplicit(false).setMethodInfo(it)
+                    .setParameterExpressions(listOf()).setConcreteReturnType(type).setTypeArguments(listOf())
+                    .setSource(runtime.noSource()).build()
+            } ?: runtime.newEmptyExpression("k2-component${i + 1}")
+            runtime.newLocalVariable(name, type, componentInit).also { locals[name] = it }
+        }
+        if (variables.isEmpty()) return runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-destructuring"))
+        val builder = runtime.newLocalVariableCreationBuilder().setLocalVariable(variables.first())
+        variables.drop(1).forEach { builder.addOtherLocalVariable(it) }
+        return builder.setSource(runtime.noSource()).build()
     }
 
     /**
