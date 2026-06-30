@@ -232,4 +232,22 @@ class TypeResolutionTest : KotlinScanTestBase() {
         assertEquals("get", (ret as MethodCall).methodInfo().name())
     }
 
+    @Test
+    fun chainedLibraryCallResolves() {
+        // depth-2 member loading: List.iterator() returns Iterator, whose members are loaded too, so the
+        // second hop `.next()` resolves instead of bottoming out on a shell
+        val scan = KotlinScan(runtime, sourceSet)
+        val c = scan.parse(
+            "C.kt",
+            "class C { fun m(list: List<String>): String { return list.iterator().next() } }\n"
+        ).first()
+
+        val ret = (c.findUniqueMethod("m", 1).methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(ret is MethodCall)
+        assertEquals("next", (ret as MethodCall).methodInfo().name())
+        // its receiver is the resolved inner call list.iterator()
+        assertTrue(ret.`object`() is MethodCall)
+        assertEquals("iterator", (ret.`object`() as MethodCall).methodInfo().name())
+    }
+
 }
