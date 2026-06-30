@@ -113,7 +113,8 @@ internal class KotlinTypeMapper(
     private val sourceSet: SourceSet,
 ) {
     private val symbolScanner = KotlinSymbolScanner(runtime, infoByFqn, sourceSet)
-    private var loadingMembers = false
+    private var memberDepth = 0
+    private val maxMemberDepth = 2 // load members this many levels deep; deeper co-loaded types stay shells
 
     /**
      * Map a resolved Kotlin type to a CST [ParameterizedType], in the context of [owner] (whose type
@@ -201,10 +202,11 @@ internal class KotlinTypeMapper(
 
         // Members, flattened: the full member scope (declared + inherited), so calls resolve to inherited
         // methods too (`equals`/`hashCode`/`toString` from Any, interface methods, …) -- the predefined
-        // Object carries no such instance methods, so they must sit on each type. Skip while already loading
-        // members (bounds the cascade -- types named only by these signatures stay hierarchy-only shells).
-        if (!loadingMembers) {
-            loadingMembers = true
+        // Object carries no such instance methods, so they must sit on each type. Bounded by depth so the
+        // cascade terminates: types referenced beyond maxMemberDepth stay hierarchy-only shells. Depth 2 lets
+        // a single chained call resolve (e.g. list.iterator().next() -- Iterator gets members too).
+        if (memberDepth < maxMemberDepth) {
+            memberDepth++
             try {
                 // dedup by FQN: flattened overloads can erase to the same signature (e.g. printStackTrace
                 // (PrintStream)/(PrintWriter) both map to Object on a shell), which the type map rejects
@@ -226,7 +228,7 @@ internal class KotlinTypeMapper(
                     .map { convertLibraryConstructor(typeInfo, it) }
                     .forEach { if (seenCtors.add(it.fullyQualifiedName())) builder.addConstructor(it) }
             } finally {
-                loadingMembers = false
+                memberDepth--
             }
         }
         builder.commit()
