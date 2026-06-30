@@ -192,14 +192,20 @@ internal class KotlinTypeMapper(
         applyHierarchy(builder, typeInfo, symbol)
         builder.computeAccess()
 
-        // Members, one level deep: skip while already loading members (bounds the cascade — types named
-        // only by these signatures are loaded hierarchy-only).
+        // Members, flattened: the full member scope (declared + inherited), so calls resolve to inherited
+        // methods too (`equals`/`hashCode`/`toString` from Any, interface methods, …) -- the predefined
+        // Object carries no such instance methods, so they must sit on each type. Skip while already loading
+        // members (bounds the cascade -- types named only by these signatures stay hierarchy-only shells).
         if (!loadingMembers) {
             loadingMembers = true
             try {
-                symbol.declaredMemberScope.declarations
+                // dedup by FQN: flattened overloads can erase to the same signature (e.g. printStackTrace
+                // (PrintStream)/(PrintWriter) both map to Object on a shell), which the type map rejects
+                val seen = mutableSetOf<String>()
+                symbol.memberScope.declarations
                     .filterIsInstance<KaNamedFunctionSymbol>()
-                    .forEach { builder.addMethod(convertLibraryMethod(typeInfo, it)) }
+                    .map { convertLibraryMethod(typeInfo, it) }
+                    .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
             } finally {
                 loadingMembers = false
             }
