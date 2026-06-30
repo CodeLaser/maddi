@@ -351,6 +351,13 @@ class TypeStructureTest : KotlinScanTestBase() {
         assertEquals(7, typeName.beginPos())
         assertEquals(12, typeName.endPos())
 
+        // the `class` nature keyword, keyed by the shared TypeNature object (mirroring Java)
+        val natureKeyword = widget.source().detailedSources().detail(widget.typeNature())
+        assertNotNull(natureKeyword)
+        assertEquals(1, natureKeyword.beginLine())
+        assertEquals(1, natureKeyword.beginPos())
+        assertEquals(5, natureKeyword.endPos()) // `class`
+
         // the method's name (keyed by the name String the Info holds, mirroring Java: detail(info.name()))
         val render = widget.findUniqueMethod("render", 0)
         val methodName = render.source().detailedSources().detail(render.name())
@@ -358,5 +365,19 @@ class TypeStructureTest : KotlinScanTestBase() {
         assertEquals(2, methodName.beginLine())
         assertEquals(9, methodName.beginPos())
         assertEquals(14, methodName.endPos())
+    }
+
+    @Test
+    fun compilationUnitPackageDetailedSource() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val a = scan.parse("A.kt", "package a.b\n\nclass A\n").first() // `a.b` at line 1, cols 9..11
+        val cu = a.compilationUnit()
+
+        // package name keyed by the package String (mirroring Java: detail(cu.packageName()))
+        val pkg = cu.source().detailedSources().detail(cu.packageName())
+        assertNotNull(pkg)
+        assertEquals(1, pkg.beginLine())
+        assertEquals(9, pkg.beginPos())
+        assertEquals(11, pkg.endPos())
     }
 }

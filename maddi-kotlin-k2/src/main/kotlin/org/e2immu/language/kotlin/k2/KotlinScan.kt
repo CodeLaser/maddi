@@ -249,19 +249,24 @@ class KotlinScan(
         fun allTypes(): List<TypeInfo> = if (facade == null) types else types + facade
     }
 
-    private fun compilationUnitFor(ktFile: KtFile): CompilationUnit =
-        runtime.newCompilationUnitBuilder()
-            .setPackageName(ktFile.packageFqName.asString())
+    private fun compilationUnitFor(ktFile: KtFile): CompilationUnit {
+        val packageName = ktFile.packageFqName.asString()
+        val builder = runtime.newCompilationUnitBuilder()
+            .setPackageName(packageName)
             .setURI(URI.create(ktFile.virtualFile?.url ?: "memory:/${ktFile.name}"))
             .setSourceSet(sourceSet)
-            .build()
+        // package-name detail keyed by the package String (mirroring Java), when there is a package directive
+        ktFile.packageDirective?.takeUnless { it.isRoot }?.packageNameExpression?.let { packageExpression ->
+            builder.setSource(sourceOf(runtime, ktFile, "-").withDetailedSources(
+                runtime.newDetailedSourcesBuilder().put(packageName, sourceOf(runtime, packageExpression, "-")).build()))
+        }
+        return builder.build()
+    }
 
     /** Pass A: create the [TypeInfo] and its type parameters, and register it by FQN. No members yet. */
     private fun KaSession.registerType(compilationUnit: CompilationUnit, declaration: KtClassOrObject): TypeInfo {
         val classSymbol = declaration.symbol as KaNamedClassSymbol
         val typeInfo = runtime.newTypeInfo(compilationUnit, classSymbol.name.asString())
-        // name detail keyed by the type's own simple-name String (== typeInfo.simpleName()), mirroring Java
-        typeInfo.builder().setSource(declarationSource(declaration, declaration.nameIdentifier, typeInfo.simpleName()))
 
         // declaration-site type parameters, with their variance (out T / in T)
         classSymbol.typeParameters.forEachIndexed { index, tp ->
@@ -311,6 +316,10 @@ class KotlinScan(
         // hierarchy first, so method bodies can resolve inherited callees via parentClass/interfaces
         applyHierarchy(typeInfo.builder(), typeInfo, classSymbol)
         typeInfo.builder().computeAccess() // eventual type access, needed before members' computeAccess()
+        // declaration source (nature is set now): name keyed by simpleName(), keyword by typeNature() -- mirroring Java
+        typeInfo.builder().setSource(declarationSource(declaration, listOf(
+            typeInfo.simpleName() to declaration.nameIdentifier,
+            typeInfo.typeNature() to declaration.getDeclarationKeyword())))
         // properties before methods, so a method body can reference the backing fields
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
@@ -613,7 +622,7 @@ class KotlinScan(
         builder
             .setReturnType(returnType)
             // name detail keyed by the method's own name String (== method.name()), mirroring the Java parser
-            .setSource(declarationSource(psi, psi?.nameIdentifier, method.name()))
+            .setSource(declarationSource(psi, listOf(method.name() to psi?.nameIdentifier)))
             .setMethodBody(convertBody(function, returnType, method))
         addMethodModifiers(builder, function)
         if (static) builder.addMethodModifier(runtime.methodModifierStatic())
@@ -622,19 +631,21 @@ class KotlinScan(
     }
 
     /**
-     * The whole-declaration source of [declaration] with a `DetailedSources` entry mapping [nameKey] to the
-     * precise position of [nameIdentifier]. Mirrors the Java parser's keys so a refactoring engine stays
+     * The whole-declaration source of [declaration] with one `DetailedSources` entry per (key, sub-element)
+     * in [details] (null sub-elements skipped). Mirrors java-openjdk's keys so a refactoring engine stays
      * language-unaware: every declaration name is keyed by the Info's own name String — `typeInfo.simpleName()`
-     * for a type, `method.name()` for a method. `DetailedSources` is identity-keyed, so a consumer must look
-     * up via the same instance (`detail(typeInfo.simpleName())` / `detail(methodInfo.name())`). `noSource()`
-     * if synthetic.
+     * for a type, `method.name()` for a method — and the type-nature keyword by the shared `typeNature()`
+     * object. `DetailedSources` is identity-keyed, so a consumer looks up via the same instance
+     * (`detail(typeInfo.simpleName())`, `detail(typeInfo.typeNature())`, …). `noSource()` if synthetic.
      */
-    private fun declarationSource(declaration: PsiElement?, nameIdentifier: PsiElement?, nameKey: Any): Source {
+    private fun declarationSource(declaration: PsiElement?, details: List<Pair<Any, PsiElement?>>): Source {
         if (declaration == null) return runtime.noSource()
         val whole = sourceOf(runtime, declaration, "-")
-        return if (nameIdentifier == null) whole
-        else whole.withDetailedSources(runtime.newDetailedSourcesBuilder()
-            .put(nameKey, sourceOf(runtime, nameIdentifier, "-")).build())
+        val present = details.filter { it.second != null }
+        if (present.isEmpty()) return whole
+        val dsb = runtime.newDetailedSourcesBuilder()
+        present.forEach { (key, psi) -> dsb.put(key, sourceOf(runtime, psi!!, "-")) }
+        return whole.withDetailedSources(dsb.build())
     }
 
 
