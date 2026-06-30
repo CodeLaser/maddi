@@ -153,4 +153,23 @@ class MemberTest : KotlinScanTestBase() {
         assertEquals(runtime.plusOperatorInt(), (ret as BinaryOperator).operator())
     }
 
+    @Test
+    fun fieldNameDetailedSource() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val box = scan.parse(
+            "Box.kt",
+            "class Box {\n" +
+                "    val value: Int = 0\n" + // `value` at line 2, cols 9..13
+                "}\n"
+        ).first()
+
+        // the backing field's name, keyed by its own name String (mirroring Java's field-decl dsb.put(name))
+        val value = box.fields().first { it.name() == "value" }
+        val nameSource = value.source().detailedSources().detail(value.name())
+        assertNotNull(nameSource)
+        assertEquals(2, nameSource.beginLine())
+        assertEquals(9, nameSource.beginPos())
+        assertEquals(13, nameSource.endPos())
+    }
+
 }
