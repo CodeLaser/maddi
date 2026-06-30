@@ -447,13 +447,16 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     private static final Pattern JAR_FILE = Pattern.compile("(jar:file:.+)/([^/!]+\\.jar)!/.*");
 
+    // javac's authoritative source-vs-binary provenance of a type. NOTE: cs.sourcefile is NOT reliable here, as
+    // javac also populates it from the SourceFile debug attribute of a .class file (a synthetic, name-only
+    // SourceFileObject). cs.classfile is a real .class for a binary type, a .java (or null) for a source type of
+    // the current task.
+    static boolean fromClassFile(Symbol.ClassSymbol cs) {
+        return cs.classfile != null && cs.classfile.getKind() == JavaFileObject.Kind.CLASS;
+    }
+
     private SourceSet ensureSourceSet(Symbol.ClassSymbol cs, URI uri) {
-        // NOTE: cs.sourcefile is NOT a reliable "compiled from source in the current task" signal: javac
-        // also populates it from the SourceFile debug attribute of a .class file (a synthetic name-only
-        // SourceFileObject). The authoritative provenance is cs.classfile: a real .class for a binary
-        // type, a .java (or null) for a source type of the current task.
-        boolean fromClassFile = cs.classfile != null && cs.classfile.getKind() == JavaFileObject.Kind.CLASS;
-        if (!fromClassFile) {
+        if (!fromClassFile(cs)) {
             return sourceSetOfCurrentTask;
         }
         Matcher m = JAR_FILE.matcher(uri.toString());
@@ -604,14 +607,20 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         int index = 0;
         MethodInfo.Builder builder = method.builder();
 
-        // When this method belongs to a type currently being scanned from source, its declaration will be visited
-        // later (ScanCompilationUnit.visitMethod), which sets the parameter sources. We must therefore NOT commit
-        // the parameters here, otherwise those sources can never be set (a method reference may cause the method to
-        // be created from its symbol before its declaration is reached; see TestParameterInfoSource). Synthetic
-        // methods (e.g. enum values()/valueOf()) have no declaration and must be committed now.
-        boolean deferParameterCommit = !synthetic
+        // When this method is declared in source being compiled in the CURRENT task, its declaration will be
+        // visited later (ScanCompilationUnit.visitMethod), which sets the parameter sources. We must therefore NOT
+        // commit the parameters here, otherwise those sources can never be set (a method reference may cause the
+        // method to be created from its symbol before its declaration is reached; see TestParameterInfoSource).
+        // Both conditions are needed: (1) !fromClassFile excludes binary types such as java.sql.Connection (whose
+        // module may nonetheless fall back to the current source set), which have no declaration and must be
+        // committed now, else the method stays incomplete ('?.?'); (2) the source-set check excludes non-class-file
+        // types belonging to another source set (e.g. AAPI-loaded), which this task will never visit. Synthetic
+        // methods (e.g. enum values()/valueOf()) have no declaration and must be committed now too.
+        boolean declaredInCurrentTaskSource = ms.owner instanceof Symbol.ClassSymbol ownerClassSymbol
+                && !fromClassFile(ownerClassSymbol)
                 && typeInfo.compilationUnit() != null
                 && sourceSetOfCurrentTask.equals(typeInfo.compilationUnit().sourceSet());
+        boolean deferParameterCommit = !synthetic && declaredInCurrentTaskSource;
 
         List<TypeParameter> newTypeParameters = new ArrayList<>();
         for (Symbol.TypeVariableSymbol typeParameter : ms.getTypeParameters()) {

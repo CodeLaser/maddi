@@ -30,6 +30,15 @@ public class TestLanguageConstructs extends CommonTest {
         return mlv.toString();
     }
 
+    private String modified(String fqn, String src, String methodName) {
+        TypeInfo type = javaInspector.parse(fqn, src);
+        new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build()).doPrimaryType(type);
+        LinkComputer lc = new LinkComputerImpl(javaInspector);
+        MethodInfo mi = type.methodStream().filter(m -> m.name().equals(methodName)).findFirst()
+                .orElseGet(() -> type.constructors().getFirst());
+        return lc.doMethod(mi).sortedModifiedString();
+    }
+
     @DisplayName("ternary / conditional expression links to both arms")
     @Test
     public void ternary() {
@@ -156,5 +165,76 @@ public class TestLanguageConstructs extends CommonTest {
         // value is not linked to the parameter (contrast the collection case above and array *access* linking,
         // which does work). Pinned so the discrepancy is visible.
         assertEquals("[-] --> -", link("a.b.Arr", arr, "m"));
+    }
+
+    @DisplayName("wildcard ? extends X: get() links the result to the list's hidden content")
+    @Test
+    public void wildcardExtends() {
+        @Language("java") String src = """
+                package a.b;
+                import java.util.List;
+                public class C<X> { X m(List<? extends X> list) { return list.get(0); } }
+                """;
+        assertEquals("[-] --> m∈0:list.§xs", link("a.b.C", src, "m"));
+    }
+
+    @DisplayName("wildcard ? super X: add(x) puts x into the list's hidden content and modifies the list")
+    @Test
+    public void wildcardSuper() {
+        @Language("java") String src = """
+                package a.b;
+                import java.util.List;
+                public class C<X> { void m(List<? super X> list, X x) { list.add(x); } }
+                """;
+        assertEquals("[0:list*.§xs∋1:x, 1:x∈0:list*.§xs] --> -", link("a.b.C", src, "m"));
+    }
+
+    @DisplayName("switch type pattern (case String s) links through the arms")
+    @Test
+    public void typeSwitchPattern() {
+        @Language("java") String src = """
+                package a.b;
+                public class C { Object m(Object o) { return switch (o) { case String s -> s; default -> o; }; } }
+                """;
+        assertEquals("[-] --> m←0:o", link("a.b.C", src, "m"));
+    }
+
+    @DisplayName("constructor reference (C::new) links the result to a functional-interface variable")
+    @Test
+    public void constructorReference() {
+        @Language("java") String src = """
+                package a.b;
+                import java.util.function.Supplier;
+                public class C<X> {
+                    Supplier<C<X>> m() { return C::new; }
+                    C() { }
+                }
+                """;
+        assertEquals("[] --> m←Λ$_fi0", link("a.b.C", src, "m"));
+    }
+
+    @DisplayName("try-with-resources does NOT propagate resource modification, unlike a plain assignment (gap)")
+    @Test
+    public void tryWithResourcesModificationGap() {
+        @Language("java") String plain = """
+                package a.b;
+                public class Plain {
+                    interface Res extends AutoCloseable { void modify(); @Override void close(); }
+                    void m(Res r) { Res s = r; s.modify(); }
+                }
+                """;
+        // a plain 'Res s = r' links s to r, so s.modify() marks the parameter r as modified
+        assertEquals("a.b.Plain.m(a.b.Plain.Res):0:r", modified("a.b.Plain", plain, "m"));
+
+        @Language("java") String tryRes = """
+                package a.b;
+                public class Try {
+                    interface Res extends AutoCloseable { void modify(); @Override void close(); }
+                    void m(Res r) { try (Res s = r) { s.modify(); } catch (Exception e) { } }
+                }
+                """;
+        // GAP: the resource variable 's' of 'try (Res s = r)' is not linked to 'r', so the modification s.modify()
+        // is not propagated to the parameter r (contrast the plain assignment above). Pinned to flag the gap.
+        assertEquals("", modified("a.b.Try", tryRes, "m"));
     }
 }
