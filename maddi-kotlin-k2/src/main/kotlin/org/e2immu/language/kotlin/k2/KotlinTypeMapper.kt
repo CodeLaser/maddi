@@ -219,6 +219,12 @@ internal class KotlinTypeMapper(
                 symbol.memberScope.declarations
                     .filterIsInstance<KaPropertySymbol>()
                     .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryField(typeInfo, it)) }
+                // constructors (declared; not inherited) so `Foo(...)` resolves the called constructor
+                val seenCtors = mutableSetOf<String>()
+                symbol.declaredMemberScope.declarations
+                    .filterIsInstance<KaConstructorSymbol>()
+                    .map { convertLibraryConstructor(typeInfo, it) }
+                    .forEach { if (seenCtors.add(it.fullyQualifiedName())) builder.addConstructor(it) }
             } finally {
                 loadingMembers = false
             }
@@ -239,6 +245,19 @@ internal class KotlinTypeMapper(
         addMethodModifiers(builder, function)
         builder.commitParameters().computeAccess().commit()
         return method
+    }
+
+    /** A library constructor: signature only (params), no body (like a class-file constructor). */
+    private fun KaSession.convertLibraryConstructor(owner: TypeInfo, ctor: KaConstructorSymbol): MethodInfo {
+        val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())
+        val builder = constructor.builder()
+        ctor.valueParameters.forEach { p -> builder.addParameter(p.name.asString(), mapType(p.returnType, owner)) }
+        builder.setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
+            .setMethodBody(runtime.emptyBlock())
+            .setMissingData(runtime.methodMissingMethodBody())
+        visibilityMethodModifier(ctor)?.let { builder.addMethodModifier(it) }
+        builder.commitParameters().computeAccess().commit()
+        return constructor
     }
 
     /** A library property -> a field on the type (signature only); the body resolver reads `obj.x` as field access. */

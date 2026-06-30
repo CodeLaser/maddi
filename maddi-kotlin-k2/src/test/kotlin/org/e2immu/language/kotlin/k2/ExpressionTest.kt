@@ -502,4 +502,35 @@ class ExpressionTest : KotlinScanTestBase() {
         assertEquals(runtime.assignMinusOperatorInt(), preDec.assignmentOperator())
     }
 
+    @Test
+    fun constructorCall() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val c = scan.parse(
+            "C.kt",
+            "class Box2(val v: Int)\n" +
+                "class C { fun m(): Box2 { return Box2(3) } }\n"
+        ).first { it.simpleName() == "C" }
+
+        // `Box2(3)` -> ConstructorCall of the source type's 1-arg constructor
+        val expr = (c.findUniqueMethod("m", 0).methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(expr is ConstructorCall)
+        assertEquals("Box2", (expr as ConstructorCall).constructor().typeInfo().simpleName())
+        assertEquals(1, expr.parameterExpressions().size)
+    }
+
+    @Test
+    fun libraryConstructorCall() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val c = scan.parse(
+            "C.kt",
+            "class C { fun m(): StringBuilder { return StringBuilder() } }\n"
+        ).first()
+
+        // `StringBuilder()` -> ConstructorCall of the library type's no-arg constructor (constructors loaded)
+        val expr = (c.findUniqueMethod("m", 0).methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(expr is ConstructorCall)
+        assertEquals("StringBuilder", (expr as ConstructorCall).constructor().typeInfo().simpleName())
+        assertEquals(0, expr.parameterExpressions().size)
+    }
+
 }
