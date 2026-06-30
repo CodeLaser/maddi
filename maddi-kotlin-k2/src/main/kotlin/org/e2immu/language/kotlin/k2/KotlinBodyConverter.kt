@@ -184,8 +184,14 @@ internal class KotlinBodyConverter(
 
     /** Convert one statement: a local `val`/`var`, an assignment, a `return`, or an expression statement. */
     internal fun KaSession.convertStatement(statement: KtExpression, method: MethodInfo,
-                                           locals: MutableMap<String, Variable>, index: String): Statement =
-        rawStatement(statement, method, locals, index).withSource(source(statement, index))
+                                           locals: MutableMap<String, Variable>, index: String): Statement {
+        val raw = rawStatement(statement, method, locals, index)
+        // apply the statement's full range + index, keeping any DetailedSources rawStatement attached (e.g. a
+        // local-variable name)
+        val whole = source(statement, index)
+        val detailed = raw.source()?.detailedSources()
+        return raw.withSource(if (detailed == null) whole else whole.withDetailedSources(detailed))
+    }
 
     private fun source(psi: PsiElement, index: String): Source = sourceOf(runtime, psi, index)
 
@@ -199,7 +205,13 @@ internal class KotlinBodyConverter(
                 ?: runtime.newEmptyExpression()
             val local = runtime.newLocalVariable(name, type, initializer)
             locals[name] = local
-            runtime.newLocalVariableCreation(local)
+            val lvc = runtime.newLocalVariableCreation(local)
+            // name detail keyed by both the name String and the LocalVariable, mirroring the Java parser
+            statement.nameIdentifier?.let { nameId ->
+                val nameSource = source(nameId, "-")
+                lvc.withSource(runtime.noSource().withDetailedSources(runtime.newDetailedSourcesBuilder()
+                    .put(local.simpleName(), nameSource).put(local, nameSource).build()))
+            } ?: lvc
         }
         statement is KtBinaryExpression && isAssignment(statement.operationToken) -> {
             val target = statement.left?.let { convertExpression(it, method, locals) } as? VariableExpression

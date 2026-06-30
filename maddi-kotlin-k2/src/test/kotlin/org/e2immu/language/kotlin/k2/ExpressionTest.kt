@@ -414,6 +414,32 @@ class ExpressionTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun localVariableNameDetailedSource() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val c = scan.parse(
+            "C.kt",
+            "class C {\n" +
+                "    fun m(): Int {\n" +
+                "        val total = 42\n" + // `total` at line 3, cols 13..17
+                "        return total\n" +
+                "    }\n" +
+                "}\n"
+        ).first()
+
+        val lvc = c.findUniqueMethod("m", 0).methodBody().statements().first() as LocalVariableCreation
+        val local = lvc.localVariable()
+        val ds = lvc.source().detailedSources()
+
+        // keyed by both the name String and the LocalVariable element (mirroring the Java parser)
+        val byName = ds.detail(local.simpleName())
+        assertNotNull(byName)
+        assertEquals(3, byName.beginLine())
+        assertEquals(13, byName.beginPos())
+        assertEquals(17, byName.endPos())
+        assertEquals(byName, ds.detail(local))
+    }
+
+    @Test
     fun sourcePositions() {
         val scan = KotlinScan(runtime, sourceSet)
         val p = scan.parse(

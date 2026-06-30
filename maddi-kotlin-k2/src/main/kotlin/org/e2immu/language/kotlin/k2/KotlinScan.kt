@@ -87,6 +87,7 @@ import org.jetbrains.kotlin.psi.KtObjectLiteralExpression
 import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
 import org.jetbrains.kotlin.psi.KtEscapeStringTemplateEntry
 import org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
+import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtReturnExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateEntryWithExpression
@@ -512,6 +513,9 @@ class KotlinScan(
             .setInitializer(runtime.newEmptyExpression())
         if (isVal) fieldBuilder.addFieldModifier(runtime.fieldModifierFinal())
         if (static) fieldBuilder.addFieldModifier(runtime.fieldModifierStatic())
+        // name detail keyed by the field's own name String (mirroring Java's field-decl dsb.put(name, ...))
+        fieldBuilder.setSource(declarationSource(property.psi,
+            listOf(field.name() to (property.psi as? KtNamedDeclaration)?.nameIdentifier)))
         fieldBuilder.computeAccess().commit()
         owner.builder().addField(field)
 
