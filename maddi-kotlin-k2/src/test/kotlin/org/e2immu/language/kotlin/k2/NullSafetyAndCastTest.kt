@@ -1,0 +1,93 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package org.e2immu.language.kotlin.k2
+
+import org.e2immu.language.cst.api.expression.Cast
+import org.e2immu.language.cst.api.expression.InlineConditional
+import org.e2immu.language.cst.api.expression.InstanceOf
+import org.e2immu.language.cst.api.expression.MethodCall
+import org.e2immu.language.cst.api.expression.UnaryOperator
+import org.e2immu.language.cst.api.expression.VariableExpression
+import org.e2immu.language.cst.api.statement.ReturnStatement
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+
+/** Null-safety and type operators: `!!`, `?:`, `?.`, `x as T`, `x is T`, `a[i]`. */
+class NullSafetyAndCastTest : KotlinScanTestBase() {
+
+    private fun returnedExpression(source: String, type: String = "C", method: String = "m", parameters: Int = 1) =
+        (KotlinScan(runtime, sourceSet).parse("C.kt", source).first { it.simpleName() == type }
+            .findUniqueMethod(method, parameters).methodBody().statements().first() as ReturnStatement).expression()
+
+    @Test
+    fun nonNullAssertionIsTransparent() {
+        // `x!!` carries the same value/type -> just the variable
+        val expr = returnedExpression("class C { fun m(x: String?): String { return x!! } }\n")
+        assertTrue(expr is VariableExpression)
+    }
+
+    @Test
+    fun asCast() {
+        val expr = returnedExpression("class C { fun m(x: Any): String { return x as String } }\n")
+        assertTrue(expr is Cast)
+        assertEquals("String", (expr as Cast).parameterizedType().typeInfo().simpleName())
+    }
+
+    @Test
+    fun isInstanceOf() {
+        val expr = returnedExpression("class C { fun m(x: Any): Boolean { return x is String } }\n")
+        assertTrue(expr is InstanceOf)
+        assertEquals("String", (expr as InstanceOf).testType().typeInfo().simpleName())
+    }
+
+    @Test
+    fun negatedIsInstanceOf() {
+        // `x !is String` -> logical-not of an InstanceOf
+        val expr = returnedExpression("class C { fun m(x: Any): Boolean { return x !is String } }\n")
+        assertTrue(expr is UnaryOperator)
+    }
+
+    @Test
+    fun arrayAccessBecomesGetCall() {
+        // `h[0]` -> `h.get(0)` (get resolved on the source receiver type)
+        val expr = returnedExpression(
+            "class Holder { fun get(i: Int): String = \"\" }\n" +
+                "class C { fun m(h: Holder): String { return h[0] } }\n"
+        )
+        assertTrue(expr is MethodCall)
+        assertEquals("get", (expr as MethodCall).methodInfo().name())
+    }
+
+    @Test
+    fun elvis() {
+        // `x ?: "d"` -> `if (x == null) "d" else x`
+        val expr = returnedExpression("class C { fun m(x: String?): String { return x ?: \"d\" } }\n")
+        assertTrue(expr is InlineConditional)
+    }
+
+    @Test
+    fun safeCall() {
+        // `b?.foo()` -> `if (b == null) null else b.foo()`
+        val expr = returnedExpression(
+            "class Box { fun foo(): Int = 1 }\n" +
+                "class C { fun m(b: Box?): Int? { return b?.foo() } }\n"
+        )
+        assertTrue(expr is InlineConditional)
+        val ifFalse = (expr as InlineConditional).ifFalse()
+        assertTrue(ifFalse is MethodCall)
+        assertEquals("foo", (ifFalse as MethodCall).methodInfo().name())
+    }
+}
