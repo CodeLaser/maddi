@@ -95,6 +95,11 @@ import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtReturnExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateEntryWithExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
+import org.jetbrains.kotlin.psi.KtArrayAccessExpression
+import org.jetbrains.kotlin.psi.KtBinaryExpressionWithTypeRHS
+import org.jetbrains.kotlin.psi.KtIsExpression
+import org.jetbrains.kotlin.psi.KtQualifiedExpression
+import org.jetbrains.kotlin.psi.KtSafeQualifiedExpression
 import org.jetbrains.kotlin.psi.KtThisExpression
 import org.jetbrains.kotlin.psi.KtThrowExpression
 import org.jetbrains.kotlin.psi.KtTryExpression
@@ -465,7 +470,10 @@ internal class KotlinBodyConverter(
             is KtPostfixExpression -> convertUnary(expression.baseExpression, expression.operationToken, false, method, locals)
             is KtPrefixExpression -> convertUnary(expression.baseExpression, expression.operationToken, true, method, locals)
             is KtCallExpression -> convertCall(expression, null, true, method, locals) // f(...) on implicit this
-            is KtDotQualifiedExpression -> convertQualified(expression, method, locals) // obj.f(...) or obj.x
+            is KtQualifiedExpression -> convertQualified(expression, method, locals) // obj.f(...)/obj.x, incl. obj?.f()
+            is KtBinaryExpressionWithTypeRHS -> convertCastOrSafeCast(expression, method, locals) // x as T / x as? T
+            is KtIsExpression -> convertIsExpression(expression, method, locals) // x is T / x !is T
+            is KtArrayAccessExpression -> convertArrayAccess(expression, method, locals) // a[i] -> a.get(i)
             is KtLambdaExpression -> convertLambda(expression, method, locals)
             is KtObjectLiteralExpression -> convertObjectLiteral(expression, method, locals)
             is KtIfExpression -> runtime.newInlineConditionalBuilder() // if as an expression: a ? b : c
@@ -496,11 +504,11 @@ internal class KotlinBodyConverter(
     }
 
     /** `obj.f(...)` (method call) or `obj.x` (property/field access). */
-    private fun KaSession.convertQualified(expression: KtDotQualifiedExpression, method: MethodInfo,
+    private fun KaSession.convertQualified(expression: KtQualifiedExpression, method: MethodInfo,
                                            locals: Map<String, Variable>): Expression {
         val receiver = convertExpression(expression.receiverExpression, method, locals)
         val receiverType = expression.receiverExpression.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
-        return when (val selector = expression.selectorExpression) {
+        val selectorResult = when (val selector = expression.selectorExpression) {
             is KtCallExpression -> convertCall(selector, receiver to receiverType, false, method, locals)
             is KtNameReferenceExpression -> {
                 val field = receiverType?.fields()?.firstOrNull { it.name() == selector.getReferencedName() }
@@ -509,6 +517,47 @@ internal class KotlinBodyConverter(
             }
             else -> runtime.newEmptyExpression("k2-unsupported-selector")
         }
+        // safe call `x?.foo()` -> `if (x == null) null else x.foo()`
+        return if (expression is KtSafeQualifiedExpression) runtime.newInlineConditionalBuilder()
+            .setCondition(runtime.newEquals(receiver, runtime.nullConstant()))
+            .setIfTrue(runtime.nullConstant()).setIfFalse(selectorResult)
+            .setSource(runtime.noSource()).build(runtime)
+        else selectorResult
+    }
+
+    /** `x as T` / `x as? T` -> a CST [org.e2immu.language.cst.api.expression.Cast] to T. */
+    private fun KaSession.convertCastOrSafeCast(expression: KtBinaryExpressionWithTypeRHS, method: MethodInfo,
+                                                locals: Map<String, Variable>): Expression {
+        val value = convertExpression(expression.left, method, locals)
+        val type = expression.right?.type?.let { mapType(it, method.typeInfo()) }
+            ?: return runtime.newEmptyExpression("k2-cast")
+        return runtime.newCast(value, type)
+    }
+
+    /** `x is T` / `x !is T` -> a CST [org.e2immu.language.cst.api.expression.InstanceOf] (`!is` negated by a logical-not). */
+    private fun KaSession.convertIsExpression(expression: KtIsExpression, method: MethodInfo,
+                                              locals: Map<String, Variable>): Expression {
+        val value = convertExpression(expression.leftHandSide, method, locals)
+        val testType = expression.typeReference?.type?.let { mapType(it, method.typeInfo()) }
+            ?: return runtime.newEmptyExpression("k2-is")
+        val instanceOf = runtime.newInstanceOfBuilder().setExpression(value).setTestType(testType)
+            .setSource(runtime.noSource()).build()
+        return if (expression.isNegated) runtime.newUnaryOperator(listOf(), runtime.noSource(),
+            runtime.logicalNotOperatorBool(), instanceOf, runtime.precedenceUnary()) else instanceOf
+    }
+
+    /** `a[i]` -> `a.get(i)` method call (when `get` resolves on the receiver type). */
+    private fun KaSession.convertArrayAccess(expression: KtArrayAccessExpression, method: MethodInfo,
+                                             locals: Map<String, Variable>): Expression {
+        val array = expression.arrayExpression?.let { convertExpression(it, method, locals) }
+            ?: return runtime.newEmptyExpression("k2-index")
+        val indices = expression.indexExpressions.map { convertExpression(it, method, locals) }
+        val arrayType = expression.arrayExpression?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
+        val get = arrayType?.let { resolveCallee(it, "get", indices) }
+            ?: return runtime.newEmptyExpression("k2-index-get-unresolved")
+        return runtime.newMethodCallBuilder().setObject(array).setObjectIsImplicit(false).setMethodInfo(get)
+            .setParameterExpressions(indices).setConcreteReturnType(get.returnType()).setTypeArguments(listOf())
+            .setSource(runtime.noSource()).build()
     }
 
     /**
@@ -811,6 +860,7 @@ internal class KotlinBodyConverter(
                     .setValue(runtime.intOne(runtime.noSource()))
                     .setSource(runtime.noSource()).build()
             }
+            KtTokens.EXCLEXCL -> operand // `x!!` non-null assertion: transparent for the CST (same value/type)
             KtTokens.MINUS -> runtime.newUnaryOperator(listOf(), runtime.noSource(),
                 runtime.unaryMinusOperatorInt(), operand, runtime.precedenceUnary())
             KtTokens.EXCL -> runtime.newUnaryOperator(listOf(), runtime.noSource(),
@@ -830,6 +880,10 @@ internal class KotlinBodyConverter(
         val left = expression.left?.let { convertExpression(it, method, locals) }
         val right = expression.right?.let { convertExpression(it, method, locals) }
         if (left == null || right == null) return runtime.newEmptyExpression("k2-binary-operand")
+        // elvis `a ?: b` -> `if (a == null) b else a`
+        if (expression.operationToken == KtTokens.ELVIS) return runtime.newInlineConditionalBuilder()
+            .setCondition(runtime.newEquals(left, runtime.nullConstant()))
+            .setIfTrue(right).setIfFalse(left).setSource(runtime.noSource()).build(runtime)
         val numeric = left.isNumeric && right.isNumeric
         val stringPlus = left.parameterizedType().isJavaLangString || right.parameterizedType().isJavaLangString
         val opAndPrecedence = when (expression.operationToken) {
