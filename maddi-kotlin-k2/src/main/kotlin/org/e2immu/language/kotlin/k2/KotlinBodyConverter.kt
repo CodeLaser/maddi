@@ -229,13 +229,18 @@ internal class KotlinBodyConverter(
                 .withSource(runtime.noSource().withDetailedSources(dsb.build()))
         }
         statement is KtBinaryExpression && isAssignment(statement.operationToken) -> {
-            val target = statement.left?.let { convertExpression(it, method, locals) } as? VariableExpression
+            val left = statement.left
             val value = statement.right?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression()
-            if (target == null) runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-assign-target"))
-            else {
-                val builder = runtime.newAssignmentBuilder().setTarget(target).setValue(value).setSource(runtime.noSource())
-                augmentedOperator(statement.operationToken)?.let { builder.setAssignmentOperator(it) } // x += y
-                runtime.newExpressionAsStatement(builder.build())
+            if (left is KtArrayAccessExpression && statement.operationToken == KtTokens.EQ) {
+                runtime.newExpressionAsStatement(convertIndexedSet(left, value, method, locals)) // a[i] = v -> a.set(i, v)
+            } else {
+                val target = left?.let { convertExpression(it, method, locals) } as? VariableExpression
+                if (target == null) runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-assign-target"))
+                else {
+                    val builder = runtime.newAssignmentBuilder().setTarget(target).setValue(value).setSource(runtime.noSource())
+                    augmentedOperator(statement.operationToken)?.let { builder.setAssignmentOperator(it) } // x += y
+                    runtime.newExpressionAsStatement(builder.build())
+                }
             }
         }
         statement is KtReturnExpression -> runtime.newReturnStatement(
@@ -568,6 +573,21 @@ internal class KotlinBodyConverter(
         return runtime.newMethodCallBuilder().setObject(array).setObjectIsImplicit(false).setMethodInfo(get)
             .setParameterExpressions(indices).setConcreteReturnType(get.returnType()).setTypeArguments(listOf())
             .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.INDEX_ACCESS, expression.leftBracket)))
+            .build()
+    }
+
+    /** `a[i] = v` -> `a.set(i, v)` method call (when `set` resolves), marked INDEX_ACCESS at the `[`. */
+    private fun KaSession.convertIndexedSet(arrayAccess: KtArrayAccessExpression, value: Expression,
+                                            method: MethodInfo, locals: Map<String, Variable>): Expression {
+        val array = arrayAccess.arrayExpression?.let { convertExpression(it, method, locals) }
+            ?: return runtime.newEmptyExpression("k2-indexed-set")
+        val arguments = arrayAccess.indexExpressions.map { convertExpression(it, method, locals) } + value
+        val arrayType = arrayAccess.arrayExpression?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
+        val set = arrayType?.let { resolveCallee(it, "set", arguments) }
+            ?: return runtime.newEmptyExpression("k2-indexed-set-unresolved")
+        return runtime.newMethodCallBuilder().setObject(array).setObjectIsImplicit(false).setMethodInfo(set)
+            .setParameterExpressions(arguments).setConcreteReturnType(set.returnType()).setTypeArguments(listOf())
+            .setSource(source(arrayAccess, "-").withDetailedSources(marker(DetailedSources.INDEX_ACCESS, arrayAccess.leftBracket)))
             .build()
     }
 
