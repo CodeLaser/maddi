@@ -89,6 +89,8 @@ import org.jetbrains.kotlin.psi.KtReturnExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateEntryWithExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
 import org.jetbrains.kotlin.psi.KtThisExpression
+import org.jetbrains.kotlin.psi.KtThrowExpression
+import org.jetbrains.kotlin.psi.KtTryExpression
 import org.jetbrains.kotlin.psi.KtWhenConditionInRange
 import org.jetbrains.kotlin.psi.KtWhenConditionIsPattern
 import org.jetbrains.kotlin.psi.KtWhenConditionWithExpression
@@ -236,7 +238,42 @@ internal class KotlinBodyConverter(
         statement is KtContinueExpression -> runtime.newContinueBuilder()
             .also { b -> statement.getLabelName()?.let { b.setGoToLabel(it) } } // continue@label
             .setSource(runtime.noSource()).build()
+        statement is KtThrowExpression -> runtime.newThrowBuilder()
+            .setExpression(statement.thrownExpression?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
+            .setSource(runtime.noSource()).build()
+        statement is KtTryExpression -> convertTry(statement, method, locals, index)
         else -> runtime.newExpressionAsStatement(convertExpression(statement, method, locals))
+    }
+
+    /**
+     * `try { … } catch (e: T) { … } finally { … }` -> [org.e2immu.language.cst.api.statement.TryStatement].
+     * Each sub-block is indexed like the Java parser: try block `index.0`, catch i `index.(i+1)`, finally
+     * last. Kotlin catch is single-type (no Java-style union), and the catch variable is in scope for its
+     * block.
+     */
+    private fun KaSession.convertTry(statement: KtTryExpression, method: MethodInfo,
+                                     locals: MutableMap<String, Variable>, index: String): Statement {
+        val builder = runtime.newTryBuilder().setSource(runtime.noSource())
+        builder.setBlock(convertBlock(statement.tryBlock, method, locals, "$index.0"))
+        statement.catchClauses.forEachIndexed { i, catch ->
+            val parameter = catch.catchParameter
+            val type = (parameter?.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
+                ?: runtime.objectParameterizedType()
+            val name = parameter?.name ?: "e"
+            val catchVariable = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
+            builder.addCatchClause(
+                runtime.newCatchClauseBuilder()
+                    .addType(type)
+                    .setCatchVariable(catchVariable)
+                    .setFinal(false)
+                    .setBlock(convertBlock(catch.catchBody, method, locals + (name to catchVariable), "$index.${i + 1}"))
+                    .setSource(runtime.noSource()).build()
+            )
+        }
+        statement.finallyBlock?.let { finally ->
+            builder.setFinallyBlock(convertBlock(finally.finalExpression, method, locals, "$index.${statement.catchClauses.size + 1}"))
+        }
+        return builder.build()
     }
 
     /**
