@@ -436,8 +436,11 @@ internal class KotlinBodyConverter(
     internal fun KaSession.convertExpression(expression: KtExpression, method: MethodInfo,
                                              locals: Map<String, Variable>): Expression {
         val raw = convertExpressionRaw(expression, method, locals)
-        // EmptyExpression (placeholders / Unit) is a singleton that rejects withSource; leave it as-is
-        return if (raw is EmptyExpression) raw else raw.withSource(source(expression, "-"))
+        if (raw is EmptyExpression) return raw // singleton; rejects withSource
+        // apply the element's full range, but keep any DetailedSources a converter (e.g. convertCall) attached
+        val rangeSource = source(expression, "-")
+        val detailed = raw.source()?.detailedSources()
+        return raw.withSource(if (detailed == null) rangeSource else rangeSource.withDetailedSources(detailed))
     }
 
     private fun KaSession.convertExpressionRaw(expression: KtExpression, method: MethodInfo,
@@ -685,6 +688,11 @@ internal class KotlinBodyConverter(
             ?: return runtime.newEmptyExpression("k2-unresolved-call:$name")
         val obj = receiver?.first ?: variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
+        // DetailedSources (layer 2): the precise position of the callee identifier (distinct from the whole
+        // call), keyed by the resolved MethodInfo. The K2 PSI gives each token a faithful textRange.
+        val detailed = runtime.newDetailedSourcesBuilder()
+            .also { dsb -> call.calleeExpression?.let { dsb.put(callee, source(it, "-")) } }
+            .build()
         return runtime.newMethodCallBuilder()
             .setObject(obj)
             .setObjectIsImplicit(implicitThis)
@@ -692,7 +700,7 @@ internal class KotlinBodyConverter(
             .setParameterExpressions(arguments)
             .setConcreteReturnType(returnType)
             .setTypeArguments(listOf())
-            .setSource(runtime.noSource())
+            .setSource(runtime.noSource().withDetailedSources(detailed))
             .build()
     }
 
