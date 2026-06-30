@@ -440,6 +440,27 @@ class ExpressionTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun localVariableTypeDetailedSource() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val c = scan.parse(
+            "C.kt",
+            "class C {\n" +
+                "    fun m() {\n" +
+                "        val x: C = this\n" + // `C` at line 3, col 16
+                "    }\n" +
+                "}\n"
+        ).first()
+
+        // an explicit local type reference is detailed too, keyed by its TypeInfo
+        val lvc = c.findUniqueMethod("m", 0).methodBody().statements().first() as LocalVariableCreation
+        val typeSource = lvc.source().detailedSources().detail(lvc.localVariable().parameterizedType().typeInfo())
+        assertNotNull(typeSource)
+        assertEquals(3, typeSource.beginLine())
+        assertEquals(16, typeSource.beginPos())
+        assertEquals(16, typeSource.endPos())
+    }
+
+    @Test
     fun sourcePositions() {
         val scan = KotlinScan(runtime, sourceSet)
         val p = scan.parse(
