@@ -271,14 +271,17 @@ class KotlinScan(
         val classSymbol = declaration.symbol as KaNamedClassSymbol
         val typeInfo = runtime.newTypeInfo(compilationUnit, classSymbol.name.asString())
 
-        // declaration-site type parameters, with their variance (out T / in T)
-        classSymbol.typeParameters.forEachIndexed { index, tp ->
-            val cstTp = runtime.newTypeParameter(index, tp.name.asString(), typeInfo)
+        // declaration-site type parameters: register all first (so a bound can reference any of them, incl.
+        // itself -- `T : Comparable<T>`), then set bounds + variance (out T / in T) and commit
+        val cstTypeParameters = classSymbol.typeParameters.mapIndexed { index, tp ->
+            runtime.newTypeParameter(index, tp.name.asString(), typeInfo)
+                .also { typeInfo.builder().addOrSetTypeParameter(it) } to tp
+        }
+        cstTypeParameters.forEach { (cstTp, tp) ->
             cstTp.builder()
-                .setTypeBounds(listOf()) // bounds resolution is a later increment; variance is the point here
+                .setTypeBounds(tp.upperBounds.map { mapType(it, typeInfo) }.filterNot { it.isJavaLangObject })
                 .setVariance(mapVariance(tp.variance))
                 .commit()
-            typeInfo.builder().addOrSetTypeParameter(cstTp)
         }
         infoByFqn.put(typeInfo.fullyQualifiedName(), typeInfo, sourceSet)
         return typeInfo
