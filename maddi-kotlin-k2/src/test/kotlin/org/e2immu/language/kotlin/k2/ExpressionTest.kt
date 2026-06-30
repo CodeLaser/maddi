@@ -385,6 +385,34 @@ class ExpressionTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun detailedSourcesForCallName() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val c = scan.parse(
+            "C.kt",
+            "class C {\n" +
+                "    fun foo(x: Int): Int = x\n" +
+                "    fun caller(): Int {\n" +
+                "        return foo(7)\n" + // `foo` at cols 16..18, the whole call `foo(7)` at 16..21
+                "    }\n" +
+                "}\n"
+        ).first()
+
+        val foo = c.findUniqueMethod("foo", 1)
+        val call = (c.findUniqueMethod("caller", 0).methodBody().statements().first() as ReturnStatement)
+            .expression() as MethodCall
+
+        // the MethodCall's own source spans the whole call
+        assertEquals(16, call.source().beginPos())
+        assertEquals(21, call.source().endPos())
+
+        // DetailedSources pinpoints just the callee identifier `foo` (keyed by the resolved MethodInfo)
+        val nameSource = call.source().detailedSources().detail(foo)
+        assertNotNull(nameSource)
+        assertEquals(16, nameSource.beginPos())
+        assertEquals(18, nameSource.endPos())
+    }
+
+    @Test
     fun sourcePositions() {
         val scan = KotlinScan(runtime, sourceSet)
         val p = scan.parse(
