@@ -260,7 +260,8 @@ class KotlinScan(
     private fun KaSession.registerType(compilationUnit: CompilationUnit, declaration: KtClassOrObject): TypeInfo {
         val classSymbol = declaration.symbol as KaNamedClassSymbol
         val typeInfo = runtime.newTypeInfo(compilationUnit, classSymbol.name.asString())
-        typeInfo.builder().setSource(declarationSource(declaration, declaration.nameIdentifier, typeInfo)) // name detail
+        // name detail keyed by the type's own simple-name String (== typeInfo.simpleName()), mirroring Java
+        typeInfo.builder().setSource(declarationSource(declaration, declaration.nameIdentifier, typeInfo.simpleName()))
 
         // declaration-site type parameters, with their variance (out T / in T)
         classSymbol.typeParameters.forEachIndexed { index, tp ->
@@ -623,9 +624,10 @@ class KotlinScan(
     /**
      * The whole-declaration source of [declaration] with a `DetailedSources` entry mapping [nameKey] to the
      * precise position of [nameIdentifier]. Mirrors the Java parser's keys so a refactoring engine stays
-     * language-unaware: a **type** is keyed by its `TypeInfo`, a **method/field** by the name String the
-     * Info itself holds (`info.name()`). `DetailedSources` is identity-keyed, so a consumer must look up via
-     * the same instance (`detail(typeInfo)` / `detail(methodInfo.name())`). `noSource()` if synthetic.
+     * language-unaware: every declaration name is keyed by the Info's own name String — `typeInfo.simpleName()`
+     * for a type, `method.name()` for a method. `DetailedSources` is identity-keyed, so a consumer must look
+     * up via the same instance (`detail(typeInfo.simpleName())` / `detail(methodInfo.name())`). `noSource()`
+     * if synthetic.
      */
     private fun declarationSource(declaration: PsiElement?, nameIdentifier: PsiElement?, nameKey: Any): Source {
         if (declaration == null) return runtime.noSource()
