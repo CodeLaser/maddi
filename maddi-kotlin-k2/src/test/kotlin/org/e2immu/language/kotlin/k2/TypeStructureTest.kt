@@ -411,4 +411,25 @@ class TypeStructureTest : KotlinScanTestBase() {
         assertEquals(9, pkg.beginPos())
         assertEquals(11, pkg.endPos())
     }
+
+    @Test
+    fun typeParameterBounds() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "Box.kt",
+            "class Box<T : Comparable<T>>(val v: T)\n" +
+                "class Plain<X>(val x: X)\n"
+        ).associateBy { it.simpleName() }
+
+        // `T : Comparable<T>` -> one bound (Comparable), with a self-referential type argument
+        val t = types.getValue("Box").typeParameters().first()
+        assertEquals("T", t.simpleName())
+        assertEquals(1, t.typeBounds().size)
+        val bound = t.typeBounds().first()
+        assertEquals("Comparable", bound.typeInfo().simpleName())
+        assertEquals(t, bound.parameters().first().typeParameter()) // Comparable<T> -- the same T
+
+        // an unbounded parameter has no bounds (the implicit Object upper bound is filtered out)
+        assertEquals(0, types.getValue("Plain").typeParameters().first().typeBounds().size)
+    }
 }

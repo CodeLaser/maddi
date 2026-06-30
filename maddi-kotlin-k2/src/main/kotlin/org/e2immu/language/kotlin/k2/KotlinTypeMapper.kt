@@ -189,12 +189,19 @@ internal class KotlinTypeMapper(
             runtime.newCompilationUnitStub(jvmFqn.substringBeforeLast('.', "")),
             jvmFqn.substringAfterLast('.')
         )
-        symbol.typeParameters.forEachIndexed { i, tp ->
-            val cstTp = runtime.newTypeParameter(i, tp.name.asString(), typeInfo)
-            cstTp.builder().setTypeBounds(listOf()).commit() // bounds deferred
-            typeInfo.builder().addOrSetTypeParameter(cstTp)
+        // register all type parameters first (so a bound can reference any of them, incl. itself), then the
+        // type (cycles), then map bounds (which may load other types and cycle back)
+        val cstTypeParameters = symbol.typeParameters.mapIndexed { i, tp ->
+            runtime.newTypeParameter(i, tp.name.asString(), typeInfo)
+                .also { typeInfo.builder().addOrSetTypeParameter(it) } to tp
         }
-        infoByFqn.put(jvmFqn, typeInfo, sourceSet) // register before loading supertypes (cycles)
+        infoByFqn.put(jvmFqn, typeInfo, sourceSet) // register before loading bounds/supertypes (cycles)
+        cstTypeParameters.forEach { (cstTp, tp) ->
+            cstTp.builder()
+                .setTypeBounds(tp.upperBounds.map { mapType(it, typeInfo) }.filterNot { it.isJavaLangObject })
+                .setVariance(mapVariance(tp.variance))
+                .commit()
+        }
 
         val builder = typeInfo.builder()
         applyHierarchy(builder, typeInfo, symbol)
