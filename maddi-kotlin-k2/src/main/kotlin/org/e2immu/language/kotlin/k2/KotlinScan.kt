@@ -611,7 +611,8 @@ class KotlinScan(
         val psi = function.psi as? KtNamedFunction
         builder
             .setReturnType(returnType)
-            .setSource(declarationSource(psi, psi?.nameIdentifier, method)) // name detail keyed by the MethodInfo
+            // name detail keyed by the method's own name String (== method.name()), mirroring the Java parser
+            .setSource(declarationSource(psi, psi?.nameIdentifier, method.name()))
             .setMethodBody(convertBody(function, returnType, method))
         addMethodModifiers(builder, function)
         if (static) builder.addMethodModifier(runtime.methodModifierStatic())
@@ -621,9 +622,10 @@ class KotlinScan(
 
     /**
      * The whole-declaration source of [declaration] with a `DetailedSources` entry mapping [nameKey] to the
-     * precise position of [nameIdentifier] — like `dsb.put(ti, …)` in the Java parser. `DetailedSources` is
-     * identity-keyed, so we key by the single-instance Info element (TypeInfo/MethodInfo), which is more
-     * robust than the Java parser's name-String key. Returns `noSource()` for a synthetic declaration.
+     * precise position of [nameIdentifier]. Mirrors the Java parser's keys so a refactoring engine stays
+     * language-unaware: a **type** is keyed by its `TypeInfo`, a **method/field** by the name String the
+     * Info itself holds (`info.name()`). `DetailedSources` is identity-keyed, so a consumer must look up via
+     * the same instance (`detail(typeInfo)` / `detail(methodInfo.name())`). `noSource()` if synthetic.
      */
     private fun declarationSource(declaration: PsiElement?, nameIdentifier: PsiElement?, nameKey: Any): Source {
         if (declaration == null) return runtime.noSource()

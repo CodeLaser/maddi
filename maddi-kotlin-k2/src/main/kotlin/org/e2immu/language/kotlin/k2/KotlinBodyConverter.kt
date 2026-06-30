@@ -675,7 +675,9 @@ internal class KotlinBodyConverter(
         val obj = receiver?.first ?: variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
         // DetailedSources (layer 2): the precise position of the callee identifier (distinct from the whole
-        // call), keyed by the resolved MethodInfo. The K2 PSI gives each token a faithful textRange.
+        // call). Keyed by the resolved MethodInfo (a robust single-instance key — the call-site name String
+        // would differ from the declaration's). Java derives call-site name positions via its second-pass
+        // scanResult, so this key convention is the one to reconcile if Java grows a dsb entry here.
         val detailed = runtime.newDetailedSourcesBuilder()
             .also { dsb -> call.calleeExpression?.let { dsb.put(callee, source(it, "-")) } }
             .build()
