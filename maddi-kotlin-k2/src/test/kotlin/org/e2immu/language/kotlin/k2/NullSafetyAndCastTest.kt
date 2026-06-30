@@ -14,6 +14,7 @@
 
 package org.e2immu.language.kotlin.k2
 
+import org.e2immu.language.cst.api.element.DetailedSources
 import org.e2immu.language.cst.api.expression.Cast
 import org.e2immu.language.cst.api.expression.InlineConditional
 import org.e2immu.language.cst.api.expression.InstanceOf
@@ -22,6 +23,7 @@ import org.e2immu.language.cst.api.expression.UnaryOperator
 import org.e2immu.language.cst.api.expression.VariableExpression
 import org.e2immu.language.cst.api.statement.ReturnStatement
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -37,6 +39,7 @@ class NullSafetyAndCastTest : KotlinScanTestBase() {
         // `x!!` carries the same value/type -> just the variable
         val expr = returnedExpression("class C { fun m(x: String?): String { return x!! } }\n")
         assertTrue(expr is VariableExpression)
+        assertNotNull(expr.source().detailedSources().detail(DetailedSources.NON_NULL_ASSERTION))
     }
 
     @Test
@@ -69,6 +72,7 @@ class NullSafetyAndCastTest : KotlinScanTestBase() {
         )
         assertTrue(expr is MethodCall)
         assertEquals("get", (expr as MethodCall).methodInfo().name())
+        assertNotNull(expr.source().detailedSources().detail(DetailedSources.INDEX_ACCESS))
     }
 
     @Test
@@ -76,6 +80,7 @@ class NullSafetyAndCastTest : KotlinScanTestBase() {
         // `x ?: "d"` -> `if (x == null) "d" else x`
         val expr = returnedExpression("class C { fun m(x: String?): String { return x ?: \"d\" } }\n")
         assertTrue(expr is InlineConditional)
+        assertNotNull(expr.source().detailedSources().detail(DetailedSources.NULL_COALESCING))
     }
 
     @Test
@@ -86,6 +91,7 @@ class NullSafetyAndCastTest : KotlinScanTestBase() {
                 "class C { fun m(b: Box?): Int? { return b?.foo() } }\n"
         )
         assertTrue(expr is InlineConditional)
+        assertNotNull(expr.source().detailedSources().detail(DetailedSources.NULL_SAFE))
         val ifFalse = (expr as InlineConditional).ifFalse()
         assertTrue(ifFalse is MethodCall)
         assertEquals("foo", (ifFalse as MethodCall).methodInfo().name())

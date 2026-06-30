@@ -200,6 +200,14 @@ internal class KotlinBodyConverter(
 
     private fun source(psi: PsiElement, index: String): Source = sourceOf(runtime, psi, index)
 
+    /**
+     * A single-entry [DetailedSources] recording a source-form [marker] (e.g. `NULL_COALESCING`) at the
+     * operator token [psi], so the refactoring engine can reproduce the original surface syntax of a
+     * desugared node. Empty if [psi] is absent.
+     */
+    private fun marker(marker: Any, psi: PsiElement?): DetailedSources =
+        runtime.newDetailedSourcesBuilder().also { if (psi != null) it.put(marker, source(psi, "-")) }.build()
+
     private fun KaSession.rawStatement(statement: KtExpression, method: MethodInfo,
                                        locals: MutableMap<String, Variable>, index: String): Statement = when {
         statement is KtProperty && statement.isLocal -> {
@@ -517,11 +525,12 @@ internal class KotlinBodyConverter(
             }
             else -> runtime.newEmptyExpression("k2-unsupported-selector")
         }
-        // safe call `x?.foo()` -> `if (x == null) null else x.foo()`
+        // safe call `x?.foo()` -> `if (x == null) null else x.foo()`, marked NULL_SAFE at the `?.` token
         return if (expression is KtSafeQualifiedExpression) runtime.newInlineConditionalBuilder()
             .setCondition(runtime.newEquals(receiver, runtime.nullConstant()))
             .setIfTrue(runtime.nullConstant()).setIfFalse(selectorResult)
-            .setSource(runtime.noSource()).build(runtime)
+            .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.NULL_SAFE, expression.operationTokenNode.psi)))
+            .build(runtime)
         else selectorResult
     }
 
@@ -555,9 +564,11 @@ internal class KotlinBodyConverter(
         val arrayType = expression.arrayExpression?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         val get = arrayType?.let { resolveCallee(it, "get", indices) }
             ?: return runtime.newEmptyExpression("k2-index-get-unresolved")
+        // marked INDEX_ACCESS at the `[` so the engine knows this get() was written as indexing
         return runtime.newMethodCallBuilder().setObject(array).setObjectIsImplicit(false).setMethodInfo(get)
             .setParameterExpressions(indices).setConcreteReturnType(get.returnType()).setTypeArguments(listOf())
-            .setSource(runtime.noSource()).build()
+            .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.INDEX_ACCESS, expression.leftBracket)))
+            .build()
     }
 
     /**
@@ -860,7 +871,9 @@ internal class KotlinBodyConverter(
                     .setValue(runtime.intOne(runtime.noSource()))
                     .setSource(runtime.noSource()).build()
             }
-            KtTokens.EXCLEXCL -> operand // `x!!` non-null assertion: transparent for the CST (same value/type)
+            // `x!!` non-null assertion: transparent for the CST (same value/type), but marked NON_NULL_ASSERTION
+            KtTokens.EXCLEXCL -> if (operand is EmptyExpression) operand
+            else operand.withSource(operand.source().mergeDetailedSources(marker(DetailedSources.NON_NULL_ASSERTION, base)))
             KtTokens.MINUS -> runtime.newUnaryOperator(listOf(), runtime.noSource(),
                 runtime.unaryMinusOperatorInt(), operand, runtime.precedenceUnary())
             KtTokens.EXCL -> runtime.newUnaryOperator(listOf(), runtime.noSource(),
@@ -880,10 +893,12 @@ internal class KotlinBodyConverter(
         val left = expression.left?.let { convertExpression(it, method, locals) }
         val right = expression.right?.let { convertExpression(it, method, locals) }
         if (left == null || right == null) return runtime.newEmptyExpression("k2-binary-operand")
-        // elvis `a ?: b` -> `if (a == null) b else a`
+        // elvis `a ?: b` -> `if (a == null) b else a`, marked NULL_COALESCING at the `?:` token
         if (expression.operationToken == KtTokens.ELVIS) return runtime.newInlineConditionalBuilder()
             .setCondition(runtime.newEquals(left, runtime.nullConstant()))
-            .setIfTrue(right).setIfFalse(left).setSource(runtime.noSource()).build(runtime)
+            .setIfTrue(right).setIfFalse(left)
+            .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.NULL_COALESCING, expression.operationReference)))
+            .build(runtime)
         val numeric = left.isNumeric && right.isNumeric
         val stringPlus = left.parameterizedType().isJavaLangString || right.parameterizedType().isJavaLangString
         val opAndPrecedence = when (expression.operationToken) {
