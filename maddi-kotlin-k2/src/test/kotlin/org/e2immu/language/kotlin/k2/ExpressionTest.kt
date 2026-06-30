@@ -385,6 +385,31 @@ class ExpressionTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun sourcePositions() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val p = scan.parse(
+            "P.kt",
+            "class P {\n" +
+                "    fun m(): Int {\n" +
+                "        return 42\n" + // 8 spaces, then `return 42`
+                "    }\n" +
+                "}\n"
+        ).first()
+
+        // the `return 42` statement carries real positions + its statement index
+        val ret = p.findUniqueMethod("m", 0).methodBody().statements().first() as ReturnStatement
+        assertEquals(3, ret.source().beginLine())
+        assertEquals(9, ret.source().beginPos())
+        assertEquals("0", ret.source().index())
+
+        // the `42` expression has its own (narrower) position
+        val fortyTwo = ret.expression().source()
+        assertEquals(3, fortyTwo.beginLine())
+        assertEquals(16, fortyTwo.beginPos())
+        assertEquals(17, fortyTwo.endPos()) // end column inclusive
+    }
+
+    @Test
     fun incrementDecrement() {
         val scan = KotlinScan(runtime, sourceSet)
         val inc = scan.parse("Inc.kt", "class Inc { fun m(): Int { var x = 0; x++; --x; return x } }\n").first()

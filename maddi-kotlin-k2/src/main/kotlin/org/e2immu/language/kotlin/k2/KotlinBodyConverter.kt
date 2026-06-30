@@ -15,7 +15,9 @@
 package org.e2immu.language.kotlin.k2
 import org.e2immu.language.cst.api.element.CompilationUnit
 import org.e2immu.language.cst.api.element.RecordPattern
+import org.e2immu.language.cst.api.element.Source
 import org.e2immu.language.cst.api.element.SourceSet
+import org.e2immu.language.cst.api.expression.EmptyExpression
 import org.e2immu.language.cst.api.expression.Expression
 import org.e2immu.language.cst.api.expression.Lambda
 import org.e2immu.language.cst.api.expression.VariableExpression
@@ -35,6 +37,7 @@ import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.api.type.ParameterizedType
 import org.e2immu.language.cst.api.type.TypeNature
 import org.e2immu.language.inspection.resource.InfoByFqn
+import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.analyze
@@ -181,7 +184,23 @@ internal class KotlinBodyConverter(
     /** Convert one statement: a local `val`/`var`, an assignment, a `return`, or an expression statement. */
     internal fun KaSession.convertStatement(statement: KtExpression, method: MethodInfo,
                                            locals: MutableMap<String, Variable>, index: String): Statement =
-        indexed(rawStatement(statement, method, locals, index), index)
+        rawStatement(statement, method, locals, index).withSource(source(statement, index))
+
+    /**
+     * Real 1-based source positions (end column inclusive) for a PSI element, carrying the statement
+     * [index] — computed from the file's [com.intellij.openapi.editor.Document] (line offsets cached). Falls
+     * back to an indexed [Runtime.noSource] when no document is available (e.g. a synthetic element).
+     */
+    private fun source(psi: PsiElement, index: String): Source {
+        val document = psi.containingFile?.viewProvider?.document ?: return runtime.noSource().withIndex(index)
+        val range = psi.textRange ?: return runtime.noSource().withIndex(index)
+        val lastOffset = (range.endOffset - 1).coerceAtLeast(range.startOffset) // inclusive last character
+        val startLine = document.getLineNumber(range.startOffset)
+        val endLine = document.getLineNumber(lastOffset)
+        return runtime.newParserSource(index,
+            startLine + 1, range.startOffset - document.getLineStartOffset(startLine) + 1,
+            endLine + 1, lastOffset - document.getLineStartOffset(endLine) + 1)
+    }
 
     private fun KaSession.rawStatement(statement: KtExpression, method: MethodInfo,
                                        locals: MutableMap<String, Variable>, index: String): Statement = when {
@@ -415,7 +434,14 @@ internal class KotlinBodyConverter(
      * operators, qualified access and the rest become a labelled placeholder, filled in incrementally.
      */
     internal fun KaSession.convertExpression(expression: KtExpression, method: MethodInfo,
-                                            locals: Map<String, Variable>): Expression {
+                                             locals: Map<String, Variable>): Expression {
+        val raw = convertExpressionRaw(expression, method, locals)
+        // EmptyExpression (placeholders / Unit) is a singleton that rejects withSource; leave it as-is
+        return if (raw is EmptyExpression) raw else raw.withSource(source(expression, "-"))
+    }
+
+    private fun KaSession.convertExpressionRaw(expression: KtExpression, method: MethodInfo,
+                                               locals: Map<String, Variable>): Expression {
         expression.evaluate()?.let { constant ->
             return when (val value = constant.value) {
                 is Int -> runtime.newInt(value)
