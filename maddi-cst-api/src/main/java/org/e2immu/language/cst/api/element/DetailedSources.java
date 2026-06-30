@@ -95,6 +95,21 @@ public interface DetailedSources {
     Object FINAL = new Object();
 
     /**
+     * Source-form markers. A surface construct that desugars to a more general CST node carries one of these
+     * on that node's source, recording how it was written so a refactoring engine can reproduce the original
+     * syntax rather than the expansion. The value is the position of the operator token. Cross-language sugar
+     * (Kotlin/C#/Groovy/TypeScript variants), so they live in the language-agnostic API.
+     */
+    /** A null-coalescing operator (e.g. Kotlin {@code a ?: b}) on the {@code InlineConditional} it expands to. */
+    Object NULL_COALESCING = new Object();
+    /** A null-safe access/call operator (e.g. Kotlin {@code a?.b}) on the {@code InlineConditional} it expands to. */
+    Object NULL_SAFE = new Object();
+    /** An index-access operator (e.g. Kotlin {@code a[i]}) on the {@code get}/{@code set} call it expands to. */
+    Object INDEX_ACCESS = new Object();
+    /** A non-null assertion (e.g. Kotlin {@code a!!}) on the asserted expression. */
+    Object NON_NULL_ASSERTION = new Object();
+
+    /**
      * Returns the single {@link Source} associated with {@code object}, or {@code null} if absent.
      * Use when at most one position is expected for the given key.
      */
