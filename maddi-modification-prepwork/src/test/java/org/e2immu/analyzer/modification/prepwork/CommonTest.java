@@ -30,13 +30,13 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.LoggerFactory;
 
+import org.e2immu.support.SetOnceMap;
+
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 import static org.e2immu.language.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
@@ -56,7 +56,7 @@ public class CommonTest {
     // registered in the input configuration and carries the classpath dependencies. Tests that parse external
     // files in their own (per-directory) source sets override openJdkExtraSourceSetNames(); the built, registered
     // source sets are then available here by name.
-    protected final Map<String, SourceSet> openJdkSourceSetsByName = new HashMap<>();
+    protected final SetOnceMap<String, SourceSet> openJdkSourceSetsByName = new SetOnceMap<>();
 
     // names of extra (per-directory) source sets a subclass needs registered for openjdk single-file parsing
     protected List<String> openJdkExtraSourceSetNames() {
@@ -126,7 +126,7 @@ public class CommonTest {
         javaInspector = new org.e2immu.language.inspection.openjdk.JavaInspectorImpl();
         javaInspector.initialize(inputConfiguration);
         sources.computePriorityDependencies();
-        openJdkSourceSetsByName.values().forEach(SourceSet::computePriorityDependencies);
+        openJdkSourceSetsByName.valueStream().forEach(SourceSet::computePriorityDependencies);
     }
 
     private void maddiParser() throws IOException {

@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 import static org.junit.jupiter.api.Assertions.*;
@@ -104,5 +105,18 @@ public class TestJavaInspector7MulltiTypeSource {
         MethodInfo method = Y.findUniqueMethod("method", 1);
         MethodCall mc = ((MethodCall) method.methodBody().statements().getFirst().expression());
         assertEquals("test-protocol2::a.b.X1.method(java.lang.String)", mc.methodInfo().descriptor());
+    }
+
+    @Test
+    public void parseResultHasSourceSetsByName() {
+        ParseResult parseResult = javaInspector.parseMultiSourceSet(Map.of(sourceSet1, Map.of("a.b.X1", INPUTX1),
+                                sourceSet2, Map.of("a.b.X1", INPUTX1_2, "a.b.Y", INPUTY)),
+                        JavaInspectorImpl.DETAILED_SOURCES)
+                .parseResult();
+        Map<String, SourceSet> byName = parseResult.sourceSetsByName();
+        assertFalse(byName.isEmpty());
+        assertEquals(Set.of(TEST_PROTOCOL + "1", TEST_PROTOCOL + "2"), byName.keySet());
+        assertSame(sourceSet1, byName.get(TEST_PROTOCOL + "1"));
+        assertSame(sourceSet2, byName.get(TEST_PROTOCOL + "2"));
     }
 }

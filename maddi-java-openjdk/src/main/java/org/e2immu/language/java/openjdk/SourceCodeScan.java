@@ -28,6 +28,8 @@ public final class SourceCodeScan {
     private final NavigableMap<Source, Map<String, Source>> modifiers = new TreeMap<>();
     // type source -> source of its nature keyword (class/interface/enum/record/@interface)
     private final NavigableMap<Source, Source> typeKeyword = new TreeMap<>();
+    // type source -> source of its simple name (the identifier following the nature keyword)
+    private final NavigableMap<Source, Source> typeName = new TreeMap<>();
 
     public SourceCodeScan(Runtime runtime) {
         this.runtime = runtime;
@@ -38,7 +40,8 @@ public final class SourceCodeScan {
                          NavigableMap<Source, String> keywords,
                          NavigableMap<Source, Map<Object, Object>> argumentLists,
                          NavigableMap<Source, Map<String, Source>> modifiers,
-                         NavigableMap<Source, Source> typeKeyword) {
+                         NavigableMap<Source, Source> typeKeyword,
+                         NavigableMap<Source, Source> typeName) {
         // keyed by the element source: type=source(td), method=source(md), field=per-declarator source(vd),
         // parameter=source(fp); returns (modifier keyword -> keyword source) or null
         public Map<String, Source> findModifiers(Source elementSource) {
@@ -48,6 +51,11 @@ public final class SourceCodeScan {
         // keyed by the type source; returns the source of the class/interface/enum/record/@interface keyword, or null
         public Source findTypeKeyword(Source typeSource) {
             return typeKeyword.get(typeSource);
+        }
+
+        // keyed by the type source; returns the source of the type's simple name, or null
+        public Source findTypeName(Source typeSource) {
+            return typeName.get(typeSource);
         }
 
         public Source find(String keyword, Source source) {
@@ -158,7 +166,8 @@ public final class SourceCodeScan {
                 Collections.unmodifiableNavigableMap(keywords),
                 Collections.unmodifiableNavigableMap(argumentLists),
                 Collections.unmodifiableNavigableMap(modifiers),
-                Collections.unmodifiableNavigableMap(typeKeyword));
+                Collections.unmodifiableNavigableMap(typeKeyword),
+                Collections.unmodifiableNavigableMap(typeName));
     }
 
     private void handleCompilationUnit(JavaParser p) {
@@ -251,6 +260,8 @@ public final class SourceCodeScan {
                     keywords.put(source(node), string);
                     typeKeyword.put(source(td), source(node));
                 }
+                // the type's simple name: the first identifier child, immediately following the nature keyword
+                case Identifier _ -> typeName.putIfAbsent(source(td), source(node));
                 case ExtendsList el -> {
                     Node extendsKeyword = el.getFirst();
                     keywords.put(source(extendsKeyword), extendsKeyword.getSource());

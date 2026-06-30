@@ -2,19 +2,36 @@
 
 *Reference for the `org.e2immu.analyzer.modification.link.vf` package.*
 
+> **Terminology** — this uses the vocabulary of *road-to-immutability* (`road-to-immutability/src/docs/asciidoc`),
+> which is the authoritative source. A quick recap, because it is easy to get wrong:
+> - **accessible content** of a type = the objects in its fields' object-graph whose type is actually *accessed*
+>   (a method other than an `Object` method is called, or a field is read). **hidden content** = the objects of
+>   *hidden* (unbound type parameter) or *transparent* type — never accessed. *A type is not responsible for
+>   modifications to its hidden content.*
+> - **modification** (`@Modified`/`@NotModified`) is about *assignments somewhere in the object graph*; it is the
+>   property that propagates along links.
+> - **dependence/independence** is a **separate axis** from immutability: a parameter/return is *dependent* when it
+>   is linked to the **accessible** content, *independent* (`@Independent`, or `@Independent(hc=true)`) when it is at
+>   most linked to the **hidden** content.
+> - **immutable** (`@Immutable`) is a *type-lattice* property (final fields + all fields `@NotModified` + fields
+>   private-or-immutable + independence), **not** "has no setters". So in this document *"mutable"* means *"not
+>   `@Immutable`"* (its accessible content can be modified), not "has a modifying method". `hc=true` marks a type
+>   that carries hidden content.
+
 ## 1. The problem they solve
 
-Type-linking and modification-linking need to reason about two properties of a value's type:
+Type-linking and modification-linking need to reason about two things about a value's type:
 
-1. its **hidden content** — the generic payload it carries (the things you can get *out* of it: the `E` of a
-   `List<E>`, the `K`/`V` of a `Map<K,V>`), and
-2. its **mutability** — whether the object can be modified, so that a modification can be propagated to everything
-   linked to it.
+1. its **hidden content** — the part of the object graph of *hidden* type (the `E` of a `List<E>`, the `K`/`V` of a
+   `Map<K,V>`): what can be linked *independently* and what modifications get *propagated into* (rather than being
+   the type's own responsibility), and
+2. whether its **accessible content can be modified**, so that a modification can be propagated to everything linked
+   to it (the modification axis, *not* a statement about the type being `@Immutable`).
 
 For types whose source we analyse, we have the real fields and can reason directly. For **interfaces** and for
 **JDK / shallow-analysed classes** we do *not* parse the body, so there are no fields to reason about. *Virtual
 fields* fill that gap: they are ordinary `FieldInfo` objects, **created but never attached to a type**, that stand
-in for the hidden content and the mutability of such a type.
+in for the hidden content and for the modifiability of the accessible content of such a type.
 
 A virtual field's name always starts with the marker character **`§`** (`VF_CHAR`). The marker **`$`**
 (`VF_CONCRETE`) is used inside names for *concrete* (non-type-parameter) payload.
@@ -25,19 +42,23 @@ A virtual field's name always starts with the marker character **`§`** (`VF_CHA
 
 | field | meaning | type |
 |-------|---------|------|
-| `mutable` (`§m`) | "this object is mutable / can be modified". Propagation reads as *if I am modified, you are modified*. | `java.util.concurrent.atomic.AtomicBoolean` (chosen because it is itself modifiable; the boolean value is irrelevant) |
-| `hiddenContent` | the generic payload, with a **multiplicity** (see §3) encoded as array dimensions | depends on the type parameters |
+| `mutable` (`§m`) | a **modification marker for the accessible content**: this object's accessible content can be modified, so a modification propagates along links — *if I am modified, you are modified*. (It is **not** a claim that the type "is mutable" in any deeper sense; it tracks the `@Modified` axis.) | `java.util.concurrent.atomic.AtomicBoolean` (chosen because it is itself modifiable; the boolean value is irrelevant) |
+| `hiddenContent` | the **hidden content** (the type parameters' payload), with a **multiplicity** (see §3) encoded as array dimensions; this is what *independent* (`hc=true`) linking and modification-propagation-into-hidden-content attach to | depends on the type parameters |
 
 `VirtualFields.toString()` renders as `<mutable> - <hiddenContent>`, using `/` for a `null` component, e.g.
 `§m - E[] §es`, or `/ - String §1`, or `/ - /` (= `VirtualFields.NONE`).
 
 ### When is `§m` present?
 
-- type has array dimensions, or any of its parameters is mutable → yes (`makeMutable`);
-- otherwise it depends on the type's `IMMUTABLE_TYPE` analysis: mutable → yes, immutable → no.
+- type has array dimensions, or any of its parameters has a mutable accessible content → yes (`makeMutable`);
+- otherwise it depends on the type's `IMMUTABLE_TYPE` analysis: not `@Immutable` → yes, `@Immutable` → no.
 
-Because shallow JDK types usually have **no immutability analysis loaded**, they default to *mutable* and therefore
-get a `§m`. Several tests note this ("the §m is there because we have not done the @Final analysis").
+Note this is about the *accessible* content: an `@Immutable` type with **mutable concrete hidden content** still gets
+a `§m` — e.g. `Optional<StringBuilder>` is `§m - StringBuilder §0`, because the `StringBuilder` reachable through it
+can be modified, even though `Optional` itself is immutable.
+
+Because shallow JDK types usually have **no immutability analysis loaded**, they default to *not `@Immutable`* and
+therefore get a `§m`. Several tests note this ("the §m is there because we have not done the @Final analysis").
 
 ## 3. Multiplicity
 
@@ -97,7 +118,7 @@ owner recursively, so the owner must be kept consistent with the scope's type).
 | type | role |
 |------|------|
 | `VirtualFieldComputer` | the engine: `compute(pt, addTranslation) → VfTm(virtualFields, formalToConcrete)` |
-| `VirtualFields` | the `(mutable, hiddenContent)` record (also a `Value`, see caveats) |
+| `VirtualFields` | the `(mutable, hiddenContent)` record |
 | `VirtualFieldTranslationMap` (prepwork iface) / `VirtualFieldTranslationMapImpl` | formal→concrete translation |
 | `VariableTranslationMap` | re-creates virtual fields with changed owner/scope |
 | `Util.virtual / needsVirtual / hasVirtualFields / primary / isContainerType / isVirtualModification` | predicates/helpers used throughout linking |
@@ -126,10 +147,19 @@ owner recursively, so the owner must be kept consistent with the scope's type).
 These were found while documenting; they are covered by tests in `TestVirtualFieldComputer3` (some as
 `@Disabled` reminders) so they resurface if touched.
 
-1. **Class-comment vs implementation for ≥3 type parameters.** The header comment of `VirtualFieldComputer`
-   describes *pairwise-combination* containers (`TSV(T t, S s, V v, TS ts, SV sv, TV tv)`). The implementation
-   (`multipleTypeParameters`) builds a **flat** container with one field per parameter only: `Three<A,B,C>` →
-   `§ABC{§a, §b, §c}`. The comment should be corrected (or the feature implemented).
+1. **Flat vs pairwise-combination container for ≥3 type parameters — a real gap, not just a comment.** The
+   implementation (`multipleTypeParameters`) builds a **flat** container with one field per parameter
+   (`Three<A,B,C>` → `§ABC{§a, §b, §c}`); the original header comment described *pairwise-combination* containers
+   (`TSV{T,S,V,TS,SV,TV}` with `[-1]` slicing). The comment is corrected, but the difference is not cosmetic:
+   `TestVirtualFieldTable` (Guava-style `Table<R,C,V>`) shows the flat container handles **singletons** (`get`→`V`
+   at `§rcvs[-3]`, `rowKeySet`→`R` at `§rcvs[-1]`, `put` params) and the full triple, but a method returning a
+   **proper sub-tuple view** — `row(R)`→`Map<C,V>`, `column(C)`→`Map<R,V>` — gets **no link at all** (treated as
+   independent of the table). `ExpandSlice` only reassembles the *full* container (all components), so the missing
+   `§cv`/`§rv` components mean these views aren't linked, and a modification to such a live view would not propagate
+   back. Only affects types with ≥3 type parameters and sub-tuple-returning methods (no JDK types; Guava-`Table`
+   shaped user code). **Decision (2026-06): keep flat.** The gap is accepted and documented; `TestVirtualFieldTable`
+   pins the behaviour so it resurfaces if anyone relies on sub-tuple linking. Revisit only if Guava-`Table`-shaped
+   types with live sub-tuple views become important.
 
 2. **`addModificationFieldEquivalence` looks like a copy-paste bug — but is load-bearing.** It computes
    `immutableFrom = typeImmutable(to.parameterizedType())` (reads `to`, not `from`). Changing it to `from` makes
@@ -138,16 +168,23 @@ These were found while documenting; they are covered by tests in `TestVirtualFie
    decision on the intended modification semantics, and the affected expected-values updated. Left as-is with an
    in-code note. (`VirtualFieldComputer`, the `M2` method.)
 
-3. **Two overlapping "does this need virtual fields?" predicates.** `Util.needsVirtual(ParameterizedType)`
-   excludes **all** functional interfaces (`isFunctionalInterface()`), whereas `compute(...)` only short-circuits
-   the `java.util.function` *package* by name. So `Runnable`, `Callable`, and user `@FunctionalInterface` types
-   outside that package *do* get virtual fields from `compute` (e.g. `Runnable` → `§m - Runnable §n`) while
-   `needsVirtual` says they do not. Decide on one notion of "functional interface → no fields".
+3. **Two overlapping "does this need virtual fields?" predicates — load-bearing divergence, left in place
+   (2026-06).** `Util.needsVirtual(...)` excludes **all** functional interfaces (`isFunctionalInterface()`), while
+   `compute(...)` only short-circuits the `java.util.function` *package*. They disagree for every functional
+   interface outside `java.util.function` (`TestVirtualFieldComputer3`): e.g. `Callable<V>` -> `compute` gives
+   `§m - V §v` but `needsVirtual` says `false`. The road-to-immutability *concept* ("functional interface = abstract
+   type; only java.util.function is special") suggests `compute` is the aligned one -- **but the divergence turned
+   out load-bearing**: functional-interface values are linked via the SAM/lambda path, not via virtual-field hidden
+   content, so `needsVirtual` returning `false` for them is what the modification-propagation path relies on.
+   Aligning `needsVirtual` to `compute` keeps the link unit-tests green yet breaks five `TestModificationFunctional`
+   cases (propagation through custom functional interfaces such as `ThrowingFunction`). So unifying these needs a
+   redesign of how functional-interface values are linked, not a one-line predicate change; left documented, with an
+   in-code note on `needsVirtual`.
 
 4. **Dead code — REMOVED (2026-06).** `VirtualFieldComputer.arrayType(ParameterizedType)` was never called (its
    logic is duplicated inline in the `typeParameter(...)` `arrays>0` branch). Deleted.
 
-5. **Vestigial `Value`/`Property` machinery.** `VirtualFields` implements `Value` and declares
-   `VIRTUAL_FIELDS = new PropertyImpl(...)`, but the property is never read/written on any `analysis()` and
-   `VirtualFields.encode(...)` throws `UnsupportedOperationException`. Virtual fields are recomputed on demand, so
-   the `Value` interface appears unused — either wire it up (cache on the type) or drop it.
+5. **Vestigial `Value`/`Property` machinery — REMOVED (2026-06).** `VirtualFields` implemented `Value` and declared
+   `VIRTUAL_FIELDS = new PropertyImpl(...)`, but the property was never read/written on any `analysis()` and
+   `encode(...)` threw `UnsupportedOperationException`. Virtual fields are recomputed on demand, so `VirtualFields`
+   is now a plain record (the `Value`/property/encode machinery was dropped).
