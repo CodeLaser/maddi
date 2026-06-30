@@ -120,4 +120,42 @@ class KotlinAnalyzerSmokeTest {
         // makes Kotlin property access look like Java field access)
         assertEquals("Box.this, Box.value", vd.knownVariableNamesToString())
     }
+
+    @Test
+    fun whileLoopVariableData() {
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "W.kt",
+            "class W { fun count(n: Int): Int { var i = 0; while (i < n) { i = i + 1 }; return i } }\n"
+        )
+        val m = types.first().findUniqueMethod("count", 1)
+        PrepAnalyzer(runtime).doMethod(m)
+        val vd = VariableDataImpl.of(m.methodBody().lastStatement())
+        // init (0) + the loop body `i = i + 1` at the nested index (1.0.0)
+        assertEquals("D:0, A:[0, 1.0.0]", vd.variableInfo("i").assignments().toString())
+    }
+
+    @Test
+    fun whenStatementVariableData() {
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "S.kt",
+            "class S { fun pick(x: Int): Int { var r = 0; when (x) { 1 -> { r = 1 } else -> { r = 2 } }; return r } }\n"
+        )
+        val m = types.first().findUniqueMethod("pick", 1)
+        PrepAnalyzer(runtime).doMethod(m)
+        val vd = VariableDataImpl.of(m.methodBody().lastStatement())
+        // both `when` arms (1.0.0, 1.1.0) + merge (1=M): switch-entry indices flow through the analyzer
+        assertEquals("D:0, A:[0, 1.0.0, 1.1.0, 1=M]", vd.variableInfo("r").assignments().toString())
+    }
+
+    @Test
+    fun lambdaThroughAnalyzer() {
+        // a method returning a lambda: exercises the synthetic anonymous type + invoke SAM through analysis
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "L.kt",
+            "class L { fun make(): (Int) -> Int = { x -> x + 1 } }\n"
+        )
+        val make = types.first().findUniqueMethod("make", 0)
+        PrepAnalyzer(runtime).doMethod(make)
+        assertNotNull(VariableDataImpl.of(make.methodBody().lastStatement()))
+    }
 }
