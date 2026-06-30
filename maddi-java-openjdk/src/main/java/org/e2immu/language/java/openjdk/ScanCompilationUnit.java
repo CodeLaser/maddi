@@ -1403,16 +1403,30 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             if (node instanceof JCTree.JCVariableDecl variableDecl) {
                 DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
                 if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
+                    String name = varSymbol.toString();
+                    List<AnnotationExpression> annots = new ArrayList<>();
+                    ParameterizedType type;
+                    // For an explicit-type local variable, convert the type and register the variable on the element
+                    // stack BEFORE its initializer is scanned, so a self-referencing initializer such as
+                    // 'Matcher m = m = pattern.matcher(s);' can resolve the variable. For 'var' the type is only
+                    // known after the initializer (which may even create the anonymous type it infers), so keep the
+                    // original order there. Fields (currentMethod == null) keep the original order too.
+                    boolean explicitTypeLocal = currentMethod != null
+                            && !variableDecl.declaredUsingVar() && variableDecl.vartype != null;
                     currentExpression = null;
-                    scan(node.getInitializer(), p);
+                    if (explicitTypeLocal) {
+                        type = convertTypeWithAnnotations(variableDecl.vartype, dsb, annots::add);
+                        elementStack.put(name, runtime.newLocalVariable(name, type));
+                        scan(node.getInitializer(), p);
+                    } else {
+                        scan(node.getInitializer(), p);
+                        // must come after evaluation of initializer (when it creates a lambda, anonymous type)
+                        type = convertTypeWithAnnotations(variableDecl.vartype, dsb, annots::add);
+                    }
                     if (currentExpression == null) {
                         currentExpression = runtime.newEmptyExpression();
                     }
                     Expression initializer = currentExpression;
-                    List<AnnotationExpression> annots = new ArrayList<>();
-                    // must come after evaluation of initializer (when it creates a lambda, anonymous type)
-                    ParameterizedType type = convertTypeWithAnnotations(variableDecl.vartype, dsb, annots::add);
-                    String name = varSymbol.toString();
                     if (currentMethod == null) {
                         createField(variableDecl, varSymbol, name, type, annots, dsb, initializer);
                     } else {
@@ -1600,13 +1614,23 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         return null;
     }
 
+    // an assignment target may be parenthesised, e.g. '(ch) = in.read()'; strip the parentheses to reach the
+    // underlying variable expression
+    private static VariableExpression asAssignmentTarget(Expression expression) {
+        Expression e = expression;
+        while (e instanceof EnclosedExpression enclosed) {
+            e = enclosed.inner();
+        }
+        return (VariableExpression) e;
+    }
+
     @Override
     public Void visitAssignment(AssignmentTree node, Void unused) {
         JCTree.JCAssign assign = (JCTree.JCAssign) node;
         scan(assign.rhs, unused);
         Expression value = currentExpression;
         scan(assign.lhs, unused);
-        VariableExpression target = (VariableExpression) currentExpression;
+        VariableExpression target = asAssignmentTarget(currentExpression);
         currentExpression = runtime.newAssignmentBuilder()
                 .setSource(sourceForNode(node))
                 .setTarget(target)
@@ -1621,7 +1645,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         scan(assignOp.rhs, p);
         Expression value = currentExpression;
         scan(assignOp.lhs, p);
-        VariableExpression target = (VariableExpression) currentExpression;
+        VariableExpression target = asAssignmentTarget(currentExpression);
         Tree.Kind kind = node.getKind();
         MethodInfo operator = switch (kind) {
             case PLUS_ASSIGNMENT -> runtime.assignPlusOperatorInt();
@@ -2351,6 +2375,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 expressions.add(currentExpression);
                 commonType = commonType == null ? currentExpression.parameterizedType()
                         : runtime.commonType(commonType, currentExpression.parameterizedType());
+            }
+            if (commonType == null) {
+                // empty initializer, e.g. 'int[] x = {};': derive the element type from the array's attributed type
+                // (the common-type fold produced nothing). ArrayInitializer.parameterizedType() adds one array
+                // dimension back, so store the element type here.
+                ParameterizedType arrayType = convertType.convert(newArray.type);
+                commonType = arrayType.copyWithArrays(Math.max(0, arrayType.arrays() - 1));
             }
             arrayInitializer = runtime.newArrayInitializerBuilder()
                     .setSource(sourceForNode(node))

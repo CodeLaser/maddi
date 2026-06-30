@@ -773,10 +773,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             Wildcard wildCard = isExtends ? runtime.wildcardExtends() : runtime.wildcardSuper();
             ParameterizedType base = convert(wildcardType.type, visited);
             assert base != null;
+            // preserve the bound's array dimension and type arguments: e.g. '? extends byte[]' must stay byte[]
+            // (an array), not collapse to the primitive byte (which is an illegal type argument), and
+            // '? extends List<String>' must keep its String argument.
             if (base.isTypeParameter()) {
-                return runtime.newParameterizedType(base.typeParameter(), 0, wildCard);
+                return runtime.newParameterizedType(base.typeParameter(), base.arrays(), wildCard);
             }
-            return runtime.newParameterizedType(base.typeInfo(), 0, wildCard, List.of());
+            return runtime.newParameterizedType(base.typeInfo(), base.arrays(), wildCard, base.parameters());
         }
         if (type instanceof Type.TypeVar typeVar) {
             String typeParameterName = typeVar.tsym.toString();
@@ -797,7 +800,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                         ParameterizedType upperPt = convert(typeVar.getUpperBound(), visitedNotNull);
                         assert upperPt != null;
                         TypeInfo upper = upperPt.typeInfo();
-                        return runtime.newParameterizedType(upper, 0, runtime.wildcardExtends(), List.of());
+                        // preserve the bound's array dimension and type arguments: e.g. the captured 'CAP extends
+                        // byte[]' from byte[].getClass() must stay byte[] (an array), not collapse to the primitive
+                        // byte (an illegal type argument)
+                        return runtime.newParameterizedType(upper, upperPt.arrays(), runtime.wildcardExtends(),
+                                upperPt.parameters());
                     }
                     return runtime.parameterizedTypeWildcard();
                 } else {
