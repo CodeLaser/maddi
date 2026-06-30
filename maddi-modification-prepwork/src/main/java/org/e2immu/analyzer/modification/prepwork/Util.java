@@ -317,6 +317,11 @@ public class Util {
 
     public static boolean needsVirtual(ParameterizedType pt) {
         if (pt.typeParameter() != null && pt.arrays() > 0) return true;
+        // NOTE: this excludes ALL functional interfaces, not just java.util.function (which is what
+        // VirtualFieldComputer.compute() does) -- see virtual-fields.md #3. It looks inconsistent, but it is
+        // load-bearing: functional-interface values are handled via the SAM/lambda linking path, not via
+        // virtual-field hidden content, and aligning this to compute() breaks TestModificationFunctional
+        // (modification propagation through custom functional interfaces such as ThrowingFunction).
         if (pt.isFunctionalInterface()) return false;
         TypeInfo best = pt.bestTypeInfo();
         return best != null && (best.isAbstract() || best.compilationUnit().externalLibrary());

@@ -47,7 +47,7 @@ public class TestEmptyBlock extends CommonTest {
     @DisplayName("empty block causes issues")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("X", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }

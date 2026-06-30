@@ -60,11 +60,16 @@ public class TestImmutable extends CommonTest {
     @DisplayName("basics")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         List<Info> ao = prepWork(X);
+        // the openjdk parser materializes the records' synthetic equals/hashCode/toString, so they appear in
+        // the analysis order (the maddi parser did not generate them)
         assertEquals("""
-                [a.b.X.<init>(), a.b.X.M.<init>(), a.b.X.M.setI(int), a.b.X.R.<init>(String,int), a.b.X.R.i(), \
-                a.b.X.R.s(), a.b.X.RM.i(), a.b.X.RT.<init>(String,Object), a.b.X.RT.s(), a.b.X.RT.t(), a.b.X.M.i, a.b.X.R.i, \
+                [a.b.X.<init>(), a.b.X.M.<init>(), a.b.X.M.setI(int), a.b.X.R.<init>(String,int), \
+                a.b.X.R.equals(Object), a.b.X.R.hashCode(), a.b.X.R.i(), a.b.X.R.s(), a.b.X.R.toString(), \
+                a.b.X.RM.equals(Object), a.b.X.RM.hashCode(), a.b.X.RM.i(), a.b.X.RM.toString(), \
+                a.b.X.RT.<init>(String,Object), a.b.X.RT.equals(Object), a.b.X.RT.hashCode(), a.b.X.RT.s(), \
+                a.b.X.RT.t(), a.b.X.RT.toString(), a.b.X.M.i, a.b.X.R.i, \
                 a.b.X.R.s, a.b.X.RT.s, a.b.X.RT.t, a.b.X.M, a.b.X.R, a.b.X.RT, a.b.X.MF.<init>(a.b.X.M), \
                 a.b.X.RM.<init>(a.b.X.M,int), a.b.X.RM.m(), a.b.X.MF.m, a.b.X.RM.i, a.b.X.RM.m, a.b.X.MF, a.b.X.RM, a.b.X]\
                 """, ao.toString());
@@ -125,7 +130,7 @@ public class TestImmutable extends CommonTest {
                 }
             
                 class LI implements L {
-                    int get() { return 10; }
+                    public int get() { return 10; }
                 }
             
                 //modifying (implicit in abstract void methods)
@@ -139,7 +144,7 @@ public class TestImmutable extends CommonTest {
     @DisplayName("interfaces")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         List<Info> ao = prepWork(X);
         analyzer.go(ao);
 
@@ -202,7 +207,7 @@ public class TestImmutable extends CommonTest {
     @DisplayName("type parameters in records")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT3);
         List<Info> ao = prepWork(X);
         analyzer.go(ao);
 
@@ -278,7 +283,7 @@ public class TestImmutable extends CommonTest {
     @DisplayName("only one is @FinalFields")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT4);
         List<Info> ao = prepWork(X);
         assertEquals("""
                 [a.b.X.<init>(), a.b.X.Break.<init>(int), a.b.X.Continue.<init>(int), a.b.X.Continue.level(), \

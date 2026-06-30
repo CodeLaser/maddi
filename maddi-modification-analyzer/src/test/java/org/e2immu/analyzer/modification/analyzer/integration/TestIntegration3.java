@@ -46,7 +46,7 @@ public class TestIntegration3 extends CommonTest {
                     Long getId();
                 }
                 static class Lists {
-                    static <T> List<T> partition(List<T> list, int groups) {
+                    static <T> List<List<T>> partition(List<T> list, int groups) {
                         throw new UnsupportedOperationException("NYI");
                     }
                 }
@@ -78,7 +78,7 @@ public class TestIntegration3 extends CommonTest {
     @DisplayName("virtual field computation")
     @Test
     public void test1a() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("X", INPUT1);
         List<Info> ao = prepWork(B);
         VirtualFieldComputer virtualFieldComputer = new VirtualFieldComputer(javaInspector);
         MethodInfo find = B.findUniqueMethod("find", 2);

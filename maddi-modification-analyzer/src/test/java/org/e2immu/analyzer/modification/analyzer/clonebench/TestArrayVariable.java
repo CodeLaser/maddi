@@ -57,7 +57,7 @@ public class TestArrayVariable extends CommonTest {
     @DisplayName("array variable")
     @Test
     public void test1() {
-        TypeInfo C = javaInspector.parse(INPUT1);
+        TypeInfo C = javaInspector.parse("C", INPUT1);
         List<Info> ao = prepWork(C);
         analyzer.go(ao);
         MethodInfo put = C.findUniqueMethod("put", 3);
@@ -104,7 +104,7 @@ public class TestArrayVariable extends CommonTest {
     @DisplayName("array variable")
     @Test
     public void test2() {
-        TypeInfo C = javaInspector.parse(INPUT2);
+        TypeInfo C = javaInspector.parse("a.b.X", INPUT2);
         List<Info> ao = prepWork(C);
         analyzer.go(ao);
     }

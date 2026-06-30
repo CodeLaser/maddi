@@ -45,7 +45,7 @@ public class TestModificationBasics extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.Test", INPUT1);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
 
@@ -74,7 +74,7 @@ public class TestModificationBasics extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.Test", INPUT2);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
 
@@ -123,7 +123,7 @@ public class TestModificationBasics extends CommonTest {
 
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT3);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
         {
@@ -190,7 +190,7 @@ public class TestModificationBasics extends CommonTest {
     @DisplayName("recursive method")
     @Test
     public void test4() {
-        TypeInfo B = javaInspector.parse(INPUT4);
+        TypeInfo B = javaInspector.parse("X", INPUT4);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
 
@@ -225,7 +225,7 @@ public class TestModificationBasics extends CommonTest {
     @DisplayName("pack and unpack, with local variables")
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT5);
         List<Info> ao = prepWork(X);
         analyzer.go(ao);
         MethodInfo method = X.findUniqueMethod("method", 1);

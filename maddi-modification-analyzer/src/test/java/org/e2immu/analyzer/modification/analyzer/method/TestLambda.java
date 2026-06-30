@@ -46,7 +46,7 @@ public class TestLambda extends CommonTest {
     @DisplayName("using @Identity method")
     @Test
     public void test1() {
-        TypeInfo C1 = javaInspector.parse(INPUT1);
+        TypeInfo C1 = javaInspector.parse("a.b.ii.C1", INPUT1);
         List<Info> ao = prepWork(C1);
         analyzer.go(ao);
 

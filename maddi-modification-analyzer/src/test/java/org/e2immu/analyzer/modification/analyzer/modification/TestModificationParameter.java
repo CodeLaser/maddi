@@ -65,7 +65,7 @@ public class TestModificationParameter extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.Function63498_file16492", INPUT1);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
         MethodInfo methodInfo = X.findUniqueMethod("method", 5);
@@ -106,7 +106,7 @@ public class TestModificationParameter extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("BundleJSONParser", INPUT2);
 
         TypeInfo readerType = javaInspector.compiledTypesManager().getOrLoad(Reader.class);
         MethodInfo readMethod = readerType.findUniqueMethod("read", 3);
@@ -155,7 +155,7 @@ public class TestModificationParameter extends CommonTest {
 
     @Test
     public void test3() {
-        TypeInfo B = javaInspector.parse(INPUT3);
+        TypeInfo B = javaInspector.parse("Function18024_file101780", INPUT3);
 
         TypeInfo file = javaInspector.compiledTypesManager().getOrLoad(File.class);
         MethodInfo listFiles = file.findUniqueMethod("listFiles", 0);
@@ -240,7 +240,7 @@ public class TestModificationParameter extends CommonTest {
 
     @Test
     public void test4() {
-        TypeInfo B = javaInspector.parse(INPUT4);
+        TypeInfo B = javaInspector.parse("a.b.X", INPUT4);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
         MethodInfo list = B.findUniqueMethod("list", 1);
@@ -294,7 +294,7 @@ public class TestModificationParameter extends CommonTest {
     @DisplayName("does the modification travel via the field?")
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT5);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
         {

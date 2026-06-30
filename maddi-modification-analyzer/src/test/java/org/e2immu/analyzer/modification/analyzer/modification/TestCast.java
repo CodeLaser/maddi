@@ -47,7 +47,7 @@ public class TestCast extends CommonTest {
     @DisplayName("links of cast in record")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         List<Info> ao = prepAnalyzer.doPrimaryType(X);
         analyzer.go(ao);
 
@@ -83,7 +83,7 @@ public class TestCast extends CommonTest {
     @DisplayName("links of cast in record, accessor")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT3);
         List<Info> ao = prepAnalyzer.doPrimaryType(X);
         analyzer.go(ao);
 
@@ -152,7 +152,7 @@ public class TestCast extends CommonTest {
             import java.util.Set;
             class B {
                 void method(Object object) {
-                    if(object instanceof Set<String> set) {
+                    if(object instanceof Set set) {
                         set.add("ok");
                     }
                 }
@@ -162,7 +162,7 @@ public class TestCast extends CommonTest {
     @DisplayName("simple instanceof, downcast")
     @Test
     public void test4() {
-        TypeInfo B = javaInspector.parse(INPUT4);
+        TypeInfo B = javaInspector.parse("a.b.B", INPUT4);
         List<Info> ao = prepAnalyzer.doPrimaryType(B);
         analyzer.go(ao);
 
@@ -207,7 +207,7 @@ public class TestCast extends CommonTest {
                 class B {
                     @NotModified
                     void method(@Independent @Modified(downcast = true) Object object) {
-                        if(object instanceof Set<String> set) { set.add("ok"); }
+                        if(object instanceof Set set) { set.add("ok"); }
                     }
                 }
                 """;

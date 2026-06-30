@@ -75,10 +75,12 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
     @Test
     public void test1() {
         // see TestAnalysisOrder,2 for a test of the analysis order of this code
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         List<Info> analysisOrder = prepWork(X);
+        // the openjdk parser materializes the record's synthetic equals/hashCode/toString (the maddi parser did not)
         assertEquals("""
-                [a.b.X.<init>(), a.b.X.ExceptionThrown.<init>(Exception), a.b.X.ExceptionThrown.exception(), \
+                [a.b.X.<init>(), a.b.X.ExceptionThrown.<init>(Exception), a.b.X.ExceptionThrown.equals(Object), \
+                a.b.X.ExceptionThrown.exception(), a.b.X.ExceptionThrown.hashCode(), a.b.X.ExceptionThrown.toString(), \
                 a.b.X.Exit, a.b.X.LoopData.withException(Exception), a.b.X.ExceptionThrown.exception, a.b.X.LoopData, \
                 a.b.X.LoopDataImpl.<init>(a.b.X.Exit), a.b.X.ExceptionThrown, a.b.X.LoopDataImpl.exit, \
                 a.b.X.LoopDataImpl.withException(Exception), a.b.X.LoopDataImpl, a.b.X]\
@@ -194,7 +196,7 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
     @DisplayName("construction as argument to method call")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder, 1);
         testImmutable(X);
