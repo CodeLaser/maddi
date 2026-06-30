@@ -85,6 +85,8 @@ import org.jetbrains.kotlin.psi.KtObjectLiteralExpression
 import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
 import org.jetbrains.kotlin.psi.KtEscapeStringTemplateEntry
 import org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
+import org.jetbrains.kotlin.psi.KtPostfixExpression
+import org.jetbrains.kotlin.psi.KtPrefixExpression
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtReturnExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateEntryWithExpression
@@ -430,6 +432,8 @@ internal class KotlinBodyConverter(
             is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method, locals)
                 ?: runtime.newEmptyExpression("k2-unresolved-ref:${expression.getReferencedName()}")
             is KtBinaryExpression -> convertBinary(expression, method, locals)
+            is KtPostfixExpression -> convertUnary(expression.baseExpression, expression.operationToken, false, method, locals)
+            is KtPrefixExpression -> convertUnary(expression.baseExpression, expression.operationToken, true, method, locals)
             is KtCallExpression -> convertCall(expression, null, true, method, locals) // f(...) on implicit this
             is KtDotQualifiedExpression -> convertQualified(expression, method, locals) // obj.f(...) or obj.x
             is KtLambdaExpression -> convertLambda(expression, method, locals)
@@ -745,6 +749,34 @@ internal class KotlinBodyConverter(
         val pkg = ktFile.packageFqName
         val fqn = (if (pkg.isRoot) "" else pkg.asString() + ".") + facadeSimpleName(ktFile)
         return infoByFqn.getType(fqn, sourceSet)
+    }
+
+    /**
+     * Prefix/postfix unary: `++`/`--` become an [org.e2immu.language.cst.api.expression.Assignment]
+     * (`prefixPrimitiveOperator` distinguishes `++i` from `i++`); `-x` and `!x` become a `UnaryOperator`.
+     */
+    private fun KaSession.convertUnary(base: KtExpression?, token: com.intellij.psi.tree.IElementType,
+                                       prefix: Boolean, method: MethodInfo, locals: Map<String, Variable>): Expression {
+        val operand = base?.let { convertExpression(it, method, locals) } ?: return runtime.newEmptyExpression("k2-unary")
+        return when (token) {
+            KtTokens.PLUSPLUS, KtTokens.MINUSMINUS -> {
+                val target = operand as? VariableExpression ?: return runtime.newEmptyExpression("k2-incr-target")
+                val isPlus = token == KtTokens.PLUSPLUS
+                runtime.newAssignmentBuilder()
+                    .setAssignmentOperator(if (isPlus) runtime.assignPlusOperatorInt() else runtime.assignMinusOperatorInt())
+                    .setPrefixPrimitiveOperator(prefix)
+                    .setAssignmentOperatorIsPlus(isPlus)
+                    .setBinaryOperator(if (isPlus) runtime.plusOperatorInt() else runtime.minusOperatorInt())
+                    .setTarget(target)
+                    .setValue(runtime.intOne(runtime.noSource()))
+                    .setSource(runtime.noSource()).build()
+            }
+            KtTokens.MINUS -> runtime.newUnaryOperator(listOf(), runtime.noSource(),
+                runtime.unaryMinusOperatorInt(), operand, runtime.precedenceUnary())
+            KtTokens.EXCL -> runtime.newUnaryOperator(listOf(), runtime.noSource(),
+                runtime.logicalNotOperatorBool(), operand, runtime.precedenceUnary())
+            else -> runtime.newEmptyExpression("k2-unsupported-unary:$token")
+        }
     }
 
     /**
