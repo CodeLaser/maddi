@@ -88,6 +88,7 @@ import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
 import org.jetbrains.kotlin.psi.KtEscapeStringTemplateEntry
 import org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
+import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtReturnExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateEntryWithExpression
@@ -619,7 +620,13 @@ class KotlinScan(
         // an extension function's receiver becomes the synthetic first parameter (the JVM model)
         function.receiverParameter?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner)) }
         function.valueParameters.forEach { p ->
-            builder.addParameter(p.name.asString(), mapType(p.returnType, owner))
+            val parameterType = mapType(p.returnType, owner)
+            val parameterInfo = builder.addParameter(p.name.asString(), parameterType)
+            // type-reference detail: the parameter's type usage keyed by its TypeInfo (mirroring Java's pt.typeInfo())
+            val parameterPsi = p.psi as? KtParameter
+            parameterType.typeInfo()?.let { typeInfo ->
+                parameterInfo.builder().setSource(declarationSource(parameterPsi, listOf(typeInfo to parameterPsi?.typeReference)))
+            }
         }
         builder.commitParameters() // so method.parameters() is available while converting the body
         val psi = function.psi as? KtNamedFunction

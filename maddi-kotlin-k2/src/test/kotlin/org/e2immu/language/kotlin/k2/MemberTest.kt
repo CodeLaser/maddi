@@ -172,4 +172,23 @@ class MemberTest : KotlinScanTestBase() {
         assertEquals(13, nameSource.endPos())
     }
 
+    @Test
+    fun parameterTypeDetailedSource() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val c = scan.parse(
+            "C.kt",
+            "class C {\n" +
+                "    fun m(count: Int) {}\n" + // `Int` at line 2, cols 18..20
+                "}\n"
+        ).first()
+
+        // the parameter's type reference, keyed by the type's TypeInfo (mirroring Java's pt.typeInfo())
+        val parameter = c.findUniqueMethod("m", 1).parameters().first()
+        val typeSource = parameter.source().detailedSources().detail(parameter.parameterizedType().typeInfo())
+        assertNotNull(typeSource)
+        assertEquals(2, typeSource.beginLine())
+        assertEquals(18, typeSource.beginPos())
+        assertEquals(20, typeSource.endPos())
+    }
+
 }
