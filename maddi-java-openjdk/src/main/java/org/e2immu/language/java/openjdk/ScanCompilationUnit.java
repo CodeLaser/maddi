@@ -2335,6 +2335,15 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             addStatement(statement);
             currentExpression = null; // as a marker for ExpressionAsStatement
         } else {
+            // the method's simple name, e.g. detail("add") for 'list.add(...)'. Keyed by methodInfo.name() (NOT
+            // javac's identifier string): DetailedSources uses an IdentityHashMap, and callers look the entry up
+            // with mc.methodInfo().name(), so the key must be that exact String instance. For an
+            // 'object.method(...)' call the name is the last identifier of the member-select span; for an implicit
+            // call ('method(...)') the method-select identifier is the name itself.
+            Source methodNameSource = methodSelect instanceof MemberSelectTree mstName
+                    ? lastIdentifierSource(sourceForNode(mstName), methodInfo.name())
+                    : sourceForNode(methodSelect);
+            dsb.put(methodInfo.name(), methodNameSource);
             currentExpression = runtime.newMethodCallBuilder()
                     .setSource(sourceForNode(node, dsb))
                     .setObjectIsImplicit(objectIsImplicit)
@@ -2713,6 +2722,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     }
 
     // -- HELPERS ------------------
+
+    // the source of the trailing identifier of a span (e.g. 'add' in 'list.add'): same end as the span, beginning
+    // 'identifier.length()' characters before the (inclusive) end, on the end line
+    private Source lastIdentifierSource(Source span, String identifier) {
+        return runtime.newParserSource(span.index(), span.endLine(),
+                span.endPos() - identifier.length() + 1, span.endLine(), span.endPos());
+    }
 
     private Source sourceOfIdentifier(String identifier, int pos) {
         long line = lineMap.getLineNumber(pos);
