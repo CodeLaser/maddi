@@ -384,4 +384,21 @@ class ExpressionTest : KotlinScanTestBase() {
         assertEquals("b", lvc.otherLocalVariables().first().simpleName())
     }
 
+    @Test
+    fun incrementDecrement() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val inc = scan.parse("Inc.kt", "class Inc { fun m(): Int { var x = 0; x++; --x; return x } }\n").first()
+        val statements = inc.findUniqueMethod("m", 0).methodBody().statements()
+
+        // x++ -> a postfix-increment Assignment
+        val postInc = (statements[1] as ExpressionAsStatement).expression() as Assignment
+        assertEquals(false, postInc.prefixPrimitiveOperator())
+        assertEquals(runtime.assignPlusOperatorInt(), postInc.assignmentOperator())
+
+        // --x -> a prefix-decrement Assignment
+        val preDec = (statements[2] as ExpressionAsStatement).expression() as Assignment
+        assertEquals(true, preDec.prefixPrimitiveOperator())
+        assertEquals(runtime.assignMinusOperatorInt(), preDec.assignmentOperator())
+    }
+
 }
