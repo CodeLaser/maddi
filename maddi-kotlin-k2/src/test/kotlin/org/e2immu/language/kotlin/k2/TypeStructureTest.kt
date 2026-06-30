@@ -351,9 +351,9 @@ class TypeStructureTest : KotlinScanTestBase() {
         assertEquals(7, typeName.beginPos())
         assertEquals(12, typeName.endPos())
 
-        // the method's name (keyed by the MethodInfo)
+        // the method's name (keyed by the name String the Info holds, mirroring Java: detail(info.name()))
         val render = widget.findUniqueMethod("render", 0)
-        val methodName = render.source().detailedSources().detail(render)
+        val methodName = render.source().detailedSources().detail(render.name())
         assertNotNull(methodName)
         assertEquals(2, methodName.beginLine())
         assertEquals(9, methodName.beginPos())
