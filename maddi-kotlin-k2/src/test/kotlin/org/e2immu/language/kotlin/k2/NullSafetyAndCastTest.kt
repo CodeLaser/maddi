@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.expression.InstanceOf
 import org.e2immu.language.cst.api.expression.MethodCall
 import org.e2immu.language.cst.api.expression.UnaryOperator
 import org.e2immu.language.cst.api.expression.VariableExpression
+import org.e2immu.language.cst.api.statement.ExpressionAsStatement
 import org.e2immu.language.cst.api.statement.ReturnStatement
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -73,6 +74,22 @@ class NullSafetyAndCastTest : KotlinScanTestBase() {
         assertTrue(expr is MethodCall)
         assertEquals("get", (expr as MethodCall).methodInfo().name())
         assertNotNull(expr.source().detailedSources().detail(DetailedSources.INDEX_ACCESS))
+    }
+
+    @Test
+    fun indexedAssignmentBecomesSetCall() {
+        // `h[0] = "x"` -> `h.set(0, "x")`
+        val c = KotlinScan(runtime, sourceSet).parse(
+            "C.kt",
+            "class Holder { fun get(i: Int): String = \"\"; fun set(i: Int, v: String) {} }\n" +
+                "class C { fun m(h: Holder) { h[0] = \"x\" } }\n"
+        ).first { it.simpleName() == "C" }
+
+        val statement = c.findUniqueMethod("m", 1).methodBody().statements().first()
+        val call = (statement as ExpressionAsStatement).expression() as MethodCall
+        assertEquals("set", call.methodInfo().name())
+        assertEquals(2, call.parameterExpressions().size) // index, value
+        assertNotNull(call.source().detailedSources().detail(DetailedSources.INDEX_ACCESS))
     }
 
     @Test
