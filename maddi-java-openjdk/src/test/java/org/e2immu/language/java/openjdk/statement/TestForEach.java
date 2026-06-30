@@ -46,6 +46,7 @@ public class TestForEach extends CommonTest {
         MethodInfo main = typeInfo.findUniqueMethod("main", 1);
         if (main.methodBody().statements().getFirst() instanceof ForEachStatement forEach) {
             assertTrue(forEach.initializer().hasSingleDeclaration());
+            assertEquals("5-9:5-16", forEach.initializer().source().compact2());
             assertEquals("s", forEach.initializer().localVariable().simpleName());
             assertTrue(forEach.initializer().localVariable().assignmentExpression().isEmpty());
             if (forEach.expression() instanceof VariableExpression ve) {

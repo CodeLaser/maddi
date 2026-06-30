@@ -395,7 +395,14 @@ public class JavaInspectorImpl implements JavaInspector {
                     // -parameters makes javac's ClassReader keep formal parameter names read from the
                     // MethodParameters attribute (and the LocalVariableTable) of class files on the class/module
                     // path; without it Symbol.MethodSymbol.getParameters() yields synthetic arg0, arg1, ...
-                    List.of("-proc:none", "--enable-preview", "--release=26", "-parameters"),
+                    // -XDuseUnsharedTable=true: give each compilation its OWN javac name table instead of pulling
+                    // from javac's process-wide SharedNameTable freelist. That freelist is shared static state
+                    // across all JavacTask/Context instances in a JVM; under repeated parsing (e.g. hundreds of
+                    // parseSingleFileInSourceSet calls) it intermittently corrupts and surfaces as
+                    // "tree.starImportScope is null" during task.analyze(). maddi keys its CST by FQN strings, not
+                    // javac Names, so not sharing names across compilations is safe here.
+                    List.of("-proc:none", "--enable-preview", "--release=26", "-parameters",
+                            "-XDuseUnsharedTable=true"),
                     null,
                     allCompilationUnits
             );

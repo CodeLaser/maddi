@@ -21,6 +21,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
@@ -31,23 +32,29 @@ public class TestTypeAndPackageDetailedSources extends CommonTest {
 
     @Language("java")
     private static final String A = """
-            package a;
+            package a.b.c;
 
             class A {}
             """;
 
-    @DisplayName("compilation unit should carry the package name in its detailed sources")
+    @DisplayName("compilation unit carries the package name in its detailed sources, keyed by cu.packageName()")
     @Test
     public void compilationUnitShouldHavePackageNameInDetailedSources() {
-        TypeInfo typeA = scan("a.A", A);
+        TypeInfo typeA = scan("a.b.c.A", A);
         CompilationUnit cu = typeA.compilationUnit();
         assertNotNull(cu.source().detailedSources());
+        assertEquals("a.b.c", cu.packageName());
+        // the detail must be retrievable with the EXACT cu.packageName() instance: DetailedSources is identity-keyed
+        assertNotNull(cu.source().detailedSources().detail(cu.packageName()),
+                "no detailed source for package name '" + cu.packageName() + "'");
+        // 'a.b.c' on line 1: 'package a.b.c;'
+        assertEquals("-@1:9-1:13", cu.source().detailedSources().detail(cu.packageName()).toString());
     }
 
     @DisplayName("type declaration should carry its simple name in its detailed sources")
     @Test
     public void typeShouldHaveSimpleNameInDetailedSources() {
-        TypeInfo typeA = scan("a.A", A);
+        TypeInfo typeA = scan("a.b.c.A", A);
         assertNotNull(typeA.source().detailedSources().detail(typeA.simpleName()));
     }
 }
