@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.runtime.Runtime
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl
 import org.e2immu.language.inspection.resource.SourceSetImpl
 import org.e2immu.language.kotlin.k2.KotlinScan
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -69,5 +70,22 @@ class KotlinAnalyzerSmokeTest {
         val inc = types.first().findUniqueMethod("inc", 0)
         val variableData = VariableDataImpl.of(inc.methodBody().lastStatement())
         assertNotNull(variableData)
+    }
+
+    @Test
+    fun variableDataAssignmentsAreCorrect() {
+        // var a = p (stmt 0); a = a + 1 (stmt 1); return a (stmt 2)
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "X.kt",
+            "class X { fun m(p: Int): Int { var a = p; a = a + 1; return a } }\n"
+        )
+        val m = types.first().findUniqueMethod("m", 1)
+        PrepAnalyzer(runtime).doMethod(m)
+
+        val vd = VariableDataImpl.of(m.methodBody().lastStatement())
+        // `a` is defined+assigned at statement 0 and reassigned at statement 1; `p` is a read-only parameter
+        assertEquals("D:0, A:[0, 1]", vd.variableInfo("a").assignments().toString())
+        // the method, its parameter `p` (Kotlin Int -> JVM int), and the local `a`
+        assertEquals("X.m(int), X.m(int):0:p, a", vd.knownVariableNamesToString())
     }
 }
