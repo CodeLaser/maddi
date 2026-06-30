@@ -39,31 +39,61 @@ public class CommonTest {
 
             @Override
             public JavaInspector withSources(SourceSet sourceSet) throws IOException {
-                JavaInspector javaInspector = new org.e2immu.language.inspection.openjdk.JavaInspectorImpl();
-                javaInspector.preload("java.base::java.util.");
-                javaInspector.preload("java.base::java.net");
-                javaInspector.preload("java.base::java.io");
-                javaInspector.preload("java.base::java.nio.");
-                javaInspector.preload("java.base::java.time.");
-                javaInspector.preload("java.base::java.security");
-                javaInspector.preload("java.base::java.lang.annotation");
-                javaInspector.preload("java.base::java.lang.reflect");
-                javaInspector.preload("java.base::java.lang.constant");
-                javaInspector.preload("java.desktop::java.awt");
-                javaInspector.preload("java.desktop::javax.swing.");
-                javaInspector.preload("java.net.http::java.net.http");
-                javaInspector.preload("org.slf4j");
-                javaInspector.preload("org.junit.jupiter.api.");
-                javaInspector.preload("org.e2immu.annotation.");
-                InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
-                        .addSourceSets(sourceSet)
-                        .addClassPathParts(javaBase, javaDesktop, javaNetHttp,
-                                maddiSupport, slf4jApi, logbackClassic, jupiter, junitPlatform, opentest4j,
-                                annotations)
-                        .build();
-                javaInspector.initialize(inputConfiguration);
-                return javaInspector;
+                return javaInspectorWithExtras(sourceSet, List.of(), List.of());
             }
         };
+    }
+
+    /**
+     * Builds an openjdk {@link JavaInspector} with the standard test classpath, plus optional extra source sets
+     * (each registered in the input configuration) and optional extra JDK modules (e.g. {@code "java.sql"}).
+     * Used by clone-bench style tests that parse many external files, each in its own per-directory source set,
+     * and that reference JDK modules beyond java.base/java.desktop/java.net.http.
+     */
+    public static @NonNull JavaInspector javaInspectorWithExtras(SourceSet primarySourceSet,
+                                                                 List<SourceSet> extraSourceSets,
+                                                                 List<String> extraJdkModules) throws IOException {
+        SourceSet javaBase = SourceSetImpl.javaBase();
+        SourceSet javaDesktop = SourceSetImpl.jdkModule("java.desktop");
+        SourceSet javaNetHttp = SourceSetImpl.jdkModule("java.net.http");
+        SourceSet maddiSupport = SourceSetImpl.sourceSetOf(Immutable.class);
+        SourceSet slf4jApi = SourceSetImpl.sourceSetOf(org.slf4j.Logger.class);
+        SourceSet logbackClassic = SourceSetImpl.sourceSetOf(Logger.class);
+        SourceSet junitPlatform = SourceSetImpl.sourceSetOf(JUnitException.class);
+        SourceSet jupiter = SourceSetImpl.sourceSetOf(Test.class, junitPlatform);
+        SourceSet opentest4j = SourceSetImpl.sourceSetOf(AssertionFailedError.class);
+        SourceSet annotations = SourceSetImpl.sourceSetOf(NotNull.class);
+
+        JavaInspector javaInspector = new org.e2immu.language.inspection.openjdk.JavaInspectorImpl();
+        javaInspector.preload("java.base::java.util.");
+        javaInspector.preload("java.base::java.net");
+        javaInspector.preload("java.base::java.io");
+        javaInspector.preload("java.base::java.nio.");
+        javaInspector.preload("java.base::java.time.");
+        javaInspector.preload("java.base::java.security");
+        javaInspector.preload("java.base::java.lang.annotation");
+        javaInspector.preload("java.base::java.lang.reflect");
+        javaInspector.preload("java.base::java.lang.constant");
+        javaInspector.preload("java.desktop::java.awt");
+        javaInspector.preload("java.desktop::javax.swing.");
+        javaInspector.preload("java.net.http::java.net.http");
+        javaInspector.preload("org.slf4j");
+        javaInspector.preload("org.junit.jupiter.api.");
+        javaInspector.preload("org.e2immu.annotation.");
+
+        InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder()
+                .addSourceSets(primarySourceSet)
+                .addClassPathParts(javaBase, javaDesktop, javaNetHttp,
+                        maddiSupport, slf4jApi, logbackClassic, jupiter, junitPlatform, opentest4j,
+                        annotations);
+        for (SourceSet extra : extraSourceSets) {
+            builder.addSourceSets(extra);
+        }
+        for (String jdkModule : extraJdkModules) {
+            builder.addClassPathParts(SourceSetImpl.jdkModule(jdkModule));
+        }
+        InputConfiguration inputConfiguration = builder.build();
+        javaInspector.initialize(inputConfiguration);
+        return javaInspector;
     }
 }

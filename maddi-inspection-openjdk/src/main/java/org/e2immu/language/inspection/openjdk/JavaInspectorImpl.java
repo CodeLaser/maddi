@@ -318,7 +318,11 @@ public class JavaInspectorImpl implements JavaInspector {
                                  MaddiDiagnosticCollector diagnostics) throws IOException {
         List<File> sources = new ArrayList<>();
         Map<String, String> sourcesByClassName;
-        if (sourceSet.name().startsWith(TEST_PROTOCOL)) {
+        // use in-memory sources when they are supplied (parse(Map,...) and parseSingleFileInSourceSet(...));
+        // otherwise read the source set's directories from disk. Previously this was gated on the TEST_PROTOCOL
+        // source-set name, which discarded the in-memory content supplied by parseSingleFileInSourceSet callers
+        // that use their own source-set name (e.g. TestCloneBenchMethodHistogram).
+        if (!sourcesByFqn.isEmpty()) {
             sourcesByClassName = sourcesByFqn;
         } else {
             sourcesByClassName = Map.of();

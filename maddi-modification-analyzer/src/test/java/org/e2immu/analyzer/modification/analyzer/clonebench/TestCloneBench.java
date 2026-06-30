@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +43,7 @@ A small number of files have been modified wrt the main branch, for this test to
  */
 public class TestCloneBench extends CommonTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestCloneBench.class);
+    private final JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder().build();
 
     public TestCloneBench() {
         super("jmod:java.desktop",
@@ -52,6 +54,12 @@ public class TestCloneBench extends CommonTest {
                 "jmod:java.instrument",
                 "jmod:java.rmi",
                 "jmod:java.management");
+    }
+
+    // each directory is parsed in its own (openjdk) source set, registered at setup
+    @Override
+    protected List<String> openJdkExtraSourceSetNames() {
+        return List.of(DIRS);
     }
 
     public void process(String name, AtomicInteger counter, Map<MethodInfo, Integer> typeHistogram) throws IOException {
@@ -76,7 +84,8 @@ public class TestCloneBench extends CommonTest {
         String input = Files.readString(javaFile.toPath());
         LOGGER.info("Start parsing #{}, {}, file of size {}", count, javaFile, input.length());
 
-        TypeInfo typeInfo = javaInspector.parse(input, javaFile.getName(), setName);
+        TypeInfo typeInfo = javaInspector.parseSingleFileInSourceSet(javaFile.toURI(),
+                openJdkSourceSetsByName.get(setName), parseOptions).parseResult().firstType();
 
         List<Info> analysisOrder = prepWork(typeInfo);
         analyzer.go(analysisOrder);

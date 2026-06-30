@@ -34,7 +34,9 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 import static org.e2immu.language.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
@@ -50,6 +52,16 @@ public class CommonTest {
     protected Runtime runtime;
     protected final String[] extraClassPath;
     protected boolean openJdkParser;
+    // under the openjdk parser, single-file parses (parseSingleFileInSourceSet) must use a source set that is
+    // registered in the input configuration and carries the classpath dependencies. Tests that parse external
+    // files in their own (per-directory) source sets override openJdkExtraSourceSetNames(); the built, registered
+    // source sets are then available here by name.
+    protected final Map<String, SourceSet> openJdkSourceSetsByName = new HashMap<>();
+
+    // names of extra (per-directory) source sets a subclass needs registered for openjdk single-file parsing
+    protected List<String> openJdkExtraSourceSetNames() {
+        return List.of();
+    }
 
     protected CommonTest() {
         this(new String[]{});
@@ -85,16 +97,36 @@ public class CommonTest {
         SourceSet annotations = sourceSetOf(NotNull.class, javaBase);
         SourceSet maddiSupport = sourceSetOf(SetOnce.class, javaBase);
         SourceSet junitJupiter = sourceSetOf(Assertions.class, javaBase);
+        List<SourceSet> dependencies = List.of(javaBase, orgSlf4j, annotations, maddiSupport, junitJupiter);
         SourceSet sources = new SourceSetImpl.Builder().setName(TEST_PROTOCOL).setUri(URI.create("file:/"))
-                .setDependencies(List.of(javaBase, orgSlf4j, annotations, maddiSupport, junitJupiter))
+                .setDependencies(dependencies)
                 .build();
-        InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
+        InputConfigurationImpl.Builder icBuilder = new InputConfigurationImpl.Builder()
                 .addSourceSets(sources)
                 .addClassPath("jmod:java.base")
-                .addClassPathParts(maddiSupport, orgSlf4j, annotations, junitJupiter)
-                .build();
+                .addClassPathParts(maddiSupport, orgSlf4j, annotations, junitJupiter);
+        // a test may need extra, per-directory source sets for openjdk single-file parsing; each must be
+        // registered in the input configuration and carry the classpath dependencies, and they must be distinct
+        // so that identically-named types in different directories do not collide (types are keyed by
+        // (fqn, source set)).
+        for (String extraName : openJdkExtraSourceSetNames()) {
+            SourceSet extraSet = new SourceSetImpl.Builder().setName(extraName).setUri(URI.create("file:/"))
+                    .setDependencies(dependencies)
+                    .build();
+            openJdkSourceSetsByName.put(extraName, extraSet);
+            icBuilder.addSourceSets(extraSet);
+        }
+        // extra JDK modules requested by a test (e.g. TestCloneBenchMethodHistogram needs java.desktop, java.sql,
+        // ...); maddiParser() adds these too. Without them the clone-bench files do not resolve and the parse
+        // records exceptions, which makes Summary.parseResult() throw.
+        for (String extra : extraClassPath) {
+            icBuilder.addClassPath(extra);
+        }
+        InputConfiguration inputConfiguration = icBuilder.build();
         javaInspector = new org.e2immu.language.inspection.openjdk.JavaInspectorImpl();
         javaInspector.initialize(inputConfiguration);
+        sources.computePriorityDependencies();
+        openJdkSourceSetsByName.values().forEach(SourceSet::computePriorityDependencies);
     }
 
     private void maddiParser() throws IOException {
