@@ -15,8 +15,13 @@
 package org.e2immu.language.kotlin.k2
 
 import com.intellij.psi.PsiElement
+import org.e2immu.language.cst.api.element.DetailedSources
 import org.e2immu.language.cst.api.element.Source
 import org.e2immu.language.cst.api.runtime.Runtime
+import org.e2immu.language.cst.api.type.ParameterizedType
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtTypeReference
+import org.jetbrains.kotlin.psi.KtUserType
 
 /**
  * Real 1-based source positions (end column inclusive — maddi's convention) for a PSI element, carrying
@@ -34,4 +39,29 @@ internal fun sourceOf(runtime: Runtime, psi: PsiElement, index: String): Source 
     return runtime.newParserSource(index,
         startLine + 1, range.startOffset - document.getLineStartOffset(startLine) + 1,
         endLine + 1, lastOffset - document.getLineStartOffset(endLine) + 1)
+}
+
+/** Put `key -> position of [psi]` into this builder, if [psi] is present. */
+internal fun DetailedSources.Builder.putPsi(runtime: Runtime, key: Any, psi: PsiElement?) {
+    if (psi != null) put(key, sourceOf(runtime, psi, "-"))
+}
+
+/**
+ * Recursively detail a type reference (mirroring java-openjdk's `convertTree`): each nested type's
+ * `TypeInfo` (or `TypeParameter` for a type variable) keyed to its identifier position, plus
+ * `TYPE_ARGUMENT_COMMAS` per generic argument list (e.g. the comma in `Map<K, V>`). Shared by KotlinScan
+ * (declarations) and KotlinBodyConverter (local variables).
+ */
+internal fun DetailedSources.Builder.putTypeReference(runtime: Runtime, type: ParameterizedType, typeReference: KtTypeReference?) {
+    val userType = typeReference?.typeElement as? KtUserType ?: return
+    val referenceExpression = userType.referenceExpression
+    type.typeInfo()?.let { putPsi(runtime, it, referenceExpression) }
+    type.typeParameter()?.let { putPsi(runtime, it, referenceExpression) }
+    val argumentList = userType.typeArgumentList ?: return
+    val commas = argumentList.node.getChildren(null).orEmpty()
+        .filter { it.elementType == KtTokens.COMMA }.map { sourceOf(runtime, it.psi, "-") }
+    if (commas.isNotEmpty()) putList(DetailedSources.TYPE_ARGUMENT_COMMAS, commas)
+    argumentList.arguments.forEachIndexed { i, projection ->
+        type.parameters().getOrNull(i)?.let { putTypeReference(runtime, it, projection.typeReference) }
+    }
 }

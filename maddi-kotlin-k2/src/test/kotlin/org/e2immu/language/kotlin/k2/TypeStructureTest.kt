@@ -375,6 +375,30 @@ class TypeStructureTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun supertypeDetailedSources() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse(
+            "C.kt",
+            "interface Iface\n" +
+                "open class Base\n" +
+                "class C : Base(), Iface\n" // Base at 11..14, Iface at 19..23
+        ).associateBy { it.simpleName() }
+        val ds = types.getValue("C").source().detailedSources()
+
+        // each supertype reference keyed by its TypeInfo (mirroring Java)
+        val base = ds.detail(types.getValue("Base"))
+        assertNotNull(base)
+        assertEquals(3, base.beginLine())
+        assertEquals(11, base.beginPos())
+        assertEquals(14, base.endPos())
+
+        val iface = ds.detail(types.getValue("Iface"))
+        assertNotNull(iface)
+        assertEquals(19, iface.beginPos())
+        assertEquals(23, iface.endPos())
+    }
+
+    @Test
     fun compilationUnitPackageDetailedSource() {
         val scan = KotlinScan(runtime, sourceSet)
         val a = scan.parse("A.kt", "package a.b\n\nclass A\n").first() // `a.b` at line 1, cols 9..11

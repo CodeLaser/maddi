@@ -67,7 +67,6 @@ import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtLibraryMod
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSdkModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModule
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
-import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtBlockExpression
 import org.jetbrains.kotlin.psi.KtBreakExpression
@@ -92,8 +91,6 @@ import org.jetbrains.kotlin.psi.KtCallableDeclaration
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.kotlin.psi.KtProperty
-import org.jetbrains.kotlin.psi.KtTypeReference
-import org.jetbrains.kotlin.psi.KtUserType
 import org.jetbrains.kotlin.psi.KtReturnExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateEntryWithExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
@@ -322,10 +319,15 @@ class KotlinScan(
         // hierarchy first, so method bodies can resolve inherited callees via parentClass/interfaces
         applyHierarchy(typeInfo.builder(), typeInfo, classSymbol)
         typeInfo.builder().computeAccess() // eventual type access, needed before members' computeAccess()
-        // declaration source (nature is set now): name keyed by simpleName(), keyword by typeNature() -- mirroring Java
+        // declaration source (nature is set now): name keyed by simpleName(), keyword by typeNature(), and
+        // each supertype reference keyed by its TypeInfo (the `: Base(), Iface` clause) -- mirroring Java
+        val superTypeDetails = declaration.superTypeListEntries.mapNotNull { entry ->
+            entry.typeReference?.let { reference -> mapType(reference.type, typeInfo) to reference }
+        }
         typeInfo.builder().setSource(declarationSource(declaration) {
-            putPsi(typeInfo.simpleName(), declaration.nameIdentifier)
-            putPsi(typeInfo.typeNature(), declaration.getDeclarationKeyword())
+            putPsi(runtime, typeInfo.simpleName(), declaration.nameIdentifier)
+            putPsi(runtime, typeInfo.typeNature(), declaration.getDeclarationKeyword())
+            superTypeDetails.forEach { (superType, reference) -> putTypeReference(runtime, superType, reference) }
         })
         // properties before methods, so a method body can reference the backing fields
         classSymbol.declaredMemberScope.declarations
@@ -521,8 +523,8 @@ class KotlinScan(
         if (static) fieldBuilder.addFieldModifier(runtime.fieldModifierStatic())
         // name keyed by field.name(), type reference keyed by its TypeInfo -- mirroring the Java parser
         fieldBuilder.setSource(declarationSource(property.psi) {
-            putPsi(field.name(), (property.psi as? KtNamedDeclaration)?.nameIdentifier)
-            putTypeReference(type, (property.psi as? KtCallableDeclaration)?.typeReference)
+            putPsi(runtime, field.name(), (property.psi as? KtNamedDeclaration)?.nameIdentifier)
+            putTypeReference(runtime, type, (property.psi as? KtCallableDeclaration)?.typeReference)
         })
         fieldBuilder.computeAccess().commit()
         owner.builder().addField(field)
@@ -632,7 +634,7 @@ class KotlinScan(
             // type-reference detail (recursing into generics), keyed by each nested type's TypeInfo
             val parameterPsi = p.psi as? KtParameter
             parameterInfo.builder().setSource(declarationSource(parameterPsi) {
-                putTypeReference(parameterType, parameterPsi?.typeReference)
+                putTypeReference(runtime, parameterType, parameterPsi?.typeReference)
             })
         }
         builder.commitParameters() // so method.parameters() is available while converting the body
@@ -641,8 +643,8 @@ class KotlinScan(
             .setReturnType(returnType)
             // name keyed by method.name(), return-type reference keyed by its TypeInfo -- mirroring the Java parser
             .setSource(declarationSource(psi) {
-                putPsi(method.name(), psi?.nameIdentifier)
-                putTypeReference(returnType, psi?.typeReference)
+                putPsi(runtime, method.name(), psi?.nameIdentifier)
+                putTypeReference(runtime, returnType, psi?.typeReference)
             })
             .setMethodBody(convertBody(function, returnType, method))
         addMethodModifiers(builder, function)
@@ -662,30 +664,6 @@ class KotlinScan(
         if (declaration == null) return runtime.noSource()
         val dsb = runtime.newDetailedSourcesBuilder().apply(populate)
         return sourceOf(runtime, declaration, "-").withDetailedSources(dsb.build())
-    }
-
-    /** Put `key -> position of [psi]` if [psi] is present. */
-    private fun DetailedSources.Builder.putPsi(key: Any, psi: PsiElement?) {
-        if (psi != null) put(key, sourceOf(runtime, psi, "-"))
-    }
-
-    /**
-     * Recursively detail a type reference (mirroring java-openjdk's convertTree): each nested type's
-     * `TypeInfo` (or `TypeParameter` for a type variable) keyed to its identifier position, plus
-     * `TYPE_ARGUMENT_COMMAS` per generic argument list (e.g. the comma in `Map<K, V>`).
-     */
-    private fun DetailedSources.Builder.putTypeReference(type: ParameterizedType, typeReference: KtTypeReference?) {
-        val userType = typeReference?.typeElement as? KtUserType ?: return
-        val referenceExpression = userType.referenceExpression
-        type.typeInfo()?.let { putPsi(it, referenceExpression) }
-        type.typeParameter()?.let { putPsi(it, referenceExpression) }
-        val argumentList = userType.typeArgumentList ?: return
-        val commas = argumentList.node.getChildren(null).orEmpty()
-            .filter { it.elementType == KtTokens.COMMA }.map { sourceOf(runtime, it.psi, "-") }
-        if (commas.isNotEmpty()) putList(DetailedSources.TYPE_ARGUMENT_COMMAS, commas)
-        argumentList.arguments.forEachIndexed { i, projection ->
-            type.parameters().getOrNull(i)?.let { putTypeReference(it, projection.typeReference) }
-        }
     }
 
 

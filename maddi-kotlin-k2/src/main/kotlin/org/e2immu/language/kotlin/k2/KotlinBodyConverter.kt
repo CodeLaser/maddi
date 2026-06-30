@@ -205,13 +205,15 @@ internal class KotlinBodyConverter(
                 ?: runtime.newEmptyExpression()
             val local = runtime.newLocalVariable(name, type, initializer)
             locals[name] = local
-            val lvc = runtime.newLocalVariableCreation(local)
-            // name detail keyed by both the name String and the LocalVariable, mirroring the Java parser
+            // detail: name keyed by both the name String and the LocalVariable, plus the type reference
+            val dsb = runtime.newDetailedSourcesBuilder()
             statement.nameIdentifier?.let { nameId ->
                 val nameSource = source(nameId, "-")
-                lvc.withSource(runtime.noSource().withDetailedSources(runtime.newDetailedSourcesBuilder()
-                    .put(local.simpleName(), nameSource).put(local, nameSource).build()))
-            } ?: lvc
+                dsb.put(local.simpleName(), nameSource).put(local, nameSource)
+            }
+            dsb.putTypeReference(runtime, type, statement.typeReference)
+            runtime.newLocalVariableCreation(local)
+                .withSource(runtime.noSource().withDetailedSources(dsb.build()))
         }
         statement is KtBinaryExpression && isAssignment(statement.operationToken) -> {
             val target = statement.left?.let { convertExpression(it, method, locals) } as? VariableExpression
