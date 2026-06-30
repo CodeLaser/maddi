@@ -569,7 +569,29 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 }
                 jcMethod.thrown.forEach(e -> convertType.convertTree(e, dsb));
 
-                // FIXME parameters, type parameters: how to?
+                // The method (and hence its parameters) may have been created earlier from its symbol -- e.g. via a
+                // method reference scanned before this declaration is reached -- in which case the parameters carry
+                // no source yet (their commit was deferred in ClassSymbolScanner.addMethodToType). Set the sources
+                // now from the declaration, then commit. See TestParameterInfoSource.
+                var jcParameters = jcMethod.getParameters();
+                List<ParameterInfo> existingParameters = methodInfo.parameters();
+                for (int pIndex = 0; pIndex < existingParameters.size() && pIndex < jcParameters.size(); pIndex++) {
+                    ParameterInfo parameterInfo = existingParameters.get(pIndex);
+                    if (parameterInfo.source() == null) {
+                        JCTree.JCVariableDecl jcVariableDecl = jcParameters.get(pIndex);
+                        DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
+                        convertTypeWithAnnotations(jcVariableDecl.getType(), dsbParam, ignored -> {
+                        });
+                        if (scanResult != null) {
+                            Source paramKey = scanSource(jcVariableDecl);
+                            dsbParam.putIfNotNull(DetailedSources.PRECEDING_COMMA, scanResult.findPrecedingComma(paramKey));
+                            dsbParam.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, scanResult.findSucceedingComma(paramKey));
+                            attachParameterFinal(paramKey, dsbParam);
+                        }
+                        parameterInfo.builder().setSource(sourceForNode(jcVariableDecl, dsbParam)).commit();
+                    }
+                }
+                builder.commitParameters();
             } else {
                 // construction of the method
                 if (isConstructor) {
