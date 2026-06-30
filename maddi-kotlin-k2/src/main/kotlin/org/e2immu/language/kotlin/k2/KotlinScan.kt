@@ -16,6 +16,7 @@ package org.e2immu.language.kotlin.k2
 
 import com.intellij.psi.PsiElement
 import org.e2immu.language.cst.api.element.CompilationUnit
+import org.e2immu.language.cst.api.element.DetailedSources
 import org.e2immu.language.cst.api.element.RecordPattern
 import org.e2immu.language.cst.api.element.Source
 import org.e2immu.language.cst.api.element.SourceSet
@@ -91,6 +92,8 @@ import org.jetbrains.kotlin.psi.KtCallableDeclaration
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtTypeReference
+import org.jetbrains.kotlin.psi.KtUserType
 import org.jetbrains.kotlin.psi.KtReturnExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateEntryWithExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
@@ -320,9 +323,10 @@ class KotlinScan(
         applyHierarchy(typeInfo.builder(), typeInfo, classSymbol)
         typeInfo.builder().computeAccess() // eventual type access, needed before members' computeAccess()
         // declaration source (nature is set now): name keyed by simpleName(), keyword by typeNature() -- mirroring Java
-        typeInfo.builder().setSource(declarationSource(declaration, listOf(
-            typeInfo.simpleName() to declaration.nameIdentifier,
-            typeInfo.typeNature() to declaration.getDeclarationKeyword())))
+        typeInfo.builder().setSource(declarationSource(declaration) {
+            putPsi(typeInfo.simpleName(), declaration.nameIdentifier)
+            putPsi(typeInfo.typeNature(), declaration.getDeclarationKeyword())
+        })
         // properties before methods, so a method body can reference the backing fields
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
@@ -516,11 +520,10 @@ class KotlinScan(
         if (isVal) fieldBuilder.addFieldModifier(runtime.fieldModifierFinal())
         if (static) fieldBuilder.addFieldModifier(runtime.fieldModifierStatic())
         // name keyed by field.name(), type reference keyed by its TypeInfo -- mirroring the Java parser
-        val fieldDetails = buildList<Pair<Any, PsiElement?>> {
-            add(field.name() to (property.psi as? KtNamedDeclaration)?.nameIdentifier)
-            type.typeInfo()?.let { add(it to (property.psi as? KtCallableDeclaration)?.typeReference) }
-        }
-        fieldBuilder.setSource(declarationSource(property.psi, fieldDetails))
+        fieldBuilder.setSource(declarationSource(property.psi) {
+            putPsi(field.name(), (property.psi as? KtNamedDeclaration)?.nameIdentifier)
+            putTypeReference(type, (property.psi as? KtCallableDeclaration)?.typeReference)
+        })
         fieldBuilder.computeAccess().commit()
         owner.builder().addField(field)
 
@@ -626,22 +629,21 @@ class KotlinScan(
         function.valueParameters.forEach { p ->
             val parameterType = mapType(p.returnType, owner)
             val parameterInfo = builder.addParameter(p.name.asString(), parameterType)
-            // type-reference detail: the parameter's type usage keyed by its TypeInfo (mirroring Java's pt.typeInfo())
+            // type-reference detail (recursing into generics), keyed by each nested type's TypeInfo
             val parameterPsi = p.psi as? KtParameter
-            parameterType.typeInfo()?.let { typeInfo ->
-                parameterInfo.builder().setSource(declarationSource(parameterPsi, listOf(typeInfo to parameterPsi?.typeReference)))
-            }
+            parameterInfo.builder().setSource(declarationSource(parameterPsi) {
+                putTypeReference(parameterType, parameterPsi?.typeReference)
+            })
         }
         builder.commitParameters() // so method.parameters() is available while converting the body
         val psi = function.psi as? KtNamedFunction
-        // name keyed by method.name(), return-type reference keyed by its TypeInfo -- mirroring the Java parser
-        val methodDetails = buildList<Pair<Any, PsiElement?>> {
-            add(method.name() to psi?.nameIdentifier)
-            returnType.typeInfo()?.let { add(it to psi?.typeReference) }
-        }
         builder
             .setReturnType(returnType)
-            .setSource(declarationSource(psi, methodDetails))
+            // name keyed by method.name(), return-type reference keyed by its TypeInfo -- mirroring the Java parser
+            .setSource(declarationSource(psi) {
+                putPsi(method.name(), psi?.nameIdentifier)
+                putTypeReference(returnType, psi?.typeReference)
+            })
             .setMethodBody(convertBody(function, returnType, method))
         addMethodModifiers(builder, function)
         if (static) builder.addMethodModifier(runtime.methodModifierStatic())
@@ -650,21 +652,40 @@ class KotlinScan(
     }
 
     /**
-     * The whole-declaration source of [declaration] with one `DetailedSources` entry per (key, sub-element)
-     * in [details] (null sub-elements skipped). Mirrors java-openjdk's keys so a refactoring engine stays
-     * language-unaware: every declaration name is keyed by the Info's own name String — `typeInfo.simpleName()`
-     * for a type, `method.name()` for a method — and the type-nature keyword by the shared `typeNature()`
-     * object. `DetailedSources` is identity-keyed, so a consumer looks up via the same instance
-     * (`detail(typeInfo.simpleName())`, `detail(typeInfo.typeNature())`, …). `noSource()` if synthetic.
+     * The whole-declaration source of [declaration] with a `DetailedSources` built by [populate]. Mirrors
+     * java-openjdk's keys so a refactoring engine stays language-unaware: declaration names by the Info's own
+     * name String (`typeInfo.simpleName()` / `method.name()`), the type-nature keyword by the shared
+     * `typeNature()` object, type references by their `TypeInfo`/`TypeParameter`. `DetailedSources` is
+     * identity-keyed, so a consumer looks up via the same instance. `noSource()` if synthetic.
      */
-    private fun declarationSource(declaration: PsiElement?, details: List<Pair<Any, PsiElement?>>): Source {
+    private fun declarationSource(declaration: PsiElement?, populate: DetailedSources.Builder.() -> Unit): Source {
         if (declaration == null) return runtime.noSource()
-        val whole = sourceOf(runtime, declaration, "-")
-        val present = details.filter { it.second != null }
-        if (present.isEmpty()) return whole
-        val dsb = runtime.newDetailedSourcesBuilder()
-        present.forEach { (key, psi) -> dsb.put(key, sourceOf(runtime, psi!!, "-")) }
-        return whole.withDetailedSources(dsb.build())
+        val dsb = runtime.newDetailedSourcesBuilder().apply(populate)
+        return sourceOf(runtime, declaration, "-").withDetailedSources(dsb.build())
+    }
+
+    /** Put `key -> position of [psi]` if [psi] is present. */
+    private fun DetailedSources.Builder.putPsi(key: Any, psi: PsiElement?) {
+        if (psi != null) put(key, sourceOf(runtime, psi, "-"))
+    }
+
+    /**
+     * Recursively detail a type reference (mirroring java-openjdk's convertTree): each nested type's
+     * `TypeInfo` (or `TypeParameter` for a type variable) keyed to its identifier position, plus
+     * `TYPE_ARGUMENT_COMMAS` per generic argument list (e.g. the comma in `Map<K, V>`).
+     */
+    private fun DetailedSources.Builder.putTypeReference(type: ParameterizedType, typeReference: KtTypeReference?) {
+        val userType = typeReference?.typeElement as? KtUserType ?: return
+        val referenceExpression = userType.referenceExpression
+        type.typeInfo()?.let { putPsi(it, referenceExpression) }
+        type.typeParameter()?.let { putPsi(it, referenceExpression) }
+        val argumentList = userType.typeArgumentList ?: return
+        val commas = argumentList.node.getChildren(null).orEmpty()
+            .filter { it.elementType == KtTokens.COMMA }.map { sourceOf(runtime, it.psi, "-") }
+        if (commas.isNotEmpty()) putList(DetailedSources.TYPE_ARGUMENT_COMMAS, commas)
+        argumentList.arguments.forEachIndexed { i, projection ->
+            type.parameters().getOrNull(i)?.let { putTypeReference(it, projection.typeReference) }
+        }
     }
 
 
