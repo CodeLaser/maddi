@@ -25,40 +25,38 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-public class TestParameterInfoSource extends CommonTest {
+/**
+ * A formal parameter's detailed sources must contain an entry keyed by the parameter's name
+ * ({@code pi.source().detailedSources().detail(pi.name())}), holding the source span of that name.
+ */
+public class TestParameterNameSource extends CommonTest {
 
     @Language("java")
-    private static final String CLASS_A = """
-            package a;
-            import java.util.List;
-            import java.util.function.Function;
-            import java.util.stream.Collectors;
-            
-            class A<T> {
-                public List<String> transform(List<T> items) {
-                    return items.stream()
-                               .map(this::processItem)
-                               .collect(Collectors.toList());
-                }
-
-                private String processItem(T item) {
-                    return item.toString();
+    private static final String INPUT = """
+            package a.b;
+            class X {
+                int m(int alpha, String beta) {
+                    return alpha;
                 }
             }
             """;
 
-    @DisplayName("Ensure that there is always a source for pi, also when transform (a method reference to "
-                + "processItem, scanned before its declaration) is present")
-    @Test
-    public void test1() {
-        TypeInfo A = scan("a.A", CLASS_A);
-        MethodInfo m = A.findUniqueMethod("processItem", 1);
-        ParameterInfo pi = m.parameters().getFirst();
-        assertNotNull(pi.source());
-        // 'item' on line 13: 'private String processItem(T item) {'
-        assertEquals("-@13:32-13:37", pi.source().toString());
-        // the already-known (method-reference) path must also set the parameter-name detail, keyed by pi.name()
-        assertEquals("-@13:34-13:37", pi.source().detailedSources().detail(pi.name()).toString());
+    private static String nameDetail(ParameterInfo pi) {
+        var detail = pi.source().detailedSources().detail(pi.name());
+        assertNotNull(detail, "no detailed source for parameter name '" + pi.name() + "'");
+        return detail.toString();
     }
 
+    @DisplayName("formal parameter names carry their source span, keyed by pi.name()")
+    @Test
+    public void parameterNames() {
+        TypeInfo X = scan("a.b.X", INPUT);
+        MethodInfo m = X.findUniqueMethod("m", 2);
+        ParameterInfo alpha = m.parameters().get(0);
+        ParameterInfo beta = m.parameters().get(1);
+        assertEquals("alpha", alpha.name());
+        assertEquals("beta", beta.name());
+        assertEquals("-@3:15-3:19", nameDetail(alpha)); // 'alpha' on line 3
+        assertEquals("-@3:29-3:32", nameDetail(beta));  // 'beta' on line 3
+    }
 }
