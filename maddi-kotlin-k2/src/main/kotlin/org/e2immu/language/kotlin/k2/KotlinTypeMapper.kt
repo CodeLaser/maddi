@@ -58,6 +58,7 @@ import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
 import org.jetbrains.kotlin.analysis.api.types.KaTypeParameterType
 import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
 import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.types.Variance as KotlinVariance
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtLibraryModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSdkModule
@@ -154,8 +155,14 @@ internal class KotlinTypeMapper(
         // already known (a sibling source type, or a previously loaded library type), else load it:
         val typeInfo = infoByFqn.getType(kotlinFqn, sourceSet) ?: run {
             val jvmFqn = mapToJvmFqn(type.classId)
-            if (jvmFqn != kotlinFqn) symbolScanner.getOrLoad(jvmFqn, type.typeArguments.size) // mapped -> shell
-            else loadLibraryType(type.symbol as KaNamedClassSymbol, jvmFqn) // non-mapped -> deepen from symbol
+            if (jvmFqn != kotlinFqn) {
+                // mapped (kotlin.collections.List -> java.util.List): load the JAVA symbol, so the shared
+                // java.* type carries its real JVM surface and matches the Java front-end + AAPI -- not the
+                // Kotlin read-only view (which would be order-dependent: List vs MutableList both map here)
+                val javaSymbol = findClass(ClassId.topLevel(FqName(jvmFqn))) as? KaNamedClassSymbol
+                if (javaSymbol != null) loadLibraryType(javaSymbol, jvmFqn)
+                else symbolScanner.getOrLoad(jvmFqn, type.typeArguments.size) // not on classpath -> shell
+            } else loadLibraryType(type.symbol as KaNamedClassSymbol, jvmFqn) // non-mapped -> deepen from symbol
         }
         return parameterize(typeInfo, type, owner)
     }

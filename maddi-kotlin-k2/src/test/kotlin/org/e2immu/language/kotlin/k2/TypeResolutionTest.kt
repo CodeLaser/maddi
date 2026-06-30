@@ -212,4 +212,24 @@ class TypeResolutionTest : KotlinScanTestBase() {
         assertTrue(ret is VariableExpression && ret.variable() is FieldReference)
     }
 
+    @Test
+    fun mappedTypeLoadsJavaMembers() {
+        // a mapped type (kotlin.collections.List -> java.util.List) now loads the JAVA symbol's members, so
+        // `list[i]` resolves to get(), and the type carries the full JVM surface (incl. add) -- not the
+        // Kotlin read-only view
+        val scan = KotlinScan(runtime, sourceSet)
+        val c = scan.parse("C.kt", "class C { fun m(list: List<String>): String { return list[0] } }\n").first()
+
+        val listType = c.findUniqueMethod("m", 1).parameters().first().parameterizedType().typeInfo()
+        assertEquals("java.util.List", listType.fullyQualifiedName())
+        val methodNames = listType.methods().map { it.name() }.toSet()
+        assertTrue(methodNames.contains("get"), "methods were $methodNames")
+        assertTrue(methodNames.contains("add"), "Java surface (add) missing; methods were $methodNames")
+
+        // `list[0]` -> list.get(0)
+        val ret = (c.findUniqueMethod("m", 1).methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(ret is MethodCall)
+        assertEquals("get", (ret as MethodCall).methodInfo().name())
+    }
+
 }
