@@ -539,6 +539,22 @@ internal class KotlinBodyConverter(
         else selectorResult
     }
 
+    /** `Foo(args)` -> a CST [ConstructorCall]: the constructed type's constructor matching the argument count. */
+    private fun KaSession.convertConstructorCall(call: KtCallExpression, arguments: List<Expression>, method: MethodInfo): Expression {
+        val type = call.expressionType?.let { mapType(it, method.typeInfo()) }
+            ?: return runtime.newEmptyExpression("k2-ctor-type")
+        val constructor = type.typeInfo()?.constructors()?.firstOrNull { it.parameters().size == arguments.size }
+            ?: return runtime.newEmptyExpression("k2-ctor-unresolved:${type.typeInfo()?.simpleName()}")
+        return runtime.newConstructorCallBuilder()
+            .setConstructor(constructor)
+            .setConcreteReturnType(type)
+            .setParameterExpressions(arguments)
+            .setDiamond(runtime.diamondNo())
+            .setTypeArguments(listOf())
+            .setSource(runtime.noSource())
+            .build()
+    }
+
     /** `x as T` / `x as? T` -> a CST [org.e2immu.language.cst.api.expression.Cast] to T. */
     private fun KaSession.convertCastOrSafeCast(expression: KtBinaryExpressionWithTypeRHS, method: MethodInfo,
                                                 locals: Map<String, Variable>): Expression {
@@ -753,6 +769,9 @@ internal class KotlinBodyConverter(
         val valueArgs = call.valueArguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, method, locals) } }
         val trailingLambdas = call.lambdaArguments.mapNotNull { it.getLambdaExpression()?.let { l -> convertExpression(l, method, locals) } }
         val arguments = valueArgs + trailingLambdas
+
+        // a constructor call `Foo(args)` -> ConstructorCall (the call resolves to a constructor, not a method)
+        if (call.resolveSymbol() is KaConstructorSymbol) return convertConstructorCall(call, arguments, method)
 
         // an extension call `recv.ext(args)` routes to the facade's static `ext(recv, args)` (receiver as arg 0)
         val calleeSymbol = call.resolveSymbol() as? KaNamedFunctionSymbol
