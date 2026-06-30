@@ -816,6 +816,9 @@ internal class KotlinBodyConverter(
         // PSI gives them faithfully from this single parse. (Java records no call-site *name* here.)
         val argumentList = call.valueArgumentList
         val dsb = runtime.newDetailedSourcesBuilder()
+        // the call-site method name, keyed by callee.name() (the MethodInfo's String -- as the Java parser
+        // does, so consumers look it up via methodCall.methodInfo().name())
+        call.calleeExpression?.let { dsb.put(callee.name(), source(it, "-")) }
         argumentList?.rightParenthesis?.let { dsb.put(DetailedSources.END_OF_ARGUMENT_LIST, source(it, "-")) }
         val commas = argumentList?.node?.getChildren(null).orEmpty()
             .filter { it.elementType == KtTokens.COMMA }.map { source(it.psi, "-") }
