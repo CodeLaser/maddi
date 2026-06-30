@@ -34,7 +34,7 @@ public class TestFieldAnalyzerFinalField extends CommonTest {
     @DisplayName("constructor and getter")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("a.b.B", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
         FieldInfo set = B.getFieldByName("set", true);
@@ -68,7 +68,7 @@ public class TestFieldAnalyzerFinalField extends CommonTest {
     @DisplayName("constructor, getter, add")
     @Test
     public void test2() {
-        TypeInfo B = javaInspector.parse(INPUT2);
+        TypeInfo B = javaInspector.parse("a.b.B", INPUT2);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
         FieldInfo set = B.getFieldByName("set", true);
@@ -107,7 +107,7 @@ public class TestFieldAnalyzerFinalField extends CommonTest {
     @DisplayName("constructor copy, getter, add")
     @Test
     public void test3() {
-        TypeInfo B = javaInspector.parse(INPUT3);
+        TypeInfo B = javaInspector.parse("a.b.B", INPUT3);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
         FieldInfo set = B.getFieldByName("set", true);
@@ -151,7 +151,7 @@ public class TestFieldAnalyzerFinalField extends CommonTest {
     @DisplayName("constructor copy, getter, add, modifiable")
     @Test
     public void test4() {
-        TypeInfo B = javaInspector.parse(INPUT4);
+        TypeInfo B = javaInspector.parse("a.b.B", INPUT4);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
         TypeInfo M = B.findSubType("M");
@@ -207,7 +207,7 @@ public class TestFieldAnalyzerFinalField extends CommonTest {
     @DisplayName("does the modification travel via the field?")
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT5);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
         {

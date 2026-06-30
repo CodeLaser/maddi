@@ -28,8 +28,8 @@ public class TestStaticValuesAssignment extends CommonTest {
             package a.b;
             import java.util.Set;
             record X(int j, int k) {
-            
-                class Builder {
+
+                static class Builder {
                     int j;
                     int k;
                     Builder setJ(int jp) {
@@ -67,7 +67,7 @@ public class TestStaticValuesAssignment extends CommonTest {
     @DisplayName("from builder to built class")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT3);
         analyzer.go(prepWork(X));
 
         TypeInfo builder = X.findSubType("Builder");

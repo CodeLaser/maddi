@@ -50,7 +50,7 @@ public class TestHCTNotYetLoaded extends CommonTest {
     @DisplayName("test HCT not yet loaded")
     @org.junit.jupiter.api.Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("Function17122361_file1119884", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }

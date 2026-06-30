@@ -42,7 +42,7 @@ public class TestInstanceOf extends CommonTest {
     @DisplayName("links of instanceof with record pattern")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         List<Info> ao = prepAnalyzer.doPrimaryType(X);
         analyzer.go(ao);
 

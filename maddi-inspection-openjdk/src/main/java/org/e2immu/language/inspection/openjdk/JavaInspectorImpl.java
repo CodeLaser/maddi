@@ -159,7 +159,12 @@ public class JavaInspectorImpl implements JavaInspector {
 
     @Override
     public void onlyPreload() {
-        parse(Map.of("a.b.X", "class X { } "), new JavaInspector.ParseOptions.Builder().build());
+        // a throwaway compilation unit whose sole purpose is to trigger the configured preloads. Its package is
+        // kept consistent with (and unique to) its key, so the warmup type never collides with a type a test
+        // later parses — in particular a default-package 'X' (the old "a.b.X" key with package-less content
+        // registered a default-package X, which then clashed with such tests).
+        parse(Map.of("e2immu.preload.WarmUp", "package e2immu.preload; public class WarmUp { }"),
+                new JavaInspector.ParseOptions.Builder().build());
     }
 
     // main method, generally called with empty map; only tests use the map
@@ -284,6 +289,8 @@ public class JavaInspectorImpl implements JavaInspector {
         ScanCompilationUnits.Result scanned = scanCompilationUnits.scan();
 
         // copy from scanned into summary
+        // register the source set so it appears in ParseResult.sourceSetsByName() (mirrors the congocc inspector)
+        summary.ensureSourceSet(sourceSet);
         for (TypeInfo typeInfo : scanned.primaryTypes()) {
             summary.addType(typeInfo);
             assert typeInfo.hasBeenInspected();
@@ -313,7 +320,11 @@ public class JavaInspectorImpl implements JavaInspector {
                                  MaddiDiagnosticCollector diagnostics) throws IOException {
         List<File> sources = new ArrayList<>();
         Map<String, String> sourcesByClassName;
-        if (sourceSet.name().startsWith(TEST_PROTOCOL)) {
+        // use in-memory sources when they are supplied (parse(Map,...) and parseSingleFileInSourceSet(...));
+        // otherwise read the source set's directories from disk. Previously this was gated on the TEST_PROTOCOL
+        // source-set name, which discarded the in-memory content supplied by parseSingleFileInSourceSet callers
+        // that use their own source-set name (e.g. TestCloneBenchMethodHistogram).
+        if (!sourcesByFqn.isEmpty()) {
             sourcesByClassName = sourcesByFqn;
         } else {
             sourcesByClassName = Map.of();

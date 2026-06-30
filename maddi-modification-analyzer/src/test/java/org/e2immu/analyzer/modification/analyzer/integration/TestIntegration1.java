@@ -42,7 +42,7 @@ public class TestIntegration1 extends CommonTest {
                 private Log LOG;
                 private Service service;
                 enum HttpStatus { OK, NOT_FOUND }
-                static class ResponseStatusException {
+                static class ResponseStatusException extends RuntimeException {
                     ResponseStatusException(HttpStatus httpStatus) { }
                 }
                 List<DTO2> convert(Long id) {
@@ -61,7 +61,7 @@ public class TestIntegration1 extends CommonTest {
     @DisplayName("use GenericsHelper in VirtualFieldTranslationMapForMethodParameters")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("B", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }

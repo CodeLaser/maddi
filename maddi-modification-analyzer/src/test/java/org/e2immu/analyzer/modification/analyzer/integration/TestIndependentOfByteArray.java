@@ -91,7 +91,7 @@ public class TestIndependentOfByteArray extends CommonTest {
     @DisplayName("byte array independent?")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("B", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
 

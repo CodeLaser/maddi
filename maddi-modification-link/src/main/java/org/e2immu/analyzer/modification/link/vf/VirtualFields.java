@@ -1,24 +1,16 @@
 package org.e2immu.analyzer.modification.link.vf;
 
-import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.jetbrains.annotations.NotNull;
 
-public record VirtualFields(FieldInfo mutable, FieldInfo hiddenContent) implements Value {
+/*
+The (mutable, hiddenContent) pair of virtual fields computed for a type; see vf/virtual-fields.md.
+Virtual fields are recomputed on demand, so this is a plain value object: it used to implement the cst 'Value'
+interface with a 'VIRTUAL_FIELDS' property and an (unsupported) encode(), but nothing ever stored it on an
+analysis() or encoded it, so that machinery was removed.
+ */
+public record VirtualFields(FieldInfo mutable, FieldInfo hiddenContent) {
     public static VirtualFields NONE = new VirtualFields(null, null);
-    public static final PropertyImpl VIRTUAL_FIELDS = new PropertyImpl("virtualFields", NONE);
-
-    @Override
-    public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean isDefault() {
-        return equals(NONE);
-    }
 
     @Override
     public @NotNull String toString() {

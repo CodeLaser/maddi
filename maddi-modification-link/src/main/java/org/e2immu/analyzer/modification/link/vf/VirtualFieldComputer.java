@@ -36,6 +36,9 @@ Given an interface, or a class in the JDK for which we do not want to parse the 
 construct virtual fields (actually make them, but don't attach them to the type) that can be used for type- and
 modification linking.
 
+See vf/virtual-fields.md (next to this file) for the concept, naming scheme, the formal->concrete translation map,
+worked examples, and a list of known inconsistencies.
+
 Rules:
 
 Functional interface in java.util.function: no fields, by definition
@@ -51,14 +54,15 @@ Types with type parameters, representing the hidden content:
 - types like Comparable have multiplicity 0, they never return hidden content.
 
 One type parameter, called E: single: E e, multiple one: E[] es, multiple two: E[][] ess, etc.
-Multiple type parameters: create a container record for any combination of the type parameters by using their names,
-and wrap all of them in the container containing all. E.g. for type parameters X and Y, make
-    XY(X x, Y y); single: XY xy; multiple one: XY[] xys, multiple two: XY[][] xyss, etc.
-For three type parameters TSV, we'll get
-    TSV(T t, S s, V v, TS ts, SV sv, TV tv); single TSV tsv, multiple one TSV[] tsvs, multiple two TSV[][] tsvss, ...
+Multiple type parameters: create a synthetic container type with ONE field per type parameter, and wrap it. E.g.
+for type parameters X and Y, make
+    §XY{§x: X, §y: Y}; single: §XY §xy; multiple one: §XY[] §xys, multiple two: §XY[][] §xyss, etc.
+For three type parameters A,B,C: §ABC{§a, §b, §c}, field §abc / §abcs / ...
 
-A multiple one of TS combinations in a multiple one TSV will be expressed by tsvs[-1].ts
-The index -1 will be used to indicate "slicing".
+NOTE (see virtual-fields.md, inconsistency #1): an earlier design envisaged a container holding every pairwise (and
+higher) COMBINATION of the type parameters, e.g. for T,S,V: TSV(T t, S s, V v, TS ts, SV sv, TV tv), with slicing
+expressed as tsvs[-1].ts and the index -1 indicating "slicing". This is NOT implemented; the container is flat (one
+field per parameter). The combination/slicing scheme is kept here only as a record of intent.
  */
 public class VirtualFieldComputer {
     private final ParameterizedType atomicBooleanPt;
@@ -408,26 +412,6 @@ public class VirtualFieldComputer {
         return Stream.concat(Stream.ofNullable(formalHiddenContent), fromHigher.stream()).toList();
     }
 
-    private VirtualFields arrayType(ParameterizedType pt) {
-        NamedType namedType;
-        TypeInfo typeInfo;
-        String baseName;
-        if (pt.typeParameter() != null) {
-            namedType = pt.typeParameter();
-            typeInfo = pt.typeParameter().typeInfo();
-            baseName = namedType.simpleName().toLowerCase();
-        } else {
-            namedType = pt.typeInfo();
-            typeInfo = pt.typeInfo();
-            baseName = "$";
-        }
-        // there'll be multiple "mutable" fields on "typeInfo", so we append the type parameter name
-        FieldInfo mutable = newField("m" + namedType.simpleName(), atomicBooleanPt, typeInfo);
-        String hcName = baseName + "s".repeat(pt.arrays());
-        FieldInfo hiddenContent = newField(hcName, pt, typeInfo);
-        return new VirtualFields(mutable, hiddenContent);
-    }
-
     public FieldInfo newField(String name, ParameterizedType type, TypeInfo owner) {
         return newField(runtime, name, type, owner);
     }
@@ -450,6 +434,9 @@ public class VirtualFieldComputer {
         if (Util.needsVirtual(from.parameterizedType()) && Util.needsVirtual(to.parameterizedType())) {
             // FIXME what when one needs virtual, and the other does not? is technically possible;
             Value.Immutable immutableTo = new AnalysisHelper().typeImmutable(to.parameterizedType());
+            // NOTE: this reads 'to' (not 'from') deliberately-for-now. It looks like a copy-paste bug (see
+            // virtual-fields.md #2), but changing it to from.parameterizedType() alters modification-link output
+            // and breaks TestCast/TestInstanceOf/TestList. Needs a semantics decision before it can be "fixed".
             Value.Immutable immutableFrom = new AnalysisHelper().typeImmutable(to.parameterizedType());
             Value.Immutable worst = immutableFrom.min(immutableTo);
             if (worst.isMutable()) {

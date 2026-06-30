@@ -65,7 +65,7 @@ public class TestFluent extends CommonTest {
     @DisplayName("builder with fluent methods")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("a.b.B", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
         FieldInfo iField = B.getFieldByName("i", true);

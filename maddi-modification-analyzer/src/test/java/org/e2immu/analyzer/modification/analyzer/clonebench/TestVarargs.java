@@ -69,7 +69,7 @@ public class TestVarargs extends CommonTest {
     @DisplayName("varargs")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("Function9706280_file1648039", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -93,7 +93,7 @@ public class TestVarargs extends CommonTest {
     @DisplayName("method reference causes index out of bounds")
     @Test
     public void test2() {
-        TypeInfo B = javaInspector.parse(INPUT2);
+        TypeInfo B = javaInspector.parse("Slf4jEffort", INPUT2);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
@@ -153,7 +153,7 @@ public class TestVarargs extends CommonTest {
     @DisplayName("link to parameter")
     @Test
     public void test3() {
-        TypeInfo B = javaInspector.parse(INPUT3);
+        TypeInfo B = javaInspector.parse("Hex", INPUT3);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }

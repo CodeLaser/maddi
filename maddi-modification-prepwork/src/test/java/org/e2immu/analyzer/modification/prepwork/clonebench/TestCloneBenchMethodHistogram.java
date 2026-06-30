@@ -57,6 +57,14 @@ public class TestCloneBenchMethodHistogram extends CommonTest {
                 "jmod:java.management");
     }
 
+    // the per-directory source sets parsed by this test; under openjdk each must be registered (and distinct) so
+    // its classpath resolves and identically-named clone-bench types in different directories do not collide.
+    @Override
+    protected List<String> openJdkExtraSourceSetNames() {
+        return List.of("testDoWhile", "testFor", "testForBubbleSort", "testForeachPureCompiles",
+                "testSwitchFor", "testSwitchPureCompiles", "testTry", "testTryResource", "testWhile");
+    }
+
     public void process(String name, Map<String, Integer> methodHistogram) throws IOException {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
 
@@ -66,10 +74,20 @@ public class TestCloneBenchMethodHistogram extends CommonTest {
         File[] javaFiles = src.listFiles(f -> f.getName().endsWith(".java") && !isProcessed(f.getName()));
         assertNotNull(javaFiles);
         LOGGER.info("Found {} java files in {}", javaFiles.length, directory);
-        SourceSet sourceSet = new SourceSetImpl.Builder().setName(name)
-                .setUri(URI.create("file:/"))
-                .build();
-        sourceSet.computePriorityDependencies();
+        // the openjdk parser resolves the classpath via the source set's dependencies and asserts the source set
+        // is registered in the input configuration; use the per-directory source set built (and registered) at
+        // setup, which carries javaBase + the jmods and is distinct per directory (so identically-named clone-bench
+        // types in different directories do not collide). The maddi parser resolves against its global classpath,
+        // so an ad-hoc source set is fine there.
+        SourceSet sourceSet;
+        if (openJdkParser) {
+            sourceSet = openJdkSourceSetsByName.get(name);
+        } else {
+            sourceSet = new SourceSetImpl.Builder().setName(name)
+                    .setUri(URI.create("file:/"))
+                    .build();
+            sourceSet.computePriorityDependencies();
+        }
         for (File javaFile : javaFiles) {
             process(sourceSet, analyzer, javaFile, methodHistogram);
         }

@@ -71,7 +71,7 @@ public class TestConsumer extends CommonTest {
     @DisplayName("nulls in HiddenContentSelector and LinkHelper")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("PropertyDump", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }

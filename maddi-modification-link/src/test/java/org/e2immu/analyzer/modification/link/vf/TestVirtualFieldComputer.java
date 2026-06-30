@@ -34,10 +34,6 @@ public class TestVirtualFieldComputer extends CommonTest {
         assertEquals("java.util.List", vfList.hiddenContent().type().typeParameter()
                 .getOwner().getLeft().toString());
 
-        // TypeInfo collection = javaInspector.compiledTypesManager().getOrLoad(Collection.class);
-        // VirtualFields vfCollection = collection.analysis().getOrNull(VirtualFields.VIRTUAL_FIELDS, VirtualFields.class);
-        // assertEquals("§m - T[] ts", vfCollection.toString());
-
         TypeInfo object = javaInspector.compiledTypesManager().getOrLoad(Object.class);
         VirtualFields vfObject = vfc.compute(object);
         assertEquals("/ - Object §0", vfObject.toString());

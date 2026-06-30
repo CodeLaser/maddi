@@ -91,7 +91,7 @@ public class TestVariousDependentVariableIssues extends CommonTest {
     @DisplayName("various dependent variable issues")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("X", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }

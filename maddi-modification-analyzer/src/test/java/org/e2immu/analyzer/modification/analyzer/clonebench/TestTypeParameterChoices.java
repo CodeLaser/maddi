@@ -55,7 +55,7 @@ public class TestTypeParameterChoices extends CommonTest {
     @DisplayName("Properties is a HashTable<Object, Object>")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("Function2210693_file1024232", INPUT1);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
