@@ -604,6 +604,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         int index = 0;
         MethodInfo.Builder builder = method.builder();
 
+        // When this method belongs to a type currently being scanned from source, its declaration will be visited
+        // later (ScanCompilationUnit.visitMethod), which sets the parameter sources. We must therefore NOT commit
+        // the parameters here, otherwise those sources can never be set (a method reference may cause the method to
+        // be created from its symbol before its declaration is reached; see TestParameterInfoSource). Synthetic
+        // methods (e.g. enum values()/valueOf()) have no declaration and must be committed now.
+        boolean deferParameterCommit = !synthetic
+                && typeInfo.compilationUnit() != null
+                && sourceSetOfCurrentTask.equals(typeInfo.compilationUnit().sourceSet());
+
         List<TypeParameter> newTypeParameters = new ArrayList<>();
         for (Symbol.TypeVariableSymbol typeParameter : ms.getTypeParameters()) {
             TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), method);
@@ -645,8 +654,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 if (methodIsVarargs && pIndex == lastParamIndex) parameterInfo.builder().setVarArgs(true);
                 if ((flags & Flags.FINAL) != 0) parameterInfo.builder().setIsFinal(true);
                 parameterInfo.builder().addAnnotations(loadAnnotations(parameter));
-                parameterInfo.builder().commit();
-                // FIXME when source type, do not commit yet, we must set detailed sources
+                if (!deferParameterCommit) parameterInfo.builder().commit();
                 pIndex++;
             }
         }
@@ -659,9 +667,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         builder.setReturnType(returnType)
                 .setSource(runtime.noSource())
                 .setMethodBody(runtime.emptyBlock())
-                .addOverrides(overrides)
-                .commitParameters()
-                .computeAccess();
+                .addOverrides(overrides);
+        if (!deferParameterCommit) builder.commitParameters();
+        builder.computeAccess();
         // now the fully qualified name has been computed...
 
         clearTmpMethodTypeParameterMap(typeInfo.fullyQualifiedName());
