@@ -195,4 +195,21 @@ class TypeResolutionTest : KotlinScanTestBase() {
         assertTrue(methodNames.contains("hashCode"), "inherited method missing; methods were $methodNames")
     }
 
+    @Test
+    fun libraryTypeLoadsPropertiesAsFields() {
+        // library properties are loaded as fields, so `obj.x` resolves; IntRange inherits `first`/`last`
+        // from IntProgression (so this also exercises inherited members)
+        val scan = KotlinScan(runtime, sourceSet)
+        val c = scan.parse("C.kt", "class C { fun m(r: IntRange): Int { return r.first } }\n").first()
+
+        val intRange = c.findUniqueMethod("m", 1).parameters().first().parameterizedType().typeInfo()
+        val fieldNames = intRange.fields().map { it.name() }.toSet()
+        assertTrue(fieldNames.contains("first"), "fields were $fieldNames")
+        assertTrue(fieldNames.contains("last"), "fields were $fieldNames")
+
+        // and `r.first` resolves to a field access (not a placeholder)
+        val ret = (c.findUniqueMethod("m", 1).methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(ret is VariableExpression && ret.variable() is FieldReference)
+    }
+
 }

@@ -206,6 +206,12 @@ internal class KotlinTypeMapper(
                     .filterIsInstance<KaNamedFunctionSymbol>()
                     .map { convertLibraryMethod(typeInfo, it) }
                     .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+                // properties -> fields, so `obj.size`/`obj.length` resolve (the body resolver reads a
+                // property access as a field access, like a source type's backing field)
+                val seenFields = mutableSetOf<String>()
+                symbol.memberScope.declarations
+                    .filterIsInstance<KaPropertySymbol>()
+                    .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryField(typeInfo, it)) }
             } finally {
                 loadingMembers = false
             }
@@ -226,6 +232,17 @@ internal class KotlinTypeMapper(
         addMethodModifiers(builder, function)
         builder.commitParameters().computeAccess().commit()
         return method
+    }
+
+    /** A library property -> a field on the type (signature only); the body resolver reads `obj.x` as field access. */
+    private fun KaSession.convertLibraryField(owner: TypeInfo, property: KaPropertySymbol): FieldInfo {
+        val field = runtime.newFieldInfo(property.name.asString(), false, mapType(property.returnType, owner), owner)
+        val builder = field.builder()
+            .addFieldModifier(runtime.fieldModifierPublic())
+            .setInitializer(runtime.newEmptyExpression())
+        if (property.setter == null) builder.addFieldModifier(runtime.fieldModifierFinal()) // read-only (val)
+        builder.computeAccess().commit()
+        return field
     }
 
     /** Set type nature and supertypes (parent class + interfaces) from the resolved class symbol. */
