@@ -479,4 +479,21 @@ class TypeStructureTest : KotlinScanTestBase() {
         assertTrue(shape.isSealed)
         assertEquals(setOf("Circle", "Square"), shape.permittedWhenSealed().map { it.simpleName() }.toSet())
     }
+
+    @Test
+    fun methodTypeParameterWithBound() {
+        // `fun <T : Comparable<T>> maxOf(...)`: the method carries its own type parameter T, bounded by
+        // Comparable, so a `T`-typed body can resolve members against the bound.
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "M.kt",
+            "fun <T : Comparable<T>> maxOf2(a: T, b: T): T = if (a > b) a else b\n"
+        )
+        val maxOf2 = types.flatMap { it.methods() }.first { it.name() == "maxOf2" }
+
+        assertEquals(listOf("T"), maxOf2.typeParameters().map { it.simpleName() })
+        val bound = maxOf2.typeParameters().first().typeBounds().first()
+        assertEquals("Comparable", bound.typeInfo().simpleName())
+        // the parameters are typed by that same type parameter (not erased to Object)
+        assertEquals(maxOf2.typeParameters().first(), maxOf2.parameters().first().parameterizedType().typeParameter())
+    }
 }

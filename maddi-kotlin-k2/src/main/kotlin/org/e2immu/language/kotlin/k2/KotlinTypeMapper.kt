@@ -123,13 +123,17 @@ internal class KotlinTypeMapper(
      * arguments. A nullable `T?` is boxed and tagged [NullableState.NULLABLE]. External/library types
      * (the CompiledTypesManager's job) still fall back to Object.
      */
-    internal fun KaSession.mapType(type: KaType, owner: TypeInfo): ParameterizedType {
+    internal fun KaSession.mapType(type: KaType, owner: TypeInfo, method: MethodInfo? = null): ParameterizedType {
         val base = when (type) {
-            is KaClassType -> mapClassType(type, owner)
-            is KaTypeParameterType ->
-                owner.typeParameters().firstOrNull { it.simpleName() == type.symbol.name.asString() }
+            is KaClassType -> mapClassType(type, owner, method)
+            is KaTypeParameterType -> {
+                val name = type.symbol.name.asString()
+                // a method type parameter (`fun <T> …`) shadows a same-named type parameter of the owner
+                (method?.typeParameters()?.firstOrNull { it.simpleName() == name }
+                    ?: owner.typeParameters().firstOrNull { it.simpleName() == name })
                     ?.let { runtime.newParameterizedType(it, 0, null) }
                     ?: runtime.objectParameterizedType()
+            }
             else -> runtime.objectParameterizedType()
         }
         return if (type.nullability == KaTypeNullability.NULLABLE)
@@ -137,7 +141,7 @@ internal class KotlinTypeMapper(
         else base
     }
 
-    private fun KaSession.mapClassType(type: KaClassType, owner: TypeInfo): ParameterizedType {
+    private fun KaSession.mapClassType(type: KaClassType, owner: TypeInfo, method: MethodInfo? = null): ParameterizedType {
         // primitives / void / the predefined java.lang singletons: predefined PTs (exact instances)
         when (type.classId.asFqNameString()) {
             "kotlin.Int" -> return runtime.intParameterizedType()
@@ -165,13 +169,14 @@ internal class KotlinTypeMapper(
                 else symbolScanner.getOrLoad(jvmFqn, type.typeArguments.size) // not on classpath -> shell
             } else loadLibraryType(type.symbol as KaNamedClassSymbol, jvmFqn) // non-mapped -> deepen from symbol
         }
-        return parameterize(typeInfo, type, owner)
+        return parameterize(typeInfo, type, owner, method)
     }
 
     /** Build the parameterized type for [typeInfo], converting and boxing the use-site type arguments. */
-    private fun KaSession.parameterize(typeInfo: TypeInfo, type: KaClassType, owner: TypeInfo): ParameterizedType {
+    private fun KaSession.parameterize(typeInfo: TypeInfo, type: KaClassType, owner: TypeInfo,
+                                       method: MethodInfo? = null): ParameterizedType {
         val typeArguments = type.typeArguments.map { projection ->
-            val arg = projection.type?.let { mapType(it, owner) } ?: runtime.objectParameterizedType() // star
+            val arg = projection.type?.let { mapType(it, owner, method) } ?: runtime.objectParameterizedType() // star
             if (arg.isPrimitiveExcludingVoid) arg.ensureBoxed(runtime) else arg // List<Int> -> List<Integer>
         }
         return runtime.newParameterizedType(typeInfo, typeArguments)
