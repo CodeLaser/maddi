@@ -225,18 +225,60 @@ public record ExpressionVisitor(Runtime runtime,
         } else {
             tMlv = mlv;
         }
-        Links newRv = tMlv.ofReturnValue();
+        Links newRv;
         int i = 0;
         Map<Variable, Links> map = new HashMap<>();
-        for (Links paramLinks : tMlv.ofParameters()) {
-            map.put(mr.methodInfo().parameters().get(i), paramLinks);
-            ++i;
+        if (mr.methodInfo().isConstructor()) {
+            // A constructor reference's SAM returns the newly created object (the constructor's 'this'). The
+            // constructor's own summary has no return value; its effect is 'param → this.field'. Re-home those onto
+            // a synthetic return variable, reversed, so the SAM return links to its parameters ('rv.field ← param')
+            // — the same shape a factory method ('Y wrap(Y y){return new R<>(y);}' -> 'wrap.v←0:y') produces, so
+            // that e.g. stream.map(R::new) lifts like stream.map(this::wrap). See TestStreamMapSpec.
+            Variable rv = IntermediateVariable.returnValue(runtime, variableCounter.getAndIncrement(),
+                    mr.methodInfo().typeInfo().asParameterizedType());
+            Links.Builder rvBuilder = new LinksImpl.Builder(rv);
+            for (Links paramLinks : tMlv.ofParameters()) {
+                ParameterInfo pi = mr.methodInfo().parameters().get(i);
+                Links.Builder paramSelf = new LinksImpl.Builder(pi);
+                for (Link link : paramLinks) {
+                    if (rootVariable(link.to()) instanceof This actualThis) {
+                        TranslationMap thisToRv = new VariableTranslationMap(runtime).put(actualThis, rv);
+                        rvBuilder.add(thisToRv.translateVariableRecursively(link.to()),
+                                link.linkNature().reverse(), link.from());
+                    } else {
+                        paramSelf.add(link.from(), link.linkNature(), link.to());
+                    }
+                }
+                Links ps = paramSelf.build();
+                if (ps.primary() != null && !ps.isEmpty()) map.put(pi, ps);
+                ++i;
+            }
+            newRv = rvBuilder.build();
+        } else {
+            newRv = tMlv.ofReturnValue();
+            for (Links paramLinks : tMlv.ofParameters()) {
+                map.put(mr.methodInfo().parameters().get(i), paramLinks);
+                ++i;
+            }
         }
         if (object.links().primary() != null) {
             map.merge(object.links().primary(), object.links(), Links::merge);
             object.extra().forEach(e -> map.merge(e.getKey(), e.getValue(), Links::merge));
         }
-        Result wrapped = new Result(newRv, new LinkedVariablesImpl(map)).addModified(tMlv.modified(), null);
+        // For an unbound instance method reference ('M::clear', scope is the type, not an instance), the referenced
+        // method's own 'this' is the SAM's first parameter (the stream/collection element), NOT a variable in the
+        // caller's scope. Its self-modifications ('clear()' sets this.t) therefore describe element mutation, which
+        // maps to the source's hidden content — something LinkFunctionalInterface would have to express, since it
+        // carries only links. We cannot express it there yet, so at least do not leak the element's 'this' into the
+        // caller's modified set (that would wrongly report the enclosing object modified). See TestStreamForEachSpec.
+        boolean unboundInstanceReceiver = object.links().primary() == null
+                                          && !mr.methodInfo().isStatic() && !mr.methodInfo().isConstructor();
+        Set<Variable> leakedModified = unboundInstanceReceiver
+                ? tMlv.modified().stream()
+                .filter(v -> !(Util.primary(v) instanceof This t && t.typeInfo() == mr.methodInfo().typeInfo()))
+                .collect(Collectors.toUnmodifiableSet())
+                : tMlv.modified();
+        Result wrapped = new Result(newRv, new LinkedVariablesImpl(map)).addModified(leakedModified, null);
         FunctionalInterfaceVariable fiv = new FunctionalInterfaceVariable(
                 runtime,
                 variableCounter.getAndIncrement(),
@@ -244,8 +286,18 @@ public record ExpressionVisitor(Runtime runtime,
                 wrapped);
         Links links = new LinksImpl.Builder(fiv).build();
         return new Result(links, LinkedVariablesImpl.EMPTY)
-                // there is no need to filter the modifications
-                .addModified(tMlv.modified(), null);
+                .addModified(leakedModified, null);
+    }
+
+    // the raw root of a variable, descending through both field scopes (including real, non-virtual fields, unlike
+    // Util.primary) and array accesses; e.g. this.v -> this, this.a.b -> this, arr[0].f -> arr
+    private static Variable rootVariable(Variable variable) {
+        Variable v = variable;
+        while (true) {
+            if (v instanceof FieldReference fr && fr.scopeVariable() != null) v = fr.scopeVariable();
+            else if (v instanceof DependentVariable dv && dv.arrayVariable() != null) v = dv.arrayVariable();
+            else return v;
+        }
     }
 
     private @NotNull Result inlineConditional(InlineConditional ic, VariableData variableData, Stage stage) {
@@ -465,8 +517,12 @@ public record ExpressionVisitor(Runtime runtime,
             map.put(lambda.methodInfo().parameters().get(i), paramLinks);
             ++i;
         }
+        // use the filtered modified set (external captures only), not the raw one: the raw set also contains
+        // variables internal to the lambda (its parameters, the SAM's own markers such as 'accept'), which must
+        // not leak into the caller's modified set when the functional interface is applied (e.g. via forEach).
+        // Mirrors anonymousClassAsLambda. See TestStreamForEachSpec.
         Result wrapped = new Result(mlvTranslated.ofReturnValue(), new LinkedVariablesImpl(map))
-                .addModified(mlvTranslated.modified(), null);
+                .addModified(modifiedInLambda, null);
 
         FunctionalInterfaceVariable fiv = new FunctionalInterfaceVariable(
                 runtime,
@@ -480,6 +536,11 @@ public record ExpressionVisitor(Runtime runtime,
     private boolean doesNotBelongToLambda(Variable v, MethodInfo methodInfo) {
         Variable base = Util.primary(v);
         if (base instanceof ParameterInfo pi && pi.methodInfo() == methodInfo) {
+            return false;
+        }
+        // the lambda's own return variable is internal (present even for a void SAM such as Consumer.accept);
+        // it must not leak into the caller's modified set. See TestStreamForEachSpec.
+        if (base instanceof ReturnVariable rv && rv.methodInfo() == methodInfo) {
             return false;
         }
         if (base instanceof FieldReference fr
@@ -632,8 +693,25 @@ public record ExpressionVisitor(Runtime runtime,
                 .go(objectPrimary, params, mlvTranslated2);
         Set<Variable> extraModified = params.stream().flatMap(p ->
                 p.modified().keySet().stream()).collect(Collectors.toUnmodifiableSet());
+        // Carry the object sub-expression's own modifications forward through the chain. Without this, a terminal
+        // call drops side effects accumulated earlier in the same expression: 'list.stream().peek(target::add).toList()'
+        // would lose peek's modification of target (a bare non-terminal 'peek(...)' keeps it). Propagate only
+        // genuine, caller-visible side effects: (1) skip synthetic intermediates ('$_ce', '$_fi'/'$_afi' markers,
+        // all LinkVariable); (2) skip any variable that is consumed into the chained object, i.e. one that carries its
+        // own outgoing links in the object's graph (an 'extra' primary) — an argument stored into a builder
+        // ('setVariable(1,t)') is over-approximated as modified upstream, but that flows into the builder and must not
+        // surface as a fresh modification here (see TestStaticValuesRecord builder chains). A pure side-channel
+        // capture like peek's target only appears as a link partner, never as an owning primary. See
+        // TestStreamForEachSpec.
+        Set<Variable> consumedIntoObject = object.extra().map().keySet().stream()
+                .map(Util::primary).filter(Objects::nonNull).collect(Collectors.toUnmodifiableSet());
+        Set<Variable> objectModified = object.modified().keySet().stream()
+                .filter(v -> !(Util.primary(v) instanceof LinkVariable))
+                .filter(v -> !consumedIntoObject.contains(Util.primary(v)))
+                .collect(Collectors.toUnmodifiableSet());
         return r.addModified(modified, mc.methodInfo())
                 .addModified(extraModified, null)
+                .addModified(objectModified, null)
                 .add(new WriteMethodCall(mc, object.links()))
                 .addVariablesRepresentingConstant(params)
                 .addVariablesRepresentingConstant(object);

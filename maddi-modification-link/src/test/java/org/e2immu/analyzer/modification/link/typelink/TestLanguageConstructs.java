@@ -207,7 +207,7 @@ public class TestLanguageConstructs extends CommonTest {
                     C() { }
                 }
                 """;
-        assertEquals("[] --> m←Λ$_fi0", link("a.b.C", src, "m"));
+        assertEquals("[] --> m←Λ$_fi1", link("a.b.C", src, "m"));
     }
 
     @DisplayName("try-with-resources propagates resource modification, like a plain assignment")
