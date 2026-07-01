@@ -144,11 +144,14 @@ public class TestStreamForEachSpec extends CommonTest {
         assertEquals("a.b.C.peek(java.util.List,java.util.List):1:target", modified("peek"));
     }
 
-    @DisplayName("GAP: forEach(opaque Consumer parameter) infers nothing (conservative but lossy)")
+    @DisplayName("forEach(opaque Consumer parameter): the opaque consumer may mutate the elements, so the source "
+                 + "and the consumer are conservatively marked modified (like the manual 'for (x:list) c.accept(x)')")
     @Test
-    public void gapOpaqueConsumerParameter() {
-        // an opaque Consumer applied to the elements could capture/modify them; currently nothing is inferred.
+    public void opaqueConsumerParameter() {
+        // we cannot see into c, so no element-level link is produced, but the modification is conservative:
+        // both the source list and the consumer c are marked modified.
         assertEquals("[-, -] --> -", link("applyConsumer"));
-        assertEquals("", modified("applyConsumer"));
+        assertEquals("a.b.C.applyConsumer(java.util.List,java.util.function.Consumer):0:list, "
+                     + "a.b.C.applyConsumer(java.util.List,java.util.function.Consumer):1:c", modified("applyConsumer"));
     }
 }
