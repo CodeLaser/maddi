@@ -111,8 +111,12 @@ internal class KotlinTypeMapper(
     private val runtime: Runtime,
     private val infoByFqn: InfoByFqn,
     private val sourceSet: SourceSet,
+    // external-library types (JDK / classpath) live in their own external-library source set, so the
+    // analyzer (ComputeCallGraph via CompilationUnit.externalLibrary()) skips them; their CompilationUnit
+    // must carry a non-null source set (a stub's is null -> AssertionError under doPrimaryType).
+    private val librarySourceSet: SourceSet,
 ) {
-    private val symbolScanner = KotlinSymbolScanner(runtime, infoByFqn, sourceSet)
+    private val symbolScanner = KotlinSymbolScanner(runtime, infoByFqn, librarySourceSet)
     private var memberDepth = 0
     private val maxMemberDepth = 2 // load members this many levels deep; deeper co-loaded types stay shells
 
@@ -195,10 +199,18 @@ internal class KotlinTypeMapper(
      * supertype hierarchy (parent class + interfaces). The type is registered *before* its supertypes
      * are loaded so self/cyclic references terminate. Type-parameter bounds and members are deferred.
      */
+    /** A [CompilationUnit] for a library type, carrying the external-library source set (never a null-set stub). */
+    internal fun libraryCompilationUnit(packageName: String): CompilationUnit =
+        runtime.newCompilationUnitBuilder()
+            .setPackageName(packageName)
+            .setURI(URI.create("library:/" + packageName.replace('.', '/')))
+            .setSourceSet(librarySourceSet)
+            .build()
+
     private fun KaSession.loadLibraryType(symbol: KaNamedClassSymbol, jvmFqn: String): TypeInfo {
-        infoByFqn.getType(jvmFqn, sourceSet)?.let { return it }
+        infoByFqn.getType(jvmFqn, librarySourceSet)?.let { return it }
         val typeInfo = runtime.newTypeInfo(
-            runtime.newCompilationUnitStub(jvmFqn.substringBeforeLast('.', "")),
+            libraryCompilationUnit(jvmFqn.substringBeforeLast('.', "")),
             jvmFqn.substringAfterLast('.')
         )
         // register all type parameters first (so a bound can reference any of them, incl. itself), then the
@@ -207,7 +219,7 @@ internal class KotlinTypeMapper(
             runtime.newTypeParameter(i, tp.name.asString(), typeInfo)
                 .also { typeInfo.builder().addOrSetTypeParameter(it) } to tp
         }
-        infoByFqn.put(jvmFqn, typeInfo, sourceSet) // register before loading bounds/supertypes (cycles)
+        infoByFqn.put(jvmFqn, typeInfo, librarySourceSet) // register before loading bounds/supertypes (cycles)
         cstTypeParameters.forEach { (cstTp, tp) ->
             cstTp.builder()
                 .setTypeBounds(tp.upperBounds.map { mapType(it, typeInfo) }.filterNot { it.isJavaLangObject })

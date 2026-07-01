@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.TypeInfo
 import org.e2immu.language.cst.api.runtime.Runtime
 import org.e2immu.language.inspection.resource.InfoByFqn
+import java.net.URI
 
 /**
  * The internal type loader for library/external types — the Kotlin analogue of openjdk's
@@ -54,7 +55,12 @@ class KotlinSymbolScanner(
     private fun createShell(jvmFqn: String, arity: Int): TypeInfo {
         val packageName = jvmFqn.substringBeforeLast('.', missingDelimiterValue = "")
         val simpleName = jvmFqn.substringAfterLast('.')
-        val compilationUnit = runtime.newCompilationUnitStub(packageName)
+        // carry the external-library source set (a stub's source set is null -> analyzer AssertionError)
+        val compilationUnit = runtime.newCompilationUnitBuilder()
+            .setPackageName(packageName)
+            .setURI(URI.create("library:/" + packageName.replace('.', '/')))
+            .setSourceSet(librarySourceSet)
+            .build()
         val typeInfo = runtime.newTypeInfo(compilationUnit, simpleName)
         repeat(arity) { i ->
             val tp = runtime.newTypeParameter(i, "T$i", typeInfo)

@@ -106,6 +106,7 @@ import org.jetbrains.kotlin.psi.KtWhileExpression
 import org.jetbrains.kotlin.psi.KtSecondaryConstructor
 import org.jetbrains.kotlin.psi.KtSuperTypeCallEntry
 import java.net.URI
+import org.e2immu.language.inspection.resource.SourceSetImpl
 import java.nio.file.Files
 
 /**
@@ -127,7 +128,12 @@ class KotlinScan(
 ) : MemberConverter {
     // Type mapping (KaType -> ParameterizedType) + lazy library-type loading: the bottom layer.
     // Delegated via thin forwarders at the end of this class (KaSession member extensions -> with(…)).
-    private val typeMapper = KotlinTypeMapper(runtime, infoByFqn, sourceSet)
+    // external-library (JDK/classpath) types get their own external-library source set, so the analyzer
+    // skips them (CompilationUnit.externalLibrary()); a source set is required (a stub's is null).
+    private val librarySourceSet: SourceSet = SourceSetImpl.Builder()
+        .setName(sourceSet.name() + "-library").setUri(URI.create("library:/"))
+        .setExternalLibrary(true).build()
+    private val typeMapper = KotlinTypeMapper(runtime, infoByFqn, sourceSet, librarySourceSet)
 
     // Function-body conversion (statements/expressions/calls/lambdas). It builds anonymous-object members
     // through `this` (KotlinScan is the MemberConverter), breaking the bodies<->declarations cycle.
