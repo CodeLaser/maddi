@@ -379,6 +379,13 @@ class KotlinScan(
             if ("hashCode" to 0 !in declared) typeInfo.builder().addMethod(recordSynthetics.createHashCode())
             if ("toString" to 0 !in declared) typeInfo.builder().addMethod(recordSynthetics.createToString())
         }
+        // sealed: record the permitted subclasses (the direct sealed inheritors), for exhaustiveness
+        if (classSymbol.modality == KaSymbolModality.SEALED) {
+            classSymbol.sealedClassInheritors.forEach { inheritor ->
+                infoByFqn.getType(inheritor.classId?.asFqNameString() ?: return@forEach, sourceSet)
+                    ?.let { typeInfo.builder().addPermittedType(it) }
+            }
+        }
         // enum: entry fields + synthetic values()/valueOf() (K2 doesn't surface these)
         if (classSymbol.classKind == KaClassKind.ENUM_CLASS) addEnumMembers(typeInfo, declaration)
         // companion object -> a nested `Companion` type + a static field on the enclosing class
