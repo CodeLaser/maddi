@@ -242,8 +242,13 @@ class KotlinScan(
         perFile.forEach { fc ->
             analyze(fc.ktFile) {
                 fc.declarations.zip(fc.types).forEach { (d, ti) -> prepareType(d, ti) }
+                // facade SIGNATURES first (so a class method can call a top-level function like `gcd(...)`),
+                // then class members, then facade BODIES (so an extension function body can read its receiver's
+                // members / call a class method -- those class members now exist)
+                val facadeBodies = fc.facade
+                    ?.let { convertFacadeSignatures(it, fc.topLevelFunctions, fc.topLevelProperties) } ?: emptyList()
                 fc.declarations.zip(fc.types).forEach { (d, ti) -> convertMembers(d, ti) }
-                fc.facade?.let { convertFacadeMembers(it, fc.topLevelFunctions, fc.topLevelProperties) }
+                facadeBodies.forEach { (method, sym) -> finishMethodBody(sym, method) }
             }
         }
         // pass B2 (all files): wire constructor this(...)/super(...) delegations — now every constructor
@@ -334,8 +339,14 @@ class KotlinScan(
      * Pass B1: the file facade is a final public class holding the top-level functions and properties as
      * static members (the JVM emits top-level declarations exactly this way).
      */
-    private fun KaSession.convertFacadeMembers(facade: TypeInfo, functions: List<KtNamedFunction>,
-                                               properties: List<KtProperty>) {
+    /**
+     * Pass B1a: the facade's type setup, its property members, and its function SIGNATURES (no bodies).
+     * Returns the (method, symbol) pairs whose bodies are converted later by [finishMethodBody] -- AFTER the
+     * class members exist, so a top-level/extension function body can call a class method or read a receiver
+     * member. (Class bodies, converted in between, can already see these facade signatures.)
+     */
+    private fun KaSession.convertFacadeSignatures(facade: TypeInfo, functions: List<KtNamedFunction>,
+                                                  properties: List<KtProperty>): List<Pair<MethodInfo, KaNamedFunctionSymbol>> {
         facade.builder()
             .setTypeNature(runtime.typeNatureClass())
             .setParentClass(runtime.objectParameterizedType())
@@ -345,8 +356,10 @@ class KotlinScan(
         properties.forEach { p ->
             (p.symbol as? KaPropertySymbol)?.let { convertProperty(facade, it, static = true) }
         }
-        functions.forEach { fn ->
-            (fn.symbol as? KaNamedFunctionSymbol)?.let { facade.builder().addMethod(convertMethod(facade, it, static = true)) }
+        return functions.mapNotNull { fn ->
+            (fn.symbol as? KaNamedFunctionSymbol)?.let { sym ->
+                convertMethodSignature(facade, sym, static = true).also { facade.builder().addMethod(it) } to sym
+            }
         }
     }
 
@@ -387,9 +400,11 @@ class KotlinScan(
         // enum: entry fields + synthetic name()/values()/valueOf() (K2 doesn't surface these). Before the
         // methods, so an enum method body can reference `HIGH` etc.
         if (classSymbol.classKind == KaClassKind.ENUM_CLASS) addEnumMembers(typeInfo, declaration)
-        classSymbol.declaredMemberScope.declarations
+        // method SIGNATURES first, then bodies -- so a method body can call a sibling declared later (or itself)
+        val pendingMethods = classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaNamedFunctionSymbol>()
-            .forEach { function -> typeInfo.builder().addMethod(convertMethod(typeInfo, function)) }
+            .map { function -> convertMethodSignature(typeInfo, function).also { typeInfo.builder().addMethod(it) } to function }
+        pendingMethods.forEach { (method, function) -> finishMethodBody(function, method) }
         // a data class gets synthetic structural equals/hashCode/toString (like a Java record), unless the
         // user declared them; componentN/copy/getters are already provided by K2's member scope
         if (classSymbol.isData) {
@@ -639,6 +654,9 @@ class KotlinScan(
                                               type: ParameterizedType, static: Boolean): MethodInfo {
         val getter = runtime.newMethod(owner, accessorName("get", property.name.asString()), methodType(static))
         getter.builder().setReturnType(type)
+        // an extension property (`val Int.doubled get() = this * 2`) becomes a static getter whose first
+        // parameter is the `$receiver` -- so `this` in the body resolves to it (the JVM model)
+        property.receiverParameter?.let { getter.builder().addParameter("\$receiver", mapType(it.returnType, owner)) }
         addMethodModifiers(getter.builder(), property)
         getter.builder().commitParameters().computeAccess()
         val accessor = (property.psi as? KtProperty)?.getter
@@ -709,6 +727,24 @@ class KotlinScan(
      */
     private fun KaSession.convertMethod(owner: TypeInfo, function: KaNamedFunctionSymbol,
                                         static: Boolean = false): MethodInfo {
+        val method = convertMethodSignature(owner, function, static)
+        finishMethodBody(function, method)
+        return method
+    }
+
+    /** The method's body, then commit; call after the signature exists (so forward/self calls resolve). */
+    private fun KaSession.finishMethodBody(function: KaNamedFunctionSymbol, method: MethodInfo) {
+        method.builder().setMethodBody(convertBody(function, method.returnType(), method)).commit()
+    }
+
+    /**
+     * The method's signature only (parameters, type parameters, return type, modifiers, access) -- NO body,
+     * NOT committed. Registering all signatures before converting any body lets a body resolve a forward or
+     * self reference to a sibling (e.g. a `tailrec` function's recursive call, or a top-level function
+     * calling another one on the file facade).
+     */
+    private fun KaSession.convertMethodSignature(owner: TypeInfo, function: KaNamedFunctionSymbol,
+                                                 static: Boolean = false): MethodInfo {
         val methodType = if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
         val method = runtime.newMethod(owner, function.name.asString(), methodType)
         val builder = method.builder()
@@ -749,10 +785,9 @@ class KotlinScan(
                 putPsi(runtime, method.name(), psi?.nameIdentifier)
                 putTypeReference(runtime, returnType, psi?.typeReference)
             })
-            .setMethodBody(convertBody(function, returnType, method))
         addMethodModifiers(builder, function)
         if (static) builder.addMethodModifier(runtime.methodModifierStatic())
-        builder.computeAccess().commit() // eventual access from the visibility modifier + owner type
+        builder.computeAccess() // eventual access from the visibility modifier + owner type; commit after the body
         return method
     }
 

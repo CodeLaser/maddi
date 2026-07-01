@@ -409,15 +409,32 @@ internal class KotlinBodyConverter(
      * (per the CST-for-Kotlin assessment). `is`/`in` conditions are skipped for now.
      */
     private fun KaSession.convertWhen(statement: KtWhenExpression, method: MethodInfo,
-                                      locals: Map<String, Variable>, index: String): Statement =
-        runtime.newSwitchStatementNewStyleBuilder()
-            .setSelector(whenSelector(statement, method, locals))
-            .addSwitchEntries(whenEntries(statement, method, locals, index))
+                                      locals: Map<String, Variable>, index: String): Statement {
+        val (selector, entryLocals) = whenSubject(statement, method, locals)
+        return runtime.newSwitchStatementNewStyleBuilder()
+            .setSelector(selector)
+            .addSwitchEntries(whenEntries(statement, method, selector, entryLocals, index))
             .setSource(runtime.noSource()).build()
+    }
 
-    private fun KaSession.whenSelector(statement: KtWhenExpression, method: MethodInfo,
-                                       locals: Map<String, Variable>): Expression =
-        statement.subjectExpression?.let { convertExpression(it, method, locals) } ?: runtime.newBoolean(true)
+    /**
+     * The `when` selector expression and the locals visible to the arms. For `when (val v = e)` the subject
+     * VARIABLE `v` binds a local whose value is the selector, so the arms can reference `v`; the selector is
+     * that same local (single evaluation). Otherwise the selector is the plain subject (or `true` if absent).
+     */
+    private fun KaSession.whenSubject(statement: KtWhenExpression, method: MethodInfo,
+                                      locals: Map<String, Variable>): Pair<Expression, Map<String, Variable>> {
+        statement.subjectVariable?.let { subjectVar ->
+            val name = subjectVar.name ?: "\$subject"
+            val type = (subjectVar.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
+                ?: runtime.objectParameterizedType()
+            val init = subjectVar.initializer?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression()
+            val local = runtime.newLocalVariable(name, type, init)
+            return variableExpression(local) to (locals + (name to local))
+        }
+        val selector = statement.subjectExpression?.let { convertExpression(it, method, locals) } ?: runtime.newBoolean(true)
+        return selector to locals
+    }
 
     /**
      * Build the switch entries for a `when`. Following the modern-Java pattern-switch model: a `is T` arm
@@ -426,8 +443,7 @@ internal class KotlinBodyConverter(
      * are case-label conditions; `in range` is a `contains` call condition (`!in` negated).
      */
     private fun KaSession.whenEntries(statement: KtWhenExpression, method: MethodInfo,
-                                      locals: Map<String, Variable>, prefix: String): List<SwitchEntry> {
-        val subject = statement.subjectExpression?.let { convertExpression(it, method, locals) }
+                                      subject: Expression, locals: Map<String, Variable>, prefix: String): List<SwitchEntry> {
         return statement.entries.mapIndexed { k, entry ->
             val blockIndex = if (prefix.isEmpty()) "$k" else "$prefix.$k"
             val builder = runtime.newSwitchEntryBuilder()
@@ -593,12 +609,15 @@ internal class KotlinBodyConverter(
                 }
                 parts.reduceOrNull { acc, part -> runtime.newStringConcat(acc, part) } ?: runtime.newStringConstant("")
             }
-            is KtWhenExpression -> runtime.newSwitchExpressionBuilder() // when as an expression
-                .setSelector(whenSelector(expression, method, locals))
-                .addSwitchEntries(whenEntries(expression, method, locals, ""))
-                .setParameterizedType(expression.expressionType?.let { mapType(it, method.typeInfo()) }
-                    ?: runtime.objectParameterizedType())
-                .setSource(runtime.noSource()).build()
+            is KtWhenExpression -> { // when as an expression
+                val (selector, entryLocals) = whenSubject(expression, method, locals)
+                runtime.newSwitchExpressionBuilder()
+                    .setSelector(selector)
+                    .addSwitchEntries(whenEntries(expression, method, selector, entryLocals, ""))
+                    .setParameterizedType(expression.expressionType?.let { mapType(it, method.typeInfo()) }
+                        ?: runtime.objectParameterizedType())
+                    .setSource(runtime.noSource()).build()
+            }
             else -> runtime.newEmptyExpression("k2-unsupported-expr:${expression::class.simpleName}")
         }
     }
@@ -966,18 +985,20 @@ internal class KotlinBodyConverter(
     ): Expression {
         val name = (call.calleeExpression as? KtNameReferenceExpression)?.getReferencedName()
             ?: return runtime.newEmptyExpression("k2-unsupported-callee")
+        // `call.valueArguments` already includes a trailing lambda (a KtLambdaArgument IS a KtValueArgument),
+        // so it must NOT be appended again from `call.lambdaArguments` (that double-counts the lambda).
+        val hasTrailingLambda = call.lambdaArguments.isNotEmpty()
         val valueArgs = call.valueArguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, method, locals) } }
-        val trailingLambdas = call.lambdaArguments.mapNotNull { it.getLambdaExpression()?.let { l -> convertExpression(l, method, locals) } }
         val calleeSymbol = call.resolveSymbol() as? KaNamedFunctionSymbol
         // named and/or defaulted arguments (`f(1, c = 5)`): rebuild the list in declaration order, filling
         // omitted parameters with their default value (the JVM `f$default` shape). Only for the plain case
-        // (no trailing lambda, no vararg); otherwise the positional args + trailing lambda are used as-is.
+        // (no trailing lambda, no vararg); otherwise the positional args (incl. any trailing lambda) are used.
         val ordered = calleeSymbol?.takeIf {
-            trailingLambdas.isEmpty() && it.valueParameters.none { p -> p.isVararg } &&
+            !hasTrailingLambda && it.valueParameters.none { p -> p.isVararg } &&
                 (call.valueArguments.any { a -> a.getArgumentName() != null } ||
                     call.valueArguments.size < it.valueParameters.size)
         }?.let { orderedArguments(call, it, method, locals) }
-        val arguments = ordered ?: (valueArgs + trailingLambdas)
+        val arguments = ordered ?: valueArgs
 
         // a constructor call `Foo(args)` -> ConstructorCall (the call resolves to a constructor, not a method)
         if (call.resolveSymbol() is KaConstructorSymbol) return convertConstructorCall(call, arguments, method)
@@ -990,6 +1011,8 @@ internal class KotlinBodyConverter(
         companionCall(name, calleeSymbol, arguments, call, method)?.let { return it }
         // a qualified call on a named object `Object.member(args)` routes through `Object.INSTANCE`
         if (receiver != null) objectCall(name, calleeSymbol, arguments, call, method)?.let { return it }
+        // a top-level function `f(args)` called from another type -> the file facade's static `<File>Kt.f(args)`
+        if (receiver == null) facadeCall(name, calleeSymbol, arguments, call, method)?.let { return it }
 
         // invoking a function-typed value `action()` -> `action.invoke(args)` (Kotlin's invoke-operator
         // sugar): the callee is a variable in scope, not a method. Resolve `invoke` on its functional type.
@@ -1105,6 +1128,24 @@ internal class KotlinBodyConverter(
             .setSource(runtime.noSource()).build()
 
     /** The file-facade [TypeInfo] that holds a (source) top-level extension function, via its containing file. */
+    /**
+     * A top-level function call `f(args)` made from ANOTHER type resolves to the file facade's static
+     * method `<File>Kt.f(args)`. Returns null when the callee isn't a top-level (non-extension) function,
+     * when the enclosing method already is that facade (the normal path handles it), or when unresolved.
+     */
+    private fun KaSession.facadeCall(name: String, calleeSymbol: KaNamedFunctionSymbol?, arguments: List<Expression>,
+                                     call: KtCallExpression, method: MethodInfo): Expression? {
+        if (calleeSymbol == null || calleeSymbol.receiverParameter != null) return null
+        if ((calleeSymbol.psi as? KtNamedFunction)?.containingClassOrObject != null) return null // a member, not top-level
+        val facade = extensionFacade(calleeSymbol)?.takeIf { it != method.typeInfo() } ?: return null
+        val callee = resolveCallee(facade, name, arguments) ?: return null
+        val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
+        return runtime.newMethodCallBuilder()
+            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(arguments)
+            .setConcreteReturnType(returnType).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+    }
+
     private fun extensionFacade(symbol: KaNamedFunctionSymbol): TypeInfo? {
         val ktFile = (symbol.psi as? KtNamedFunction)?.containingKtFile ?: return null
         val pkg = ktFile.packageFqName
