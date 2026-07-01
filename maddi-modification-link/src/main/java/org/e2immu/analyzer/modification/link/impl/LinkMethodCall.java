@@ -2,6 +2,7 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
+import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
@@ -48,7 +49,8 @@ public record LinkMethodCall(JavaInspector javaInspector,
         // A constructor is 'parametersToObject' with the new object as receiver: each argument flows into a field.
         // E.g. 'new Box<>(x)' -> 'make.t←0:x'; 'new Box<>(box.get())' -> 'makeFromGet.t←0:box.t';
         // 'new Pair<>(a, b)' -> 'makePair.a←0:a, makePair.b←1:b'.
-        Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
+        Set<Variable> extraModified = new HashSet<>();
+        Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv, extraModified);
         if (linkComputerOptions.trackObjectCreations()) {
             // LEAF (option on) — additionally record that the temporary object primary was assigned a fresh object,
             // so later modification analysis can tell freshly-created (unaliased) objects apart.
@@ -60,7 +62,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
                     .add(LinkNatureImpl.IS_ASSIGNED_FROM, oc).build();
             extra.merge(objectPrimary, toObjectCreation, Links::merge);
         }
-        return new Result(newObjectLinks, new LinkedVariablesImpl(extra));
+        return new Result(newObjectLinks, new LinkedVariablesImpl(extra)).addModified(extraModified, null);
     }
 
     private static void copyParamsIntoExtra(List<ParameterInfo> formalParameters,
@@ -154,7 +156,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
         }
         // Independently: how do the ARGUMENTS relate to the OBJECT (or, for a static call, to each other)?
         if (objectPrimary != null) {
-            Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
+            Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv, extraModified);
             if (newObjectLinks.primary() instanceof This && !newObjectLinks.isEmpty()) {
                 // LEAF 4a — the receiver is the implicit 'this' (an unqualified own-method call): the object-side
                 // links come back rooted at 'this'; regroup them so each real field/variable becomes its own primary.
@@ -443,10 +445,25 @@ public record LinkMethodCall(JavaInspector javaInspector,
                 .orElse(null);
     }
 
+    // an opaque CONSUMER argument: a functional-interface parameter/variable whose SAM returns nothing (so it is
+    // applied for side effects, and may mutate the elements handed to it), that we cannot see into -- not a lambda /
+    // method reference (those are captured as a FunctionalInterfaceVariable) and carrying no captured links. E.g. a
+    // plain 'Consumer<X> c' parameter, but NOT a Predicate/Function (whose SAM returns a value: read-only).
+    private static boolean isOpaqueConsumerArg(ParameterInfo pi, Result r) {
+        if (!pi.parameterizedType().isFunctionalInterface()) return false;
+        MethodInfo sam = pi.parameterizedType().typeInfo().singleAbstractMethod();
+        if (sam == null || !sam.noReturnValue()) return false;
+        Variable primary = r.links().primary();
+        return primary != null
+               && !(primary instanceof FunctionalInterfaceVariable)
+               && r.extra().isEmpty();
+    }
+
     private @NotNull Links parametersToObject(MethodInfo methodInfo,
                                               Result object,
                                               List<Result> params,
-                                              MethodLinkedVariables mlv) {
+                                              MethodLinkedVariables mlv,
+                                              Set<Variable> extraModified) {
         Variable objectPrimary = object.links().primary();
         int i = 0;
         Links.Builder builder = new LinksImpl.Builder(objectPrimary);
@@ -482,6 +499,17 @@ public record LinkMethodCall(JavaInspector javaInspector,
                     // (write); for a two-field 'set(A,B)' each argument lands in its own field (putBoth -> pair.a←a,
                     // pair.b←b); 'copyFrom(dst,src){dst.set(src.get());}' -> 'dst.t←src.t'.
                     builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
+                } else if (Util.isPartOf(objectPrimary, translatedFrom)
+                           && isOpaqueConsumerArg(pi, r)) {
+                    // LEAF — an OPAQUE consumer argument (a plain parameter/variable, not a lambda or method reference
+                    // we can see into) is passed to a method that applies it to the object's hidden content, e.g.
+                    // 'list.forEach(c)' (forEach's summary is 'this.§ts ⊇ action'). A consumer's SAM returns nothing:
+                    // it is applied for side effects and might mutate the elements, so -- matching the manually-written
+                    // 'for (x : list) c.accept(x)' -- we conservatively mark both the source and the consumer modified.
+                    // (A Predicate/Function argument, e.g. filter/map, returns a value and reads the elements, so it is
+                    // NOT treated this way: its SAM has a return value.) See TestStreamForEachSpec.
+                    extraModified.add(translatedTo);
+                    extraModified.add(objectPrimary);
                 }
             }
             ParameterizedType parameterizedType = pi.parameterizedType();
