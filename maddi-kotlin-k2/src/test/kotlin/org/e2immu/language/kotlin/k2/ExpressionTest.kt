@@ -370,6 +370,20 @@ class ExpressionTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun anonymousObjectAssignedToLocal() {
+        // `val r = object : Runnable { … }`: the local's INFERRED type is the anonymous object type, which
+        // has no named symbol. Mapping it must not crash (KaFirAnonymousObjectSymbol is not a
+        // KaNamedClassSymbol); it maps to the declared supertype Runnable.
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "Anon2.kt",
+            "class X { fun m() { val r = object : Runnable { override fun run() {} }; r.run() } }\n"
+        )
+        val m = types.first().findUniqueMethod("m", 0)
+        val lvc = m.methodBody().statements().first() as LocalVariableCreation
+        assertEquals("Runnable", lvc.localVariable().parameterizedType().typeInfo()?.simpleName())
+    }
+
+    @Test
     fun destructuringDeclaration() {
         val scan = KotlinScan(runtime, sourceSet)
         val d = scan.parse(

@@ -156,6 +156,13 @@ internal class KotlinTypeMapper(
             "kotlin.String" -> return runtime.stringParameterizedType()
             "kotlin.Any" -> return runtime.objectParameterizedType()
         }
+        // an anonymous object type (`val r = object : Runnable {}`) has no named symbol: map it to its
+        // first declared supertype (the SAM/base type), else Object -- there is no CST type of its own.
+        if (type.symbol !is KaNamedClassSymbol) {
+            return (type.symbol as? KaClassSymbol)?.superTypes
+                ?.firstNotNullOfOrNull { st -> mapType(st, owner, method).takeUnless { it.isJavaLangObject } }
+                ?: runtime.objectParameterizedType()
+        }
         val kotlinFqn = type.classId.asFqNameString()
         // already known (a sibling source type, or a previously loaded library type), else load it:
         val typeInfo = infoByFqn.getType(kotlinFqn, sourceSet) ?: run {
