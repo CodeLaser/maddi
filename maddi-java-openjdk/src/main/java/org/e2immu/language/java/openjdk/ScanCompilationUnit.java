@@ -56,6 +56,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     private final Map<StatementTree, String> statementLabels = new IdentityHashMap<>();
     private final CompilationUnit.Builder compilationUnitBuilder;
     private CompilationUnit compilationUnit;
+    private Source compilationUnitSource;
+    // false during the primary-type registration pass (phase 1), true during the body-scanning pass (phase 2)
+    private boolean bodiesPhase;
     private final SourcePositions sourcePositions;
     private final LineMap lineMap;
     private final CompilationUnitTree compilationUnitTree;
@@ -172,28 +175,54 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         }
     }
 
+    /**
+     * Phase 1: build this unit's {@link CompilationUnit} only (no bodies, no types). {@link ScanCompilationUnits}
+     * builds every source unit's CU before any body is scanned and registers them with the class-symbol scanner,
+     * so that when a source type is referenced before its own source is scanned (e.g. {@code a.A} naming
+     * {@code b.B}), the lazy class-symbol load reuses this source-bearing CU instead of minting a source-less twin
+     * CompilationUnit that the later source scan would then reuse.
+     */
+    void buildCompilationUnit(CompilationUnitTree unit) {
+        this.bodiesPhase = false;
+        scan(unit, null);
+    }
+
+    /** Phase 2: scan the bodies. */
+    void scanBodies(CompilationUnitTree unit) {
+        convertType.startCompilationUnit(this, elementStack); // (re)assert as the current source provider
+        this.bodiesPhase = true;
+        scan(unit, null);
+    }
+
     @Override
     public Void visitCompilationUnit(CompilationUnitTree node, Void unused) {
         try {
-            // continue the building of the compilation unit: imports
-            for (ImportTree importTree : node.getImports()) {
-                ImportStatement is = parseImportStatement(importTree);
-                compilationUnitBuilder.addImportStatement(is);
+            if (compilationUnit == null) {
+                // build the compilation unit exactly once (shared by both phases): imports, package, source, comments
+                for (ImportTree importTree : node.getImports()) {
+                    ImportStatement is = parseImportStatement(importTree);
+                    compilationUnitBuilder.addImportStatement(is);
+                }
+                DetailedSources.Builder cuDsb = runtime.newDetailedSourcesBuilder();
+                if (node.getPackageName() != null) {
+                    // the package name, keyed by the package-name string
+                    String packageName = compilationUnitBuilder.packageName();
+                    assert packageName != null;
+                    cuDsb.put(packageName, sourceForNode(node.getPackageName()));
+                }
+                compilationUnitSource = sourceForNode(node, cuDsb);
+                compilationUnitBuilder.setSource(compilationUnitSource)
+                        .addComments(commentsForNode(compilationUnitSource))
+                        .addTrailingComments(trailingCommentsForNode(compilationUnitSource));
+                compilationUnit = compilationUnitBuilder.build();
             }
-            DetailedSources.Builder cuDsb = runtime.newDetailedSourcesBuilder();
-            if (node.getPackageName() != null) {
-                // the package name, keyed by the package-name string
-                String packageName = compilationUnitBuilder.packageName();
-                assert packageName != null;
-                cuDsb.put(packageName, sourceForNode(node.getPackageName()));
-            }
-            Source source = sourceForNode(node, cuDsb);
-            compilationUnitBuilder.setSource(source)
-                    .addComments(commentsForNode(source))
-                    .addTrailingComments(trailingCommentsForNode(source));
-            compilationUnit = compilationUnitBuilder.build();
 
-            // now we have one built
+            if (!bodiesPhase) {
+                // PHASE 1: the CU has been built (above); nothing else to do until bodies are scanned
+                return null;
+            }
+
+            // PHASE 2: scan the bodies
             if (node.getTypeDecls().isEmpty()) {
                 // package-info
                 List<AnnotationExpression> annotations = new ArrayList<>();
@@ -205,7 +234,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         .addAnnotations(annotations)
                         .setParentClass(runtime.objectParameterizedType())
                         .setAccess(runtime.accessPublic())
-                        .setSource(source);
+                        .setSource(compilationUnitSource);
                 // don't commit yet
                 collectedPrimaryTypes.add(pkgInfoType);
             } else {
