@@ -122,4 +122,51 @@ public class TestModifierDetailedSources extends CommonTest {
         Source publicSrc = Xc.source().detailedSources().detail(mm);
         assertEquals("4-5:4-10", publicSrc.compact2());
     }
+
+    // the method's name identifier is retrievable via detail(method.simpleName()) (== detail(method.name())),
+    // the form a language-agnostic consumer uses. Lookup is by object identity.
+    @Test
+    public void testMethodNameDetail() {
+        TypeInfo typeInfo = scan("a.b.C", INPUT);
+        MethodInfo m = typeInfo.findUniqueMethod("m", 2);
+        Source mName = m.source().detailedSources().detail(m.simpleName());
+        assertNotNull(mName);
+        assertEquals("4-31:4-31", mName.compact2()); // 'm'
+        assertSame(mName, m.source().detailedSources().detail(m.name()));
+    }
+
+    // a constructor's name is retrievable via simpleName() and points at the type-name token. (The name() is the
+    // MethodInfo.CONSTRUCTOR_NAME "<init>" constant; javac happens to intern it too, so this case worked already,
+    // but it is a useful regression guard.) See TestParameterInfoSource for the discriminating known-method case.
+    @Test
+    public void testConstructorNameDetail() {
+        TypeInfo X = scan("a.b.X", INPUT3);
+        MethodInfo Xc = X.findConstructor(1);
+        Source cName = Xc.source().detailedSources().detail(Xc.simpleName());
+        assertNotNull(cName, "constructor name source must be retrievable via simpleName()");
+        assertEquals("4-12:4-12", cName.compact2()); // the 'X' after 'public '
+    }
+
+    @Language("java")
+    String INPUT5 = """
+            package a.b;
+            record R(String string, int count) {
+            }
+            """;
+
+    // A record component is modelled by javac as a constructor parameter, not a field declaration, so its FIELD
+    // must still expose the component-name identifier via detail(field.simpleName()).
+    @Test
+    public void testRecordComponentFieldNameDetail() {
+        TypeInfo R = scan("a.b.R", INPUT5);
+        FieldInfo string = R.getFieldByName("string", true);
+        Source sName = string.source().detailedSources().detail(string.simpleName());
+        assertNotNull(sName, "record component field name must be retrievable via simpleName()");
+        assertEquals("2-17:2-22", sName.compact2()); // 'string' in 'record R(String string, int count)'
+
+        FieldInfo count = R.getFieldByName("count", true);
+        Source cName = count.source().detailedSources().detail(count.simpleName());
+        assertNotNull(cName);
+        assertEquals("2-29:2-33", cName.compact2()); // 'count'
+    }
 }

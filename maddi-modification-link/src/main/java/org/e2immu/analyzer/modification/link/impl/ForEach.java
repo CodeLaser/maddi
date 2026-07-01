@@ -14,6 +14,16 @@ import java.util.List;
 
 public record ForEach(Runtime runtime, ExpressionVisitor expressionVisitor) {
 
+    // for-each over an ARRAY: the loop variable is arr[i], an element of the array. Synthesize 'arr[0]' (the index
+    // is irrelevant for linking; what matters is the element-of link to the array) and link the loop variable from
+    // it. Arrays are not Iterable, so linkIntoIterable (iterator().next()) does not apply.
+    public Result linkIntoArray(Expression forEachExpression,
+                                VariableData previousVd,
+                                Stage stageOfPrevious) {
+        var dependentVariable = runtime.newDependentVariable(forEachExpression, runtime.intZero());
+        return expressionVisitor.visit(runtime.newVariableExpression(dependentVariable), previousVd, stageOfPrevious);
+    }
+
     public Result linkIntoIterable(ParameterizedType elementType,
                                    Expression forEachExpression,
                                    VariableData previousVd,

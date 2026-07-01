@@ -2,6 +2,7 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
+import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
@@ -45,8 +46,14 @@ public record LinkMethodCall(JavaInspector javaInspector,
         MethodInfo methodInfo = cc.constructor();
         copyParamsIntoExtra(methodInfo.parameters(), params, extra);
 
-        Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
+        // A constructor is 'parametersToObject' with the new object as receiver: each argument flows into a field.
+        // E.g. 'new Box<>(x)' -> 'make.t←0:x'; 'new Box<>(box.get())' -> 'makeFromGet.t←0:box.t';
+        // 'new Pair<>(a, b)' -> 'makePair.a←0:a, makePair.b←1:b'.
+        Set<Variable> extraModified = new HashSet<>();
+        Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv, extraModified);
         if (linkComputerOptions.trackObjectCreations()) {
+            // LEAF (option on) — additionally record that the temporary object primary was assigned a fresh object,
+            // so later modification analysis can tell freshly-created (unaliased) objects apart.
             ObjectCreationVariable oc = new ObjectCreationVariableImpl(methodInfo, cc.source().compact(),
                     cc.parameterizedType());
             Variable objectPrimary = object.links().primary();
@@ -55,7 +62,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
                     .add(LinkNatureImpl.IS_ASSIGNED_FROM, oc).build();
             extra.merge(objectPrimary, toObjectCreation, Links::merge);
         }
-        return new Result(newObjectLinks, new LinkedVariablesImpl(extra));
+        return new Result(newObjectLinks, new LinkedVariablesImpl(extra)).addModified(extraModified, null);
     }
 
     private static void copyParamsIntoExtra(List<ParameterInfo> formalParameters,
@@ -123,28 +130,48 @@ public record LinkMethodCall(JavaInspector javaInspector,
         }
         Links concreteReturnValue;
         Set<Variable> extraModified;
+        // What does the RETURN VALUE of this call link to? Three leaves:
         if (methodInfo.isSAMOfStandardFunctionalInterface()) {
             assert methodInfo == methodInfo.typeInfo().singleAbstractMethod();
+            // LEAF 1 — the call IS the SAM of a lambda held by a parameter: 'apply'/'accept'/'get' invoked on a
+            // Function/Consumer/Supplier argument. The result links to a marker (AppliedFunctionalInterfaceVariable)
+            // that is resolved when we know the concrete lambda. E.g. 'Y run(Function<X,Y> f, X x){return f.apply(x);}'
+            // -> run's return decorated with '$_afi' on f. See TestModificationFunctional.
             concreteReturnValue = samOfFunctionalInterface(concreteReturnType, params, objectPrimary, extra);
             extraModified = new HashSet<>();
         } else if (!mlv.ofReturnValue().isEmpty()) {
             assert mlv.ofReturnValue().primary() instanceof ReturnVariable;
+            // LEAF 2 — the callee summary relates its return value to the object/arguments: any accessor, fluent, or
+            // factory-return. E.g. 'X read(Box<X> box){return box.get();}' -> 'read←0:box.t';
+            // 'Box<X> fluent(Box<X> box){return box.self();}' -> 'fluent←0:box';
+            // 'X id(X x){return identity(x);}' -> 'id←0:x' (argument passed straight through).
             LM lm = objectToReturnValue(methodInfo, concreteReturnType, params, mlv, objectPrimary);
             concreteReturnValue = lm.links;
             extraModified = lm.extraModified;
         } else {
+            // LEAF 3 — the call returns nothing linkable (void, or a return unrelated to inputs): no return links.
+            // E.g. 'void write(Box<X> box, X x){box.set(x);}' and 'void clear(Box<X> box){box.clear();}' -> '--> -'.
             concreteReturnValue = LinksImpl.EMPTY;
             extraModified = new HashSet<>();
         }
+        // Independently: how do the ARGUMENTS relate to the OBJECT (or, for a static call, to each other)?
         if (objectPrimary != null) {
-            Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
+            Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv, extraModified);
             if (newObjectLinks.primary() instanceof This && !newObjectLinks.isEmpty()) {
+                // LEAF 4a — the receiver is the implicit 'this' (an unqualified own-method call): the object-side
+                // links come back rooted at 'this'; regroup them so each real field/variable becomes its own primary.
                 newObjectLinks.removeThisAsPrimary().forEach(links ->
                         extra.merge(links.primary(), links, Links::merge));
             } else {
+                // LEAF 4b — an ordinary receiver: merge the argument→object links under the object's primary.
+                // E.g. 'box.set(x)' -> 'box*.t←x*'; 'this.myBox.set(x)' (writeField) roots at 'this.myBox';
+                // 'boxes[0].set(x)' (arraySet) roots at the indexed element 'boxes[0]'.
                 extra.merge(objectPrimary, newObjectLinks, Links::merge);
             }
         } else {
+            // LEAF 5 — a static call has no object: relate the arguments to one another, and apply any functional
+            // interface passed as an argument. E.g. 'static <T> void transfer(Box<T> from, Box<T> to){to.set(from.get());}'
+            // -> 'from.t*→to*.t' (linksBetweenParameters); a passed Consumer that is invoked -> appliedFunctionalInterfaces.
             linksBetweenParameters(methodInfo, params, mlv, extra);
             appliedFunctionalInterfaces(methodInfo, params, extraModified, mlv, extra);
         }
@@ -157,7 +184,6 @@ public record LinkMethodCall(JavaInspector javaInspector,
                                              Set<Variable> extraModified,
                                              MethodLinkedVariables mlv,
                                              Map<Variable, Links> extra) {
-        int i = 0;
         assert mlv.ofParameters().size() == methodInfo.parameters().size();
         for (Links links : mlv.ofParameters()) {
             if (links != null) {
@@ -189,8 +215,9 @@ public record LinkMethodCall(JavaInspector javaInspector,
                 for (Link link : links) {
                     ParameterInfo to = Util.parameterPrimaryOrNull(link.to());
                     if (to == null || to.index() == i) {
+                        // LEAF (skip) — the callee link's target is not another parameter, or is the same parameter
+                        // (a self-link, handled elsewhere): nothing to cross-link here. See Test1,2.
                         // if to's index == i, we're talking the same index, rather than between indices
-                        // see Test1,2
                         continue;
                     }
                     Variable toPrimary = params.get(to.index()).links().primary();
@@ -200,6 +227,9 @@ public record LinkMethodCall(JavaInspector javaInspector,
 
                         ParameterInfo from = methodInfo.parameters().get(i);
                         if (from.isVarArgs()) {
+                            // LEAF — the 'from' parameter is varargs: fan the link out over every actual argument,
+                            // weakening the nature per element (varargsLinkNature) and downgrading each element name.
+                            // E.g. 'fillAll(Box<T> target, T... vs)' at 'fillAll(box,a,b)' -> 'box.t∈a, box.t∈b'.
                             LinkNature linkNature = varargsLinkNature(link.linkNature());
                             for (int j = i; j < params.size(); ++j) {
                                 Variable fromPrimary = params.get(j).links().primary();
@@ -208,6 +238,8 @@ public record LinkMethodCall(JavaInspector javaInspector,
                                 addCrosslink(fromPrimary, extra, from, linkFrom, linkNature, translatedTo);
                             }
                         } else {
+                            // LEAF — a plain (non-varargs) parameter: one direct cross-link between the two
+                            // arguments. E.g. static 'transfer(Box from, Box to){to.set(from.get());}' -> 'from.t→to.t'.
                             Variable fromPrimary = params.get(i).links().primary();
                             addCrosslink(fromPrimary, extra, from, link.from(), link.linkNature(), translatedTo);
                         }
@@ -218,12 +250,16 @@ public record LinkMethodCall(JavaInspector javaInspector,
         }
     }
 
+    // Given the callee's varargs-element link 'from' and the actual argument's primary, produce the per-element
+    // 'from' variable at the call site.
     private Variable downgrade(Variable from, Variable fromPrimary) {
-        String simpleName = from.simpleName();
-        assert simpleName.length() > 1 && simpleName.endsWith("s");
-        ParameterizedType newType = from.parameterizedType().copyWithOneFewerArrays();
-        String nameOneFewerS = simpleName.substring(0, simpleName.length() - 1);
         if (from.parameterizedType().arrays() > 1) {
+            // a multi-dimensional varargs ('T[]... rows'): drop one array dimension, and the trailing plural 's'
+            // from the name ('rows' -> 'row')
+            String simpleName = from.simpleName();
+            assert simpleName.length() > 1 && simpleName.endsWith("s");
+            ParameterizedType newType = from.parameterizedType().copyWithOneFewerArrays();
+            String nameOneFewerS = simpleName.substring(0, simpleName.length() - 1);
             if (from instanceof FieldReference fr) {
                 FieldInfo fi = runtime.newFieldInfo(nameOneFewerS, false, newType, fr.fieldInfo().owner());
                 return runtime.newFieldReference(fi, fr.scope(), newType);
@@ -233,11 +269,10 @@ public record LinkMethodCall(JavaInspector javaInspector,
             }
             throw new UnsupportedOperationException();
         }
-        if (from instanceof FieldReference) {
-            // elements.ts -> t
-            return fromPrimary;
-        }
-        throw new UnsupportedOperationException();
+        // a single array dimension (the common 'T... vs'), or an already-indexed element (e.g. 'vs[0]', produced by
+        // a for-each over the varargs array): the element is the actual argument itself. Covers the varargs param
+        // (a LocalVariable), a field ('elements.ts -> t') and a DependentVariable uniformly.
+        return fromPrimary;
     }
 
     private void addCrosslink(Variable fromPrimary,
@@ -256,14 +291,17 @@ public record LinkMethodCall(JavaInspector javaInspector,
         } // else: TestVarious,11
     }
 
+    // A varargs argument is a single element of the callee's array parameter, so a whole-collection relationship at
+    // the array level weakens to an element-level one for each actual argument. E.g. 'fillAll(Box<T> target, T... vs)'
+    // linking 'target.t ⊆ vs' becomes, per argument, 'box.t ∈ a' and 'box.t ∈ b' (see useFill).
     private LinkNature varargsLinkNature(LinkNature linkNature) {
         if (linkNature == LinkNatureImpl.IS_SUBSET_OF) {
-            return LinkNatureImpl.IS_ELEMENT_OF;
+            return LinkNatureImpl.IS_ELEMENT_OF; // ⊆ (subset of the array) -> ∈ (element of, per argument)
         }
         if (linkNature == LinkNatureImpl.IS_SUPERSET_OF) {
-            return LinkNatureImpl.CONTAINS_AS_MEMBER;
+            return LinkNatureImpl.CONTAINS_AS_MEMBER; // ⊇ -> ∋ (contains, per argument)
         }
-        return linkNature;
+        return linkNature; // identity/shares-elements/... unchanged
     }
 
     private LM objectToReturnValue(MethodInfo methodInfo,
@@ -297,11 +335,16 @@ public record LinkMethodCall(JavaInspector javaInspector,
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
         Set<Variable> extraModified = new HashSet<>();
         for (Link link : ofReturnValue.linkSet()) {
+            // decoration links (functional-interface '↗/↖' markers) are handled by the FI machinery, not here
             if (!link.linkNature().isDecoration())
                 if (link.from().equals(ofReturnValue.primary())) {
+                    // LEAF — the from-side IS the return value itself: use the fresh return primary directly.
+                    // E.g. 'read←0:box.t' ('box.get()') — the whole return value links to the object's field.
                     translateHandleFunctional(tm, link, newPrimary, link.linkNature(), builder, samLinks,
                             objectPrimary, extraModified);
                 } else {
+                    // LEAF — the from-side is a PART of the return value (a field/element of it): translate it.
+                    // E.g. a factory 'Box<X> makeFromGet(...)' whose return field links: 'makeFromGet.t←0:box.t'.
                     Variable fromTranslated = tm.translateVariableRecursively(link.from());
                     translateHandleFunctional(tm, link, fromTranslated, link.linkNature(), builder, samLinks,
                             objectPrimary, extraModified);
@@ -320,7 +363,11 @@ public record LinkMethodCall(JavaInspector javaInspector,
                                            Set<Variable> extraModified) {
         ParameterizedType parameterizedType = link.to().parameterizedType();
         boolean extraTest;
+        // Where does this return-value link point? Three leaves:
         if (parameterizedType.isFunctionalInterface()) {
+            // LEAF A — the return relates to a functional-interface argument (the method lifts a lambda through the
+            // data). E.g. 'list.stream().map(mapper)': the result's elements relate to the source's elements via the
+            // mapper's own return↔param relationship. Delegated to LinkFunctionalInterface. See TestStreamMapSpec.
             List<LinkFunctionalInterface.Triplet> toAdd =
                     new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod)
                             .go(parameterizedType, fromTranslated, linkNature, builder.primary(),
@@ -328,13 +375,19 @@ public record LinkMethodCall(JavaInspector javaInspector,
             toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
             extraTest = true;
         } else if (link.to() instanceof AppliedFunctionalInterfaceVariable applied) {
+            // LEAF B — the return relates to an already-applied functional interface: an indirection method that
+            // internally calls a passed lambda and returns (part of) its result. Delegated to
+            // LinkAppliedFunctionalInterface. See TestModificationFunctional,4.
             LinkAppliedFunctionalInterface handler = new LinkAppliedFunctionalInterface(javaInspector, runtime,
                     linkComputerOptions, virtualFieldComputer, currentMethod, variableData, stage);
             handler.go(builder, paramProvider, applied, extraModified, fromTranslated, linkNature, objectPrimary);
             extraTest = true;
         } else {
+            // LEAF C — a plain (non-functional) target: no FI lifting needed. E.g. 'box.get()' -> 'rv←box.t'.
             extraTest = false;
         }
+        // Add the direct link unless the functional handling above already produced the outgoing links for a
+        // return-variable source (in which case a second, un-lifted link would be spurious).
         if (!extraTest || !isReturnVariable(Util.firstRealVariable(fromTranslated))) {
             builder.add(fromTranslated, linkNature, defaultTm.translateVariableRecursively(link.to()));
         }
@@ -353,8 +406,13 @@ public record LinkMethodCall(JavaInspector javaInspector,
             piPrimary = findLinkToParameter(objectPrimary);
         }
         if (piPrimary == null) {
+            // LEAF — the lambda being invoked does not resolve to one of the current method's parameters (e.g. a
+            // locally-created lambda, or a field): nothing to say about the caller. 'f.apply(x)' where f is unknown.
             return LinksImpl.EMPTY;
         }
+        // LEAF — the SAM is invoked on a parameter 'piPrimary' (the Function/Consumer/... argument): decorate that
+        // parameter with an AppliedFunctionalInterfaceVariable marker ('$_afi'), and return a link from it, to be
+        // resolved once the concrete lambda bound to that parameter is known at the outer call site.
         Variable applied = new AppliedFunctionalInterfaceVariable(runtime,
                 variableCounter.getAndIncrement(),
                 concreteReturnType,
@@ -387,10 +445,25 @@ public record LinkMethodCall(JavaInspector javaInspector,
                 .orElse(null);
     }
 
+    // an opaque CONSUMER argument: a functional-interface parameter/variable whose SAM returns nothing (so it is
+    // applied for side effects, and may mutate the elements handed to it), that we cannot see into -- not a lambda /
+    // method reference (those are captured as a FunctionalInterfaceVariable) and carrying no captured links. E.g. a
+    // plain 'Consumer<X> c' parameter, but NOT a Predicate/Function (whose SAM returns a value: read-only).
+    private static boolean isOpaqueConsumerArg(ParameterInfo pi, Result r) {
+        if (!pi.parameterizedType().isFunctionalInterface()) return false;
+        MethodInfo sam = pi.parameterizedType().typeInfo().singleAbstractMethod();
+        if (sam == null || !sam.noReturnValue()) return false;
+        Variable primary = r.links().primary();
+        return primary != null
+               && !(primary instanceof FunctionalInterfaceVariable)
+               && r.extra().isEmpty();
+    }
+
     private @NotNull Links parametersToObject(MethodInfo methodInfo,
                                               Result object,
                                               List<Result> params,
-                                              MethodLinkedVariables mlv) {
+                                              MethodLinkedVariables mlv,
+                                              Set<Variable> extraModified) {
         Variable objectPrimary = object.links().primary();
         int i = 0;
         Links.Builder builder = new LinksImpl.Builder(objectPrimary);
@@ -415,14 +488,36 @@ public record LinkMethodCall(JavaInspector javaInspector,
             for (Link link : links) {
                 Variable translatedFrom = tm.translateVariableRecursively(link.from());
                 Variable translatedTo = tm.translateVariableRecursively(link.to());
+                // Only the case "translatedTo is part of the object" contributes: we reverse the callee link so
+                // that the object part is the primary (e.g. 'param ∈ this' becomes 'this ∋ arg'). A former second
+                // branch here repeated the same condition (dead code) with a non-reversed nature; activating it
+                // for "translatedFrom is part of the object" breaks functional-interface/stream linking
+                // (TestForEachMethodReference, TestStreamBasics), so the from-side case is deliberately not handled.
                 if (Util.isPartOf(objectPrimary, translatedTo)) {
+                    // LEAF — the argument flows into (part of) the object: reverse the callee link so the object side
+                    // is primary. 'set(T v){this.t=v;}' summary 'v→this.t' becomes, at 'box.set(x)', 'box.t←x'
+                    // (write); for a two-field 'set(A,B)' each argument lands in its own field (putBoth -> pair.a←a,
+                    // pair.b←b); 'copyFrom(dst,src){dst.set(src.get());}' -> 'dst.t←src.t'.
                     builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
-                } else if (Util.isPartOf(objectPrimary, translatedTo)) {
-                    builder.add(translatedTo, link.linkNature(), translatedFrom);
+                } else if (Util.isPartOf(objectPrimary, translatedFrom)
+                           && isOpaqueConsumerArg(pi, r)) {
+                    // LEAF — an OPAQUE consumer argument (a plain parameter/variable, not a lambda or method reference
+                    // we can see into) is passed to a method that applies it to the object's hidden content, e.g.
+                    // 'list.forEach(c)' (forEach's summary is 'this.§ts ⊇ action'). A consumer's SAM returns nothing:
+                    // it is applied for side effects and might mutate the elements, so -- matching the manually-written
+                    // 'for (x : list) c.accept(x)' -- we conservatively mark both the source and the consumer modified.
+                    // (A Predicate/Function argument, e.g. filter/map, returns a value and reads the elements, so it is
+                    // NOT treated this way: its SAM has a return value.) See TestStreamForEachSpec.
+                    extraModified.add(translatedTo);
+                    extraModified.add(objectPrimary);
                 }
             }
             ParameterizedType parameterizedType = pi.parameterizedType();
             if (parameterizedType.isFunctionalInterface() && !r.extra().isEmpty()) {
+                // LEAF — the argument is a consumer/functional interface whose captured links live in its extras:
+                // lift the source's elements INTO the object's hidden content. E.g. 'list.forEach(target::add)':
+                // 'list.§xs ~ target.§es'. Delegated to LinkFunctionalInterface. See TestStreamForEachSpec,
+                // TestForEachMethodReference.
                 // pi is a consumer, the link information is in the extras
 
                 // link from the method call object (list) into this (not into the parameter, not the return value)

@@ -31,10 +31,10 @@ import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -127,49 +127,74 @@ public class ScanCompilationUnits {
                         },
                         IdentityHashMap::new));
         classSymbolScanner.setTopLevelClassSymbolsOfSources(topLevelClassSymbols);
+
+        // Task 1 (detailed sources only): compute each unit's congocc scan result. It is javac-free, hence safe to
+        // run in parallel; we barrier on all results before touching javac again. Source content is extracted on
+        // THIS (main) thread first -- javac's file manager is not thread-safe.
+        Map<CompilationUnitTree, SourceCodeScan.Result> scanResults = new IdentityHashMap<>();
         if (detailedSources) {
             LOGGER.info("Collected {} class symbols for source set {}", topLevelClassSymbols.size(), sourceSet.name());
-            int nThreads = java.lang.Runtime.getRuntime().availableProcessors();
-            // Extract everything the parallel task 1 needs from javac (source content, is-module) on THIS (main)
-            // thread, BEFORE launching the pipeline. javac's trees and file manager are not thread-safe, and task 1
-            // runs concurrently with task 2's javac work (symbol resolution etc.) on the shared Context; touching
-            // javac from the task-1 worker threads corrupts that state (e.g. JCCompilationUnit.starImportScope set
-            // to null). The congocc-based SourceCodeScan itself is javac-free, so once fed plain content it is safe.
             Map<CompilationUnitTree, CharSequence> contentByUnit = new IdentityHashMap<>();
             for (CompilationUnitTree unit : units) {
                 contentByUnit.put(unit, unit.getSourceFile().getCharContent(false));
             }
-            try (ExecutorService task1Executor = Executors.newFixedThreadPool(nThreads);
-                 ExecutorService task2Executor = Executors.newSingleThreadExecutor()) {
-
-                CompletableFuture<Void> previousTask2 = CompletableFuture.completedFuture(null);
-                AtomicInteger done = new AtomicInteger();
-
+            int nThreads = java.lang.Runtime.getRuntime().availableProcessors();
+            try (ExecutorService task1Executor = Executors.newFixedThreadPool(nThreads)) {
+                Map<CompilationUnitTree, Future<SourceCodeScan.Result>> futures = new IdentityHashMap<>();
                 for (CompilationUnitTree unit : units) {
                     boolean isModule = unit.getModule() != null;
                     CharSequence content = contentByUnit.get(unit);
-                    // Task 1 fires immediately, in parallel; it only touches the (javac-free) congocc parser
-                    CompletableFuture<SourceCodeScan.Result> task1 = CompletableFuture.supplyAsync(
-                            () -> new SourceCodeScan(runtime).go(content, isModule), task1Executor);
-
-                    // Task 2 waits for: (a) this item's task 1 (the scanResult), AND (b) previous item's task 2 (sequence!)
-                    previousTask2 = previousTask2.thenCombineAsync(task1, (_, scanResult) -> {
-                                singleCompilationUnit(unit, scanResult, primaryTypes, modules, topLevelClassSymbols);
-                                return null; // Void
-                            }, task2Executor)
-                            .thenAccept(_ -> TIMED_LOGGER.info("Done {}", done.incrementAndGet()));
+                    futures.put(unit, task1Executor.submit(() -> new SourceCodeScan(runtime).go(content, isModule)));
                 }
-
-                previousTask2.join(); // wait for everything to finish
-                LOGGER.info("Start scanning javaDocs, committing {} primary types", primaryTypes.size());
-            }
-        } else {
-            int done = 0;
-            for (CompilationUnitTree unit : units) {
-                singleCompilationUnit(unit, null, primaryTypes, modules, topLevelClassSymbols);
-                TIMED_LOGGER.info("Done {}", ++done);
+                for (Map.Entry<CompilationUnitTree, Future<SourceCodeScan.Result>> e : futures.entrySet()) {
+                    try {
+                        scanResults.put(e.getKey(), e.getValue().get());
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException(ie);
+                    } catch (ExecutionException ee) {
+                        Throwable cause = ee.getCause();
+                        throw cause instanceof RuntimeException re ? re : new RuntimeException(cause == null ? ee : cause);
+                    }
+                }
             }
         }
+
+        // Phase 1: build every unit's CompilationUnit and register it with the class-symbol scanner, BEFORE any
+        // body is scanned. This is the fix for the intermittent null-source CompilationUnit: a cross-file reference
+        // (e.g. a.A naming b.B before b.B's own source is scanned) now lazily loads b.B onto its real source CU,
+        // instead of the class-symbol scanner minting a source-less twin that the later source scan would reuse.
+        List<ScanCompilationUnit> scanners = new ArrayList<>();
+        List<CompilationUnitTree> unitList = new ArrayList<>();
+        for (CompilationUnitTree unit : units) {
+            ScanCompilationUnit scu = createScanner(unit, scanResults.get(unit), topLevelClassSymbols);
+            try {
+                scu.buildCompilationUnit(unit);
+            } catch (RuntimeException | AssertionError e) {
+                LOGGER.error("Caught exception (compilation-unit build) in source set {}", sourceSet.name());
+                throw e;
+            }
+            classSymbolScanner.registerSourceCompilationUnit(scu.currentCompilationUnit());
+            scanners.add(scu);
+            unitList.add(unit);
+        }
+
+        // Phase 2: scan the bodies. Serial -- it touches shared javac state (symbol resolution, trees).
+        int done = 0;
+        for (int i = 0; i < scanners.size(); i++) {
+            ScanCompilationUnit scu = scanners.get(i);
+            try {
+                scu.scanBodies(unitList.get(i));
+            } catch (RuntimeException | AssertionError e) {
+                LOGGER.error("Caught exception in source set {}", sourceSet.name());
+                throw e;
+            }
+            primaryTypes.addAll(scu.types());
+            modules.addAll(scu.modules());
+            TIMED_LOGGER.info("Done {}", ++done);
+        }
+        LOGGER.info("Start scanning javaDocs, committing {} primary types", primaryTypes.size());
+
         for (TypeInfo primaryType : primaryTypes) {
             if (!primaryType.hasBeenInspected()) {
                 scanJavaDocsAndCommit(primaryType);
@@ -178,12 +203,11 @@ public class ScanCompilationUnits {
         return new Result(List.copyOf(primaryTypes), List.copyOf(modules), List.copyOf(preloads));
     }
 
-
-    private void singleCompilationUnit(CompilationUnitTree unit,
-                                       SourceCodeScan.Result scanResult,
-                                       List<TypeInfo> primaryTypes,
-                                       List<ModuleInfo> modules,
-                                       IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbols) {
+    // create the scanner for one unit (builder + construction). The constructor registers it as the current source
+    // provider; it does not scan anything itself -- callers drive registerPrimaries() then scanBodies().
+    private ScanCompilationUnit createScanner(CompilationUnitTree unit,
+                                              SourceCodeScan.Result scanResult,
+                                              IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbols) {
         boolean isModule = unit.getModule() != null;
         String packageName;
         if (isModule) {
@@ -200,19 +224,10 @@ public class ScanCompilationUnits {
 
         LineMap lineMap = unit.getLineMap();
         DocTrees docTrees = DocTrees.instance(task);
-        ScanCompilationUnit scanCompilationUnit = new ScanCompilationUnit(runtime, classSymbolScanner,
+        return new ScanCompilationUnit(runtime, classSymbolScanner,
                 compilationUnitBuilder, unit, trees, sourcePositions, lineMap, task.getElements(), types,
                 docTrees, scanResult, computeMethodOverrides, flagHelper, classSymbolScanner,
                 topLevelClassSymbols);
-        try {
-            scanCompilationUnit.scan(unit, null);
-        } catch (RuntimeException | AssertionError e) {
-            LOGGER.error("Caught exception in source set {}", sourceSet.name());
-            throw e;
-        }
-        List<TypeInfo> scanned = scanCompilationUnit.types();
-        primaryTypes.addAll(scanned);
-        modules.addAll(scanCompilationUnit.modules());
     }
 
     private void scanJavaDocsAndCommit(TypeInfo typeInfo) {

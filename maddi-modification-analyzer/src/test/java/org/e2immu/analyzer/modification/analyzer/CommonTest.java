@@ -24,7 +24,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults.ANALYZED_RESULTS;
 import static org.e2immu.language.inspection.resource.SourceSetImpl.testProtocolSourceSet;
@@ -61,12 +63,24 @@ public abstract class CommonTest {
         ((Logger) LoggerFactory.getLogger("org.e2immu.analyzer.modification.analyzer")).setLevel(Level.DEBUG);
     }
 
-    @BeforeEach
-    public void beforeEach() throws IOException {
+    // A fully-configured, independent analyzer stack (its own JavaInspector + runtime + analyzers). The runtime's
+    // type cache is not thread-safe, so tests that parse concurrently (e.g. TestCloneBench) build one bundle per
+    // worker thread and never share a bundle across threads.
+    public record AnalyzerBundle(JavaInspector javaInspector,
+                                 Map<String, SourceSet> sourceSetsByName,
+                                 PrepAnalyzer prepAnalyzer,
+                                 ModAnalyzerForTesting analyzer) {
+    }
+
+    // Build one independent bundle. Mirrors the original beforeEach setup exactly; called once for the main test
+    // instance, and once more per extra worker thread by clone-bench style tests.
+    protected AnalyzerBundle buildAnalyzerBundle() throws IOException {
         SourceSet testProtocol = testProtocolSourceSet();
         List<String> extraSourceSetNames = openJdkExtraSourceSetNames();
+        JavaInspector ji;
+        Map<String, SourceSet> sourceSetsByName = new HashMap<>();
         if (extraSourceSetNames.isEmpty()) {
-            javaInspector = org.e2immu.analyzer.modification.common.CommonTest.javaInspectorFactory().withSources(testProtocol);
+            ji = org.e2immu.analyzer.modification.common.CommonTest.javaInspectorFactory().withSources(testProtocol);
         } else {
             // clone-bench style test: register one source set per directory (JDK types resolve via the global
             // input configuration; the per-directory sets keep identically-named types apart) and add the
@@ -74,25 +88,32 @@ public abstract class CommonTest {
             List<SourceSet> extraSets = new ArrayList<>();
             for (String name : extraSourceSetNames) {
                 SourceSet set = new SourceSetImpl.Builder().setName(name).setUri(URI.create("file:/")).build();
-                openJdkSourceSetsByName.put(name, set);
+                sourceSetsByName.put(name, set);
                 extraSets.add(set);
             }
             List<String> jdkModules = Arrays.stream(jmods)
                     .map(s -> s.startsWith("jmod:") ? s.substring("jmod:".length()) : s).toList();
-            javaInspector = org.e2immu.analyzer.modification.common.CommonTest
+            ji = org.e2immu.analyzer.modification.common.CommonTest
                     .javaInspectorWithExtras(testProtocol, extraSets, jdkModules);
             extraSets.forEach(SourceSet::computePriorityDependencies);
         }
-        runtime = javaInspector.runtime();
-        javaInspector.setParameterNames(true); // faithful class-file parameter names; must precede any loading
-        javaInspector.onlyPreload(); // we'll run more later
-        LoadAnalysisResults lar = new LoadAnalysisResults(javaInspector.runtime(), testProtocol);
-        lar.go(ANALYZED_RESULTS);
-
-        prepAnalyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
-
+        ji.setParameterNames(true); // faithful class-file parameter names; must precede any loading
+        ji.onlyPreload(); // we'll run more later
+        new LoadAnalysisResults(ji.runtime(), testProtocol).go(ANALYZED_RESULTS);
+        PrepAnalyzer prep = new PrepAnalyzer(ji.runtime(), new PrepAnalyzer.Options.Builder().build());
         IteratingAnalyzer.Configuration configuration = new IteratingAnalyzerImpl.ConfigurationBuilder().build();
-        analyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
+        ModAnalyzerForTesting an = new SingleIterationAnalyzerImpl(ji, configuration);
+        return new AnalyzerBundle(ji, sourceSetsByName, prep, an);
+    }
+
+    @BeforeEach
+    public void beforeEach() throws IOException {
+        AnalyzerBundle b = buildAnalyzerBundle();
+        javaInspector = b.javaInspector();
+        b.sourceSetsByName().forEach(openJdkSourceSetsByName::put);
+        runtime = javaInspector.runtime();
+        prepAnalyzer = b.prepAnalyzer();
+        analyzer = b.analyzer();
     }
 
     // the openjdk parser keeps the implicit super() as a (synthetic) first statement of a constructor; the
