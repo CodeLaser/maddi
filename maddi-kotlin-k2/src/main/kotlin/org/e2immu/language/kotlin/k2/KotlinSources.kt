@@ -19,7 +19,9 @@ import org.e2immu.language.cst.api.element.DetailedSources
 import org.e2immu.language.cst.api.element.Source
 import org.e2immu.language.cst.api.runtime.Runtime
 import org.e2immu.language.cst.api.type.ParameterizedType
+import org.jetbrains.kotlin.lexer.KtModifierKeywordToken
 import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtModifierListOwner
 import org.jetbrains.kotlin.psi.KtTypeReference
 import org.jetbrains.kotlin.psi.KtUserType
 
@@ -45,6 +47,55 @@ internal fun sourceOf(runtime: Runtime, psi: PsiElement, index: String): Source 
 internal fun DetailedSources.Builder.putPsi(runtime: Runtime, key: Any, psi: PsiElement?) {
     if (psi != null) put(key, sourceOf(runtime, psi, "-"))
 }
+
+/**
+ * Record the source position of each EXPLICIT modifier keyword of [owner], keyed by the runtime modifier
+ * object [mapper] maps it to (mirroring java-openjdk's `attachModifiers`: keyed by the same singleton the
+ * builder holds). Modifiers that are implicit in Kotlin (e.g. the default `public`/`final`, or `val` as
+ * finality) have no keyword, so they correctly get no source. A `null` from [mapper] is skipped.
+ */
+internal fun DetailedSources.Builder.attachModifiers(runtime: Runtime, owner: KtModifierListOwner,
+                                                     mapper: Runtime.(KtModifierKeywordToken) -> Any?) {
+    val modifierList = owner.modifierList ?: return
+    KtTokens.MODIFIER_KEYWORDS_ARRAY.forEach { token ->
+        val keyword = modifierList.getModifier(token) ?: return@forEach
+        runtime.mapper(token)?.let { put(it, sourceOf(runtime, keyword, "-")) }
+    }
+}
+
+/** A Kotlin visibility keyword to its runtime type modifier (shared shape; per-element families differ). */
+private inline fun <T> KtModifierKeywordToken.visibility(pub: () -> T, priv: () -> T, prot: () -> T, internal: () -> T): T? =
+    when (this) {
+        KtTokens.PUBLIC_KEYWORD -> pub()
+        KtTokens.PRIVATE_KEYWORD -> priv()
+        KtTokens.PROTECTED_KEYWORD -> prot()
+        KtTokens.INTERNAL_KEYWORD -> internal()
+        else -> null
+    }
+
+internal fun Runtime.typeModifierFor(token: KtModifierKeywordToken): Any? =
+    token.visibility(::typeModifierPublic, ::typeModifierPrivate, ::typeModifierProtected, ::typeModifierInternal)
+        ?: when (token) {
+            KtTokens.ABSTRACT_KEYWORD -> typeModifierAbstract()
+            KtTokens.SEALED_KEYWORD -> typeModifierSealed()
+            KtTokens.FINAL_KEYWORD -> typeModifierFinal()
+            else -> null
+        }
+
+internal fun Runtime.methodModifierFor(token: KtModifierKeywordToken): Any? =
+    token.visibility(::methodModifierPublic, ::methodModifierPrivate, ::methodModifierProtected, ::methodModifierInternal)
+        ?: when (token) {
+            KtTokens.ABSTRACT_KEYWORD -> methodModifierAbstract()
+            KtTokens.FINAL_KEYWORD -> methodModifierFinal()
+            else -> null
+        }
+
+internal fun Runtime.fieldModifierFor(token: KtModifierKeywordToken): Any? =
+    token.visibility(::fieldModifierPublic, ::fieldModifierPrivate, ::fieldModifierProtected, ::fieldModifierInternal)
+        ?: when (token) {
+            KtTokens.FINAL_KEYWORD -> fieldModifierFinal()
+            else -> null
+        }
 
 /**
  * Recursively detail a type reference (mirroring java-openjdk's `convertTree`): each nested type's
