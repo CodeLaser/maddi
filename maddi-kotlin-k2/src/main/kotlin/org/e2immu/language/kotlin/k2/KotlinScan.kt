@@ -91,6 +91,7 @@ import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
 import org.jetbrains.kotlin.psi.KtEscapeStringTemplateEntry
 import org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
 import org.jetbrains.kotlin.psi.KtCallableDeclaration
+import org.jetbrains.kotlin.psi.KtModifierListOwner
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.kotlin.psi.KtProperty
@@ -382,6 +383,7 @@ class KotlinScan(
         typeInfo.builder().setSource(declarationSource(declaration) {
             putPsi(runtime, typeInfo.simpleName(), declaration.nameIdentifier)
             putPsi(runtime, typeInfo.typeNature(), declaration.getDeclarationKeyword())
+            attachModifiers(runtime, declaration) { typeModifierFor(it) }
             superTypeDetails.forEach { (superType, reference) -> putTypeReference(runtime, superType, reference) }
         })
         // constructor structures (params); bodies + delegations are wired in pass B2 (finalizeType)
@@ -626,6 +628,7 @@ class KotlinScan(
         // name keyed by field.name(), type reference keyed by its TypeInfo -- mirroring the Java parser
         fieldBuilder.setSource(declarationSource(property.psi) {
             putPsi(runtime, field.name(), (property.psi as? KtNamedDeclaration)?.nameIdentifier)
+            (property.psi as? KtModifierListOwner)?.let { attachModifiers(runtime, it) { t -> fieldModifierFor(t) } }
             putTypeReference(runtime, type, (property.psi as? KtCallableDeclaration)?.typeReference)
         })
         fieldBuilder.computeAccess().commit()
@@ -783,6 +786,7 @@ class KotlinScan(
             // name keyed by method.name(), return-type reference keyed by its TypeInfo -- mirroring the Java parser
             .setSource(declarationSource(psi) {
                 putPsi(runtime, method.name(), psi?.nameIdentifier)
+                psi?.let { attachModifiers(runtime, it) { t -> methodModifierFor(t) } }
                 putTypeReference(runtime, returnType, psi?.typeReference)
             })
         addMethodModifiers(builder, function)

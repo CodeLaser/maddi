@@ -271,6 +271,38 @@ class MemberTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun modifierDetailedSources() {
+        // each EXPLICIT modifier keyword's position is recorded, keyed by the runtime modifier singleton
+        // (mirroring java-openjdk's attachModifiers). Implicit modifiers (default public/final) get no source.
+        val scan = KotlinScan(runtime, sourceSet)
+        val c = scan.parse(
+            "C.kt",
+            "package a.b\n" +
+                "abstract class C {\n" +                       // line 2: `abstract` 1..8, `class` 10..14
+                "    private val f: Int = 3\n" +               // line 3: `private` 5..11
+                "    protected abstract fun m(p: Int)\n" +     // line 4: `protected` 5..13, `abstract` 15..22
+                "}\n"
+        ).first()
+
+        // type modifier: `abstract`
+        val tds = c.source().detailedSources()
+        val abstractT = tds.detail(runtime.typeModifierAbstract())
+        assertEquals(2, abstractT.beginLine()); assertEquals(1, abstractT.beginPos()); assertEquals(8, abstractT.endPos())
+
+        // field modifier: `private`
+        val fds = c.fields().first { it.name() == "f" }.source().detailedSources()
+        val privateF = fds.detail(runtime.fieldModifierPrivate())
+        assertEquals(3, privateF.beginLine()); assertEquals(5, privateF.beginPos()); assertEquals(11, privateF.endPos())
+
+        // method modifiers: `protected` + `abstract`
+        val mds = c.findUniqueMethod("m", 1).source().detailedSources()
+        val protectedM = mds.detail(runtime.methodModifierProtected())
+        assertEquals(4, protectedM.beginLine()); assertEquals(5, protectedM.beginPos()); assertEquals(13, protectedM.endPos())
+        val abstractM = mds.detail(runtime.methodModifierAbstract())
+        assertEquals(15, abstractM.beginPos()); assertEquals(22, abstractM.endPos())
+    }
+
+    @Test
     fun varargParameter() {
         // `vararg xs: Int` -> an int[] parameter flagged varargs (K2's element type is arrayified)
         val v = KotlinScan(runtime, sourceSet).parse("V.kt", "class V { fun f(vararg xs: Int) {} }\n").first()
