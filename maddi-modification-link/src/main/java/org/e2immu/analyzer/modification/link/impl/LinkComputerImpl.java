@@ -465,8 +465,16 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             if (forEachLv != null) {
                 Expression e = javaInspector.runtime().sortAndSimplify(true, statement.expression());
-                Result u = new ForEach(javaInspector.runtime(), expressionVisitor)
-                        .linkIntoIterable(forEachLv.parameterizedType(), e, previousVd, stageOfPrevious);
+                ForEach forEach = new ForEach(javaInspector.runtime(), expressionVisitor);
+                // An array is not Iterable. For an array whose element type is a bare type parameter (e.g. X[]),
+                // the iterator().next() path produces no link, so link the loop variable to an array element
+                // instead. For an array of a type that carries hidden content (e.g. a varargs Collection<X>...),
+                // the iterable path already links correctly (via §iss), so keep using it.
+                boolean arrayOfTypeParameter = e.parameterizedType().arrays() > 0
+                        && forEachLv.parameterizedType().typeParameter() != null;
+                Result u = arrayOfTypeParameter
+                        ? forEach.linkIntoArray(e, previousVd, stageOfPrevious)
+                        : forEach.linkIntoIterable(forEachLv.parameterizedType(), e, previousVd, stageOfPrevious);
                 if (u.links().primary() != null) {
                     Links newLinks = new LinksImpl.Builder(forEachLv)
                             .add(LinkNatureImpl.IS_ASSIGNED_FROM, u.links().primary())
@@ -653,12 +661,27 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private void handleSubBlocks(Statement statement, VariableData vd) {
-            List<VariableData> vds = statement.subBlockStream()
+            List<VariableData> vds = subBlocksForLinking(statement)
                     .filter(block -> !block.isEmpty())
                     .map(block -> doBlock(false, block, vd))
                     .filter(Objects::nonNull)
                     .toList();
             handleSubBlocks(vds, vd);
+        }
+
+        // The CST's subBlockStream() does not include try-with-resources declarations. Those 'res = expr'
+        // declarations must be processed for linking like any local-variable creation, otherwise a modification of
+        // the resource never reaches its initializer. Prepend them to the try body (mirrors prepwork's
+        // tryStatementBlockStream). See TestLanguageConstructs.tryWithResourcesModification.
+        private Stream<Block> subBlocksForLinking(Statement statement) {
+            if (statement instanceof TryStatement ts && !ts.resources().isEmpty()) {
+                Block.Builder bb = javaInspector.runtime().newBlockBuilder();
+                bb.addStatements(ts.resources());
+                bb.addStatements(ts.block().statements());
+                return Stream.concat(Stream.of(bb.build()),
+                        statement.subBlockStream().filter(b -> b != ts.block()));
+            }
+            return statement.subBlockStream();
         }
 
         // also called from ExpressionVisitor.switchExpression
