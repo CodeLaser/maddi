@@ -69,6 +69,16 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private SourceProvider sourceProvider;
     private ElementStack elementStack;
     private IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbolsOfSources;
+    // source-file URI -> its CompilationUnit, built up front by ScanCompilationUnits before any body is scanned;
+    // lets a source type referenced before its own scan load onto its real (source-bearing) CU (see
+    // lazilyLoadPrimaryTypeFromClassFile) instead of a source-less twin
+    private final Map<URI, CompilationUnit> sourceCompilationUnits = new HashMap<>();
+
+    public void registerSourceCompilationUnit(CompilationUnit compilationUnit) {
+        if (compilationUnit != null && compilationUnit.uri() != null) {
+            sourceCompilationUnits.put(compilationUnit.uri(), compilationUnit);
+        }
+    }
 
     public enum LoadMode {
         LOAD_MEMBERS, // load everything immediately, and commit
@@ -179,8 +189,16 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
             URI uri;
             CompilationUnit cu;
+            CompilationUnit registeredSourceCu = cs.sourcefile == null ? null
+                    : sourceCompilationUnits.get(cs.sourcefile.toUri());
             CompilationUnit currentCu = sourceProvider == null ? null : sourceProvider.currentCompilationUnit();
-            if (currentCu != null && cs.sourcefile != null && cs.sourcefile.toUri().equals(currentCu.uri())) {
+            if (registeredSourceCu != null) {
+                // a source type referenced before (or while) its own source is scanned: reuse the source
+                // CompilationUnit built up front for that file (it carries the file's source), so this lazy load
+                // does not mint a source-less twin CompilationUnit that the source scan would later reuse
+                cu = registeredSourceCu;
+                internal = false;
+            } else if (currentCu != null && cs.sourcefile != null && cs.sourcefile.toUri().equals(currentCu.uri())) {
                 // a forward reference (an 'extends'/'implements' naming a type declared later in the same source file
                 // being scanned): reuse that file's CompilationUnit, so all its top-level types share one instance
                 // rather than this load minting a second, equal-but-not-identical one
