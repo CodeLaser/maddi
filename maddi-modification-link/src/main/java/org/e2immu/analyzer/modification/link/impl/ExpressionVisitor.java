@@ -214,6 +214,10 @@ public record ExpressionVisitor(Runtime runtime,
         }
     }
 
+    // Capture a method reference as a functional-interface value: wrap the referenced method's summary in a
+    // FunctionalInterfaceVariable, re-homed onto the SAM. Sub-cases (see linking-manual.md §7.1): bound instance
+    // ('target::add', scope is an instance), unbound instance ('M::clear', scope is the type — callee 'this' is the
+    // SAM's first parameter), static ('String::valueOf'), and constructor ('R::new' — re-homed like a factory below).
     private Result methodReference(VariableData variableData, Stage stage, MethodReference mr) {
         MethodLinkedVariables mlv = linkComputer.recurseMethod(mr.methodInfo());
         Result object = visit(mr.scope(), variableData, stage);
@@ -499,6 +503,9 @@ public record ExpressionVisitor(Runtime runtime,
                 .addVariablesRepresentingConstant(object);
     }
 
+    // Capture a lambda 'x -> …' as a functional-interface value: wrap its body's summary (links + modified) in a
+    // FunctionalInterfaceVariable. doesNotBelongToLambda filters out what is internal to the lambda (its own
+    // parameters, the void SAM's return variable, its 'this') so only external captures leak. See manual §7.1.
     private @NotNull Result lambda(VariableData vd, Lambda lambda) {
         MethodLinkedVariables mlv = linkComputer.recurseMethod(lambda.methodInfo());
         ParameterizedType concreteObjectType = lambda.concreteReturnType();

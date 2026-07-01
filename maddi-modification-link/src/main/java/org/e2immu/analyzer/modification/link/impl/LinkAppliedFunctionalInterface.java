@@ -53,10 +53,13 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
             Variable fromTranslated,
             LinkNature linkNature,
             Variable objectPrimary) {
+        // Resolve the '$_afi' marker (a SAM applied to a parameter that holds an as-yet-unknown lambda) now that the
+        // concrete lambda bound to that parameter is visible here. Three leaves, on the parameter's declared type:
         List<Links> list = paramProvider.apply(applied.sourceOfFunctionalInterface());
         ParameterizedType functionalType;
         if (!applied.sourceOfFunctionalInterface().parameterizedType().isStandardFunctionalInterface()) {
-            // we must search for links to FIVs, and expand them
+            // LEAF — a custom (non-standard) functional interface: search the parameter's links for the concrete
+            // FunctionalInterfaceVariable and expand it (also collecting its modifications). See TestModificationFunctional,7,8.
             SearchResult sr = searchAndExpand(list);
             if (sr == null) return;
             // do the default translation from formal parameter to argument
@@ -64,12 +67,15 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
             functionalType = sr.functionalType;
             list = List.of(sr.links);
         } else if (isLinkedToParameter(list)) {
-            // TestModificationFunctional,4; indirection method
+            // LEAF — an indirection method: the applied SAM is itself linked straight to one of the current method's
+            // parameters, so just assign the marker through (no lifting). See TestModificationFunctional,4.
             builder.add(LinkNatureImpl.IS_ASSIGNED_FROM, applied);
             return;
         } else {
+            // LEAF — a standard functional interface (Function/Consumer/…) used directly: lift via its own type.
             functionalType = applied.sourceOfFunctionalInterface().parameterizedType();
         }
+        // replace the SAM's formal parameters by the actual arguments of the application, then run the lifting engine
         List<Links> translated = replaceParametersByEvalInApplied(list, applied.params());
         List<LinkFunctionalInterface.Triplet> toAdd = new LinkFunctionalInterface(runtime, virtualFieldComputer,
                 currentMethod).go(functionalType, fromTranslated, linkNature, builder.primary(), translated,
