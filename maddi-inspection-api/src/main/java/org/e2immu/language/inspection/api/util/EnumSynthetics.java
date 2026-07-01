@@ -12,31 +12,31 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package org.e2immu.language.inspection.api.util;
 
-import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.inspection.api.parser.Context;
 
-import java.util.List;
-
-class EnumSynthetics {
+/**
+ * The compiler-generated members of an enum ({@code name()}, static {@code values()}, static
+ * {@code valueOf(String)}) as signature-only synthetic methods. The entry constants (each a
+ * {@code public static final <Enum>} field) are created by the caller. Shared by the Java parsers and the
+ * Kotlin front-end; the analogue of {@link RecordSynthetics}.
+ */
+public class EnumSynthetics {
     private final Runtime runtime;
     private final TypeInfo typeInfo;
     private final TypeInfo.Builder builder;
 
-    EnumSynthetics(Runtime runtime, TypeInfo typeInfo, TypeInfo.Builder builder) {
+    public EnumSynthetics(Runtime runtime, TypeInfo typeInfo, TypeInfo.Builder builder) {
         this.runtime = runtime;
         this.typeInfo = typeInfo;
         this.builder = builder;
     }
 
-    public void create(Context context, List<FieldInfo> enumFields) {
-
+    public void create() {
         // name() returns String
-
         MethodInfo name = runtime.newMethod(typeInfo, "name", runtime.methodTypeMethod());
         name.builder()
                 .setSource(runtime.noSource())
@@ -51,7 +51,6 @@ class EnumSynthetics {
         builder.addMethod(name);
 
         // values() returns E[]
-
         MethodInfo values = runtime.newMethod(typeInfo, "values", runtime.methodTypeStaticMethod());
         values.builder()
                 .setSource(runtime.noSource())
@@ -67,7 +66,6 @@ class EnumSynthetics {
         builder.addMethod(values);
 
         // valueOf(String) returns E
-
         MethodInfo valueOf = runtime.newMethod(typeInfo, "valueOf", runtime.methodTypeStaticMethod());
         valueOf.builder()
                 .setSource(runtime.noSource())

@@ -452,4 +452,17 @@ class TypeStructureTest : KotlinScanTestBase() {
         // a reference to the nested type (return type + constructor call) resolves to that TypeInfo
         assertEquals(nested, outer.findUniqueMethod("make", 0).returnType().typeInfo())
     }
+
+    @Test
+    fun enumMembers() {
+        val color = KotlinScan(runtime, sourceSet).parse("E.kt", "enum class Color { RED, GREEN, BLUE }\n")
+            .first { it.simpleName() == "Color" }
+
+        // entries become public static final fields
+        assertTrue(color.fields().map { it.name() }.toSet().containsAll(setOf("RED", "GREEN", "BLUE")))
+        // synthetic name()/values()/valueOf() (via the shared EnumSynthetics)
+        assertTrue(color.methods().map { it.name() }.toSet().containsAll(setOf("name", "values", "valueOf")))
+        // values() returns Color[]
+        assertEquals(1, color.findUniqueMethod("values", 0).returnType().arrays())
+    }
 }

@@ -31,6 +31,7 @@ import org.e2immu.language.inspection.api.parser.Lombok;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.parser.TypeContext;
 import org.e2immu.language.inspection.api.util.CreateSyntheticFieldsForGetSet;
+import org.e2immu.language.inspection.api.util.EnumSynthetics;
 import org.e2immu.language.inspection.api.util.RecordSynthetics;
 import org.e2immu.support.Either;
 import org.parsers.java.Node;
@@ -430,7 +431,7 @@ public class ParseTypeDeclaration extends CommonParse {
                 }
                 TypeInfo enumTypeInfo = runtime.getFullyQualified("java.lang.Enum", true);
                 builder.setParentClass(runtime.newParameterizedType(enumTypeInfo, List.of(typeInfo.asSimpleParameterizedType())));
-                new EnumSynthetics(runtime, typeInfo, builder).create(newContext, enumFields);
+                new EnumSynthetics(runtime, typeInfo, builder).create();
             }
             parseBody(contextForBody, body, typeNature, typeInfo, builder, recordFields, lombokData);
         } else if (body instanceof AnnotationTypeBody) {
