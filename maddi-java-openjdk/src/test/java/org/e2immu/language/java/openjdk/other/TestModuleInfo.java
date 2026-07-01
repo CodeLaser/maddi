@@ -100,6 +100,12 @@ public class TestModuleInfo extends CommonTest {
 
         ModuleInfo moduleInfo = scan(true, map).modules().getFirst();
 
+        // the module name itself is retrievable via detail(moduleInfo.name())
+        assertEquals("maddi.openjdk", moduleInfo.name());
+        assertNotNull(moduleInfo.source().detailedSources().detail(moduleInfo.name()));
+        assertEquals("1-8:1-20", // 'maddi.openjdk' in 'module maddi.openjdk {'
+                moduleInfo.source().detailedSources().detail(moduleInfo.name()).compact2());
+
         List<ModuleInfo.Requires> requires = moduleInfo.requires();
         assertEquals(5, requires.size());
         assertTrue(requires.get(1).isTransitive());

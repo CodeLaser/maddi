@@ -14,6 +14,7 @@
 
 package org.e2immu.language.inspection.integration.java.other;
 
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.parser.ParseResult;
@@ -28,6 +29,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestParseResult extends CommonTest2 {
 
@@ -155,5 +157,21 @@ public class TestParseResult extends CommonTest2 {
         assertEquals(2, parseResult.findMostLikelyField("i").size());
         assertEquals(1, parseResult.findMostLikelyField("x.i").size());
         assertEquals(1, parseResult.findMostLikelyField("y.i").size());
+    }
+
+    // A record component is modelled by javac as a formal parameter of the canonical constructor rather than a field
+    // declaration; its FIELD must nonetheless expose the component-name identifier via detail(field.simpleName()).
+    @DisplayName("record component field carries its name in detailed sources")
+    @Test
+    public void fieldInfoShouldHaveFieldNameInDetailedSources() throws IOException {
+        @Language("java")
+        String classX = """
+                package a.b;
+                record X(String string) {
+                }
+                """;
+        ParseResult parseResult = init(Map.of("a.b.X", classX));
+        FieldInfo f = parseResult.findMostLikelyField("string").getFirst();
+        assertNotNull(f.source().detailedSources().detail(f.simpleName()));
     }
 }
