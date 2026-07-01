@@ -467,6 +467,12 @@ internal class KotlinBodyConverter(
         expression.evaluate()?.let { constant ->
             return when (val value = constant.value) {
                 is Int -> runtime.newInt(value)
+                is Long -> runtime.newLong(value)
+                is Short -> runtime.newShort(value)
+                is Byte -> runtime.newByte(value)
+                is Double -> runtime.newDouble(value)
+                is Float -> runtime.newFloat(value)
+                is Char -> runtime.newChar(value)
                 is Boolean -> runtime.newBoolean(value)
                 is String -> runtime.newStringConstant(value)
                 null -> runtime.nullConstant()
@@ -604,7 +610,9 @@ internal class KotlinBodyConverter(
             ?: return runtime.newEmptyExpression("k2-indexed-set")
         val arguments = arrayAccess.indexExpressions.map { convertExpression(it, method, locals) } + value
         val arrayType = arrayAccess.arrayExpression?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
-        val set = arrayType?.let { resolveCallee(it, "set", arguments) }
+        // `set` on List/arrays is a member; on a Map, Kotlin's `map[k]=v` set-operator is a stdlib extension
+        // that delegates to `put`, so fall back to put (same key,value arguments)
+        val set = arrayType?.let { resolveCallee(it, "set", arguments) ?: resolveCallee(it, "put", arguments) }
             ?: return runtime.newEmptyExpression("k2-indexed-set-unresolved")
         return runtime.newMethodCallBuilder().setObject(array).setObjectIsImplicit(false).setMethodInfo(set)
             .setParameterExpressions(arguments).setConcreteReturnType(set.returnType()).setTypeArguments(listOf())
