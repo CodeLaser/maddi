@@ -102,6 +102,9 @@ import org.jetbrains.kotlin.psi.KtBinaryExpressionWithTypeRHS
 import org.jetbrains.kotlin.psi.KtIsExpression
 import org.jetbrains.kotlin.psi.KtQualifiedExpression
 import org.jetbrains.kotlin.psi.KtSafeQualifiedExpression
+import org.jetbrains.kotlin.psi.KtLabeledExpression
+import org.jetbrains.kotlin.psi.KtParameter
+import org.jetbrains.kotlin.psi.KtSuperExpression
 import org.jetbrains.kotlin.psi.KtThisExpression
 import org.jetbrains.kotlin.psi.KtThrowExpression
 import org.jetbrains.kotlin.psi.KtTryExpression
@@ -212,7 +215,13 @@ internal class KotlinBodyConverter(
         runtime.newDetailedSourcesBuilder().also { if (psi != null) it.put(marker, source(psi, "-")) }.build()
 
     private fun KaSession.rawStatement(statement: KtExpression, method: MethodInfo,
-                                       locals: MutableMap<String, Variable>, index: String): Statement = when {
+                                       locals: MutableMap<String, Variable>, index: String,
+                                       label: String? = null): Statement = when {
+        // `loop@ for (…) { … }`: a labelled statement -> convert the base and attach the label (so
+        // `break@loop`/`continue@loop` have a named target). Any non-loop base just keeps the label too.
+        statement is KtLabeledExpression -> rawStatement(
+            statement.baseExpression ?: return runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-empty-label")),
+            method, locals, index, statement.getLabelName())
         statement is KtProperty && statement.isLocal -> {
             val name = statement.name ?: "_"
             val type = (statement.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
@@ -266,6 +275,7 @@ internal class KotlinBodyConverter(
         statement is KtWhileExpression -> runtime.newWhileBuilder()
             .setExpression(statement.condition?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
             .setBlock(convertBlock(statement.body, method, locals, "$index.0"))
+            .also { b -> label?.let { b.setLabel(it) } }
             .setSource(runtime.noSource()).build()
         statement is KtForExpression -> {
             // for (x in iterable) { … } -> ForEachStatement; x is a local in scope for the body
@@ -278,12 +288,14 @@ internal class KotlinBodyConverter(
                 .setInitializer(runtime.newLocalVariableCreation(loopVariable))
                 .setExpression(statement.loopRange?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
                 .setBlock(convertBlock(statement.body, method, locals + (name to loopVariable), "$index.0"))
+                .also { b -> label?.let { b.setLabel(it) } }
                 .setSource(runtime.noSource()).build()
         }
         statement is KtWhenExpression -> convertWhen(statement, method, locals, index)
         statement is KtDoWhileExpression -> runtime.newDoBuilder()
             .setExpression(statement.condition?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
             .setBlock(convertBlock(statement.body, method, locals, "$index.0"))
+            .also { b -> label?.let { b.setLabel(it) } }
             .setSource(runtime.noSource()).build()
         statement is KtBreakExpression -> runtime.newBreakBuilder()
             .also { b -> statement.getLabelName()?.let { b.setGoToLabel(it) } } // break@label
@@ -549,6 +561,9 @@ internal class KotlinBodyConverter(
             // in an extension function body, `this` is the receiver (the synthetic first parameter)
             is KtThisExpression -> receiverParam(method)?.let { variableExpression(it) }
                 ?: variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
+            // `super.m()`: `this`, marked writeSuper -> the callee resolves on the parent class (the
+            // receiverType in convertQualified comes from `super`'s expressionType = the supertype)
+            is KtSuperExpression -> variableExpression(runtime.newThis(method.typeInfo().asParameterizedType(), null, true))
             is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method, locals)
                 ?: runtime.newEmptyExpression("k2-unresolved-ref:${expression.getReferencedName()}")
             is KtBinaryExpression -> convertBinary(expression, method, locals)
@@ -853,6 +868,28 @@ internal class KotlinBodyConverter(
             ?: pt.typeParameter()?.typeBounds()?.firstNotNullOfOrNull { it.typeInfo() }
     }
 
+    /**
+     * The argument expressions in the callee's parameter order, for a call with named and/or omitted
+     * (defaulted) arguments: positional arguments fill the leading parameters, named arguments fill by
+     * name, and an omitted parameter uses its declared default value. Returns null when a parameter can be
+     * filled neither by an argument nor by a default (so the caller falls back to the positional list).
+     */
+    private fun KaSession.orderedArguments(call: KtCallExpression, calleeSymbol: KaNamedFunctionSymbol,
+                                           method: MethodInfo, locals: Map<String, Variable>): List<Expression>? {
+        val positional = call.valueArguments.filter { it.getArgumentName() == null }
+        val byName = call.valueArguments.mapNotNull { va ->
+            va.getArgumentName()?.asName?.asString()?.let { it to va }
+        }.toMap()
+        return calleeSymbol.valueParameters.mapIndexed { i, p ->
+            val argExpr = when {
+                i < positional.size -> positional[i].getArgumentExpression()
+                p.name.asString() in byName -> byName[p.name.asString()]?.getArgumentExpression()
+                else -> (p.psi as? KtParameter)?.defaultValue // the declared default (`b: Int = 10`)
+            }
+            argExpr?.let { convertExpression(it, method, locals) } ?: return null
+        }
+    }
+
     /** Collect every method named [name] with [arity] parameters on [type] and its supertypes. */
     private fun collectMethods(type: TypeInfo, name: String, arity: Int, visited: MutableSet<TypeInfo>,
                                acc: MutableList<MethodInfo>) {
@@ -931,13 +968,21 @@ internal class KotlinBodyConverter(
             ?: return runtime.newEmptyExpression("k2-unsupported-callee")
         val valueArgs = call.valueArguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, method, locals) } }
         val trailingLambdas = call.lambdaArguments.mapNotNull { it.getLambdaExpression()?.let { l -> convertExpression(l, method, locals) } }
-        val arguments = valueArgs + trailingLambdas
+        val calleeSymbol = call.resolveSymbol() as? KaNamedFunctionSymbol
+        // named and/or defaulted arguments (`f(1, c = 5)`): rebuild the list in declaration order, filling
+        // omitted parameters with their default value (the JVM `f$default` shape). Only for the plain case
+        // (no trailing lambda, no vararg); otherwise the positional args + trailing lambda are used as-is.
+        val ordered = calleeSymbol?.takeIf {
+            trailingLambdas.isEmpty() && it.valueParameters.none { p -> p.isVararg } &&
+                (call.valueArguments.any { a -> a.getArgumentName() != null } ||
+                    call.valueArguments.size < it.valueParameters.size)
+        }?.let { orderedArguments(call, it, method, locals) }
+        val arguments = ordered ?: (valueArgs + trailingLambdas)
 
         // a constructor call `Foo(args)` -> ConstructorCall (the call resolves to a constructor, not a method)
         if (call.resolveSymbol() is KaConstructorSymbol) return convertConstructorCall(call, arguments, method)
 
         // an extension call `recv.ext(args)` routes to the facade's static `ext(recv, args)` (receiver as arg 0)
-        val calleeSymbol = call.resolveSymbol() as? KaNamedFunctionSymbol
         if (receiver != null && calleeSymbol?.receiverParameter != null) {
             extensionCall(name, receiver.first, arguments, calleeSymbol, call, method)?.let { return it }
         }
@@ -1251,6 +1296,21 @@ internal class KotlinBodyConverter(
                     .setVariable(runtime.newFieldReference(field, variableExpression(receiver), field.type()))
                     .setSource(runtime.noSource()).build()
             }
+        }
+        // a field of an enclosing type accessed from a (non-static) inner class: `label` -> `Outer.this.label`
+        var enclosing = method.typeInfo().compilationUnitOrEnclosingType()
+        while (enclosing.isRight) {
+            val outer = enclosing.right
+            outer.fields().firstOrNull { it.name() == name }?.let { field ->
+                val outerThis = variableExpression(runtime.newThis(outer.asParameterizedType(), outer, false))
+                return variableExpression(runtime.newFieldReference(field, outerThis, field.type()))
+            }
+            enclosing = outer.compilationUnitOrEnclosingType()
+        }
+        // a property with no backing field (interface/abstract/computed) accessed unqualified: `name` in a
+        // default method means `this.getName()` -- resolve the accessor on the enclosing type via `this`
+        if (!method.isStatic) resolveAccessor(method.typeInfo(), name)?.let { accessor ->
+            return accessorCall(variableExpression(runtime.newThis(method.typeInfo().asParameterizedType())), accessor)
         }
         return null
     }

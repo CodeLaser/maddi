@@ -214,6 +214,21 @@ class ControlFlowTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun labeledLoop() {
+        // `loop@ for (…) { … }`: the label is attached to the loop statement
+        val t = KotlinScan(runtime, sourceSet).parse(
+            "T.kt",
+            "class T {\n" +
+                "    fun f(xs: List<Int>) {\n" +
+                "        loop@ for (x in xs) { if (x < 0) break@loop }\n" +
+                "    }\n" +
+                "}\n"
+        ).first()
+        val forEach = t.findUniqueMethod("f", 1).methodBody().statements().first() as ForEachStatement
+        assertEquals("loop", forEach.label())
+    }
+
+    @Test
     fun tryAsExpression() {
         // `return try { … } catch { … }`: Java has no try-expression, so it lowers to a try STATEMENT whose
         // try/catch branches `return` their tail; an absent `finally` becomes an empty block.

@@ -231,9 +231,11 @@ class KotlinScan(
             FileConversion(ktFile, compilationUnit, pairs.map { it.first }, pairs.map { it.second },
                 facade, topLevelFunctions, topLevelProperties)
         }
-        // pass B1 (all files): members + constructor structures (no body), now that all types are known
+        // pass B1 (all files): members. B1a (prepareType) adds hierarchy + constructor structures for EVERY
+        // type first, then B1b (convertMembers) converts bodies -- so a body can `new`/call a forward type.
         perFile.forEach { fc ->
             analyze(fc.ktFile) {
+                fc.declarations.zip(fc.types).forEach { (d, ti) -> prepareType(d, ti) }
                 fc.declarations.zip(fc.types).forEach { (d, ti) -> convertMembers(d, ti) }
                 fc.facade?.let { convertFacadeMembers(it, fc.topLevelFunctions, fc.topLevelProperties) }
             }
@@ -342,8 +344,13 @@ class KotlinScan(
         }
     }
 
-    /** Pass B: convert members and commit the type. */
-    private fun KaSession.convertMembers(declaration: KtClassOrObject, typeInfo: TypeInfo) {
+    /**
+     * Pass B1a: hierarchy, access, declaration source, and constructor STRUCTURES. Run for every type
+     * BEFORE any method body is converted (in [convertMembers]), so a body can resolve a forward reference
+     * to another same-file type -- e.g. `Outer.make()` returning `Inner()`, or a self-`new` like
+     * `Counter.plus` returning `Counter(...)`.
+     */
+    private fun KaSession.prepareType(declaration: KtClassOrObject, typeInfo: TypeInfo) {
         val classSymbol = declaration.symbol as KaNamedClassSymbol
         // hierarchy first, so method bodies can resolve inherited callees via parentClass/interfaces
         applyHierarchy(typeInfo.builder(), typeInfo, classSymbol)
@@ -358,6 +365,15 @@ class KotlinScan(
             putPsi(runtime, typeInfo.typeNature(), declaration.getDeclarationKeyword())
             superTypeDetails.forEach { (superType, reference) -> putTypeReference(runtime, superType, reference) }
         })
+        // constructor structures (params); bodies + delegations are wired in pass B2 (finalizeType)
+        classSymbol.declaredMemberScope.declarations
+            .filterIsInstance<KaConstructorSymbol>()
+            .forEach { ctor -> typeInfo.builder().addConstructor(convertConstructorStructure(typeInfo, ctor)) }
+    }
+
+    /** Pass B1b: convert members (properties, methods + bodies, synthetics) and register nested singletons. */
+    private fun KaSession.convertMembers(declaration: KtClassOrObject, typeInfo: TypeInfo) {
+        val classSymbol = declaration.symbol as KaNamedClassSymbol
         // properties (+ enum entry fields) before methods, so a method body can reference them
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
@@ -368,10 +384,6 @@ class KotlinScan(
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaNamedFunctionSymbol>()
             .forEach { function -> typeInfo.builder().addMethod(convertMethod(typeInfo, function)) }
-        // constructor structures (params); bodies + delegations are wired in pass B2 (finalizeType)
-        classSymbol.declaredMemberScope.declarations
-            .filterIsInstance<KaConstructorSymbol>()
-            .forEach { ctor -> typeInfo.builder().addConstructor(convertConstructorStructure(typeInfo, ctor)) }
         // a data class gets synthetic structural equals/hashCode/toString (like a Java record), unless the
         // user declared them; componentN/copy/getters are already provided by K2's member scope
         if (classSymbol.isData) {

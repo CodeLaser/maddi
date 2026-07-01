@@ -238,6 +238,39 @@ class MemberTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun forwardConstructorReference() {
+        // a method body that constructs a type declared LATER in the file (member structures for all types
+        // are registered before any body is converted)
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "F.kt",
+            "class Factory { fun make(): Widget = Widget(1) }\n" +
+                "class Widget(val id: Int)\n"
+        ).associateBy { it.simpleName() }
+        val expr = (types.getValue("Factory").findUniqueMethod("make", 0)
+            .methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(expr is org.e2immu.language.cst.api.expression.ConstructorCall)
+        assertEquals("Widget", (expr as org.e2immu.language.cst.api.expression.ConstructorCall).constructor().typeInfo().simpleName())
+    }
+
+    @Test
+    fun innerClassAccessesOuterField() {
+        // `inner class` body reads an outer field: `label` -> `Outer.this.label` (a field ref scoped by
+        // the enclosing instance)
+        val outer = KotlinScan(runtime, sourceSet).parse(
+            "O.kt",
+            "class Outer(private val label: String) {\n" +
+                "    inner class Inner { fun show(): String = label }\n" +
+                "}\n"
+        ).first()
+        val inner = outer.subTypes().first { it.simpleName() == "Inner" }
+        val expr = (inner.findUniqueMethod("show", 0).methodBody().statements().first() as ReturnStatement).expression()
+        val field = (expr as VariableExpression).variable() as FieldReference
+        assertEquals("label", field.fieldInfo().name())
+        val scope = (field.scope() as VariableExpression).variable() as This
+        assertEquals(outer, scope.typeInfo()) // Outer.this
+    }
+
+    @Test
     fun varargParameter() {
         // `vararg xs: Int` -> an int[] parameter flagged varargs (K2's element type is arrayified)
         val v = KotlinScan(runtime, sourceSet).parse("V.kt", "class V { fun f(vararg xs: Int) {} }\n").first()

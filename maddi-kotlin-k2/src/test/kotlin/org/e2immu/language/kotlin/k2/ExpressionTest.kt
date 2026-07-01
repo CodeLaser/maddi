@@ -539,4 +539,37 @@ class ExpressionTest : KotlinScanTestBase() {
         assertEquals(0, expr.parameterExpressions().size)
     }
 
+    @Test
+    fun superCallTargetsParent() {
+        // `super.describe()` -> a MethodCall on `this` (writeSuper) whose callee is the PARENT's method
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "S.kt",
+            "open class Base { open fun describe(): String = \"base\" }\n" +
+                "class Sub : Base() { override fun describe(): String = super.describe() }\n"
+        ).associateBy { it.simpleName() }
+        val body = (types.getValue("Sub").findUniqueMethod("describe", 0)
+            .methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(body is MethodCall)
+        val call = body as MethodCall
+        assertEquals(types.getValue("Base"), call.methodInfo().typeInfo()) // resolves to Base.describe
+        val self = (call.`object`() as VariableExpression).variable() as This
+        assertTrue(self.writeSuper())
+    }
+
+    @Test
+    fun namedAndDefaultArguments() {
+        // `named(1, c = 5)` with `named(a, b = 10, c = 20)` -> arguments reordered + defaults filled:
+        // a=1 (positional), b=10 (default), c=5 (named)
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "N.kt",
+            "fun named(a: Int, b: Int = 10, c: Int = 20): Int = a + b + c\n" +
+                "fun call(): Int = named(1, c = 5)\n"
+        )
+        val call = (types.flatMap { it.methods() }.first { it.name() == "call" }
+            .methodBody().statements().first() as ReturnStatement).expression() as MethodCall
+        assertEquals(3, call.parameterExpressions().size)
+        // a=1, b=10 (default), c=5 -- in declaration order
+        assertEquals(listOf("1", "10", "5"), call.parameterExpressions().map { it.toString() })
+    }
+
 }
