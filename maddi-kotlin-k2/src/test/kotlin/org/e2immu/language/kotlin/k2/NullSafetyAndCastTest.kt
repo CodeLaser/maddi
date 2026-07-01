@@ -17,6 +17,7 @@ package org.e2immu.language.kotlin.k2
 import org.e2immu.language.cst.api.element.DetailedSources
 import org.e2immu.language.cst.api.expression.BinaryOperator
 import org.e2immu.language.cst.api.expression.Cast
+import org.e2immu.language.cst.api.expression.Equals
 import org.e2immu.language.cst.api.expression.InlineConditional
 import org.e2immu.language.cst.api.expression.InstanceOf
 import org.e2immu.language.cst.api.expression.MethodCall
@@ -147,5 +148,31 @@ class NullSafetyAndCastTest : KotlinScanTestBase() {
         assertEquals(runtime.lessOperatorInt(), bin.operator())
         assertTrue(bin.lhs() is MethodCall)
         assertEquals("compareTo", (bin.lhs() as MethodCall).methodInfo().name())
+    }
+
+    @Test
+    fun structuralEqualityIsEqualsCall() {
+        // Kotlin `a == b` is structural -> a.equals(b)
+        val expr = returnedExpression(
+            "class M(val c: Int) { override fun equals(other: Any?): Boolean = other is M && other.c == c\n" +
+                "    override fun hashCode(): Int = c }\n" +
+                "class C { fun m(a: M, b: M): Boolean = a == b }\n", parameters = 2
+        )
+        assertTrue(expr is MethodCall)
+        assertEquals("equals", (expr as MethodCall).methodInfo().name())
+    }
+
+    @Test
+    fun nullComparisonIsReferential() {
+        // `a == null` is a reference null-check -> the Equals node (not a.equals(null))
+        val expr = returnedExpression("class C { fun m(a: String?): Boolean = a == null }\n", parameters = 1)
+        assertTrue(expr is Equals)
+    }
+
+    @Test
+    fun referentialIdentity() {
+        // `a === b` is reference identity -> the Equals node
+        val expr = returnedExpression("class C { fun m(a: Any, b: Any): Boolean = a === b }\n", parameters = 2)
+        assertTrue(expr is Equals)
     }
 }
