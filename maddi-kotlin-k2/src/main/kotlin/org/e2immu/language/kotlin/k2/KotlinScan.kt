@@ -38,6 +38,7 @@ import org.e2immu.language.cst.api.variable.Variable
 import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.api.type.ParameterizedType
 import org.e2immu.language.cst.api.type.TypeNature
+import org.e2immu.language.inspection.api.util.RecordSynthetics
 import org.e2immu.language.inspection.resource.InfoByFqn
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
@@ -346,6 +347,16 @@ class KotlinScan(
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaConstructorSymbol>()
             .forEach { ctor -> typeInfo.builder().addConstructor(convertConstructorStructure(typeInfo, ctor)) }
+        // a data class gets synthetic structural equals/hashCode/toString (like a Java record), unless the
+        // user declared them; componentN/copy/getters are already provided by K2's member scope
+        if (classSymbol.isData) {
+            val recordSynthetics = RecordSynthetics(runtime, typeInfo)
+            val declared = classSymbol.declaredMemberScope.declarations.filterIsInstance<KaNamedFunctionSymbol>()
+                .map { it.name.asString() to it.valueParameters.size }.toSet()
+            if ("equals" to 1 !in declared) typeInfo.builder().addMethod(recordSynthetics.createEquals())
+            if ("hashCode" to 0 !in declared) typeInfo.builder().addMethod(recordSynthetics.createHashCode())
+            if ("toString" to 0 !in declared) typeInfo.builder().addMethod(recordSynthetics.createToString())
+        }
         // companion object -> a nested `Companion` type + a static field on the enclosing class
         classSymbol.companionObject?.let { convertCompanion(typeInfo, it) }
         // a named object (singleton) gets a `public static final INSTANCE` field of its own type
