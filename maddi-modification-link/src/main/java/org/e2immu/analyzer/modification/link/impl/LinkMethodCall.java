@@ -157,7 +157,6 @@ public record LinkMethodCall(JavaInspector javaInspector,
                                              Set<Variable> extraModified,
                                              MethodLinkedVariables mlv,
                                              Map<Variable, Links> extra) {
-        int i = 0;
         assert mlv.ofParameters().size() == methodInfo.parameters().size();
         for (Links links : mlv.ofParameters()) {
             if (links != null) {
@@ -218,12 +217,16 @@ public record LinkMethodCall(JavaInspector javaInspector,
         }
     }
 
+    // Given the callee's varargs-element link 'from' and the actual argument's primary, produce the per-element
+    // 'from' variable at the call site.
     private Variable downgrade(Variable from, Variable fromPrimary) {
-        String simpleName = from.simpleName();
-        assert simpleName.length() > 1 && simpleName.endsWith("s");
-        ParameterizedType newType = from.parameterizedType().copyWithOneFewerArrays();
-        String nameOneFewerS = simpleName.substring(0, simpleName.length() - 1);
         if (from.parameterizedType().arrays() > 1) {
+            // a multi-dimensional varargs ('T[]... rows'): drop one array dimension, and the trailing plural 's'
+            // from the name ('rows' -> 'row')
+            String simpleName = from.simpleName();
+            assert simpleName.length() > 1 && simpleName.endsWith("s");
+            ParameterizedType newType = from.parameterizedType().copyWithOneFewerArrays();
+            String nameOneFewerS = simpleName.substring(0, simpleName.length() - 1);
             if (from instanceof FieldReference fr) {
                 FieldInfo fi = runtime.newFieldInfo(nameOneFewerS, false, newType, fr.fieldInfo().owner());
                 return runtime.newFieldReference(fi, fr.scope(), newType);
@@ -233,11 +236,10 @@ public record LinkMethodCall(JavaInspector javaInspector,
             }
             throw new UnsupportedOperationException();
         }
-        if (from instanceof FieldReference) {
-            // elements.ts -> t
-            return fromPrimary;
-        }
-        throw new UnsupportedOperationException();
+        // a single array dimension (the common 'T... vs'), or an already-indexed element (e.g. 'vs[0]', produced by
+        // a for-each over the varargs array): the element is the actual argument itself. Covers the varargs param
+        // (a LocalVariable), a field ('elements.ts -> t') and a DependentVariable uniformly.
+        return fromPrimary;
     }
 
     private void addCrosslink(Variable fromPrimary,
@@ -415,10 +417,13 @@ public record LinkMethodCall(JavaInspector javaInspector,
             for (Link link : links) {
                 Variable translatedFrom = tm.translateVariableRecursively(link.from());
                 Variable translatedTo = tm.translateVariableRecursively(link.to());
+                // Only the case "translatedTo is part of the object" contributes: we reverse the callee link so
+                // that the object part is the primary (e.g. 'param ∈ this' becomes 'this ∋ arg'). A former second
+                // branch here repeated the same condition (dead code) with a non-reversed nature; activating it
+                // for "translatedFrom is part of the object" breaks functional-interface/stream linking
+                // (TestForEachMethodReference, TestStreamBasics), so the from-side case is deliberately not handled.
                 if (Util.isPartOf(objectPrimary, translatedTo)) {
                     builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
-                } else if (Util.isPartOf(objectPrimary, translatedTo)) {
-                    builder.add(translatedTo, link.linkNature(), translatedFrom);
                 }
             }
             ParameterizedType parameterizedType = pi.parameterizedType();
