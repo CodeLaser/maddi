@@ -73,6 +73,7 @@ import org.jetbrains.kotlin.psi.KtBlockExpression
 import org.jetbrains.kotlin.psi.KtBreakExpression
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtEnumEntry
 import org.jetbrains.kotlin.psi.KtContinueExpression
 import org.jetbrains.kotlin.psi.KtDoWhileExpression
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
@@ -221,11 +222,13 @@ class KotlinScan(
             val topLevelFunctions = ktFile.declarations.filterIsInstance<KtNamedFunction>()
             val topLevelProperties = ktFile.declarations.filterIsInstance<KtProperty>()
             val hasFacade = topLevelFunctions.isNotEmpty() || topLevelProperties.isNotEmpty()
-            val (types, facade) = analyze(ktFile) {
-                declarations.map { registerType(compilationUnit, it) } to
+            // flatten top-level + nested classes into parallel (declaration, type) lists for the later passes
+            val (pairs, facade) = analyze(ktFile) {
+                declarations.flatMap { registerTypeTree(compilationUnit, null, it) } to
                         (if (hasFacade) registerFacade(compilationUnit, ktFile) else null)
             }
-            FileConversion(ktFile, compilationUnit, declarations, types, facade, topLevelFunctions, topLevelProperties)
+            FileConversion(ktFile, compilationUnit, pairs.map { it.first }, pairs.map { it.second },
+                facade, topLevelFunctions, topLevelProperties)
         }
         // pass B1 (all files): members + constructor structures (no body), now that all types are known
         perFile.forEach { fc ->
@@ -271,9 +274,12 @@ class KotlinScan(
     }
 
     /** Pass A: create the [TypeInfo] and its type parameters, and register it by FQN. No members yet. */
-    private fun KaSession.registerType(compilationUnit: CompilationUnit, declaration: KtClassOrObject): TypeInfo {
+    private fun KaSession.registerType(compilationUnit: CompilationUnit, enclosing: TypeInfo?, declaration: KtClassOrObject): TypeInfo {
         val classSymbol = declaration.symbol as KaNamedClassSymbol
-        val typeInfo = runtime.newTypeInfo(compilationUnit, classSymbol.name.asString())
+        val name = classSymbol.name.asString()
+        // a nested class is created under its enclosing type (Outer.Nested) and added as a subtype
+        val typeInfo = if (enclosing == null) runtime.newTypeInfo(compilationUnit, name)
+        else runtime.newTypeInfo(enclosing, name).also { enclosing.builder().addSubType(it) }
 
         // declaration-site type parameters: register all first (so a bound can reference any of them, incl.
         // itself -- `T : Comparable<T>`), then set bounds + variance (out T / in T) and commit
@@ -289,6 +295,21 @@ class KotlinScan(
         }
         infoByFqn.put(typeInfo.fullyQualifiedName(), typeInfo, sourceSet)
         return typeInfo
+    }
+
+    /**
+     * Register [declaration] and its nested (non-companion) classes recursively, returning flat
+     * (declaration, TypeInfo) pairs in outer-before-nested order for the later passes. Companion objects are
+     * handled separately by [convertMembers] (they get an INSTANCE-style field), so they're skipped here.
+     */
+    private fun KaSession.registerTypeTree(compilationUnit: CompilationUnit, enclosing: TypeInfo?,
+                                           declaration: KtClassOrObject): List<Pair<KtClassOrObject, TypeInfo>> {
+        val typeInfo = registerType(compilationUnit, enclosing, declaration)
+        val nested = declaration.declarations.filterIsInstance<KtClassOrObject>()
+            // enum entries are KtClassOrObject too, but they're constants (handled with the enum), not classes
+            .filterNot { it is KtEnumEntry || (it is KtObjectDeclaration && it.isCompanion()) }
+            .flatMap { registerTypeTree(compilationUnit, typeInfo, it) }
+        return listOf(declaration to typeInfo) + nested
     }
 
     /** Pass A: create + register the file-facade [TypeInfo] `<FileName>Kt`. Members are added in pass B1. */
