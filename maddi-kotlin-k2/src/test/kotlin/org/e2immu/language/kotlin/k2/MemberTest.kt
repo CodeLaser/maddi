@@ -237,4 +237,13 @@ class MemberTest : KotlinScanTestBase() {
         assertEquals(21, ds.detail(type.parameters()[1].typeInfo()).beginPos())
     }
 
+    @Test
+    fun varargParameter() {
+        // `vararg xs: Int` -> an int[] parameter flagged varargs (K2's element type is arrayified)
+        val v = KotlinScan(runtime, sourceSet).parse("V.kt", "class V { fun f(vararg xs: Int) {} }\n").first()
+        val p = v.findUniqueMethod("f", 1).parameters().first()
+        assertTrue(p.isVarArgs)
+        assertEquals(1, p.parameterizedType().arrays())
+    }
+
 }

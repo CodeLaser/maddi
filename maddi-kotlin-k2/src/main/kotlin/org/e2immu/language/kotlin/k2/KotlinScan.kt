@@ -690,13 +690,16 @@ class KotlinScan(
         // an extension function's receiver becomes the synthetic first parameter (the JVM model)
         function.receiverParameter?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner)) }
         function.valueParameters.forEach { p ->
-            val parameterType = mapType(p.returnType, owner)
+            // a vararg's K2 returnType is the element type; the JVM/CST parameter is an array of it
+            val elementType = mapType(p.returnType, owner)
+            val parameterType = if (p.isVararg) elementType.copyWithArrays(elementType.arrays() + 1) else elementType
             val parameterInfo = builder.addParameter(p.name.asString(), parameterType)
+            parameterInfo.builder().setVarArgs(p.isVararg)
             // name (keyed by parameterInfo.name(), like the Java parser) + type-reference detail (into generics)
             val parameterPsi = p.psi as? KtParameter
             parameterInfo.builder().setSource(declarationSource(parameterPsi) {
                 putPsi(runtime, parameterInfo.name(), parameterPsi?.nameIdentifier)
-                putTypeReference(runtime, parameterType, parameterPsi?.typeReference)
+                putTypeReference(runtime, elementType, parameterPsi?.typeReference)
             })
         }
         builder.commitParameters() // so method.parameters() is available while converting the body
