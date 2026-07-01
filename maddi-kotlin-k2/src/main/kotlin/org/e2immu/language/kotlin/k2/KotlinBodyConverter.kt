@@ -234,6 +234,12 @@ internal class KotlinBodyConverter(
             val value = statement.right?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression()
             if (left is KtArrayAccessExpression && statement.operationToken == KtTokens.EQ) {
                 runtime.newExpressionAsStatement(convertIndexedSet(left, value, method, locals)) // a[i] = v -> a.set(i, v)
+            } else if (left is KtArrayAccessExpression) {
+                // a[i] op= v -> a.set(i, a.get(i) op v)  (numeric/string; else placeholder)
+                val combined = augmentedCombine(convertArrayAccess(left, method, locals), value, statement.operationToken)
+                runtime.newExpressionAsStatement(
+                    if (combined == null) runtime.newEmptyExpression("k2-augmented-index:${statement.operationToken}")
+                    else convertIndexedSet(left, combined, method, locals))
             } else {
                 val target = left?.let { convertExpression(it, method, locals) } as? VariableExpression
                 if (target == null) runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-assign-target"))
@@ -437,6 +443,27 @@ internal class KotlinBodyConverter(
         else -> null
     }
 
+    /** The combined value for an augmented indexed assignment `a[i] op= v` -> `a.get(i) op v` (numeric/String), else null. */
+    private fun augmentedCombine(left: Expression, right: Expression, token: com.intellij.psi.tree.IElementType): Expression? {
+        val numeric = left.isNumeric && right.isNumeric
+        val stringPlus = left.parameterizedType().isJavaLangString || right.parameterizedType().isJavaLangString
+        val opAndPrecedence = when (token) {
+            KtTokens.PLUSEQ -> when {
+                stringPlus -> runtime.plusOperatorString() to runtime.precedenceAdditive()
+                numeric -> runtime.plusOperatorInt() to runtime.precedenceAdditive()
+                else -> null
+            }
+            KtTokens.MINUSEQ -> if (numeric) runtime.minusOperatorInt() to runtime.precedenceAdditive() else null
+            KtTokens.MULTEQ -> if (numeric) runtime.multiplyOperatorInt() to runtime.precedenceMultiplicative() else null
+            KtTokens.DIVEQ -> if (numeric) runtime.divideOperatorInt() to runtime.precedenceMultiplicative() else null
+            KtTokens.PERCEQ -> if (numeric) runtime.remainderOperatorInt() to runtime.precedenceMultiplicative() else null
+            else -> null
+        } ?: return null
+        return runtime.newBinaryOperatorBuilder().setLhs(left).setRhs(right)
+            .setOperator(opAndPrecedence.first).setPrecedence(opAndPrecedence.second)
+            .setParameterizedType(left.parameterizedType()).setSource(runtime.noSource()).build()
+    }
+
     /** Convert a control-flow branch/body (a `{ … }` block or a single statement) into a CST [Block]. */
     private fun KaSession.convertBlock(body: KtExpression?, method: MethodInfo,
                                        locals: Map<String, Variable>, blockIndex: String): Block {
@@ -597,9 +624,11 @@ internal class KotlinBodyConverter(
         val arrayType = expression.arrayExpression?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         val get = arrayType?.let { resolveCallee(it, "get", indices) }
             ?: return runtime.newEmptyExpression("k2-index-get-unresolved")
+        // use-site element type (List<Int>[i] -> Int), falling back to the declared (erased) return type
+        val returnType = expression.expressionType?.let { mapType(it, method.typeInfo()) } ?: get.returnType()
         // marked INDEX_ACCESS at the `[` so the engine knows this get() was written as indexing
         return runtime.newMethodCallBuilder().setObject(array).setObjectIsImplicit(false).setMethodInfo(get)
-            .setParameterExpressions(indices).setConcreteReturnType(get.returnType()).setTypeArguments(listOf())
+            .setParameterExpressions(indices).setConcreteReturnType(returnType).setTypeArguments(listOf())
             .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.INDEX_ACCESS, expression.leftBracket)))
             .build()
     }
