@@ -58,6 +58,37 @@ import java.net.URI
 class ExpressionTest : KotlinScanTestBase() {
 
     @Test
+    fun outerFieldAssignmentInsideLambdaAndAnonymous() {
+        // Regression / documentation: an outer-field write inside a lambda (`{ this.i = 1 }`) or an
+        // anonymous-object body (`run() { i = 1 }`) is a proper assignment to the ENCLOSING type's field
+        // (owner X, scope the enclosing `this`), NOT to the synthetic lambda/anonymous type. Confirms the
+        // front-end does not drop the capture; the analyzer traverses these bodies (see prepwork
+        // TestComputePartOfConstruction). Effectively-final detection can't observe this on a Kotlin `var`
+        // (a var always has a generated setter, so it is never final regardless of the body write).
+        val lambdaX = KotlinScan(runtime, sourceSet).parse(
+            "L.kt", "class X { private var i: Int = 0\n fun mutate() { val r = { this.i = 1 }; r() } }\n"
+        ).first()
+        val lambda = ((lambdaX.findUniqueMethod("mutate", 0).methodBody().statements().first()
+                as LocalVariableCreation).localVariable().assignmentExpression() as Lambda)
+        assertFieldWriteToI(lambdaX, lambda.methodBody().statements().first())
+
+        val anonX = KotlinScan(runtime, sourceSet).parse(
+            "A.kt", "class X { private var i: Int = 0\n fun mutate() { val r = object : Runnable { override fun run() { i = 1 } }; r.run() } }\n"
+        ).first()
+        val anon = ((anonX.findUniqueMethod("mutate", 0).methodBody().statements().first()
+                as LocalVariableCreation).localVariable().assignmentExpression() as ConstructorCall).anonymousClass()!!
+        assertFieldWriteToI(anonX, anon.findUniqueMethod("run", 0).methodBody().statements().first())
+    }
+
+    private fun assertFieldWriteToI(x: org.e2immu.language.cst.api.info.TypeInfo,
+                                    statement: org.e2immu.language.cst.api.statement.Statement) {
+        val assignment = (statement as ExpressionAsStatement).expression() as Assignment
+        val field = ((assignment.target() as VariableExpression).variable() as FieldReference)
+        assertEquals("i", field.fieldInfo().name())
+        assertEquals(x, field.fieldInfo().typeInfo()) // targets X.i, not the synthetic lambda/anonymous type
+    }
+
+    @Test
     fun bodies() {
         val scan = KotlinScan(runtime, sourceSet)
         val types = scan.parse(
