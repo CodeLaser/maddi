@@ -38,6 +38,7 @@ import org.e2immu.language.cst.api.variable.Variable
 import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.api.type.ParameterizedType
 import org.e2immu.language.cst.api.type.TypeNature
+import org.e2immu.language.inspection.api.util.EnumSynthetics
 import org.e2immu.language.inspection.api.util.RecordSynthetics
 import org.e2immu.language.inspection.resource.InfoByFqn
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
@@ -378,6 +379,8 @@ class KotlinScan(
             if ("hashCode" to 0 !in declared) typeInfo.builder().addMethod(recordSynthetics.createHashCode())
             if ("toString" to 0 !in declared) typeInfo.builder().addMethod(recordSynthetics.createToString())
         }
+        // enum: entry fields + synthetic values()/valueOf() (K2 doesn't surface these)
+        if (classSymbol.classKind == KaClassKind.ENUM_CLASS) addEnumMembers(typeInfo, declaration)
         // companion object -> a nested `Companion` type + a static field on the enclosing class
         classSymbol.companionObject?.let { convertCompanion(typeInfo, it) }
         // a named object (singleton) gets a `public static final INSTANCE` field of its own type
@@ -385,6 +388,26 @@ class KotlinScan(
             typeInfo.builder().addField(singletonField(typeInfo, "INSTANCE", typeInfo.asParameterizedType()))
         }
         // access + type commit happen in finalizeType (pass B2), after delegations are wired
+    }
+
+    /**
+     * Enum synthetics (K2 doesn't surface these): a `public static final <Enum> NAME` field per entry, plus
+     * the shared `EnumSynthetics` for `name()`/`values()`/`valueOf()` (same as the Java parser uses).
+     */
+    private fun addEnumMembers(typeInfo: TypeInfo, declaration: KtClassOrObject) {
+        val enumType = typeInfo.asParameterizedType()
+        declaration.declarations.filterIsInstance<KtEnumEntry>().forEach { entry ->
+            val name = entry.name ?: return@forEach
+            val field = runtime.newFieldInfo(name, true, enumType, typeInfo)
+            field.builder()
+                .addFieldModifier(runtime.fieldModifierPublic())
+                .addFieldModifier(runtime.fieldModifierStatic())
+                .addFieldModifier(runtime.fieldModifierFinal())
+                .setInitializer(runtime.newEmptyExpression())
+                .computeAccess().commit()
+            typeInfo.builder().addField(field)
+        }
+        EnumSynthetics(runtime, typeInfo, typeInfo.builder()).create()
     }
 
     /** A `public static final <type> <name>` singleton field (the `INSTANCE`/`Companion` handle). */
