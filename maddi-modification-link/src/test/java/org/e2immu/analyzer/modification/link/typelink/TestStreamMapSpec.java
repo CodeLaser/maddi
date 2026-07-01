@@ -30,8 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * <p>
  * Parsed and linked <em>once</em> ({@link TestInstance.Lifecycle#PER_CLASS} + a lazy cache).
  * <p>
- * One case is currently WRONG and pinned as a known gap (see {@link #gapJdkStaticMethodReference()}); it is the next
- * target for the {@code LinkFunctionalInterface} work. (The constructor-reference case, formerly a gap, is fixed.)
+ * All map cases pass. (The constructor-reference and JDK-static-method-reference cases, formerly gaps, are fixed.)
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TestStreamMapSpec extends CommonTest {
@@ -241,11 +240,11 @@ public class TestStreamMapSpec extends CommonTest {
         assertEquals("[-] --> mapCtorRef.§xs⊆0:list.§xs", mlv("mapCtorRef"));
     }
 
-    @DisplayName("GAP: a JDK static method reference (String::valueOf) invents a spurious link; should be NONE")
+    @DisplayName("a JDK static method reference (String::valueOf) returns a fresh, unrelated value: no link")
     @Test
-    public void gapJdkStaticMethodReference() {
-        // WRONG (pinned): String.valueOf(X) returns a fresh String, unrelated to X, so the result should have NO
-        // link (like mapUnrelatedMR). Instead a phantom '∩valueOf' link is produced. When fixed, expect "[-] --> -".
-        assertEquals("[-] --> mapJdkStaticMR∩valueOf", mlv("mapJdkStaticMR"));
+    public void jdkStaticMethodReference() {
+        // String.valueOf(X) returns a fresh String, unrelated to X, so the result has NO link (like mapUnrelatedMR).
+        // Previously a phantom '∩valueOf' link was produced by lifting a link to the SAM's own return variable.
+        assertEquals("[-] --> -", mlv("mapJdkStaticMR"));
     }
 }
