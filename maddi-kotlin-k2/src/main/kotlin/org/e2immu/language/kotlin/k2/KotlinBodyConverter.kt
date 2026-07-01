@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.element.Source
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.expression.EmptyExpression
 import org.e2immu.language.cst.api.expression.Expression
+import org.e2immu.language.cst.api.expression.NullConstant
 import org.e2immu.language.cst.api.expression.Lambda
 import org.e2immu.language.cst.api.expression.VariableExpression
 import org.e2immu.language.cst.api.info.FieldInfo
@@ -707,6 +708,10 @@ internal class KotlinBodyConverter(
             .setParameterExpressions(listOf()).setConcreteReturnType(getter.returnType()).setTypeArguments(listOf())
             .setSource(runtime.noSource()).build()
 
+    /** `!e` as a boolean UnaryOperator. */
+    private fun logicalNot(e: Expression): Expression =
+        runtime.newUnaryOperator(listOf(), runtime.noSource(), runtime.logicalNotOperatorBool(), e, runtime.precedenceUnary())
+
     private fun resolveCallee(type: TypeInfo, name: String, arguments: List<Expression>): MethodInfo? {
         val candidates = mutableListOf<MethodInfo>()
         collectMethods(type, name, arguments.size, mutableSetOf(), candidates)
@@ -1002,6 +1007,24 @@ internal class KotlinBodyConverter(
                     .setOperator(comparisonToZero).setPrecedence(runtime.precedenceRelational())
                     .setParameterizedType(runtime.booleanParameterizedType()).setSource(runtime.noSource()).build()
             }
+        }
+        // referential identity `a === b`/`a !== b` -> the CST Equals node (== operator = reference equality)
+        if (expression.operationToken == KtTokens.EQEQEQ) return runtime.newEquals(left, right)
+        if (expression.operationToken == KtTokens.EXCLEQEQEQ) return logicalNot(runtime.newEquals(left, right))
+        // structural equality on objects: Kotlin `a == b` is `a.equals(b)` (`!=` negated). A null operand is a
+        // reference null-check, so it maps to the Equals node instead. (Numeric == keeps the primitive path.)
+        if (!numeric && (expression.operationToken == KtTokens.EQEQ || expression.operationToken == KtTokens.EXCLEQ)) {
+            val negate = expression.operationToken == KtTokens.EXCLEQ
+            val nullComparison = left is NullConstant || right is NullConstant
+            val equality: Expression? = if (nullComparison) runtime.newEquals(left, right) else {
+                val leftType = expression.left?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
+                leftType?.let { resolveCallee(it, "equals", listOf(right)) }?.let { equals ->
+                    runtime.newMethodCallBuilder().setObject(left).setObjectIsImplicit(false).setMethodInfo(equals)
+                        .setParameterExpressions(listOf(right)).setConcreteReturnType(runtime.booleanParameterizedType())
+                        .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+                }
+            }
+            if (equality != null) return if (negate) logicalNot(equality) else equality
         }
         val opAndPrecedence = when (expression.operationToken) {
             KtTokens.PLUS -> when {
