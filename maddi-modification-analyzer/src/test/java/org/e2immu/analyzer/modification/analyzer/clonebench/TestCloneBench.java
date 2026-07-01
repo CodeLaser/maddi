@@ -16,31 +16,55 @@ package org.e2immu.analyzer.modification.analyzer.clonebench;
 
 import ch.qos.logback.classic.Level;
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
+import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
+import org.e2immu.analyzer.modification.analyzer.impl.ModAnalyzerForTesting;
+import org.e2immu.analyzer.modification.analyzer.impl.SingleIterationAnalyzerImpl;
+import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
+import org.e2immu.language.inspection.api.parser.Summary;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.HashMap;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults.ANALYZED_RESULTS;
+import static org.e2immu.language.inspection.resource.SourceSetImpl.testProtocolSourceSet;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /*
 IMPORTANT: use "analyzed" branch of "testarchive".
 A small number of files have been modified wrt the main branch, for this test to run.
- */
+
+All directories are parsed ONCE, up front, in a single JavaInspector/runtime (one source set per directory so that
+identically-named default-package types in different directories do not collide). This loads the JDK once and runs
+javac serially -- avoiding both the thousands of independent JDK loads of a per-file parse and the intermittent
+"tree.starImportScope is null" that concurrent javac produces. Only the (javac-free) analysis is parallelized.
+*/
 public class TestCloneBench extends CommonTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestCloneBench.class);
     private final JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder().build();
@@ -56,41 +80,118 @@ public class TestCloneBench extends CommonTest {
                 "jmod:java.management");
     }
 
-    // each directory is parsed in its own (openjdk) source set, registered at setup
+    private static final String[] DIRS = {"bubblesort_for_withunit", "collections_layered",
+            "dowhile_pure_compiles", "dowhile_pure_selected_withunit",
+            "foreach_pure_compiles", "foreach_selection1_withunit",
+            "fors_pure_compiles", "fors_pure_selected_withunit",
+            "switch_fors_compiles", "switch_fors_selected_withunit",
+            "switch_pure_compiles", "switch_pure_selected_withunit",
+            "try_pure_compiles", "try_wr_compiles",
+            "while_pure_compiles", "while_pure_selected_withunit"
+    };
+
+    // one InputConfiguration with a source set per directory; JDK/library analysis is loaded once. Parsing itself is
+    // deferred to test(). Overrides CommonTest.beforeEach because this test needs real source directories (parsed in
+    // one go via parse(ParseOptions)) rather than the empty per-file placeholder source sets.
     @Override
-    protected List<String> openJdkExtraSourceSetNames() {
-        return List.of(DIRS);
+    @BeforeEach
+    public void beforeEach() throws IOException {
+        List<SourceSet> dirSets = new ArrayList<>();
+        for (String dir : DIRS) {
+            Path srcDir = Path.of("../../testarchive/" + dir + "/src/main/java");
+            dirSets.add(new SourceSetImpl.Builder()
+                    .setName(dir)
+                    .setSourceDirectories(List.of(srcDir))
+                    .setUri(srcDir.toUri())
+                    .build());
+        }
+        List<String> jdkModules = Arrays.stream(jmods)
+                .map(s -> s.startsWith("jmod:") ? s.substring("jmod:".length()) : s).toList();
+        javaInspector = org.e2immu.analyzer.modification.common.CommonTest.javaInspectorWithExtras(
+                dirSets.getFirst(), dirSets.subList(1, dirSets.size()), jdkModules);
+        dirSets.forEach(SourceSet::computePriorityDependencies);
+        runtime = javaInspector.runtime();
+        javaInspector.setParameterNames(true);
+        javaInspector.onlyPreload(); // trigger the configured package preloads (java.time etc.) before loading results
+        new LoadAnalysisResults(javaInspector.runtime(), testProtocolSourceSet()).go(ANALYZED_RESULTS);
+        // an instance prep-analyzer/analyzer for compatibility; the parallel workers build their own (below)
+        prepAnalyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer = new SingleIterationAnalyzerImpl(javaInspector, new IteratingAnalyzerImpl.ConfigurationBuilder().build());
     }
 
-    public void process(String name, AtomicInteger counter, Map<MethodInfo, Integer> typeHistogram) throws IOException {
-        String directory = "../../testarchive/" + name + "/src/main/java/";
-        File src = new File(directory);
-        assertTrue(src.isDirectory());
-        File analyzedDir = new File(src.getParent(), "analyzed");
-        if (analyzedDir.mkdirs()) {
-            LOGGER.info("Created {}", analyzedDir);
+    @Test
+    public void test() throws Exception {
+        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)).setLevel(Level.WARN);
+        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("graph-algorithm")).setLevel(Level.WARN);
+
+        // PARSE everything once (serial javac, JDK loaded once).
+        Summary summary = javaInspector.parse(parseOptions);
+
+        // the types to analyze: source primary types from the clone-bench directories, excluding the '_t.java'
+        // helper files (as the per-file version did).
+        List<TypeInfo> types = summary.types().stream()
+                .filter(TypeInfo::isPrimaryType)
+                .filter(t -> {
+                    URI uri = t.compilationUnit().uri();
+                    return uri != null && uri.getPath() != null
+                           && uri.getPath().endsWith(".java") && !uri.getPath().endsWith("_t.java");
+                })
+                .toList();
+        LOGGER.warn("Parsed {} types to analyze", types.size());
+
+        // ANALYSIS is javac-free (maddi CST + bytecode loading), so it runs in parallel. Each worker has its own
+        // prep-analyzer/analyzer but shares the one runtime; the clone-bench snippets are independent, and the shared
+        // JDK/library analysis is pre-loaded (LoadAnalysisResults), so there are no cross-type writes to race on.
+        int parallelism = Integer.getInteger("clonebench.parallelism",
+                Math.max(1, Math.min(java.lang.Runtime.getRuntime().availableProcessors(), 4)));
+        LOGGER.warn("Analyzing with parallelism {}", parallelism);
+
+        AtomicInteger counter = new AtomicInteger();
+        Map<MethodInfo, Integer> typeHistogram = new ConcurrentHashMap<>();
+        ConcurrentLinkedQueue<TypeInfo> queue = new ConcurrentLinkedQueue<>(types);
+
+        List<Callable<Void>> workers = new ArrayList<>();
+        for (int w = 0; w < parallelism; w++) {
+            workers.add(() -> {
+                PrepAnalyzer prep = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+                ModAnalyzerForTesting an = new SingleIterationAnalyzerImpl(javaInspector,
+                        new IteratingAnalyzerImpl.ConfigurationBuilder().build());
+                TypeInfo typeInfo;
+                while ((typeInfo = queue.poll()) != null) {
+                    analyze(prep, an, typeInfo, counter.incrementAndGet(), typeHistogram);
+                }
+                return null;
+            });
         }
-        File[] javaFiles = src.listFiles(f -> f.getName().endsWith(".java") && !f.getName().endsWith("_t.java"));
-        assertNotNull(javaFiles);
-        LOGGER.info("Found {} java files in {}", javaFiles.length, directory);
-        for (File javaFile : javaFiles) {
-            File outFile = new File(analyzedDir, javaFile.getName());
-            process(name, javaFile, outFile, counter.incrementAndGet(), typeHistogram);
+        List<Future<Void>> futures;
+        try (ExecutorService exec = Executors.newFixedThreadPool(parallelism)) {
+            futures = exec.invokeAll(workers);
         }
+        for (Future<Void> future : futures) {
+            try {
+                future.get();
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof AssertionError ae) throw ae;
+                if (cause instanceof Exception ex) throw ex;
+                throw new RuntimeException(cause);
+            }
+        }
+        LOGGER.warn("Analyzed {} types", counter.get());
     }
 
-    private void process(String setName, File javaFile, File outFile, int count,
+    private void analyze(PrepAnalyzer prep, ModAnalyzerForTesting an, TypeInfo typeInfo, int count,
                          Map<MethodInfo, Integer> typeHistogram) throws IOException {
-        String input = Files.readString(javaFile.toPath());
-        LOGGER.info("Start parsing #{}, {}, file of size {}", count, javaFile, input.length());
-
-        TypeInfo typeInfo = javaInspector.parseSingleFileInSourceSet(javaFile.toURI(),
-                openJdkSourceSetsByName.get(setName), parseOptions).parseResult().firstType();
-
-        List<Info> analysisOrder = prepWork(typeInfo);
-        analyzer.go(analysisOrder);
+        LOGGER.info("Analyzing #{}, {}", count, typeInfo);
+        List<Info> analysisOrder = prep.doPrimaryType(typeInfo);
+        an.go(analysisOrder);
         String printed = javaInspector.print2(typeInfo.compilationUnit());
-        Files.writeString(outFile.toPath(), printed, StandardCharsets.UTF_8);
+
+        // write to <dir>/src/main/analyzed/<File>.java, mirroring the original per-file output location
+        Path srcFile = Path.of(typeInfo.compilationUnit().uri());
+        Path analyzedDir = srcFile.getParent().getParent().resolve("analyzed");
+        Files.createDirectories(analyzedDir);
+        Files.writeString(analyzedDir.resolve(srcFile.getFileName().toString()), printed, StandardCharsets.UTF_8);
 
         analysisOrder.stream().filter(info -> info instanceof MethodInfo)
                 .forEach(info -> {
@@ -105,57 +206,5 @@ public class TestCloneBench extends CommonTest {
                         });
                     }
                 });
-    }
-
-    private static final String[] DIRS = {"bubblesort_for_withunit", "collections_layered",
-            "dowhile_pure_compiles", "dowhile_pure_selected_withunit",
-            "foreach_pure_compiles", "foreach_selection1_withunit",
-            "fors_pure_compiles", "fors_pure_selected_withunit",
-            "switch_fors_compiles", "switch_fors_selected_withunit",
-            "switch_pure_compiles", "switch_pure_selected_withunit",
-            "try_pure_compiles", "try_wr_compiles",
-            "while_pure_compiles", "while_pure_selected_withunit"
-    };
-
-    @Test
-    public void test() throws IOException {
-        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)).setLevel(Level.WARN);
-        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("graph-algorithm")).setLevel(Level.WARN);
-
-        AtomicInteger counter = new AtomicInteger();
-        Map<MethodInfo, Integer> typeHistogram = new HashMap<>();
-
-        for (String dir : DIRS) {
-            process(dir, counter, typeHistogram);
-        }
-/* potentially copy this test, and add it to aapi.parser tests
-        LOGGER.warn("JDK calls:");
-        Composer composer = new Composer(javaInspector,
-                set -> "org.e2immu.analyzer.shallow.aapi.java", w -> w.access().isPublic());
-        List<TypeInfo> toCompose =
-                typeHistogram.entrySet().stream()
-                        .sorted((e1, e2) -> e2.getValue() - e1.getValue())
-                        .map(e -> {
-                            MethodInfo method = e.getKey();
-                            Stream<MethodInfo> stream = Stream.concat(Stream.of(method), method.overrides().stream());
-                            boolean alreadyDone = stream.anyMatch(mi -> mi.analysis()
-                                    .getOrDefault(PropertyImpl.ANNOTATED_API, ValueImpl.BoolImpl.FALSE).isTrue());
-                            LOGGER.warn("{} {}", e.getValue(), method + "  " + (alreadyDone ? "" : "ADD TO A-API"));
-                            if (!alreadyDone) {
-                                return method.primaryType();
-                            }
-                            return null;
-                        }).filter(Objects::nonNull).distinct().toList();
-        Collection<TypeInfo> aapiTypes = composer.compose(toCompose);
-        composer.write(aapiTypes, "build/aapis", null);
-
-        Map<String, Integer> problemHistogram = analyzer.getanalyzerExceptions().stream()
-                .collect(Collectors.toUnmodifiableMap(t -> t == null || t.getMessage() == null ? "?" : t.getMessage(), t -> 1, Integer::sum));
-        problemHistogram.entrySet().stream().sorted((e1, e2) -> e2.getValue() - e1.getValue()).forEach(e -> {
-            LOGGER.warn("Error freq {}: {}", e.getValue(), e.getKey());
-        });
-        int numErrors = analyzer.getanalyzerExceptions().size();
-        assertEquals(0, numErrors, "Found " + numErrors + " errors parsing " + counter.get()
-                                   + " files. Histogram: " + analyzer.getHistogram());*/
     }
 }

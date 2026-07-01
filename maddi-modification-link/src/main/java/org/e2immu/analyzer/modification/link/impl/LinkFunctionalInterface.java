@@ -122,7 +122,11 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                 VirtualFields vfMapTarget = virtualFieldComputer.compute(returnPrimary.parameterizedType(),
                         false).virtualFields();
                 if (toPrimaries.isEmpty()) {
-                    if (links.primary() != null) {
+                    // The function's result carries no hidden content from its source/parameters. If the remaining
+                    // primary is the SAM's own return variable (e.g. 'String::valueOf', which returns a fresh String
+                    // unrelated to its argument), there is nothing external to link to — adding a link here invents a
+                    // phantom relationship to that internal return variable. Only keep a genuine external primary.
+                    if (links.primary() != null && !(links.primary() instanceof ReturnVariable)) {
                         result.add(new Triplet(fromTranslated, CONTAINS_AS_MEMBER, links.primary()));
                     }
                 }

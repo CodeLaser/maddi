@@ -15,28 +15,26 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Exercises how the link/modification analysis handles a range of Java language constructs (the input is what
- * decides behaviour, so we widen the variety of inputs). Each test pins the computed links for one construct;
- * {@link #forEachOverArrayVsCollection()} additionally flags a real gap.
+ * decides behaviour, so we widen the variety of inputs). Each test pins the computed links/modifications for one
+ * construct.
  */
 public class TestLanguageConstructs extends CommonTest {
 
-    private String link(String fqn, String src, String methodName) {
+    private MethodLinkedVariables compute(String fqn, String src, String methodName) {
         TypeInfo type = javaInspector.parse(fqn, src);
         new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build()).doPrimaryType(type);
         LinkComputer lc = new LinkComputerImpl(javaInspector);
         MethodInfo mi = type.methodStream().filter(m -> m.name().equals(methodName)).findFirst()
                 .orElseGet(() -> type.constructors().getFirst()); // "<init>" -> the (single) constructor
-        MethodLinkedVariables mlv = lc.doMethod(mi);
-        return mlv.toString();
+        return lc.doMethod(mi);
+    }
+
+    private String link(String fqn, String src, String methodName) {
+        return compute(fqn, src, methodName).toString();
     }
 
     private String modified(String fqn, String src, String methodName) {
-        TypeInfo type = javaInspector.parse(fqn, src);
-        new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build()).doPrimaryType(type);
-        LinkComputer lc = new LinkComputerImpl(javaInspector);
-        MethodInfo mi = type.methodStream().filter(m -> m.name().equals(methodName)).findFirst()
-                .orElseGet(() -> type.constructors().getFirst());
-        return lc.doMethod(mi).sortedModifiedString();
+        return compute(fqn, src, methodName).sortedModifiedString();
     }
 
     @DisplayName("ternary / conditional expression links to both arms")
@@ -146,7 +144,7 @@ public class TestLanguageConstructs extends CommonTest {
         assertEquals("[0:g[0][0]∈0:g[0]] --> m←0:g[0][0],m∈0:g[0],m∈∈0:g", link("a.b.C", src, "m"));
     }
 
-    @DisplayName("for-each links to hidden content for a collection, but NOT for an array (gap)")
+    @DisplayName("for-each links the loop variable to the elements, for both a collection and an array")
     @Test
     public void forEachOverArrayVsCollection() {
         @Language("java") String coll = """
@@ -161,10 +159,9 @@ public class TestLanguageConstructs extends CommonTest {
                 package a.b;
                 public class Arr<X> { X m(X[] arr) { for (X x : arr) { return x; } return null; } }
                 """;
-        // GAP: for-each over an ARRAY does not link the loop variable to the array's elements, so the returned
-        // value is not linked to the parameter (contrast the collection case above and array *access* linking,
-        // which does work). Pinned so the discrepancy is visible.
-        assertEquals("[-] --> -", link("a.b.Arr", arr, "m"));
+        // for-each over an ARRAY: the loop variable is an element of the array (arr[i]); the returned value is
+        // therefore linked to the array parameter, mirroring the collection case.
+        assertEquals("[0:arr∋$_ce1] --> m←0:arr[0],m←$_ce1,m∈0:arr", link("a.b.Arr", arr, "m"));
     }
 
     @DisplayName("wildcard ? extends X: get() links the result to the list's hidden content")
@@ -210,12 +207,12 @@ public class TestLanguageConstructs extends CommonTest {
                     C() { }
                 }
                 """;
-        assertEquals("[] --> m←Λ$_fi0", link("a.b.C", src, "m"));
+        assertEquals("[] --> m←Λ$_fi1", link("a.b.C", src, "m"));
     }
 
-    @DisplayName("try-with-resources does NOT propagate resource modification, unlike a plain assignment (gap)")
+    @DisplayName("try-with-resources propagates resource modification, like a plain assignment")
     @Test
-    public void tryWithResourcesModificationGap() {
+    public void tryWithResourcesModification() {
         @Language("java") String plain = """
                 package a.b;
                 public class Plain {
@@ -233,8 +230,179 @@ public class TestLanguageConstructs extends CommonTest {
                     void m(Res r) { try (Res s = r) { s.modify(); } catch (Exception e) { } }
                 }
                 """;
-        // GAP: the resource variable 's' of 'try (Res s = r)' is not linked to 'r', so the modification s.modify()
-        // is not propagated to the parameter r (contrast the plain assignment above). Pinned to flag the gap.
-        assertEquals("", modified("a.b.Try", tryRes, "m"));
+        // the resource variable 's' of 'try (Res s = r)' is now linked to 'r' (the resource declaration is processed
+        // like any local-variable creation), so s.modify() propagates to the parameter r, as for the plain case.
+        assertEquals("a.b.Try.m(a.b.Try.Res):0:r", modified("a.b.Try", tryRes, "m"));
+    }
+
+    @DisplayName("varargs parameter links like an array (element + hidden content)")
+    @Test
+    public void varargs() {
+        @Language("java") String src = """
+                package a.b;
+                public class C<X> { X m(X... xs) { return xs[0]; } }
+                """;
+        assertEquals("[-] --> m←0:xs[0],m∈0:xs", link("a.b.C", src, "m"));
+    }
+
+    @DisplayName("anonymous class captures a parameter: the instance links to the captured variable")
+    @Test
+    public void anonymousClassCapture() {
+        @Language("java") String src = """
+                package a.b;
+                import java.util.function.Supplier;
+                public class C<X> {
+                    Supplier<X> m(X x) { return new Supplier<X>() { public X get() { return x; } }; }
+                }
+                """;
+        assertEquals("[-] --> m←get,m←0:x", link("a.b.C", src, "m"));
+    }
+
+    @DisplayName("nested record deconstruction pattern Q(P(X xx))")
+    @Test
+    public void nestedRecordPattern() {
+        @Language("java") String src = """
+                package a.b;
+                public class C<X> {
+                    record P<Y>(Y y) {}
+                    record Q<Y>(P<Y> p) {}
+                    X m(Q<X> q) { if (q instanceof Q(P(X xx))) return xx; return null; }
+                }
+                """;
+        assertEquals("[-] --> m←$_ce0,m≺0:q", link("a.b.C", src, "m"));
+    }
+
+    @DisplayName("switch with a guard (case String s when ...) links through the arms")
+    @Test
+    public void switchGuard() {
+        @Language("java") String src = """
+                package a.b;
+                public class C<X> {
+                    X m(Object o, X def) {
+                        return switch (o) { case String s when s.isEmpty() -> def; default -> def; };
+                    }
+                }
+                """;
+        assertEquals("[-, -] --> m←1:def", link("a.b.C", src, "m"));
+    }
+
+    @DisplayName("intersection type bound (<T extends A & B>) does not break ternary linking")
+    @Test
+    public void intersectionTypeBound() {
+        @Language("java") String src = """
+                package a.b;
+                import java.io.Serializable;
+                public class C {
+                    <T extends Comparable<T> & Serializable> T m(T a, T b, boolean c) { return c ? a : b; }
+                }
+                """;
+        assertEquals("[-, -, -] --> m←0:a,m←1:b", link("a.b.C", src, "m"));
+    }
+
+    @DisplayName("enum constructor links the parameter into the field")
+    @Test
+    public void enumConstructor() {
+        @Language("java") String src = """
+                package a.b;
+                import java.util.List;
+                import java.util.ArrayList;
+                public enum E {
+                    A(new ArrayList<>());
+                    final List<String> list;
+                    E(List<String> l) { this.list = l; }
+                }
+                """;
+        assertEquals("[0:l→this*.list,0:l.§m≡this*.list.§m] --> -", link("a.b.E", src, "<init>"));
+    }
+
+    @DisplayName("non-static inner class: writing the outer field links the argument and modifies 'this'")
+    @Test
+    public void innerClassOuterField() {
+        @Language("java") String src = """
+                package a.b;
+                public class C<X> {
+                    private X field;
+                    class Inner { X get() { return field; } }
+                    Inner m(X x) { this.field = x; return new Inner(); }
+                }
+                """;
+        MethodLinkedVariables mlv = compute("a.b.C", src, "m");
+        assertEquals("[0:x→this*.field] --> -", mlv.toString());
+        assertEquals("this", mlv.sortedModifiedString());
+    }
+
+    @DisplayName("array store arr[0] = x puts x into the array and modifies it")
+    @Test
+    public void arrayStore() {
+        @Language("java") String src = """
+                package a.b;
+                public class C<X> { void m(X[] arr, X x) { arr[0] = x; } }
+                """;
+        MethodLinkedVariables mlv = compute("a.b.C", src, "m");
+        assertEquals("[0:arr*[0]←1:x,0:arr*∋1:x, 1:x→0:arr*[0],1:x∈0:arr*] --> -", mlv.toString());
+        assertEquals("a.b.C.m(Object[],Object):0:arr", mlv.sortedModifiedString());
+    }
+
+    @DisplayName("labeled continue across nested loops still links the returned element to the array")
+    @Test
+    public void labeledContinue() {
+        @Language("java") String src = """
+                package a.b;
+                public class C<X> {
+                    X m(X[][] g) {
+                        outer: for (X[] r : g) { for (X x : r) { if (x == null) continue outer; return x; } }
+                        return null;
+                    }
+                }
+                """;
+        assertEquals("[0:g[0][0]∈0:g[0],0:g[0]∋$_ce3,0:g∋∋$_ce3] -->"
+                     + " m←0:g[0][0],m←$_ce3,m∈0:g[0],m∈∈0:g", link("a.b.C", src, "m"));
+    }
+
+    @DisplayName("do-while loop links the returned array element to the array")
+    @Test
+    public void doWhile() {
+        @Language("java") String src = """
+                package a.b;
+                public class C<X> {
+                    X m(X[] arr) { int i = 0; X r = null; do { r = arr[i]; i++; } while (i < arr.length); return r; }
+                }
+                """;
+        assertEquals("[0:arr∋$_ce1] --> m←0:arr[0],m←$_ce1,m∈0:arr", link("a.b.C", src, "m"));
+    }
+
+    @DisplayName("instanceof pattern binding links the returned variable to the tested expression")
+    @Test
+    public void instanceofPattern() {
+        @Language("java") String src = """
+                package a.b;
+                public class C { String m(Object o) { if (o instanceof String s) return s; return ""; } }
+                """;
+        assertEquals("[-] --> m←$_ce0,m←0:o", link("a.b.C", src, "m"));
+    }
+
+    @DisplayName("nested ternary links to all three arms")
+    @Test
+    public void nestedTernary() {
+        @Language("java") String src = """
+                package a.b;
+                public class C<X> { X m(X a, X b, X c, int s) { return s == 0 ? a : s == 1 ? b : c; } }
+                """;
+        assertEquals("[-, -, -, -] --> m←0:a,m←1:b,m←2:c", link("a.b.C", src, "m"));
+    }
+
+    @DisplayName("multi-catch (catch (A | B e)) is handled; a plain exception carries no hidden-content link")
+    @Test
+    public void multiCatch() {
+        @Language("java") String src = """
+                package a.b;
+                public class C {
+                    Throwable m(boolean b) {
+                        try { return null; }
+                        catch (IllegalStateException | IllegalArgumentException e) { return e; }
+                    }
+                }
+                """;
+        assertEquals("[-] --> -", link("a.b.C", src, "m"));
     }
 }

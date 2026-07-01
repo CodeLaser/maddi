@@ -56,6 +56,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     private final Map<StatementTree, String> statementLabels = new IdentityHashMap<>();
     private final CompilationUnit.Builder compilationUnitBuilder;
     private CompilationUnit compilationUnit;
+    private Source compilationUnitSource;
+    // false during the primary-type registration pass (phase 1), true during the body-scanning pass (phase 2)
+    private boolean bodiesPhase;
     private final SourcePositions sourcePositions;
     private final LineMap lineMap;
     private final CompilationUnitTree compilationUnitTree;
@@ -130,6 +133,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         ModuleInfo.Builder builder = runtime.newModuleInfoBuilder();
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
         String name = node.getName().toString();
+        // the module name identifier, keyed by the name so a consumer's
+        // moduleInfo.source().detailedSources().detail(moduleInfo.name()) resolves (moduleInfo.name() returns this
+        // same instance). The name is a (possibly qualified) expression, so use its javac source range directly
+        // rather than scanResult.find (which matches single keyword tokens, not dotted names).
+        dsb.put(name, sourceForNode(node.getName()));
         for (DirectiveTree d : node.getDirectives()) {
             visitDirective(d, builder);
         }
@@ -172,28 +180,54 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         }
     }
 
+    /**
+     * Phase 1: build this unit's {@link CompilationUnit} only (no bodies, no types). {@link ScanCompilationUnits}
+     * builds every source unit's CU before any body is scanned and registers them with the class-symbol scanner,
+     * so that when a source type is referenced before its own source is scanned (e.g. {@code a.A} naming
+     * {@code b.B}), the lazy class-symbol load reuses this source-bearing CU instead of minting a source-less twin
+     * CompilationUnit that the later source scan would then reuse.
+     */
+    void buildCompilationUnit(CompilationUnitTree unit) {
+        this.bodiesPhase = false;
+        scan(unit, null);
+    }
+
+    /** Phase 2: scan the bodies. */
+    void scanBodies(CompilationUnitTree unit) {
+        convertType.startCompilationUnit(this, elementStack); // (re)assert as the current source provider
+        this.bodiesPhase = true;
+        scan(unit, null);
+    }
+
     @Override
     public Void visitCompilationUnit(CompilationUnitTree node, Void unused) {
         try {
-            // continue the building of the compilation unit: imports
-            for (ImportTree importTree : node.getImports()) {
-                ImportStatement is = parseImportStatement(importTree);
-                compilationUnitBuilder.addImportStatement(is);
+            if (compilationUnit == null) {
+                // build the compilation unit exactly once (shared by both phases): imports, package, source, comments
+                for (ImportTree importTree : node.getImports()) {
+                    ImportStatement is = parseImportStatement(importTree);
+                    compilationUnitBuilder.addImportStatement(is);
+                }
+                DetailedSources.Builder cuDsb = runtime.newDetailedSourcesBuilder();
+                if (node.getPackageName() != null) {
+                    // the package name, keyed by the package-name string
+                    String packageName = compilationUnitBuilder.packageName();
+                    assert packageName != null;
+                    cuDsb.put(packageName, sourceForNode(node.getPackageName()));
+                }
+                compilationUnitSource = sourceForNode(node, cuDsb);
+                compilationUnitBuilder.setSource(compilationUnitSource)
+                        .addComments(commentsForNode(compilationUnitSource))
+                        .addTrailingComments(trailingCommentsForNode(compilationUnitSource));
+                compilationUnit = compilationUnitBuilder.build();
             }
-            DetailedSources.Builder cuDsb = runtime.newDetailedSourcesBuilder();
-            if (node.getPackageName() != null) {
-                // the package name, keyed by the package-name string
-                String packageName = compilationUnitBuilder.packageName();
-                assert packageName != null;
-                cuDsb.put(packageName, sourceForNode(node.getPackageName()));
-            }
-            Source source = sourceForNode(node, cuDsb);
-            compilationUnitBuilder.setSource(source)
-                    .addComments(commentsForNode(source))
-                    .addTrailingComments(trailingCommentsForNode(source));
-            compilationUnit = compilationUnitBuilder.build();
 
-            // now we have one built
+            if (!bodiesPhase) {
+                // PHASE 1: the CU has been built (above); nothing else to do until bodies are scanned
+                return null;
+            }
+
+            // PHASE 2: scan the bodies
             if (node.getTypeDecls().isEmpty()) {
                 // package-info
                 List<AnnotationExpression> annotations = new ArrayList<>();
@@ -205,7 +239,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         .addAnnotations(annotations)
                         .setParentClass(runtime.objectParameterizedType())
                         .setAccess(runtime.accessPublic())
-                        .setSource(source);
+                        .setSource(compilationUnitSource);
                 // don't commit yet
                 collectedPrimaryTypes.add(pkgInfoType);
             } else {
@@ -461,6 +495,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         .addFieldModifier(runtime.fieldModifierFinal())
                         .addFieldModifier(runtime.fieldModifierPrivate());
             }
+            // the field-name identifier, as for a regular field (detail(fieldInfo.name())). A record component is
+            // modelled by javac as a constructor parameter rather than a field declaration, so the name detail is
+            // not otherwise recorded; add it explicitly, keyed by the canonical name instance so a consumer's
+            // field.source().detailedSources().detail(field.simpleName()) resolves.
+            dsbField.put(fieldInfo.name(), sourceOfIdentifier(fieldName, definition.pos));
             Source source = sourceForNode(definition, dsbField);
             fieldInfo.builder().setSource(source).setAccess(runtime.accessPrivate());
 
@@ -670,9 +709,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 builder.commitParameters();
             }
 
-            // method name
+            // method name. Key the source by the method's canonical name instance (methodInfo.name()), NOT the local
+            // javac-derived 'methodName': detailed-sources lookup is by object identity, and a consumer retrieves
+            // this via 'method.source().detailedSources().detail(method.simpleName())' (== name()). The two String
+            // instances differ for a constructor (name() is the interned MethodInfo.CONSTRUCTOR_NAME "<init>", not
+            // javac's), and for an already-known method (its name was created earlier, e.g. by the class-symbol
+            // scanner). For a freshly-built regular method they are the same instance, so this is a no-op there.
             String sourceMethodName = isConstructor ? currentType.simpleName() : methodName;
-            dsb.put(methodName, sourceOfIdentifier(sourceMethodName, jcMethod.pos));
+            dsb.put(methodInfo.name(), sourceOfIdentifier(sourceMethodName, jcMethod.pos));
 
             // annotations
             for (JCTree.JCAnnotation annotation : jcMethod.getModifiers().getAnnotations()) {
