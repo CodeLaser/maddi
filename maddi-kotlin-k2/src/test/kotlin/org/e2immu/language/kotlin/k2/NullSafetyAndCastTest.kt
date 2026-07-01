@@ -175,4 +175,18 @@ class NullSafetyAndCastTest : KotlinScanTestBase() {
         val expr = returnedExpression("class C { fun m(a: Any, b: Any): Boolean = a === b }\n", parameters = 2)
         assertTrue(expr is Equals)
     }
+
+    @Test
+    fun augmentedIndexedAssignment() {
+        // `list[0] += 5` -> `list.set(0, list.get(0) + 5)`
+        val c = KotlinScan(runtime, sourceSet).parse(
+            "C.kt", "class C { fun m(list: MutableList<Int>) { list[0] += 5 } }\n"
+        ).first()
+        val call = (c.findUniqueMethod("m", 1).methodBody().statements().first() as ExpressionAsStatement)
+            .expression() as MethodCall
+        assertEquals("set", call.methodInfo().name())
+        val value = call.parameterExpressions()[1] // list.get(0) + 5
+        assertTrue(value is BinaryOperator)
+        assertEquals(runtime.plusOperatorInt(), (value as BinaryOperator).operator())
+    }
 }
