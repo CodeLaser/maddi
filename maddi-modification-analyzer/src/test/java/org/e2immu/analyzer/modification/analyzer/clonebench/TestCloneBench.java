@@ -16,22 +16,31 @@ package org.e2immu.analyzer.modification.analyzer.clonebench;
 
 import ch.qos.logback.classic.Level;
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
+import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
+import org.e2immu.analyzer.modification.analyzer.impl.ModAnalyzerForTesting;
+import org.e2immu.analyzer.modification.analyzer.impl.SingleIterationAnalyzerImpl;
+import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
+import org.e2immu.language.inspection.api.parser.Summary;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -43,13 +52,19 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults.ANALYZED_RESULTS;
+import static org.e2immu.language.inspection.resource.SourceSetImpl.testProtocolSourceSet;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /*
 IMPORTANT: use "analyzed" branch of "testarchive".
 A small number of files have been modified wrt the main branch, for this test to run.
- */
+
+All directories are parsed ONCE, up front, in a single JavaInspector/runtime (one source set per directory so that
+identically-named default-package types in different directories do not collide). This loads the JDK once and runs
+javac serially -- avoiding both the thousands of independent JDK loads of a per-file parse and the intermittent
+"tree.starImportScope is null" that concurrent javac produces. Only the (javac-free) analysis is parallelized.
+*/
 public class TestCloneBench extends CommonTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestCloneBench.class);
     private final JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder().build();
@@ -65,47 +80,6 @@ public class TestCloneBench extends CommonTest {
                 "jmod:java.management");
     }
 
-    // each directory is parsed in its own (openjdk) source set, registered at setup
-    @Override
-    protected List<String> openJdkExtraSourceSetNames() {
-        return List.of(DIRS);
-    }
-
-    // one file to analyze, tagged with the source set (directory) it belongs to and its output location
-    private record FileTask(String setName, File javaFile, File outFile) {
-    }
-
-    // Process a single file using ONE worker's isolated bundle. Each bundle has its own JavaInspector/runtime, so a
-    // bundle is confined to a single thread (the runtime's type cache is a plain HashMap). Files within a source set
-    // are treated as independent (clone-bench snippets), so splitting them across bundles is safe.
-    private void process(AnalyzerBundle bundle, FileTask task, int count,
-                         Map<MethodInfo, Integer> typeHistogram) throws IOException {
-        String input = Files.readString(task.javaFile().toPath());
-        LOGGER.info("Start parsing #{}, {}, file of size {}", count, task.javaFile(), input.length());
-
-        TypeInfo typeInfo = bundle.javaInspector().parseSingleFileInSourceSet(task.javaFile().toURI(),
-                bundle.sourceSetsByName().get(task.setName()), parseOptions).parseResult().firstType();
-
-        List<Info> analysisOrder = bundle.prepAnalyzer().doPrimaryType(typeInfo);
-        bundle.analyzer().go(analysisOrder);
-        String printed = bundle.javaInspector().print2(typeInfo.compilationUnit());
-        Files.writeString(task.outFile().toPath(), printed, StandardCharsets.UTF_8);
-
-        analysisOrder.stream().filter(info -> info instanceof MethodInfo)
-                .forEach(info -> {
-                    MethodInfo mi = (MethodInfo) info;
-                    if (!mi.isAbstract() && !mi.isSyntheticConstructor()) {
-                        assertNotNull(mi.methodBody(), "For method " + mi);
-                        mi.methodBody().visit(e -> {
-                            if (e instanceof MethodCall mc && mc.methodInfo().typeInfo().primaryType() != typeInfo) {
-                                typeHistogram.merge(mc.methodInfo(), 1, Integer::sum);
-                            }
-                            return true;
-                        });
-                    }
-                });
-    }
-
     private static final String[] DIRS = {"bubblesort_for_withunit", "collections_layered",
             "dowhile_pure_compiles", "dowhile_pure_selected_withunit",
             "foreach_pure_compiles", "foreach_selection1_withunit",
@@ -116,53 +90,75 @@ public class TestCloneBench extends CommonTest {
             "while_pure_compiles", "while_pure_selected_withunit"
     };
 
+    // one InputConfiguration with a source set per directory; JDK/library analysis is loaded once. Parsing itself is
+    // deferred to test(). Overrides CommonTest.beforeEach because this test needs real source directories (parsed in
+    // one go via parse(ParseOptions)) rather than the empty per-file placeholder source sets.
+    @Override
+    @BeforeEach
+    public void beforeEach() throws IOException {
+        List<SourceSet> dirSets = new ArrayList<>();
+        for (String dir : DIRS) {
+            Path srcDir = Path.of("../../testarchive/" + dir + "/src/main/java");
+            dirSets.add(new SourceSetImpl.Builder()
+                    .setName(dir)
+                    .setSourceDirectories(List.of(srcDir))
+                    .setUri(srcDir.toUri())
+                    .build());
+        }
+        List<String> jdkModules = Arrays.stream(jmods)
+                .map(s -> s.startsWith("jmod:") ? s.substring("jmod:".length()) : s).toList();
+        javaInspector = org.e2immu.analyzer.modification.common.CommonTest.javaInspectorWithExtras(
+                dirSets.getFirst(), dirSets.subList(1, dirSets.size()), jdkModules);
+        dirSets.forEach(SourceSet::computePriorityDependencies);
+        runtime = javaInspector.runtime();
+        javaInspector.setParameterNames(true);
+        javaInspector.onlyPreload(); // trigger the configured package preloads (java.time etc.) before loading results
+        new LoadAnalysisResults(javaInspector.runtime(), testProtocolSourceSet()).go(ANALYZED_RESULTS);
+        // an instance prep-analyzer/analyzer for compatibility; the parallel workers build their own (below)
+        prepAnalyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer = new SingleIterationAnalyzerImpl(javaInspector, new IteratingAnalyzerImpl.ConfigurationBuilder().build());
+    }
+
     @Test
     public void test() throws Exception {
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)).setLevel(Level.WARN);
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("graph-algorithm")).setLevel(Level.WARN);
 
-        AtomicInteger counter = new AtomicInteger();
-        Map<MethodInfo, Integer> typeHistogram = new ConcurrentHashMap<>();
+        // PARSE everything once (serial javac, JDK loaded once).
+        Summary summary = javaInspector.parse(parseOptions);
 
-        // enumerate every file across all directories on the main thread (I/O + directory creation is not thread-safe)
-        List<FileTask> allTasks = new ArrayList<>();
-        for (String dir : DIRS) {
-            String directory = "../../testarchive/" + dir + "/src/main/java/";
-            File src = new File(directory);
-            assertTrue(src.isDirectory());
-            File analyzedDir = new File(src.getParent(), "analyzed");
-            if (analyzedDir.mkdirs()) {
-                LOGGER.info("Created {}", analyzedDir);
-            }
-            File[] javaFiles = src.listFiles(f -> f.getName().endsWith(".java") && !f.getName().endsWith("_t.java"));
-            assertNotNull(javaFiles);
-            LOGGER.info("Found {} java files in {}", javaFiles.length, directory);
-            for (File javaFile : javaFiles) {
-                allTasks.add(new FileTask(dir, javaFile, new File(analyzedDir, javaFile.getName())));
-            }
-        }
+        // the types to analyze: source primary types from the clone-bench directories, excluding the '_t.java'
+        // helper files (as the per-file version did).
+        List<TypeInfo> types = summary.types().stream()
+                .filter(TypeInfo::isPrimaryType)
+                .filter(t -> {
+                    URI uri = t.compilationUnit().uri();
+                    return uri != null && uri.getPath() != null
+                           && uri.getPath().endsWith(".java") && !uri.getPath().endsWith("_t.java");
+                })
+                .toList();
+        LOGGER.warn("Parsed {} types to analyze", types.size());
 
-        // File-level parallelism: N workers pull from a shared queue, each with its OWN isolated bundle (own
-        // JavaInspector/runtime). Work-stealing balances the extreme per-directory skew automatically. Setup of an
-        // extra bundle is cheap (~8s), so parallelism pays off; tune with -Dclonebench.parallelism=N.
+        // ANALYSIS is javac-free (maddi CST + bytecode loading), so it runs in parallel. Each worker has its own
+        // prep-analyzer/analyzer but shares the one runtime; the clone-bench snippets are independent, and the shared
+        // JDK/library analysis is pre-loaded (LoadAnalysisResults), so there are no cross-type writes to race on.
         int parallelism = Integer.getInteger("clonebench.parallelism",
                 Math.max(1, Math.min(java.lang.Runtime.getRuntime().availableProcessors(), 4)));
-        LOGGER.warn("Analyzing {} files with parallelism {}", allTasks.size(), parallelism);
-        ConcurrentLinkedQueue<FileTask> queue = new ConcurrentLinkedQueue<>(allTasks);
+        LOGGER.warn("Analyzing with parallelism {}", parallelism);
 
-        // worker 0 reuses the bundle already built by beforeEach (its fields); the rest build their own
-        Map<String, SourceSet> mainSourceSets = new HashMap<>();
-        for (String dir : DIRS) mainSourceSets.put(dir, openJdkSourceSetsByName.get(dir));
-        AnalyzerBundle mainBundle = new AnalyzerBundle(javaInspector, mainSourceSets, prepAnalyzer, analyzer);
+        AtomicInteger counter = new AtomicInteger();
+        Map<MethodInfo, Integer> typeHistogram = new ConcurrentHashMap<>();
+        ConcurrentLinkedQueue<TypeInfo> queue = new ConcurrentLinkedQueue<>(types);
 
         List<Callable<Void>> workers = new ArrayList<>();
         for (int w = 0; w < parallelism; w++) {
-            int idx = w;
             workers.add(() -> {
-                AnalyzerBundle bundle = idx == 0 ? mainBundle : buildAnalyzerBundle();
-                FileTask task;
-                while ((task = queue.poll()) != null) {
-                    process(bundle, task, counter.incrementAndGet(), typeHistogram);
+                PrepAnalyzer prep = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+                ModAnalyzerForTesting an = new SingleIterationAnalyzerImpl(javaInspector,
+                        new IteratingAnalyzerImpl.ConfigurationBuilder().build());
+                TypeInfo typeInfo;
+                while ((typeInfo = queue.poll()) != null) {
+                    analyze(prep, an, typeInfo, counter.incrementAndGet(), typeHistogram);
                 }
                 return null;
             });
@@ -181,35 +177,34 @@ public class TestCloneBench extends CommonTest {
                 throw new RuntimeException(cause);
             }
         }
-        LOGGER.warn("Analyzed {} files", counter.get());
-/* potentially copy this test, and add it to aapi.parser tests
-        LOGGER.warn("JDK calls:");
-        Composer composer = new Composer(javaInspector,
-                set -> "org.e2immu.analyzer.shallow.aapi.java", w -> w.access().isPublic());
-        List<TypeInfo> toCompose =
-                typeHistogram.entrySet().stream()
-                        .sorted((e1, e2) -> e2.getValue() - e1.getValue())
-                        .map(e -> {
-                            MethodInfo method = e.getKey();
-                            Stream<MethodInfo> stream = Stream.concat(Stream.of(method), method.overrides().stream());
-                            boolean alreadyDone = stream.anyMatch(mi -> mi.analysis()
-                                    .getOrDefault(PropertyImpl.ANNOTATED_API, ValueImpl.BoolImpl.FALSE).isTrue());
-                            LOGGER.warn("{} {}", e.getValue(), method + "  " + (alreadyDone ? "" : "ADD TO A-API"));
-                            if (!alreadyDone) {
-                                return method.primaryType();
-                            }
-                            return null;
-                        }).filter(Objects::nonNull).distinct().toList();
-        Collection<TypeInfo> aapiTypes = composer.compose(toCompose);
-        composer.write(aapiTypes, "build/aapis", null);
+        LOGGER.warn("Analyzed {} types", counter.get());
+    }
 
-        Map<String, Integer> problemHistogram = analyzer.getanalyzerExceptions().stream()
-                .collect(Collectors.toUnmodifiableMap(t -> t == null || t.getMessage() == null ? "?" : t.getMessage(), t -> 1, Integer::sum));
-        problemHistogram.entrySet().stream().sorted((e1, e2) -> e2.getValue() - e1.getValue()).forEach(e -> {
-            LOGGER.warn("Error freq {}: {}", e.getValue(), e.getKey());
-        });
-        int numErrors = analyzer.getanalyzerExceptions().size();
-        assertEquals(0, numErrors, "Found " + numErrors + " errors parsing " + counter.get()
-                                   + " files. Histogram: " + analyzer.getHistogram());*/
+    private void analyze(PrepAnalyzer prep, ModAnalyzerForTesting an, TypeInfo typeInfo, int count,
+                         Map<MethodInfo, Integer> typeHistogram) throws IOException {
+        LOGGER.info("Analyzing #{}, {}", count, typeInfo);
+        List<Info> analysisOrder = prep.doPrimaryType(typeInfo);
+        an.go(analysisOrder);
+        String printed = javaInspector.print2(typeInfo.compilationUnit());
+
+        // write to <dir>/src/main/analyzed/<File>.java, mirroring the original per-file output location
+        Path srcFile = Path.of(typeInfo.compilationUnit().uri());
+        Path analyzedDir = srcFile.getParent().getParent().resolve("analyzed");
+        Files.createDirectories(analyzedDir);
+        Files.writeString(analyzedDir.resolve(srcFile.getFileName().toString()), printed, StandardCharsets.UTF_8);
+
+        analysisOrder.stream().filter(info -> info instanceof MethodInfo)
+                .forEach(info -> {
+                    MethodInfo mi = (MethodInfo) info;
+                    if (!mi.isAbstract() && !mi.isSyntheticConstructor()) {
+                        assertNotNull(mi.methodBody(), "For method " + mi);
+                        mi.methodBody().visit(e -> {
+                            if (e instanceof MethodCall mc && mc.methodInfo().typeInfo().primaryType() != typeInfo) {
+                                typeHistogram.merge(mc.methodInfo(), 1, Integer::sum);
+                            }
+                            return true;
+                        });
+                    }
+                });
     }
 }
