@@ -5,7 +5,12 @@ import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInte
 import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
+import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.Util;
+import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.info.TypeParameter;
+import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ObjectCreationVariableImpl;
@@ -28,6 +33,8 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Stream;
+
+import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.collectTypeParametersFromVirtualField;
 
 public record LinkMethodCall(JavaInspector javaInspector,
                              Runtime runtime,
@@ -149,9 +156,12 @@ public record LinkMethodCall(JavaInspector javaInspector,
             concreteReturnValue = lm.links;
             extraModified = lm.extraModified;
         } else {
-            // LEAF 3 — the call returns nothing linkable (void, or a return unrelated to inputs): no return links.
-            // E.g. 'void write(Box<X> box, X x){box.set(x);}' and 'void clear(Box<X> box){box.clear();}' -> '--> -'.
-            concreteReturnValue = LinksImpl.EMPTY;
+            // LEAF 3 — the callee summary relates its return to nothing. Usually genuinely empty (void mutator such as
+            // 'box.clear()'), but also the collector case where the return-HC link was dropped at the generic level and
+            // must be realized here at concrete types (Tier 1: Stream.collect(Collectors.toList()) -> result.§xs ⊆
+            // stream.§xs). See collectorReturnValue.
+            Links collectorLinks = collectorReturnValue(methodInfo, concreteReturnType, objectPrimary);
+            concreteReturnValue = collectorLinks != null ? collectorLinks : LinksImpl.EMPTY;
             extraModified = new HashSet<>();
         }
         // Independently: how do the ARGUMENTS relate to the OBJECT (or, for a static call, to each other)?
@@ -302,6 +312,56 @@ public record LinkMethodCall(JavaInspector javaInspector,
             return LinkNatureImpl.CONTAINS_AS_MEMBER; // ⊇ -> ∋ (contains, per argument)
         }
         return linkNature; // identity/shares-elements/... unchanged
+    }
+
+    // Collector-shaped return (e.g. 'R collect(Collector<? super T,A,R> collector)'): the method is
+    // '@Independent(hc=true)' -- its result R shares hidden content with 'this' -- but a parameter of type
+    // 'Collector<…,R>' ties the return R to that parameter, so generically R and T are distinct type parameters and the
+    // return-HC link is dropped by the shallow summary (`collect: [collector.§tars[-1]⊆this.§ts] --> -`). Realize it
+    // here at the concrete call site: if R's concrete hidden content shares a type parameter with the object's, link
+    // 'result.§ ⊆ object.§'. 'in.stream().collect(Collectors.toList())' -> 'result.§xs ⊆ stream.§xs' (List<X> and
+    // Stream<X> both carry X, resolved to 'in' by the graph); 'Collectors.joining()' (R=String, no hidden content)
+    // adds nothing. See TestCollectorSpec.
+    private Links collectorReturnValue(MethodInfo methodInfo, ParameterizedType concreteReturnType,
+                                       Variable objectPrimary) {
+        if (objectPrimary == null || methodInfo.isVoid()) return null;
+        Value.Independent independent = methodInfo.analysis().getOrDefault(PropertyImpl.INDEPENDENT_METHOD,
+                ValueImpl.IndependentImpl.DEPENDENT);
+        if (!independent.isIndependentHc()) return null;
+        // the return type must be a type parameter (R) that is the LAST type argument of some parameter's type
+        // (the collector, 'Collector<? super T,A,R>')
+        TypeParameter returnTp = methodInfo.returnType().typeParameter();
+        if (returnTp == null) return null;
+        boolean collectorShaped = methodInfo.parameters().stream().anyMatch(pi -> {
+            List<ParameterizedType> args = pi.parameterizedType().parameters();
+            return !args.isEmpty() && returnTp.equals(args.getLast().typeParameter());
+        });
+        if (!collectorShaped) return null;
+        // at concrete types: does ALL of R's hidden content come from the object's hidden content? We require the
+        // result's HC type parameters to be a subset of the object's, so the whole result derives from the stream.
+        // This fires for accumulating collectors (toList/toSet/toCollection: R=Collection<X>) and for identity-shaped
+        // map collectors (toMap(x->x,x->x): Map<X,X>; groupingBy(x->x): Map<X,List<X>>), but NOT for a collector that
+        // introduces a foreign type via a key/classifier function (groupingBy(x->x.cat()): Map<Cat,List<X>>), where
+        // linking the combined key+value field would wrongly claim the keys come from the stream. Those genuine
+        // key/value-function collectors are Tier 2 (deferred).
+        VirtualFields vfRet = virtualFieldComputer.compute(concreteReturnType, false).virtualFields();
+        VirtualFields vfObj = virtualFieldComputer.compute(objectPrimary.parameterizedType(), false).virtualFields();
+        FieldInfo hcRet = vfRet.hiddenContent();
+        FieldInfo hcObj = vfObj.hiddenContent();
+        if (hcRet == null || hcObj == null) return null;
+        Set<TypeParameter> retTps = collectTypeParametersFromVirtualField(hcRet.type());
+        // retTps must be non-empty (the result actually carries type-parameter-derived content) and a subset of the
+        // object's: an empty retTps (e.g. R=Long from counting()) would satisfy containsAll vacuously and link a
+        // scalar result to the stream. See TestCollectorSpec.scalarCollectors.
+        if (retTps.isEmpty()
+            || !collectTypeParametersFromVirtualField(hcObj.type()).containsAll(retTps)) {
+            return null;
+        }
+        Variable newPrimary = IntermediateVariable.returnValue(runtime, variableCounter.getAndIncrement(),
+                concreteReturnType);
+        Variable retHc = runtime.newFieldReference(hcRet, runtime.newVariableExpression(newPrimary), hcRet.type());
+        Variable objHc = runtime.newFieldReference(hcObj, runtime.newVariableExpression(objectPrimary), hcObj.type());
+        return new LinksImpl.Builder(newPrimary).add(retHc, LinkNatureImpl.IS_SUBSET_OF, objHc).build();
     }
 
     private LM objectToReturnValue(MethodInfo methodInfo,
