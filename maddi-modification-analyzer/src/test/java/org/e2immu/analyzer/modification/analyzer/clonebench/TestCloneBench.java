@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -29,9 +30,17 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -62,35 +71,25 @@ public class TestCloneBench extends CommonTest {
         return List.of(DIRS);
     }
 
-    public void process(String name, AtomicInteger counter, Map<MethodInfo, Integer> typeHistogram) throws IOException {
-        String directory = "../../testarchive/" + name + "/src/main/java/";
-        File src = new File(directory);
-        assertTrue(src.isDirectory());
-        File analyzedDir = new File(src.getParent(), "analyzed");
-        if (analyzedDir.mkdirs()) {
-            LOGGER.info("Created {}", analyzedDir);
-        }
-        File[] javaFiles = src.listFiles(f -> f.getName().endsWith(".java") && !f.getName().endsWith("_t.java"));
-        assertNotNull(javaFiles);
-        LOGGER.info("Found {} java files in {}", javaFiles.length, directory);
-        for (File javaFile : javaFiles) {
-            File outFile = new File(analyzedDir, javaFile.getName());
-            process(name, javaFile, outFile, counter.incrementAndGet(), typeHistogram);
-        }
+    // one file to analyze, tagged with the source set (directory) it belongs to and its output location
+    private record FileTask(String setName, File javaFile, File outFile) {
     }
 
-    private void process(String setName, File javaFile, File outFile, int count,
+    // Process a single file using ONE worker's isolated bundle. Each bundle has its own JavaInspector/runtime, so a
+    // bundle is confined to a single thread (the runtime's type cache is a plain HashMap). Files within a source set
+    // are treated as independent (clone-bench snippets), so splitting them across bundles is safe.
+    private void process(AnalyzerBundle bundle, FileTask task, int count,
                          Map<MethodInfo, Integer> typeHistogram) throws IOException {
-        String input = Files.readString(javaFile.toPath());
-        LOGGER.info("Start parsing #{}, {}, file of size {}", count, javaFile, input.length());
+        String input = Files.readString(task.javaFile().toPath());
+        LOGGER.info("Start parsing #{}, {}, file of size {}", count, task.javaFile(), input.length());
 
-        TypeInfo typeInfo = javaInspector.parseSingleFileInSourceSet(javaFile.toURI(),
-                openJdkSourceSetsByName.get(setName), parseOptions).parseResult().firstType();
+        TypeInfo typeInfo = bundle.javaInspector().parseSingleFileInSourceSet(task.javaFile().toURI(),
+                bundle.sourceSetsByName().get(task.setName()), parseOptions).parseResult().firstType();
 
-        List<Info> analysisOrder = prepWork(typeInfo);
-        analyzer.go(analysisOrder);
-        String printed = javaInspector.print2(typeInfo.compilationUnit());
-        Files.writeString(outFile.toPath(), printed, StandardCharsets.UTF_8);
+        List<Info> analysisOrder = bundle.prepAnalyzer().doPrimaryType(typeInfo);
+        bundle.analyzer().go(analysisOrder);
+        String printed = bundle.javaInspector().print2(typeInfo.compilationUnit());
+        Files.writeString(task.outFile().toPath(), printed, StandardCharsets.UTF_8);
 
         analysisOrder.stream().filter(info -> info instanceof MethodInfo)
                 .forEach(info -> {
@@ -118,16 +117,71 @@ public class TestCloneBench extends CommonTest {
     };
 
     @Test
-    public void test() throws IOException {
+    public void test() throws Exception {
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)).setLevel(Level.WARN);
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("graph-algorithm")).setLevel(Level.WARN);
 
         AtomicInteger counter = new AtomicInteger();
-        Map<MethodInfo, Integer> typeHistogram = new HashMap<>();
+        Map<MethodInfo, Integer> typeHistogram = new ConcurrentHashMap<>();
 
+        // enumerate every file across all directories on the main thread (I/O + directory creation is not thread-safe)
+        List<FileTask> allTasks = new ArrayList<>();
         for (String dir : DIRS) {
-            process(dir, counter, typeHistogram);
+            String directory = "../../testarchive/" + dir + "/src/main/java/";
+            File src = new File(directory);
+            assertTrue(src.isDirectory());
+            File analyzedDir = new File(src.getParent(), "analyzed");
+            if (analyzedDir.mkdirs()) {
+                LOGGER.info("Created {}", analyzedDir);
+            }
+            File[] javaFiles = src.listFiles(f -> f.getName().endsWith(".java") && !f.getName().endsWith("_t.java"));
+            assertNotNull(javaFiles);
+            LOGGER.info("Found {} java files in {}", javaFiles.length, directory);
+            for (File javaFile : javaFiles) {
+                allTasks.add(new FileTask(dir, javaFile, new File(analyzedDir, javaFile.getName())));
+            }
         }
+
+        // File-level parallelism: N workers pull from a shared queue, each with its OWN isolated bundle (own
+        // JavaInspector/runtime). Work-stealing balances the extreme per-directory skew automatically. Setup of an
+        // extra bundle is cheap (~8s), so parallelism pays off; tune with -Dclonebench.parallelism=N.
+        int parallelism = Integer.getInteger("clonebench.parallelism",
+                Math.max(1, Math.min(java.lang.Runtime.getRuntime().availableProcessors(), 4)));
+        LOGGER.warn("Analyzing {} files with parallelism {}", allTasks.size(), parallelism);
+        ConcurrentLinkedQueue<FileTask> queue = new ConcurrentLinkedQueue<>(allTasks);
+
+        // worker 0 reuses the bundle already built by beforeEach (its fields); the rest build their own
+        Map<String, SourceSet> mainSourceSets = new HashMap<>();
+        for (String dir : DIRS) mainSourceSets.put(dir, openJdkSourceSetsByName.get(dir));
+        AnalyzerBundle mainBundle = new AnalyzerBundle(javaInspector, mainSourceSets, prepAnalyzer, analyzer);
+
+        List<Callable<Void>> workers = new ArrayList<>();
+        for (int w = 0; w < parallelism; w++) {
+            int idx = w;
+            workers.add(() -> {
+                AnalyzerBundle bundle = idx == 0 ? mainBundle : buildAnalyzerBundle();
+                FileTask task;
+                while ((task = queue.poll()) != null) {
+                    process(bundle, task, counter.incrementAndGet(), typeHistogram);
+                }
+                return null;
+            });
+        }
+        List<Future<Void>> futures;
+        try (ExecutorService exec = Executors.newFixedThreadPool(parallelism)) {
+            futures = exec.invokeAll(workers);
+        }
+        for (Future<Void> future : futures) {
+            try {
+                future.get();
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof AssertionError ae) throw ae;
+                if (cause instanceof Exception ex) throw ex;
+                throw new RuntimeException(cause);
+            }
+        }
+        LOGGER.warn("Analyzed {} files", counter.get());
 /* potentially copy this test, and add it to aapi.parser tests
         LOGGER.warn("JDK calls:");
         Composer composer = new Composer(javaInspector,
