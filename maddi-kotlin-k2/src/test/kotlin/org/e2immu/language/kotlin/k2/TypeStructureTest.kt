@@ -432,4 +432,24 @@ class TypeStructureTest : KotlinScanTestBase() {
         // an unbounded parameter has no bounds (the implicit Object upper bound is filtered out)
         assertEquals(0, types.getValue("Plain").typeParameters().first().typeBounds().size)
     }
+
+    @Test
+    fun nestedClass() {
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "N.kt",
+            "class Outer {\n" +
+                "    class Nested { fun f(): Int = 1 }\n" +
+                "    fun make(): Nested = Nested()\n" +
+                "}\n"
+        )
+        val outer = types.first { it.simpleName() == "Outer" }
+
+        // the nested class is registered as a subtype of Outer, with its members converted
+        val nested = outer.subTypes().firstOrNull { it.simpleName() == "Nested" }
+        assertNotNull(nested)
+        assertEquals("f", nested!!.methods().first().name())
+
+        // a reference to the nested type (return type + constructor call) resolves to that TypeInfo
+        assertEquals(nested, outer.findUniqueMethod("make", 0).returnType().typeInfo())
+    }
 }
