@@ -31,6 +31,7 @@ import org.e2immu.language.cst.api.info.TypeInfo
 import org.e2immu.language.cst.api.info.Variance
 import org.e2immu.language.cst.api.runtime.Runtime
 import org.e2immu.language.cst.api.statement.Block
+import org.e2immu.language.cst.api.statement.ExpressionAsStatement
 import org.e2immu.language.cst.api.statement.Statement
 import org.e2immu.language.cst.api.statement.SwitchEntry
 import org.e2immu.language.cst.api.variable.LocalVariable
@@ -143,7 +144,8 @@ internal class KotlinBodyConverter(
     lateinit var memberConverter: MemberConverter
 
     // type mapping lives on the collaborator; it's a KaSession member extension, so reach it via with(…)
-    private fun KaSession.mapType(type: KaType, owner: TypeInfo) = with(typeMapper) { mapType(type, owner) }
+    private fun KaSession.mapType(type: KaType, owner: TypeInfo, method: MethodInfo? = null) =
+        with(typeMapper) { mapType(type, owner, method) }
 
     /**
      * Convert a function body into a CST [Block]. Handles the two Kotlin body forms — a block body
@@ -250,6 +252,9 @@ internal class KotlinBodyConverter(
                 }
             }
         }
+        // `return try { … } catch { … }`: lower the try-as-value to a try statement whose branches `return`
+        statement is KtReturnExpression && statement.returnedExpression is KtTryExpression ->
+            convertTry(statement.returnedExpression as KtTryExpression, method, locals, index, returning = true)
         statement is KtReturnExpression -> runtime.newReturnStatement(
             statement.returnedExpression?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression()
         )
@@ -328,28 +333,61 @@ internal class KotlinBodyConverter(
      * block.
      */
     private fun KaSession.convertTry(statement: KtTryExpression, method: MethodInfo,
-                                     locals: MutableMap<String, Variable>, index: String): Statement {
+                                     locals: MutableMap<String, Variable>, index: String,
+                                     returning: Boolean = false): Statement {
+        // a try USED AS A VALUE (`return try { … } catch { … }`) yields the tail of the try/catch blocks;
+        // Java has no try-expression, so we lower it to a try STATEMENT whose branches `return` their tail.
+        val convert = { body: KtExpression?, i: String ->
+            if (returning) convertReturningBlock(body, method, locals, i) else convertBlock(body, method, locals, i)
+        }
         val builder = runtime.newTryBuilder().setSource(runtime.noSource())
-        builder.setBlock(convertBlock(statement.tryBlock, method, locals, "$index.0"))
+        builder.setBlock(convert(statement.tryBlock, "$index.0"))
         statement.catchClauses.forEachIndexed { i, catch ->
             val parameter = catch.catchParameter
             val type = (parameter?.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
                 ?: runtime.objectParameterizedType()
             val name = parameter?.name ?: "e"
             val catchVariable = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
+            val catchLocals = (locals + (name to catchVariable)).toMutableMap()
             builder.addCatchClause(
                 runtime.newCatchClauseBuilder()
                     .addType(type)
                     .setCatchVariable(catchVariable)
                     .setFinal(false)
-                    .setBlock(convertBlock(catch.catchBody, method, locals + (name to catchVariable), "$index.${i + 1}"))
+                    .setBlock(if (returning) convertReturningBlock(catch.catchBody, method, catchLocals, "$index.${i + 1}")
+                        else convertBlock(catch.catchBody, method, catchLocals, "$index.${i + 1}"))
                     .setSource(runtime.noSource()).build()
             )
         }
-        statement.finallyBlock?.let { finally ->
-            builder.setFinallyBlock(convertBlock(finally.finalExpression, method, locals, "$index.${statement.catchClauses.size + 1}"))
-        }
+        // a finally never yields the try's value; the CST TryStatement always needs a finally block (empty if absent)
+        builder.setFinallyBlock(statement.finallyBlock?.let {
+            convertBlock(it.finalExpression, method, locals, "$index.${statement.catchClauses.size + 1}")
+        } ?: runtime.newBlockBuilder().setSource(runtime.noSource()).build())
         return builder.build()
+    }
+
+    /**
+     * Convert a block whose tail expression is its value, turning that tail into a `return` (Kotlin's
+     * last-expression-is-the-value rule, for a block used as a value -- e.g. a `return try { … }` branch).
+     * Only a plain expression tail is rewritten; a control-flow tail (if/when/loop) keeps its statement form.
+     */
+    private fun KaSession.convertReturningBlock(body: KtExpression?, method: MethodInfo,
+                                                locals: Map<String, Variable>, blockIndex: String): Block {
+        val childLocals = locals.toMutableMap()
+        val statements = when (body) {
+            null -> emptyList()
+            is KtBlockExpression -> body.statements
+            else -> listOf(body)
+        }
+        val block = runtime.newBlockBuilder()
+        if (blockIndex.isNotEmpty()) block.setSource(runtime.noSource().withIndex(blockIndex))
+        statements.forEachIndexed { j, s ->
+            val childIndex = if (blockIndex.isEmpty()) pad(j, statements.size) else "$blockIndex.${pad(j, statements.size)}"
+            val stmt = convertStatement(s, method, childLocals, childIndex)
+            block.addStatement(if (j == statements.lastIndex && stmt is ExpressionAsStatement)
+                runtime.newReturnStatement(stmt.expression()) else stmt)
+        }
+        return block.build()
     }
 
     /**
@@ -553,6 +591,10 @@ internal class KotlinBodyConverter(
     /** `obj.f(...)` (method call) or `obj.x` (property/field access). */
     private fun KaSession.convertQualified(expression: KtQualifiedExpression, method: MethodInfo,
                                            locals: Map<String, Variable>): Expression {
+        // static / companion / nested-object member access `Type.member` (the receiver is a type, not a
+        // value): `Color.RED`, `Point.ORIGIN`, `Event.Close`. Value receivers resolve to a variable symbol
+        // (not a class) and fall through to the normal `obj.member` handling below.
+        staticMemberAccess(expression, method)?.let { return it }
         val receiver = convertExpression(expression.receiverExpression, method, locals)
         val receiverType = expression.receiverExpression.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         val selectorResult = when (val selector = expression.selectorExpression) {
@@ -577,6 +619,52 @@ internal class KotlinBodyConverter(
             .build(runtime)
         else selectorResult
     }
+
+    /**
+     * `Type.member` where the receiver is a type (not a value): a static field (`Color.RED`, a Java
+     * static, a `const` companion forwarder), a nested object used as a value (`Event.Close` ->
+     * `Close.INSTANCE`), or a (non-const) companion property (`Point.ORIGIN` -> `Point.Companion.ORIGIN`).
+     * Returns null when the receiver isn't a known type or the member can't be located (so the caller
+     * falls back to the ordinary value-receiver handling).
+     */
+    @OptIn(KaExperimentalApi::class) // resolveSymbol(KtNameReferenceExpression)
+    private fun KaSession.staticMemberAccess(expression: KtQualifiedExpression, method: MethodInfo): Expression? {
+        val selector = expression.selectorExpression as? KtNameReferenceExpression ?: return null
+        val name = selector.getReferencedName()
+        val receiverClass = (expression.receiverExpression as? KtNameReferenceExpression)
+            ?.resolveSymbol() as? KaNamedClassSymbol ?: return null
+        val receiverType = infoByFqn.getType(receiverClass.classId?.asFqNameString() ?: return null, sourceSet)
+            ?: return null
+        // a field on the type: a static field (enum entry, Java static, `const` companion forwarder) is a
+        // direct static access; an instance field of a singleton (`Point.ORIGIN`, where Kotlin resolves the
+        // `Point` receiver to its companion) is reached through the singleton handle
+        receiverType.fields().firstOrNull { it.name() == name }?.let { field ->
+            if (field.isStatic) return staticFieldRef(field, receiverType)
+            singletonHandle(receiverType, receiverClass)?.let { handle ->
+                return variableExpression(runtime.newFieldReference(field, handle, field.type()))
+            }
+        }
+        // a nested object used as a value: `Event.Close` -> the object's `INSTANCE` singleton
+        receiverType.subTypes().firstOrNull { it.simpleName() == name }?.let { nested ->
+            nested.fields().firstOrNull { it.name() == "INSTANCE" }?.let { return staticFieldRef(it, nested) }
+        }
+        return null
+    }
+
+    /** The singleton-instance handle for an object/companion type: `Object.INSTANCE`, or `Outer.Companion`. */
+    private fun singletonHandle(type: TypeInfo, symbol: KaNamedClassSymbol): Expression? = when (symbol.classKind) {
+        KaClassKind.COMPANION_OBJECT -> type.compilationUnitOrEnclosingType().let { if (it.isRight) it.right else null }
+            ?.let { enclosing -> enclosing.fields().firstOrNull { it.name() == type.simpleName() && it.isStatic }
+                ?.let { staticFieldRef(it, enclosing) } }
+        KaClassKind.OBJECT -> type.fields().firstOrNull { it.name() == "INSTANCE" && it.isStatic }
+            ?.let { staticFieldRef(it, type) }
+        else -> null
+    }
+
+    /** A static-field access `Holder.field`, with the holder type as the (type-expression) scope. */
+    private fun staticFieldRef(field: FieldInfo, holder: TypeInfo): Expression =
+        variableExpression(runtime.newFieldReference(field,
+            runtime.newTypeExpression(holder.asParameterizedType(), runtime.diamondNo()), field.type()))
 
     /** `Foo(args)` -> a CST [ConstructorCall]: the constructed type's constructor matching the argument count. */
     private fun KaSession.convertConstructorCall(call: KtCallExpression, arguments: List<Expression>, method: MethodInfo): Expression {
@@ -754,6 +842,17 @@ internal class KotlinBodyConverter(
             ?: candidates.first()
     }
 
+    /**
+     * The [TypeInfo] on which to resolve a member of [expr]'s value. Normally that is the expression's
+     * own type; for a type-parameter type `T : Comparable<T>` we fall back to the first upper bound that
+     * has a [TypeInfo] (so `a > b`, `a in c`, `a == b` on a bounded `T` resolve against the bound).
+     */
+    private fun KaSession.receiverTypeInfo(expr: KtExpression?, method: MethodInfo): TypeInfo? {
+        val pt = expr?.expressionType?.let { mapType(it, method.typeInfo(), method) } ?: return null
+        return pt.typeInfo()
+            ?: pt.typeParameter()?.typeBounds()?.firstNotNullOfOrNull { it.typeInfo() }
+    }
+
     /** Collect every method named [name] with [arity] parameters on [type] and its supertypes. */
     private fun collectMethods(type: TypeInfo, name: String, arity: Int, visited: MutableSet<TypeInfo>,
                                acc: MutableList<MethodInfo>) {
@@ -846,6 +945,17 @@ internal class KotlinBodyConverter(
         companionCall(name, calleeSymbol, arguments, call, method)?.let { return it }
         // a qualified call on a named object `Object.member(args)` routes through `Object.INSTANCE`
         if (receiver != null) objectCall(name, calleeSymbol, arguments, call, method)?.let { return it }
+
+        // invoking a function-typed value `action()` -> `action.invoke(args)` (Kotlin's invoke-operator
+        // sugar): the callee is a variable in scope, not a method. Resolve `invoke` on its functional type.
+        if (receiver == null) resolveReference(name, method, locals)?.let { fnValue ->
+            fnValue.parameterizedType().typeInfo()?.let { resolveCallee(it, "invoke", arguments) }?.let { invoke ->
+                val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: invoke.returnType()
+                return runtime.newMethodCallBuilder().setObject(fnValue).setObjectIsImplicit(false)
+                    .setMethodInfo(invoke).setParameterExpressions(arguments).setConcreteReturnType(returnType)
+                    .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+            }
+        }
 
         val ownerType = receiver?.second ?: method.typeInfo()
         val callee = resolveCallee(ownerType, name, arguments)
@@ -1007,7 +1117,7 @@ internal class KotlinBodyConverter(
             .build(runtime)
         // `a in coll` -> `coll.contains(a)`; `a !in coll` -> `!coll.contains(a)` (receiver is the RIGHT operand)
         if (expression.operationToken == KtTokens.IN_KEYWORD || expression.operationToken == KtTokens.NOT_IN) {
-            val collectionType = expression.right?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
+            val collectionType = receiverTypeInfo(expression.right, method)
             val contains = collectionType?.let { resolveCallee(it, "contains", listOf(left)) }
                 ?: return runtime.newEmptyExpression("k2-in-unresolved")
             val call = runtime.newMethodCallBuilder().setObject(right).setObjectIsImplicit(false).setMethodInfo(contains)
@@ -1037,7 +1147,7 @@ internal class KotlinBodyConverter(
             else -> null
         }
         if (comparisonToZero != null) {
-            val leftType = expression.left?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
+            val leftType = receiverTypeInfo(expression.left, method)
             leftType?.let { resolveCallee(it, "compareTo", listOf(right)) }?.let { compareTo ->
                 val cmp = runtime.newMethodCallBuilder().setObject(left).setObjectIsImplicit(false).setMethodInfo(compareTo)
                     .setParameterExpressions(listOf(right)).setConcreteReturnType(runtime.intParameterizedType())
@@ -1062,7 +1172,7 @@ internal class KotlinBodyConverter(
             val negate = expression.operationToken == KtTokens.EXCLEQ
             val nullComparison = left is NullConstant || right is NullConstant
             val equality: Expression? = if (nullComparison) runtime.newEquals(left, right) else {
-                val leftType = expression.left?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
+                val leftType = receiverTypeInfo(expression.left, method)
                 leftType?.let { resolveCallee(it, "equals", listOf(right)) }?.let { equals ->
                     runtime.newMethodCallBuilder().setObject(left).setObjectIsImplicit(false).setMethodInfo(equals)
                         .setParameterExpressions(listOf(right)).setConcreteReturnType(runtime.booleanParameterizedType())

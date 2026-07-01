@@ -358,10 +358,13 @@ class KotlinScan(
             putPsi(runtime, typeInfo.typeNature(), declaration.getDeclarationKeyword())
             superTypeDetails.forEach { (superType, reference) -> putTypeReference(runtime, superType, reference) }
         })
-        // properties before methods, so a method body can reference the backing fields
+        // properties (+ enum entry fields) before methods, so a method body can reference them
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
             .forEach { property -> convertProperty(typeInfo, property) }
+        // enum: entry fields + synthetic name()/values()/valueOf() (K2 doesn't surface these). Before the
+        // methods, so an enum method body can reference `HIGH` etc.
+        if (classSymbol.classKind == KaClassKind.ENUM_CLASS) addEnumMembers(typeInfo, declaration)
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaNamedFunctionSymbol>()
             .forEach { function -> typeInfo.builder().addMethod(convertMethod(typeInfo, function)) }
@@ -386,8 +389,6 @@ class KotlinScan(
                     ?.let { typeInfo.builder().addPermittedType(it) }
             }
         }
-        // enum: entry fields + synthetic values()/valueOf() (K2 doesn't surface these)
-        if (classSymbol.classKind == KaClassKind.ENUM_CLASS) addEnumMembers(typeInfo, declaration)
         // companion object -> a nested `Companion` type + a static field on the enclosing class
         classSymbol.companionObject?.let { convertCompanion(typeInfo, it) }
         // a named object (singleton) gets a `public static final INSTANCE` field of its own type
@@ -692,13 +693,25 @@ class KotlinScan(
                                         static: Boolean = false): MethodInfo {
         val methodType = if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
         val method = runtime.newMethod(owner, function.name.asString(), methodType)
-        val returnType = mapType(function.returnType, owner)
         val builder = method.builder()
+        // method type parameters (`fun <T : Comparable<T>> …`): create them first (a bound may reference a
+        // sibling, `T : Comparable<T>`), then set bounds -- resolved with `method` so a bare `T` binds here
+        val cstTypeParameters = function.typeParameters.mapIndexed { index, tp ->
+            runtime.newTypeParameter(index, tp.name.asString(), method)
+                .also { builder.addTypeParameter(it) } to tp
+        }
+        cstTypeParameters.forEach { (cstTp, tp) ->
+            cstTp.builder()
+                .setTypeBounds(tp.upperBounds.map { mapType(it, owner, method) }.filterNot { it.isJavaLangObject })
+                .setVariance(mapVariance(tp.variance))
+                .commit()
+        }
+        val returnType = mapType(function.returnType, owner, method)
         // an extension function's receiver becomes the synthetic first parameter (the JVM model)
-        function.receiverParameter?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner)) }
+        function.receiverParameter?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner, method)) }
         function.valueParameters.forEach { p ->
             // a vararg's K2 returnType is the element type; the JVM/CST parameter is an array of it
-            val elementType = mapType(p.returnType, owner)
+            val elementType = mapType(p.returnType, owner, method)
             val parameterType = if (p.isVararg) elementType.copyWithArrays(elementType.arrays() + 1) else elementType
             val parameterInfo = builder.addParameter(p.name.asString(), parameterType)
             parameterInfo.builder().setVarArgs(p.isVararg)
@@ -742,8 +755,8 @@ class KotlinScan(
     // --- Type mapping + library loading: delegated to KotlinTypeMapper (a clean bottom layer). The
     // KaSession-receiver forwarders use `with(typeMapper) { … }`; the plain ones call it directly. ---
 
-    private fun KaSession.mapType(type: KaType, owner: TypeInfo): ParameterizedType =
-        with(typeMapper) { mapType(type, owner) }
+    private fun KaSession.mapType(type: KaType, owner: TypeInfo, method: MethodInfo? = null): ParameterizedType =
+        with(typeMapper) { mapType(type, owner, method) }
 
     private fun KaSession.bootstrapObject() = with(typeMapper) { bootstrapObject() }
 

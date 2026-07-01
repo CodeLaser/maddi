@@ -213,4 +213,29 @@ class ControlFlowTest : KotlinScanTestBase() {
         assertTrue(t.findUniqueMethod("boom", 0).methodBody().statements().first() is ThrowStatement)
     }
 
+    @Test
+    fun tryAsExpression() {
+        // `return try { … } catch { … }`: Java has no try-expression, so it lowers to a try STATEMENT whose
+        // try/catch branches `return` their tail; an absent `finally` becomes an empty block.
+        val scan = KotlinScan(runtime, sourceSet)
+        val t = scan.parse(
+            "T.kt",
+            "class T {\n" +
+                "    fun safe(x: Int): Int {\n" +
+                "        return try { x + 1 } catch (e: RuntimeException) { -1 }\n" +
+                "    }\n" +
+                "}\n"
+        ).first()
+
+        val tryStmt = t.findUniqueMethod("safe", 1).methodBody().statements().first() as TryStatement
+        // the try block's tail expression became a `return`
+        assertTrue(tryStmt.block().statements().last() is ReturnStatement)
+        // the catch block's tail likewise
+        assertEquals(1, tryStmt.catchClauses().size)
+        assertTrue(tryStmt.catchClauses().first().block().statements().last() is ReturnStatement)
+        // no source finally -> an (empty) finally block is still present
+        assertNotNull(tryStmt.finallyBlock())
+        assertTrue(tryStmt.finallyBlock().statements().isEmpty())
+    }
+
 }
