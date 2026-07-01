@@ -256,6 +256,28 @@ internal class KotlinTypeMapper(
         return method
     }
 
+    /**
+     * Populate the predefined `java.lang.Object` with its real members (`equals`/`hashCode`/`toString`/…),
+     * once, so source types walking up the hierarchy resolve inherited-from-Object calls. Mirrors the
+     * openjdk front-end's bootstrap (ScanCompilationUnits loads Object with LOAD_MEMBERS). No-op if Object
+     * is already inspected (openjdk ran first, or we already did this) or isn't on the classpath.
+     */
+    internal fun KaSession.bootstrapObject() {
+        val objectType = runtime.objectTypeInfo()
+        if (objectType.hasBeenInspected()) return
+        val symbol = findClass(ClassId.topLevel(FqName("java.lang.Object"))) as? KaNamedClassSymbol ?: return
+        val builder = objectType.builder()
+        val seen = mutableSetOf<String>()
+        symbol.declaredMemberScope.declarations
+            .filterIsInstance<KaNamedFunctionSymbol>()
+            .map { convertLibraryMethod(objectType, it) }
+            .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+        symbol.declaredMemberScope.declarations
+            .filterIsInstance<KaConstructorSymbol>()
+            .forEach { builder.addConstructor(convertLibraryConstructor(objectType, it)) }
+        builder.commit()
+    }
+
     /** A library constructor: signature only (params), no body (like a class-file constructor). */
     private fun KaSession.convertLibraryConstructor(owner: TypeInfo, ctor: KaConstructorSymbol): MethodInfo {
         val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())

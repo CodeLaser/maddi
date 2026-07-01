@@ -1050,8 +1050,14 @@ internal class KotlinBodyConverter(
         // referential identity `a === b`/`a !== b` -> the CST Equals node (== operator = reference equality)
         if (expression.operationToken == KtTokens.EQEQEQ) return runtime.newEquals(left, right)
         if (expression.operationToken == KtTokens.EXCLEQEQEQ) return logicalNot(runtime.newEquals(left, right))
-        // structural equality on objects: Kotlin `a == b` is `a.equals(b)` (`!=` negated). A null operand is a
-        // reference null-check, so it maps to the Equals node instead. (Numeric == keeps the primitive path.)
+        // Structural equality on objects: Kotlin `a == b` maps to the value-equality `a.equals(b)` call
+        // (`!=` negated) -- the CST Equals node is REFERENCE identity (Kotlin `===`), so it must not be used
+        // for `==`. APPROXIMATION (accepted, documented): Kotlin's `==` is null-safe -- really
+        // `if (a == null) b == null else a.equals(b)` -- but we emit the plain `a.equals(b)` call. That is
+        // exact when the receiver is non-null and drops only the null short-circuit otherwise; adequate for
+        // modification/immutability analysis, which cares about the equals call, not the null guard.
+        // A literal-null operand (`a == null`) is itself a reference null-check, so it maps to the Equals
+        // node instead. Numeric `==` keeps the primitive equalsOperatorInt path (handled below).
         if (!numeric && (expression.operationToken == KtTokens.EQEQ || expression.operationToken == KtTokens.EXCLEQ)) {
             val negate = expression.operationToken == KtTokens.EXCLEQ
             val nullComparison = left is NullConstant || right is NullConstant
