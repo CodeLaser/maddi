@@ -133,6 +133,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         ModuleInfo.Builder builder = runtime.newModuleInfoBuilder();
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
         String name = node.getName().toString();
+        // the module name identifier, keyed by the name so a consumer's
+        // moduleInfo.source().detailedSources().detail(moduleInfo.name()) resolves (moduleInfo.name() returns this
+        // same instance). The name is a (possibly qualified) expression, so use its javac source range directly
+        // rather than scanResult.find (which matches single keyword tokens, not dotted names).
+        dsb.put(name, sourceForNode(node.getName()));
         for (DirectiveTree d : node.getDirectives()) {
             visitDirective(d, builder);
         }
@@ -490,6 +495,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         .addFieldModifier(runtime.fieldModifierFinal())
                         .addFieldModifier(runtime.fieldModifierPrivate());
             }
+            // the field-name identifier, as for a regular field (detail(fieldInfo.name())). A record component is
+            // modelled by javac as a constructor parameter rather than a field declaration, so the name detail is
+            // not otherwise recorded; add it explicitly, keyed by the canonical name instance so a consumer's
+            // field.source().detailedSources().detail(field.simpleName()) resolves.
+            dsbField.put(fieldInfo.name(), sourceOfIdentifier(fieldName, definition.pos));
             Source source = sourceForNode(definition, dsbField);
             fieldInfo.builder().setSource(source).setAccess(runtime.accessPrivate());
 
@@ -699,9 +709,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 builder.commitParameters();
             }
 
-            // method name
+            // method name. Key the source by the method's canonical name instance (methodInfo.name()), NOT the local
+            // javac-derived 'methodName': detailed-sources lookup is by object identity, and a consumer retrieves
+            // this via 'method.source().detailedSources().detail(method.simpleName())' (== name()). The two String
+            // instances differ for a constructor (name() is the interned MethodInfo.CONSTRUCTOR_NAME "<init>", not
+            // javac's), and for an already-known method (its name was created earlier, e.g. by the class-symbol
+            // scanner). For a freshly-built regular method they are the same instance, so this is a no-op there.
             String sourceMethodName = isConstructor ? currentType.simpleName() : methodName;
-            dsb.put(methodName, sourceOfIdentifier(sourceMethodName, jcMethod.pos));
+            dsb.put(methodInfo.name(), sourceOfIdentifier(sourceMethodName, jcMethod.pos));
 
             // annotations
             for (JCTree.JCAnnotation annotation : jcMethod.getModifiers().getAnnotations()) {

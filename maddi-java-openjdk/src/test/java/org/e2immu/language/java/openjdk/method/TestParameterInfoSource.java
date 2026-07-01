@@ -59,6 +59,12 @@ public class TestParameterInfoSource extends CommonTest {
         assertEquals("-@13:32-13:37", pi.source().toString());
         // the already-known (method-reference) path must also set the parameter-name detail, keyed by pi.name()
         assertEquals("-@13:34-13:37", pi.source().detailedSources().detail(pi.name()).toString());
+
+        // ...and likewise the method-NAME detail must be keyed by methodInfo.name() (== simpleName()) rather than
+        // javac's local identifier string, so a language-agnostic consumer's
+        // 'method.source().detailedSources().detail(method.simpleName())' resolves for this pre-created method.
+        assertNotNull(m.source().detailedSources().detail(m.simpleName()));
+        assertEquals("-@13:20-13:30", m.source().detailedSources().detail(m.simpleName()).toString()); // 'processItem'
     }
 
 }
