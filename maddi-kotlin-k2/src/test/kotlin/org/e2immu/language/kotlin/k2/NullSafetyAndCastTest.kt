@@ -15,6 +15,7 @@
 package org.e2immu.language.kotlin.k2
 
 import org.e2immu.language.cst.api.element.DetailedSources
+import org.e2immu.language.cst.api.expression.BinaryOperator
 import org.e2immu.language.cst.api.expression.Cast
 import org.e2immu.language.cst.api.expression.InlineConditional
 import org.e2immu.language.cst.api.expression.InstanceOf
@@ -132,5 +133,19 @@ class NullSafetyAndCastTest : KotlinScanTestBase() {
             "class C { fun m(list: List<String>, x: String): Boolean = x !in list }\n", parameters = 2
         )
         assertTrue(expr is UnaryOperator)
+    }
+
+    @Test
+    fun comparisonOnComparable() {
+        // `a < b` on Comparable objects -> `a.compareTo(b) < 0`
+        val expr = returnedExpression(
+            "class Money(val c: Int) : Comparable<Money> { override fun compareTo(other: Money): Int = c - other.c }\n" +
+                "class C { fun m(a: Money, b: Money): Boolean = a < b }\n", parameters = 2
+        )
+        assertTrue(expr is BinaryOperator)
+        val bin = expr as BinaryOperator
+        assertEquals(runtime.lessOperatorInt(), bin.operator())
+        assertTrue(bin.lhs() is MethodCall)
+        assertEquals("compareTo", (bin.lhs() as MethodCall).methodInfo().name())
     }
 }

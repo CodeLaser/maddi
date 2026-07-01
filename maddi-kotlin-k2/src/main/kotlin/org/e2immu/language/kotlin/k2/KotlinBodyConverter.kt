@@ -984,6 +984,25 @@ internal class KotlinBodyConverter(
         }
         val numeric = left.isNumeric && right.isNumeric
         val stringPlus = left.parameterizedType().isJavaLangString || right.parameterizedType().isJavaLangString
+        // comparison on Comparable objects (not primitives): `a < b` -> `a.compareTo(b) < 0`
+        val comparisonToZero = if (numeric) null else when (expression.operationToken) {
+            KtTokens.LT -> runtime.lessOperatorInt()
+            KtTokens.GT -> runtime.greaterOperatorInt()
+            KtTokens.LTEQ -> runtime.lessEqualsOperatorInt()
+            KtTokens.GTEQ -> runtime.greaterEqualsOperatorInt()
+            else -> null
+        }
+        if (comparisonToZero != null) {
+            val leftType = expression.left?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
+            leftType?.let { resolveCallee(it, "compareTo", listOf(right)) }?.let { compareTo ->
+                val cmp = runtime.newMethodCallBuilder().setObject(left).setObjectIsImplicit(false).setMethodInfo(compareTo)
+                    .setParameterExpressions(listOf(right)).setConcreteReturnType(runtime.intParameterizedType())
+                    .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+                return runtime.newBinaryOperatorBuilder().setLhs(cmp).setRhs(runtime.intZero())
+                    .setOperator(comparisonToZero).setPrecedence(runtime.precedenceRelational())
+                    .setParameterizedType(runtime.booleanParameterizedType()).setSource(runtime.noSource()).build()
+            }
+        }
         val opAndPrecedence = when (expression.operationToken) {
             KtTokens.PLUS -> when {
                 stringPlus -> runtime.plusOperatorString() to runtime.precedenceAdditive()
