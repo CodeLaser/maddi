@@ -49,6 +49,10 @@ tasks.withType<Test> {
     maxHeapSize = "2G"
     maxParallelForks = 4
 
+    // forward the TestCloneBench parallelism knob to the forked test JVM (each worker builds its own inspector/
+    // runtime; keep it modest so the 2G heap is not exceeded). Default lives in the test itself.
+    System.getProperty("clonebench.parallelism")?.let { systemProperty("clonebench.parallelism", it) }
+
     jvmArgs(
         "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
