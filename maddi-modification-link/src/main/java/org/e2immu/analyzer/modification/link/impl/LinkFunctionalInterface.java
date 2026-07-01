@@ -29,6 +29,17 @@ import java.util.stream.Collectors;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.CONTAINS_AS_MEMBER;
 import static org.e2immu.analyzer.modification.prepwork.Util.virtual;
 
+/**
+ * The FI <em>lifting engine</em>: given the links of the lambda/method-reference bound to an FI parameter (the wrapped
+ * {@code FunctionalInterfaceVariable}'s result, as {@code linksList}), produce the {@link Triplet} links that the FI
+ * application contributes at the call site. See {@code linking-manual.md} §7.3.
+ * <p>
+ * Parameters: {@code functionalInterfaceType} = the SAM's type (Function/Consumer/Supplier/…); {@code fromTranslated} =
+ * the call-site variable standing for the SAM's "from" side (e.g. the map result's hidden content); {@code linkNature} =
+ * the nature to use; {@code returnPrimary} = the map target primary; {@code objectPrimary} = the map source primary.
+ * <p>
+ * Two shapes dispatched on the SAM: SUPPLIER/CONSUMER (no parameters, or no return value) and FUNCTION (has both).
+ */
 public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virtualFieldComputer,
                                       MethodInfo currentMethod) {
     private static final Logger LOGGER = LoggerFactory.getLogger(LinkFunctionalInterface.class);
@@ -48,29 +59,32 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         MethodInfo sam = functionalInterfaceType.typeInfo().singleAbstractMethod();
         if (sam == null || linksList.isEmpty()) return List.of();
         if (sam.parameters().isEmpty() || sam.noReturnValue()) {
+            // SUPPLIER (no parameters) or CONSUMER (no return value): the SAM has only one "interesting" side.
             if (sam.noReturnValue() && linksList.stream().allMatch(Links::isEmpty)) {
-                // we must keep the connection to the primary (see TestForEachLambda,6)
+                // LEAF — a consumer that captures nothing linkable (e.g. 'list.forEach(x -> sideEffect())'): keep only
+                // the bare connection to the primary so the source is not seen as fully disconnected. See
+                // TestForEachLambda,6.
                 return linksList.stream()
                         .filter(links -> !links.isEmpty())
                         .map(links -> new Triplet(fromTranslated, CONTAINS_AS_MEMBER, links.primary()))
                         .toList();
             }
             /*
-            SUPPLIER: grab the "to" of the primary, if it is present (get==c.alternative in the example of a Supplier)
-
-            In a supplier, the return value of the SAM must consist of variables external to the lambda,
-            as it has no no parameters itself. We directly link to them.
-
-            In a BiConsumer, we must make synthetic fields...
+            SUPPLIER: the produced value is made of variables external to the lambda (it has no parameters), so we link
+            to them directly. E.g. 'opt.orElseGet(() -> field)' -> result ← field; 'orElseGet(() -> alt)' -> result ← alt.
+            CONSUMER with captures: 'list.forEach(target::add)' -> the elements flow into the captured target.
+            BiConsumer/BiSupplier with ≥2 slots: we synthesise a virtual field per slot (createVirtualField).
              */
             List<Triplet> result = new ArrayList<>();
             int i = 0;
             for (Links links : linksList) {
                 for (Link link : links) {
+                    // LEAF — skip a link to the SAM's own return variable (an independent, freshly produced value such
+                    // as 'String::valueOf'): there is nothing external to link to.
                     if (!(Util.primary(link.to()) instanceof ReturnVariable)) {
                         Variable from;
                         if (link.from().equals(links.primary())) {
-                            // also accommodate for suppliers
+                            // the "from" is the SAM's own value: build the slot's virtual field (BiConsumer etc.)
                             from = createVirtualField(functionalInterfaceType, i, fromTranslated, link.from());
                         } else {
                             TranslationMap tm = new VariableTranslationMap(runtime)
@@ -89,7 +103,9 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         }
 
 
-        // FUNCTION
+        // FUNCTION (SAM has parameters AND a return value): lift the function's return↔parameter relationship from the
+        // map source's hidden content to the map target's, e.g. 'stream.map(f)' -> 'result.§ys ⊆ source.§xs'. An
+        // unrelated function (result independent of input) produces no link. The trace below follows one concrete case.
         /*
         OUTER
         MLV [-] --> map.§rs~Λ0:function
@@ -130,6 +146,9 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                         result.add(new Triplet(fromTranslated, CONTAINS_AS_MEMBER, links.primary()));
                     }
                 }
+                // LEAF — the function's result IS derived from its parameter: for each SAM link, translate the "to"
+                // side to the map source and the "from" side to the map target, then upscale to the virtual field that
+                // matches the concrete dimensions (translateAndRecreateVirtualFields).
                 for (Variable newPrimary : toPrimaries) {
                     VariableTranslationMap tmMapSource = new VariableTranslationMap(runtime);
                     if (!Util.isPartOf(objectPrimary, newPrimary)) {
