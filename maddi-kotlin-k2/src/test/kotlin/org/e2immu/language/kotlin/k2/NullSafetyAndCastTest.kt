@@ -164,6 +164,29 @@ class NullSafetyAndCastTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun inheritedObjectEqualsResolves() {
+        // a source type WITHOUT an equals override still resolves `a == b` via the bootstrapped
+        // java.lang.Object.equals (source types walk up the hierarchy to the now-populated Object)
+        val expr = returnedExpression(
+            "class Plain(val x: Int)\n" +
+                "class C { fun m(a: Plain, b: Plain): Boolean = a == b }\n", parameters = 2
+        )
+        assertTrue(expr is MethodCall)
+        assertEquals("equals", (expr as MethodCall).methodInfo().name())
+        assertEquals("java.lang.Object", expr.methodInfo().typeInfo().fullyQualifiedName())
+    }
+
+    @Test
+    fun inheritedObjectToStringResolves() {
+        // `p.toString()` on a source type resolves to the bootstrapped java.lang.Object.toString
+        val expr = returnedExpression(
+            "class Plain\nclass C { fun m(p: Plain): String = p.toString() }\n", parameters = 1
+        )
+        assertTrue(expr is MethodCall)
+        assertEquals("toString", (expr as MethodCall).methodInfo().name())
+    }
+
+    @Test
     fun nullComparisonIsReferential() {
         // `a == null` is a reference null-check -> the Equals node (not a.equals(null))
         val expr = returnedExpression("class C { fun m(a: String?): Boolean = a == null }\n", parameters = 1)
