@@ -17,6 +17,7 @@ package org.e2immu.language.kotlin.k2
 import org.e2immu.language.cst.api.element.DetailedSources
 import org.e2immu.language.cst.api.expression.BinaryOperator
 import org.e2immu.language.cst.api.expression.Cast
+import org.e2immu.language.cst.api.expression.ConstructorCall
 import org.e2immu.language.cst.api.expression.Equals
 import org.e2immu.language.cst.api.expression.InlineConditional
 import org.e2immu.language.cst.api.expression.InstanceOf
@@ -188,5 +189,14 @@ class NullSafetyAndCastTest : KotlinScanTestBase() {
         val value = call.parameterExpressions()[1] // list.get(0) + 5
         assertTrue(value is BinaryOperator)
         assertEquals(runtime.plusOperatorInt(), (value as BinaryOperator).operator())
+    }
+
+    @Test
+    fun rangeOperator() {
+        // `1..10` -> IntRange(1, 10)
+        val expr = returnedExpression("class C { fun m(): IntRange = 1..10 }\n", parameters = 0)
+        assertTrue(expr is ConstructorCall)
+        assertEquals("IntRange", (expr as ConstructorCall).constructor().typeInfo().simpleName())
+        assertEquals(2, expr.parameterExpressions().size)
     }
 }

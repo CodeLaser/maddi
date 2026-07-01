@@ -1016,6 +1016,16 @@ internal class KotlinBodyConverter(
             return if (expression.operationToken == KtTokens.NOT_IN) runtime.newUnaryOperator(listOf(),
                 runtime.noSource(), runtime.logicalNotOperatorBool(), call, runtime.precedenceUnary()) else call
         }
+        // range `a..b` -> a constructor call of the range type (`1..10` -> IntRange(1, 10)); the range type
+        // comes from the use-site expressionType and its 2-arg constructor (Int/Long/Char ranges)
+        if (expression.operationToken == KtTokens.RANGE) {
+            val rangeType = expression.expressionType?.let { mapType(it, method.typeInfo()) }
+            rangeType?.typeInfo()?.constructors()?.firstOrNull { it.parameters().size == 2 }?.let { ctor ->
+                return runtime.newConstructorCallBuilder().setConstructor(ctor).setConcreteReturnType(rangeType)
+                    .setParameterExpressions(listOf(left, right)).setDiamond(runtime.diamondNo())
+                    .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+            }
+        }
         val numeric = left.isNumeric && right.isNumeric
         val stringPlus = left.parameterizedType().isJavaLangString || right.parameterizedType().isJavaLangString
         // comparison on Comparable objects (not primitives): `a < b` -> `a.compareTo(b) < 0`
