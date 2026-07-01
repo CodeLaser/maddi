@@ -118,7 +118,7 @@ public class RecordSynthetics {
         methodInfo.builder()
                 .setSource(runtime.noSource())
                 .setSynthetic(true)
-                .setReturnType(runtime.stringParameterizedType())
+                .setReturnType(runtime.booleanParameterizedType()) // equals returns boolean, not String
                 .setMethodBody(runtime.emptyBlock())
                 .addOverrides(List.of(javaLangObjectEquals))
                 .addMethodModifier(runtime.methodModifierPublic())
