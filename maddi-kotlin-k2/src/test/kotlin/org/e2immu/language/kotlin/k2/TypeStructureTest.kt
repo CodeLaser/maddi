@@ -465,4 +465,18 @@ class TypeStructureTest : KotlinScanTestBase() {
         // values() returns Color[]
         assertEquals(1, color.findUniqueMethod("values", 0).returnType().arrays())
     }
+
+    @Test
+    fun sealedPermits() {
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "S.kt",
+            "sealed class Shape\n" +
+                "class Circle(val r: Int) : Shape()\n" +
+                "class Square(val s: Int) : Shape()\n"
+        ).associateBy { it.simpleName() }
+        val shape = types.getValue("Shape")
+
+        assertTrue(shape.isSealed)
+        assertEquals(setOf("Circle", "Square"), shape.permittedWhenSealed().map { it.simpleName() }.toSet())
+    }
 }
