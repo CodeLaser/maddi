@@ -113,4 +113,24 @@ class NullSafetyAndCastTest : KotlinScanTestBase() {
         assertTrue(ifFalse is MethodCall)
         assertEquals("foo", (ifFalse as MethodCall).methodInfo().name())
     }
+
+    @Test
+    fun inOperator() {
+        // `x in list` -> `list.contains(x)`
+        val expr = returnedExpression(
+            "class C { fun m(list: List<String>, x: String): Boolean = x in list }\n", parameters = 2
+        )
+        assertTrue(expr is MethodCall)
+        assertEquals("contains", (expr as MethodCall).methodInfo().name())
+        assertEquals(1, expr.parameterExpressions().size) // the element; the collection is the receiver
+    }
+
+    @Test
+    fun notInOperator() {
+        // `x !in list` -> `!list.contains(x)`
+        val expr = returnedExpression(
+            "class C { fun m(list: List<String>, x: String): Boolean = x !in list }\n", parameters = 2
+        )
+        assertTrue(expr is UnaryOperator)
+    }
 }

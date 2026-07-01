@@ -971,6 +971,17 @@ internal class KotlinBodyConverter(
             .setIfTrue(right).setIfFalse(left)
             .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.NULL_COALESCING, expression.operationReference)))
             .build(runtime)
+        // `a in coll` -> `coll.contains(a)`; `a !in coll` -> `!coll.contains(a)` (receiver is the RIGHT operand)
+        if (expression.operationToken == KtTokens.IN_KEYWORD || expression.operationToken == KtTokens.NOT_IN) {
+            val collectionType = expression.right?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
+            val contains = collectionType?.let { resolveCallee(it, "contains", listOf(left)) }
+                ?: return runtime.newEmptyExpression("k2-in-unresolved")
+            val call = runtime.newMethodCallBuilder().setObject(right).setObjectIsImplicit(false).setMethodInfo(contains)
+                .setParameterExpressions(listOf(left)).setConcreteReturnType(contains.returnType()).setTypeArguments(listOf())
+                .setSource(runtime.noSource()).build()
+            return if (expression.operationToken == KtTokens.NOT_IN) runtime.newUnaryOperator(listOf(),
+                runtime.noSource(), runtime.logicalNotOperatorBool(), call, runtime.precedenceUnary()) else call
+        }
         val numeric = left.isNumeric && right.isNumeric
         val stringPlus = left.parameterizedType().isJavaLangString || right.parameterizedType().isJavaLangString
         val opAndPrecedence = when (expression.operationToken) {
