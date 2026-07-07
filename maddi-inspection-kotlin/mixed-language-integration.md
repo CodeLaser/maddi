@@ -242,6 +242,35 @@ One enabling change made this possible: `KotlinSymbolScanner` seeds the predefin
 registry only if absent, so a registry **shared** with the Java front-end (already seeded with the same
 instances) is not re-seeded (`InfoByFqn.put` rejects re-putting the same instance).
 
+## 8b. Hardening pass (`TestMixedHardening`)
+
+Beyond the single-type happy path, the driver is covered for: two Kotlin types referenced by one Java type
+(all stubs compile together), a **nested** Kotlin type (`Outer.Inner`), a **generic** Kotlin type (`Box<T>`,
+erased in the stub), a Kotlin **enum** referenced by its constants, a **void** (Unit) call, a Java class that
+**extends** a Kotlin class, a Kotlin **object** (via `INSTANCE`), a **companion object** (via `Companion`), a
+**data class** (property getters), a **sealed** hierarchy, a Java class **implementing** a Kotlin interface
+(both an abstract and a **default** method), a Kotlin **top-level** function and an **extension** function (via
+the file facade `…Kt`), a **vararg** function, and a **bounded generic** method. Three fixes fell out of it
+(the facade/vararg/generic cases needed none — the erasing stub already handles them):
+
+- **Enum stubs.** `JavaStubGenerator` now emits `public enum E { A, B; … }` for an enum nature: the entry
+  constants first (so a Java reference to `E.A` resolves), non-constant fields/methods after, and the synthetic
+  `name()`/`values()`/`valueOf()` dropped (javac generates them for any `enum` declaration). Constructors are
+  dropped and methods are never `abstract` (a flat enum stub has no per-constant bodies). An enum constant is a
+  static field whose declared type is the enum itself.
+- **Idempotent library caching in `mapClassType`.** The shared-core delegation
+  `compiledTypesManager.getOrLoad(...).also { infoByFqn.put(...) }` now puts only when the FQN is absent. In the
+  mixed setup the openjdk load already registered that instance under its own `java.base` source set; re-putting
+  the same instance tripped the `InfoByFqn` duplicate assertion (surfaced by `java.lang.Enum`, an enum's
+  supertype). Same shape as the `KotlinSymbolScanner` idempotent-seeding fix; standalone is unaffected
+  (`getType` is null on first use, so it still caches).
+- **Interface `default` methods.** `appendMethod` used to emit *every* interface method as abstract (`;`), so a
+  Java class relying on a Kotlin interface's default method was forced to implement it (javac error). It now
+  emits an interface instance method that has a body as `default … { throw … }` and one without as abstract.
+  The signal is **body presence**, not `isAbstract()`: the Kotlin front-end gives every method the plain method
+  type (never the abstract one), so `isAbstract()` is uniformly `false` — `m.methodBody()` non-empty is the
+  reliable "has an implementation" check.
+
 ## 9. Design notes / invariants
 
 - **The `CompiledTypesManager` is the sharing seam.** It is exposed on `JavaInspector` and already holds both
@@ -266,3 +295,4 @@ instances) is not re-seeded (`InfoByFqn.put` rejects re-putting the same instanc
 | Phase 3 stub generator + de-risk | `maddi-inspection-kotlin/.../JavaStubGenerator.kt`, `.../TestJavaStub.kt` |
 | Phase 3 end-to-end | `maddi-inspection-kotlin/.../TestMixedJavaToKotlin.kt`; openjdk `JavaInspectorImpl.infoByFqn()` |
 | Phase 4 driver | `maddi-inspection-mixed/.../MixedInspector.kt`, `.../TestMixedInspector.kt` |
+| Phase 4 hardening | `maddi-inspection-mixed/.../TestMixedHardening.kt` (enum/nested/generic/void/extends/multi) |

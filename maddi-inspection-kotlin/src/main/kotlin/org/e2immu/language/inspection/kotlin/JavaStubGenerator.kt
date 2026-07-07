@@ -40,6 +40,10 @@ object JavaStubGenerator {
     }
 
     private fun appendType(sb: StringBuilder, typeInfo: TypeInfo, indent: String) {
+        if (typeInfo.typeNature().isEnum) {
+            appendEnum(sb, typeInfo, indent)
+            return
+        }
         val isInterface = typeInfo.typeNature().isInterface
         sb.append(indent).append("public ")
         if (!isInterface && typeInfo.methods().any { it.isAbstract }) sb.append("abstract ")
@@ -66,16 +70,58 @@ object JavaStubGenerator {
         sb.append(indent).append("}\n")
     }
 
+    /**
+     * An enum stub: `public enum E { A, B; ... }`. The entry constants come first (javac needs them so a Java
+     * reference to `E.A` resolves); the synthetic `name()`/`values()`/`valueOf()` are dropped because javac
+     * generates them for any `enum` declaration. Constructors are dropped (enum ctors are implicitly private);
+     * remaining methods are emitted with a body and never `abstract` (a simple enum stub has no constant bodies).
+     */
+    private fun appendEnum(sb: StringBuilder, typeInfo: TypeInfo, indent: String) {
+        sb.append(indent).append("public enum ").append(typeInfo.simpleName())
+        typeInfo.interfacesImplemented().takeIf { it.isNotEmpty() }
+            ?.let { sb.append(" implements ").append(it.joinToString(", ", transform = ::javaType)) }
+        sb.append(" {\n")
+        val inner = "$indent    "
+        val constants = typeInfo.fields().filter { isEnumConstant(it, typeInfo) }
+        sb.append(inner).append(constants.joinToString(", ") { it.name() }).append(";\n")
+        typeInfo.fields().filterNot { isEnumConstant(it, typeInfo) }.forEach { f ->
+            sb.append(inner).append("public ").append(if (f.isStatic) "static " else "")
+                .append(javaType(f.type())).append(" ").append(f.name()).append(";\n")
+        }
+        typeInfo.methods().filterNot { it.isSynthetic }.forEach { m ->
+            sb.append(inner).append("public ")
+            if (m.isStatic) sb.append("static ")
+            sb.append(typeParameters(m.typeParameters()))
+            sb.append(javaType(m.returnType())).append(" ").append(m.name())
+            sb.append("(").append(m.parameters().joinToString(", ") { javaType(it.parameterizedType()) + " " + it.name() }).append(")")
+            sb.append(" { throw new RuntimeException(\"stub\"); }\n")
+        }
+        typeInfo.subTypes().forEach { appendType(sb, it, inner) }
+        sb.append(indent).append("}\n")
+    }
+
+    /** An enum constant: a static field whose declared type is the enum itself (not a synthetic `name()` etc.). */
+    private fun isEnumConstant(f: org.e2immu.language.cst.api.info.FieldInfo, enumType: TypeInfo): Boolean =
+        f.isStatic && f.type().typeInfo() === enumType
+
     private fun appendMethod(sb: StringBuilder, owner: TypeInfo, m: MethodInfo, ownerIsInterface: Boolean, indent: String) {
-        val noBody = ownerIsInterface || m.isAbstract
+        // isAbstract() is unreliable for a Kotlin front-end (every method carries the plain method type, never
+        // the abstract one), so key off body presence: a committed, non-empty body means an implementation.
+        val body = runCatching { m.methodBody() }.getOrNull()
+        val hasBody = body != null && !body.isEmpty
+        // a Kotlin interface method WITH an implementation is a Java `default` method (javac needs the keyword,
+        // else a Java class relying on it is forced to implement it); one without a body stays abstract.
+        val interfaceDefault = ownerIsInterface && !m.isStatic && hasBody
         sb.append(indent).append("public ")
         if (m.isStatic) sb.append("static ")
         if (m.isAbstract && !ownerIsInterface) sb.append("abstract ")
+        if (interfaceDefault) sb.append("default ")
         sb.append(typeParameters(m.typeParameters()))
         if (!m.isConstructor) sb.append(javaType(m.returnType())).append(" ")
         sb.append(if (m.isConstructor) owner.simpleName() else m.name())
         sb.append("(").append(m.parameters().joinToString(", ") { javaType(it.parameterizedType()) + " " + it.name() }).append(")")
-        sb.append(if (noBody) ";\n" else " { throw new RuntimeException(\"stub\"); }\n")
+        val emitBody = m.isConstructor || m.isStatic || interfaceDefault || (!ownerIsInterface && !m.isAbstract)
+        sb.append(if (emitBody) " { throw new RuntimeException(\"stub\"); }\n" else ";\n")
     }
 
     private fun typeParameters(tps: List<TypeParameter>): String =
