@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl.graph;
+package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
@@ -14,18 +14,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public record FollowGraph(Timer timer) {
-
+public record FollowGraph(Graph graph) {
     // sorting is needed to consistently take the same direction for tests
-    public Links.Builder followGraph(VirtualFieldComputer virtualFieldComputer,
-                                     Map<Variable, Map<Variable, LinkNature>> graph,
-                                     Variable primary) {
-        timer.start("follow1");
+    public Links.Builder followGraph(VirtualFieldComputer virtualFieldComputer, Variable primary) {
         Links.Builder builder = new LinksImpl.Builder(primary);
-        List<Variable> fromList = primary instanceof This ? (graph.containsKey(primary) ? List.of(primary) : List.of())
-                : graph.keySet().stream()
+        List<Variable> fromList = primary instanceof This ? (graph.containsVariable(primary) ? List.of(primary) : List.of())
+                : graph.variables().stream()
                 .filter(v -> Util.isPartOf(primary, v))
                 .sorted((v1, v2) -> {
                     if (v1.equals(v2)) return 0;
@@ -38,13 +34,10 @@ public record FollowGraph(Timer timer) {
 
         // stream.§$s⊆0:in.§$s
         Set<Edge> block = new HashSet<>();
-        timer.end("follow1");
         for (Variable from : fromList) {
-            timer.start("fixpoint");
-            Map<Variable, LinkNature> all = bestPath(graph, from);
-            timer.end("fixpoint");
-            timer.start("follow2");
-            List<Map.Entry<Variable, LinkNature>> entries = all.entrySet().stream()
+            Stream<Map.Entry<Variable, LinkNature>> all = graph.closureStream(from);
+
+            List<Map.Entry<Variable, LinkNature>> entries = all
                     .sorted((e1, e2) -> {
                         int c = e2.getValue().rank() - e1.getValue().rank();
                         if (c != 0) return c;
@@ -56,11 +49,9 @@ public record FollowGraph(Timer timer) {
                         return e1.getKey().fullyQualifiedName().compareTo(e2.getKey().fullyQualifiedName());
                     })
                     .toList();
-            timer.end("follow2");
 
             Variable primaryFrom = Util.primary(from);
             if (primaryFrom != null) {
-                timer.start("follow3");
                 Variable firstRealFrom = Util.firstRealVariable(from);
 
                 //LOGGER.debug("Entries of {}: {}", from, entries);
@@ -73,7 +64,7 @@ public record FollowGraph(Timer timer) {
                     Variable firstRealTo = Util.firstRealVariable(to);
                     // remove internal references (field inside primary to primary or other field in primary)
                     // see TestStaticValues1,5 for an example where s.k ← s.r.i, which requires the 2nd clause
-                    if (linkNature.known()
+                    if (linkNature.valid()
                         && (!primaryTo.equals(primaryFrom) ||
                             !firstRealFrom.equals(primaryFrom) &&
                             !firstRealTo.equals(primaryTo) &&
@@ -116,21 +107,8 @@ public record FollowGraph(Timer timer) {
                         }
                     }
                 }
-                timer.end("follow3");
             }
         }
         return builder;
     }
-
-    static Map<Variable, LinkNature> bestPath(Map<Variable, Map<Variable, LinkNature>> graph, Variable start) {
-        Map<Variable, Set<LinkNature>> res =
-                FixpointPropagationAlgorithm.computePathLabels(s -> graph.getOrDefault(s, Map.of()),
-                        graph.keySet(), start, LinkNatureImpl.EMPTY,
-                        LinkNature::combine);
-        return res.entrySet().stream()
-                .filter(e -> !start.equals(e.getKey()))
-                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
-                        e -> e.getValue().stream().reduce(LinkNatureImpl.EMPTY, LinkNature::best)));
-    }
-
 }

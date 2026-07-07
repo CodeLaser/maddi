@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl.graph;
+package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
@@ -23,7 +23,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 import java.util.stream.Collectors;
 
-record MakeGraph(JavaInspector javaInspector, Runtime runtime, Timer timer) {
+public record MakeGraph(JavaInspector javaInspector, Runtime runtime, Graph graph) {
 
     private Variable makeComparableSub(Variable base, Variable sub, Variable target) {
         TranslationMap tm = new VariableTranslationMap(runtime).put(base, target);
@@ -38,20 +38,19 @@ record MakeGraph(JavaInspector javaInspector, Runtime runtime, Timer timer) {
                 ? translated : null;
     }
 
-    private @NotNull Map<Variable, Set<Variable>> computeSubs(Map<Variable, Map<Variable, LinkNature>> graph,
-                                                              Set<Variable> modifiedInThisEvaluation) {
-        Map<Variable, Set<Variable>> subs = new HashMap<>();
-        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.entrySet()) {
+    private @NotNull Map<Variable, Set<Variable>> computeSubs(Set<Variable> modifiedInThisEvaluation) {
+        Map<Variable, Set<Variable>> subs = new LinkedHashMap<>();
+        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.edgesWithEquivalence()) {
             Variable from = entry.getKey();
             Set<Variable> scopeVariablesFrom = Util.scopeVariables(from);
             for (Variable scopeVariableFrom : scopeVariablesFrom) {
-                subs.computeIfAbsent(scopeVariableFrom, _ -> new HashSet<>()).add(from);
+                subs.computeIfAbsent(scopeVariableFrom, _ -> new LinkedHashSet<>()).add(from);
             }
             for (Map.Entry<Variable, LinkNature> entry2 : entry.getValue().entrySet()) {
                 Variable vTo = entry2.getKey();
                 Set<Variable> scopeVariablesTo = Util.scopeVariables(vTo);
                 for (Variable scopeVariableTo : scopeVariablesTo) {
-                    subs.computeIfAbsent(scopeVariableTo, _ -> new HashSet<>()).add(vTo);
+                    subs.computeIfAbsent(scopeVariableTo, _ -> new LinkedHashSet<>()).add(vTo);
                 }
             }
             if (modifiedInThisEvaluation.contains(from)
@@ -65,7 +64,7 @@ record MakeGraph(JavaInspector javaInspector, Runtime runtime, Timer timer) {
                             .newMField(VariableTranslationMap.owner(runtime, from.parameterizedType()));
                     FieldReference mutationFr = runtime().newFieldReference(vf, runtime.newVariableExpression(from),
                             vf.type());
-                    subs.computeIfAbsent(from, _ -> new HashSet<>()).add(mutationFr);
+                    subs.computeIfAbsent(from, _ -> new LinkedHashSet<>()).add(mutationFr);
                 }
             }
         }
@@ -93,13 +92,11 @@ record MakeGraph(JavaInspector javaInspector, Runtime runtime, Timer timer) {
                || !(mv.assignmentExpression() instanceof NullConstant);
     }
 
-    boolean doOneMakeGraphCycle(Map<Variable, Map<Variable, LinkNature>> graph, Set<Variable> modifiedInThisEvaluation) {
-        timer.start("computeSubs");
-        Map<Variable, Set<Variable>> subs = computeSubs(graph, modifiedInThisEvaluation);
-        timer.end("computeSubs");
+    boolean expandGraph(String statementIndex, Set<Variable> modifiedInThisEvaluation) {
+        Map<Variable, Set<Variable>> subs = computeSubs(modifiedInThisEvaluation);
         List<Edge> newLinks = new ArrayList<>();
-        timer.start("postProcess");
-        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.entrySet()) {
+        // TODO should we use graph.edges() here, or graph.edgesWithEquivalence() ? if so, we'll need to cache the result
+        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.edges()) {
             Variable vFrom = entry.getKey();
             for (Map.Entry<Variable, LinkNature> entry2 : entry.getValue().entrySet()) {
                 Variable vTo = entry2.getKey();
@@ -151,13 +148,12 @@ record MakeGraph(JavaInspector javaInspector, Runtime runtime, Timer timer) {
         }
         boolean change = false;
         for (Edge edge : newLinks) {
-            change |= AddEdge.mergeEdgeBi(graph, edge);
+            change |= graph.mergeEdgeBi(edge.from(), edge.linkNature(), edge.to(), statementIndex);
         }
-        List<Edge> extra = new ExpandSlice().completeSliceInformation(graph);
+        List<Edge> extra = new ExpandSlice(graph).completeSliceInformation();
         for (Edge edge : extra) {
-            change |= AddEdge.simpleAddToGraph(graph, edge);
+            change |= graph.simpleAddToGraph(edge.from(), edge.linkNature(), edge.to(), statementIndex);
         }
-        timer.end("postProcess");
         return change;
     }
 }

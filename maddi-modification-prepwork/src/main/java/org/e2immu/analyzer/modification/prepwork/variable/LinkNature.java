@@ -5,7 +5,7 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import java.util.List;
 import java.util.Set;
 
-public interface LinkNature {
+public interface LinkNature extends Comparable<LinkNature> {
 
     boolean isAssignedFrom();
 
@@ -14,8 +14,6 @@ public interface LinkNature {
     boolean isIdenticalToOrAssignedFromTo();
 
     boolean isIdenticalTo();
-
-    boolean known();
 
     boolean multiplySymbols();
 
@@ -27,8 +25,6 @@ public interface LinkNature {
 
     List<LinkNature> redundantUp();
 
-    LinkNature replaceSubsetSuperset();
-
     LinkNature reverse();
 
     boolean valid();
@@ -36,6 +32,8 @@ public interface LinkNature {
     LinkNature combine(LinkNature other);
 
     LinkNature best(LinkNature other);
+
+    int score();
 
     Set<MethodInfo> pass();
 }
