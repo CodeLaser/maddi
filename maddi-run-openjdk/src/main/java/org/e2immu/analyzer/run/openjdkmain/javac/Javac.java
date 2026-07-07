@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.run.openjdkmain.javac;
 
+import org.e2immu.analyzer.run.config.compile.CompileInvocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,7 +21,7 @@ public record Javac(int sourceRelease,
                     List<String> sourceFiles,
                     List<String> processorPath,
                     String annotationProcessing,
-                    String encoding) {
+                    String encoding) implements CompileInvocation {
     public static class Builder {
         int sourceRelease;
         int targetRelease;

@@ -20,9 +20,9 @@ public class SliceFactory {
     public static DependentVariable create(Runtime runtime, Variable base, int negativeIndex, FieldInfo field) {
         assert negativeIndex <= -1;
         VariableExpression arrayExpression = runtime.newVariableExpression(base);
+        assert !base.parameterizedType().isStandardFunctionalInterface();
         ParameterizedType sliceType = field.type().copyWithOneMoreArray();
-        DependentVariable dv = runtime.newDependentVariable(arrayExpression, runtime.newInt(negativeIndex), sliceType);
-        return dv;
+        return runtime.newDependentVariable(arrayExpression, runtime.newInt(negativeIndex), sliceType);
     }
 
     public record FF(FieldInfo fieldInfo, int index) {

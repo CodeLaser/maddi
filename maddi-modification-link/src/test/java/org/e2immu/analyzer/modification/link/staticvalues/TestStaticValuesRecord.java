@@ -478,7 +478,7 @@ public class TestStaticValuesRecord extends CommonTest {
         //         method.set←0:in*\
         //         """, mlv.toString());
         assertEquals("""
-                [-] --> method.i←$_ce1,method.set←0:in*,method.set≻0:in*.§m,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set.§m≡0:in*.§m\
+                [-] --> method.i←$_ce1,method.set←0:in*,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set.§m≡0:in*.§m\
                 """, mlv.toString());
         // NOTE: in* because of delay, in is linked to field
 
@@ -495,7 +495,7 @@ public class TestStaticValuesRecord extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(rLvc);
         VariableInfo rVi1 = vd1.variableInfo(r);
         assertEquals("""
-                        r.i←b.j,r.set←b.stringSet,r.set.§m≡b.stringSet.§m,r.set≻b.stringSet.§m,r.list.§$s←b.intList.§$s,\
+                        r.i←b.j,r.set←b.stringSet,r.set.§m≡b.stringSet.§m,r.list.§$s←b.intList.§$s,\
                         r.list.§$s∋$_ce3,r.list.§$s∋$_ce4,r.list.§m≡b.intList.§m,r.list←b.intList,r.set.§m≡b.stringSet.§m\
                         """,
                 //"Type a.b.X.R E=new Builder() this.i=3, this.list=List.of(0,1), this.set=in",
@@ -506,7 +506,7 @@ public class TestStaticValuesRecord extends CommonTest {
         //        [-] --> method.i←$_ce1,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set.§m≡0:in*.§m,method.set←0:in*\
         //        """, mlv.toString());
         assertEquals("""
-                [-] --> method.i←$_ce1,method.set←0:in*,method.set≻0:in*.§m,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set.§m≡0:in*.§m\
+                [-] --> method.i←$_ce1,method.set←0:in*,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set.§m≡0:in*.§m\
                 """, mlv.toString());
     }
 

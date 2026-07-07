@@ -551,7 +551,7 @@ public class JavaIo {
         @AllowsInterrupt void print(double d) { }
         @AllowsInterrupt void print(@Independent @NotNull char [] s) { }
         @AllowsInterrupt void print(String s) { }
-        @AllowsInterrupt void print(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object obj) { }
+        @AllowsInterrupt void print(@Independent Object obj) { }
         @AllowsInterrupt void println() { }
         @AllowsInterrupt void println(boolean x) { }
         @AllowsInterrupt void println(char x) { }
@@ -563,7 +563,7 @@ public class JavaIo {
         //frequency 8
         @AllowsInterrupt
         void println(String x) { }
-        @AllowsInterrupt void println(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object x) { }
+        @AllowsInterrupt void println(@Independent Object x) { }
         @AllowsInterrupt PrintStream printf(String format, @Independent Object ... args) { return null; }
         @AllowsInterrupt PrintStream printf(Locale l, String format, @Independent Object ... args) { return null; }
         @AllowsInterrupt PrintStream format(String format, @Independent Object ... args) { return null; }

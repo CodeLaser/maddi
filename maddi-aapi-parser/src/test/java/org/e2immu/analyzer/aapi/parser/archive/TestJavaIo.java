@@ -79,8 +79,8 @@ public class TestJavaIo extends CommonTest {
         assertTrue(methodInfo.isModifying());
         assertSame(INDEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
 
-        ParameterInfo p0 = methodInfo.parameters().get(0);
-        assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
+        ParameterInfo p0 = methodInfo.parameters().getFirst();
+        assertSame(INDEPENDENT, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
         assertSame(NULLABLE, p0.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
         assertSame(TRUE, p0.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE));
     }
@@ -93,7 +93,7 @@ public class TestJavaIo extends CommonTest {
         assertEquals("java.io.Writer.append(char)", methodInfo.fullyQualifiedName());
         assertTrue(methodInfo.allowsInterrupts());
         assertEquals(1, methodInfo.exceptionTypes().size());
-        assertEquals("java.io.IOException", methodInfo.exceptionTypes().get(0).fullyQualifiedName());
+        assertEquals("java.io.IOException", methodInfo.exceptionTypes().getFirst().fullyQualifiedName());
     }
 
     @Test

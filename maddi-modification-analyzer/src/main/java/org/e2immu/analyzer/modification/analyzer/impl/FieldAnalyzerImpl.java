@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.analyzer.FieldAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.impl.LinkVariable;
+import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
@@ -128,7 +129,8 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
         }
 
         private Links computeLinkedVariables(FieldInfo fieldInfo, List<MethodInfo> methodsReferringToField) {
-            Links.Builder builder = new LinksImpl.Builder(runtime.newFieldReference(fieldInfo));
+            FieldReference primary = runtime.newFieldReference(fieldInfo);
+            Links.Builder builder = new LinksImpl.Builder(primary);
             boolean undecided = false;
             for (MethodInfo methodInfo : methodsReferringToField) {
                 if (!methodInfo.methodBody().isEmpty()) {
@@ -142,8 +144,11 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                             } else if (!lv.isEmpty()) {
                                 // we're only interested in parameters, other fields, return values
                                 for (Link l : lv) {
-                                    if (LinkVariable.acceptForLinkedVariables(l.to())) {
-                                        builder.add(l.linkNature(), l.to());
+                                    if (LinkVariable.acceptForLinkedVariables(l.to())
+                                        && primary.equals(Util.primary(l.from()))
+                                        // avoid duplicate links
+                                        && !builder.contains(l.from(), l.linkNature(), l.to())) {
+                                        builder.add(l.from(), l.linkNature(), l.to());
                                     }
                                 }
                             }
