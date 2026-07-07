@@ -96,7 +96,10 @@ public class TestVirtualFieldComputer extends CommonTest {
         TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
         ParameterizedType os = runtime.newParameterizedType(optional, List.of(runtime.stringParameterizedType()));
         VirtualFieldComputer.VfTm vfTm = vfc.compute(os, true);
-        assertEquals("/ - String §0", vfTm.virtualFields().toString());
+        // String is deeply @Immutable, so it has no hidden content of its own, but as the concrete element of the
+        // Optional it is carried as a concrete-element field '§$' (was the counter-named '§0'). See Option A in the
+        // immutable-hidden-content note.
+        assertEquals("/ - String §$", vfTm.virtualFields().toString());
         assertEquals("T=TP#0 in Optional [] --> String", vfTm.formalToConcrete().toString());
     }
 

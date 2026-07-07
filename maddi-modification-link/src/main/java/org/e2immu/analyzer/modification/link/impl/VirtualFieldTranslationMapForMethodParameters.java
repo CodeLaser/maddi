@@ -10,6 +10,8 @@ import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.parser.GenericsHelper;
 import org.e2immu.language.inspection.impl.parser.GenericsHelperImpl;
 
@@ -36,6 +38,14 @@ public class VirtualFieldTranslationMapForMethodParameters {
             VirtualFields vf = virtualFieldComputer.compute(bestValue, false).virtualFields();
             if (vf.hiddenContent() != null) {
                 vfTm.put(tp, vf.hiddenContent().type());
+            } else if (bestValue.typeInfo() != null && bestValue.arrays() == 0
+                       && bestValue.typeInfo().analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE,
+                    ValueImpl.ImmutableImpl.MUTABLE).isImmutable()) {
+                // the method type parameter resolves to a concrete deeply-@Immutable type (e.g. toArray<A> with
+                // A=String): it has no hidden content of its own, but map it to the type itself so the formal
+                // element field (§as) still resolves to the concrete-element field (§$s), consistent with the
+                // container's own hidden content. See memory immutable-hidden-content.
+                vfTm.put(tp, bestValue);
             }
         }
         return vfTm;
