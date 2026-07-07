@@ -2,8 +2,8 @@
 
 This document describes how the **openjdk (javac) Java front-end** and the **Kotlin (K2) front-end** are
 being integrated so that a project can mix Java and Kotlin source that cross-reference each other, over **one
-shared JDK/library core**. It covers the design and the three phases that are implemented (Phase 1–3, proven
-by tests); Phase 4 (packaging the orchestration into a driver) is not yet started.
+shared JDK/library core**. All four phases are implemented and proven by tests; the entry point is
+`MixedInspector` (module `maddi-inspection-mixed`).
 
 > Scope note. maddi has *two* Java front-ends: the homegrown CongoCC parser (`maddi-inspection-integration`)
 > and the javac-based one (`maddi-java-openjdk` / `maddi-inspection-openjdk`). This integration targets the
@@ -56,7 +56,7 @@ create. The graph only needs to distinguish `source → library → jdk` (a clea
 | 1 | Common JDK/library core (no source interop yet) | **done** |
 | 2 | Kotlin → Java source references | **done** |
 | 3 | Java → Kotlin source references (via generated Java stubs for javac) | **done** (proven end-to-end) |
-| 4 | A unified `MixedInspector` packaging the orchestration | not started |
+| 4 | A `MixedInspector` driver packaging the orchestration | **done** |
 
 ---
 
@@ -213,11 +213,34 @@ Open questions for a production driver: stub fidelity (signatures + generic boun
 Kotlin default-arg/`$default` shapes, so those need not be visible); and nullability / declaration-site
 variance / platform types across the boundary — more a modification/linking concern than a parsing one.
 
-## 8. Phase 4 — a unified driver (not started)
+## 8. Phase 4 — the `MixedInspector` driver
 
-A `MixedInspector` that orchestrates: pass A (register skeletons for both languages) → generate Java stubs →
-pass B (each front-end fills members for its own language, reusing `InfoByFqn` for cross-language references).
-Order is Kotlin-aware-of-Java and Java-aware-of-Kotlin-via-stubs, mirroring real `kotlinc` + `javac` interop.
+`MixedInspector` (module **`maddi-inspection-mixed`**, which depends on both front-ends) packages the
+orchestration behind one call:
+
+```kotlin
+val result = MixedInspector().parse(
+    mapOf("K.kt" to "package a.b; class K …"),          // Kotlin sources, by file name
+    mapOf("a.b.UseK" to "package a.b; class UseK …"))    // Java sources, by FQN
+// result.kotlinTypes / result.javaTypes — cross-referencing shared instances
+```
+
+It owns a `JavaInspectorImpl` (which owns the shared `Runtime` / `InfoByFqn` / `CompiledTypesManager`), a temp
+stub directory on the module classpath, and one shared source set. On construction it runs a warmup scan
+(`onlyPreload()`) so the manager's lazy loader has a live javac task before the first (Kotlin) parse —
+otherwise that parse could not delegate `java.*` to the shared core. `parse` then runs the Kotlin-first flow
+of §7.2: Kotlin (K2 also reads the Java sources) → compile stubs → Java.
+
+**Capabilities:** one shared instance for library/JDK types (both directions) and for **Java→Kotlin** source
+references. **Known limitation:** a **Kotlin→Java** reference to a source type *in the same batch* resolves
+against K2's own view (a provisional type), not the openjdk-built one; and Java sources are parsed one at a
+time (fine for independent files, not for a set of mutually-referencing Java files). Both are the
+skeleton-pre-pass work: register skeletons for *both* languages up front, then let each front-end fill
+members reusing `InfoByFqn`.
+
+One enabling change made this possible: `KotlinSymbolScanner` seeds the predefined `java.lang` types into the
+registry only if absent, so a registry **shared** with the Java front-end (already seeded with the same
+instances) is not re-seeded (`InfoByFqn.put` rejects re-putting the same instance).
 
 ## 9. Design notes / invariants
 
@@ -242,3 +265,4 @@ Order is Kotlin-aware-of-Java and Java-aware-of-Kotlin-via-stubs, mirroring real
 | Phase 2 tests | `maddi-inspection-kotlin/.../TestMixedSourceReference.kt`, `maddi-kotlin-k2/.../MixedSourceTest.kt` |
 | Phase 3 stub generator + de-risk | `maddi-inspection-kotlin/.../JavaStubGenerator.kt`, `.../TestJavaStub.kt` |
 | Phase 3 end-to-end | `maddi-inspection-kotlin/.../TestMixedJavaToKotlin.kt`; openjdk `JavaInspectorImpl.infoByFqn()` |
+| Phase 4 driver | `maddi-inspection-mixed/.../MixedInspector.kt`, `.../TestMixedInspector.kt` |

@@ -40,8 +40,14 @@ class KotlinSymbolScanner(
     private val librarySourceSet: SourceSet,
 ) {
     init {
-        // seed the predefined java.lang types into the shared registry
-        runtime.predefinedObjects().forEach { infoByFqn.put(it.fullyQualifiedName(), it, librarySourceSet) }
+        // seed the predefined java.lang types into the shared registry -- but only if absent, so a registry
+        // SHARED with the Java front-end (which already seeded the same predefined instances) is not re-seeded
+        // (InfoByFqn.put rejects re-putting the same instance).
+        runtime.predefinedObjects().forEach {
+            if (infoByFqn.getType(it.fullyQualifiedName(), librarySourceSet) == null) {
+                infoByFqn.put(it.fullyQualifiedName(), it, librarySourceSet)
+            }
+        }
     }
 
     /** Return the [TypeInfo] for a library type identified by its JVM FQN, creating a shell on first use. */
