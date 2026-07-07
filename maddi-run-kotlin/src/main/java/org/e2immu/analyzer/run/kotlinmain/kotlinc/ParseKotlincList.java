@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.run.kotlinmain.kotlinc;
 
+import org.e2immu.analyzer.run.config.compile.CompileInvocation;
 import org.e2immu.analyzer.run.config.compile.CompileListToSourceSets;
 import org.e2immu.analyzer.run.config.util.JavaModules;
 import org.e2immu.language.cst.api.element.SourceSet;
@@ -37,7 +38,7 @@ public class ParseKotlincList {
         return inputConfiguration(kotlincLines(kotlincLogFile), extraJmods);
     }
 
-    public InputConfiguration inputConfiguration(List<Kotlinc> kotlincList, List<String> extraJmods) {
+    public InputConfiguration inputConfiguration(List<? extends CompileInvocation> kotlincList, List<String> extraJmods) {
         CompileListToSourceSets.Result result = new CompileListToSourceSets().compute(kotlincList);
         InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder();
         Set<String> closure = new HashSet<>(JavaModules.jmodDependencyClosure("java.se"));
@@ -159,6 +160,11 @@ public class ParseKotlincList {
         Kotlinc build() {
             return destination == null ? null : Kotlinc.mavenBlock(destination, sourceDirs, classpath, moduleName);
         }
+    }
+
+    /** Parse a single Gradle/CLI line into a {@link Kotlinc}, or {@code null} (no Maven multi-line handling). */
+    public Kotlinc kotlincSingleLine(String line) {
+        return convertSingleLine(line);
     }
 
     private Kotlinc convertSingleLine(String line) {

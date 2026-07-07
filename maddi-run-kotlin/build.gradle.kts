@@ -23,6 +23,8 @@ dependencies {
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-inspection-resource"))
     implementation(project(":maddi-run-config"))
+    // for ParseMixedList: reuse the javac line reader so one log's javac + kotlinc invocations link in one pass
+    implementation(project(":maddi-run-openjdk"))
 
     testImplementation(project(":maddi-cst-impl"))
     testImplementation("com.fasterxml.jackson.core:jackson-databind")

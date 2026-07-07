@@ -205,7 +205,10 @@ public class CompileListToSourceSets {
         String destination = inv.destination();
         ComputeNameResult result = computeName(countSuffix, destination);
         URI uri = URI.create("file:" + inv.destination());
-        List<Path> sourceDirs = new ArrayList<>(inv.sourcePath().stream().map(Path::of).toList());
+        // sourcePath() may be null (javac with no -sourcepath); source dirs are then inferred from source files
+        List<String> sourcePath = inv.sourcePath();
+        List<Path> sourceDirs = new ArrayList<>(sourcePath == null ? List.of()
+                : sourcePath.stream().map(Path::of).toList());
 
         List<SourceSet> dependencies = new LinkedList<>();
         if (inv.classpath() != null) {
