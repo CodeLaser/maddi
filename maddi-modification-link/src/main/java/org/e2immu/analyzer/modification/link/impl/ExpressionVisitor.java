@@ -4,6 +4,8 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
+import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
+import org.e2immu.analyzer.modification.link.impl.translate.VirtualFieldTranslationMapForMethodParameters;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
@@ -214,6 +216,10 @@ public record ExpressionVisitor(Runtime runtime,
         }
     }
 
+    // Capture a method reference as a functional-interface value: wrap the referenced method's summary in a
+    // FunctionalInterfaceVariable, re-homed onto the SAM. Sub-cases (see linking-manual.md §7.1): bound instance
+    // ('target::add', scope is an instance), unbound instance ('M::clear', scope is the type — callee 'this' is the
+    // SAM's first parameter), static ('String::valueOf'), and constructor ('R::new' — re-homed like a factory below).
     private Result methodReference(VariableData variableData, Stage stage, MethodReference mr) {
         MethodLinkedVariables mlv = linkComputer.recurseMethod(mr.methodInfo());
         Result object = visit(mr.scope(), variableData, stage);
@@ -265,15 +271,17 @@ public record ExpressionVisitor(Runtime runtime,
             map.merge(object.links().primary(), object.links(), Links::merge);
             object.extra().forEach(e -> map.merge(e.getKey(), e.getValue(), Links::merge));
         }
-        // For an unbound instance method reference ('M::clear', scope is the type, not an instance), the referenced
-        // method's own 'this' is the SAM's first parameter (the stream/collection element), NOT a variable in the
-        // caller's scope. Its self-modifications ('clear()' sets this.t) therefore describe element mutation, which
-        // maps to the source's hidden content — something LinkFunctionalInterface would have to express, since it
-        // carries only links. We cannot express it there yet, so at least do not leak the element's 'this' into the
-        // caller's modified set (that would wrongly report the enclosing object modified). See TestStreamForEachSpec.
-        boolean unboundInstanceReceiver = object.links().primary() == null
-                                          && !mr.methodInfo().isStatic() && !mr.methodInfo().isConstructor();
-        Set<Variable> leakedModified = unboundInstanceReceiver
+        // A method reference whose receiver is not a caller-scope instance carries an INTERNAL 'this' whose
+        // self-modifications must not leak into the caller's modified set:
+        //  - an unbound instance MR ('M::clear', scope is the type): the receiver is the SAM's first parameter (the
+        //    stream/collection element); its mutation maps to the source's hidden content, which LinkFunctionalInterface
+        //    would have to express (it carries only links), so we conservatively drop it. See TestStreamForEachSpec.
+        //  - a constructor reference ('Box::new'): the receiver is the freshly-created object; a constructor always
+        //    "modifies" its own 'this' (it sets the fields), but that is internal to construction, not a caller effect.
+        //    See TestSupplierSpec.
+        // In both, the referenced method's own 'this' (typeInfo == mr.methodInfo().typeInfo()) is internal; filter it.
+        boolean internalReceiver = object.links().primary() == null && !mr.methodInfo().isStatic();
+        Set<Variable> leakedModified = internalReceiver
                 ? tMlv.modified().stream()
                 .filter(v -> !(Util.primary(v) instanceof This t && t.typeInfo() == mr.methodInfo().typeInfo()))
                 .collect(Collectors.toUnmodifiableSet())
@@ -497,6 +505,9 @@ public record ExpressionVisitor(Runtime runtime,
                 .addVariablesRepresentingConstant(object);
     }
 
+    // Capture a lambda 'x -> …' as a functional-interface value: wrap its body's summary (links + modified) in a
+    // FunctionalInterfaceVariable. doesNotBelongToLambda filters out what is internal to the lambda (its own
+    // parameters, the void SAM's return variable, its 'this') so only external captures leak. See manual §7.1.
     private @NotNull Result lambda(VariableData vd, Lambda lambda) {
         MethodLinkedVariables mlv = linkComputer.recurseMethod(lambda.methodInfo());
         ParameterizedType concreteObjectType = lambda.concreteReturnType();
@@ -721,13 +732,13 @@ public record ExpressionVisitor(Runtime runtime,
         if (methodInfo.equals(currentMethod)
             || currentMethod.analysis().getOrDefault(ComputeCallGraph.RECURSIVE_METHOD, ValueImpl.BoolImpl.FALSE)
                     .isTrue()) {
+            // direct recursion, lambda to enclosing method
             return new MethodLinkedVariablesImpl(LinksImpl.EMPTY,
                     methodInfo.parameters().stream().map(_ -> LinksImpl.EMPTY).toList(), Set.of());
         }
         RecursionPrevention.How how = recursionPrevention.contains(methodInfo);
         return switch (how) {
             case GET -> methodInfo.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            case SOURCE -> linkComputer.recurseMethod(methodInfo);
             case SHALLOW -> linkComputer.doMethodShallowDoNotWrite(methodInfo);
             case LOCK -> methodInfo.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(methodInfo));
         };

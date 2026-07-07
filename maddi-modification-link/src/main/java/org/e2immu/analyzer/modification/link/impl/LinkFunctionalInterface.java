@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.Util;
@@ -7,7 +8,6 @@ import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -29,6 +29,17 @@ import java.util.stream.Collectors;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.CONTAINS_AS_MEMBER;
 import static org.e2immu.analyzer.modification.prepwork.Util.virtual;
 
+/**
+ * The FI <em>lifting engine</em>: given the links of the lambda/method-reference bound to an FI parameter (the wrapped
+ * {@code FunctionalInterfaceVariable}'s result, as {@code linksList}), produce the {@link Triplet} links that the FI
+ * application contributes at the call site. See {@code linking-manual.md} §7.3.
+ * <p>
+ * Parameters: {@code functionalInterfaceType} = the SAM's type (Function/Consumer/Supplier/…); {@code fromTranslated} =
+ * the call-site variable standing for the SAM's "from" side (e.g. the map result's hidden content); {@code linkNature} =
+ * the nature to use; {@code returnPrimary} = the map target primary; {@code objectPrimary} = the map source primary.
+ * <p>
+ * Two shapes dispatched on the SAM: SUPPLIER/CONSUMER (no parameters, or no return value) and FUNCTION (has both).
+ */
 public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virtualFieldComputer,
                                       MethodInfo currentMethod) {
     private static final Logger LOGGER = LoggerFactory.getLogger(LinkFunctionalInterface.class);
@@ -47,49 +58,75 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
 
         MethodInfo sam = functionalInterfaceType.typeInfo().singleAbstractMethod();
         if (sam == null || linksList.isEmpty()) return List.of();
-        if (sam.parameters().isEmpty() || sam.noReturnValue()) {
-            if (sam.noReturnValue() && linksList.stream().allMatch(Links::isEmpty)) {
-                // we must keep the connection to the primary (see TestForEachLambda,6)
-                return linksList.stream()
-                        .filter(links -> !links.isEmpty())
-                        .map(links -> new Triplet(fromTranslated, CONTAINS_AS_MEMBER, links.primary()))
-                        .toList();
-            }
-            /*
-            SUPPLIER: grab the "to" of the primary, if it is present (get==c.alternative in the example of a Supplier)
+        // SUPPLIER (no parameters) or CONSUMER (no return value): the SAM has only one "interesting" side.
+        // A consumer that captures nothing linkable (e.g. 'list.forEach(x -> sideEffect())') falls through the loop
+        // and only its bare CONTAINS_AS_MEMBER connection to the primary is kept (see the links.isEmpty() case below,
+        // and TestForEachLambda,6).
+        boolean isSupplier = sam.parameters().isEmpty();
+        boolean isConsumer = sam.noReturnValue();
 
-            In a supplier, the return value of the SAM must consist of variables external to the lambda,
-            as it has no no parameters itself. We directly link to them.
-
-            In a BiConsumer, we must make synthetic fields...
-             */
+        if (isSupplier || isConsumer) {
             List<Triplet> result = new ArrayList<>();
             int i = 0;
             for (Links links : linksList) {
                 for (Link link : links) {
+                    // LEAF — skip a link to the SAM's own return variable (an independent, freshly produced value such
+                    // as 'String::valueOf'): there is nothing external to link to.
                     if (!(Util.primary(link.to()) instanceof ReturnVariable)) {
                         Variable from;
                         if (link.from().equals(links.primary())) {
                             // also accommodate for suppliers
-                            from = createVirtualField(functionalInterfaceType, i, fromTranslated, link.from());
-                        } else {
+                            if (LinkNatureImpl.IS_ELEMENT_OF.equals(link.linkNature())) {
+                                if (functionalInterfaceType.parameters().size() >= 2) {
+                                    // BiConsumer (e.g. TestForEachLambda,9b)
+                                    // 1:ii∈this.map.§$$s[-1], fromTranslated = map.§$$s, from = map.§$$s[-1]
+                                    from = createSlice(i, fromTranslated, link.from());
+                                } else {
+                                    // Consumer (e.g. TestForEachLambda,3)
+                                    // j->add(j), link 0:j∈this.set.§$s, fromTranslated = list.§$s
+                                    from = fromTranslated;
+                                }
+                            } else if (LinkNatureImpl.IS_ASSIGNED_FROM.equals(link.linkNature())
+                                       || LinkNatureImpl.IS_DECORATED_WITH.equals(link.linkNature())) {
+                                // ←
+                                // implicit Supplier (e.g. TestSupplier,1,1b,2,3)
+                                // get←1:alternative, fromTranslated = $__rv1 (result of Supplier.get())
+                                // ↗
+                                // TestBiConsumer
+                                from = fromTranslated;
+                            } else {
+                                from = null; // TODO
+                            }
+                        } else if (fromTranslated != null) {
+                            // Consumer (e.g. Test1,10, forEach(this::doType), 0:typeInfo.§m≡this.§m)
+                            // Supplier (e.g. TestSupplier,5,7 ()->this.main.subList(0,2), get.§m≡1:main.§m,get.§xs⊆1:main.§xs)
+                            //    both links are translated ->
                             TranslationMap tm = new VariableTranslationMap(runtime)
                                     .put(Util.primary(link.from()), fromTranslated);
                             from = tm.translateVariableRecursively(link.from());
+                        } else {
+                            from = null;
                         }
-                        if (LinksImpl.LinkImpl.noRelationBetweenMAndOtherVirtualFields(from, link.to())) {
+                        if (from != null && Util.acceptModificationLink(from, link.to())) {
                             Triplet t = new Triplet(from, linkNature, link.to());
                             result.add(t);
                         }
                     }
                 }
+                // NB: branch 'optimize' additionally emitted a bare 'fromTranslated ∋ links.primary()' here when
+                // links.isEmpty(); openjdk never emits a bare CONTAINS_AS_MEMBER for a consumer (a captured parameter
+                // receiver is already represented by its own '~' element link, e.g. 'list.forEach(target::add)' ->
+                // 'list.§xs ~ target.§es', and a fully-absorbing/no-op consumer leaves the source unlinked). Dropping
+                // that emission keeps the canonical openjdk behaviour. See TestStreamForEachSpec, TestForEach*.
                 ++i;
             }
             return result;
         }
 
 
-        // FUNCTION
+        // FUNCTION (SAM has parameters AND a return value): lift the function's return↔parameter relationship from the
+        // map source's hidden content to the map target's, e.g. 'stream.map(f)' -> 'result.§ys ⊆ source.§xs'. An
+        // unrelated function (result independent of input) produces no link. The trace below follows one concrete case.
         /*
         OUTER
         MLV [-] --> map.§rs~Λ0:function
@@ -130,6 +167,9 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                         result.add(new Triplet(fromTranslated, CONTAINS_AS_MEMBER, links.primary()));
                     }
                 }
+                // LEAF — the function's result IS derived from its parameter: for each SAM link, translate the "to"
+                // side to the map source and the "from" side to the map target, then upscale to the virtual field that
+                // matches the concrete dimensions (translateAndRecreateVirtualFields).
                 for (Variable newPrimary : toPrimaries) {
                     VariableTranslationMap tmMapSource = new VariableTranslationMap(runtime);
                     if (!Util.isPartOf(objectPrimary, newPrimary)) {
@@ -141,8 +181,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                                 false);
                         Variable to = translateAndRecreateVirtualFields(tmMapSource, l.to(), vfMapSource, vfMapTarget,
                                 true);
-                        if (from != null && to != null
-                            && LinksImpl.LinkImpl.noRelationBetweenMAndOtherVirtualFields(from, to)) {
+                        if (from != null && to != null && Util.acceptModificationLink(from, to)) {
                             result.add(new Triplet(from, l.linkNature(), to));
                         }
                     }
@@ -152,11 +191,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         return result;
     }
 
-    private Variable createVirtualField(ParameterizedType functionalType,
-                                        int i,
-                                        Variable base,
-                                        Variable sub) {
-        if (functionalType.parameters().size() < 2) return base;
+    private Variable createSlice(int i, Variable base, Variable sub) {
         // essentially for a BiConsumer: (x,y)-> ...
         ParameterizedType sourcePt = sub.parameterizedType();
         String name = sourcePt.typeParameter() != null ? sourcePt.typeParameter().simpleName().toLowerCase() : "$";

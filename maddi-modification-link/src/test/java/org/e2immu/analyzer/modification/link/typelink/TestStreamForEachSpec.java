@@ -26,6 +26,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * <p>
  * Parsed and linked <em>once</em> ({@link TestInstance.Lifecycle#PER_CLASS} + a lazy cache).
  * <p>
+ * INVARIANT (guard against over-generation): for {@code list.forEach(target::add)} where {@code target} is a
+ * <em>parameter</em> collection, the source {@code list} must NOT be marked modified and there must be NO
+ * {@code list.§xs ∋ target} (contains-as-member) link — only the shares-elements {@code ~} pair. {@code feedParam}
+ * and {@code peek} pin exactly this. It is the dual of {@code feedField}. (An earlier line in an alternative
+ * implementation emitted a {@code CONTAINS_AS_MEMBER} link to the bare captured parameter, which then dragged the
+ * source into the modified set; these tests are the safety net against reintroducing that.)
+ * <p>
  * Several cases are currently WRONG and pinned as gaps (see the {@code gap*} tests); they are the targets for the
  * consumer-side work.
  */

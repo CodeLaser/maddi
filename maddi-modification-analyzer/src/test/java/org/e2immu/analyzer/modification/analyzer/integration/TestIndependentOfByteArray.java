@@ -97,13 +97,13 @@ public class TestIndependentOfByteArray extends CommonTest {
 
         MethodInfo readFully = B.findUniqueMethod("readFully", 3);
         assertEquals("""
-                [0:b*.§3←this*.arrayIn.§2,0:b*∋this*.back, -, -] --> -\
+                [0:b*.§$←this*.arrayIn.§$,0:b*∋this*.back, -, -] --> -\
                 """, readFully.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
         MethodInfo read = B.findUniqueMethod("read", 3);
         assertEquals("""
                 [0:b*[1:off]←this*.back,0:b*[1:off]≡0:b*[off++],0:b*[off++]←this*.back,\
-                0:b*∋this*.back,0:b*.§3←this*.arrayIn.§2, -, -] --> -\
+                0:b*∋this*.back,0:b*.§$←this*.arrayIn.§$, -, -] --> -\
                 """, read.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
         ParameterInfo b = read.parameters().getFirst();
@@ -113,7 +113,7 @@ public class TestIndependentOfByteArray extends CommonTest {
             VariableData vd312 = VariableDataImpl.of(s312);
             VariableInfo viB = vd312.variableInfo(b);
             assertEquals("""
-                    0:b[1:off]←this.back,0:b[1:off]≡0:b[off++],0:b[off++]←this.back,0:b.§3←this.arrayIn.§2,0:b∋this.back\
+                    0:b[1:off]←this.back,0:b[1:off]≡0:b[off++],0:b[off++]←this.back,0:b.§$←this.arrayIn.§$,0:b∋this.back\
                     """, viB.linkedVariables().toString());
         }
         {
@@ -121,7 +121,7 @@ public class TestIndependentOfByteArray extends CommonTest {
             VariableInfo viB = vd3.variableInfo(b);
             assertEquals("""
                     0:b[1:off]←this.back,0:b[1:off]≡0:b[off++],0:b[off++]←this.back,\
-                    0:b∋this.back,0:b.§3←this.arrayIn.§2\
+                    0:b∋this.back,0:b.§$←this.arrayIn.§$\
                     """, viB.linkedVariables().toString());
         }
         assertTrue(b.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT).isIndependent());

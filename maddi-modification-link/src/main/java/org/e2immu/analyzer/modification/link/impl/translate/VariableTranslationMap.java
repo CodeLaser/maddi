@@ -1,5 +1,6 @@
-package org.e2immu.analyzer.modification.link.impl;
+package org.e2immu.analyzer.modification.link.impl.translate;
 
+import org.e2immu.analyzer.modification.link.impl.SliceFactory;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.IntConstant;
@@ -24,6 +25,8 @@ public class VariableTranslationMap implements TranslationMap {
     }
 
     public VariableTranslationMap put(Variable from, Variable to) {
+        assert from != null;
+        assert to != null;
         this.map.put(from, to);
         return this;
     }

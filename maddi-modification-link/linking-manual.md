@@ -76,7 +76,7 @@ The `toString()` of an mlv is `[<param links>] --> <return links>`, e.g. `[0:box
 - **`*`** after a variable = it is (or may be) **modified** at that point (e.g. `box*`, `this.myBox*.t`).
 - **`0:` / `1:`** = parameter index; **`.t` / `.a`** = a field; **`[0]`** = array access; **`§…`** = a virtual field
   / hidden content (e.g. `§xs`, `§es`, `§m`); **`∈∈`** = element-of-element (nested).
-- **`$__rv`** return-value intermediate, **`$_ce`** constructed-element (record/for-each pattern binding),
+- **`$__rv`** return-value intermediate, **`$_ce`** constant expression (a literal/constant value; `MarkerVariable.constant`),
   **`$_fi`** functional-interface variable, **`$_afi`** applied-functional-interface, **`Λ`** functional-interface marker.
 - `[-]` = one parameter with no links; `[-, -]` = two; `--> -` = no return links.
 
@@ -226,11 +226,83 @@ array elt:   Box<X> arrayElement(Box<X>[] b){ return b[0]; }          ->  [-] --
 
 ---
 
-## 7. Functional interfaces — TODO
+## 7. Functional interfaces
 
-Deep dive deferred. Lambdas / method references become a `FunctionalInterfaceVariable`, applied via
-`LinkFunctionalInterface` / `LinkAppliedFunctionalInterface`; there is a known open gap around hidden-content
-propagation through `map`/`apply` of an element-extracting function. **To be documented in a dedicated pass.**
+An FI link has two halves: **capturing** the lambda/method-reference value (producer), and **applying** it inside the
+method that receives it (consumer). The callee's own summary marks an FI parameter with `Λ` (e.g. `map`'s summary is
+`map.§rs⊆Λ0:function`, `Iterable.forEach`'s is `this.§ts⊇Λ0:action`, `Optional.orElseGet`'s is `orElseGet←Λ0:supplier`);
+`ShallowMethodLinkComputer` builds these for JDK types.
+
+### 7.1 Capturing an FI value (`ExpressionVisitor`)
+
+| Form | Handler | Result |
+|---|---|---|
+| lambda `x -> …` | `lambda()` | a `FunctionalInterfaceVariable` (FIV, printed `Λ$_fi`) wrapping a `Result` (its links + modified), filtered by `doesNotBelongToLambda` (drops the lambda's own parameters, the void SAM's return variable, its `this`) |
+| anonymous class implementing an FI | `anonymousClassAsLambda()` | same FIV shape |
+| method reference | `methodReference()` | FIV wrapping the callee summary, re-homed onto the SAM |
+| opaque `Consumer c` parameter/field | — | stays a plain variable (no FIV, empty `extra`) |
+
+Method-reference sub-cases (`methodReference`):
+- **bound instance** `target::add` — callee `this` → the scope variable; modifications leak to that *real* variable.
+- **unbound instance** `M::clear` (scope is the type) — callee `this` **is the SAM's first parameter** (the element).
+- **static** `C::sIdentity`, `String::valueOf` — no `this`.
+- **constructor** `R::new` — the constructor has no return; its `param → this.field` effect is re-homed, *reversed*, onto a
+  synthetic SAM return variable, so it reads like a factory (`rv.field ← param`) and lifts like `x -> new R<>(x)`.
+
+**Internal-receiver modification filter.** For an unbound instance MR and a constructor reference
+(`object.links().primary()==null && !isStatic`), the referenced method's own `this` is *internal* — the element
+(`M::clear`) or the freshly-created object (`R::new`, which always "modifies" its `this` by setting fields). Its
+self-modifications are dropped, not leaked as the enclosing `this`. So `M::clear`→`MOD[]`, `Box::new`→`MOD[]`.
+
+Markers: `$_fi` FIV · `$_afi` applied-FIV · `$_ce` constant expression · `$__rv` return-value intermediate ·
+`Λ` FI-typed variable · `↗`/`↖` decoration links.
+
+### 7.2 Applying an FI (`LinkMethodCall.methodCall`) — three seams
+
+1. **The call IS the SAM** — `f.apply(x)`, `c.accept(x)` (`isSAMOfStandardFunctionalInterface`) → `samOfFunctionalInterface`
+   decorates the FI parameter with an `AppliedFunctionalInterfaceVariable` (`$_afi`), to be resolved later by the caller
+   that passes the concrete lambda.
+2. **FI relates to the return value** — `objectToReturnValue` → `translateHandleFunctional`, three leaves:
+   `link.to()` is FI-typed → `LinkFunctionalInterface.go` (this is `map`, `orElseGet`); `link.to()` is an
+   `AppliedFunctionalInterfaceVariable` → `LinkAppliedFunctionalInterface.go` (indirection method); else → plain link.
+3. **FI relates to the object / other arguments** — `parametersToObject` (receiver present) or `linksBetweenParameters` +
+   `appliedFunctionalInterfaces` (static): an FI arg with captured links in its `extra` → `LinkFunctionalInterface.go`
+   (this is `forEach(target::add)`); an **opaque consumer** arg (no FIV, empty `extra`, SAM returns void) →
+   conservatively mark source + consumer modified (matches the manual `for (x:list) c.accept(x)` loop).
+
+`LinkAppliedFunctionalInterface` bridges seam 1 → a later 2/3: it finds `$_afi`, expands the concrete FIV bound to the
+parameter, replaces SAM formal parameters by the actual arguments, and re-invokes `LinkFunctionalInterface.go`.
+
+### 7.3 The lifting engine (`LinkFunctionalInterface.go`)
+
+- **empty guard** (`noReturnValue && all links empty`) → keep only the `CONTAINS_AS_MEMBER` link to the primary.
+- **SUPPLIER / CONSUMER** branch (`sam.parameters().isEmpty() || sam.noReturnValue()`): iterate the wrapped links; take
+  the produced value's *external* target (supplier) or synthesize a virtual field per SAM parameter (`createVirtualField`,
+  for BiConsumer/BiFunction). **Skips links whose primary is a `ReturnVariable`** — an independent fresh result
+  (`String::valueOf`) has nothing external to link, so no phantom `∩valueOf`.
+- **FUNCTION** branch (SAM has parameters *and* a return): `translateAndRecreateVirtualFields` maps each SAM link
+  between source and target hidden content — translate the SAM's `this`/params to the map source/target, then "upscale"
+  to the virtual field matching the concrete dimensions. Nature weakens with distance (`⊆`→`≤`→`∩`→nothing).
+
+### 7.4 Shapes per SAM category
+
+| SAM | Vehicle | Result |
+|---|---|---|
+| `Function<X,Y>` | `stream.map(f)` | `map.§ys ⊆ source.§xs` via f's return↔param; unrelated f → no link |
+| `Consumer<X>` | `list.forEach(c)` | `list.§xs ~ captured.§…`; opaque consumer → conservative `MOD[list, c]` |
+| `Supplier<T>` | `opt.orElseGet(s)` | `result ← <s's produced value's links>` (field/param/element/fresh-capture); fresh no-capture → no link |
+| `Predicate<X>` | `stream.filter(p)` | link comes from filter's *own* summary (`result ⊆ source`); the boolean return has no hidden content, so p lifts nothing |
+| `BiFunction`/`BiConsumer` | 2-parameter SAMs | `createVirtualField` synthesizes a virtual field per parameter slice |
+
+Specs (spec-by-example, `@TestInstance(PER_CLASS)`): `typelink/TestStreamMapSpec`, `typelink/TestStreamForEachSpec`,
+`typelink/TestSupplierSpec`.
+
+### 7.5 Collectors (next)
+
+`Collector<T,A,R>` bundles four of the above: `Supplier<A>` (container), `BiConsumer<A,T>` (accumulator),
+`BinaryOperator<A>` (combiner), `Function<A,R>` (finisher). No new engine is needed — the existing supplier +
+BiConsumer(synthetic-field) + function paths must be **composed**: thread `T`'s hidden content through the accumulator
+into `A`, then out through the finisher into `R`.
 
 ---
 
@@ -265,7 +337,11 @@ a linking bug.
 
 ## 9. Known gaps / quirks (running list)
 
-- **FI element-extraction gap** — §7 (open, deferred).
+- **Collectors** — not yet supported (§7.5); the compositional plan is sketched there.
+- **FI gaps fixed** (don't re-break): constructor reference lifted like a factory (`R::new`); JDK static MR with an
+  independent result no longer invents `∩valueOf`; `M::clear`/`Box::new` no longer leak an internal `this` as modified;
+  opaque consumer conservatively marks source + consumer modified; peek/`toList` chain propagation. See the three §7.4
+  specs for the exact pinned shapes.
 - **`parametersToObject` from-side** — the param→object case where the object part is a link's `from` is not handled
   (dead branch removed + documented in code). Revisit if a legitimate case surfaces.
 - **`TestList.shallow` / `TestShallowFunctional`** — pre-existing baseline failures in the HC/multiplicity area.
@@ -282,7 +358,8 @@ a linking bug.
 - `ExpressionVisitor` — per-expression visit; dispatches method/constructor calls to `LinkMethodCall`, handles
   lambdas/method refs (`methodReference`), conditionals, switch expressions, array access (`DependentVariable`).
 - `LinkMethodCall` — §5.
-- `LinkFunctionalInterface`, `LinkAppliedFunctionalInterface` — FI application (§7, TODO).
+- `LinkFunctionalInterface` (the lifting engine, §7.3), `LinkAppliedFunctionalInterface` (`$_afi` expansion) — FI
+  application (§7). `ShallowMethodLinkComputer` builds the `Λ`-marked summaries of JDK FI-consuming methods.
 - `LinkGraph`, `LinkNatureImpl`, `Result`, `LinkedVariablesImpl`, `Links`/`Link` (in prepwork `…variable.impl`).
 - `vf/VirtualFieldComputer`, `vf/VirtualFields` (+ `vf/virtual-fields.md`).
 - `impl/localvar/…` — the synthetic variable kinds (`FunctionalInterfaceVariable`, `IntermediateVariable`, …).
@@ -291,6 +368,6 @@ a linking bug.
 
 ---
 
-*Starting point for a new session: read §5 (`LinkMethodCall`) + §6 (worked examples) + `TestLinkMethodCall`; §7
-(functional interfaces) is a TODO to be filled in a dedicated pass. Prove changes with the §8 probe loop and the
-two-failure baseline noted in §8.*
+*Starting point for a new session: read §5 (`LinkMethodCall`) + §6 (worked examples) + `TestLinkMethodCall`; for
+functional interfaces read §7 + the three §7.4 specs. Collectors (§7.5) are the next target. Prove changes with the §8
+probe loop and the two-failure baseline noted in §8.*

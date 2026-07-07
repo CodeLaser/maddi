@@ -139,7 +139,12 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     ParameterizedType sourceType = findReturnType(pi.parameterizedType());
                     Set<TypeParameter> sourceVariableTps = collectTypeParametersFromVirtualField(sourceType);
                     Set<TypeParameter> returnTypeTps = returnType.extractTypeParameters();
-                    if (sourceVariableTps.equals(returnTypeTps)) {
+                    // only transfer when the SAM's concrete result actually carries hidden content (type parameters)
+                    // that matches the method's return type. For a concrete FI whose result is a leaf, e.g.
+                    // 'Builder setInvalidated(Invalidated)' with Invalidated extends Function<Integer,String>, both
+                    // sets are empty and 'empty.equals(empty)' would otherwise fire a spurious 'returnValue ⊆ Λ0:param'
+                    // link. See TestShallowFunctional,2.
+                    if (!sourceVariableTps.isEmpty() && sourceVariableTps.equals(returnTypeTps)) {
                         // return types agree
                         transfer(ofReturnValue, returnType, null, sourceType, pi, null, null,
                                 sourceVariableTps, false, IS_SUBSET_OF, false);
