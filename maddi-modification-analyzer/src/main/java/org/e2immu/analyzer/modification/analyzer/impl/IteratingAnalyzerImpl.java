@@ -22,6 +22,8 @@ import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 
 public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements IteratingAnalyzer {
@@ -75,21 +77,24 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
     @Override
     public void analyze(List<Info> analysisOrder) {
         int iterations = 0;
-        int prevPropertiesChanged = 0;
         SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
         boolean cycleBreakingActive = false;
         while (true) {
             ++iterations;
             LOGGER.info("{}, cycle breaking active? {}", highlight("Start iteration " + iterations),
                     cycleBreakingActive);
+            Instant start = Instant.now();
             singleIterationAnalyzer.go(analysisOrder, cycleBreakingActive, iterations == 1);
+            Instant end = Instant.now();
+            Duration duration = Duration.between(start, end);
+            LOGGER.info("Duration of single iteration: {} min {} sec {} ms", duration.toMinutesPart(),
+                    duration.toSecondsPart(), duration.toMillisPart());
             int propertiesChanged = singleIterationAnalyzer.propertiesChanged();
-            boolean done = propertiesChanged == prevPropertiesChanged;
+            boolean done = propertiesChanged == 0;
             if (iterations == configuration.maxIterations() || done) {
                 LOGGER.info("Stop iterating after {} iterations, done? {}", iterations, done);
                 return;
             }
-            prevPropertiesChanged = propertiesChanged;
             LOGGER.info("Run again, properties changed {}", propertiesChanged);
             // TODO any strategy, e.g. after 3 iterations, activate cycle breaking
         }

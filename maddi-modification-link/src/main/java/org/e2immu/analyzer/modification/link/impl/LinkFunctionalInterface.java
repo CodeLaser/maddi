@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.Util;
@@ -7,7 +8,6 @@ import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -58,23 +58,14 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
 
         MethodInfo sam = functionalInterfaceType.typeInfo().singleAbstractMethod();
         if (sam == null || linksList.isEmpty()) return List.of();
-        if (sam.parameters().isEmpty() || sam.noReturnValue()) {
-            // SUPPLIER (no parameters) or CONSUMER (no return value): the SAM has only one "interesting" side.
-            if (sam.noReturnValue() && linksList.stream().allMatch(Links::isEmpty)) {
-                // LEAF — a consumer that captures nothing linkable (e.g. 'list.forEach(x -> sideEffect())'): keep only
-                // the bare connection to the primary so the source is not seen as fully disconnected. See
-                // TestForEachLambda,6.
-                return linksList.stream()
-                        .filter(links -> !links.isEmpty())
-                        .map(links -> new Triplet(fromTranslated, CONTAINS_AS_MEMBER, links.primary()))
-                        .toList();
-            }
-            /*
-            SUPPLIER: the produced value is made of variables external to the lambda (it has no parameters), so we link
-            to them directly. E.g. 'opt.orElseGet(() -> field)' -> result ← field; 'orElseGet(() -> alt)' -> result ← alt.
-            CONSUMER with captures: 'list.forEach(target::add)' -> the elements flow into the captured target.
-            BiConsumer/BiSupplier with ≥2 slots: we synthesise a virtual field per slot (createVirtualField).
-             */
+        // SUPPLIER (no parameters) or CONSUMER (no return value): the SAM has only one "interesting" side.
+        // A consumer that captures nothing linkable (e.g. 'list.forEach(x -> sideEffect())') falls through the loop
+        // and only its bare CONTAINS_AS_MEMBER connection to the primary is kept (see the links.isEmpty() case below,
+        // and TestForEachLambda,6).
+        boolean isSupplier = sam.parameters().isEmpty();
+        boolean isConsumer = sam.noReturnValue();
+
+        if (isSupplier || isConsumer) {
             List<Triplet> result = new ArrayList<>();
             int i = 0;
             for (Links links : linksList) {
@@ -84,18 +75,46 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                     if (!(Util.primary(link.to()) instanceof ReturnVariable)) {
                         Variable from;
                         if (link.from().equals(links.primary())) {
-                            // the "from" is the SAM's own value: build the slot's virtual field (BiConsumer etc.)
-                            from = createVirtualField(functionalInterfaceType, i, fromTranslated, link.from());
-                        } else {
+                            // also accommodate for suppliers
+                            if (LinkNatureImpl.IS_ELEMENT_OF.equals(link.linkNature())) {
+                                if (functionalInterfaceType.parameters().size() >= 2) {
+                                    // BiConsumer (e.g. TestForEachLambda,9b)
+                                    // 1:ii∈this.map.§$$s[-1], fromTranslated = map.§$$s, from = map.§$$s[-1]
+                                    from = createSlice(i, fromTranslated, link.from());
+                                } else {
+                                    // Consumer (e.g. TestForEachLambda,3)
+                                    // j->add(j), link 0:j∈this.set.§$s, fromTranslated = list.§$s
+                                    from = fromTranslated;
+                                }
+                            } else if (LinkNatureImpl.IS_ASSIGNED_FROM.equals(link.linkNature())
+                                       || LinkNatureImpl.IS_DECORATED_WITH.equals(link.linkNature())) {
+                                // ←
+                                // implicit Supplier (e.g. TestSupplier,1,1b,2,3)
+                                // get←1:alternative, fromTranslated = $__rv1 (result of Supplier.get())
+                                // ↗
+                                // TestBiConsumer
+                                from = fromTranslated;
+                            } else {
+                                from = null; // TODO
+                            }
+                        } else if (fromTranslated != null) {
+                            // Consumer (e.g. Test1,10, forEach(this::doType), 0:typeInfo.§m≡this.§m)
+                            // Supplier (e.g. TestSupplier,5,7 ()->this.main.subList(0,2), get.§m≡1:main.§m,get.§xs⊆1:main.§xs)
+                            //    both links are translated ->
                             TranslationMap tm = new VariableTranslationMap(runtime)
                                     .put(Util.primary(link.from()), fromTranslated);
                             from = tm.translateVariableRecursively(link.from());
+                        } else {
+                            from = null;
                         }
-                        if (LinksImpl.LinkImpl.noRelationBetweenMAndOtherVirtualFields(from, link.to())) {
+                        if (from != null && Util.acceptModificationLink(from, link.to())) {
                             Triplet t = new Triplet(from, linkNature, link.to());
                             result.add(t);
                         }
                     }
+                }
+                if (fromTranslated != null && links.isEmpty() && links.primary() != null) {
+                    result.add(new Triplet(fromTranslated, CONTAINS_AS_MEMBER, links.primary()));
                 }
                 ++i;
             }
@@ -160,8 +179,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                                 false);
                         Variable to = translateAndRecreateVirtualFields(tmMapSource, l.to(), vfMapSource, vfMapTarget,
                                 true);
-                        if (from != null && to != null
-                            && LinksImpl.LinkImpl.noRelationBetweenMAndOtherVirtualFields(from, to)) {
+                        if (from != null && to != null && Util.acceptModificationLink(from, to)) {
                             result.add(new Triplet(from, l.linkNature(), to));
                         }
                     }
@@ -171,11 +189,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         return result;
     }
 
-    private Variable createVirtualField(ParameterizedType functionalType,
-                                        int i,
-                                        Variable base,
-                                        Variable sub) {
-        if (functionalType.parameters().size() < 2) return base;
+    private Variable createSlice(int i, Variable base, Variable sub) {
         // essentially for a BiConsumer: (x,y)-> ...
         ParameterizedType sourcePt = sub.parameterizedType();
         String name = sourcePt.typeParameter() != null ? sourcePt.typeParameter().simpleName().toLowerCase() : "$";

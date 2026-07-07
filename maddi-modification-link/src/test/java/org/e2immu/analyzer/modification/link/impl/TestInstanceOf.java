@@ -122,22 +122,22 @@ public class TestInstanceOf extends CommonTest {
 
         VariableInfo vi000Set = vd000.variableInfo("set");
         assertTrue(vi000Set.isModified());
-        assertEquals("set.§es←o.§es,set.§es∋1:s,set.§es≺0:i,set.§m≡o.§m,set.§m≺0:i",
+        assertEquals("set.§es←o.§es,set.§es∋1:s,set.§es≺0:i,set.§m≡o.§m",
                 vi000Set.linkedVariables().toString()); // set←o dropped
 
         VariableInfo vi000O = vd000.variableInfo("o");
-        assertEquals("o.§es→set.§es,o.§es∋1:s,o.§m≡set.§m,o.§m≺0:i,o→set", vi000O.linkedVariables().toString());
+        assertEquals("o.§es→set.§es,o.§es∋1:s,o.§m≡set.§m,o→set,o∩0:i", vi000O.linkedVariables().toString());
         // o ≺ 0:i is not visible
         assertTrue(vi000O.isModified());
 
         VariableInfo vi000I = vd000.variableInfo(i);
-        assertEquals("0:i≥1:s,0:i∩o.§es,0:i∩set.§es,0:i≈o,0:i≈set,0:i≻o.§m,0:i≻set.§m", vi000I.linkedVariables().toString());
+        assertEquals("0:i≥1:s,0:i∩o.§es,0:i∩set.§es,0:i≈o,0:i≈set", vi000I.linkedVariables().toString());
         // o ≺ 0:i is not visible
         assertTrue(vi000I.isModified());
         assertEquals("[a.b.X.R]", vi000I.downcast().toString());
 
         VariableInfo viI0M = vd0.variableInfo(i, Stage.MERGE);
-        assertEquals("0:i≻o,0:i≻set,0:i≥1:s,0:i∩o.§es,0:i∩set.§es,0:i≻o.§m,0:i≻set.§m", viI0M.linkedVariables().toString());
+        assertEquals("0:i≻o,0:i≻set,0:i≥1:s,0:i∩o.§es,0:i∩set.§es", viI0M.linkedVariables().toString());
         assertTrue(viI0M.isModified());
         assertEquals("[a.b.X.R]", viI0M.downcast().toString());
 

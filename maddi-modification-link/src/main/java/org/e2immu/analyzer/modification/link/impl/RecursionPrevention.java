@@ -19,7 +19,7 @@ class RecursionPrevention {
         this.recurse = recurse;
     }
 
-    public enum How {GET, SHALLOW, SOURCE, LOCK}
+    public enum How {GET, SHALLOW, LOCK}
 
     public synchronized boolean sourceAllowed(MethodInfo methodInfo) {
         Long prev = owner.get(methodInfo);
@@ -34,9 +34,7 @@ class RecursionPrevention {
         if (!recurse) return How.GET;
         Long threadId = owner.get(methodInfo);
         LOGGER.debug("Test {} = {}", methodInfo, threadId);
-        return threadId != null ?
-                (Thread.currentThread().threadId() == threadId ? How.SOURCE : How.SHALLOW)
-                : How.LOCK;
+        return threadId != null ? How.SHALLOW : How.LOCK;
     }
 
     public synchronized void doneSource(MethodInfo methodInfo) {

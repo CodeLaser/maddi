@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
+import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.Util;
@@ -224,9 +225,9 @@ public record LinkMethodCall(JavaInspector javaInspector,
             if (links != null) {
                 for (Link link : links) {
                     ParameterInfo to = Util.parameterPrimaryOrNull(link.to());
-                    if (to == null || to.index() == i) {
-                        // LEAF (skip) — the callee link's target is not another parameter, or is the same parameter
-                        // (a self-link, handled elsewhere): nothing to cross-link here. See Test1,2.
+                    if (to == null || to.index() == i || to.methodInfo() != methodInfo) {
+                        // LEAF (skip) — the callee link's target is not another parameter of this method, or is the
+                        // same parameter (a self-link, handled elsewhere): nothing to cross-link here. See Test1,2.
                         // if to's index == i, we're talking the same index, rather than between indices
                         continue;
                     }
@@ -243,15 +244,19 @@ public record LinkMethodCall(JavaInspector javaInspector,
                             LinkNature linkNature = varargsLinkNature(link.linkNature());
                             for (int j = i; j < params.size(); ++j) {
                                 Variable fromPrimary = params.get(j).links().primary();
-                                Variable linkFrom = downgrade(link.from(), fromPrimary);
-                                // loop over all the elements in the varargs
-                                addCrosslink(fromPrimary, extra, from, linkFrom, linkNature, translatedTo);
+                                if (fromPrimary != null) {
+                                    Variable linkFrom = downgrade(link.from(), fromPrimary);
+                                    // loop over all the elements in the varargs
+                                    addCrosslink(fromPrimary, extra, from, linkFrom, linkNature, translatedTo);
+                                }
                             }
                         } else {
                             // LEAF — a plain (non-varargs) parameter: one direct cross-link between the two
                             // arguments. E.g. static 'transfer(Box from, Box to){to.set(from.get());}' -> 'from.t→to.t'.
                             Variable fromPrimary = params.get(i).links().primary();
-                            addCrosslink(fromPrimary, extra, from, link.from(), link.linkNature(), translatedTo);
+                            if (fromPrimary != null) {
+                                addCrosslink(fromPrimary, extra, from, link.from(), link.linkNature(), translatedTo);
+                            }
                         }
                     }
                 }
@@ -294,7 +299,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
         Links.Builder builder = new LinksImpl.Builder(fromPrimary);
         TranslationMap fromTm = new VariableTranslationMap(runtime).put(from, fromPrimary);
         Variable translatedFrom = fromTm.translateVariableRecursively(linkFrom);
-        if (translatedFrom != null) {
+        if (translatedFrom != null && Util.acceptModificationLink(translatedFrom, translatedTo)) {
             builder.add(translatedFrom, linkNature, translatedTo);
             Links links = builder.build();
             extra.merge(fromPrimary, links, Links::merge);
@@ -391,7 +396,8 @@ public record LinkMethodCall(JavaInspector javaInspector,
         }
         tm.put(ofReturnValue.primary(), newPrimary);
         Function<Variable, List<Links>> samLinks = v ->
-                v instanceof ParameterInfo pi ? List.of(params.get(pi.index()).links()) : List.of();
+                v instanceof ParameterInfo pi && params.size() > pi.index() ? List.of(params.get(pi.index()).links())
+                        : List.of();
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
         Set<Variable> extraModified = new HashSet<>();
         for (Link link : ofReturnValue.linkSet()) {
@@ -449,7 +455,10 @@ public record LinkMethodCall(JavaInspector javaInspector,
         // Add the direct link unless the functional handling above already produced the outgoing links for a
         // return-variable source (in which case a second, un-lifted link would be spurious).
         if (!extraTest || !isReturnVariable(Util.firstRealVariable(fromTranslated))) {
-            builder.add(fromTranslated, linkNature, defaultTm.translateVariableRecursively(link.to()));
+            Variable toTranslated = defaultTm.translateVariableRecursively(link.to());
+            if (Util.acceptModificationLink(fromTranslated, toTranslated)) {
+                builder.add(fromTranslated, linkNature, toTranslated);
+            }
         }
     }
 
@@ -548,32 +557,33 @@ public record LinkMethodCall(JavaInspector javaInspector,
             for (Link link : links) {
                 Variable translatedFrom = tm.translateVariableRecursively(link.from());
                 Variable translatedTo = tm.translateVariableRecursively(link.to());
-                // Only the case "translatedTo is part of the object" contributes: we reverse the callee link so
-                // that the object part is the primary (e.g. 'param ∈ this' becomes 'this ∋ arg'). A former second
-                // branch here repeated the same condition (dead code) with a non-reversed nature; activating it
-                // for "translatedFrom is part of the object" breaks functional-interface/stream linking
-                // (TestForEachMethodReference, TestStreamBasics), so the from-side case is deliberately not handled.
-                if (Util.isPartOf(objectPrimary, translatedTo)) {
-                    // LEAF — the argument flows into (part of) the object: reverse the callee link so the object side
-                    // is primary. 'set(T v){this.t=v;}' summary 'v→this.t' becomes, at 'box.set(x)', 'box.t←x'
-                    // (write); for a two-field 'set(A,B)' each argument lands in its own field (putBoth -> pair.a←a,
-                    // pair.b←b); 'copyFrom(dst,src){dst.set(src.get());}' -> 'dst.t←src.t'.
-                    builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
-                } else if (Util.isPartOf(objectPrimary, translatedFrom)
-                           && isOpaqueConsumerArg(pi, r)) {
-                    // LEAF — an OPAQUE consumer argument (a plain parameter/variable, not a lambda or method reference
-                    // we can see into) is passed to a method that applies it to the object's hidden content, e.g.
-                    // 'list.forEach(c)' (forEach's summary is 'this.§ts ⊇ action'). A consumer's SAM returns nothing:
-                    // it is applied for side effects and might mutate the elements, so -- matching the manually-written
-                    // 'for (x : list) c.accept(x)' -- we conservatively mark both the source and the consumer modified.
-                    // (A Predicate/Function argument, e.g. filter/map, returns a value and reads the elements, so it is
-                    // NOT treated this way: its SAM has a return value.) See TestStreamForEachSpec.
-                    extraModified.add(translatedTo);
-                    extraModified.add(objectPrimary);
+                // Only the case "translatedTo is part of the object" contributes a link: we reverse the callee link so
+                // that the object part is the primary (e.g. 'param ∈ this' becomes 'this ∋ arg'). The from-side is
+                // deliberately not turned into a link (activating it breaks functional-interface/stream linking:
+                // TestForEachMethodReference, TestStreamBasics), but it IS used to detect an opaque consumer argument.
+                if (Util.acceptModificationLink(translatedFrom, translatedTo)) {
+                    if (Util.isPartOf(objectPrimary, translatedTo)) {
+                        // LEAF — the argument flows into (part of) the object: reverse the callee link so the object
+                        // side is primary. 'set(T v){this.t=v;}' summary 'v→this.t' becomes, at 'box.set(x)', 'box.t←x'
+                        // (write); for a two-field 'set(A,B)' each argument lands in its own field (putBoth -> pair.a←a,
+                        // pair.b←b); 'copyFrom(dst,src){dst.set(src.get());}' -> 'dst.t←src.t'.
+                        builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
+                    } else if (Util.isPartOf(objectPrimary, translatedFrom) && isOpaqueConsumerArg(pi, r)) {
+                        // LEAF — an OPAQUE consumer argument (a plain parameter/variable, not a lambda or method
+                        // reference we can see into) is passed to a method that applies it to the object's hidden
+                        // content, e.g. 'list.forEach(c)' (forEach's summary is 'this.§ts ⊇ action'). A consumer's SAM
+                        // returns nothing: it is applied for side effects and might mutate the elements, so -- matching
+                        // the manually-written 'for (x : list) c.accept(x)' -- we conservatively mark both the source
+                        // and the consumer modified. (A Predicate/Function argument, e.g. filter/map, returns a value
+                        // and reads the elements, so it is NOT treated this way: its SAM has a return value.) See
+                        // TestStreamForEachSpec.
+                        extraModified.add(translatedTo);
+                        extraModified.add(objectPrimary);
+                    }
                 }
             }
             ParameterizedType parameterizedType = pi.parameterizedType();
-            if (parameterizedType.isFunctionalInterface() && !r.extra().isEmpty()) {
+            if (parameterizedType.isFunctionalInterface() && !r.extra().isEmpty() && links.primary() != null) {
                 // LEAF — the argument is a consumer/functional interface whose captured links live in its extras:
                 // lift the source's elements INTO the object's hidden content. E.g. 'list.forEach(target::add)':
                 // 'list.§xs ~ target.§es'. Delegated to LinkFunctionalInterface. See TestStreamForEachSpec,
@@ -598,8 +608,13 @@ public record LinkMethodCall(JavaInspector javaInspector,
                                             builder.primary(),
                                             linksList,
                                             objectPrimary);
-                    toAdd.forEach(t ->
-                            builder.add(vtm.translateVariableRecursively(t.from()), t.linkNature(), t.to()));
+                    toAdd.forEach(t -> {
+                        Variable from = vtm.translateVariableRecursively(t.from());
+                        Variable to = t.to();
+                        if (Util.acceptModificationLink(from, to)) {
+                            builder.add(from, t.linkNature(), to);
+                        }
+                    });
                 }
             }
             ++i;

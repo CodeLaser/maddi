@@ -4,6 +4,8 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
+import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
+import org.e2immu.analyzer.modification.link.impl.translate.VirtualFieldTranslationMapForMethodParameters;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
@@ -730,13 +732,13 @@ public record ExpressionVisitor(Runtime runtime,
         if (methodInfo.equals(currentMethod)
             || currentMethod.analysis().getOrDefault(ComputeCallGraph.RECURSIVE_METHOD, ValueImpl.BoolImpl.FALSE)
                     .isTrue()) {
+            // direct recursion, lambda to enclosing method
             return new MethodLinkedVariablesImpl(LinksImpl.EMPTY,
                     methodInfo.parameters().stream().map(_ -> LinksImpl.EMPTY).toList(), Set.of());
         }
         RecursionPrevention.How how = recursionPrevention.contains(methodInfo);
         return switch (how) {
             case GET -> methodInfo.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            case SOURCE -> linkComputer.recurseMethod(methodInfo);
             case SHALLOW -> linkComputer.doMethodShallowDoNotWrite(methodInfo);
             case LOCK -> methodInfo.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(methodInfo));
         };

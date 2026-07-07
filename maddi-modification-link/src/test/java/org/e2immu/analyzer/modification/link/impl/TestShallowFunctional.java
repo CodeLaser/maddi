@@ -71,7 +71,7 @@ public class TestShallowFunctional extends CommonTest {
         MethodInfo setInvalidated = pob.findUniqueMethod("setInvalidated", 1);
         MethodLinkedVariablesImpl mlv = setInvalidated.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("""
-                [-] --> setInvalidated.§3←this*.§2,setInvalidated.§m≡this*.§m\
+                [-] --> setInvalidated.§$←this*.§$,setInvalidated.§m≡this*.§m\
                 """, mlv.toString());
         Variable from0 =  mlv.ofReturnValue().link(0).from();
         assertEquals("Type a.b.X.ParseOptionsBuilder", from0.parameterizedType().toString());
