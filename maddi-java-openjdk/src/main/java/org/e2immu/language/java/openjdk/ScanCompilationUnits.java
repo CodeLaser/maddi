@@ -352,4 +352,32 @@ public class ScanCompilationUnits {
         LOGGER.info("Preloaded {}::{}, recurse? {}, loaded {}", location, packageName, recurse, list.size());
         return list;
     }
+
+    /**
+     * Load ONE compiled type by its fully-qualified (canonical) name on demand, reusing this scan's javac task
+     * (whose {@code Elements} resolves+completes classpath symbols lazily, exactly as {@link #preload} does per
+     * type). Backs the CompiledTypesManager's lazy {@code getOrLoad}, so a type first referenced by another
+     * front-end (e.g. Kotlin) resolves to the same bytecode-authoritative TypeInfo. Returns null when the type
+     * is not on the classpath, is not a primary (package-owned) type, or fails to complete. Single-threaded,
+     * like all javac use here.
+     */
+    public TypeInfo loadCompiledTypeOrNull(String fullyQualifiedName) {
+        try {
+            TypeElement te = task.getElements().getTypeElement(fullyQualifiedName);
+            if (!(te instanceof Symbol.ClassSymbol cs)) return null;
+            cs.complete();
+            if (!(cs.owner instanceof Symbol.PackageSymbol)) return null; // primary (top-level) types only
+            TypeInfo pt = classSymbolScanner.getType(fullyQualifiedName);
+            if (pt == null) {
+                pt = classSymbolScanner.lazilyLoadPrimaryTypeFromClassFile(cs);
+                classSymbolScanner.loadType(cs, pt, ClassSymbolScanner.LoadMode.LOAD_MEMBERS);
+            } else {
+                classSymbolScanner.loadType(cs, pt, ClassSymbolScanner.LoadMode.COMPLETE);
+            }
+            if (!pt.hasBeenInspected()) pt.builder().commit();
+            return pt;
+        } catch (Symbol.CompletionFailure e) {
+            return null;
+        }
+    }
 }

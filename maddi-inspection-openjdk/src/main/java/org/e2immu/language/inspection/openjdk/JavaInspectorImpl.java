@@ -60,6 +60,9 @@ public class JavaInspectorImpl implements JavaInspector {
     private final JavaCompiler javaCompiler;
     private final InfoByFqn infoByFqn = new InfoByFqn();
     private final List<String> preload = new ArrayList<>();
+    // the most recent scan's units, retained so its still-live javac task can resolve+load a compiled type by
+    // FQN on demand (the CompiledTypesManager's lazy getOrLoad path). Single-threaded, like all javac use here.
+    private ScanCompilationUnits lastScanUnits;
     private boolean parameterNames;
     private ParameterNameIndex parameterNameIndex; // lazily loaded when parameterNames is on
 
@@ -147,10 +150,18 @@ public class JavaInspectorImpl implements JavaInspector {
         preload.add(thePackage);
     }
 
+    // load ONE compiled type by FQN on demand, via the most recent scan's still-live javac task; null before
+    // any scan has run, or when the type is not on the classpath. Injected as the CompiledTypesManager's
+    // lazy-loader so its getOrLoad works for types no scan has touched yet (e.g. requested by the Kotlin front-end).
+    private TypeInfo loadCompiledTypeOrNull(String fullyQualifiedName) {
+        return lastScanUnits == null ? null : lastScanUnits.loadCompiledTypeOrNull(fullyQualifiedName);
+    }
+
     @Override
     public List<InitializationProblem> initialize(InputConfiguration inputConfiguration) throws IOException {
         this.inputConfiguration = inputConfiguration;
         CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(inputConfiguration.javaBase());
+        ctm.setLazyLoader(this::loadCompiledTypeOrNull); // on-demand bytecode load for getOrLoad misses
         compiledTypesManager = ctm;
         runtime = new RuntimeWithCompiledTypesManager(ctm);
         javaBase().computePriorityDependencies();
@@ -287,6 +298,7 @@ public class JavaInspectorImpl implements JavaInspector {
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                 javacTask, sourceSet, infoByFqn, true, diagnostics, preload, pni);
         ScanCompilationUnits.Result scanned = scanCompilationUnits.scan();
+        this.lastScanUnits = scanCompilationUnits; // keep the live task for on-demand getOrLoad
 
         // copy from scanned into summary
         // register the source set so it appears in ParseResult.sourceSetsByName() (mirrors the congocc inspector)

@@ -14,9 +14,16 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     private final SourceSet javaBase;
     private final Map<String, TypeInfo> typesLoaded = new HashMap<>();
     private final Set<String> packageParts = new HashSet<>();
+    // a javac-FREE callback (so this class retains no OpenJDK references): the driver injects one that loads a
+    // single compiled type by FQN from bytecode on demand (JavaInspectorImpl -> ScanCompilationUnits).
+    private java.util.function.Function<String, TypeInfo> lazyLoader;
 
     public CompiledTypesManagerImpl(SourceSet javaBase) {
         this.javaBase = javaBase;
+    }
+
+    public void setLazyLoader(java.util.function.Function<String, TypeInfo> lazyLoader) {
+        this.lazyLoader = lazyLoader;
     }
 
     @Override
@@ -48,6 +55,18 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     @Override
     public TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
         return typesLoaded.get(fullyQualifiedName);
+    }
+
+    // lazily load a compiled type from bytecode on a miss (via the injected loader), so a type first requested
+    // by another front-end resolves to the same bytecode-authoritative TypeInfo the Java scan would build.
+    @Override
+    public TypeInfo getOrLoad(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        TypeInfo typeInfo = typesLoaded.get(fullyQualifiedName);
+        if (typeInfo != null) return typeInfo;
+        if (lazyLoader == null) return null;
+        TypeInfo loaded = lazyLoader.apply(fullyQualifiedName);
+        if (loaded != null) addTypeInfo(null, loaded); // cache; the loader already registered it in InfoByFqn
+        return loaded;
     }
 
     @Override

@@ -14,31 +14,31 @@
 
 package org.e2immu.language.inspection.kotlin
 
+import org.e2immu.language.cst.api.info.TypeInfo
 import org.e2immu.language.cst.api.runtime.Runtime
+import org.e2immu.language.inspection.api.integration.JavaInspector
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager
 import org.e2immu.language.inspection.openjdk.JavaInspectorImpl
 import org.e2immu.language.inspection.resource.InfoByFqn
 import org.e2immu.language.inspection.resource.InputConfigurationImpl
 import org.e2immu.language.inspection.resource.SourceSetImpl
 import org.e2immu.language.kotlin.k2.KotlinScan
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import java.net.URI
 
 /**
- * Phase 1 of the mixed-language integration — a shared JDK/library core. The openjdk (javac) Java front-end
- * and the Kotlin (K2) front-end, sharing ONE [Runtime] and ONE [CompiledTypesManager], must resolve
- * `java.util.List` to the SAME [org.e2immu.language.cst.api.info.TypeInfo] instance: the Kotlin front-end
- * delegates library-type loading to the injected manager (bytecode-authoritative) rather than building its
- * own view from K2 symbols. If this holds, a Java method and a Kotlin method that both mention `List<String>`
- * link against one shared type.
+ * Mixed-language integration, Phase 1 — a shared JDK/library core. The openjdk (javac) Java front-end and the
+ * Kotlin (K2) front-end share ONE [Runtime] and ONE [CompiledTypesManager]; the Kotlin front-end delegates
+ * library-type loading to that manager (bytecode-authoritative) rather than building its own view from K2.
  */
 class TestSharedJdkCore {
 
-    @Test
-    fun javaAndKotlinShareJavaUtilList() {
-        // 1) the openjdk Java front-end, with java.util preloaded from bytecode
+    /** An openjdk inspector with `java.util` preloaded from bytecode. */
+    private fun openjdkWithJavaUtil(): JavaInspector {
         val javaInspector = JavaInspectorImpl()
         javaInspector.preload("java.base::java.util.")
         javaInspector.initialize(
@@ -48,21 +48,46 @@ class TestSharedJdkCore {
                 .build()
         )
         javaInspector.onlyPreload()
+        return javaInspector
+    }
 
-        val runtime: Runtime = javaInspector.runtime()
-        val ctm: CompiledTypesManager = javaInspector.compiledTypesManager()
+    private fun kotlinSourceSet() = SourceSetImpl.Builder().setName("kotlin").setUri(URI.create("file:/")).build()
+
+    /** The `TypeInfo` of the single parameter of the single method `f` in the Kotlin snippet. */
+    private fun kotlinParamType(runtime: Runtime, ctm: CompiledTypesManager, source: String): TypeInfo {
+        val types = KotlinScan(runtime, kotlinSourceSet(), InfoByFqn(), ctm).parse("K.kt", source)
+        return types.first().findUniqueMethod("f", 1).parameters().first().parameterizedType().typeInfo()
+    }
+
+    @Test
+    fun javaAndKotlinShareJavaUtilList() {
+        val javaInspector = openjdkWithJavaUtil()
+        val ctm = javaInspector.compiledTypesManager()
+
         val javaList = ctm.getOrLoad("java.util.List", javaInspector.javaBase())
-        assertNotNull(javaList, "the Java front-end should have loaded java.util.List")
+        assertNotNull(javaList, "the Java front-end should have preloaded java.util.List")
 
-        // 2) the Kotlin front-end, sharing that runtime + CompiledTypesManager
-        val kotlinSourceSet = SourceSetImpl.Builder().setName("kotlin").setUri(URI.create("file:/")).build()
-        val types = KotlinScan(runtime, kotlinSourceSet, InfoByFqn(), ctm).parse(
-            "K.kt", "class K { fun f(xs: List<String>) {} }\n"
-        )
         // Kotlin's `List<String>` maps to java.util.List; its TypeInfo comes from the shared manager
-        val kotlinList = types.first().findUniqueMethod("f", 1).parameters().first().parameterizedType().typeInfo()
+        val kotlinList = kotlinParamType(javaInspector.runtime(), ctm, "class K { fun f(xs: List<String>) {} }\n")
+        assertSame(javaList, kotlinList, "java.util.List must be ONE shared TypeInfo instance across both parsers")
+    }
 
-        // 3) ONE shared java.util.List across both parsers
-        assertSame(javaList, kotlinList, "java.util.List must be a single shared TypeInfo instance")
+    @Test
+    fun kotlinTriggersLazyLoadOfANonPreloadedJavaType() {
+        val javaInspector = openjdkWithJavaUtil()
+        val ctm = javaInspector.compiledTypesManager()
+
+        // java.time was NOT preloaded -- nothing has loaded LocalDate yet
+        assertNull(ctm.get("java.time.LocalDate", javaInspector.javaBase()), "precondition: not yet loaded")
+
+        // a Kotlin reference to java.time.LocalDate forces getOrLoad -> a lazy bytecode load via the shared manager
+        val kotlinLocalDate = kotlinParamType(
+            javaInspector.runtime(), ctm, "class K { fun f(d: java.time.LocalDate) {} }\n"
+        )
+        assertEquals("java.time.LocalDate", kotlinLocalDate.fullyQualifiedName())
+
+        // it is now bytecode-loaded and cached in the shared manager -- the SAME instance
+        assertSame(kotlinLocalDate, ctm.get("java.time.LocalDate", javaInspector.javaBase()),
+            "the lazily loaded type is cached and shared")
     }
 }
