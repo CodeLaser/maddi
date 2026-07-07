@@ -150,6 +150,15 @@ public class JavaInspectorImpl implements JavaInspector {
         preload.add(thePackage);
     }
 
+    /**
+     * The shared type registry. Exposed so a mixed-language driver can inject it into the Kotlin front-end
+     * (they register into and resolve from the same registry, keyed by (FQN, SourceSet)), letting each
+     * front-end reuse the types the other built — see the mixed-language integration doc, Phases 3/4.
+     */
+    public InfoByFqn infoByFqn() {
+        return infoByFqn;
+    }
+
     // load ONE compiled type by FQN on demand, via the most recent scan's still-live javac task; null before
     // any scan has run, or when the type is not on the classpath. Injected as the CompiledTypesManager's
     // lazy-loader so its getOrLoad works for types no scan has touched yet (e.g. requested by the Kotlin front-end).
