@@ -55,14 +55,27 @@ Acceptance tests carried from `sv`:
   reads it yet.
 - **Green gate:** no behavior change; full suite unchanged.
 
-### Phase 1 — Label algebra + prepwork interfaces
-- Port `LinkNatureImpl`'s label functions (`reverse`, `combine`, `best`, `valid`, `score`) and the
-  additive prepwork interface deltas (`Link`, `LinkNature`, `Links`, `LinksImpl`), keeping the
-  legacy path untouched.
-- Pin the non-commutativity invariant (`rev(∋+∈) ≠ rev(∋)+rev(∈)`) with unit tests.
-- **Green gate:** existing suite unchanged; new label tests pass.
+### Phase 1 — Label algebra + prepwork interfaces  ⚠️ REVISED: not additively separable
+**Finding (during Phase 1 start):** the label algebra is *coupled* to the engine and cannot be
+landed additively:
+- `LinkNatureImpl` is a **shared value class**. sv **renumbers all ranks**, adds two natures
+  (`∈?` `COULD_BE_ELEMENT_OF` / `∋?` `COULD_CONTAIN_AS_MEMBER`), removes `known()` and
+  `replaceSubsetSuperset()`, and broadens `valid()` (`rank>=SHARES_FIELDS` → `rank>EMPTY`).
+- The renumber changes `known()`/`valid()` results, which the **legacy** fixpoint reads.
+- Exactly two legacy call sites depend on the removed/changed methods, both in code the engine
+  replaces: `WriteLinksAndModification:185` (`replaceSubsetSuperset`) and
+  `graph/FollowGraph:76` (`known()`, `valid()`).
 
-### Phase 2 — The engine as an isolated, hardened library  (the crux)
+So Phase 1 folds into the engine slice. **Recommended approach (II — coexistence):** port sv's
+`LinkNatureImpl` (new ranks, natures, `score`, `compareTo`) but **re-implement `known()` /
+`replaceSubsetSuperset()` / `valid()` by identity** so legacy `FollowGraph`/`WriteLinksAndModification`
+keep byte-identical behavior, while the engine uses `score()` + the new natures. Keeps the toggle
+alive. Alternatives: (I) big-bang replace legacy in one slice (simpler, no toggle fallback, riskier);
+(III) clone the label type for the engine (most isolation, most code).
+- **Immediate next step:** empirically test approach (II) — apply the port + identity-preserving
+  methods, run the legacy suite; green ⇒ (II) viable.
+
+### Phase 2 — The engine as an isolated, hardened library  (the crux; now includes the label algebra)
 - Port the generic `impl/graph/` engine + `TestEngine`, `TestClosureWitnessIndex`,
   `TestLabeledGraph`, and the `Test3`/large stress test.
 - **Harden the known instability here, in isolation.** Attack with: repeat-N determinism runs
