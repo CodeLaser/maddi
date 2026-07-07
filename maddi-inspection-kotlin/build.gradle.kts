@@ -29,6 +29,7 @@ dependencies {
     implementation(project(":maddi-kotlin-k2"))
 
     testImplementation(project(":maddi-cst-impl"))
+    testImplementation(project(":maddi-inspection-openjdk")) // Phase 1: the openjdk (javac) Java front-end, to share the JDK core
     testImplementation(project(":maddi-modification-prepwork")) // Tier-1: run the analyzer on Kotlin CST
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")
@@ -37,4 +38,13 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // the openjdk (javac) Java front-end -- used by TestSharedJdkCore to share the JDK core -- reaches into
+    // javac internals, so its test JVM needs the same --add-exports as the maddi-inspection-openjdk module.
+    jvmArgs(
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+    )
 }
