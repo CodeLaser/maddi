@@ -42,7 +42,9 @@ public class ParseJavacList {
                 closure.addAll(JavaModules.jmodDependencyClosure(jm));
             });
         }
-        closure.forEach(jmod -> builder.addClassPathParts(
+        // sorted() so the jmod classpath parts have a deterministic order (a HashSet's iteration order is not
+        // stable across runs, which otherwise shuffles the serialized InputConfiguration)
+        closure.stream().sorted().forEach(jmod -> builder.addClassPathParts(
                 new SourceSetImpl.Builder().setName(jmod)
                         .setSourceDirectories(List.of())
                         .setUri(URI.create("jmod:" + jmod))
