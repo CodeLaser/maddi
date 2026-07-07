@@ -55,7 +55,7 @@ create. The graph only needs to distinguish `source → library → jdk` (a clea
 |---|---|---|
 | 1 | Common JDK/library core (no source interop yet) | **done** |
 | 2 | Kotlin → Java source references | **done** |
-| 3 | Java → Kotlin source references (via generated Java stubs for javac) | not started |
+| 3 | Java → Kotlin source references (via generated Java stubs for javac) | **in progress** (stub generator built + de-risked) |
 | 4 | A unified `MixedInspector` orchestrating both front-ends | not started |
 
 ---
@@ -168,20 +168,44 @@ resolution while `javac` produces the classes.
 
 ---
 
-## 7. Phase 3 — Java resolving Kotlin source types (not started)
+## 7. Phase 3 — Java resolving Kotlin source types (in progress)
 
 This is the harder direction because **javac cannot read Kotlin**. The plan:
 
 - A cross-language **skeleton pass A** registers `TypeInfo` skeletons for all source types of both languages
   in the shared `InfoByFqn`.
-- Generate **signature-only Java stubs** from those Kotlin skeletons and hand them to javac on its source
-  path, so javac can resolve its own trees. The stubs are throwaway scaffolding — the *CST* still comes from
-  the shared registry, because `ClassSymbolScanner.classTypeInfo()` checks the registry first and finds the
-  real Kotlin `TypeInfo`.
+- Generate **signature-only Java stubs** from those Kotlin types and hand them to javac, so javac can resolve
+  its own trees. The stubs are throwaway scaffolding — the *CST* still comes from the shared registry,
+  because `ClassSymbolScanner.classTypeInfo()` checks the registry first and finds the real Kotlin `TypeInfo`.
 
-Open questions: stub fidelity (signatures + generic bounds should suffice; Java cannot call Kotlin
+### 7.1 Stub generator (built + de-risked)
+
+`JavaStubGenerator.stub(typeInfo)` (`maddi-inspection-kotlin`) emits a signature-only Java source for any CST
+`TypeInfo`: package, type declaration (class/interface, type parameters + bounds, `extends`/`implements`),
+fields, constructors, methods. Bodies `throw` (so nothing runs); type references are **erased** (raw, no
+generic arguments) so a reference resolves without pulling in transitive stubs; members are `public`
+(over-exposing does not break resolution — the real access lives in the CST).
+
+**De-risk (`TestJavaStub`):** the make-or-break question — *does a stub generated from a Kotlin type actually
+satisfy javac?* — is answered yes. A Kotlin `Widget` is parsed, its stub generated, and javac **attributes**
+(parse + `JavacTask.analyze()`, no code-gen) a Java `UseWidget` that constructs `Widget`, reads its
+field/getter and calls its methods — against the stub only, with **zero errors**.
+
+### 7.2 Remaining wiring (part of Phase 4)
+
+Two pieces remain for the end-to-end Java→Kotlin flow, both belonging to the unified driver:
+
+1. **Deliver the stubs to javac** — either as compiled `.class` on the classpath, or as source that the
+   openjdk scan is told *not* to convert (so it does not build a duplicate `TypeInfo` from the stub).
+2. **The openjdk front-end reuses the shared Kotlin type** — its resolution must find the registered Kotlin
+   `TypeInfo` (via the shared `InfoByFqn`/`CompiledTypesManager`) rather than the stub. `classTypeInfo()`
+   already checks the registry first; the open item is sharing the registry (the openjdk `InfoByFqn` is
+   currently private — the `CompiledTypesManager` seam, as used in Phase 2, is the likely path since the
+   Kotlin front-end can publish its types there).
+
+Open questions: stub fidelity (signatures + generic bounds suffice; Java cannot call Kotlin
 default-arg/`$default` shapes, so those need not be visible); and nullability / declaration-site variance /
-platform types across the boundary — which is more a modification/linking concern than a parsing one.
+platform types across the boundary — more a modification/linking concern than a parsing one.
 
 ## 8. Phase 4 — a unified driver (not started)
 
@@ -210,3 +234,4 @@ Order is Kotlin-aware-of-Java and Java-aware-of-Kotlin-via-stubs, mirroring real
 | `getOrLoad` override + callback | `maddi-inspection-openjdk/.../CompiledTypesManagerImpl.java` |
 | Phase 1 tests | `maddi-inspection-kotlin/.../TestSharedJdkCore.kt` |
 | Phase 2 tests | `maddi-inspection-kotlin/.../TestMixedSourceReference.kt`, `maddi-kotlin-k2/.../MixedSourceTest.kt` |
+| Phase 3 stub generator + de-risk | `maddi-inspection-kotlin/.../JavaStubGenerator.kt`, `.../TestJavaStub.kt` |
