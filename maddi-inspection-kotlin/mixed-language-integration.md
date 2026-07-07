@@ -2,8 +2,8 @@
 
 This document describes how the **openjdk (javac) Java front-end** and the **Kotlin (K2) front-end** are
 being integrated so that a project can mix Java and Kotlin source that cross-reference each other, over **one
-shared JDK/library core**. It covers the design, the two phases that are implemented (Phase 1 and Phase 2),
-and the two that are not yet (Phase 3 and Phase 4).
+shared JDK/library core**. It covers the design and the three phases that are implemented (Phase 1–3, proven
+by tests); Phase 4 (packaging the orchestration into a driver) is not yet started.
 
 > Scope note. maddi has *two* Java front-ends: the homegrown CongoCC parser (`maddi-inspection-integration`)
 > and the javac-based one (`maddi-java-openjdk` / `maddi-inspection-openjdk`). This integration targets the
@@ -55,8 +55,8 @@ create. The graph only needs to distinguish `source → library → jdk` (a clea
 |---|---|---|
 | 1 | Common JDK/library core (no source interop yet) | **done** |
 | 2 | Kotlin → Java source references | **done** |
-| 3 | Java → Kotlin source references (via generated Java stubs for javac) | **in progress** (stub generator built + de-risked) |
-| 4 | A unified `MixedInspector` orchestrating both front-ends | not started |
+| 3 | Java → Kotlin source references (via generated Java stubs for javac) | **done** (proven end-to-end) |
+| 4 | A unified `MixedInspector` packaging the orchestration | not started |
 
 ---
 
@@ -191,21 +191,27 @@ satisfy javac?* — is answered yes. A Kotlin `Widget` is parsed, its stub gener
 (parse + `JavacTask.analyze()`, no code-gen) a Java `UseWidget` that constructs `Widget`, reads its
 field/getter and calls its methods — against the stub only, with **zero errors**.
 
-### 7.2 Remaining wiring (part of Phase 4)
+### 7.2 End-to-end (proven — `TestMixedJavaToKotlin`)
 
-Two pieces remain for the end-to-end Java→Kotlin flow, both belonging to the unified driver:
+The full Java→Kotlin flow works, sharing one `Runtime` + one `InfoByFqn` + one `CompiledTypesManager`
+(**openjdk-first**: the openjdk inspector owns them; the Kotlin front-end borrows them — `JavaInspectorImpl`
+now exposes `infoByFqn()`). Both languages live in **one source set** (`main`):
 
-1. **Deliver the stubs to javac** — either as compiled `.class` on the classpath, or as source that the
-   openjdk scan is told *not* to convert (so it does not build a duplicate `TypeInfo` from the stub).
-2. **The openjdk front-end reuses the shared Kotlin type** — its resolution must find the registered Kotlin
-   `TypeInfo` (via the shared `InfoByFqn`/`CompiledTypesManager`) rather than the stub. `classTypeInfo()`
-   already checks the registry first; the open item is sharing the registry (the openjdk `InfoByFqn` is
-   currently private — the `CompiledTypesManager` seam, as used in Phase 2, is the likely path since the
-   Kotlin front-end can publish its types there).
+1. The Kotlin front-end registers `a.b.K` into the shared registry (`KotlinScan(runtime, main, infoByFqn, ctm)`).
+2. `JavaStubGenerator` emits `K`'s stub; it is **compiled** and placed on the `main` source set's classpath
+   (as an `externalLibrary` `SourceSet` whose `uri()` is the stub directory — openjdk adds such directories
+   to javac's `CLASS_PATH`).
+3. The openjdk front-end parses a Java source that references `K`. javac resolves `K` from the stub `.class`;
+   the openjdk scan, building the referencing type, calls `classTypeInfo("a.b.K")`, which **checks the shared
+   registry first** and returns the Kotlin `K` — the stub `.class` is never turned into a `TypeInfo`.
+4. `assertSame(kotlinK, javaField.type().typeInfo())`.
 
-Open questions: stub fidelity (signatures + generic bounds suffice; Java cannot call Kotlin
-default-arg/`$default` shapes, so those need not be visible); and nullability / declaration-site variance /
-platform types across the boundary — more a modification/linking concern than a parsing one.
+The stub `.class` on the classpath (rather than as a scanned source) is what avoids a duplicate `TypeInfo`:
+the openjdk scan only converts *sources*, and reuses registry-present types for *references*.
+
+Open questions for a production driver: stub fidelity (signatures + generic bounds suffice; Java cannot call
+Kotlin default-arg/`$default` shapes, so those need not be visible); and nullability / declaration-site
+variance / platform types across the boundary — more a modification/linking concern than a parsing one.
 
 ## 8. Phase 4 — a unified driver (not started)
 
@@ -235,3 +241,4 @@ Order is Kotlin-aware-of-Java and Java-aware-of-Kotlin-via-stubs, mirroring real
 | Phase 1 tests | `maddi-inspection-kotlin/.../TestSharedJdkCore.kt` |
 | Phase 2 tests | `maddi-inspection-kotlin/.../TestMixedSourceReference.kt`, `maddi-kotlin-k2/.../MixedSourceTest.kt` |
 | Phase 3 stub generator + de-risk | `maddi-inspection-kotlin/.../JavaStubGenerator.kt`, `.../TestJavaStub.kt` |
+| Phase 3 end-to-end | `maddi-inspection-kotlin/.../TestMixedJavaToKotlin.kt`; openjdk `JavaInspectorImpl.infoByFqn()` |
