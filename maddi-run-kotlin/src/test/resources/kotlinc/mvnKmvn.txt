@@ -1,0 +1,13 @@
+[INFO] --- kotlin-maven-plugin:2.1.0:compile (compile) @ kmvn ---
+[DEBUG] Kotlin version 2.1.0 (JRE 21.0.11)
+[DEBUG] Compiling Kotlin sources from [/proj/kmvn/src/main/kotlin, /proj/kmvn/target/generated-sources/annotations]
+[DEBUG] Classpath: /repo/kotlin-stdlib-2.1.0.jar:/repo/annotations-13.0.jar
+[DEBUG] Classes directory is /proj/kmvn/target/classes
+[DEBUG] Module name is kmvn
+[DEBUG] Classpath:
+[INFO] --- kotlin-maven-plugin:2.1.0:test-compile (test-compile) @ kmvn ---
+[DEBUG] Kotlin version 2.1.0 (JRE 21.0.11)
+[DEBUG] Compiling Kotlin sources from [/proj/kmvn/src/test/kotlin, /proj/kmvn/target/generated-test-sources/test-annotations]
+[DEBUG] Classpath: /proj/kmvn/target/test-classes:/proj/kmvn/target/classes:/repo/kotlin-stdlib-2.1.0.jar:/repo/junit-jupiter-api-5.10.2.jar
+[DEBUG] Classes directory is /proj/kmvn/target/test-classes
+[DEBUG] Module name is kmvn

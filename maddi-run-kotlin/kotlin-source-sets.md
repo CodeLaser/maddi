@@ -54,8 +54,8 @@ Captured from a real Gradle 9.5.1 / Kotlin build (`--debug`), the marker and lay
 
 | Concern | javac | kotlinc | Handling |
 |---|---|---|---|
-| Gradle marker | `…Compiler arguments: …` | `…Kotlin compiler args: …` | new regex |
-| Maven marker | `[DEBUG] (-d …)` | kotlin-maven-plugin DEBUG line | new regex (see §5) |
+| Gradle marker | `…Compiler arguments: …` (one line) | `…Kotlin compiler args: …` (one line) | new regex |
+| Maven marker | `[DEBUG] (-d …)` (one line) | **labelled multi-line block** (see §5) | block accumulator |
 | Destination | dir | dir **or `.jar`** | `-d`; jar path is a valid identity key |
 | Module name | — | `-module-name <proj>_main` | `moduleName()` (retained; not yet used for naming) |
 | Classpath | `-classpath` | `-classpath` / `-cp` | same |
@@ -80,18 +80,33 @@ Captured from a real Gradle 9.5.1 / Kotlin build (`--debug`), the marker and lay
 
 ## 5. Markers
 
+Both the Gradle and Maven formats are **validated against live captures** (Gradle 9.5.1 + Kotlin 2.1.0
+`--debug`; `mvn -X` + kotlin-maven-plugin 2.1.0 on JDK 21).
+
+**Gradle / raw CLI — one line per invocation:**
 ```
 GRADLE : .*Kotlin compiler args:\s*(.+)      # org.jetbrains.kotlin.gradle plugin, --debug
-MAVEN  : .*\[DEBUG].*Kotlin compiler.*args.*?(-.+)   # kotlin-maven-plugin, -X   (validate on a real capture)
 KOTLINC: kotlinc(?:-jvm)?\s+(.+)             # raw CLI
 ```
 
-The Gradle marker and the argument layout in §3 are validated against a live capture. The Maven marker is
-best-effort and flagged for validation against a real `mvn -X` kotlin-maven-plugin log (Phase 0 follow-up).
+**Maven — a labelled multi-line block per compile execution** (the plugin does *not* emit a command line; the
+`… with arguments:` line is followed by a useless reflective object dump — ignore it). One block:
+```
+[DEBUG] Compiling Kotlin sources from [<srcDir1>, <srcDir2>]     # opens a block; source DIRECTORIES
+[DEBUG] Classpath: <cp1>:<cp2>:…                                 # ':'-separated
+[DEBUG] Classes directory is <dest>                             # the -d equivalent
+[DEBUG] Module name is <name>                                   # closes the block
+```
+`ParseKotlincList.parseLines` accumulates a block from `Compiling Kotlin sources from […]` to `Module name is
+…`. Two consequences, both handled by the existing engine:
+- **Maven has no `-Xfriend-paths`** — the main↔test link is the test's `Classpath:` containing the main output
+  (`target/classes`), i.e. plain output-identity linking (as for javac).
+- **Maven gives source directories** (not files), mapped to `Kotlinc.sourcePath()` — no package inference is
+  needed there (unlike Gradle, whose bare source-file args do need it).
 
 ## 6. Phasing
 
-- **Phase 0** — capture real logs, pin markers/layout. *Done for Gradle; Maven marker pending a real capture.*
+- **Phase 0** — capture real logs, pin markers/layout. *Done for both Gradle and Maven (live captures).*
 - **Phase 1** — `Kotlinc.parse` (+ argfile), unit-tested against captured-shape lines.
 - **Phase 2** — generalize the engine to `CompileInvocation`; `Javac` ported onto it; `TestJavac*` stay green.
 - **Phase 3** — `maddi-run-kotlin` + `ParseKotlincList` → `InputConfiguration`; fixture tests.
@@ -104,9 +119,11 @@ best-effort and flagged for validation against a real `mvn -X` kotlin-maven-plug
 
 ## 7. Known limitations / follow-ups
 
-- Maven marker unvalidated (§5).
+- **Mixed Maven modules**: kotlin-maven-plugin and maven-compiler-plugin both output to `target/classes`, so a
+  Java and a Kotlin compile in one module collide on one output identity. Fine for pure-Kotlin modules; for
+  Phase 5 (one-pass javac+kotlinc) this needs `-module-name` / language-tagging to keep them distinct.
 - Naming still uses the destination path-suffix heuristic (proven for both languages); `-module-name` is
-  captured but not yet the naming source. Revisit for Maven, where Java and Kotlin share `target/classes` and
-  the two languages' outputs collide on one identity.
-- Bare source **directory** args (not files) are not treated as roots (build tools pass files); revisit if a
-  raw-`kotlinc` use passes dirs.
+  captured but not yet the naming source.
+- Bare source **directory** args on a raw `kotlinc` line (not files, not Maven's `sourcePath`) are not treated
+  as roots; revisit if that form appears in practice.
+- The Maven block parser keys off the English DEBUG labels; a localized Maven would need locale-aware markers.
