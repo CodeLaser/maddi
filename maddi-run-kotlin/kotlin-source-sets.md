@@ -110,12 +110,20 @@ KOTLINC: kotlinc(?:-jvm)?\s+(.+)             # raw CLI
 - **Phase 1** — `Kotlinc.parse` (+ argfile), unit-tested against captured-shape lines.
 - **Phase 2** — generalize the engine to `CompileInvocation`; `Javac` ported onto it; `TestJavac*` stay green.
 - **Phase 3** — `maddi-run-kotlin` + `ParseKotlincList` → `InputConfiguration`; fixture tests.
-- **Phase 4 (later)** — a K2 driver that consumes an `InputConfiguration` (build a `KtSourceModule` per source
-  set, wire library jars + upstream source sets + friend paths). This is the analogue of how the openjdk
-  `JavaInspector` consumes the config; it is out of scope for Phases 0–3.
-- **Phase 5 (later)** — feed **both** javac and kotlinc invocations from one build log into a single
-  `CompileListToSourceSets`, so Java and Kotlin modules link by output identity in one pass (feeds the
-  mixed-language `MixedInspector`).
+- **Phase 4 (done)** — a K2 driver that consumes an `InputConfiguration`: `KotlinInspector.parseFromConfiguration`
+  (maddi-inspection-kotlin) extracts source directories + library jars + dependency order and delegates to
+  `KotlinProjectScan` (maddi-kotlin-k2), which builds ONE standalone K2 session with a `KaSourceModule` per
+  source set (wired to the JDK, the library classpath, and its upstream source-set modules) and drives
+  `KotlinScan.convert` per set in dependency order over one shared `InfoByFqn`. The analogue of how the openjdk
+  `JavaInspector` consumes the config. Test: `TestKotlinInspectorFromConfiguration` (two on-disk modules, B→A,
+  `assertSame` across the boundary). The session builder lives in maddi-kotlin-k2 because the K2 Analysis API
+  (`*-for-ide`) is visible only there; the driver one module up passes plain `SourceSet`/`Path` inputs.
+- **Phase 5 (done, parse side)** — `ParseMixedList` (maddi-run-kotlin, +dep on maddi-run-openjdk) reads one
+  build log containing **both** `javac` and `kotlinc` invocations and feeds the combined
+  `List<CompileInvocation>` to the single `CompileListToSourceSets`, so Java and Kotlin source sets link by
+  output identity in one pass (e.g. a Java module whose classpath contains a Kotlin module's
+  `build/classes/kotlin/main`). The consuming side — driving both front-ends from one mixed `InputConfiguration`
+  into `MixedInspector` — is the remaining follow-up.
 
 ## 7. Known limitations / follow-ups
 

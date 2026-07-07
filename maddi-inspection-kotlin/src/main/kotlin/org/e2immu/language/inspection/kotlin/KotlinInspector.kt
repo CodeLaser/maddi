@@ -20,7 +20,11 @@ import org.e2immu.language.cst.api.runtime.Runtime
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager
 import org.e2immu.language.inspection.api.resource.InputConfiguration
 import org.e2immu.language.inspection.resource.InfoByFqn
+import org.e2immu.language.kotlin.k2.KotlinProjectScan
 import org.e2immu.language.kotlin.k2.KotlinScan
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
 
 /**
  * Driver for the Kotlin front-end — the analogue of `maddi-inspection-openjdk`'s `JavaInspectorImpl`.
@@ -49,4 +53,39 @@ class KotlinInspector(private val runtime: Runtime) {
         KotlinScan(runtime, sourceSet, infoByFqn).parse(filesByName)
 
     fun compiledTypesManager(): CompiledTypesManager = compiledTypesManager
+
+    /**
+     * Phase 4 — parse the whole [InputConfiguration] from disk: build ONE standalone K2 session over the
+     * configured source **directories** and library **classpath** (not the running process's), with a
+     * `KtSourceModule` per source set wired to its upstream source sets, then drive [KotlinScan] per source set
+     * in dependency order (so an upstream set's types are registered before a dependent references them),
+     * sharing the one [infoByFqn]. Returns the committed types per source set. The analogue of how
+     * `JavaInspectorImpl` consumes an `InputConfiguration`.
+     */
+    fun parseFromConfiguration(): Map<SourceSet, List<TypeInfo>> {
+        val ordered = dependencyOrder(inputConfiguration.sourceSets().filter { !it.externalLibrary() })
+        // library jars from the configuration's classpath (external, non-JDK, on disk); the JDK comes from the SDK module
+        val libraryRoots = inputConfiguration.classPathParts()
+            .filter { it.externalLibrary() && !it.partOfJdk() }
+            .mapNotNull { uriToPath(it.uri()) }
+            .filter { Files.exists(it) }
+        val jdkHome = Paths.get(System.getProperty("java.home"))
+        return KotlinProjectScan(runtime, infoByFqn).parse(ordered, libraryRoots, jdkHome)
+    }
+
+    /** Topological order (dependencies before dependents) over the given source sets; ignores library deps. */
+    private fun dependencyOrder(sourceSets: List<SourceSet>): List<SourceSet> {
+        val set = sourceSets.toSet()
+        val ordered = LinkedHashSet<SourceSet>()
+        fun visit(ss: SourceSet) {
+            if (ss in ordered || ss !in set) return
+            ss.dependencies().forEach { if (it in set) visit(it) }
+            ordered.add(ss)
+        }
+        sourceSets.forEach { visit(it) }
+        return ordered.toList()
+    }
+
+    private fun uriToPath(uri: java.net.URI): Path? =
+        runCatching { if (uri.scheme == "file") Paths.get(uri) else Paths.get(uri.schemeSpecificPart) }.getOrNull()
 }

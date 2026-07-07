@@ -112,6 +112,11 @@ public class ParseJavacList {
     private static final Pattern[] PATTERNS = new Pattern[]{JAVAC, GRADLE, MVN};
 
     private Javac convertToJavac(String line) {
+        return javacLine(line);
+    }
+
+    /** Parse a single log line into a {@link Javac} (javac/Gradle/Maven markers), or {@code null}. */
+    public Javac javacLine(String line) {
         for (Pattern pattern : PATTERNS) {
             Matcher m = pattern.matcher(line);
             if (m.matches()) {
