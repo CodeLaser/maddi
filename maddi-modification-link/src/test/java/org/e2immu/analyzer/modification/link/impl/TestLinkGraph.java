@@ -93,7 +93,7 @@ public class TestLinkGraph extends CommonTest {
     @DisplayName("class reference cycles")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -109,12 +109,12 @@ public class TestLinkGraph extends CommonTest {
                 interface Runtime { Expression newEmptyExpression(); }
                 interface Expression { }
                 interface Operator {
-                    Expression combine(Expression template, Expression other) { }
+                    Expression combine(Expression template, Expression other);
                     static Operator STATEMENT(Runtime runtime) {
                         return new EraseTemplate(runtime, ";");
                     }
                     record EraseTemplate(Runtime runtime, String name) implements Operator {
-                            Expression combine(Expression template, Expression other) {
+                            public Expression combine(Expression template, Expression other) {
                                 return template == null ? template: other;
                             }
                      }
@@ -130,7 +130,7 @@ public class TestLinkGraph extends CommonTest {
                         return null;
                      }
                 }
-                private Runtime runtime = new RuntimeImpl();
+                private static Runtime runtime = new RuntimeImpl();
                 private Operator plus;
                 private Expression T = runtime.newEmptyExpression();
                 static class BlankOutVariables {
@@ -209,7 +209,7 @@ public class TestLinkGraph extends CommonTest {
     @DisplayName("class reference cycles, 2")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);

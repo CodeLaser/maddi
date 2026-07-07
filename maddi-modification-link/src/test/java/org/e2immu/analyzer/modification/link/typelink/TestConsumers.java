@@ -30,13 +30,13 @@ public class TestConsumers extends CommonTest {
             public class C {
                 interface SourceProvider extends Supplier<String> { }
                 static class Builder {
-                    void setSource(String source);
+                    void setSource(String source) { }
                  }
-                void method(String in, Builder b, BiConsumer<SourceProvider, Builder> consumer) {
+                void method(SourceProvider in, Builder b, BiConsumer<SourceProvider, Builder> consumer) {
                     consumer.accept(in, b);
                 }
                 void call(Builder builder) {
-                    method("a", builder, (sp, b)-> {
+                    method(() -> "a", builder, (sp, b)-> {
                         b.setSource(sp.get());
                     });
                 }
@@ -46,7 +46,7 @@ public class TestConsumers extends CommonTest {
     @DisplayName("example of bi-consumer that does not 'receive' a stream, but only one element")
     @Test
     public void test1() {
-        TypeInfo C = javaInspector.parse(INPUT1);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT1);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -99,7 +99,7 @@ public class TestConsumers extends CommonTest {
     @DisplayName("example of consumer with ∩ rather than ∈ link")
     @Test
     public void test2() {
-        TypeInfo C = javaInspector.parse(INPUT2);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT2);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);

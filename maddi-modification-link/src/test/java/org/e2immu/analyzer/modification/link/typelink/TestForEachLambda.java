@@ -251,8 +251,9 @@ public class TestForEachLambda extends CommonTest {
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
         Links tlvT1 = listVi.linkedVariablesOrEmpty();
-        // we keep the link, to be able to propagate modifications/type use
-        assertEquals("0:list.§$s∋0:j", tlvT1.toString());
+        // a consumer whose lambda parameter is fully absorbed (no external capture) leaves the source unlinked:
+        // no bare 'list.§$s ∋ j'. The method summary is empty either way. See TestStreamForEachSpec (canonical).
+        assertEquals("-", tlvT1.toString());
 
         assertEquals("[-] --> -", mlvMethod.toString());
     }
