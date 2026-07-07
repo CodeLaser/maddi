@@ -76,7 +76,7 @@ The `toString()` of an mlv is `[<param links>] --> <return links>`, e.g. `[0:box
 - **`*`** after a variable = it is (or may be) **modified** at that point (e.g. `box*`, `this.myBox*.t`).
 - **`0:` / `1:`** = parameter index; **`.t` / `.a`** = a field; **`[0]`** = array access; **`§…`** = a virtual field
   / hidden content (e.g. `§xs`, `§es`, `§m`); **`∈∈`** = element-of-element (nested).
-- **`$__rv`** return-value intermediate, **`$_ce`** constructed-element (record/for-each pattern binding),
+- **`$__rv`** return-value intermediate, **`$_ce`** constant expression (a literal/constant value; `MarkerVariable.constant`),
   **`$_fi`** functional-interface variable, **`$_afi`** applied-functional-interface, **`Λ`** functional-interface marker.
 - `[-]` = one parameter with no links; `[-, -]` = two; `--> -` = no return links.
 
@@ -254,7 +254,7 @@ Method-reference sub-cases (`methodReference`):
 (`M::clear`) or the freshly-created object (`R::new`, which always "modifies" its `this` by setting fields). Its
 self-modifications are dropped, not leaked as the enclosing `this`. So `M::clear`→`MOD[]`, `Box::new`→`MOD[]`.
 
-Markers: `$_fi` FIV · `$_afi` applied-FIV · `$_ce` constructed element · `$__rv` return-value intermediate ·
+Markers: `$_fi` FIV · `$_afi` applied-FIV · `$_ce` constant expression · `$__rv` return-value intermediate ·
 `Λ` FI-typed variable · `↗`/`↖` decoration links.
 
 ### 7.2 Applying an FI (`LinkMethodCall.methodCall`) — three seams
