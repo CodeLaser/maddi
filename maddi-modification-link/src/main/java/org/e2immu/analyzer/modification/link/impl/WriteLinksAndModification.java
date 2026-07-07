@@ -1,19 +1,18 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
-import org.e2immu.analyzer.modification.link.impl.graph.FollowGraph;
-import org.e2immu.analyzer.modification.link.impl.graph.LinkGraph;
-import org.e2immu.analyzer.modification.link.impl.graph.RedundantLinks;
-import org.e2immu.analyzer.modification.link.impl.graph.Timer;
+import org.e2immu.analyzer.modification.link.impl.graph.Fact;
+import org.e2immu.analyzer.modification.link.impl.linkgraph.FollowGraph;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
+import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
+import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -23,33 +22,23 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
-import static org.e2immu.analyzer.modification.link.impl.graph.LinkGraph.printGraph;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 
 class WriteLinksAndModification {
-    private final JavaInspector javaInspector;
     private final Runtime runtime;
     private final VirtualFieldComputer virtualFieldComputer;
-    private final Timer timer;
     private final FollowGraph followGraph;
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(WriteLinksAndModification.class);
 
     WriteLinksAndModification(JavaInspector javaInspector,
                               VirtualFieldComputer virtualFieldComputer,
-                              Timer timer,
                               FollowGraph followGraph) {
-        this.javaInspector = javaInspector;
         this.runtime = javaInspector.runtime();
         this.virtualFieldComputer = virtualFieldComputer;
-        this.timer = timer;
         this.followGraph = followGraph;
     }
 
@@ -57,109 +46,116 @@ class WriteLinksAndModification {
     }
 
     @NotNull WriteResult go(Statement statement,
-                            boolean lastStatement,
                             VariableData vd,
                             Set<Variable> previouslyModified,
-                            Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation,
-                            Map<Variable, Map<Variable, LinkNature>> graph) {
-        assert vd != null;
-
-        // do the first iteration
-        LoopResult lr = loopOverVd(vd, statement, lastStatement, graph, previouslyModified, modifiedDuringEvaluation);
-        if (!lr.redo) {
-            return new WriteResult(lr.newLinkedVariables, lr.unmarkedModifications, lr.newLinksSize);
-        }
-
-        // do a second iteration, we have changed some of the operations because of a modification
-        // (⊆ becomes ~ after List.add(...) e.g. See TestConstructor,1)
-        LinkGraph linkGraph = new LinkGraph(javaInspector, runtime, false, timer, followGraph);
-        Map<Variable, Map<Variable, LinkNature>> graph2 = linkGraph.makeGraph(lr.newLinkedVariables, Set.of());
-        if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Recomputed bi-directional graph for local:\n{}", printGraph(graph2));
-        }
-        // first decide which variables to recompute
-        String index = statement.source().index();
-        Set<Variable> recompute = vd.variableInfoStream(Stage.EVALUATION)
-                .filter(vi -> vi.assignments().indexOfDefinition().compareTo(index) < 0
-                              && !vi.assignments().contains(index))
-                .map(VariableInfo::variable)
-                .collect(Collectors.toUnmodifiableSet());
-        LOGGER.debug("Variables to recompute: {}", recompute);
-        Map<Variable, Links> newLinkedVariables = new HashMap<>(lr.newLinkedVariables);
-        for (Variable variable : recompute) {
-            Links.Builder builder = followGraph.followGraph(virtualFieldComputer, graph2, variable);
-            builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
-            newLinkedVariables.put(variable, builder.build());
-        }
-        return new WriteResult(newLinkedVariables, lr.unmarkedModifications, lr.newLinksSize);
-    }
-
-    private record LoopResult(boolean redo,
-                              Set<Variable> unmarkedModifications,
-                              Map<Variable, Links> newLinkedVariables,
-                              int newLinksSize) {
-    }
-
-    private LoopResult loopOverVd(VariableData vd,
-                                  Statement statement,
-                                  boolean lastStatement,
-                                  Map<Variable, Map<Variable, LinkNature>> graph,
-                                  Set<Variable> previouslyModified,
-                                  Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation) {
-
+                            Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation) {
         Set<Variable> unmarkedModifications = new HashSet<>(modifiedDuringEvaluation.keySet());
         Map<Variable, Links.Builder> newLinkedVariables = new HashMap<>();
         List<Link> toRemove = new ArrayList<>();
 
-        // the purpose of this map is to make sure that we don't add unnecessary virtual modification links (a.§m ≡ b.§m)
-        // this system depends on always processing the variables in the same order (linked hash map in VD, order of occurrence)
-        // this should reduce the modification links to something below quadratic
-        RedundantLinks redundantLinks = new RedundantLinks(timer);
-        for (VariableInfo vi : vd.variableInfoIterable(Stage.EVALUATION)) {
-            toRemove.addAll(doVariableReturnRecompute(statement, lastStatement, graph, vi, unmarkedModifications,
-                    previouslyModified, modifiedDuringEvaluation, newLinkedVariables, redundantLinks));
+        Map<Variable, Set<MethodInfo>> expandedModifiedDuringEvaluation = new HashMap<>();
+        for (Map.Entry<Variable, Set<MethodInfo>> entry : modifiedDuringEvaluation.entrySet()) {
+            for (Variable v : followGraph.graph().allShared(entry.getKey())) {
+                expandedModifiedDuringEvaluation.put(v, entry.getValue());
+            }
         }
-        for (Link link : toRemove) {
-            Variable primary = Util.primary(link.from());
-            Links.Builder builder = newLinkedVariables.get(primary);
-            if (builder != null) builder.removeIf(l -> l.equals(link));
+
+        for (VariableInfo vi : vd.variableInfoIterable(Stage.EVALUATION)) {
+            toRemove.addAll(doVariableReturnRecompute(statement, vi, unmarkedModifications,
+                    previouslyModified, expandedModifiedDuringEvaluation, newLinkedVariables));
+        }
+        /*
+         toRemove now contains links that should change from ⊆, ⊇ to ~, see e.g. TestConstructor,1; TestDependent,1
+
+         The complication is that we must update the graph, and some of the results, but not all, because some results
+         are "before the modification", such as ∈ in a removeFirst() operation on a list (TestDependent,1),
+         and the ⊆ to ~ is an "after the modification" operation.
+
+         The solution here is to selectively remove the correct edges from the graph, and to rely
+         on the 'best path' to solve the problem. TestDependent,2 shows the way. TestList2,2 shows a variant
+         of the problem, with assignment order.
+         */
+        if (!toRemove.isEmpty()) {
+            Set<Variable> affected = new HashSet<>();
+            for (Link link : toRemove) {
+                Set<Variable> set = followGraph.graph()
+                        .replaceReturnAffected(link.from(), link.to(), link.linkNature(), SHARES_ELEMENTS);
+                affected.add(link.from());
+                affected.add(link.to());
+                updateNewLinks(newLinkedVariables, link);
+            }
+            // assert !affected.isEmpty();
+            followGraph.graph().recompute(affected, statement.source().index(), this::acceptRemoval);
         }
         Map<Variable, Links> builtNewLinkedVariables = new HashMap<>();
         int sum = newLinkedVariables.entrySet().stream().mapToInt(e -> {
-            Links links = e.getValue().build();
+            Links links = e.getValue().sort().build();
             builtNewLinkedVariables.put(e.getKey(), links);
             return links.size();
         }).sum();
-        return new LoopResult(!toRemove.isEmpty(), unmarkedModifications, builtNewLinkedVariables, sum);
+        return new WriteResult(builtNewLinkedVariables, unmarkedModifications, sum);
     }
 
+    // FIXME should be replaced by real code that goes as far as §m equivalence: anything @Dependent
+    //  should be removed
+    private boolean acceptRemoval(Fact<Variable, LinkNature> fact) {
+        return fact.label() == IS_SUBSET_OF || fact.label() == IS_SUPERSET_OF;
+    }
 
+    private void updateNewLinks(Map<Variable, Links.Builder> newLinkedVariables, Link toUpdate) {
+        Variable primary = Util.primary(toUpdate.from());
+        Links.Builder builder = newLinkedVariables.computeIfAbsent(primary, _ -> new LinksImpl.Builder(primary));
+        builder.replace(toUpdate, SHARES_ELEMENTS);
+    }
+
+    /*
+    It is possible that 2 real variables are represented by one shared variable.
+    It is equally possible that one real variable refers is composed of multiple shared variables.
+
+    On top of that, we add the relevant modification links kept in VirtualModificationIdenticals.
+    */
     private List<Link> doVariableReturnRecompute(Statement statement,
-                                                 boolean lastStatement,
-                                                 Map<Variable, Map<Variable, LinkNature>> graph,
                                                  VariableInfo vi,
                                                  Set<Variable> unmarkedModifications,
                                                  Set<Variable> previouslyModified,
                                                  Map<Variable, Set<MethodInfo>> modifiedInThisEvaluation,
-                                                 Map<Variable, Links.Builder> newLinkedVariables,
-                                                 RedundantLinks redundantLinks) {
+                                                 Map<Variable, Links.Builder> newLinkedVariables) {
         Variable variable = vi.variable();
         unmarkedModifications.remove(variable);
 
-        Links.Builder builder = followGraph.followGraph(virtualFieldComputer, graph, variable);
+        Links.Builder builder2;
+        // step one, multiple real variables map onto a single shared variable
+        Variable toFollow = followGraph.graph().translateForward(variable);
+        Links.Builder builder1 = followGraph.followGraph(virtualFieldComputer, toFollow);
+        if (toFollow != variable) {
+            builder2 = new LinksImpl.Builder(variable);
+            builder1.linkSet().forEach(link -> {
+                VariableTranslationMap vtm = new VariableTranslationMap(runtime);
+                vtm.put(toFollow, variable);
+                Link translated = link.translateFrom(vtm);
+                builder2.add(translated.from(), translated.linkNature(), translated.to());
+            });
+        } else {
+            builder2 = builder1;
+        }
+
+        Links.Builder builder = new LinksImpl.Builder(builder2.primary());
+        // components of the variable can also be part of the shared variables...
+        for (Link link : builder2.linkSet()) {
+            iterateOverShared(link.from()).forEach(from -> iterateOverShared(link.to())
+                    .forEach(to -> builder.add(from, link.linkNature(), to)));
+        }
+        // finally, modification edges
+        followGraph.graph().virtualModificationEdgeStream(variable)
+                .filter(link -> builder.containsPrimaryOf(link.to()))
+                .filter(link -> !builder.contains(link.from(), link.linkNature(), link.to()))
+                .forEach(link -> builder.add(link.from(), link.linkNature(), link.to()));
+
         List<Link> toRemove = new ArrayList<>();
         if (variable instanceof ReturnVariable rv) {
             // return variables will always be complete
             handleReturnVariable(rv, builder);
         } else {
-            // in the very last statement, we want the parameters to be complete
-            Set<Variable> completion;
-            if (!lastStatement || !(variable instanceof ParameterInfo)) {
-                redundantLinks.redundantLinks(builder);
-                completion = redundantLinks.modificationLinks(builder, modifiedInThisEvaluation);
-            } else {
-                completion = Set.of();
-            }
             boolean unmodified =
                     variable.isIgnoreModifications()
                     ||
@@ -167,11 +163,10 @@ class WriteLinksAndModification {
                     && (assignedInThisStatement(statement, vi)
                         || !modifiedInThisEvaluation.containsKey(variable)
                            // all the §m links
-                           && Collections.disjoint(modifiedInThisEvaluation.keySet(), completion)
+                           && notLinkedToModifiedVirtualModification(variable, toFollow, modifiedInThisEvaluation)
+                           // and other links such as ≺ IS_FIELD_OF
                            && notLinkedToModified(builder, modifiedInThisEvaluation));
-            builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable
-                                  || l.to() instanceof MarkerVariable mv && mv.isConstant() && !(l.linkNature().equals(IS_ASSIGNED_FROM) || l.linkNature().equals(CONTAINS_AS_MEMBER))
-                                  || l.from() instanceof MarkerVariable mvf && mvf.isConstant() && !(l.linkNature().equals(IS_ASSIGNED_TO) || l.linkNature().equals(IS_ELEMENT_OF)));
+            builder.removeIf(WriteLinksAndModification::notInLinkedVariables);
 
             if (variable instanceof This) {
                 // only keep direct links for "this", the others are replicated in its fields
@@ -182,13 +177,26 @@ class WriteLinksAndModification {
 
             if (!unmodified) {
                 // ⊆, ⊇ become ~ after a modification
-                toRemove.addAll(builder.replaceSubsetSuperset(variable));
+                builder.linkSet().forEach(link -> {
+                    if (link.linkNature() == IS_SUBSET_OF || link.linkNature() == IS_SUPERSET_OF) {
+                        toRemove.add(link);
+                        toRemove.add(new LinksImpl.LinkImpl(link.to(), link.linkNature().reverse(), link.from()));
+                    }
+                });
             }
         }
         if (newLinkedVariables.put(variable, builder) != null) {
             throw new UnsupportedOperationException("Each real variable must be a primary");
         }
         return toRemove;
+    }
+
+    private static boolean notInLinkedVariables(Link l) {
+        return Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable
+               || l.to() instanceof MarkerVariable mv && mv.isConstant()
+                  && !(l.linkNature().equals(IS_ASSIGNED_FROM) || l.linkNature().equals(CONTAINS_AS_MEMBER))
+               || l.from() instanceof MarkerVariable mvf && mvf.isConstant()
+                  && !(l.linkNature().equals(IS_ASSIGNED_TO) || l.linkNature().equals(IS_ELEMENT_OF));
     }
 
     private void handleReturnVariable(ReturnVariable rv, Links.Builder builder) {
@@ -212,9 +220,29 @@ class WriteLinksAndModification {
         builder.replaceAll(newLinks);
     }
 
+    private Stream<Variable> iterateOverShared(Variable variable) {
+        if (variable instanceof SharedVariable sv) {
+            return sv.variables().stream();
+        }
+        if (variable instanceof FieldReference fr && fr.scopeVariable() != null) {
+            return iterateOverShared(fr.scopeVariable())
+                    .map(scope -> scope == fr.scopeVariable()
+                            ? fr
+                            : runtime.newFieldReference(fr.fieldInfo(),
+                            runtime.newVariableExpression(scope), fr.parameterizedType()));
+        }
+        return Stream.of(variable);
+    }
+
     private static boolean assignedInThisStatement(Statement statement, VariableInfo vi) {
         String index = statement.source().index();
         return vi.assignments().contains(index) && !vi.reads().indices().contains(index);
+    }
+
+    private boolean notLinkedToModifiedVirtualModification(Variable variable,
+                                                           Variable toFollow,
+                                                           Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause) {
+        return followGraph.graph().eqVariables(variable).noneMatch(modifiedVariablesAndTheirCause::containsKey);
     }
 
     private boolean notLinkedToModified(Links.Builder builder,
@@ -253,5 +281,4 @@ class WriteLinksAndModification {
         }
         return true;
     }
-
 }

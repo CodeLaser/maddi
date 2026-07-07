@@ -7,6 +7,7 @@ import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -50,6 +51,8 @@ public interface Links extends Iterable<Link>, Value {
     @NotNull String toString(Set<Variable> modified);
 
     interface Builder extends Iterable<Link> {
+        boolean containsPrimaryOf(Variable variable);
+
         void replaceAll(List<Link> newLinks);
 
         Links build();
@@ -64,16 +67,19 @@ public interface Links extends Iterable<Link>, Value {
 
         void prepend(LinkNature linkNature, Variable to);
 
+        void replace(Link link, LinkNature newLinkNature);
+
         Variable primary();
 
         void removeIf(Predicate<Link> link);
 
         void removeIfFromTo(Predicate<Variable> predicate);
 
-        // return the reverse links of those replaced
-        List<Link> replaceSubsetSuperset(Variable modified);
+        Collection<Link> linkSet();
 
         int size();
+
+        Builder sort();
     }
 
     // methods that do something
