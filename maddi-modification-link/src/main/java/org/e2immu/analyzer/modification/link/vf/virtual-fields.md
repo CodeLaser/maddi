@@ -46,7 +46,7 @@ A virtual field's name always starts with the marker character **`§`** (`VF_CHA
 | `hiddenContent` | the **hidden content** (the type parameters' payload), with a **multiplicity** (see §3) encoded as array dimensions; this is what *independent* (`hc=true`) linking and modification-propagation-into-hidden-content attach to | depends on the type parameters |
 
 `VirtualFields.toString()` renders as `<mutable> - <hiddenContent>`, using `/` for a `null` component, e.g.
-`§m - E[] §es`, or `/ - String §1`, or `/ - /` (= `VirtualFields.NONE`).
+`§m - E[] §es`, or `/ - Object §0`, or `/ - /` (= `VirtualFields.NONE`).
 
 ### When is `§m` present?
 
@@ -59,6 +59,20 @@ can be modified, even though `Optional` itself is immutable.
 
 Because shallow JDK types usually have **no immutability analysis loaded**, they default to *not `@Immutable`* and
 therefore get a `§m`. Several tests note this ("the §m is there because we have not done the @Final analysis").
+
+### When is `hiddenContent` present?
+
+A **deeply `@Immutable` type** (`hc=false` — `Long`, `String`, `Integer`) is a *leaf*: it carries **no hidden
+content** at all → `/ - /` (`typeInfoWithoutTypeParametersAndArrays` gates on `immutable.isImmutable()`). An
+`@Immutable(hc=true)` type (an immutable *container*, e.g. `Object`) and mutable/unanalysed types **do** have hidden
+content.
+
+But a **container or array of a concrete immutable element** still has hidden content — its reachable elements —
+even though each element is immutable: `String[]`, `List<String>`, `Stream<String>` → `§$s`, `Optional<String>` →
+`§$` (see §4, "concrete payload"). This is deliberate (**Option A**): linking is also consumed by dataflow and
+extract-interface tooling that rely on these element links, so the immutable content is carried (modification
+analysis simply ignores it). Only the immutable *leaf* itself loses its hidden content, not a container of it.
+`List<X>` with an abstract type parameter `X` is unaffected (`X` could be mutable → keeps `§xs`).
 
 ## 3. Multiplicity
 
@@ -82,7 +96,7 @@ It is computed as `extraMultiplicity = arrays(pt) + maxMultiplicityFromMethods(t
 |-----------|----------------------|-------|
 | one type parameter `E`, level 0 | `§e` : `E` | temporary, base of the recursion |
 | one type parameter `E`, level *n*≥1 | `§e` + `"s"`×n : `E[]…` | e.g. `List<E>` → `§es` |
-| concrete payload (e.g. `String`) | `§$` + `"s"`×n | e.g. `§$s` for an array-of-String level |
+| concrete payload (e.g. `String`) | `§$` + `"s"`×n | e.g. `§$s` for an array-of-String level. Also covers a deeply-`@Immutable` element whose own type has no hidden content (`singleTypeParameter` carries it as `§$`; `multipleTypeParameters` already used `§$`) — Option A, see §2 |
 | multiple type parameters | a synthetic **container type** `§…` with one field per parameter, then `§…s` | see below |
 | bare type parameter array `E[]` | `§es`, plus `§mE` mutable | the mutable is named `§m`+TP to disambiguate |
 
@@ -127,14 +141,15 @@ owner recursively, so the owner must be kept consistent with the scope's type).
 
 | input | `VirtualFields` |
 |-------|-----------------|
-| `Object` | `/ - Object §0` |
-| `String`, `Integer` | `/ - String §n` (immutable, no `§m`) |
+| `Object` | `/ - Object §0` (`@Immutable(hc=true)`, extensible → keeps HC) |
+| `String`, `Integer`, `Long` | `/ - /` (deeply `@Immutable` leaf → **no** hidden content) |
 | `StringBuilder` | `§m - StringBuilder §n` (mutable) |
 | `Comparable<X>` | `/ - /` |
 | a utility class (`Math`) | `/ - /` |
 | `List<E>` / `ArrayList` / `Deque` | `§m - E[] §es` |
+| `List<String>` / `String[]` / `Stream<String>` | `§m - String[] §$s` (concrete immutable element, Option A) |
 | `Optional<E>` | `/ - T §t` |
-| `Optional<String>` | `/ - String §0` |
+| `Optional<String>` | `/ - String §$` (concrete immutable element, was `§0`) |
 | `Optional<StringBuilder>` | `§m - StringBuilder §0` (immutable HC outer, but concrete HC is mutable) |
 | `Stream<T>` | `§m - T[] §ts` |
 | `TreeMap` / `Map<K,V>` | `§m - §KV[] §kvs` |
