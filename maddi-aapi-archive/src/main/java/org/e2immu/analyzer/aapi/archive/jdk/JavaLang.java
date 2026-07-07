@@ -1604,6 +1604,26 @@ public class JavaLang {
         public void wait$(long timeoutMillis, int i) { }
     }
 
+    //public abstract class Record
+    // The implicit supertype of every record. It declares no state and only the abstract Object contract methods,
+    // so like Object it is a hidden-content-immutable, independent base. Without this stub records extending it
+    // cannot compute their own INDEPENDENT_TYPE (it stays null), and immutability stalls at @FinalFields.
+    @ImmutableContainer(hc = true)
+    @Independent
+    class Record$ {
+        Record$() { }
+
+        //@NotModified[T]
+        public boolean equals(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object obj) { return false; }
+
+        //@NotModified[T]
+        public int hashCode() { return 0; }
+
+        //@NotModified[T]
+        @NotNull
+        public String toString() { return null; }
+    }
+
     //public interface ProcessHandle implements Comparable<ProcessHandle>
     @Container
     class ProcessHandle$ {
