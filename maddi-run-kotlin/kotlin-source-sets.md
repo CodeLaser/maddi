@@ -122,8 +122,13 @@ KOTLINC: kotlinc(?:-jvm)?\s+(.+)             # raw CLI
   build log containing **both** `javac` and `kotlinc` invocations and feeds the combined
   `List<CompileInvocation>` to the single `CompileListToSourceSets`, so Java and Kotlin source sets link by
   output identity in one pass (e.g. a Java module whose classpath contains a Kotlin module's
-  `build/classes/kotlin/main`). The consuming side — driving both front-ends from one mixed `InputConfiguration`
-  into `MixedInspector` — is the remaining follow-up.
+  `build/classes/kotlin/main`).
+  - **Consuming side (first increment done):** `MixedInspector.parseFromConfiguration(config)`
+    (maddi-inspection-mixed) reads every source set's `.kt`/`.java` files off its source directories and runs
+    the shared-core flow (Kotlin-first → generated stubs → Java), so a Java source set resolves a Kotlin
+    source-set type to one shared `TypeInfo` from disk. It currently **flattens** all source sets into one
+    Kotlin bag + one Java bag (the single-source-set model); honouring the per-source-set dependency graph and
+    per-set outputs is the remaining follow-up.
 
 ## 7. Known limitations / follow-ups
 

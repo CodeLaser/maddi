@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.info.TypeInfo
 import org.e2immu.language.cst.api.runtime.Runtime
 import org.e2immu.language.inspection.api.integration.JavaInspector
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager
+import org.e2immu.language.inspection.api.resource.InputConfiguration
 import org.e2immu.language.inspection.kotlin.JavaStubGenerator
 import org.e2immu.language.inspection.openjdk.JavaInspectorImpl
 import org.e2immu.language.inspection.resource.InfoByFqn
@@ -103,6 +104,39 @@ class MixedInspector {
         // 3) Java. A reference to a Kotlin type resolves via the stub and reuses the shared Kotlin TypeInfo.
         val javaTypes = javaSourcesByFqn.map { (fqn, src) -> javaInspector.parse(fqn, src) }
         return Result(kotlinTypes, javaTypes)
+    }
+
+    /**
+     * Phase 5 (consuming side) — parse a mixed Java+Kotlin [InputConfiguration] (as produced by
+     * `ParseMixedList`) from disk: read every source set's `.kt`/`.java` files off its source directories and
+     * run the shared-core flow above. This first increment **flattens** all source sets into one Kotlin bag and
+     * one Java bag (the current single-source-set model); honouring the per-source-set dependency graph is a
+     * follow-up. Cross-language references still resolve to one shared `TypeInfo` (the point of the shared core).
+     */
+    fun parseFromConfiguration(config: InputConfiguration): Result {
+        val kotlinByFileName = LinkedHashMap<String, String>()
+        val javaByFqn = LinkedHashMap<String, String>()
+        config.sourceSets().filter { !it.externalLibrary() }.forEach { ss ->
+            ss.sourceDirectories().filter { Files.exists(it) }.forEach { dir ->
+                Files.walk(dir).use { paths ->
+                    paths.filter { Files.isRegularFile(it) }.forEach { p ->
+                        val name = p.fileName.toString()
+                        when {
+                            name.endsWith(".kt") -> kotlinByFileName[dir.relativize(p).toString()] = Files.readString(p)
+                            name.endsWith(".java") -> Files.readString(p).let { javaByFqn[javaFqn(it, name)] = it }
+                        }
+                    }
+                }
+            }
+        }
+        return parse(kotlinByFileName, javaByFqn)
+    }
+
+    /** The fully-qualified name of a Java source: its `package` (if any) + the file's simple name. */
+    private fun javaFqn(content: String, fileName: String): String {
+        val simpleName = fileName.removeSuffix(".java")
+        val pkg = Regex("""package\s+([\w.]+)\s*;""").find(content)?.groupValues?.get(1)
+        return if (pkg.isNullOrEmpty()) simpleName else "$pkg.$simpleName"
     }
 
     private fun compileStubs(stubsByFqn: Map<String, String>) {
