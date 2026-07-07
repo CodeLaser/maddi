@@ -113,9 +113,11 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                         }
                     }
                 }
-                if (fromTranslated != null && links.isEmpty() && links.primary() != null) {
-                    result.add(new Triplet(fromTranslated, CONTAINS_AS_MEMBER, links.primary()));
-                }
+                // NB: branch 'optimize' additionally emitted a bare 'fromTranslated ∋ links.primary()' here when
+                // links.isEmpty(); openjdk never emits a bare CONTAINS_AS_MEMBER for a consumer (a captured parameter
+                // receiver is already represented by its own '~' element link, e.g. 'list.forEach(target::add)' ->
+                // 'list.§xs ~ target.§es', and a fully-absorbing/no-op consumer leaves the source unlinked). Dropping
+                // that emission keeps the canonical openjdk behaviour. See TestStreamForEachSpec, TestForEach*.
                 ++i;
             }
             return result;

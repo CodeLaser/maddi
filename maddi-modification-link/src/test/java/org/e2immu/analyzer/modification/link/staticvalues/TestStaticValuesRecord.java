@@ -478,7 +478,7 @@ public class TestStaticValuesRecord extends CommonTest {
         //         method.set←0:in*\
         //         """, mlv.toString());
         assertEquals("""
-                [-] --> method.i←$_ce1,method.set←0:in*,method.set≻0:in*.§m,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set.§m≡0:in*.§m\
+                [-] --> method.i←$_ce1,method.set←0:in*,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set.§m≡0:in*.§m\
                 """, mlv.toString());
         // NOTE: in* because of delay, in is linked to field
 
@@ -506,7 +506,7 @@ public class TestStaticValuesRecord extends CommonTest {
         //        [-] --> method.i←$_ce1,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set.§m≡0:in*.§m,method.set←0:in*\
         //        """, mlv.toString());
         assertEquals("""
-                [-] --> method.i←$_ce1,method.set←0:in*,method.set≻0:in*.§m,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set.§m≡0:in*.§m\
+                [-] --> method.i←$_ce1,method.set←0:in*,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set.§m≡0:in*.§m\
                 """, mlv.toString());
     }
 
