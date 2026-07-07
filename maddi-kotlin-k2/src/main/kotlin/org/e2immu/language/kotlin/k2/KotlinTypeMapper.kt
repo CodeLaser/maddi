@@ -181,7 +181,12 @@ internal class KotlinTypeMapper(
             // getOrLoad lazily loads from bytecode), so java.* is ONE TypeInfo instance across the Java and
             // Kotlin front-ends. Cache it locally; fall back to the K2-based load when absent (standalone) or
             // when the manager doesn't know the type (a Kotlin-only stdlib type).
-            compiledTypesManager?.getOrLoad(jvmFqn, librarySourceSet)?.also { infoByFqn.put(jvmFqn, it, librarySourceSet) }
+            compiledTypesManager?.getOrLoad(jvmFqn, librarySourceSet)?.also {
+                // only register if absent: a SHARED registry (mixed setup) already holds this instance under its
+                // own (java.base) source set via the openjdk load, and re-putting the same instance trips the
+                // InfoByFqn duplicate assertion. Standalone: getType is null on first use, so we still cache.
+                if (infoByFqn.getType(jvmFqn, librarySourceSet) == null) infoByFqn.put(jvmFqn, it, librarySourceSet)
+            }
                 ?: if (jvmFqn != kotlinFqn) {
                 // mapped (kotlin.collections.List -> java.util.List): load the JAVA symbol, so the shared
                 // java.* type carries its real JVM surface and matches the Java front-end + AAPI -- not the
