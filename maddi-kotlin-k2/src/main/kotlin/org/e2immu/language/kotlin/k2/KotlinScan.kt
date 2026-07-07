@@ -40,6 +40,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType
 import org.e2immu.language.cst.api.type.TypeNature
 import org.e2immu.language.inspection.api.util.EnumSynthetics
 import org.e2immu.language.inspection.api.util.RecordSynthetics
+import org.e2immu.language.inspection.api.resource.CompiledTypesManager
 import org.e2immu.language.inspection.resource.InfoByFqn
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
@@ -126,6 +127,10 @@ class KotlinScan(
     // holds and can be shared (with a CompiledTypesManager receptacle, and later the Java parser). A
     // driver passes a shared instance; standalone callers get a fresh one. One scan per instance.
     private val infoByFqn: InfoByFqn = InfoByFqn(),
+    // Phase 1 (shared JDK/library core): a driver may inject the Java front-end's CompiledTypesManager so
+    // java.* / classpath types resolve to ONE bytecode-authoritative TypeInfo instance shared with the Java
+    // parser. Null = standalone (K2 loads library types itself).
+    private val compiledTypesManager: CompiledTypesManager? = null,
 ) : MemberConverter {
     // Type mapping (KaType -> ParameterizedType) + lazy library-type loading: the bottom layer.
     // Delegated via thin forwarders at the end of this class (KaSession member extensions -> with(…)).
@@ -134,7 +139,7 @@ class KotlinScan(
     private val librarySourceSet: SourceSet = SourceSetImpl.Builder()
         .setName(sourceSet.name() + "-library").setUri(URI.create("library:/"))
         .setExternalLibrary(true).build()
-    private val typeMapper = KotlinTypeMapper(runtime, infoByFqn, sourceSet, librarySourceSet)
+    private val typeMapper = KotlinTypeMapper(runtime, infoByFqn, sourceSet, librarySourceSet, compiledTypesManager)
 
     // Function-body conversion (statements/expressions/calls/lambdas). It builds anonymous-object members
     // through `this` (KotlinScan is the MemberConverter), breaking the bodies<->declarations cycle.

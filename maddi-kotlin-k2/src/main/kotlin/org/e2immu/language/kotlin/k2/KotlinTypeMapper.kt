@@ -34,6 +34,7 @@ import org.e2immu.language.cst.api.variable.Variable
 import org.e2immu.language.cst.api.type.NullableState
 import org.e2immu.language.cst.api.type.ParameterizedType
 import org.e2immu.language.cst.api.type.TypeNature
+import org.e2immu.language.inspection.api.resource.CompiledTypesManager
 import org.e2immu.language.inspection.resource.InfoByFqn
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
@@ -115,6 +116,11 @@ internal class KotlinTypeMapper(
     // analyzer (ComputeCallGraph via CompilationUnit.externalLibrary()) skips them; their CompilationUnit
     // must carry a non-null source set (a stub's is null -> AssertionError under doPrimaryType).
     private val librarySourceSet: SourceSet,
+    // Phase 1 (shared JDK/library core): when a driver injects the Java front-end's CompiledTypesManager,
+    // library (java.* / classpath) types are resolved through it -- one bytecode-authoritative TypeInfo
+    // instance shared with the Java parser -- instead of being (re)built from K2 symbols. Null = standalone
+    // (the K2-based library loading below is used).
+    private val compiledTypesManager: CompiledTypesManager? = null,
 ) {
     private val symbolScanner = KotlinSymbolScanner(runtime, infoByFqn, librarySourceSet)
     private var memberDepth = 0
@@ -171,7 +177,12 @@ internal class KotlinTypeMapper(
         // already known (a sibling source type, or a previously loaded library type), else load it:
         val typeInfo = infoByFqn.getType(kotlinFqn, sourceSet) ?: run {
             val jvmFqn = mapToJvmFqn(type.classId)
-            if (jvmFqn != kotlinFqn) {
+            // Phase 1 -- shared JDK/library core: delegate to the injected CompiledTypesManager (its
+            // getOrLoad lazily loads from bytecode), so java.* is ONE TypeInfo instance across the Java and
+            // Kotlin front-ends. Cache it locally; fall back to the K2-based load when absent (standalone) or
+            // when the manager doesn't know the type (a Kotlin-only stdlib type).
+            compiledTypesManager?.getOrLoad(jvmFqn, librarySourceSet)?.also { infoByFqn.put(jvmFqn, it, librarySourceSet) }
+                ?: if (jvmFqn != kotlinFqn) {
                 // mapped (kotlin.collections.List -> java.util.List): load the JAVA symbol, so the shared
                 // java.* type carries its real JVM surface and matches the Java front-end + AAPI -- not the
                 // Kotlin read-only view (which would be order-dependent: List vs MutableList both map here)
