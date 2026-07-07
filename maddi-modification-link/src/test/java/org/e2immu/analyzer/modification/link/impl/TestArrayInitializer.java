@@ -79,8 +79,8 @@ public class TestArrayInitializer extends CommonTest {
                 if (null == item) return list;
                 else if (null == list) return new File[] {item};
                 else {
-                  File[] copier = new File[] { base, item};
-                  return copier;
+                  File[] copy = new File[] { base, item};
+                  return copy;
                 }
               }
             }

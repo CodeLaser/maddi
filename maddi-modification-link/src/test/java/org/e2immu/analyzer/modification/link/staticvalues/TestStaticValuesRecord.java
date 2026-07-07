@@ -495,7 +495,7 @@ public class TestStaticValuesRecord extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(rLvc);
         VariableInfo rVi1 = vd1.variableInfo(r);
         assertEquals("""
-                        r.i←b.j,r.set←b.stringSet,r.set.§m≡b.stringSet.§m,r.set≻b.stringSet.§m,r.list.§$s←b.intList.§$s,\
+                        r.i←b.j,r.set←b.stringSet,r.set.§m≡b.stringSet.§m,r.list.§$s←b.intList.§$s,\
                         r.list.§$s∋$_ce3,r.list.§$s∋$_ce4,r.list.§m≡b.intList.§m,r.list←b.intList,r.set.§m≡b.stringSet.§m\
                         """,
                 //"Type a.b.X.R E=new Builder() this.i=3, this.list=List.of(0,1), this.set=in",

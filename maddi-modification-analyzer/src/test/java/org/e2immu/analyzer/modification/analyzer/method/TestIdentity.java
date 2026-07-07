@@ -190,12 +190,12 @@ public class TestIdentity extends CommonTest {
         VariableData vd = VariableDataImpl.of(method.methodBody().lastStatement());
         VariableInfo viRv = vd.variableInfo(method.fullyQualifiedName());
         assertEquals("D:-, A:[0.0.0, 0.1.0.0.0, 0.1.0.1.4, 0.1.0=M, 0=M]", viRv.assignments().toString());
-        assertEquals("add←0:list,add←$_v,add[0]←1:item,add.§3←0:list.§2,add∋1:item,add≥1:item.§m",
+        assertEquals("add←0:list,add←$_v,add[0]←1:item,add.§$←0:list.§$,add∋1:item",
                 viRv.linkedVariables().toString());
 
         MethodLinkedVariables mlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("""
-                [-, -] --> add←0:list,add←$_v,add[0]←1:item,add.§3←0:list.§2,add∋1:item,add≥1:item.§m\
+                [-, -] --> add←0:list,add←$_v,add[0]←1:item,add.§$←0:list.§$,add∋1:item\
                 """, mlv.toString());
 
         assertFalse(method.isIdentity());

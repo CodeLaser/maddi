@@ -381,18 +381,25 @@ public class TestMap extends CommonTest {
                 """, vd3.knownVariableNames().toString());
         VariableInfo viMap = vd3.variableInfo("map");
         assertEquals("""
-                map.§m≡reverse0.map.§m,\
-                map.§vks[-1]→reverse0.map.§vks[-1],\
+                map.§m≡reverse0.map.§m,map.\
+                §vks[-1]→reverse0.map.§vks[-1],\
+                map.§vks[-1]≤reverse0.map,\
+                map.§vks[-1]≤reverse0.map.§vks,\
                 map.§vks[-1]∩this.map.§kvs,\
                 map.§vks[-1]∩reverse0.map.§vks[-2],\
                 map.§vks[-1]∩entries.§kvs,\
                 map.§vks[-2]→reverse0.map.§vks[-2],\
+                map.§vks[-2]≤reverse0.map,\
+                map.§vks[-2]≤reverse0.map.§vks,\
                 map.§vks[-2]∩this.map.§kvs,\
                 map.§vks[-2]∩reverse0.map.§vks[-1],\
                 map.§vks[-2]∩entries.§kvs,\
                 map.§vks~this.map.§kvs,\
                 map.§vks~reverse0.map.§vks,\
-                map.§vks~entries.§kvs,map→reverse0.map\
+                map.§vks~entries.§kvs,\
+                map.§vks≥reverse0.map.§vks[-1],\
+                map.§vks≥reverse0.map.§vks[-2],\
+                map→reverse0.map\
                 """, viMap.linkedVariables().toString());
 
         VariableInfo viEntries = vd3.variableInfo("entries");

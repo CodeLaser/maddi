@@ -1,7 +1,7 @@
 package org.e2immu.analyzer.modification.link.vf;
 
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
-import org.e2immu.analyzer.modification.link.impl.VariableTranslationMap;
+import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.VirtualFieldTranslationMap;
 import org.e2immu.language.cst.api.analysis.Value;
@@ -25,7 +25,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -69,7 +68,6 @@ public class VirtualFieldComputer {
     private final Runtime runtime;
     private final GenericsHelper genericsHelper;
     private final Set<TypeInfo> multi2;
-    private final AtomicInteger typeCounter = new AtomicInteger();
 
     public static final String VF_CHAR = "§";
     public static final String VF_CONCRETE = "$";
@@ -225,7 +223,7 @@ public class VirtualFieldComputer {
                     ? hiddenContent.type()
                     : p0.copyWithArrays(p0.arrays() + extraMultiplicity);
             for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
-                if (formalHiddenContent != null) {
+                if (formalHiddenContent != null && formalHiddenContent.type().typeParameter() != null) {
                     int arrayDiff = Math.abs(formalHiddenContent.type().arrays() - replaceBy.arrays());
                     fieldTm.put(formalHiddenContent.type().typeParameter(), replaceBy.copyWithArrays(arrayDiff));
                 }
@@ -253,9 +251,8 @@ public class VirtualFieldComputer {
         FieldInfo mutable = immutable.isMutable() ? newMField(typeInfo) : null;
         // A deeply @Immutable type (hc=false) has NO hidden content: nothing inside can change or be reached
         // abstractly (e.g. Long, String, Integer). @Immutable(hc=true) (an immutable container, e.g. Object) and
-        // mutable/unanalyzed types keep hidden content.
-        FieldInfo hiddenContent = immutable.isImmutable() ? null
-                : newField("" + typeCounter.getAndIncrement(), pt, typeInfo);
+        // mutable/unanalyzed types keep hidden content, named with the standardized "$" (from branch optimize).
+        FieldInfo hiddenContent = immutable.isImmutable() ? null : newField("$", pt, typeInfo);
         if (mutable == null && hiddenContent == null) return NONE_NONE;
         VirtualFields vf = new VirtualFields(mutable, hiddenContent);
         return new VfTm(vf, null);

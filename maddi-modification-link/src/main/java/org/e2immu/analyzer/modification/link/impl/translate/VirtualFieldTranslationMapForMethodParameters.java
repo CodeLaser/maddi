@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl;
+package org.e2immu.analyzer.modification.link.impl.translate;
 
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldTranslationMapImpl;
@@ -32,7 +32,7 @@ public class VirtualFieldTranslationMapForMethodParameters {
 
     // instance call, but with method type parameters that are linked to other type parameters
     // e.g. TestStreamBasics,5 .toArray(String[]::new)
-    VirtualFieldTranslationMap go(VirtualFieldTranslationMap vfTm, MethodCall mc) {
+    public VirtualFieldTranslationMap go(VirtualFieldTranslationMap vfTm, MethodCall mc) {
         for (TypeParameter tp : mc.methodInfo().typeParameters()) {
             ParameterizedType bestValue = findValue(mc, tp);
             VirtualFields vf = virtualFieldComputer.compute(bestValue, false).virtualFields();
@@ -52,7 +52,7 @@ public class VirtualFieldTranslationMapForMethodParameters {
     }
 
     // static call, but with method type parameters
-    VirtualFieldTranslationMap staticCall(MethodCall mc) {
+    public VirtualFieldTranslationMap staticCall(MethodCall mc) {
         VirtualFieldTranslationMap vfTm = new VirtualFieldTranslationMapImpl(virtualFieldComputer, runtime);
         for (TypeParameter tp : mc.methodInfo().typeParameters()) {
             ParameterizedType bestValue = findValue(mc, tp);
@@ -78,7 +78,9 @@ public class VirtualFieldTranslationMapForMethodParameters {
         }
         // try the return type
         ParameterizedType rt = extractValueForTp(mc.methodInfo().returnType(), mc.concreteReturnType(), tp);
-        if (rt != null) return rt;
+        if (rt != null) {
+            return rt;
+        }
         throw new UnsupportedOperationException("Unable to find concrete value");
     }
 
@@ -87,7 +89,20 @@ public class VirtualFieldTranslationMapForMethodParameters {
                                                 TypeParameter tp) {
         Map<NamedType, ParameterizedType> tm = genericsHelper.translateMap(formal, concrete,
                 true);
-        return tm.get(tp);
+        ParameterizedType directResult = tm.get(tp);
+        if (directResult != null) return directResult;
+        for (Map.Entry<NamedType, ParameterizedType> entry : tm.entrySet()) {
+            // we'll try here
+            if (entry.getKey() instanceof TypeParameter tp2
+                && formal.parameters().size() > tp2.getIndex()
+                && concrete.parameters().size() > tp2.getIndex()) {
+                ParameterizedType formal2 = formal.parameters().get(tp2.getIndex());
+                ParameterizedType concrete2 = concrete.parameters().get(tp2.getIndex());
+                ParameterizedType recursive = extractValueForTp(formal2, concrete2, tp);
+                if (recursive != null) return recursive;
+            }
+        }
+        return null;
     }
 
 }

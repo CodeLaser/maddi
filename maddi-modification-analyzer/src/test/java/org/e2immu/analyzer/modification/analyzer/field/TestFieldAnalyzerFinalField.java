@@ -39,7 +39,7 @@ public class TestFieldAnalyzerFinalField extends CommonTest {
         analyzer.go(ao);
         FieldInfo set = B.getFieldByName("set", true);
         LinksImpl links = set.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class);
-        assertEquals("this.set←0:set,this.set≡0:set.§m,this.set→getSet", links.toString());
+        assertEquals("this.set←0:set,this.set.§m≡0:set.§m,this.set→getSet", links.toString());
         assertTrue(set.analysis().getOrDefault(PropertyImpl.INDEPENDENT_FIELD, ValueImpl.IndependentImpl.DEPENDENT)
                 .isDependent());
         assertTrue(set.isUnmodified());
@@ -73,7 +73,7 @@ public class TestFieldAnalyzerFinalField extends CommonTest {
         analyzer.go(ao);
         FieldInfo set = B.getFieldByName("set", true);
         Links fieldLinks = set.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class);
-        assertEquals("this.set←0:set,this.set≡0:set.§m,this.set→getSet,this.set∋0:c", fieldLinks.toString());
+        assertEquals("this.set←0:set,this.set.§m≡0:set.§m,this.set→getSet,this.set.§cs∋0:c", fieldLinks.toString());
         assertTrue(set.analysis().getOrDefault(PropertyImpl.INDEPENDENT_FIELD, ValueImpl.IndependentImpl.DEPENDENT)
                 .isDependent());
         assertTrue(set.isModified());
@@ -112,15 +112,15 @@ public class TestFieldAnalyzerFinalField extends CommonTest {
         analyzer.go(ao);
         FieldInfo set = B.getFieldByName("set", true);
         Links fieldLinks = set.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class);
-        assertEquals("this.set⊆0:set.§cs,this.set→getSet,this.set∋0:c", fieldLinks.toString());
+        assertEquals("this.set.§cs⊆0:set.§cs,this.set→getSet,this.set.§cs∋0:c", fieldLinks.toString());
         assertTrue(set.analysis().getOrDefault(PropertyImpl.INDEPENDENT_FIELD, ValueImpl.IndependentImpl.DEPENDENT)
                 .isDependent());
-        assertTrue(set.isModified());
+        assertTrue(set.isModified()); // via add
         assertTrue(set.isFinal());
 
         MethodInfo constructor = B.findConstructor(1);
         ParameterInfo pi = constructor.parameters().getFirst();
-        assertTrue(pi.isModified()); // via add!
+        assertTrue(pi.isUnmodified()); // a copy of the parameter is made
         assertTrue(pi.analysis().getOrDefault(PropertyImpl.INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.DEPENDENT)
                 .isIndependentHc());
     }
@@ -133,9 +133,9 @@ public class TestFieldAnalyzerFinalField extends CommonTest {
             import java.util.Set;
             class B {
                 public static class M { int i; public void setI(int i) { this.i = i; } }
-
+            
                 private final Set<M> set;
-
+            
                 B(Set<M> set) {
                     this.set = new HashSet<>(set);
                 }
@@ -160,15 +160,15 @@ public class TestFieldAnalyzerFinalField extends CommonTest {
 
         FieldInfo set = B.getFieldByName("set", true);
         Links fieldLinks = set.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class);
-        assertEquals("this.set⊆0:set.§$s,this.set→getSet,this.set∋0:m", fieldLinks.toString());
+        assertEquals("this.set.§$s⊆0:set.§$s,this.set→getSet,this.set.§$s∋0:m", fieldLinks.toString());
         assertTrue(set.analysis().getOrDefault(PropertyImpl.INDEPENDENT_FIELD, ValueImpl.IndependentImpl.DEPENDENT)
-               .isDependent());
-        assertTrue(set.isModified());
+                .isDependent());
+        assertTrue(set.isModified()); // via add
         assertTrue(set.isFinal());
 
         MethodInfo constructor = B.findConstructor(1);
         ParameterInfo pi = constructor.parameters().getFirst();
-        assertTrue(pi.isModified()); // via add!
+        assertTrue(pi.isUnmodified()); // a copy is made
         assertTrue(pi.analysis().getOrDefault(PropertyImpl.INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.DEPENDENT)
                 .isDependent());
     }

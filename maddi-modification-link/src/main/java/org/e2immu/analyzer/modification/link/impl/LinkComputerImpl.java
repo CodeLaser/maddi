@@ -2,8 +2,12 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.common.defaults.ShallowMethodAnalyzer;
 import org.e2immu.analyzer.modification.link.LinkComputer;
+import org.e2immu.analyzer.modification.link.impl.graph.FollowGraph;
+import org.e2immu.analyzer.modification.link.impl.graph.LinkGraph;
+import org.e2immu.analyzer.modification.link.impl.graph.Timer;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
+import org.e2immu.analyzer.modification.link.impl.translate.TranslateConstants;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
@@ -40,7 +44,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.ExpressionVisitor.EMPTY;
-import static org.e2immu.analyzer.modification.link.impl.LinkGraph.followGraph;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.DOWNCAST_VARIABLE;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
@@ -95,6 +98,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private final AtomicInteger variableCounter = new AtomicInteger();
     private final AtomicInteger countSourceMethods = new AtomicInteger();
     private final VirtualFieldComputer virtualFieldComputer;
+    private final FollowGraph followGraph;
+    private final Timer timer = new Timer();
 
     // for testing
     public LinkComputerImpl(JavaInspector javaInspector) {
@@ -112,8 +117,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         this.options = options;
         this.virtualFieldComputer = new VirtualFieldComputer(javaInspector);
         this.shallowMethodLinkComputer = new ShallowMethodLinkComputer(javaInspector.runtime(), virtualFieldComputer);
-        this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime(), options.checkDuplicateNames());
-        this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, javaInspector.runtime(), virtualFieldComputer);
+        this.followGraph = new FollowGraph(timer);
+        this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime(), options.checkDuplicateNames(), timer,
+                followGraph);
+        this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, virtualFieldComputer, timer,
+                followGraph);
         this.shallowMethodAnalyzer = new ShallowMethodAnalyzer(javaInspector.runtime(), Element::annotations);
         this.propertiesChanged = propertiesChanged;
     }
@@ -121,6 +129,13 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     @Override
     public int propertiesChanged() {
         return propertiesChanged.get();
+    }
+
+    @Override
+    public void reset() {
+        this.countSourceMethods.set(0);
+        this.variableCounter.set(0);
+        this.propertiesChanged.set(0);
     }
 
     @Override
@@ -143,7 +158,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         try {
             TypeInfo typeInfo = method.typeInfo();
             boolean shallow = options.forceShallow() || method.isAbstract() || typeInfo.compilationUnit().externalLibrary();
-            return doMethod(method, shallow, false);
+            return doMethod(method, shallow, false, true);
         } catch (RuntimeException | AssertionError e) {
             LOGGER.error("Caught exception computing {}", method, e);
             throw e;
@@ -161,7 +176,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         try {
             TypeInfo typeInfo = method.typeInfo();
             boolean shallow = options.forceShallow() || typeInfo.compilationUnit().externalLibrary();
-            return doMethod(method, shallow, true);
+            return doMethod(method, shallow, true, true);
         } catch (RuntimeException | AssertionError e) {
             LOGGER.error("Caught exception recursively computing {}", method, e);
             throw e;
@@ -170,12 +185,13 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
     @Override
     public MethodLinkedVariables doMethodShallowDoNotWrite(MethodInfo methodInfo) {
-        return doMethod(methodInfo, true, false);
+        return doMethod(methodInfo, true, false, false);
     }
 
-    private MethodLinkedVariables doMethod(MethodInfo methodInfo, boolean shallow, boolean write) {
+    private MethodLinkedVariables doMethod(MethodInfo methodInfo, boolean shallow, boolean write, boolean writeShallow) {
         if (shallow) {
-            if (!methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.DEFAULTS_ANALYZER)) {
+            // FIXME what if we want to use annotations to help when !write? then they will not be seen
+            if (writeShallow && !methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.DEFAULTS_ANALYZER)) {
                 shallowMethodAnalyzer.analyze(methodInfo);
             }
             MethodLinkedVariables mlv = shallowMethodLinkComputer.go(methodInfo);
@@ -201,7 +217,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         } else {
             // we're already analyzing methodInfo... so we return a shallow copy, not written out!
             LOGGER.debug("Fall-back to shallow for {}", methodInfo);
-            tlv = doMethod(methodInfo, true, false);
+            tlv = doMethod(methodInfo, true, false, false);
         }
         return tlv;
     }
@@ -384,11 +400,19 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             VariableInfo vi = vic.best();
             Links viLinks = vi.linkedVariables();
             if (viLinks == null || viLinks.primary() == null) return LinksImpl.EMPTY;
-            Links links = viLinks.removeIfFromTo(v -> !LinkVariable.acceptForLinkedVariables(v));
+            Links links = viLinks.removeIfFromTo(v -> !LinkVariable.acceptForLinkedVariables(v)
+                                                      || isParameterOfSiblingMethod(v));
             if (ignoreReturnValue.contains(pi)) {
                 return links.removeIfTo(v -> v instanceof ReturnVariable || isParameterOfStrictlyEnclosed(v));
             }
             return links.removeIfTo(this::isParameterOfStrictlyEnclosed);
+        }
+
+        // see TestForEachLambda,5 and TestForEachMethodReference
+        private boolean isParameterOfSiblingMethod(Variable v) {
+            return v instanceof ParameterInfo otherParameter
+                   && otherParameter.methodInfo() != methodInfo
+                   && otherParameter.methodInfo().typeInfo() == methodInfo.typeInfo();
         }
 
         private boolean isParameterOfStrictlyEnclosed(Variable variable) {
@@ -535,10 +559,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             copyEvalIntoVariableData(wr.newLinks(), vd);
             modificationsOutsideVariableData.addAll(wr.modifiedOutsideVariableData());
 
-            TIMED.info("Done {} methods; do statement {} {} graph size {}, sum of links {}",
+            int numberOfLinks = wr.newLinksSize();
+            TIMED.info("Done {} methods; do statement {} {} graph size {}, sum of links {}; timer {}",
                     countSourceMethods.get(),
                     methodInfo.fullyQualifiedName(),
-                    statement.source().index(), graph.size(), wr.newLinksSize());
+                    statement.source().index(), graph.size(), numberOfLinks, timer);
            /* if (wr.newLinksSize() > 1000) {
                 double fraction = (double) wr.newLinksSize() / (graph.size() * graph.size());
                 if (fraction > 0.4) {
@@ -638,7 +663,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             if (primary != null && vd.isKnown(primary.fullyQualifiedName())) {
                 variablesLinkedToObject.put(primary, true);
                 VariableInfo viPrimary = vd.variableInfo(primary);
-                Links links = followGraph(virtualFieldComputer, graph, viPrimary.variable()).build();
+                Links links = followGraph.followGraph(virtualFieldComputer, graph, viPrimary.variable()).build();
                 for (Link link : links) {
                     if (!link.linkNature().isIdenticalTo()) {
                         for (Variable v : Util.goUp(link.from())) {
