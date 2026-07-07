@@ -171,10 +171,19 @@ class KotlinScan(
     fun parse(fileName: String, content: String): List<TypeInfo> = parse(mapOf(fileName to content))
 
     /** Parse a set of in-memory Kotlin files (name -> content) in one shared session. */
-    fun parse(filesByName: Map<String, String>): List<TypeInfo> {
-        // Standalone resolves from source roots: lay the files down in a temp directory.
+    fun parse(filesByName: Map<String, String>): List<TypeInfo> = parse(filesByName, emptyMap())
+
+    /**
+     * Parse Kotlin files, with optional accompanying Java SOURCE files ([javaFilesByName], path -> content,
+     * e.g. `a/b/Foo.java`) laid into the same K2 source root so K2 resolves Java-source types referenced from
+     * Kotlin (Phase 2 of the mixed-language integration). Only the Kotlin (`KtFile`) types are converted here;
+     * the Java files are for K2 resolution — the referenced Java TypeInfo is reused from the shared registry /
+     * CompiledTypesManager (built authoritatively by the Java front-end), not rebuilt from K2.
+     */
+    fun parse(filesByName: Map<String, String>, javaFilesByName: Map<String, String>): List<TypeInfo> {
+        // Standalone resolves from source roots: lay the files down in a temp directory (Kotlin + Java).
         val srcRoot = Files.createTempDirectory("k2-src")
-        filesByName.forEach { (name, content) ->
+        (filesByName + javaFilesByName).forEach { (name, content) ->
             val file = srcRoot.resolve(name)
             Files.createDirectories(file.parent ?: srcRoot)
             Files.writeString(file, content)
