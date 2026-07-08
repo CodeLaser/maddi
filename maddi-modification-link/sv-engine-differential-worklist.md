@@ -77,6 +77,41 @@ reconstructs `field ↔ param` / element links. It must **reduce and preserve** 
 simple cases (no reduction benefit) the output should match the non-collapsed form.
 Bypassing the collapse is a diagnostic, not the fix (it defeats the reduction goal).
 
+## Prototype outcome: the reconstruct half is missing across the WHOLE extraction path
+
+Prototyped the suggested (a)–(c) — `SharedVariables.edges()`, fold into
+`edgesWithEquivalence()`, `engine.addVertex(sv)` for the both-fresh case — plus a
+`FollowGraph` translate-back. `direct assignment` still emitted `-`. A probe of the
+extraction state (`followGraph primary=… rep=… allShared=…`) showed the gap is
+deeper and spans four points:
+
+1. **`SharedVariables` rep↔members is one-way.** `memberToGroup` maps *members → rep*;
+   the rep is never a key, so `allShared($__sv_s1) = [$__sv_s1]` — the rep can't
+   enumerate its own members. (`SharedVariable.variables()` holds them, but nothing
+   routes a rep query to it.)
+2. **The graph is keyed on the synthetic rep, not real vars.** Collapse replaces
+   `this.s1`/`param_s1` with a fresh `$__sv_s1` vertex, so `followGraph(choose)` finds
+   nothing "part of" `choose`, and `followGraph($__sv_s1)` produces *rep*-keyed links,
+   not `choose.s1`/`this.s1`-keyed ones.
+3. **`edgesWithEquivalence()` feeds `computeSubs`, not the output.** Adding the
+   shared expansion there doesn't reach the summary; the output path is
+   `FollowGraph.closureStream` (which reads `engine.successorStream`, rep-keyed).
+4. **Summary application doesn't carry the group through the call.** In `choose`,
+   `allShared(choose)=[choose]` — applying `S.<init>`'s (would-be) shared-group
+   summary never re-establishes the group in the caller, so the field↔param relation
+   is lost even before extraction.
+
+So completing the reconstruct is a coordinated change across `SharedVariables`
+(rep→members + `edges()`), `Graph`/`FollowGraph` (expand rep vertices to
+member-keyed links at extraction), and `LinkMethodCall` (translate the group when a
+summary is applied) — not the 3-line patch first hoped.
+
+**Simpler alternative worth weighing:** make the group representative a *canonical
+real member* (union-find style) instead of a synthetic `$__sv_` node. Then the graph
+stays keyed on real variables, `followGraph` finds them with no translate-back, and
+only re-canonicalisation on reassignment needs care. This sidesteps points 1–3
+entirely; point 4 (carry the group through summary application) remains.
+
 ## Prioritized attack plan
 
 1. **`←` assignment-flow drop (177) — do this first.** One root cause almost
