@@ -43,7 +43,12 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
   parenthesisation as the Java printer, so a Java-only form nested inside an operator translates too (e.g.
   `x is String && …`). True leaves (constants, variable references) delegate to the Java `print()`.
 - **Type references** — JVM primitives/JDK types mapped to Kotlin (`int`→`Int`, `java.lang.String`→`String`,
-  `java.lang.Object`→`Any`, …); arrays → `Array<…>`; generics recurse.
+  `java.lang.Object`→`Any`, …); arrays → `Array<…>`; generics recurse; a **nullable** type (the front-end
+  records `NullableState.NULLABLE` on the `ParameterizedType`) gets a trailing `?`.
+- **Control flow** — `while`/`do`-`while`/`for (x in …)`/`throw` (via the statement printer); `for`(C-style)/
+  `switch`→`when`/`try` and lambdas are follow-ups.
+- **Elvis** — a desugared `a ?: b` (`InlineConditional` marked `NULL_COALESCING` in `DetailedSources`) is
+  recovered to `a ?: b` rather than printed as `if (a == null) b else a`.
 - **Idiomatic reconstruction** (needs the analyzer's **prepwork** phase, which populates `getSetField`):
   - getter/setter methods (non-empty `getSetField`) are collapsed away — the backing field prints as its
     property, avoiding the Kotlin platform-declaration clash of a property *and* its `getX()`;

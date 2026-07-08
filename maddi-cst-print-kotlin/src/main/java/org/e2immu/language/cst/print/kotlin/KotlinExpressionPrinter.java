@@ -14,6 +14,8 @@
 
 package org.e2immu.language.cst.print.kotlin;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
+import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
@@ -41,6 +43,10 @@ public class KotlinExpressionPrinter {
             case InstanceOf io -> new OutputBuilderImpl().add(print(io.expression(), q)).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.IS).add(SpaceEnum.ONE)
                     .add(new TextImpl(KotlinTypeName.of(io.testType())));
+            case InlineConditional ic when isElvis(ic) ->
+                // desugared elvis `a ?: b` = InlineConditional(a==null, ifTrue=b, ifFalse=a); recover the `?:`
+                    new OutputBuilderImpl().add(operand(ic.precedence(), ic.ifFalse(), q))
+                            .add(SymbolEnum.binaryOperator("?:")).add(operand(ic.precedence(), ic.ifTrue(), q));
             case InlineConditional ic -> new OutputBuilderImpl()
                     .add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(print(ic.condition(), q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
@@ -63,6 +69,13 @@ public class KotlinExpressionPrinter {
                     .add(print(ee.inner(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
             default -> e.print(q); // constants, variables, …: identical to Java
         };
+    }
+
+    /** True when this inline conditional is a desugared Kotlin elvis (`?:`), marked in {@link DetailedSources}. */
+    private static boolean isElvis(InlineConditional ic) {
+        Source source = ic.source();
+        return source != null && source.detailedSources() != null
+               && source.detailedSources().detail(DetailedSources.NULL_COALESCING) != null;
     }
 
     private static OutputBuilder negation(Negation neg, Qualification q) {

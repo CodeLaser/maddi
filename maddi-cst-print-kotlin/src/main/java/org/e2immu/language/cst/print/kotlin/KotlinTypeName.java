@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.print.kotlin;
 
+import org.e2immu.language.cst.api.type.NullableState;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 
 import java.util.Map;
@@ -39,11 +40,19 @@ public class KotlinTypeName {
             Map.entry("java.util.List", "List"), Map.entry("java.util.Map", "Map"),
             Map.entry("java.util.Set", "Set"), Map.entry("java.util.Collection", "Collection"));
 
-    /** The Kotlin type reference as a string (no leading/trailing space). */
+    /** The Kotlin type reference as a string (no leading/trailing space); a nullable type gets a trailing `?`. */
     public static String of(ParameterizedType pt) {
+        return nullable(pt, base(pt));
+    }
+
+    private static String nullable(ParameterizedType pt, String s) {
+        // the Kotlin front-end records NULLABLE on the parameterized type; the (Java-oriented) default is UNSPECIFIED
+        return pt.nullable() == NullableState.NULLABLE ? s + "?" : s;
+    }
+
+    private static String base(ParameterizedType pt) {
         if (pt.arrays() > 0) {
-            String inner = of(pt.copyWithArrays(0));
-            String s = inner;
+            String s = of(pt.copyWithArrays(0));
             for (int i = 0; i < pt.arrays(); i++) s = "Array<" + s + ">";
             return s;
         }
