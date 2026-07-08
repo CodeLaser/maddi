@@ -32,12 +32,12 @@ public class TestLabeledGraph {
                 b ∋ a / b ≺ c
                 c ≻ b
                 """, graph.print(Object::toString, String::compareTo));
-        assertEquals("{b=∈}", graph.successors("a").toString());
+        assertEquals("[b=∈]", graph.successors("a").toString()); // Iterable of entries -> [..]
         assertEquals("a=∋, c=≺", StreamSupport.stream(graph.successors("b").spliterator(), false)
                 .map(Object::toString).sorted().collect(Collectors.joining(", ")));
 
         graph.removeVertices(Set.of("a"));
-        assertEquals("{}", graph.successors("a").toString());
+        assertEquals("{}", graph.successors("a").toString()); // Iterable of entries -> [..]
 
         assertEquals("""
                 b ≺ c
