@@ -136,10 +136,11 @@ KOTLINC: kotlinc(?:-jvm)?\s+(.+)             # raw CLI
     (`parse(Map.of())` reads the configured source directories). The parse order follows the cross-language
     dependency direction: **Java→Kotlin** ⇒ Kotlin-first + stubs (above); **Kotlin→Java** ⇒ Java-first (its
     source types commit to the shared CTM), then Kotlin resolves them to the same instances (`KotlinProjectScan`
-    gets the Java dirs as source roots). Test `TestMixedProjectInspector` (both directions). Remaining
-    follow-ups: Java→Java deps across `withDependencies`-rebuilt sets, a project mixing *both* cross-language
-    directions (intra-module Kotlin↔Java cycle — the skeleton-pre-pass case), and mixed-Maven block
-    interleaving on the parse side.
+    gets the Java dirs as source roots). Java sets are rebuilt in dependency order with their Java-set deps
+    remapped to the rebuilt instances, so Java→Java links across source sets survive the `withDependencies`
+    rebuild. Test `TestMixedProjectInspector` (both cross-language directions + a two-Java-module project).
+    Remaining follow-ups: a project mixing *both* cross-language directions (intra-module Kotlin↔Java cycle —
+    the skeleton-pre-pass case), and mixed-Maven block interleaving on the parse side.
 
 ## 7. Known limitations / follow-ups
 

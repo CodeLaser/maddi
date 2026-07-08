@@ -92,4 +92,41 @@ class TestMixedProjectInspector {
         // Kotlin -> Java source across the boundary: one shared instance
         assertSame(javaFoo, bar.getFieldByName("foo", true).type().typeInfo())
     }
+
+    /** Two Java sets (B depends on A) plus a Kotlin set: exercises Java->Java AND Java->Kotlin in one project. */
+    @Test
+    fun multiJavaModuleAndKotlinResolveTogether() {
+        val tmp = Files.createTempDirectory("mixed-multi")
+        val aDir = tmp.resolve("a/src/main/java")
+        val bDir = tmp.resolve("b/src/main/java")
+        val kDir = tmp.resolve("k/src/main/kotlin")
+        Files.createDirectories(aDir.resolve("a"))
+        Files.createDirectories(bDir.resolve("b"))
+        Files.createDirectories(kDir.resolve("k"))
+        Files.writeString(aDir.resolve("a/A.java"), "package a;\npublic class A { public int x; }\n")
+        Files.writeString(kDir.resolve("k/K.kt"), "package k\nclass K(val id: Int)\n")
+        Files.writeString(bDir.resolve("b/UseAll.java"),
+            "package b;\npublic class UseAll {\n    public a.A a;\n    public k.K k;\n}\n")
+
+        val javaA = SourceSetImpl.Builder().setName("javaA/main")
+            .setSourceDirectories(listOf(aDir)).setUri(aDir.toUri()).build()
+        val kotlinSet = SourceSetImpl.Builder().setName("kotlin/main")
+            .setSourceDirectories(listOf(kDir)).setUri(kDir.toUri()).build()
+        val javaB = SourceSetImpl.Builder().setName("javaB/main")
+            .setSourceDirectories(listOf(bDir)).setUri(bDir.toUri())
+            .setDependencies(listOf(javaA, kotlinSet)).build()
+        val config = InputConfigurationImpl.Builder()
+            .addSourceSets(javaA).addSourceSets(kotlinSet).addSourceSets(javaB).build()
+
+        val result = MixedProjectInspector().parse(config)
+
+        val a = result.javaTypes.first { it.simpleName() == "A" }
+        val k = result.kotlinBySourceSet.getValue(kotlinSet).first { it.simpleName() == "K" }
+        val useAll = result.javaTypes.first { it.simpleName() == "UseAll" }
+        assertEquals("javaA/main", a.compilationUnit().sourceSet().name())
+        assertEquals("javaB/main", useAll.compilationUnit().sourceSet().name())
+        // Java -> Java across source sets, and Java -> Kotlin, both to one shared instance
+        assertSame(a, useAll.getFieldByName("a", true).type().typeInfo())
+        assertSame(k, useAll.getFieldByName("k", true).type().typeInfo())
+    }
 }
