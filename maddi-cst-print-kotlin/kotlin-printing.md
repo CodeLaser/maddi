@@ -38,8 +38,10 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
   **expression body** (`fun f() = expr`); the implicit no-arg default constructor is suppressed.
 - **Statements / expressions** (`KotlinStatementPrinter` / `KotlinExpressionPrinter`) — no semicolons; `val`/`var`
   local declarations; and the Java-only forms are translated by recursion: `new Foo(a)`→`Foo(a)`, `(T) x`→
-  `x as T`, `x instanceof T`→`x is T`, `c ? t : f`→`if (c) t else f`. Shared forms (constants, variable
-  references, operators) delegate to the Java `print()`.
+  `x as T`, `x instanceof T`→`x is T`, `c ? t : f`→`if (c) t else f`. The operator families (binary operators,
+  `&&`/`||`, unary, negation incl. `!=`) also **recurse into their operands** with the same precedence-based
+  parenthesisation as the Java printer, so a Java-only form nested inside an operator translates too (e.g.
+  `x is String && …`). True leaves (constants, variable references) delegate to the Java `print()`.
 - **Type references** — JVM primitives/JDK types mapped to Kotlin (`int`→`Int`, `java.lang.String`→`String`,
   `java.lang.Object`→`Any`, …); arrays → `Array<…>`; generics recurse.
 - **Idiomatic reconstruction** (needs the analyzer's **prepwork** phase, which populates `getSetField`):
@@ -52,11 +54,11 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
 
 - **Requires prepwork** for the accessor collapse (agreed restriction). Without it, a Kotlin-parsed type prints
   both the property and its `getX()` (a Kotlin clash).
-- **Expression/statement coverage is a first increment.** The common statements (block, return, expression,
-  `val`/`var`, `if`/`else`) and the Java-only expression forms (new/cast/instanceof/ternary) are handled; other
-  forms fall back to the Java `print()`, and a Java-only construct **nested inside a delegated form** (e.g. a
-  cast inside `a + b`) is not yet translated (needs recursion through the operator families too). Multi-statement
-  Kotlin blocks rely on the formatter breaking lines (no `;`); a hard newline separator is a refinement.
+- **Expression/statement coverage is incremental.** Handled: block, return, expression-statement, `val`/`var`,
+  `if`/`else`; new/cast/instanceof/ternary; the binary/logical/unary/negation operator families (with operand
+  recursion). Not yet: `for`/`while`/`switch`→`when`/`try`, lambdas, `for`-comprehensions; anything else falls
+  back to the Java `print()`. Multi-statement Kotlin blocks rely on the formatter breaking lines (no `;`); a hard
+  newline separator is a refinement.
 - **Language-specific hints live in `DetailedSources`.** The Kotlin parser records source-form markers there
   (e.g. `NULL_COALESCING` for elvis `?:`); a printer reaches them via `element.source().detailedSources()` and
   can reconstruct the idiomatic Kotlin form. This is the channel for things the (JVM-shaped) CST does not

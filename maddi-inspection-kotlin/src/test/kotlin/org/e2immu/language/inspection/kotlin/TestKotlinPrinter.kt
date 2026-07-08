@@ -90,6 +90,26 @@ class TestKotlinPrinter {
         assertTrue(!kotlin.contains("constructor()"), "implicit default constructor suppressed:\n$kotlin")
     }
 
+    /** Nested translation: a Java-only form inside an operator (was previously left as Java). */
+    @Test
+    fun nestedOperatorTranslation() {
+        val runtime = RuntimeImpl()
+        val sourceSet = SourceSetImpl.Builder().setName("main").setUri(URI.create("file:/")).build()
+        val src = "package a\n" +
+            "class Baz {\n" +
+            "    fun a(x: Any): Boolean = x is String && x.hashCode() > 3\n" +
+            "    fun b(x: Any): Boolean = !x.equals(x)\n" +
+            "}\n"
+        val types = KotlinScan(runtime, sourceSet, InfoByFqn()).parse("a/Baz.kt", src)
+        PrepAnalyzer(runtime).doPrimaryTypes(types.toSet())
+        val baz = types.first { it.simpleName() == "Baz" }
+        val kotlin = printKotlin(runtime, baz)
+
+        assertTrue(kotlin.contains("x is String &&"), "instanceof nested in && must translate:\n$kotlin")
+        assertTrue(kotlin.contains("!x.equals(x)"), "negation recurses into its operand:\n$kotlin")
+        assertTrue(!kotlin.contains("instanceof"), "no Java 'instanceof':\n$kotlin")
+    }
+
     /** The pluggable-printer seam: a custom MethodPrinter can be supplied to KotlinTypePrinter, as for Java. */
     @Test
     fun customMethodPrinterSeam() {
