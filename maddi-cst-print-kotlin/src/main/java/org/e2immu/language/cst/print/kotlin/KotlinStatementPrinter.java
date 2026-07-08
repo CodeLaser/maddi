@@ -41,6 +41,22 @@ public class KotlinStatementPrinter {
             case ExpressionAsStatement es -> KotlinExpressionPrinter.print(es.expression(), q);
             case LocalVariableCreation lvc -> localVariable(lvc, q);
             case IfElseStatement ife -> ifElse(ife, q);
+            case ThrowStatement ts -> new OutputBuilderImpl().add(KotlinKeyword.THROW).add(SpaceEnum.ONE)
+                    .add(KotlinExpressionPrinter.print(ts.expression(), q));
+            case WhileStatement ws -> new OutputBuilderImpl()
+                    .add(KotlinKeyword.WHILE).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(KotlinExpressionPrinter.print(ws.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
+                    .add(SpaceEnum.ONE).add(block(ws.block(), q));
+            case DoStatement ds -> new OutputBuilderImpl()
+                    .add(KotlinKeyword.DO).add(SpaceEnum.ONE).add(block(ds.block(), q)).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.WHILE).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(KotlinExpressionPrinter.print(ds.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+            case ForEachStatement fe -> new OutputBuilderImpl()
+                    .add(KotlinKeyword.FOR).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(new TextImpl(fe.initializer().localVariable().simpleName()))
+                    .add(SpaceEnum.ONE).add(KotlinKeyword.IN).add(SpaceEnum.ONE)
+                    .add(KotlinExpressionPrinter.print(fe.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
+                    .add(SpaceEnum.ONE).add(block(fe.block(), q));
             default -> s.print(q); // not-yet-translated statement forms: Java rendering (valid enough)
         };
     }

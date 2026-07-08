@@ -110,6 +110,31 @@ class TestKotlinPrinter {
         assertTrue(!kotlin.contains("instanceof"), "no Java 'instanceof':\n$kotlin")
     }
 
+    /** Nullability (`?`), elvis (`?:` via DetailedSources), and control-flow (`while`). */
+    @Test
+    fun nullabilityElvisAndControlFlow() {
+        val runtime = RuntimeImpl()
+        val sourceSet = SourceSetImpl.Builder().setName("main").setUri(URI.create("file:/")).build()
+        val src = "package a\n" +
+            "class Q {\n" +
+            "    fun e(x: String?): String = x ?: \"d\"\n" +
+            "    fun w(n: Int): Int {\n" +
+            "        var i = 0\n" +
+            "        while (i < n) { i = i + 1 }\n" +
+            "        return i\n" +
+            "    }\n" +
+            "}\n"
+        val types = KotlinScan(runtime, sourceSet, InfoByFqn()).parse("a/Q.kt", src)
+        PrepAnalyzer(runtime).doPrimaryTypes(types.toSet())
+        val q = types.first { it.simpleName() == "Q" }
+        val kotlin = printKotlin(runtime, q)
+
+        assertTrue(kotlin.contains("fun e(x: String?): String = x ?: \"d\""),
+            "nullable param + return, elvis:\n$kotlin")
+        assertTrue(kotlin.contains("while (i < n)"), "while loop:\n$kotlin")
+        assertTrue(!kotlin.contains("?:") || kotlin.contains("x ?: "), kotlin)
+    }
+
     /** The pluggable-printer seam: a custom MethodPrinter can be supplied to KotlinTypePrinter, as for Java. */
     @Test
     fun customMethodPrinterSeam() {

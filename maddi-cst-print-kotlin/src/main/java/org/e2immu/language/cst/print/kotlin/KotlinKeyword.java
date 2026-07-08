@@ -33,4 +33,9 @@ public class KotlinKeyword {
     public static final Keyword IF = new KeywordImpl("if");
     public static final Keyword ELSE = new KeywordImpl("else");
     public static final Keyword RETURN = new KeywordImpl("return");
+    public static final Keyword WHILE = new KeywordImpl("while");
+    public static final Keyword DO = new KeywordImpl("do");
+    public static final Keyword FOR = new KeywordImpl("for");
+    public static final Keyword IN = new KeywordImpl("in");
+    public static final Keyword THROW = new KeywordImpl("throw");
 }
