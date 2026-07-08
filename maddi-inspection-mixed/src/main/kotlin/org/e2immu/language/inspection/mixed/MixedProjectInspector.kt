@@ -71,13 +71,24 @@ class MixedProjectInspector {
         val stubSet: SourceSet = SourceSetImpl.Builder().setName("mixed-stubs")
             .setUri(stubDir.toUri()).setExternalLibrary(true).build()
 
-        // the Java front-end owns the shared core; a Java set's Kotlin-set deps are satisfied by the stubs, so
-        // only its library + Java-set deps are kept, plus the stub directory.
+        // the Java front-end owns the shared core; a Java set's Kotlin-set deps are satisfied by the stubs (so
+        // dropped), its library + Java-set deps are kept, plus the stub directory. withDependencies() mints new
+        // SourceSet instances, so rebuild in dependency order and remap a Java-set dep to its rebuilt instance —
+        // otherwise a dependent would point at the original (not-in-config) set and the linearization misses it.
         val javaInspector = JavaInspectorImpl()
         val javaConfig = InputConfigurationImpl.Builder().addClassPath("jmod:java.base").addClassPathParts(stubSet)
-        javaSets.forEach { js ->
-            val keptDeps = js.dependencies().filter { it.externalLibrary() || it in javaSetIdentity }
-            javaConfig.addSourceSets(js.withDependencies(keptDeps + stubSet))
+        val rebuiltJavaSet = LinkedHashMap<SourceSet, SourceSet>()
+        dependencyOrder(javaSets).forEach { js ->
+            val keptDeps = js.dependencies().mapNotNull { d ->
+                when {
+                    d.externalLibrary() -> d
+                    d in javaSetIdentity -> rebuiltJavaSet[d] ?: d // the rebuilt upstream Java set
+                    else -> null // a Kotlin-set dependency: satisfied by the stubs
+                }
+            }
+            val rebuilt = js.withDependencies(keptDeps + stubSet)
+            rebuiltJavaSet[js] = rebuilt
+            javaConfig.addSourceSets(rebuilt)
         }
         javaInspector.initialize(javaConfig.build())
         javaInspector.onlyPreload() // warm the CTM lazy loader before Kotlin delegates java.* to it
