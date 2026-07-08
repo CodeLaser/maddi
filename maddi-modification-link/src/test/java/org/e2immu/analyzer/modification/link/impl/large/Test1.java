@@ -33,7 +33,7 @@ public class Test1 extends CommonTest {
     @DisplayName("assertion error in LinkImpl constructor")
     @Test
     public void test1() {
-        TypeInfo C = javaInspector.parse(INPUT1);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT1);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -66,7 +66,7 @@ public class Test1 extends CommonTest {
     @DisplayName("wrong link in LMC.linksBetweenParameters")
     @Test
     public void test2() {
-        TypeInfo C = javaInspector.parse(INPUT2);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT2);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -96,7 +96,7 @@ public class Test1 extends CommonTest {
     @DisplayName("null owner")
     @Test
     public void test3() {
-        TypeInfo C = javaInspector.parse(INPUT3);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT3);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -138,7 +138,7 @@ public class Test1 extends CommonTest {
     @DisplayName("recursive method")
     @Test
     public void test4() {
-        TypeInfo C = javaInspector.parse(INPUT4);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT4);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -187,7 +187,7 @@ public class Test1 extends CommonTest {
     @DisplayName("limitation in GenericsHelper.translateMap")
     @Test
     public void test5() {
-        TypeInfo C = javaInspector.parse(INPUT5);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT5);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -224,7 +224,7 @@ public class Test1 extends CommonTest {
     @DisplayName("null virtual field")
     @Test
     public void test6() {
-        TypeInfo C = javaInspector.parse(INPUT6);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT6);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -287,7 +287,7 @@ public class Test1 extends CommonTest {
     @DisplayName("could not reproduce the bug")
     @Test
     public void test7() {
-        TypeInfo C = javaInspector.parse(INPUT7);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT7);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector,
@@ -316,7 +316,7 @@ public class Test1 extends CommonTest {
     @DisplayName("cycle protection")
     @Test
     public void test8() {
-        TypeInfo C = javaInspector.parse(INPUT8);
+        TypeInfo C = javaInspector.parse("a.b.JSONParser", INPUT8);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector,
@@ -359,7 +359,7 @@ public class Test1 extends CommonTest {
     @DisplayName("§m mixes with other virtual fields")
     @Test
     public void test9() {
-        TypeInfo C = javaInspector.parse(INPUT9);
+        TypeInfo C = javaInspector.parse("a.b.X", INPUT9);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector,
@@ -393,7 +393,7 @@ public class Test1 extends CommonTest {
     @DisplayName("§m stacked on top of virtual fields")
     @Test
     public void test10() {
-        TypeInfo C = javaInspector.parse(INPUT10);
+        TypeInfo C = javaInspector.parse("a.b.X", INPUT10);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector,
