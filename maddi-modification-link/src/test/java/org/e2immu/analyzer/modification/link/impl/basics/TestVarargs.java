@@ -12,11 +12,12 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.link.impl;
+package org.e2immu.analyzer.modification.link.impl.basics;
 
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
+import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.Stage;
@@ -51,7 +52,7 @@ public class TestVarargs extends CommonTest {
     @DisplayName("varargs 1")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse("B", INPUT1);
+        TypeInfo B = javaInspector.parse(INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(B);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -64,10 +65,9 @@ public class TestVarargs extends CommonTest {
 
     @Language("java")
     private static final String INPUT2 = """
-            package a.b;
             import java.util.Map;
             import java.util.Vector;
-
+            
             public class X {
             
                 public Map<String, Comparable<?>> executeAutoitFile(String fullPath, String workDir,
@@ -89,7 +89,7 @@ public class TestVarargs extends CommonTest {
     @DisplayName("varargs 2")
     @Test
     public void test2() {
-        TypeInfo B = javaInspector.parse("a.b.X", INPUT2);
+        TypeInfo B = javaInspector.parse(INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(B);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -117,7 +117,7 @@ public class TestVarargs extends CommonTest {
     @DisplayName("collection instead of varargs")
     @Test
     public void test3a() {
-        TypeInfo B = javaInspector.parse("B", INPUT3a);
+        TypeInfo B = javaInspector.parse(INPUT3a);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(B);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -163,7 +163,7 @@ public class TestVarargs extends CommonTest {
     @DisplayName("array instead of varargs")
     @Test
     public void test3b() {
-        TypeInfo B = javaInspector.parse("B", INPUT3b);
+        TypeInfo B = javaInspector.parse(INPUT3b);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(B);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -209,7 +209,7 @@ public class TestVarargs extends CommonTest {
     @DisplayName("varargs of a collection")
     @Test
     public void test3c() {
-        TypeInfo B = javaInspector.parse("B", INPUT3c);
+        TypeInfo B = javaInspector.parse(INPUT3c);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(B);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -256,7 +256,7 @@ public class TestVarargs extends CommonTest {
     @DisplayName("varargs and type parameters, shallow")
     @Test
     public void test4a() {
-        TypeInfo B = javaInspector.parse("B", INPUT4);
+        TypeInfo B = javaInspector.parse(INPUT4);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(B);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);
@@ -269,7 +269,7 @@ public class TestVarargs extends CommonTest {
     @DisplayName("varargs and type parameters")
     @Test
     public void test4() {
-        TypeInfo B = javaInspector.parse("B", INPUT4);
+        TypeInfo B = javaInspector.parse(INPUT4);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(B);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);

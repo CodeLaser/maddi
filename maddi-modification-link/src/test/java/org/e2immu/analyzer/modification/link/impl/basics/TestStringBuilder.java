@@ -1,7 +1,8 @@
-package org.e2immu.analyzer.modification.link.impl;
+package org.e2immu.analyzer.modification.link.impl.basics;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
+import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.Stage;
@@ -34,7 +35,7 @@ public class TestStringBuilder extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
+        TypeInfo X = javaInspector.parse(INPUT1);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);

@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl2;
+package org.e2immu.analyzer.modification.link.impl.large;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
@@ -37,7 +37,7 @@ public class Test2 extends CommonTest {
     @DisplayName("cycle protection")
     @Test
     public void test1() {
-        TypeInfo C = javaInspector.parse("a.b.X", INPUT1);
+        TypeInfo C = javaInspector.parse(INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector,
@@ -63,12 +63,6 @@ public class Test2 extends CommonTest {
                 private final Builder builder;
                 private Graph graph;
 
-                X(Set<TypeInfo> primaryTypes, Collection<ModuleInfo> moduleInfos, Builder builder) {
-                    this.primaryTypes = primaryTypes;
-                    this.moduleInfos = moduleInfos;
-                    this.builder = builder;
-                }
-
                 public X go() {
                     primaryTypes.forEach(this::go);
                     moduleInfos.forEach(this::go);
@@ -88,7 +82,7 @@ public class Test2 extends CommonTest {
     @DisplayName("expand slice NYI")
     @Test
     public void test2() {
-        TypeInfo C = javaInspector.parse("a.b.X", INPUT2);
+        TypeInfo C = javaInspector.parse(INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector,
