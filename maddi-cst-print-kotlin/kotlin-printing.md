@@ -61,6 +61,28 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
   - a single constructor whose parameters all name a field becomes the **primary constructor**
     (`class Foo(val id: Int)`); those fields and that constructor are then omitted from the body.
 
+## Round-trip validation
+
+`TestKotlinPrinterRoundTrip` parses a construct-rich **Java** class with the openjdk front-end, runs prepwork,
+and prints it as Kotlin — a scale check beyond hand-picked snippets. Real Java comes out idiomatic:
+
+```kotlin
+open class Rich<T> (val id: Int, var name: String) {               // non-final class -> open; final field -> val, mutable -> var
+    fun check(x: Any): Boolean = x is String && (x as String).length() > 0   // instanceof/cast nested in &&
+    fun pick(n: Int): String = if (n > 0) "pos" else "neg"          // ternary -> if/else expression body
+    fun sum(xs: List<Int>): Int { … for (x in xs) { … } … }
+    fun risky() { try { throw RuntimeException("x") } catch (e: RuntimeException) { … } }
+    fun adder(k: Int): Function<Int, Int> = { x -> x + k }          // lambda
+}
+```
+
+Two limitation classes it surfaced (both intentional):
+- **Old-style (fall-through) `switch`** stays as Java. Its labels anchor at positions inside one body block with
+  C-style fall-through; a safe `when` conversion would need to reconstruct label→statement groups and could emit
+  *wrong* Kotlin, so it is left recognizably Java. Arrow-switches *are* converted to `when`.
+- **Java-API vs Kotlin-API** — e.g. `s.length()`/`i.intValue()` print verbatim (Kotlin wants `s.length`/`i`).
+  These are *semantic* (member) differences, not syntax; out of scope for a printer.
+
 ## Requirements / limitations (first slice)
 
 - **Requires prepwork** for the accessor collapse (agreed restriction). Without it, a Kotlin-parsed type prints
