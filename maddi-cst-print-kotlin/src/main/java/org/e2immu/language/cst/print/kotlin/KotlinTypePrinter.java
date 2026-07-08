@@ -131,7 +131,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .filter(f -> !f.isSynthetic() && !headerFields.contains(f.name()))
                 .map(f -> fieldPrinterFactory.create(f, formatter2).print(insideType, false));
         Stream<OutputBuilder> constructorStream = constructors.stream()
-                .filter(c -> c != primaryFinal)
+                .filter(c -> c != primaryFinal && !isImplicitDefaultConstructor(c))
                 .map(c -> methodPrinterFactory.create(typeInfo, c, formatter2).print(insideType));
         Stream<OutputBuilder> methodStream = typeInfo.methods().stream()
                 .filter(m -> !m.isSynthetic() && !isAccessor(m))
@@ -151,6 +151,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
     private static boolean isAccessor(MethodInfo methodInfo) {
         return methodInfo.getSetField() != null && methodInfo.getSetField().field() != null;
+    }
+
+    /** The implicit no-arg, empty-body constructor a class gets by default (not written in Kotlin). */
+    private static boolean isImplicitDefaultConstructor(MethodInfo c) {
+        return c.parameters().isEmpty() && (c.methodBody() == null || c.methodBody().isEmpty());
     }
 
     private List<OutputBuilder> superTypes() {
