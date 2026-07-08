@@ -126,9 +126,16 @@ KOTLINC: kotlinc(?:-jvm)?\s+(.+)             # raw CLI
   - **Consuming side (first increment done):** `MixedInspector.parseFromConfiguration(config)`
     (maddi-inspection-mixed) reads every source set's `.kt`/`.java` files off its source directories and runs
     the shared-core flow (Kotlin-first → generated stubs → Java), so a Java source set resolves a Kotlin
-    source-set type to one shared `TypeInfo` from disk. It currently **flattens** all source sets into one
-    Kotlin bag + one Java bag (the single-source-set model); honouring the per-source-set dependency graph and
-    per-set outputs is the remaining follow-up.
+    source-set type to one shared `TypeInfo` from disk. `MixedInspector.parseFromConfiguration` **flattens** all
+    source sets into one Kotlin bag + one Java bag (simplest first step).
+  - **Multi-source-set (done):** `MixedProjectInspector.parse(config)` places each type in its OWN CST source
+    set (Kotlin `Foo` in `kotlin/main`, Java `UseFoo` in `java/main`), not flattened. The openjdk
+    `JavaInspectorImpl` owns the shared core (initialised with the Java sets + the stub dir on their classpath);
+    Kotlin runs via `KotlinProjectScan` (now taking the shared `CompiledTypesManager`) one `KaSourceModule` per
+    set in dependency order; stubs are generated for every Kotlin type; then the Java sets parse from disk
+    (`parse(Map.of())` reads the configured source directories). Test `TestMixedProjectInspector`. Remaining
+    follow-ups: the Kotlin→Java **source** direction (K2 needs the Java dirs as source roots), Java→Java deps
+    across `withDependencies`-rebuilt sets, and mixed-Maven block interleaving on the parse side.
 
 ## 7. Known limitations / follow-ups
 
