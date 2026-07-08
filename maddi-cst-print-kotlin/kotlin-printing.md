@@ -34,7 +34,12 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
   class is `open`; supertypes via `:` (a class parent as a constructor call `Super()`); type parameters `<T>`.
 - **Properties** — fields print as `val` (final) / `var` (non-final) `name: Type [= init]`.
 - **Functions** — `[vis] [override|abstract] fun [<T>] name(p: T, …)[: ReturnType] body`; `Unit`/void return
-  omitted; `override` when the method overrides a supertype method.
+  omitted; `override` when the method overrides a supertype method. A single-`return` body prints as an
+  **expression body** (`fun f() = expr`); the implicit no-arg default constructor is suppressed.
+- **Statements / expressions** (`KotlinStatementPrinter` / `KotlinExpressionPrinter`) — no semicolons; `val`/`var`
+  local declarations; and the Java-only forms are translated by recursion: `new Foo(a)`→`Foo(a)`, `(T) x`→
+  `x as T`, `x instanceof T`→`x is T`, `c ? t : f`→`if (c) t else f`. Shared forms (constants, variable
+  references, operators) delegate to the Java `print()`.
 - **Type references** — JVM primitives/JDK types mapped to Kotlin (`int`→`Int`, `java.lang.String`→`String`,
   `java.lang.Object`→`Any`, …); arrays → `Array<…>`; generics recurse.
 - **Idiomatic reconstruction** (needs the analyzer's **prepwork** phase, which populates `getSetField`):
@@ -47,11 +52,17 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
 
 - **Requires prepwork** for the accessor collapse (agreed restriction). Without it, a Kotlin-parsed type prints
   both the property and its `getX()` (a Kotlin clash).
-- **Bodies reuse the Java block/expression printing** — valid Kotlin (semicolons are accepted), but not
-  idiomatic (`{ return x; }` rather than an expression body `= x`), and Java-only constructs in bodies (`instanceof`,
-  ternary, casts, `new`) are not yet translated. A Kotlin expression/statement printer is the next increment.
-- Nullability is not tracked in the CST → no `?`. Records print as `class` (not `data class`), `object`
-  singletons, companion objects, `sealed`/`enum` bodies, annotations: best-effort / follow-ups.
+- **Expression/statement coverage is a first increment.** The common statements (block, return, expression,
+  `val`/`var`, `if`/`else`) and the Java-only expression forms (new/cast/instanceof/ternary) are handled; other
+  forms fall back to the Java `print()`, and a Java-only construct **nested inside a delegated form** (e.g. a
+  cast inside `a + b`) is not yet translated (needs recursion through the operator families too). Multi-statement
+  Kotlin blocks rely on the formatter breaking lines (no `;`); a hard newline separator is a refinement.
+- **Language-specific hints live in `DetailedSources`.** The Kotlin parser records source-form markers there
+  (e.g. `NULL_COALESCING` for elvis `?:`); a printer reaches them via `element.source().detailedSources()` and
+  can reconstruct the idiomatic Kotlin form. This is the channel for things the (JVM-shaped) CST does not
+  otherwise capture — nullability (`?`), `when` vs `if`, expression-body-ness, elvis, etc.
+- Records print as `class` (not `data class`); `object` singletons, companion objects, `sealed`/`enum` bodies,
+  annotations, and `val`-vs-`var` for locals (front-end does not always flag final) are best-effort / follow-ups.
 
 ## Example
 

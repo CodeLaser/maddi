@@ -28,4 +28,9 @@ public class KotlinKeyword {
     public static final Keyword CONSTRUCTOR = new KeywordImpl("constructor");
     public static final Keyword COMPANION = new KeywordImpl("companion");
     public static final Keyword INTERNAL = new KeywordImpl("internal");
+    public static final Keyword AS = new KeywordImpl("as");
+    public static final Keyword IS = new KeywordImpl("is");
+    public static final Keyword IF = new KeywordImpl("if");
+    public static final Keyword ELSE = new KeywordImpl("else");
+    public static final Keyword RETURN = new KeywordImpl("return");
 }

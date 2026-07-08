@@ -57,10 +57,37 @@ class TestKotlinPrinter {
         val foo = types.first { it.simpleName() == "Foo" }
 
         val kotlin = printKotlin(runtime, foo)
-        // primary constructor reconstructed, getId() collapsed into the `val` property
+        // primary constructor reconstructed, getId() collapsed into the `val` property, expression body
         assertTrue(kotlin.contains("class Foo(val id: Int)"), kotlin)
-        assertTrue(kotlin.contains("fun greet(name: String): String"), kotlin)
+        assertTrue(kotlin.contains("fun greet(name: String): String = \"hi \" + name"), kotlin)
         assertTrue(!kotlin.contains("getId"), "getter must be collapsed into the property:\n$kotlin")
+    }
+
+    /** Expression/statement translation: `is`, `as`, `Foo()` (no `new`), `val`, expression bodies. */
+    @Test
+    fun expressionAndStatementTranslation() {
+        val runtime = RuntimeImpl()
+        val sourceSet = SourceSetImpl.Builder().setName("main").setUri(URI.create("file:/")).build()
+        val src = "package a\n" +
+            "class Bar {\n" +
+            "    fun check(x: Any): Boolean = x is String\n" +
+            "    fun make(): Bar = Bar()\n" +
+            "    fun pick(x: Any): String {\n" +
+            "        val s = x as String\n" +
+            "        return s\n" +
+            "    }\n" +
+            "}\n"
+        val types = KotlinScan(runtime, sourceSet, InfoByFqn()).parse("a/Bar.kt", src)
+        PrepAnalyzer(runtime).doPrimaryTypes(types.toSet())
+        val bar = types.first { it.simpleName() == "Bar" }
+        val kotlin = printKotlin(runtime, bar)
+
+        assertTrue(kotlin.contains("fun check(x: Any): Boolean = x is String"), kotlin)
+        assertTrue(kotlin.contains("fun make(): Bar = Bar()"), kotlin)
+        assertTrue(kotlin.contains("s = x as String"), kotlin) // cast -> `as`, local -> val/var
+        assertTrue(!kotlin.contains("new "), "no Java 'new':\n$kotlin")
+        assertTrue(!kotlin.contains("instanceof"), "no Java 'instanceof':\n$kotlin")
+        assertTrue(!kotlin.contains("constructor()"), "implicit default constructor suppressed:\n$kotlin")
     }
 
     /** The pluggable-printer seam: a custom MethodPrinter can be supplied to KotlinTypePrinter, as for Java. */

@@ -14,14 +14,20 @@
 
 package org.e2immu.language.cst.print.kotlin;
 
+import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.MethodPrinter;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
+import org.e2immu.language.cst.api.statement.Block;
+import org.e2immu.language.cst.api.statement.ReturnStatement;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.output.*;
+
+import java.util.List;
 
 /**
  * Prints a {@link MethodInfo} as a Kotlin function (or secondary constructor): `[vis] [override|abstract] fun
@@ -72,9 +78,26 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         }
 
         if (!methodInfo.isAbstract()) {
-            b.add(SpaceEnum.ONE).add(methodInfo.methodBody().print(qualification));
+            Block body = methodInfo.methodBody();
+            Expression expressionBody = methodInfo.isConstructor() ? null : expressionBody(body);
+            if (expressionBody != null) {
+                b.add(SpaceEnum.ONE).add(SymbolEnum.assignment("=")).add(SpaceEnum.ONE)
+                        .add(KotlinExpressionPrinter.print(expressionBody, qualification));
+            } else {
+                b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(body, qualification));
+            }
         }
         return b;
+    }
+
+    /** The expression of a single-`return` body (Kotlin `fun … = expr`), or {@code null} for a block body. */
+    private static Expression expressionBody(Block body) {
+        List<Statement> statements = body.statements().stream().filter(s -> !s.isSynthetic()).toList();
+        if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs
+            && rs.expression() != null && !rs.expression().isEmpty()) {
+            return rs.expression();
+        }
+        return null;
     }
 
     private OutputBuilder parameter(ParameterInfo pi) {
