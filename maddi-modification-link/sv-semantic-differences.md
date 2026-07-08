@@ -4,6 +4,35 @@ Assuming the sv label-algebra + engine changes are **intentional**, the 194 test
 diffs are not bugs but the visible signature of a redesigned link semantics. This
 maps the old model → the new model and explains each observed diff pattern.
 
+## Purpose (north star): limit the number of links via equivalence collapse
+
+`sv` = **shared variable**. Its whole reason for existing is to **bound the link
+count**. The problem: when an object with a deep, explicit object structure is passed
+around and its members are referenced frequently, the **"I-am-part-of-you" links
+(`≺` field-of, `≻` contains-as-field, `∈` element-of, `∋` contains-as-member)
+explode** — every member reference adds part-of edges, they combine transitively, and
+when the *same* object flows through several variables the entire part-of structure
+is **duplicated per variable**, multiplying the blowup (O(members²) per copy).
+
+The fix is to represent **equivalence classes as single nodes** rather than
+materializing the pairwise links inside them. Two tiers, built in this order:
+
+1. **Modification equivalences** (`VirtualModificationIdenticals`) — variables that
+   mutate together (`§m`-identical, nature `≡`) are held as one `Group =
+   (linkNature, {members})`. The pairwise `≡` links are **reconstructed on demand**
+   (`Group.expand`, `edges()`), so a class of N members costs **O(N)** storage
+   instead of **O(N²)** materialized links.
+2. **Assignment groups** (`SharedVariables`) — variables connected by assignment
+   (`←`) collapse to a single representative (`$__sv_`); `translateForward` rewrites
+   every reference to it. The part-of structure is then stored **once** for the whole
+   group instead of copied onto each assigned variable.
+
+So `←` and `≡` are the *duplication multipliers* (they copy a member's part-of
+structure across variables); sv collapses the multipliers so the expensive `≺`/`≻`/
+`∈`/`∋` part-of web is stored once per equivalence class. **Everything below is in
+service of that goal** — the reordered ranks, the candidate natures, the witness
+reduction all exist to keep the collapsed representation sound and small.
+
 ## 1. Assignment: edge → equivalence group  (explains the 177 dropped `←`)
 
 **Old:** `a = b` produces a first-class link `a ← b` (`IS_ASSIGNED_FROM`), which
