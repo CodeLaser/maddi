@@ -50,6 +50,7 @@ import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISe
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolOrigin
 import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
@@ -765,6 +766,8 @@ class KotlinScan(
         val methodType = if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
         val method = runtime.newMethod(owner, function.name.asString(), methodType)
         val builder = method.builder()
+        // compiler-generated members of a source class (a data class's componentN()/copy(), …) are synthetic
+        if (function.origin == KaSymbolOrigin.SOURCE_MEMBER_GENERATED) builder.setSynthetic(true)
         // method type parameters (`fun <T : Comparable<T>> …`): create them first (a bound may reference a
         // sibling, `T : Comparable<T>`), then set bounds -- resolved with `method` so a bare `T` binds here
         val cstTypeParameters = function.typeParameters.mapIndexed { index, tp ->
