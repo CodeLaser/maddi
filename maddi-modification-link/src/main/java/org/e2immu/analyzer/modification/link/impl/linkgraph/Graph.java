@@ -101,6 +101,13 @@ public class Graph {
             return virtualModificationIdenticals.add(from, linkNature, to);
         }
         if (linkNature.isAssignedFrom() && !(to instanceof MarkerVariable)) {
+            // both endpoints fresh and ungrouped: nothing to deduplicate yet — keep the assignment as a normal
+            // edge so summaries (e.g. constructor field<-param) survive. The collapse into a shared group happens
+            // later, when one endpoint is already materialised with structure (transformToSharedVariable path).
+            if (isKnownInGraph(from).isEmpty() && isKnownInGraph(to).isEmpty()
+                && !sharedVariables.isKnown(from) && !sharedVariables.isKnown(to)) {
+                return engine.addSymmetricEdge(from, to, linkNature, statementIndex) > 0;
+            }
             boolean fromInGroups = sharedVariables.isKnown(from);
             if (fromInGroups) {
                 // reassignment: we must remove 'from' if present in any shared variable
