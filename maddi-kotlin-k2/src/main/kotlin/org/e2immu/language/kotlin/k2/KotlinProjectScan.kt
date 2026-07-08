@@ -17,6 +17,7 @@ package org.e2immu.language.kotlin.k2
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.TypeInfo
 import org.e2immu.language.cst.api.runtime.Runtime
+import org.e2immu.language.inspection.api.resource.CompiledTypesManager
 import org.e2immu.language.inspection.resource.InfoByFqn
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaSourceModule
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
@@ -42,6 +43,9 @@ import java.nio.file.Path
 class KotlinProjectScan(
     private val runtime: Runtime,
     private val infoByFqn: InfoByFqn,
+    // Mixed-language: the Java front-end's CompiledTypesManager, so `java.*`/classpath types resolve to ONE
+    // shared bytecode-authoritative TypeInfo. Null = standalone Kotlin (K2 loads library types itself).
+    private val compiledTypesManager: CompiledTypesManager? = null,
 ) {
 
     /**
@@ -89,7 +93,7 @@ class KotlinProjectScan(
         orderedSourceSets.forEach { ss ->
             val module = moduleBySourceSet[ss]!!
             val ktFiles = (session.modulesWithFiles[module] ?: emptyList()).filterIsInstance<KtFile>()
-            result[ss] = KotlinScan(runtime, ss, infoByFqn).convert(ktFiles)
+            result[ss] = KotlinScan(runtime, ss, infoByFqn, compiledTypesManager).convert(ktFiles)
         }
         return result
     }
