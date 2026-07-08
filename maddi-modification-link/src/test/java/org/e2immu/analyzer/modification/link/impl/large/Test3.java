@@ -181,7 +181,7 @@ public class Test3 extends CommonTest {
     @DisplayName("null virtual field")
     @Test
     public void test6() {
-        TypeInfo C = javaInspector.parse(INPUT6);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT6);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
