@@ -53,8 +53,12 @@ class KotlinProjectScan(
      *        must carry its `sourceDirectories()` and (for cross-set links) its `dependencies()`.
      * @param libraryRoots      jars/class-dirs for the library classpath (kotlin-stdlib, third-party, …).
      * @param jdkHome           the JDK to resolve `java.*`/`kotlin`-mapped types against.
+     * @param javaSourceRoots   directories of Java **source** the Kotlin sets reference (mixed-language,
+     *        Kotlin→Java). K2 resolves the symbols from these (its `addSourceRoot` includes `.java`); the CST
+     *        `TypeInfo` still comes from the shared registry/CTM (those Java sets must be parsed first).
      */
-    fun parse(orderedSourceSets: List<SourceSet>, libraryRoots: List<Path>, jdkHome: Path): Map<SourceSet, List<TypeInfo>> {
+    fun parse(orderedSourceSets: List<SourceSet>, libraryRoots: List<Path>, jdkHome: Path,
+              javaSourceRoots: List<Path> = emptyList()): Map<SourceSet, List<TypeInfo>> {
         val jvm = JvmPlatforms.defaultJvmPlatform
         val moduleBySourceSet = LinkedHashMap<SourceSet, KaSourceModule>()
 
@@ -73,6 +77,17 @@ class KotlinProjectScan(
                     libraryName = "classpath"
                 }
                 addModule(library)
+                // a single module holding the referenced Java source, so every Kotlin module can resolve those
+                // types (without laying the .java files into each Kotlin module's own roots)
+                val javaExisting = javaSourceRoots.filter { Files.exists(it) }
+                val javaModule = if (javaExisting.isEmpty()) null else buildKtSourceModule {
+                    moduleName = "java-sources"
+                    platform = jvm
+                    javaExisting.forEach { addSourceRoot(it) }
+                    addRegularDependency(jdk)
+                    addRegularDependency(library)
+                }
+                javaModule?.let { addModule(it) }
                 // dependency order => a dependent finds its already-built upstream module in the map
                 orderedSourceSets.forEach { ss ->
                     val module = buildKtSourceModule {
@@ -81,6 +96,7 @@ class KotlinProjectScan(
                         ss.sourceDirectories().filter { Files.exists(it) }.forEach { addSourceRoot(it) }
                         addRegularDependency(jdk)
                         addRegularDependency(library)
+                        javaModule?.let { addRegularDependency(it) }
                         ss.dependencies().forEach { dep -> moduleBySourceSet[dep]?.let { addRegularDependency(it) } }
                     }
                     addModule(module)
