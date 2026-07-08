@@ -43,4 +43,5 @@ public class KotlinKeyword {
     public static final Keyword CATCH = new KeywordImpl("catch");
     public static final Keyword FINALLY = new KeywordImpl("finally");
     public static final Keyword ELSE_ARROW = new KeywordImpl("else"); // the `else` arm of a `when`
+    public static final Keyword DATA = new KeywordImpl("data");
 }

@@ -73,7 +73,7 @@ public class KotlinStatementPrinter {
                 .add(KotlinKeyword.WHEN).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
                 .add(KotlinExpressionPrinter.print(selector, q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE);
         return b.add(entries.stream().map(e -> whenEntry(e, q))
-                .collect(OutputBuilderImpl.joining(SpaceEnum.NONE, SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE,
+                .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE,
                         GuideImpl.generatorForBlock())));
     }
 
@@ -113,19 +113,16 @@ public class KotlinStatementPrinter {
         return b;
     }
 
-    /** The statements of a block without the enclosing braces (for a lambda body). */
+    /** The statements of a block without the enclosing braces; NEWLINE-separated (Kotlin has no `;`). */
     static OutputBuilder statementsNoBraces(Block block, Qualification q) {
         return block.statements().stream().filter(st -> !st.isSynthetic()).map(st -> print(st, q))
-                .collect(OutputBuilderImpl.joining(SpaceEnum.NONE, GuideImpl.generatorForBlock()));
+                .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
     }
 
     static OutputBuilder block(Block block, Qualification q) {
         OutputBuilder ob = new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE);
         if (!block.statements().isEmpty()) {
-            ob.add(block.statements().stream()
-                    .filter(st -> !st.isSynthetic())
-                    .map(st -> print(st, q))
-                    .collect(OutputBuilderImpl.joining(SpaceEnum.NONE, GuideImpl.generatorForBlock())));
+            ob.add(statementsNoBraces(block, q));
         }
         return ob.add(SymbolEnum.RIGHT_BRACE);
     }

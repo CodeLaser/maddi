@@ -159,6 +159,31 @@ class TestKotlinPrinter {
         assertTrue(!kotlin.contains("instanceof") && !kotlin.contains("switch"), kotlin)
     }
 
+    /** A Kotlin data class round-trips to `data class`, and multi-statement blocks are newline-separated. */
+    @Test
+    fun dataClassAndBlockNewlines() {
+        val runtime = RuntimeImpl()
+        val sourceSet = SourceSetImpl.Builder().setName("main").setUri(URI.create("file:/")).build()
+        val src = "package a\n" +
+            "data class Point(val x: Int, val y: Int) {\n" +
+            "    fun shift(d: Int): Int {\n" +
+            "        val s = x + d\n" +
+            "        return s + y\n" +
+            "    }\n" +
+            "}\n"
+        val types = KotlinScan(runtime, sourceSet, InfoByFqn()).parse("a/Point.kt", src)
+        PrepAnalyzer(runtime).doPrimaryTypes(types.toSet())
+        val point = types.first { it.simpleName() == "Point" }
+        val kotlin = printKotlin(runtime, point)
+
+        assertTrue(kotlin.contains("data class Point(val x: Int, val y: Int)"), kotlin)
+        assertTrue(!kotlin.contains("component") && !kotlin.contains("fun copy"),
+            "data-class generated methods must be suppressed:\n$kotlin")
+        // the two body statements must be on separate lines (Kotlin has no ';')
+        assertTrue(Regex("s = x \\+ d\\s*\\n\\s*return s \\+ y").containsMatchIn(kotlin),
+            "block statements must be newline-separated:\n$kotlin")
+    }
+
     /** The pluggable-printer seam: a custom MethodPrinter can be supplied to KotlinTypePrinter, as for Java. */
     @Test
     fun customMethodPrinterSeam() {
