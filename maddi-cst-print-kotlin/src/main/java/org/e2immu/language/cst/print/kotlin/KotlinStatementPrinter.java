@@ -14,11 +14,14 @@
 
 package org.e2immu.language.cst.print.kotlin;
 
+import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.statement.*;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.impl.output.*;
+
+import java.util.List;
 
 /**
  * Prints a {@link Statement} as Kotlin — no trailing semicolons; `val`/`var` local declarations; expression
@@ -57,8 +60,63 @@ public class KotlinStatementPrinter {
                     .add(SpaceEnum.ONE).add(KotlinKeyword.IN).add(SpaceEnum.ONE)
                     .add(KotlinExpressionPrinter.print(fe.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
                     .add(SpaceEnum.ONE).add(block(fe.block(), q));
+            case SwitchStatementNewStyle sw -> whenExpression(sw.expression(), sw.entries(), q);
+            case YieldStatement ys -> KotlinExpressionPrinter.print(ys.expression(), q); // a `when` arm's value
+            case TryStatement ts -> tryStatement(ts, q);
             default -> s.print(q); // not-yet-translated statement forms: Java rendering (valid enough)
         };
+    }
+
+    /** Render `when (selector) { conditions -> arm; … else -> arm }`; shared by switch statement and expression. */
+    static OutputBuilder whenExpression(Expression selector, List<SwitchEntry> entries, Qualification q) {
+        OutputBuilder b = new OutputBuilderImpl()
+                .add(KotlinKeyword.WHEN).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(KotlinExpressionPrinter.print(selector, q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE);
+        return b.add(entries.stream().map(e -> whenEntry(e, q))
+                .collect(OutputBuilderImpl.joining(SpaceEnum.NONE, SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE,
+                        GuideImpl.generatorForBlock())));
+    }
+
+    private static OutputBuilder whenEntry(SwitchEntry e, Qualification q) {
+        OutputBuilder b = new OutputBuilderImpl();
+        // the default arm has no conditions, or a single empty-expression sentinel
+        boolean isElse = e.conditions().isEmpty() || e.conditions().stream().allMatch(Expression::isEmpty);
+        if (isElse) {
+            b.add(KotlinKeyword.ELSE_ARROW);
+        } else {
+            b.add(e.conditions().stream().filter(c -> !c.isEmpty()).map(c -> KotlinExpressionPrinter.print(c, q))
+                    .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
+        }
+        return b.add(SymbolEnum.LAMBDA).add(arm(e.statement(), q));
+    }
+
+    /** A `when` arm: a single-statement block is unwrapped to its value (`1 -> "a"`, not `1 -> { "a" }`). */
+    private static OutputBuilder arm(Statement s, Qualification q) {
+        if (s instanceof Block block) {
+            List<Statement> body = block.statements().stream().filter(x -> !x.isSynthetic()).toList();
+            if (body.size() == 1) return print(body.getFirst(), q);
+        }
+        return print(s, q);
+    }
+
+    private static OutputBuilder tryStatement(TryStatement ts, Qualification q) {
+        OutputBuilder b = new OutputBuilderImpl().add(KotlinKeyword.TRY).add(SpaceEnum.ONE).add(block(ts.block(), q));
+        for (TryStatement.CatchClause cc : ts.catchClauses()) {
+            String type = cc.exceptionTypes().isEmpty() ? "Throwable" : KotlinTypeName.of(cc.exceptionTypes().getFirst());
+            b.add(SpaceEnum.ONE).add(KotlinKeyword.CATCH).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(new TextImpl(cc.catchVariable().simpleName())).add(SymbolEnum.COLON_LABEL)
+                    .add(new TextImpl(type)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(block(cc.block(), q));
+        }
+        if (ts.finallyBlock() != null && !ts.finallyBlock().isEmpty()) {
+            b.add(SpaceEnum.ONE).add(KotlinKeyword.FINALLY).add(SpaceEnum.ONE).add(block(ts.finallyBlock(), q));
+        }
+        return b;
+    }
+
+    /** The statements of a block without the enclosing braces (for a lambda body). */
+    static OutputBuilder statementsNoBraces(Block block, Qualification q) {
+        return block.statements().stream().filter(st -> !st.isSynthetic()).map(st -> print(st, q))
+                .collect(OutputBuilderImpl.joining(SpaceEnum.NONE, GuideImpl.generatorForBlock()));
     }
 
     static OutputBuilder block(Block block, Qualification q) {

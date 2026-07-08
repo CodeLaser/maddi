@@ -135,6 +135,30 @@ class TestKotlinPrinter {
         assertTrue(!kotlin.contains("?:") || kotlin.contains("x ?: "), kotlin)
     }
 
+    /** when, try/catch, and the `!is` idiom. */
+    @Test
+    fun whenTryAndNotIs() {
+        val runtime = RuntimeImpl()
+        val sourceSet = SourceSetImpl.Builder().setName("main").setUri(URI.create("file:/")).build()
+        val src = "package a\n" +
+            "class R {\n" +
+            "    fun c(x: Any): Boolean = x !is String\n" +
+            "    fun w(x: Int): String = when (x) { 1 -> \"a\"; else -> \"b\" }\n" +
+            "    fun t(): Int {\n" +
+            "        try { return 1 } catch (e: Exception) { return 2 }\n" +
+            "    }\n" +
+            "}\n"
+        val types = KotlinScan(runtime, sourceSet, InfoByFqn()).parse("a/R.kt", src)
+        PrepAnalyzer(runtime).doPrimaryTypes(types.toSet())
+        val r = types.first { it.simpleName() == "R" }
+        val kotlin = printKotlin(runtime, r)
+
+        assertTrue(kotlin.contains("x !is String"), "not-instanceof idiom:\n$kotlin")
+        assertTrue(kotlin.contains("when (x)"), "switch -> when:\n$kotlin")
+        assertTrue(kotlin.contains("try {") && kotlin.contains("catch (e: Exception)"), "try/catch:\n$kotlin")
+        assertTrue(!kotlin.contains("instanceof") && !kotlin.contains("switch"), kotlin)
+    }
+
     /** The pluggable-printer seam: a custom MethodPrinter can be supplied to KotlinTypePrinter, as for Java. */
     @Test
     fun customMethodPrinterSeam() {

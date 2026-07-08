@@ -45,10 +45,12 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
 - **Type references** — JVM primitives/JDK types mapped to Kotlin (`int`→`Int`, `java.lang.String`→`String`,
   `java.lang.Object`→`Any`, …); arrays → `Array<…>`; generics recurse; a **nullable** type (the front-end
   records `NullableState.NULLABLE` on the `ParameterizedType`) gets a trailing `?`.
-- **Control flow** — `while`/`do`-`while`/`for (x in …)`/`throw` (via the statement printer); `for`(C-style)/
-  `switch`→`when`/`try` and lambdas are follow-ups.
-- **Elvis** — a desugared `a ?: b` (`InlineConditional` marked `NULL_COALESCING` in `DetailedSources`) is
-  recovered to `a ?: b` rather than printed as `if (a == null) b else a`.
+- **Control flow** — `while`/`do`-`while`/`for (x in …)`/`throw`; `switch`→`when (sel) { c -> …; else -> … }`
+  (statement and expression, arms unwrapped); `try`/`catch (e: T)`/`finally`. C-style `for` and try-with-resources
+  are follow-ups.
+- **Lambdas** — `{ p1, p2 -> body }` (single-expression body inlined).
+- **Idioms via structure** — `!(x is T)`→`x !is T`; and elvis `a ?: b` recovered from the desugared
+  `InlineConditional` marked `NULL_COALESCING` in `DetailedSources` (rather than `if (a == null) b else a`).
 - **Idiomatic reconstruction** (needs the analyzer's **prepwork** phase, which populates `getSetField`):
   - getter/setter methods (non-empty `getSetField`) are collapsed away — the backing field prints as its
     property, avoiding the Kotlin platform-declaration clash of a property *and* its `getX()`;
@@ -60,10 +62,11 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
 - **Requires prepwork** for the accessor collapse (agreed restriction). Without it, a Kotlin-parsed type prints
   both the property and its `getX()` (a Kotlin clash).
 - **Expression/statement coverage is incremental.** Handled: block, return, expression-statement, `val`/`var`,
-  `if`/`else`; new/cast/instanceof/ternary; the binary/logical/unary/negation operator families (with operand
-  recursion). Not yet: `for`/`while`/`switch`→`when`/`try`, lambdas, `for`-comprehensions; anything else falls
-  back to the Java `print()`. Multi-statement Kotlin blocks rely on the formatter breaking lines (no `;`); a hard
-  newline separator is a refinement.
+  `if`/`else`, `while`/`do`/`for-in`/`throw`, `when`, `try`/`catch`/`finally`, `yield`; new/cast/instanceof/
+  ternary/elvis/`!is`, lambdas, and the binary/logical/unary/negation operator families (operand recursion).
+  Not yet: C-style `for`, try-with-resources, old-style (fall-through) `switch`; anything else falls back to the
+  Java `print()`. Multi-statement Kotlin blocks rely on the formatter breaking lines (no `;`); a hard newline
+  separator is a refinement.
 - **Language-specific hints live in `DetailedSources`.** The Kotlin parser records source-form markers there
   (e.g. `NULL_COALESCING` for elvis `?:`); a printer reaches them via `element.source().detailedSources()` and
   can reconstruct the idiomatic Kotlin form. This is the channel for things the (JVM-shaped) CST does not

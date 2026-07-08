@@ -17,8 +17,12 @@ package org.e2immu.language.cst.print.kotlin;
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.*;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
+import org.e2immu.language.cst.api.statement.Block;
+import org.e2immu.language.cst.api.statement.ReturnStatement;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.impl.output.*;
 
@@ -53,6 +57,8 @@ public class KotlinExpressionPrinter {
                     .add(print(ic.ifTrue(), q)).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE).add(print(ic.ifFalse(), q));
             case MethodCall mc -> methodCall(mc, q);
+            case SwitchExpression se -> KotlinStatementPrinter.whenExpression(se.selector(), se.entries(), q);
+            case Lambda lambda -> lambda(lambda, q);
             // operators: same in Kotlin; recurse operands so nested Java-only forms (new/cast/instanceof/?:) translate
             case Negation neg -> negation(neg, q);
             case BinaryOperator bo when bo.operator() != null -> new OutputBuilderImpl()
@@ -63,8 +69,7 @@ public class KotlinExpressionPrinter {
                     .collect(OutputBuilderImpl.joining(SymbolEnum.LOGICAL_AND));
             case Or or -> or.expressions().stream().map(x -> operand(or.precedence(), x, q))
                     .collect(OutputBuilderImpl.joining(SymbolEnum.LOGICAL_OR));
-            case UnaryOperator uo -> new OutputBuilderImpl()
-                    .add(SymbolEnum.plusPlusPrefix(uo.operator().name())).add(operand(uo.precedence(), uo.expression(), q));
+            case UnaryOperator uo -> unaryOperator(uo, q);
             case EnclosedExpression ee -> new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(print(ee.inner(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
             default -> e.print(q); // constants, variables, …: identical to Java
@@ -79,13 +84,52 @@ public class KotlinExpressionPrinter {
     }
 
     private static OutputBuilder negation(Negation neg, Qualification q) {
-        if (neg.expression() instanceof Equals equals) { // !(a == b) -> a != b
+        Expression inner = unwrap(neg.expression());
+        if (inner instanceof Equals equals) { // !(a == b) -> a != b
             return new OutputBuilderImpl().add(operand(equals.precedence(), equals.lhs(), q))
                     .add(SymbolEnum.NOT_EQUALS).add(operand(equals.precedence(), equals.rhs(), q));
         }
+        if (inner instanceof InstanceOf io) return notInstanceOf(io, q); // !(x is T) -> x !is T
         return new OutputBuilderImpl()
                 .add(neg.expression().isNumeric() ? SymbolEnum.UNARY_MINUS : SymbolEnum.UNARY_BOOLEAN_NOT)
                 .add(operand(neg.precedence(), neg.expression(), q));
+    }
+
+    private static OutputBuilder unaryOperator(UnaryOperator uo, Qualification q) {
+        Expression inner = unwrap(uo.expression());
+        if (inner instanceof InstanceOf io) return notInstanceOf(io, q); // a unary op wrapping `is` is `!` -> `!is`
+        return new OutputBuilderImpl()
+                .add(SymbolEnum.plusPlusPrefix(uo.operator().name())).add(operand(uo.precedence(), uo.expression(), q));
+    }
+
+    private static OutputBuilder notInstanceOf(InstanceOf io, Qualification q) {
+        return new OutputBuilderImpl().add(operand(io.precedence(), io.expression(), q)).add(SpaceEnum.ONE)
+                .add(new TextImpl("!is")).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(io.testType())));
+    }
+
+    private static Expression unwrap(Expression e) {
+        while (e instanceof EnclosedExpression ee) e = ee.inner();
+        return e;
+    }
+
+    private static OutputBuilder lambda(Lambda lambda, Qualification q) {
+        OutputBuilder b = new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE);
+        List<ParameterInfo> params = lambda.parameters();
+        if (!params.isEmpty()) {
+            b.add(SpaceEnum.ONE).add(params.stream()
+                    .map(p -> new OutputBuilderImpl().add(new TextImpl(p.name())))
+                    .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA))).add(SpaceEnum.ONE).add(SymbolEnum.LAMBDA);
+        }
+        return b.add(SpaceEnum.ONE).add(lambdaBody(lambda.methodBody(), q)).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+    }
+
+    private static OutputBuilder lambdaBody(Block body, Qualification q) {
+        List<Statement> statements = body.statements().stream().filter(s -> !s.isSynthetic()).toList();
+        if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs
+            && rs.expression() != null && !rs.expression().isEmpty()) {
+            return print(rs.expression(), q); // single-expression lambda
+        }
+        return KotlinStatementPrinter.statementsNoBraces(body, q);
     }
 
     /** Recurse into an operand, parenthesising when the enclosing operator binds tighter (as the Java printer does). */
