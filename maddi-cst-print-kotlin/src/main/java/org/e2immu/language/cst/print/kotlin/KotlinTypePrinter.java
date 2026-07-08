@@ -137,7 +137,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .filter(c -> c != primaryFinal && !isImplicitDefaultConstructor(c))
                 .map(c -> methodPrinterFactory.create(typeInfo, c, formatter2).print(insideType));
         Stream<OutputBuilder> methodStream = typeInfo.methods().stream()
-                .filter(m -> !m.isSynthetic() && !isAccessor(m) && !(dataClass && isDataClassGenerated(m)))
+                .filter(m -> !m.isSynthetic() && !isAccessor(m)) // data-class componentN/copy are synthetic (front-end)
                 .map(m -> methodPrinterFactory.create(typeInfo, m, formatter2).print(insideType));
         Stream<OutputBuilder> subTypeStream = typeInfo.subTypes().stream()
                 .filter(st -> !st.isSynthetic())
@@ -165,11 +165,6 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     /** A data class exposes generated destructuring accessors {@code component1()}, {@code component2()}, … */
     private static boolean hasComponentMethods(TypeInfo typeInfo) {
         return typeInfo.methods().stream().anyMatch(m -> m.parameters().isEmpty() && m.name().matches("component\\d+"));
-    }
-
-    /** A method Kotlin regenerates for a data class (destructuring {@code componentN}, {@code copy}); not written. */
-    private static boolean isDataClassGenerated(MethodInfo m) {
-        return (m.parameters().isEmpty() && m.name().matches("component\\d+")) || "copy".equals(m.name());
     }
 
     private List<OutputBuilder> superTypes() {
