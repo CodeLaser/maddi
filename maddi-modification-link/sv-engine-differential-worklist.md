@@ -44,6 +44,39 @@ engine's own doc says it must preserve but evidently doesn't yet.
 (or only `-`) where the old fixpoint had a full link set. So this is not fine
 mis-labeling at the margins; whole link sets are collapsing.
 
+## ROOT CAUSE FOUND (dominant cluster): shared-variable collapse drops fresh assignments
+
+`Graph.mergeEdgeBi`, the `IS_ASSIGNED_FROM` branch. When **both endpoints are fresh**
+(neither is yet a graph vertex — `fromInGraph.isEmpty() && toInGraph.isEmpty()`), it
+creates the shared group (`sharedVariables.isAssignedFrom → create`) but **neither
+`transformToSharedVariable` branch fires, so it `return true` adding nothing to the
+graph** — the assignment is silently dropped. Only the "one endpoint already
+materialised" case is implemented (see the nearby `TODO what with fromInGraph?`).
+
+This is the *common* case: a constructor's `field ← param` links and method-entry
+assignments are the **first** edges into an empty graph. Traced on
+`TestSharedVariable :: direct assignment`:
+- the `record S(String s1,String s2)` constructor feeds `this.s1 ← 0:s1`,
+  `this.s2 ← 1:s2` into an empty graph → both dropped → **`S.<init>`'s summary is
+  empty** → `new S($__rv1,$__rv2)` contributes no field links → `choose`/`method`
+  emit `-`.
+
+**The closure engine underneath is sound.** Bypassing the collapse (route `←`
+through the normal edge path) makes the closure correctly derive
+`choose.s1 ∈ r.list1.§$s` from `s1 ← param` combined with `param ∈ r.list1.§$s`.
+
+**Quantified impact:** with the shared-variable collapse OFF, link failures drop
+**196 → 114** — the incomplete collapse accounts for **~82 failures (42%)**,
+including the ~113 "produces nothing" cluster. The remaining 114 are the intended
+label-algebra re-baselines + other gaps.
+
+**Fix (engine design — owner's call):** implement the both-fresh case so it
+*materialises* the shared group in the graph (add the `$__sv_` vertex and represent
+the assignment) so (a) later edges attach to the group and (b) summary extraction
+reconstructs `field ↔ param` / element links. It must **reduce and preserve** — for
+simple cases (no reduction benefit) the output should match the non-collapsed form.
+Bypassing the collapse is a diagnostic, not the fix (it defeats the reduction goal).
+
 ## Prioritized attack plan
 
 1. **`←` assignment-flow drop (177) — do this first.** One root cause almost
