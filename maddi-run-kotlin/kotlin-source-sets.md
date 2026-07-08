@@ -133,9 +133,13 @@ KOTLINC: kotlinc(?:-jvm)?\s+(.+)             # raw CLI
     `JavaInspectorImpl` owns the shared core (initialised with the Java sets + the stub dir on their classpath);
     Kotlin runs via `KotlinProjectScan` (now taking the shared `CompiledTypesManager`) one `KaSourceModule` per
     set in dependency order; stubs are generated for every Kotlin type; then the Java sets parse from disk
-    (`parse(Map.of())` reads the configured source directories). Test `TestMixedProjectInspector`. Remaining
-    follow-ups: the Kotlin→Java **source** direction (K2 needs the Java dirs as source roots), Java→Java deps
-    across `withDependencies`-rebuilt sets, and mixed-Maven block interleaving on the parse side.
+    (`parse(Map.of())` reads the configured source directories). The parse order follows the cross-language
+    dependency direction: **Java→Kotlin** ⇒ Kotlin-first + stubs (above); **Kotlin→Java** ⇒ Java-first (its
+    source types commit to the shared CTM), then Kotlin resolves them to the same instances (`KotlinProjectScan`
+    gets the Java dirs as source roots). Test `TestMixedProjectInspector` (both directions). Remaining
+    follow-ups: Java→Java deps across `withDependencies`-rebuilt sets, a project mixing *both* cross-language
+    directions (intra-module Kotlin↔Java cycle — the skeleton-pre-pass case), and mixed-Maven block
+    interleaving on the parse side.
 
 ## 7. Known limitations / follow-ups
 

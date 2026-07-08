@@ -60,4 +60,36 @@ class TestMixedProjectInspector {
         // and the Java->Kotlin reference resolves to the one shared instance
         assertSame(foo, useFoo.getFieldByName("foo", true).type().typeInfo())
     }
+
+    /** The other direction: a Kotlin source set depends on a Java source set (Java-first order). */
+    @Test
+    fun kotlinSourceSetResolvesUpstreamJavaSourceType() {
+        val tmp = Files.createTempDirectory("mixed-k2j")
+        val jDir = tmp.resolve("proj/src/main/java")
+        val kDir = tmp.resolve("proj/src/main/kotlin")
+        Files.createDirectories(jDir.resolve("a"))
+        Files.createDirectories(kDir.resolve("b"))
+        Files.writeString(jDir.resolve("a/JavaFoo.java"),
+            "package a;\npublic class JavaFoo {\n    public int id;\n}\n")
+        Files.writeString(kDir.resolve("b/Bar.kt"), "package b\nimport a.JavaFoo\nclass Bar(val foo: JavaFoo)\n")
+
+        val javaSet = SourceSetImpl.Builder().setName("java/main")
+            .setSourceDirectories(listOf(jDir)).setUri(jDir.toUri()).build()
+        val kotlinSet = SourceSetImpl.Builder().setName("kotlin/main")
+            .setSourceDirectories(listOf(kDir)).setUri(kDir.toUri())
+            .setDependencies(listOf(javaSet)).build()
+        val config = InputConfigurationImpl.Builder()
+            .addSourceSets(javaSet)
+            .addSourceSets(kotlinSet)
+            .build()
+
+        val result = MixedProjectInspector().parse(config)
+
+        val javaFoo = result.javaTypes.first { it.simpleName() == "JavaFoo" }
+        val bar = result.kotlinBySourceSet.getValue(kotlinSet).first { it.simpleName() == "Bar" }
+        assertEquals("java/main", javaFoo.compilationUnit().sourceSet().name())
+        assertEquals("kotlin/main", bar.compilationUnit().sourceSet().name())
+        // Kotlin -> Java source across the boundary: one shared instance
+        assertSame(javaFoo, bar.getFieldByName("foo", true).type().typeInfo())
+    }
 }
