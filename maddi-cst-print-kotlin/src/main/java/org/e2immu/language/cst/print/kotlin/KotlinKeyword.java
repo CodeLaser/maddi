@@ -38,4 +38,9 @@ public class KotlinKeyword {
     public static final Keyword FOR = new KeywordImpl("for");
     public static final Keyword IN = new KeywordImpl("in");
     public static final Keyword THROW = new KeywordImpl("throw");
+    public static final Keyword WHEN = new KeywordImpl("when");
+    public static final Keyword TRY = new KeywordImpl("try");
+    public static final Keyword CATCH = new KeywordImpl("catch");
+    public static final Keyword FINALLY = new KeywordImpl("finally");
+    public static final Keyword ELSE_ARROW = new KeywordImpl("else"); // the `else` arm of a `when`
 }
