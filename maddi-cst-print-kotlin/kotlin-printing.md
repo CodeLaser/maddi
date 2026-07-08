@@ -36,6 +36,10 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
 - **Functions** — `[vis] [override|abstract] fun [<T>] name(p: T, …)[: ReturnType] body`; `Unit`/void return
   omitted; `override` when the method overrides a supertype method. A single-`return` body prints as an
   **expression body** (`fun f() = expr`); the implicit no-arg default constructor is suppressed.
+- **Data classes** — a Java record, or a Kotlin data class (detected by its generated `componentN()` accessors),
+  prints as `data class …`, and the regenerated `componentN`/`copy` methods are suppressed.
+- **Block layout** — members and block statements are `NEWLINE`-separated (Kotlin has no `;`), so multi-statement
+  output stays valid regardless of formatter width.
 - **Statements / expressions** (`KotlinStatementPrinter` / `KotlinExpressionPrinter`) — no semicolons; `val`/`var`
   local declarations; and the Java-only forms are translated by recursion: `new Foo(a)`→`Foo(a)`, `(T) x`→
   `x as T`, `x instanceof T`→`x is T`, `c ? t : f`→`if (c) t else f`. The operator families (binary operators,
@@ -65,8 +69,7 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
   `if`/`else`, `while`/`do`/`for-in`/`throw`, `when`, `try`/`catch`/`finally`, `yield`; new/cast/instanceof/
   ternary/elvis/`!is`, lambdas, and the binary/logical/unary/negation operator families (operand recursion).
   Not yet: C-style `for`, try-with-resources, old-style (fall-through) `switch`; anything else falls back to the
-  Java `print()`. Multi-statement Kotlin blocks rely on the formatter breaking lines (no `;`); a hard newline
-  separator is a refinement.
+  Java `print()`.
 - **Language-specific hints live in `DetailedSources`.** The Kotlin parser records source-form markers there
   (e.g. `NULL_COALESCING` for elvis `?:`); a printer reaches them via `element.source().detailedSources()` and
   can reconstruct the idiomatic Kotlin form. This is the channel for things the (JVM-shaped) CST does not

@@ -85,6 +85,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         Set<String> headerFields = primary == null ? Set.of()
                 : primary.parameters().stream().map(ParameterInfo::name).collect(Collectors.toSet());
         MethodInfo primaryFinal = primary;
+        boolean dataClass = typeInfo.typeNature().isRecord() || hasComponentMethods(typeInfo);
 
         OutputBuilder out = new OutputBuilderImpl();
         if (doTypeDeclaration) {
@@ -99,6 +100,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 out.add(KeywordImpl.ENUM).add(SpaceEnum.ONE).add(KeywordImpl.CLASS);
             } else if (typeInfo.typeNature().isInterface()) {
                 out.add(KeywordImpl.INTERFACE);
+            } else if (dataClass) {
+                out.add(KotlinKeyword.DATA).add(SpaceEnum.ONE).add(KeywordImpl.CLASS); // record / Kotlin data class
             } else {
                 out.add(KeywordImpl.CLASS);
             }
@@ -134,7 +137,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .filter(c -> c != primaryFinal && !isImplicitDefaultConstructor(c))
                 .map(c -> methodPrinterFactory.create(typeInfo, c, formatter2).print(insideType));
         Stream<OutputBuilder> methodStream = typeInfo.methods().stream()
-                .filter(m -> !m.isSynthetic() && !isAccessor(m))
+                .filter(m -> !m.isSynthetic() && !isAccessor(m) && !(dataClass && isDataClassGenerated(m)))
                 .map(m -> methodPrinterFactory.create(typeInfo, m, formatter2).print(insideType));
         Stream<OutputBuilder> subTypeStream = typeInfo.subTypes().stream()
                 .filter(st -> !st.isSynthetic())
@@ -143,7 +146,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<OutputBuilder> members = Stream.of(propertyStream, constructorStream, methodStream, subTypeStream)
                 .flatMap(Function.identity()).toList();
         if (!members.isEmpty()) {
-            out.add(SpaceEnum.ONE).add(members.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NONE,
+            // NEWLINE between members: Kotlin has no `;`, so members must be newline-separated to stay valid
+            out.add(SpaceEnum.ONE).add(members.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE,
                     SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE, GuideImpl.generatorForBlock())));
         }
         return out;
@@ -156,6 +160,16 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     /** The implicit no-arg, empty-body constructor a class gets by default (not written in Kotlin). */
     private static boolean isImplicitDefaultConstructor(MethodInfo c) {
         return c.parameters().isEmpty() && (c.methodBody() == null || c.methodBody().isEmpty());
+    }
+
+    /** A data class exposes generated destructuring accessors {@code component1()}, {@code component2()}, … */
+    private static boolean hasComponentMethods(TypeInfo typeInfo) {
+        return typeInfo.methods().stream().anyMatch(m -> m.parameters().isEmpty() && m.name().matches("component\\d+"));
+    }
+
+    /** A method Kotlin regenerates for a data class (destructuring {@code componentN}, {@code copy}); not written. */
+    private static boolean isDataClassGenerated(MethodInfo m) {
+        return (m.parameters().isEmpty() && m.name().matches("component\\d+")) || "copy".equals(m.name());
     }
 
     private List<OutputBuilder> superTypes() {
