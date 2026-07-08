@@ -20,6 +20,8 @@ import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.impl.output.*;
 
+import java.util.List;
+
 /**
  * Prints an {@link Expression} as Kotlin, translating the Java-only forms and recursing into their
  * sub-expressions: `new Foo(a)`→`Foo(a)`, `(T) x`→`x as T`, `x instanceof T`→`x is T`, `c ? t : f`→
@@ -45,10 +47,41 @@ public class KotlinExpressionPrinter {
                     .add(print(ic.ifTrue(), q)).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE).add(print(ic.ifFalse(), q));
             case MethodCall mc -> methodCall(mc, q);
+            // operators: same in Kotlin; recurse operands so nested Java-only forms (new/cast/instanceof/?:) translate
+            case Negation neg -> negation(neg, q);
+            case BinaryOperator bo when bo.operator() != null -> new OutputBuilderImpl()
+                    .add(operand(bo.precedence(), bo.lhs(), q))
+                    .add(SymbolEnum.binaryOperator(bo.operator().name()))
+                    .add(operand(bo.precedence(), bo.rhs(), q));
+            case And and -> and.expressions().stream().map(x -> operand(and.precedence(), x, q))
+                    .collect(OutputBuilderImpl.joining(SymbolEnum.LOGICAL_AND));
+            case Or or -> or.expressions().stream().map(x -> operand(or.precedence(), x, q))
+                    .collect(OutputBuilderImpl.joining(SymbolEnum.LOGICAL_OR));
+            case UnaryOperator uo -> new OutputBuilderImpl()
+                    .add(SymbolEnum.plusPlusPrefix(uo.operator().name())).add(operand(uo.precedence(), uo.expression(), q));
             case EnclosedExpression ee -> new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(print(ee.inner(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
-            default -> e.print(q); // constants, variables, operators, …: identical to Java
+            default -> e.print(q); // constants, variables, …: identical to Java
         };
+    }
+
+    private static OutputBuilder negation(Negation neg, Qualification q) {
+        if (neg.expression() instanceof Equals equals) { // !(a == b) -> a != b
+            return new OutputBuilderImpl().add(operand(equals.precedence(), equals.lhs(), q))
+                    .add(SymbolEnum.NOT_EQUALS).add(operand(equals.precedence(), equals.rhs(), q));
+        }
+        return new OutputBuilderImpl()
+                .add(neg.expression().isNumeric() ? SymbolEnum.UNARY_MINUS : SymbolEnum.UNARY_BOOLEAN_NOT)
+                .add(operand(neg.precedence(), neg.expression(), q));
+    }
+
+    /** Recurse into an operand, parenthesising when the enclosing operator binds tighter (as the Java printer does). */
+    private static OutputBuilder operand(Precedence precedence, Expression e, Qualification q) {
+        OutputBuilder inner = print(e, q);
+        if (precedence.greaterThan(e.precedence())) {
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(inner).add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
+        return inner;
     }
 
     private static OutputBuilder constructorCall(ConstructorCall cc, Qualification q) {
