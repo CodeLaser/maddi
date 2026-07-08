@@ -29,6 +29,8 @@ dependencies {
     implementation(project(":maddi-kotlin-k2"))
 
     testImplementation(project(":maddi-cst-impl"))
+    testImplementation(project(":maddi-cst-print")) // the language-neutral formatter
+    testImplementation(project(":maddi-cst-print-kotlin")) // the Kotlin printer under test
     testImplementation(project(":maddi-inspection-openjdk")) // Phase 1: the openjdk (javac) Java front-end, to share the JDK core
     testImplementation(project(":maddi-modification-prepwork")) // Tier-1: run the analyzer on Kotlin CST
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")
