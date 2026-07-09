@@ -184,6 +184,14 @@ public class Graph {
         return Stream.of(variable);
     }
 
+    // rebuild 'variable' with every occurrence of 'from' in its scope chain replaced by 'to'
+    // (e.g. rehome(a.list1.§$s, a, $__sv_return) = $__sv_return.list1.§$s).
+    public Variable rehome(Variable variable, Variable from, Variable to) {
+        VariableTranslationMap vtm = new VariableTranslationMap(runtime);
+        vtm.put(from, to);
+        return vtm.translateVariableRecursively(variable);
+    }
+
     public String printEquivalence(Function<Variable, String> variablePrinter) {
         return virtualModificationIdenticals.print(variablePrinter);
     }
