@@ -290,13 +290,6 @@ public class JavaUtil {
     //public class ArrayList extends AbstractList<E> implements List<E>, RandomAccess, Cloneable, Serializable
     @Container
     class ArrayList$<E> {
-        //frequency 1
-        ArrayList$(int initialCapacity) { }
-
-        //frequency 58
-        ArrayList$() { }
-
-        //frequency 5
         ArrayList$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
         void trimToSize() { }
         void ensureCapacity(int minCapacity) { }
@@ -2156,13 +2149,7 @@ public class JavaUtil {
     //public class HashSet extends AbstractSet<E> implements Set<E>, Cloneable, Serializable
     @Container
     class HashSet$<E> {
-        //frequency 41
-        HashSet$() { }
-
-        //frequency 25
         HashSet$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Collection<? extends E> c) { }
-        HashSet$(int initialCapacity, float loadFactor) { }
-        HashSet$(int initialCapacity) { }
         //override from java.lang.Iterable, java.util.AbstractCollection, java.util.Collection, java.util.Set
         //@NotModified[H] @NotNull[H]
         Iterator<E> iterator() { return null; }
@@ -2220,7 +2207,6 @@ public class JavaUtil {
 
     //public class LinkedList extends AbstractSequentialList<E> implements List<E>, Deque<E>, Cloneable, Serializable
     class LinkedList$<E> {
-        LinkedList$() { }
         LinkedList$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
         //override from java.util.Deque, java.util.List, java.util.SequencedCollection
         //@Independent(hc=true)[H] @NotModified[H]
@@ -4130,9 +4116,6 @@ public class JavaUtil {
 
     //public class Vector extends AbstractList<E> implements List<E>, RandomAccess, Cloneable, Serializable
     class Vector$<E> {
-        Vector$(int initialCapacity, int capacityIncrement) { }
-        Vector$(int initialCapacity) { }
-        Vector$() { }
         Vector$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
         void copyInto(Object [] anArray) { }
         void trimToSize() { }
