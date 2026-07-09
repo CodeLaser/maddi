@@ -35,19 +35,31 @@ public record FollowGraph(Graph graph) {
         if (primary instanceof This) {
             if (graph.containsVariable(primary)) fromList.add(new FromPair(primary, primary));
         } else {
+            // When 'primary' is itself a shared-variable rep (the extraction of a collapsed variable, e.g. a return
+            // aliased by 'return a'), its group members are alternative "faces" of the same value. A vertex whose
+            // rep-expansion is part of a face f (e.g. 'a.list1.§$s' part of the sibling 'a') belongs to the primary
+            // too; we emit it keyed on the face->primary rehomed form ('$__sv_return.list1.§$s'), which the caller's
+            // builder2 then rehomes to the real variable ('method1.list1.§$s').
+            List<Variable> faces = primary instanceof SharedVariable sv
+                    ? List.copyOf(sv.variables()) : List.of(primary);
             for (Variable v : graph.variables()) {
                 if (Util.isPartOf(primary, v)) {
                     fromList.add(new FromPair(v, v));
-                } else {
-                    // a shared-variable rep somewhere in v's scope chain, standing for a member that is part of the
-                    // primary (a whole-vertex rep '$__sv_list1', or one nested in a field scope '$__sv_list1.§$s'
-                    // -> 'a.list1.§$s'). Query the rep's closure, emit keyed on the member form. The !e.equals(v)
-                    // guard keeps ordinary vertices on the fast path (expandRepToMembers rebuilds equal-but-distinct
-                    // FieldReferences, which must not replace the original).
-                    graph.expandRepToMembers(v)
-                            .filter(e -> !e.equals(v) && Util.isPartOf(primary, e))
-                            .forEach(e -> fromList.add(new FromPair(v, e)));
+                    continue;
                 }
+                // a shared-variable rep somewhere in v's scope chain, standing for a member part of a face (a
+                // whole-vertex rep '$__sv_list1', or one nested in a field scope '$__sv_list1.§$s' -> 'a.list1.§$s').
+                // The !e.equals(v) guard keeps ordinary vertices on the fast path (expandRepToMembers rebuilds
+                // equal-but-distinct FieldReferences, which must not replace the original).
+                graph.expandRepToMembers(v).filter(e -> !e.equals(v)).forEach(e -> {
+                    for (Variable face : faces) {
+                        if (Util.isPartOf(face, e)) {
+                            Variable emit = face.equals(primary) ? e : graph.rehome(e, face, primary);
+                            fromList.add(new FromPair(v, emit));
+                            return;
+                        }
+                    }
+                });
             }
         }
         fromList.sort((p1, p2) -> {
