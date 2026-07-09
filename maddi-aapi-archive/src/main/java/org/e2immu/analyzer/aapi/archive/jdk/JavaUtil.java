@@ -2030,10 +2030,6 @@ public class JavaUtil {
     //public class HashMap extends AbstractMap<K,V> implements Map<K,V>, Cloneable, Serializable
     @Container
     class HashMap$<K, V> {
-        HashMap$(int initialCapacity, float loadFactor) { }
-        HashMap$(int initialCapacity) { }
-        //frequency 15
-        HashMap$() { }
         HashMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
         //override from java.util.AbstractMap, java.util.Map
         //@NotModified[H]
@@ -2221,6 +2217,12 @@ public class JavaUtil {
         E next() { return null; }
         void remove() { }
         void forEachRemaining(/*@IgnoreModifications[T]*/ @Independent(hc = true) @NotNull Consumer<? super E> action) { }
+    }
+
+    //public class LinkedHashMap<K, V> extends HashMap<K, V> implements SequencedMap<K, V>
+    @Container
+    class LinkedHashMap$<K, V> {
+        LinkedHashMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
     }
 
     //public class LinkedHashSet<E> extends HashSet<E> implements SequencedSet<E>, Cloneable, Serializable
@@ -3881,10 +3883,8 @@ public class JavaUtil {
     //public class TreeMap extends AbstractMap<K,V> implements NavigableMap<K,V>, Cloneable, Serializable
     @Container
     class TreeMap$<K, V> {
-        TreeMap$() { }
-        TreeMap$(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ Comparator<? super K> comparator) { }
-        TreeMap$(/*@NotModified[O]*/ Map<? extends K, ? extends V> m) { }
-        TreeMap$(/*@NotModified[O]*/ SortedMap<K, ? extends V> m) { }
+        TreeMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
+        TreeMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull SortedMap<K, ? extends V> m) { }
         //override from java.util.AbstractMap, java.util.Map
         //@NotModified[H]
         int size() { return 0; }

@@ -589,6 +589,38 @@ public class TestJavaUtil extends CommonTest {
         assertSame(NOT_NULL, p0.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
     }
 
+    // LinkedHashMap was absent; it extends HashMap and must be a @Container like it.
+    @Test
+    public void testLinkedHashMapContainer() {
+        TypeInfo typeInfo = compiledTypesManager().get(LinkedHashMap.class);
+        assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
+    }
+
+    // The Map copy-constructors of HashMap/TreeMap/LinkedHashMap copy entries (sharing hidden
+    // content) rather than linking to the source map, so the parameter is @Independent(hc=true)
+    // and unmodified. TreeMap's were previously @Dependent (annotation only in a comment).
+    @Test
+    public void testMapCopyConstructors() {
+        TypeInfo mapType = compiledTypesManager().get(Map.class);
+        for (Class<?> c : new Class<?>[]{HashMap.class, TreeMap.class, LinkedHashMap.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            MethodInfo constructor = typeInfo.findConstructor(mapType);
+            ParameterInfo p0 = constructor.parameters().getFirst();
+            assertFalse(p0.isModified(), () -> c.getSimpleName() + "(Map) param must be @NotModified");
+            assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT),
+                    () -> c.getSimpleName() + "(Map) param must be @Independent(hc=true)");
+        }
+    }
+
+    @Test
+    public void testTreeMapSortedMapConstructor() {
+        TypeInfo typeInfo = compiledTypesManager().get(TreeMap.class);
+        MethodInfo constructor = typeInfo.findConstructor(compiledTypesManager().get(SortedMap.class));
+        ParameterInfo p0 = constructor.parameters().getFirst();
+        assertFalse(p0.isModified());
+        assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
+    }
+
     @Test
     public void testObjectsRequireNonNull() {
         TypeInfo typeInfo = compiledTypesManager().get(Objects.class);
