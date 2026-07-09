@@ -20,11 +20,16 @@ import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
+import org.e2immu.annotation.Container;
 import org.e2immu.annotation.Independent;
+import org.e2immu.annotation.NotNull;
 
 public class JavaUtilConcurrent {
     public static final String PACKAGE_NAME = "java.util.concurrent";
     //public class CompletableFuture implements Future<T>, CompletionStage<T>
+    // mutable holder of a result of hidden-content type T; no method modifies a parameter
+    @Container
+    @Independent(hc = true)
     class CompletableFuture$<T> {
         //public interface AsynchronousCompletionTask
         //@Container[M]
@@ -307,6 +312,8 @@ public class JavaUtilConcurrent {
     }
 
     //public interface CompletionStage
+    @Container
+    @Independent(hc = true)
     class CompletionStage$<T> {
         <U> CompletionStage<U> thenApply(/*@IgnoreModifications[T]*/ Function<? super T, ? extends U> function) {
             return null;
@@ -449,6 +456,7 @@ public class JavaUtilConcurrent {
     }
 
     //public class ConcurrentHashMap extends AbstractMap<K,V> implements ConcurrentMap<K,V>, Serializable
+    @Container
     class ConcurrentHashMap$<K, V> {
         //public static final class KeySetView extends CollectionView<K,V,K> implements Set<K>, Serializable
         class KeySetView<K, V> {
@@ -490,11 +498,7 @@ public class JavaUtilConcurrent {
             void forEach(
                 /*@IgnoreModifications[T] @Independent[M] @NotModified[H] @NotNull[H]*/ Consumer<? super K> action) { }
         }
-        ConcurrentHashMap$() { }
-        ConcurrentHashMap$(int initialCapacity) { }
-        ConcurrentHashMap$(Map<? extends K, ? extends V> m) { }
-        ConcurrentHashMap$(int initialCapacity, float loadFactor) { }
-        ConcurrentHashMap$(int initialCapacity, float loadFactor, int concurrencyLevel) { }
+        ConcurrentHashMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
         //override from java.util.AbstractMap, java.util.Map
         //@NotModified[H]
         int size() { return 0; }
@@ -809,6 +813,7 @@ public class JavaUtilConcurrent {
     }
 
     //public interface ConcurrentMap implements Map<K,V>
+    @Container
     class ConcurrentMap$<K, V> {
         //override from java.util.Map
         //@Independent(hc=true)[H] @NotModified[H]
@@ -890,9 +895,11 @@ public class JavaUtilConcurrent {
     }
 
     //public interface Executor
+    @Container
     class Executor$ {void execute(Runnable runnable) { } }
 
     //public interface ExecutorService implements Executor, AutoCloseable
+    @Container
     class ExecutorService$ {
         //frequency 1
         void shutdown() { }
@@ -919,6 +926,8 @@ public class JavaUtilConcurrent {
     }
 
     //public interface Future
+    @Container
+    @Independent(hc = true)
     class Future$<V> {
         //public enum State extends Enum<State>
         class State {
@@ -955,6 +964,7 @@ public class JavaUtilConcurrent {
     }
 
     //public interface ThreadFactory
+    @Container
     class ThreadFactory$ {Thread newThread(Runnable runnable) { return null; } }
 
     //public final class ThreadLocalRandom extends Random
