@@ -10,7 +10,7 @@ the identical string. So a passing port proves the k2 CST is structurally faithf
 ## Status
 
 Of the 52 `CommonTest`-based Java prepwork tests, the ones whose constructs translate structurally 1:1 to Kotlin
-are ported (**18 classes**). The remainder rely on Java-only constructs whose exact statement/assignment
+are ported (**19 classes**). The remainder rely on Java-only constructs whose exact statement/assignment
 structure — which the oracle strings encode — cannot be reproduced in Kotlin; those are documented below rather
 than force-fitted (which would need *fresh* oracle strings, i.e. new tests, not equivalence checks).
 
@@ -19,6 +19,7 @@ than force-fitted (which would need *fresh* oracle strings, i.e. new tests, not 
 | Kotlin test | Java original | construct |
 |---|---|---|
 | TestAlwaysEscapes | TestAlwaysEscapes | escape analysis |
+| TestAssignments | TestAssignments (test1/5/8b/9) | if/else, while, re-assign definite-assignment⁸ |
 | TestAssignmentsConstructor | TestAssignmentsConstructor | constructor field assignment |
 | TestAssignmentsDoWhile | TestAssignmentsDoWhile | do-while |
 | TestAssignmentsEmpty | TestAssignmentsEmpty | for-each + empty if-block merge¹ |
@@ -47,6 +48,13 @@ than force-fitted (which would need *fresh* oracle strings, i.e. new tests, not 
   `1.0.0` like Java's `in.charAt(i)`, and the trailing `println` resolves to `kotlin.io.ConsoleKt.println` so its
   argument reads are tracked. The try-with-resources / multi-catch cases are still N/A.
 ⁷ the guarded-pattern sub-test (`case Integer i when …`) is N/A (instanceof-pattern; see below).
+⁸ only test1/5/8b/9 (plain if/else, `while`, re-assign) are ported; the `for(int i=…)`, instanceof-pattern,
+  array-assignment and `synchronized` cases are N/A. Two incidental substitutions keep the *subject* oracle
+  verbatim: Java's `in.length()` becomes `in.hashCode()` (both method calls on `in` — avoids Kotlin's `in.length`
+  *property*, which the front-end models as a field access and would add a `String.length#in` variable); and a
+  read-forcing `System.out.println(x)` becomes a plain local read or `println(x)`, because Kotlin cannot yet
+  reproduce Java's `java.lang.System.out` field variable (the front-end does not load Java static fields). Each
+  ported method's core reads/assignments/`hasBeenDefined` oracle matches Java verbatim.
 
 ### Not portable — Kotlin lacks the construct (documented in each ported file where a sub-test is dropped)
 
