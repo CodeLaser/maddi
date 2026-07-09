@@ -22,11 +22,25 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Kotlin port of `modification-prepwork` `TestFinalFieldBranchAssignment`: effectively-final-field detection.
- * A field assigned anywhere in the primary type — including inside a `when`-branch, a lambda body, or an
- * anonymous-object method whose owner is the field's type — must not be reported final. The field is a Kotlin
- * `var` (assignable) in every case; finality is *computed* from the assignments, exactly as for the Java
- * non-final field.
+ * Kotlin counterpart of `modification-prepwork` `TestFinalFieldBranchAssignment`. That Java test proves that the
+ * effectively-final computation detects an assignment made *outside construction* — in a `switch`-branch, a
+ * lambda body, or an anonymous-object method — and demotes the field to non-final, in contrast with its control
+ * (a private field assigned only in the constructor, which stays effectively final).
+ *
+ * The mechanism does not carry over faithfully, and the reason is instructive rather than a mere gap:
+ *
+ * The K2 front-end desugars a `var` property into a backing field **plus** a synthesized `setX` setter whose body
+ * is `this.x = <param>`. The finality rule (`ComputePartOfConstructionFinalField`) demotes any field assigned by a
+ * method that is not in `partOfConstruction`; the generated setter is exactly such a method. So **every** Kotlin
+ * `var` is reported non-final — independent of whether anything ever calls the setter, and independent of any
+ * branch/lambda/anon assignment. Conversely a `val` synthesizes only a getter, so it stays final.
+ *
+ * Consequence: the Java test's three "assigned outside construction" cases cannot be reproduced as genuine checks
+ * here — a `var` is already non-final before the branch assignment is even considered, and a `val` cannot be
+ * reassigned in a branch at all. What we *can* assert faithfully is the actual Kotlin invariant this exposes:
+ * `val` ⟹ final, `var` ⟹ non-final (via its setter), the latter holding even when the only assignment is in the
+ * constructor. [testValIsFinal] is the control; [testVarWithConstructorAssignmentOnly] isolates the setter as the
+ * true cause; the remaining cases confirm the invariant is stable across branch / lambda / anon assignments.
  */
 class TestFinalFieldBranchAssignment : CommonKotlinPrep() {
 
@@ -39,13 +53,26 @@ class TestFinalFieldBranchAssignment : CommonKotlinPrep() {
     }
 
     @Test
-    fun testEarlyReturnBranch() {
+    fun testValIsFinal() {
+        // control: a `val` synthesizes no setter, so nothing assigns it outside construction -> final
+        assertTrue(isFinal("""
+            package a.b
+            class X {
+                private val i: Int
+                constructor(iv: Int) { this.i = iv }
+            }
+        """.trimIndent()))
+    }
+
+    @Test
+    fun testVarWithConstructorAssignmentOnly() {
+        // the crux: even assigned ONLY in the constructor, a `var` is non-final -- its synthesized `setI`
+        // is an assigning method outside construction. This alone (no branch/lambda/anon) already demotes it.
         assertFalse(isFinal("""
             package a.b
             class X {
                 private var i: Int
-                constructor(i: Int) { this.i = i }
-                fun mutate(c: Boolean) { if (c) { this.i = 3; return }; println("x") }
+                constructor(iv: Int) { this.i = iv }
             }
         """.trimIndent()))
     }
@@ -56,7 +83,7 @@ class TestFinalFieldBranchAssignment : CommonKotlinPrep() {
             package a.b
             class X {
                 private var i: Int
-                constructor(i: Int) { this.i = i }
+                constructor(iv: Int) { this.i = iv }
                 fun mutate(v: Int) {
                     val x = when (v) { 1 -> { this.i = 1; 1 } else -> 2 }
                     println(x)
@@ -71,7 +98,7 @@ class TestFinalFieldBranchAssignment : CommonKotlinPrep() {
             package a.b
             class X {
                 private var i: Int
-                constructor(i: Int) { this.i = i }
+                constructor(iv: Int) { this.i = iv }
                 fun mutate() {
                     val r = Runnable { this.i = 1 }
                     r.run()
@@ -86,7 +113,7 @@ class TestFinalFieldBranchAssignment : CommonKotlinPrep() {
             package a.b
             class X {
                 private var i: Int
-                constructor(i: Int) { this.i = i }
+                constructor(iv: Int) { this.i = iv }
                 fun mutate() {
                     val r = object : Runnable { override fun run() { i = 1 } }
                     r.run()
@@ -94,10 +121,4 @@ class TestFinalFieldBranchAssignment : CommonKotlinPrep() {
             }
         """.trimIndent()))
     }
-
-    // NOTE: the Java suite's positive control (a non-final-*declared* field assigned only in the constructor,
-    // hence *effectively* final -> true) has no faithful Kotlin equivalent. Kotlin declares mutability
-    // explicitly: a `var` is declared-mutable (final=false even when only the constructor assigns it), and a
-    // `val` is declared-immutable (trivially final). There is no "effectively final despite the declaration"
-    // notion to reproduce, so that case is intentionally not ported.
 }
