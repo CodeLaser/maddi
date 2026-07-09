@@ -395,6 +395,20 @@ public class TestJavaUtil extends CommonTest {
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
 
+    // Every concrete List should be a @Container like ArrayList; LinkedList and Vector were
+    // missing the type-level annotation and so computed CONTAINER=false.
+    @Test
+    public void testLinkedListContainer() {
+        TypeInfo typeInfo = compiledTypesManager().get(LinkedList.class);
+        assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
+    }
+
+    @Test
+    public void testVectorContainer() {
+        TypeInfo typeInfo = compiledTypesManager().get(Vector.class);
+        assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
+    }
+
     @Test
     public void testHashMap() {
         TypeInfo typeInfo = compiledTypesManager().get(HashMap.class);
