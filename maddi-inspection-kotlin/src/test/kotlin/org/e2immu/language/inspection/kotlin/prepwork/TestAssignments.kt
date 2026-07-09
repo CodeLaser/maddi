@@ -166,6 +166,77 @@ class TestAssignments : CommonKotlinPrep() {
     }
 
     /**
+     * `TestAssignments.test6` ("exit, all if-else branches covered"): every branch of an `if / else if / else`
+     * exits (throw / return / return), so the return variable is defined through all of them and their merges
+     * (`D:-, A:[0.0.0, 0.1.0.0.0, 0.1.0.1.1, 0.1.0=M, 0=M]`), and the trailing statement is unreachable.
+     * `in.hashCode()` stands in for Java's `in.length()`.
+     */
+    @Test
+    fun test6() {
+        val (method, vd) = analyse("""
+            package a.b
+            class X {
+                fun method(`in`: String?) {
+                    if (`in` == null) {
+                        throw UnsupportedOperationException()
+                    } else if (`in`.hashCode() == 1) {
+                        return
+                    } else {
+                        System.out.println("Reachable")
+                        return
+                    }
+                    System.out.println("unreachable")
+                }
+            }
+        """.trimIndent())
+
+        assertEquals("a.b.X.method(String), a.b.X.method(String):0:in, java.lang.System.out",
+            vd.knownVariableNamesToString())
+
+        val rv = vd.variableInfo(method.fullyQualifiedName())
+        // 0.0.0 throw; 0.1.0 else-if; 0.1.0.0.0 return; 0.1.0.1.0 println; 0.1.0.1.1 return; merges 0.1.0=M, 0=M
+        assertEquals("D:-, A:[0.0.0, 0.1.0.0.0, 0.1.0.1.1, 0.1.0=M, 0=M]", rv.assignments().toString())
+        assertTrue(rv.hasBeenDefined("0.0.0"))
+        assertTrue(rv.hasBeenDefined("0.1.0.0.0"))
+        assertFalse(rv.hasBeenDefined("0.1.0.1.0"))
+        assertTrue(rv.hasBeenDefined("0.1.0.1.1"))
+        assertTrue(rv.hasBeenDefined("1"))
+    }
+
+    /**
+     * `TestAssignments.test8` ("exit, while(true)"): a `return` inside `while(true)`, with unreachable trailing
+     * code — the return variable is defined via the loop body and its merge (`D:-, A:[1.0.0, 1=M]`). `in.hashCode()`
+     * stands in for Java's `in.length()`.
+     */
+    @Test
+    fun test8() {
+        val (method, vd) = analyse("""
+            package a.b
+            class X {
+                fun method(`in`: String): Int {
+                    System.out.println(`in`)
+                    while (true) {
+                        return `in`.hashCode()
+                    }
+                    System.out.println("unreachable")
+                }
+            }
+        """.trimIndent())
+
+        assertEquals("a.b.X.method(String), a.b.X.method(String):0:in, java.lang.System.out",
+            vd.knownVariableNamesToString())
+
+        val rv = vd.variableInfo(method.fullyQualifiedName())
+        // 0: println(in), 1: while(true), 1.0.0: return in.hashCode(), 1=M merge; 2: unreachable println
+        assertEquals("D:-, A:[1.0.0, 1=M]", rv.assignments().toString())
+        assertTrue(rv.hasBeenDefined("1.0.0"))
+        assertTrue(rv.hasBeenDefined("1=M"))
+        assertFalse(rv.hasBeenDefined("1"))
+        assertFalse(rv.hasBeenDefined("0"))
+        assertTrue(rv.hasBeenDefined("2"))
+    }
+
+    /**
      * `TestAssignments.test8b` ("exit, while(real condition)"): a `return` inside a `while`, then a reachable
      * statement and a final `return` — the subject is the return variable's definite assignment
      * (`D:-, A:[1.0.0, 3]`) and `hasBeenDefined` across the loop. `in.hashCode()` stands in for Java's
