@@ -18,7 +18,7 @@ brought it to **144/383**. This is the current, categorised to-do.
 
 | category | count | meaning |
 |---|---:|---|
-| **Assignment/identity re-baselines** | **60** | only `←`/`→`/`≡` differ — the intended semantic change (assignment is now group membership, not an edge; `sv-semantic-differences.md` §1). **Not bugs** — regenerate expectations. |
+| **"Assignment diffs"** | **61** | only `←`/`→`/`≡` differ — but a read-to-confirm pass showed these are **NOT re-baselines, they are reconstruct bugs** (see below). The `←` links are *dropped to empty* or lose their `§m≡` companion. The semantic-differences "`←`→group" premise predates the reconstruct; now that reconstruct exists the `←` links should reappear and match the old expectations. **Do not re-baseline these.** |
 | **Structural diffs** | **72** | `∈`/`⊆`/`∩`/`~`/`≺`/`≻` differ, or same natures with different vars/order. Mix of intended broadenings (§3–5) and real gaps. |
 | **Crashes** | **5** | one cause: `SharedVariable.acceptForLinkedVariables()` throws `UnsupportedOperationException`. |
 | **Engine unit tests** | **3** | `TestEngine`, `TestLabeledGraph`, `TestClosureWitnessIndex` — isolated engine assertions. |
@@ -56,11 +56,22 @@ Dropped-nature histogram (expected − got): `←`×100, `≡`×28, `∈`×19, `
 | ~18 more classes | | | | | 1 each (see run) |
 | **TOTALS** | **60** | **72** | **4** | **5** | + 3 engine |
 
-## Real bugs (vs intended re-baselines)
+## Real bugs (the read-to-confirm correction)
 
-Most of the 60 (and a share of the 72) are intended re-baselines: assignment→group
-(§1), broadened `valid()` making `≺`/`≻` first-class (§5), `∈?`/`∋?` candidates (§4),
-score-directed `∩`/`≥` (§3). Those need **expectation regeneration**, read-to-confirm.
+A read-to-confirm pass over the 61 "assignment diffs" found they are **not** re-baselines
+but two reconstruct-bug clusters:
+- **~13 §m-only dropped** — a reconstructed `field ← param` edge is missing its `§m≡`
+  companion (`X←Y` present, `X.§m≡Y.§m` gone). Same root as the enum-§m regression;
+  hits `TestStaticValuesRecord`×8, `TestCast`, `TestList`, `TestBoundTypeParameter`,
+  `TestRedundantModificationLinks`. **One root cause: §m is generated in `FollowGraph`
+  for a real graph edge, but the reconstructed intra-group edge bypasses it.**
+- **~45 return-summary-lost** — the `←` field/element links on the *return* side drop to
+  empty (`TestSupplierSpec`×8, `TestSupplier`×6, `TestLinkMethodCall`×4,
+  `TestStaticBiFunction`×3, `TestGetSet`×2 return side, …). Reconstruct gap in
+  constructor/supplier/bifunction returns — extends this session's field-of-rep /
+  return-alias work into more shapes.
+
+Plus the structural cluster below.
 
 The genuine remaining defects cluster:
 
