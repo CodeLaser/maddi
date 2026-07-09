@@ -409,6 +409,36 @@ public class TestJavaUtil extends CommonTest {
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
 
+    // Newly added Set/Queue/Deque hierarchy: the interfaces carry the authoritative @Container
+    // contract; each concrete/abstract type re-asserts it (container-ness is not inherited).
+    @Test
+    public void testSetQueueDequeContainers() {
+        for (Class<?> c : new Class<?>[]{
+                SortedSet.class, NavigableSet.class, Queue.class, Deque.class,
+                AbstractQueue.class, AbstractSequentialList.class,
+                TreeSet.class, LinkedHashSet.class, ArrayDeque.class, PriorityQueue.class, Stack.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
+                    () -> c.getSimpleName() + " should be a @Container");
+        }
+    }
+
+    // The Collection copy-constructors of the new concrete types must, like ArrayList/Vector,
+    // read-not-modify their source and share only hidden content.
+    @Test
+    public void testNewCollectionCopyConstructors() {
+        for (Class<?> c : new Class<?>[]{
+                TreeSet.class, LinkedHashSet.class, ArrayDeque.class, PriorityQueue.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            MethodInfo constructor = typeInfo.findConstructor(compiledTypesManager().get(Collection.class));
+            ParameterInfo p0 = constructor.parameters().getFirst();
+            assertSame(TRUE, p0.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE),
+                    () -> c.getSimpleName() + "(Collection) param must be @NotModified");
+            assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT),
+                    () -> c.getSimpleName() + "(Collection) param must be @Independent(hc=true)");
+        }
+    }
+
     @Test
     public void testHashMap() {
         TypeInfo typeInfo = compiledTypesManager().get(HashMap.class);
