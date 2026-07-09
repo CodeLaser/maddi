@@ -10,6 +10,7 @@ import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -180,6 +181,13 @@ public class Graph {
                             ? fr
                             : runtime.newFieldReference(fr.fieldInfo(),
                             runtime.newVariableExpression(scope), fr.parameterizedType()));
+        }
+        if (variable instanceof DependentVariable dv && dv.arrayVariable() != null) {
+            // an array-indexed rep, e.g. '$__sv_g[0]' -> 'g[0]'; rebuild the access on the expanded array member.
+            return expandRepToMembers(dv.arrayVariable())
+                    .map(arr -> arr.equals(dv.arrayVariable())
+                            ? dv
+                            : runtime.newDependentVariable(runtime.newVariableExpression(arr), dv.indexExpression()));
         }
         return Stream.of(variable);
     }

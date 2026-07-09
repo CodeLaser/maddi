@@ -41,7 +41,10 @@ public class SharedVariable extends LocalVariableImpl implements LinkVariable {
 
     @Override
     public boolean acceptForLinkedVariables() {
-        throw new UnsupportedOperationException();
+        // a shared-variable rep is a synthetic group representative ($__sv_); it must never surface directly in
+        // the output — its real members are expanded (iterateOverShared) and filtered individually. If a rep
+        // reaches this filter unexpanded, drop it rather than emit the synthetic name (mirrors IntermediateVariable).
+        return false;
     }
 
     public Set<Variable> variables() {

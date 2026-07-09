@@ -64,9 +64,14 @@ score-directed `∩`/`≥` (§3). Those need **expectation regeneration**, read-
 
 The genuine remaining defects cluster:
 
-1. **`acceptForLinkedVariables()` crash (5 tests) — one fix.** Implement the unfinished
-   method (`impl/localvar/SharedVariable`) to return the intended boolean. Clears
-   `TestMap`×2, `TestLanguageConstructs`×2 (labeled break/continue), `TestWriteAnalysis2`.
+1. **~~`acceptForLinkedVariables()` crash~~ DONE (crashes removed, not counts).**
+   Implemented to `return false` (the rep is synthetic; its members are expanded
+   separately) — the 5 `UnsupportedOperationException`s are gone. But the underlying tests
+   still fail: they are **2-D array / `∈∈` / large-JSON** cases (`TestMap`×2,
+   `TestLanguageConstructs` labeled break/continue over `g[0][0]`, `TestWriteAnalysis2`),
+   now clean assertion-fails in the structural bucket. `expandRepToMembers` was also
+   extended to array (`DependentVariable`) scopes for symmetry with the field branch — no
+   test delta yet; groundwork for the array cluster.
 2. **Return-summary-lost (4 empty + several structural-empty).** `method∈0:list.§ts → -`
    in `TestDependent` (`Iterable.iterator`), `TestFunction`/`TestSupplier` (`Optional`) —
    residual field-of-rep / FI-lift reconstruct gaps in the functional-interface path.
