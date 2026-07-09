@@ -28,6 +28,7 @@ import java.util.stream.Stream;
 public class JavaTime {
     public static final String PACKAGE_NAME = "java.time";
     //public enum DayOfWeek extends Enum<DayOfWeek> implements TemporalAccessor, TemporalAdjuster
+    @ImmutableContainer
     class DayOfWeek$ {
         //@NotNull[O]
         static final DayOfWeek MONDAY = null;
@@ -178,6 +179,7 @@ public class JavaTime {
     }
 
     //public final class Instant implements Temporal, TemporalAdjuster, Comparable<Instant>, Serializable
+    @ImmutableContainer
     class Instant$ {
         static final Instant EPOCH = null;
         static final Instant MIN = null;
@@ -269,6 +271,7 @@ public class JavaTime {
     }
 
     //public final class LocalDate implements Temporal, TemporalAdjuster, ChronoLocalDate, Serializable
+    @ImmutableContainer
     class LocalDate$ {
         static final LocalDate MIN = null;
         static final LocalDate MAX = null;
@@ -410,6 +413,7 @@ public class JavaTime {
     }
 
     //public final class LocalDateTime implements Temporal, TemporalAdjuster, ChronoLocalDateTime<LocalDate>, Serializable
+    @ImmutableContainer
     class LocalDateTime$ {
         static final LocalDateTime MIN = null;
         static final LocalDateTime MAX = null;
@@ -559,6 +563,8 @@ public class JavaTime {
     }
 
     //public abstract class ZoneId implements Serializable
+    // abstract -> extensible, so this lands as @Immutable(hc=true)
+    @ImmutableContainer
     class ZoneId$ {
         static final Map<String, String> SHORT_IDS = null;
         //frequency 2
@@ -589,6 +595,7 @@ public class JavaTime {
     }
 
     //public final class ZonedDateTime implements Temporal, ChronoZonedDateTime<LocalDate>, Serializable
+    @ImmutableContainer
     class ZonedDateTime$ {
         //frequency 112
         static ZonedDateTime now() { return null; }
