@@ -43,10 +43,9 @@ than force-fitted (which would need *fresh* oracle strings, i.e. new tests, not 
 ⁴ the pattern-switch sub-test is N/A (instanceof-pattern; see below).
 ⁵ **re-derived, not a 1:1 port** — see the effectively-final note below; the test asserts the Kotlin invariant
   (`val` ⟹ final, `var` ⟹ non-final via its synthesized setter) rather than the Java branch/lambda/anon control.
-⁶ the `in[i]` get-operator read of `in` is not tracked (get/set convention), so only `c`/`d` and the
-  try/catch/finally assignment structure are asserted. (The trailing `println` reads faithfully: library
-  top-level functions such as `kotlin.io.println` now resolve to their JVM file facade, `kotlin.io.ConsoleKt`,
-  so their argument reads are tracked.) The try-with-resources / multi-catch cases are N/A.
+⁶ faithful now: `in[i]` (indexed-get on a String) resolves to a real call, so its receiver `in` reads at
+  `1.0.0` like Java's `in.charAt(i)`, and the trailing `println` resolves to `kotlin.io.ConsoleKt.println` so its
+  argument reads are tracked. The try-with-resources / multi-catch cases are still N/A.
 ⁷ the guarded-pattern sub-test (`case Integer i when …`) is N/A (instanceof-pattern; see below).
 
 ### Not portable — Kotlin lacks the construct (documented in each ported file where a sub-test is dropped)
@@ -67,8 +66,10 @@ than force-fitted (which would need *fresh* oracle strings, i.e. new tests, not 
   parsed as calls, not statements. Affects `TestAssignmentsSyncAssert`.
 - **multi-catch** (`catch (A | B e)`) — no Kotlin union catch. Affects a `TestAssignmentsTryFinally` sub-test.
 - **indexed / property-chain assignment** — `a[i] += v` and `a.b.c = …` route through Kotlin's `get`/`set`
-  operator convention and property setters, so no `a[i]` dependent variable / no `a`/`b`/`c` field variable is
-  produced. Affects `TestAssignmentsFieldAccess` sub-tests.
+  operator convention and property setters, so no `a[i]` *dependent variable* / no `a`/`b`/`c` field variable is
+  produced. (Plain indexed *read* `a[i]` is fine — it resolves to a `get`/`charAt` call whose receiver read is
+  tracked; only the single-`a[i]`-variable form Java's compound assignment needs is missing.) Affects
+  `TestAssignmentsFieldAccess` sub-tests.
 - **effectively-final non-final-*declared* field** — the Java control (a `private` field assigned *only* in the
   constructor, hence effectively final) cannot be reproduced, but the reason is a real structural difference, not
   "Kotlin has no effective finality". The K2 front-end desugars every `var` property into a backing field **plus**

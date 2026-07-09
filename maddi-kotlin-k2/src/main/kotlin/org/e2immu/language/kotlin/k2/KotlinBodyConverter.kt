@@ -744,7 +744,10 @@ internal class KotlinBodyConverter(
             ?: return runtime.newEmptyExpression("k2-index")
         val indices = expression.indexExpressions.map { convertExpression(it, method, locals) }
         val arrayType = expression.arrayExpression?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
-        val get = arrayType?.let { resolveCallee(it, "get", indices) }
+        // Kotlin's indexed get is the `get` operator on most types (List/array/Map/custom), but on a String it
+        // is an intrinsic that maps to the JVM `charAt(int)` -- java.lang.String has no `get`. Fall back to it so
+        // `s[i]` resolves (and its receiver read is tracked) rather than collapsing to a placeholder.
+        val get = arrayType?.let { resolveCallee(it, "get", indices) ?: resolveCallee(it, "charAt", indices) }
             ?: return runtime.newEmptyExpression("k2-index-get-unresolved")
         // use-site element type (List<Int>[i] -> Int), falling back to the declared (erased) return type
         val returnType = expression.expressionType?.let { mapType(it, method.typeInfo()) } ?: get.returnType()
