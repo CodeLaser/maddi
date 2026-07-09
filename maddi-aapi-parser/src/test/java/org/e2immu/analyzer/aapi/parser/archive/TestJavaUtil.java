@@ -378,6 +378,23 @@ public class TestJavaUtil extends CommonTest {
         assertFalse(get.isModifying());
     }
 
+    // Vector's copy-constructor must match ArrayList/LinkedList/HashSet: it reads-but-does-not-modify
+    // the source collection, and only shares hidden content (the elements), so @Independent(hc=true).
+    @Test
+    public void testVectorCollectionConstructor() {
+        TypeInfo typeInfo = compiledTypesManager().get(Vector.class);
+        MethodInfo constructor = typeInfo.findConstructor(compiledTypesManager().get(Collection.class));
+        ParameterInfo p0 = constructor.parameters().getFirst();
+        assertSame(TRUE, p0.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE));
+        assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
+    }
+
+    @Test
+    public void testAbstractSetContainer() {
+        TypeInfo typeInfo = compiledTypesManager().get(AbstractSet.class);
+        assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
+    }
+
     @Test
     public void testHashMap() {
         TypeInfo typeInfo = compiledTypesManager().get(HashMap.class);

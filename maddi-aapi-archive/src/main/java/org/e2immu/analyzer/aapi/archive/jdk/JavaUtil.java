@@ -273,6 +273,7 @@ public class JavaUtil {
     }
 
     //public abstract class AbstractSet extends AbstractCollection<E> implements Set<E>
+    @Container
     class AbstractSet$<E> {
         //override from java.lang.Object, java.util.Collection, java.util.Set
         //@NotModified[H]
@@ -4132,7 +4133,7 @@ public class JavaUtil {
         Vector$(int initialCapacity, int capacityIncrement) { }
         Vector$(int initialCapacity) { }
         Vector$() { }
-        Vector$(Collection<? extends E> c) { }
+        Vector$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
         void copyInto(Object [] anArray) { }
         void trimToSize() { }
         void ensureCapacity(int minCapacity) { }
