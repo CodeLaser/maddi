@@ -21,9 +21,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import org.e2immu.annotation.Container;
+import org.e2immu.annotation.ImmutableContainer;
+
 public class JavaUtilRegex {
     public static final String PACKAGE_NAME = "java.util.regex";
     //public interface MatchResult
+    // read-only view (start/end/group/...); no method modifies a parameter. Implemented by the
+    // mutable Matcher, so @Container but not @Immutable.
+    @Container
     class MatchResult$ {
         int start() { return 0; }
         int start(int i) { return 0; }
@@ -113,6 +119,8 @@ public class JavaUtilRegex {
     }
 
     //public final class Pattern implements Serializable
+    // a compiled pattern is a final, thread-safe immutable value; all methods are read-only
+    @ImmutableContainer
     class Pattern$ {
         static final int UNIX_LINES = 0;
         static final int CASE_INSENSITIVE = 0;

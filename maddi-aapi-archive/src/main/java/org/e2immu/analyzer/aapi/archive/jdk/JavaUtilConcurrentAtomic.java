@@ -14,17 +14,16 @@
 
 package org.e2immu.analyzer.aapi.archive.jdk;
 import java.util.function.*;
+import org.e2immu.annotation.Container;
 import org.e2immu.annotation.Independent;
 
 public class JavaUtilConcurrentAtomic {
     public static final String PACKAGE_NAME = "java.util.concurrent.atomic";
     //public class AtomicBoolean implements Serializable
+    // mutable holder of a boolean; no method modifies a parameter's content
+    @Container
     @Independent
     class AtomicBoolean$ {
-        //frequency 2
-        AtomicBoolean$(boolean initialValue) { }
-        AtomicBoolean$() { }
-        //frequency 1
         boolean get() { return false; }
         boolean compareAndSet(boolean expectedValue, boolean newValue) { return false; }
         boolean weakCompareAndSet(boolean expectedValue, boolean newValue) { return false; }
@@ -51,12 +50,10 @@ public class JavaUtilConcurrentAtomic {
     }
 
     //public class AtomicInteger extends Number implements Serializable
+    // mutable holder of an int; no method modifies a parameter's content
+    @Container
+    @Independent
     class AtomicInteger$ {
-        AtomicInteger$(int initialValue) { }
-        //frequency 2
-        AtomicInteger$() { }
-
-        //frequency 4
         int get() { return 0; }
         void set(int newValue) { }
         void lazySet(int newValue) { }
@@ -110,11 +107,10 @@ public class JavaUtilConcurrentAtomic {
     }
 
     //public class AtomicReference implements Serializable
+    // mutable holder of one hidden-content element V; transfers V in/out but never modifies it
+    @Container
+    @Independent(hc = true)
     class AtomicReference$<V> {
-        //frequency 1
-        AtomicReference$(/*@Independent(hc=true)[T] @NotModified[T]*/ V initialValue) { }
-        AtomicReference$() { }
-        //frequency 2
         //@Independent(hc=true)[T]
         V get() { return null; }
         void set(/*@Independent(hc=true)[T] @NotModified[T]*/ V newValue) { }
