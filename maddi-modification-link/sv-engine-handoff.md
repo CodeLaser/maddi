@@ -8,21 +8,66 @@ the companion docs:
 
 Branch: **`sv-integration`** (off `openjdk`). `openjdk` itself is untouched and green.
 
-## TL;DR
+## STATUS UPDATE — the reconstruct half is now implemented (196 → 144 failing)
+
+The core gap this document described (collapse without reconstruct) has been **closed
+end-to-end**. The suite went **196 → 144 failing** (55 fixed, 1 genuine regression,
+2 order-dependent flakes). Foundational pins (`TestSimpleSharedVariable`,
+`staticvalues.TestSharedVariable`) are **green**. Four commits:
+
+- `8fd6567f` **reconstruct the collapse** — record assignment *direction* on the group
+  (`SharedVariable.Assignment`), reconstruct `field ← param` at extraction
+  (`SharedVariables.assignmentEdgeStream` → `Graph.sharedAssignmentEdgeStream`, folded in
+  `WriteLinksAndModification`, mirroring `virtualModificationEdgeStream` for the `≡`
+  groups); rep-aware `FollowGraph` from-side discovery (`FromPair`: query the rep's
+  closure, emit keyed on the member). Fixes the both-fresh drop **and** the active-collapse
+  coarsening. 196→188.
+- `a30fd159` **single-hop field-of-rep** — `Graph.expandRepToMembers` expands a rep
+  nested in a field scope (`$__sv_list1.§$s` → `a.list1.§$s`); guarded with `!e.equals(v)`
+  so ordinary vertices stay on the fast path (an unguarded form corrupts the simple
+  aliasing summaries). 188.
+- `e4bdd7e6` **return-alias-of-rep** — when the extracted primary is itself a rep (a
+  collapsed `return a`), match its group members' *faces* and rehome
+  (`Graph.rehome`, member→rep) so `$__sv_return.list1.§$s` → `method1.list1.§$s`. The
+  multi-hop composition. 188→186.
+- `bd10f936` **drop invalid field-containment** — a `field ← param` collapse groups the
+  field with the value source, so expanding a `≻`/`≺` link could emit `wrap ≻ 0:y`
+  (0:y is not a field of wrap). That invalid `≻` flowed into downstream *construction*
+  and tripped a `Fact` assertion which, under `TestStreamMapSpec`'s shared cache,
+  cascaded to poison many methods. `isInvalidFieldContainment` drops `A≻B` unless B is
+  part of A. **186 → 144** (this single guard unblocked ~40 tests suite-wide).
+
+The closure + label algebra underneath were already **sound and precise** (the `NOSV`
+experiment); this work supplied the missing **structure-preserving reconstruct**:
+intra-group `field↔param`, single-hop field-of-rep, and multi-hop return-alias, all
+keyed back onto real variables at extraction.
+
+### Remaining (small)
+- **1 genuine regression** — `TestLanguageConstructs.enumConstructor` loses the §m
+  modification-equivalence (`0:l.§m≡this.list.§m`). `FollowGraph` generates §m for a
+  *real* assignment edge; the *reconstructed* intra-group edge bypasses it. A naive fix
+  (call `virtualFieldComputer.addModificationFieldEquivalence` in the fold) breaks ~15
+  tests: the added `§m ≡` feeds `notLinkedToModified`, which then removes the `m←…`
+  links. Needs §m integrated at the `FollowGraph` pipeline point, not the post-hoc fold.
+- **2 order-dependent flakes** — `switchGuard` and `TestStreamMapSpec`'s `first`
+  assertion *fail in the full suite but PASS in isolation*. This is the pre-existing
+  engine **instability** (Phase 2 risk / "graph is not stable"): output depends on
+  computation order. The reconstruct work shifted *which* tests flake, not the
+  underlying non-determinism — still the top hardening target.
+
+## TL;DR (original, for context)
 
 The `sv` engine (witness-based incremental fixpoint + shared-variable / modification
-equivalence groups) is **fully ported and compiling** on `sv-integration`, at
-**196/383 link tests failing** (15 `@Disabled` large stress mocks). The failures are
-**not** a broken port — they are the visible signature of a redesigned link
-semantics that is **unfinished in one specific way**:
+equivalence groups) was **fully ported and compiling** on `sv-integration`, at
+**196/383 link tests failing** — the visible signature of a redesigned link semantics
+that was **unfinished in one specific way**:
 
-> **The equivalence *collapse* is implemented; the field-precise *reconstruct* is not.
-> So collapse either drops assignment links (both-fresh case) or flattens field
+> **The equivalence *collapse* was implemented; the field-precise *reconstruct* was not.
+> So collapse either dropped assignment links (both-fresh case) or flattened field
 > structure into a scalar shared variable (active case), losing precision.**
 
-The closure + label algebra underneath are **sound and precise** — proven by the
-`NOSV` experiment below. The remaining work is a **structure-preserving
-collapse/reconstruct**, which is a genuine engine-design decision.
+(This is the gap the STATUS UPDATE above now closes.) The closure + label algebra
+underneath are **sound and precise** — proven by the `NOSV` experiment below.
 
 ## Purpose of sv (north star)
 
@@ -38,8 +83,10 @@ pairwise links inside them. Two tiers, built in this order:
    mutate together (`§m`-identical, `≡`). Has BOTH halves: collapse + reconstruct
    (`edges()`/`Group.expand()`), O(N) not O(N²).
 2. **Assignment groups** (`SharedVariables`, `$__sv_`) — variables joined by `←`
-   collapse to a representative. Has the collapse half (`translateForward`) but **not
-   the reconstruct half** — this is the core gap.
+   collapse to a representative. Originally had only the collapse half
+   (`translateForward`); the reconstruct half is **now implemented** (see STATUS UPDATE):
+   `assignmentEdgeStream` (intra-group `field↔param`), `expandRepToMembers` (field-of-rep),
+   `rehome` + `FromPair` faces (return-alias-of-rep). Residual: §m on reconstructed edges.
 
 `←`/`≡` are the *duplication multipliers*; collapsing them lets the expensive `≺`/`≻`/
 `∈`/`∋` web be stored once per class.
@@ -158,9 +205,16 @@ granularity — all the work is in structure-preserving collapse/reconstruct.
 - **Both-fresh probe:** the drop is the `else`-less fall-through after the two
   `transformToSharedVariable` branches (lines ~118–126). The reverted candidate is
   commit `973a3f2c` (see `git show`).
-- **Extraction probe:** `FollowGraph.followGraph` — `fromList` is graph vertices
-  `isPartOf(primary, v)`; collapsed members aren't there. `Graph.printEquivalence` /
-  `SharedVariables.print` show the `$__sv_` groups.
+- **Extraction probe:** `FollowGraph.followGraph` — `fromList` now includes reps whose
+  members (via `Graph.expandRepToMembers`) are `isPartOf(primary)`, and rep *faces* when
+  the primary is itself a rep (`Graph.rehome`). `Graph.printEquivalence` /
+  `SharedVariables.print` show the `$__sv_` groups. Reconstruct entry points:
+  `SharedVariables.assignmentEdgeStream`, `Graph.expandRepToMembers`, `Graph.rehome`,
+  `WriteLinksAndModification.isInvalidFieldContainment` / `isInternalSelfFieldLink`.
+- **Order-stability probe:** a filtered class run and a full-suite run disagree on which
+  tests fail (e.g. `switchGuard`, `TestStreamMapSpec.first` PASS in isolation, fail in the
+  full run). This is the engine instability, not a reconstruct bug — verify any suspected
+  regression **in isolation** before treating it as real.
 - Engine internals: `impl/graph/IncrementalFixpointEngine` (class doc lists the 9
   design features), `Closure`, `Fact`, `Witness`, `WitnessIndex`, `LabeledGraph`.
 - Label algebra: `impl/LinkNatureImpl` (ranks + `score` + `combine`/`reverse`/`best`;
@@ -172,6 +226,11 @@ granularity — all the work is in structure-preserving collapse/reconstruct.
 ## Commit trail on `sv-integration`
 
 ```
+bd10f936  drop invalid field-containment links from rep expansion  [186->144]
+e4bdd7e6  reconstruct return-alias-of-rep in extraction            [188->186]
+a30fd159  handle single-hop field-of-rep in extraction             [188]
+8fd6567f  reconstruct shared-variable collapse (fix coarsening)     [196->188]
+23379ebf  consolidated handoff/status doc                          [196 baseline]
 fd0c52ae  revert the both-fresh candidate (coarse output rejected)
 169d509e  worklist: prototype outcome + reconstruct-gap map
 973a3f2c  (reverted) both-fresh -> normal edge candidate  [196->141]
