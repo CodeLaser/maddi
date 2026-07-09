@@ -19,7 +19,7 @@ than force-fitted (which would need *fresh* oracle strings, i.e. new tests, not 
 | Kotlin test | Java original | construct |
 |---|---|---|
 | TestAlwaysEscapes | TestAlwaysEscapes | escape analysis |
-| TestAssignments | TestAssignments (test1/5/8b/9) | if/else, while, re-assign definite-assignment⁸ |
+| TestAssignments | TestAssignments (test1/5/6/8/8b/9) | if/else, while, re-assign definite-assignment⁸ |
 | TestAssignmentsConstructor | TestAssignmentsConstructor | constructor field assignment |
 | TestAssignmentsDoWhile | TestAssignmentsDoWhile | do-while |
 | TestAssignmentsEmpty | TestAssignmentsEmpty | for-each + empty if-block merge¹ |
@@ -48,12 +48,13 @@ than force-fitted (which would need *fresh* oracle strings, i.e. new tests, not 
   `1.0.0` like Java's `in.charAt(i)`, and the trailing `println` resolves to `kotlin.io.ConsoleKt.println` so its
   argument reads are tracked. The try-with-resources / multi-catch cases are still N/A.
 ⁷ the guarded-pattern sub-test (`case Integer i when …`) is N/A (instanceof-pattern; see below).
-⁸ only test1/5/8b/9 (plain if/else, `while`, re-assign) are ported; the `for(int i=…)`, instanceof-pattern,
-  array-assignment and `synchronized` cases are N/A. One incidental substitution remains: Java's `in.length()`
-  becomes `in.hashCode()` (both method calls on `in` — avoids Kotlin's `in.length` *property*, which the
-  front-end models as a field access and would add a `String.length#in` variable). `System.out.println(…)` is
-  used verbatim (the front-end now loads Java static fields, so `java.lang.System.out` appears as in Java), and
-  each ported method's reads/assignments/`hasBeenDefined` oracle matches Java verbatim.
+⁸ test1/5/6/8/8b/9 (plain if/else, `if/else if/else`, `while`, `while(true)`, re-assign) are ported; the
+  `for(int i=…)`, instanceof-pattern, array-assignment and `synchronized` cases are N/A. test6/test8 have
+  unreachable trailing code (as in the Java originals) — `KotlinScan` tolerates it. One incidental substitution
+  remains: Java's `in.length()` becomes `in.hashCode()` (both method calls on `in` — avoids Kotlin's `in.length`
+  *property*, which the front-end models as a field access and would add a `String.length#in` variable).
+  `System.out.println(…)` is used verbatim (the front-end now loads Java static fields, so `java.lang.System.out`
+  appears as in Java), and each ported method's reads/assignments/`hasBeenDefined` oracle matches Java verbatim.
 
 ### Not portable — Kotlin lacks the construct (documented in each ported file where a sub-test is dropped)
 
@@ -72,6 +73,9 @@ than force-fitted (which would need *fresh* oracle strings, i.e. new tests, not 
 - **`synchronized` / `assert` statements** — Kotlin's are stdlib *functions* (`synchronized(l){}`, `assert(c){}`),
   parsed as calls, not statements. Affects `TestAssignmentsSyncAssert`.
 - **multi-catch** (`catch (A | B e)`) — no Kotlin union catch. Affects a `TestAssignmentsTryFinally` sub-test.
+- **local classes** (`class C {…}` declared inside a method body) — `KotlinScan` does not yet register a local
+  class as a source type, so it falls into library loading and fails on its `<local>` name. Affects
+  `TestLocalType.test2` (a local class capturing an enclosing parameter).
 - **indexed / property-chain assignment** — `a[i] += v` and `a.b.c = …` route through Kotlin's `get`/`set`
   operator convention and property setters, so no `a[i]` *dependent variable* / no `a`/`b`/`c` field variable is
   produced. (Plain indexed *read* `a[i]` is fine — it resolves to a `get`/`charAt` call whose receiver read is
