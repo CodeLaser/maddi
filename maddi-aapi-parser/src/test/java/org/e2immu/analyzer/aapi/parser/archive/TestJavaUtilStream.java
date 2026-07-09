@@ -20,7 +20,11 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.junit.jupiter.api.Test;
 
+import java.util.stream.BaseStream;
 import java.util.stream.Collector;
+import java.util.stream.DoubleStream;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
@@ -136,6 +140,18 @@ public class TestJavaUtilStream extends CommonTest {
         assertSame(NOT_NULL, methodInfo.analysis().getOrDefault(NOT_NULL_METHOD, NULLABLE));
         assertSame(IMMUTABLE_HC, methodInfo.analysis().getOrDefault(IMMUTABLE_METHOD, MUTABLE));
         assertSame(INDEPENDENT_HC, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
+    }
+
+    // All stream types are @Container (no method modifies a parameter); BaseStream/IntStream/LongStream
+    // were previously unannotated, inconsistent with Stream and DoubleStream.
+    @Test
+    public void testAllStreamsAreContainers() {
+        for (Class<?> c : new Class<?>[]{
+                BaseStream.class, Stream.class, IntStream.class, LongStream.class, DoubleStream.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
+                    () -> c.getSimpleName() + " should be a @Container");
+        }
     }
 
 }
