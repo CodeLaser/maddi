@@ -25,6 +25,7 @@ import java.util.stream.*;
 public class JavaUtilStream {
     public static final String PACKAGE_NAME = "java.util.stream";
     //public interface BaseStream implements AutoCloseable
+    @Container
     class BaseStream$<T, S extends BaseStream<T, S>> {
         Iterator<T> iterator() { return null; }
         Spliterator<T> spliterator() { return null; }
@@ -414,6 +415,7 @@ public class JavaUtilStream {
     }
 
     //public interface IntStream implements BaseStream<Integer,IntStream>
+    @Container
     class IntStream$ {
         //public interface Builder implements IntConsumer
         class Builder {
@@ -505,6 +507,7 @@ public class JavaUtilStream {
     }
 
     //public interface LongStream implements BaseStream<Long,LongStream>
+    @Container
     class LongStream$ {
         //public interface Builder implements LongConsumer
         class Builder {
