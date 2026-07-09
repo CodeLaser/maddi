@@ -157,9 +157,14 @@ class KotlinScan(
     override fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo =
         convertMethod(owner, function)
 
+    override fun KaSession.buildLocalType(enclosingMethod: MethodInfo, declaration: KtClassOrObject,
+                                          outerLocals: Map<String, Variable>): TypeInfo =
+        buildLocalTypeImpl(enclosingMethod, declaration, outerLocals)
+
     // Body conversion delegated to KotlinBodyConverter (KaSession member extensions -> with(…)).
-    private fun KaSession.convertBody(function: KaNamedFunctionSymbol, returnType: ParameterizedType, method: MethodInfo) =
-        with(bodyConverter) { convertBody(function, returnType, method) }
+    private fun KaSession.convertBody(function: KaNamedFunctionSymbol, returnType: ParameterizedType,
+                                      method: MethodInfo, outerLocals: Map<String, Variable> = emptyMap()) =
+        with(bodyConverter) { convertBody(function, returnType, method, outerLocals) }
 
     private fun KaSession.convertExpression(expression: KtExpression, method: MethodInfo, locals: Map<String, Variable>) =
         with(bodyConverter) { convertExpression(expression, method, locals) }
@@ -167,6 +172,38 @@ class KotlinScan(
     private fun KaSession.convertStatement(statement: KtExpression, method: MethodInfo,
                                            locals: MutableMap<String, Variable>, index: String) =
         with(bodyConverter) { convertStatement(statement, method, locals, index) }
+
+    /**
+     * Build a method-local type (`class C : A { … }` declared inside [enclosingMethod]'s body) as a full source
+     * type: created under the method (so its FQN nests under the method, not a bad `<local>` compilation unit),
+     * registered so `C()` resolves, hierarchy + members built exactly like a normal class, and its method bodies
+     * capturing [outerLocals]. Mirrors the openjdk parser's `parseLocal`.
+     */
+    private fun KaSession.buildLocalTypeImpl(enclosingMethod: MethodInfo, declaration: KtClassOrObject,
+                                             outerLocals: Map<String, Variable>): TypeInfo {
+        val classSymbol = declaration.symbol as KaNamedClassSymbol
+        val index = enclosingMethod.typeInfo().builder().getAndIncrementAnonymousTypes()
+        val typeInfo = runtime.newTypeInfo(enclosingMethod, classSymbol.name.asString(), index)
+        // declaration-site type parameters first (a bound may reference a sibling / itself), then bounds+variance
+        val cstTypeParameters = classSymbol.typeParameters.mapIndexed { i, tp ->
+            runtime.newTypeParameter(i, tp.name.asString(), typeInfo)
+                .also { typeInfo.builder().addOrSetTypeParameter(it) } to tp
+        }
+        cstTypeParameters.forEach { (cstTp, tp) ->
+            cstTp.builder()
+                .setTypeBounds(tp.upperBounds.map { mapType(it, typeInfo) }.filterNot { it.isJavaLangObject })
+                .setVariance(mapVariance(tp.variance))
+                .commit()
+        }
+        typeInfo.builder().setEnclosingMethod(enclosingMethod)
+        infoByFqn.put(typeInfo.fullyQualifiedName(), typeInfo, sourceSet)
+        // a local type has no ClassId, so register it by PSI too -- a use-site `C()` resolves through this
+        classSymbol.psi?.let { typeMapper.registerLocalType(it, typeInfo) }
+        prepareType(declaration, typeInfo)
+        convertMembers(declaration, typeInfo, outerLocals)
+        finalizeType(declaration, typeInfo)
+        return typeInfo
+    }
 
     /** Parse one in-memory Kotlin source file and return its primary CST types (test convenience). */
     fun parse(fileName: String, content: String): List<TypeInfo> = parse(mapOf(fileName to content))
@@ -407,8 +444,13 @@ class KotlinScan(
             .forEach { ctor -> typeInfo.builder().addConstructor(convertConstructorStructure(typeInfo, ctor)) }
     }
 
-    /** Pass B1b: convert members (properties, methods + bodies, synthetics) and register nested singletons. */
-    private fun KaSession.convertMembers(declaration: KtClassOrObject, typeInfo: TypeInfo) {
+    /**
+     * Pass B1b: convert members (properties, methods + bodies, synthetics) and register nested singletons.
+     * [outerLocals] is non-empty only for a method-local type, so its method bodies capture the enclosing
+     * method's parameters/locals.
+     */
+    private fun KaSession.convertMembers(declaration: KtClassOrObject, typeInfo: TypeInfo,
+                                         outerLocals: Map<String, Variable> = emptyMap()) {
         val classSymbol = declaration.symbol as KaNamedClassSymbol
         // properties (+ enum entry fields) before methods, so a method body can reference them
         classSymbol.declaredMemberScope.declarations
@@ -421,7 +463,7 @@ class KotlinScan(
         val pendingMethods = classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaNamedFunctionSymbol>()
             .map { function -> convertMethodSignature(typeInfo, function).also { typeInfo.builder().addMethod(it) } to function }
-        pendingMethods.forEach { (method, function) -> finishMethodBody(function, method) }
+        pendingMethods.forEach { (method, function) -> finishMethodBody(function, method, outerLocals) }
         // a data class gets synthetic structural equals/hashCode/toString (like a Java record), unless the
         // user declared them; componentN/copy/getters are already provided by K2's member scope
         if (classSymbol.isData) {
@@ -751,8 +793,9 @@ class KotlinScan(
     }
 
     /** The method's body, then commit; call after the signature exists (so forward/self calls resolve). */
-    private fun KaSession.finishMethodBody(function: KaNamedFunctionSymbol, method: MethodInfo) {
-        method.builder().setMethodBody(convertBody(function, method.returnType(), method)).commit()
+    private fun KaSession.finishMethodBody(function: KaNamedFunctionSymbol, method: MethodInfo,
+                                           outerLocals: Map<String, Variable> = emptyMap()) {
+        method.builder().setMethodBody(convertBody(function, method.returnType(), method, outerLocals)).commit()
     }
 
     /**

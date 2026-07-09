@@ -10,7 +10,7 @@ the identical string. So a passing port proves the k2 CST is structurally faithf
 ## Status
 
 Of the 52 `CommonTest`-based Java prepwork tests, the ones whose constructs translate structurally 1:1 to Kotlin
-are ported (**19 classes**). The remainder rely on Java-only constructs whose exact statement/assignment
+are ported (**20 classes**). The remainder rely on Java-only constructs whose exact statement/assignment
 structure — which the oracle strings encode — cannot be reproduced in Kotlin; those are documented below rather
 than force-fitted (which would need *fresh* oracle strings, i.e. new tests, not equivalence checks).
 
@@ -34,6 +34,7 @@ than force-fitted (which would need *fresh* oracle strings, i.e. new tests, not 
 | TestFinalFieldBranchAssignment | TestFinalFieldBranchAssignment | effectively-final: `val`/`var` finality⁵ |
 | TestHasBeenDefinedLocals | TestHasBeenDefinedLocals | if/else, do-while, while, try/catch definite-assignment |
 | TestLabeledContinue | TestLabeledContinue | labeled continue |
+| TestLocalType | TestLocalType (test2) | local class capturing an enclosing parameter |
 | TestReassignment | TestReassignment | reassignment |
 | TestWhenCaseNull | TestAssignmentsSwitchNullGuard | `when` with a `null` arm (block arrows) + merge⁷ |
 | TestWhenNoElseMerge | TestSwitchNoDefaultMerge | `when` exhaustiveness (else / sealed `is`-when) |
@@ -73,9 +74,6 @@ than force-fitted (which would need *fresh* oracle strings, i.e. new tests, not 
 - **`synchronized` / `assert` statements** — Kotlin's are stdlib *functions* (`synchronized(l){}`, `assert(c){}`),
   parsed as calls, not statements. Affects `TestAssignmentsSyncAssert`.
 - **multi-catch** (`catch (A | B e)`) — no Kotlin union catch. Affects a `TestAssignmentsTryFinally` sub-test.
-- **local classes** (`class C {…}` declared inside a method body) — `KotlinScan` does not yet register a local
-  class as a source type, so it falls into library loading and fails on its `<local>` name. Affects
-  `TestLocalType.test2` (a local class capturing an enclosing parameter).
 - **indexed / property-chain assignment** — `a[i] += v` and `a.b.c = …` route through Kotlin's `get`/`set`
   operator convention and property setters, so no `a[i]` *dependent variable* / no `a`/`b`/`c` field variable is
   produced. (Plain indexed *read* `a[i]` is fine — it resolves to a `get`/`charAt` call whose receiver read is

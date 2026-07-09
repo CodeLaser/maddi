@@ -35,6 +35,7 @@ import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement
 import org.e2immu.language.cst.api.statement.ForEachStatement
 import org.e2immu.language.cst.api.statement.IfElseStatement
+import org.e2immu.language.cst.api.statement.LocalTypeDeclaration
 import org.e2immu.language.cst.api.statement.LocalVariableCreation
 import org.e2immu.language.cst.api.statement.ReturnStatement
 import org.e2immu.language.cst.api.statement.SwitchStatementNewStyle
@@ -615,6 +616,30 @@ class ExpressionTest : KotlinScanTestBase() {
         assertEquals(3, call.parameterExpressions().size)
         // a=1, b=10 (default), c=5 -- in declaration order
         assertEquals(listOf("1", "10", "5"), call.parameterExpressions().map { it.toString() })
+    }
+
+    @Test
+    fun localClass() {
+        // `class C : A { … }` inside a method body -> a LocalTypeDeclaration statement, a full source type nested
+        // under the method (FQN via the method, not a bad `library:/<local>`), and a later `C()` resolves to it.
+        val x = KotlinScan(runtime, sourceSet).parse(
+            "L.kt",
+            "class X {\n interface A { fun f(): Int }\n" +
+                " fun make(): A { class C : A { override fun f(): Int = 1 }; return C() }\n}\n"
+        ).first { it.simpleName() == "X" }
+
+        val make = x.findUniqueMethod("make", 0)
+        val ltd = make.methodBody().statements().first() as LocalTypeDeclaration
+        val c = ltd.typeInfo()
+        assertEquals("C", c.simpleName())
+        assertEquals(make, c.enclosingMethod())
+        assertTrue(c.interfacesImplemented().any { it.typeInfo() == x.findSubType("A") })
+        assertEquals(1, c.methods().count { it.name() == "f" })
+
+        // `return C()` resolves to a ConstructorCall of the local type (not an unresolved placeholder)
+        val ret = (make.methodBody().statements()[1] as ReturnStatement).expression()
+        assertTrue(ret is ConstructorCall, "was ${ret.javaClass.simpleName}: $ret")
+        assertEquals(c, (ret as ConstructorCall).anonymousClass() ?: ret.constructor().typeInfo())
     }
 
 }
