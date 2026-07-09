@@ -43,9 +43,10 @@ than force-fitted (which would need *fresh* oracle strings, i.e. new tests, not 
 ⁴ the pattern-switch sub-test is N/A (instanceof-pattern; see below).
 ⁵ **re-derived, not a 1:1 port** — see the effectively-final note below; the test asserts the Kotlin invariant
   (`val` ⟹ final, `var` ⟹ non-final via its synthesized setter) rather than the Java branch/lambda/anon control.
-⁶ the try body's trailing `println` read becomes a plain local read (`println` is unresolved under `KotlinScan`,
-  so its argument reads are dropped), and the `in[i]` get-operator read of `in` is not tracked; only the
-  try/catch/finally assignment structure is asserted. The try-with-resources / multi-catch cases are N/A.
+⁶ the `in[i]` get-operator read of `in` is not tracked (get/set convention), so only `c`/`d` and the
+  try/catch/finally assignment structure are asserted. (The trailing `println` reads faithfully: library
+  top-level functions such as `kotlin.io.println` now resolve to their JVM file facade, `kotlin.io.ConsoleKt`,
+  so their argument reads are tracked.) The try-with-resources / multi-catch cases are N/A.
 ⁷ the guarded-pattern sub-test (`case Integer i when …`) is N/A (instanceof-pattern; see below).
 
 ### Not portable — Kotlin lacks the construct (documented in each ported file where a sub-test is dropped)

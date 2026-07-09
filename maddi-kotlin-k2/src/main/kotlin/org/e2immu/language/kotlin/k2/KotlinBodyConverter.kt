@@ -1137,7 +1137,11 @@ internal class KotlinBodyConverter(
                                      call: KtCallExpression, method: MethodInfo): Expression? {
         if (calleeSymbol == null || calleeSymbol.receiverParameter != null) return null
         if ((calleeSymbol.psi as? KtNamedFunction)?.containingClassOrObject != null) return null // a member, not top-level
-        val facade = extensionFacade(calleeSymbol)?.takeIf { it != method.typeInfo() } ?: return null
+        // a same-compilation top-level function lives on a source facade; a library one (e.g. kotlin.io.println)
+        // has no source facade -- load its JVM file-facade class (kotlin.io.ConsoleKt) from the classpath instead.
+        val facade = extensionFacade(calleeSymbol)?.takeIf { it != method.typeInfo() }
+            ?: with(typeMapper) { loadLibraryFacadeFor(calleeSymbol) }
+            ?: return null
         val callee = resolveCallee(facade, name, arguments) ?: return null
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
         return runtime.newMethodCallBuilder()
@@ -1152,6 +1156,7 @@ internal class KotlinBodyConverter(
         val fqn = (if (pkg.isRoot) "" else pkg.asString() + ".") + facadeSimpleName(ktFile)
         return infoByFqn.getType(fqn, sourceSet)
     }
+
 
     /**
      * Prefix/postfix unary: `++`/`--` become an [org.e2immu.language.cst.api.expression.Assignment]

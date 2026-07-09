@@ -40,6 +40,7 @@ import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.components.resolveSymbol
+import org.jetbrains.kotlin.analysis.api.components.packageScope
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
@@ -223,6 +224,53 @@ internal class KotlinTypeMapper(
             .setSourceSet(librarySourceSet)
             .build()
 
+    /**
+     * The library file-facade [TypeInfo] that hosts a top-level *library* function ([function], e.g.
+     * `kotlin.io.println` → `kotlin.io.ConsoleKt`). A JVM file facade is not a Kotlin classifier (so
+     * `findClass` cannot see it); we derive its [ClassId] from the FIR container source, then build it from the
+     * package's top-level functions that belong to the same facade — all as `public static` library methods, so
+     * calls resolve and their arguments (their reads) are tracked. Null when not derivable/loadable.
+     */
+    internal fun KaSession.loadLibraryFacadeFor(function: KaNamedFunctionSymbol): TypeInfo? {
+        val classId = jvmFacadeClassId(function) ?: return null
+        val jvmFqn = classId.asFqNameString()
+        infoByFqn.getType(jvmFqn, librarySourceSet)?.let { return it }
+        val pkg = findPackage(classId.packageFqName) ?: return null
+        val functions = pkg.packageScope.callables
+            .filterIsInstance<KaNamedFunctionSymbol>()
+            .filter { it.receiverParameter == null && jvmFacadeClassId(it) == classId }
+            .toList()
+        if (functions.isEmpty()) return null
+        val typeInfo = runtime.newTypeInfo(
+            libraryCompilationUnit(classId.packageFqName.asString()), classId.shortClassName.asString())
+        infoByFqn.put(jvmFqn, typeInfo, librarySourceSet) // register before members (param types may cycle back)
+        val builder = typeInfo.builder()
+            .setTypeNature(runtime.typeNatureClass())
+            .setParentClass(runtime.objectParameterizedType())
+            .addTypeModifier(runtime.typeModifierPublic())
+            .addTypeModifier(runtime.typeModifierFinal())
+        val seen = mutableSetOf<String>() // erased overloads can collide on the same signature
+        functions.map { convertLibraryMethod(typeInfo, it, static = true) }
+            .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+        builder.computeAccess().commit()
+        return typeInfo
+    }
+
+    /**
+     * The JVM file-facade [ClassId] of a top-level *library* function — read from its FIR `containerSource`
+     * (a `JvmPackagePartSource`, e.g. `kotlin/io/ConsoleKt`). A library symbol has no PSI, so this is the only
+     * place the facade name lives. Reached reflectively: the Analysis API does not expose the FIR container
+     * source in its stable surface, and a soft failure (null) simply skips the resolution.
+     */
+    private fun jvmFacadeClassId(symbol: KaNamedFunctionSymbol): ClassId? = try {
+        val firSymbol = symbol.javaClass.methods.firstOrNull { it.name == "getFirSymbol" }?.invoke(symbol)
+        val fir = firSymbol?.javaClass?.methods?.firstOrNull { it.name == "getFir" }?.invoke(firSymbol)
+        val cs = fir?.javaClass?.methods?.firstOrNull { it.name == "getContainerSource" }?.invoke(fir)
+        cs?.javaClass?.methods?.firstOrNull { it.name == "getClassId" }?.invoke(cs) as? ClassId
+    } catch (_: Throwable) {
+        null
+    }
+
     private fun KaSession.loadLibraryType(symbol: KaNamedClassSymbol, jvmFqn: String): TypeInfo {
         infoByFqn.getType(jvmFqn, librarySourceSet)?.let { return it }
         val typeInfo = runtime.newTypeInfo(
@@ -283,8 +331,10 @@ internal class KotlinTypeMapper(
     }
 
     /** A library method: signature only (params + return type), no body (the analogue of a class-file method). */
-    private fun KaSession.convertLibraryMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo {
-        val method = runtime.newMethod(owner, function.name.asString(), runtime.methodTypeMethod())
+    private fun KaSession.convertLibraryMethod(owner: TypeInfo, function: KaNamedFunctionSymbol,
+                                               static: Boolean = false): MethodInfo {
+        val methodType = if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
+        val method = runtime.newMethod(owner, function.name.asString(), methodType)
         val builder = method.builder()
         function.valueParameters.forEach { p -> builder.addParameter(p.name.asString(), mapType(p.returnType, owner)) }
         builder
@@ -292,6 +342,7 @@ internal class KotlinTypeMapper(
             .setMethodBody(runtime.emptyBlock())
             .setMissingData(runtime.methodMissingMethodBody()) // no body available (like a class-file method)
         addMethodModifiers(builder, function)
+        if (static) builder.addMethodModifier(runtime.methodModifierStatic())
         builder.commitParameters().computeAccess().commit()
         return method
     }

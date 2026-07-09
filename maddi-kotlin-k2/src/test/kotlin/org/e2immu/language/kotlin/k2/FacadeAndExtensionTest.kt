@@ -137,4 +137,22 @@ class FacadeAndExtensionTest : KotlinScanTestBase() {
         assertEquals("\$receiver", variable.name())
     }
 
+
+    @Test
+    fun libraryTopLevelCall() {
+        val scan = KotlinScan(runtime, sourceSet)
+        // a call to a stdlib top-level function (`kotlin.io.println`) resolves to its JVM file facade
+        // `kotlin.io.ConsoleKt`, so it becomes a real MethodCall and its argument (its read) is tracked --
+        // rather than collapsing to an unresolved placeholder (which drops the argument).
+        val x = scan.parse("X.kt", "package a.b\nclass X {\n  fun m(c: Char) {\n    println(c)\n  }\n}\n").first()
+        val body = x.findUniqueMethod("m", 1).methodBody().statements().first() as ExpressionAsStatement
+        val call = body.expression() as MethodCall
+        assertEquals("kotlin.io.ConsoleKt", call.methodInfo().typeInfo().fullyQualifiedName())
+        assertEquals("println", call.methodInfo().name())
+        assertTrue(call.methodInfo().isStatic)
+        // the argument `c` survives, so the analyzer sees the read
+        val arg = call.parameterExpressions().single() as VariableExpression
+        assertEquals("c", arg.variable().simpleName())
+    }
+
 }
