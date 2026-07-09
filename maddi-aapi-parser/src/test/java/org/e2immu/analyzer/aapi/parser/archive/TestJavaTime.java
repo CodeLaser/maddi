@@ -16,6 +16,7 @@ package org.e2immu.analyzer.aapi.parser.archive;
 
 import org.e2immu.analyzer.aapi.parser.CommonTest;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,7 @@ import java.time.temporal.TemporalAmount;
 import java.time.temporal.TemporalUnit;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_TYPE;
+import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_FIELD;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD;
@@ -69,6 +71,17 @@ public class TestJavaTime extends CommonTest {
             assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
                     () -> c.getSimpleName() + " should be a @Container");
         }
+    }
+
+    // A field of an immutable type is itself immutable, derived from the owner: ZoneId.SHORT_IDS is a
+    // static final Map constant (formally mutable) inside the immutable ZoneId, and must come out immutable.
+    @Test
+    public void testZoneIdShortIdsFieldImmutable() {
+        TypeInfo zoneId = compiledTypesManager().get(ZoneId.class);
+        FieldInfo shortIds = zoneId.getFieldByName("SHORT_IDS", true);
+        Value.Immutable imm = (Value.Immutable) shortIds.analysis().getOrDefault(IMMUTABLE_FIELD, MUTABLE);
+        assertTrue(imm.isAtLeastImmutableHC(),
+                "SHORT_IDS (a Map constant inside the immutable ZoneId) must itself be immutable");
     }
 
     // Final concrete value types are deep @Immutable (not the hidden-content variant).
