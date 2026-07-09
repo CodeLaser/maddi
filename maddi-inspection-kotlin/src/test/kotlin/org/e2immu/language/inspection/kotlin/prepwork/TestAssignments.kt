@@ -101,8 +101,8 @@ class TestAssignments : CommonKotlinPrep() {
     /**
      * `TestAssignments.test5` ("exit, not all if-else branches"): an `if` whose then-branch `throw`s and whose
      * `else if` `return`s, followed by a reachable statement — the return variable is defined on both exit paths
-     * (`D:-, A:[0.0.0, 0.1.0.0.0]`) but not after. `in.hashCode()` stands in for Java's `in.length()`, and the
-     * reachable statement is `println(...)`, so the known-variable set is Java's minus its `java.lang.System.out`.
+     * (`D:-, A:[0.0.0, 0.1.0.0.0]`) but not after. `in.hashCode()` stands in for Java's `in.length()` (both method
+     * calls on `in`; avoids Kotlin's `in.length` property → field-access variable); otherwise verbatim.
      */
     @Test
     fun test5() {
@@ -115,12 +115,13 @@ class TestAssignments : CommonKotlinPrep() {
                     } else if (`in`.hashCode() == 1) {
                         return
                     }
-                    println("Reachable")
+                    System.out.println("Reachable")
                 }
             }
         """.trimIndent())
 
-        assertEquals("a.b.X.method(String), a.b.X.method(String):0:in", vd.knownVariableNamesToString())
+        assertEquals("a.b.X.method(String), a.b.X.method(String):0:in, java.lang.System.out",
+            vd.knownVariableNamesToString())
 
         val rv = vd.variableInfo(method.fullyQualifiedName())
         // 0: if; 0.0.0: throw; 0.1.0: else-if; 0.1.0.0.0: return; 1: println
@@ -131,12 +132,8 @@ class TestAssignments : CommonKotlinPrep() {
     }
 
     /**
-     * `TestAssignments.test9` ("simple re-assigns"): a `var` read in a branch, then reassigned, then returned —
-     * the subject is `i`'s reads (`1.0.0, 3`) and assignments (`D:0, A:[0, 2]`) across the reassignment. The Java
-     * source forces the in-branch read with `System.out.println(i)`; the Kotlin port uses a plain local read
-     * (`val x = i`) instead, because Kotlin cannot yet reproduce Java's `java.lang.System.out` field variable (the
-     * front-end does not load Java static fields). `x` is block-local, so the method-level known-variable set is
-     * `method(int):0:j, i` — identical to Java's minus that `System.out`; `i`'s reads/assignments match verbatim.
+     * `TestAssignments.test9` ("simple re-assigns"): a `var` read in a branch (`System.out.println(i)`), then
+     * reassigned, then returned — verbatim Java oracle, incl. the `java.lang.System.out` static-field variable.
      */
     @Test
     fun test9() {
@@ -146,7 +143,7 @@ class TestAssignments : CommonKotlinPrep() {
                 fun method(j: Int): Int {
                     var i = 0
                     if (j == 1) {
-                        val x = i
+                        System.out.println(i)
                     }
                     i = 1
                     return i
@@ -154,10 +151,11 @@ class TestAssignments : CommonKotlinPrep() {
             }
         """.trimIndent())
 
-        assertEquals("a.b.X.method(int), a.b.X.method(int):0:j, i", vd.knownVariableNamesToString())
+        assertEquals("a.b.X.method(int), a.b.X.method(int):0:j, i, java.lang.System.out",
+            vd.knownVariableNamesToString())
 
         val iVi = v(vd, "i")
-        // 0: var i, 1: if, 1.0.0: val x = i (reads i), 2: i=1 reassign, 3: return i
+        // 0: var i, 1: if, 1.0.0: System.out.println(i) reads i, 2: i=1 reassign, 3: return i
         assertEquals("1.0.0, 3", iVi.reads().toString())
         assertEquals("D:0, A:[0, 2]", iVi.assignments().toString())
         assertTrue(iVi.assignments().hasBeenAssignedAfterFor("1=M", "3", false))
@@ -171,8 +169,7 @@ class TestAssignments : CommonKotlinPrep() {
      * `TestAssignments.test8b` ("exit, while(real condition)"): a `return` inside a `while`, then a reachable
      * statement and a final `return` — the subject is the return variable's definite assignment
      * (`D:-, A:[1.0.0, 3]`) and `hasBeenDefined` across the loop. `in.hashCode()` stands in for Java's
-     * `in.length()` (both method calls on `in`), and the reachable statement is `println(...)` rather than
-     * `System.out.println(...)`, so the method-level known-variable set is Java's minus its `java.lang.System.out`.
+     * `in.length()` (both method calls on `in`); otherwise verbatim, incl. the `java.lang.System.out` variable.
      */
     @Test
     fun test8b() {
@@ -184,13 +181,14 @@ class TestAssignments : CommonKotlinPrep() {
                     while (i < `in`.hashCode()) {
                         return `in`.hashCode()
                     }
-                    println("reachable")
+                    System.out.println("reachable")
                     return 0
                 }
             }
         """.trimIndent())
 
-        assertEquals("a.b.X.method(String), a.b.X.method(String):0:in, i", vd.knownVariableNamesToString())
+        assertEquals("a.b.X.method(String), a.b.X.method(String):0:in, i, java.lang.System.out",
+            vd.knownVariableNamesToString())
 
         val rv = vd.variableInfo(method.fullyQualifiedName())
         // 0: var i, 1: while, 1.0.0: return in.hashCode(), 2: println, 3: return 0
