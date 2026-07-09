@@ -24,6 +24,7 @@ import org.e2immu.language.cst.api.expression.InstanceOf
 import org.e2immu.language.cst.api.expression.MethodCall
 import org.e2immu.language.cst.api.expression.UnaryOperator
 import org.e2immu.language.cst.api.expression.VariableExpression
+import org.e2immu.language.cst.api.variable.FieldReference
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement
 import org.e2immu.language.cst.api.statement.ReturnStatement
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -88,6 +89,22 @@ class NullSafetyAndCastTest : KotlinScanTestBase() {
         val call = expr as MethodCall
         assertEquals("s", (call.`object`() as VariableExpression).variable().simpleName())
         assertNotNull(call.source().detailedSources().detail(DetailedSources.INDEX_ACCESS))
+    }
+
+    @Test
+    fun javaStaticFieldAccess() {
+        // `System.out` resolves to the Java static field `java.lang.System.out` (loaded from the static member
+        // scope), and its PrintStream type keeps its members so the chained `println(...)` resolves too.
+        val c = KotlinScan(runtime, sourceSet).parse(
+            "C.kt", "class C { fun m() { System.out.println(\"x\") } }\n"
+        ).first { it.simpleName() == "C" }
+        val call = (c.findUniqueMethod("m", 0).methodBody().statements().first() as ExpressionAsStatement)
+            .expression() as MethodCall
+        assertEquals("java.io.PrintStream.println(String)", call.methodInfo().fullyQualifiedName())
+        val out = (call.`object`() as VariableExpression).variable() as FieldReference
+        assertEquals("out", out.fieldInfo().name())
+        assertTrue(out.fieldInfo().isStatic)
+        assertEquals("java.lang.System.out", out.fullyQualifiedName())
     }
 
     @Test

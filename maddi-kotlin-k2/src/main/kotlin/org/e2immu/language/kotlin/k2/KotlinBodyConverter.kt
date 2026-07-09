@@ -667,7 +667,10 @@ internal class KotlinBodyConverter(
         val name = selector.getReferencedName()
         val receiverClass = (expression.receiverExpression as? KtNameReferenceExpression)
             ?.resolveSymbol() as? KaNamedClassSymbol ?: return null
+        // a source type (enum, companion holder) is already registered; a library type (`java.lang.System`
+        // behind `System.out`) is loaded on demand so its static members are available.
         val receiverType = infoByFqn.getType(receiverClass.classId?.asFqNameString() ?: return null, sourceSet)
+            ?: with(typeMapper) { loadLibraryClass(receiverClass) }
             ?: return null
         // a field on the type: a static field (enum entry, Java static, `const` companion forwarder) is a
         // direct static access; an instance field of a singleton (`Point.ORIGIN`, where Kotlin resolves the

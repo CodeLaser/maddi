@@ -49,12 +49,11 @@ than force-fitted (which would need *fresh* oracle strings, i.e. new tests, not 
   argument reads are tracked. The try-with-resources / multi-catch cases are still N/A.
 ⁷ the guarded-pattern sub-test (`case Integer i when …`) is N/A (instanceof-pattern; see below).
 ⁸ only test1/5/8b/9 (plain if/else, `while`, re-assign) are ported; the `for(int i=…)`, instanceof-pattern,
-  array-assignment and `synchronized` cases are N/A. Two incidental substitutions keep the *subject* oracle
-  verbatim: Java's `in.length()` becomes `in.hashCode()` (both method calls on `in` — avoids Kotlin's `in.length`
-  *property*, which the front-end models as a field access and would add a `String.length#in` variable); and a
-  read-forcing `System.out.println(x)` becomes a plain local read or `println(x)`, because Kotlin cannot yet
-  reproduce Java's `java.lang.System.out` field variable (the front-end does not load Java static fields). Each
-  ported method's core reads/assignments/`hasBeenDefined` oracle matches Java verbatim.
+  array-assignment and `synchronized` cases are N/A. One incidental substitution remains: Java's `in.length()`
+  becomes `in.hashCode()` (both method calls on `in` — avoids Kotlin's `in.length` *property*, which the
+  front-end models as a field access and would add a `String.length#in` variable). `System.out.println(…)` is
+  used verbatim (the front-end now loads Java static fields, so `java.lang.System.out` appears as in Java), and
+  each ported method's reads/assignments/`hasBeenDefined` oracle matches Java verbatim.
 
 ### Not portable — Kotlin lacks the construct (documented in each ported file where a sub-test is dropped)
 

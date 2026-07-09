@@ -46,6 +46,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaJavaFieldSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
@@ -54,6 +55,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
 import org.jetbrains.kotlin.analysis.api.symbols.KaVariableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
+import org.jetbrains.kotlin.analysis.api.types.KaFlexibleType
 import org.jetbrains.kotlin.analysis.api.types.KaFunctionType
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
@@ -135,6 +137,9 @@ internal class KotlinTypeMapper(
      * (the CompiledTypesManager's job) still fall back to Object.
      */
     internal fun KaSession.mapType(type: KaType, owner: TypeInfo, method: MethodInfo? = null): ParameterizedType {
+        // a Java platform type (`PrintStream!`, `String!`) is a flexible type (T..T?); map its non-null lower
+        // bound, so Java library member types (e.g. the type of `System.out`) resolve instead of degrading to Object
+        if (type is KaFlexibleType) return mapType(type.lowerBound, owner, method)
         val base = when (type) {
             is KaClassType -> mapClassType(type, owner, method)
             is KaTypeParameterType -> {
@@ -271,6 +276,29 @@ internal class KotlinTypeMapper(
         null
     }
 
+    /**
+     * Load (and register) the library/JDK type for a resolved class [symbol] — e.g. `java.lang.System` behind a
+     * `System.out` static access — deepening it from bytecode. Returns null if it can't be located. Mapped types
+     * (`kotlin.String` → `java.lang.String`) load their Java symbol, matching the rest of the front-end.
+     */
+    internal fun KaSession.loadLibraryClass(symbol: KaNamedClassSymbol): TypeInfo? {
+        val classId = symbol.classId ?: return null
+        val jvmFqn = mapToJvmFqn(classId)
+        infoByFqn.getType(jvmFqn, librarySourceSet)?.let { return it }
+        // an explicit "load this whole type" request (a `Type.staticMember` access): load from a reset depth so
+        // the type's own members AND their types load, not shells -- e.g. `System.out`'s PrintStream keeps its
+        // `println` overloads, so `System.out.println(...)` resolves. (A deeper co-load still bottoms out.)
+        val saved = memberDepth
+        memberDepth = 0
+        try {
+            return if (jvmFqn != classId.asFqNameString())
+                (findClass(ClassId.topLevel(FqName(jvmFqn))) as? KaNamedClassSymbol)?.let { loadLibraryType(it, jvmFqn) }
+            else loadLibraryType(symbol, jvmFqn)
+        } finally {
+            memberDepth = saved
+        }
+    }
+
     private fun KaSession.loadLibraryType(symbol: KaNamedClassSymbol, jvmFqn: String): TypeInfo {
         infoByFqn.getType(jvmFqn, librarySourceSet)?.let { return it }
         val typeInfo = runtime.newTypeInfo(
@@ -303,6 +331,15 @@ internal class KotlinTypeMapper(
         if (memberDepth < maxMemberDepth) {
             memberDepth++
             try {
+                // Static fields FIRST (`System.out`, `Integer.MAX_VALUE`, `Math.PI`, …): they live in the static
+                // member scope as KaJavaFieldSymbols (not properties), and are commonly used as call receivers
+                // (`System.out.println(...)`). Loading them before the methods means the field's own type
+                // (PrintStream) loads WITH its members here, rather than being shelled first by some method's
+                // transitive type at a deeper level -- so the chained call resolves.
+                val seenFields = mutableSetOf<String>()
+                symbol.staticMemberScope.declarations
+                    .filterIsInstance<KaJavaFieldSymbol>()
+                    .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryStaticField(typeInfo, it)) }
                 // dedup by FQN: flattened overloads can erase to the same signature (e.g. printStackTrace
                 // (PrintStream)/(PrintWriter) both map to Object on a shell), which the type map rejects
                 val seen = mutableSetOf<String>()
@@ -312,7 +349,6 @@ internal class KotlinTypeMapper(
                     .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
                 // properties -> fields, so `obj.size`/`obj.length` resolve (the body resolver reads a
                 // property access as a field access, like a source type's backing field)
-                val seenFields = mutableSetOf<String>()
                 symbol.memberScope.declarations
                     .filterIsInstance<KaPropertySymbol>()
                     .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryField(typeInfo, it)) }
@@ -402,6 +438,18 @@ internal class KotlinTypeMapper(
         visibilityMethodModifier(ctor)?.let { builder.addMethodModifier(it) }
         builder.commitParameters().computeAccess().commit()
         return constructor
+    }
+
+    /** A Java static field (`java.lang.System.out`, `Integer.MAX_VALUE`) -> a `public static` field on [owner]. */
+    private fun KaSession.convertLibraryStaticField(owner: TypeInfo, field: KaJavaFieldSymbol): FieldInfo {
+        val fieldInfo = runtime.newFieldInfo(field.name.asString(), true, mapType(field.returnType, owner), owner)
+        val builder = fieldInfo.builder()
+            .addFieldModifier(runtime.fieldModifierPublic())
+            .addFieldModifier(runtime.fieldModifierStatic())
+            .setInitializer(runtime.newEmptyExpression())
+        if (field.isVal) builder.addFieldModifier(runtime.fieldModifierFinal()) // final field (`out`, `MAX_VALUE`)
+        builder.computeAccess().commit()
+        return fieldInfo
     }
 
     /** A library property -> a field on the type (signature only); the body resolver reads `obj.x` as field access. */
