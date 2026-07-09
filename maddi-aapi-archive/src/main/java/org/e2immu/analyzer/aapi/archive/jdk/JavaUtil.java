@@ -2024,6 +2024,21 @@ public class JavaUtil {
     @Container
     class Deque$<E> { }
 
+    //public class EnumMap<K extends Enum<K>, V> extends AbstractMap<K, V> implements Cloneable, Serializable
+    @Container
+    class EnumMap$<K, V> {
+        EnumMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<K, ? extends V> m) { }
+    }
+
+    //public abstract class EnumSet<E extends Enum<E>> extends AbstractSet<E> implements Cloneable, Serializable
+    @Container
+    class EnumSet$<E> { }
+
+    //public interface Enumeration<E>
+    @Container
+    @Independent(hc = true)
+    class Enumeration$<E> { }
+
     //@Container[M]
     @Independent(hc = true) class EventListener$ { }
 
@@ -2205,6 +2220,18 @@ public class JavaUtil {
         //@NotModified[H]
         <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ T [] a) { return null; }
         static <T> HashSet<T> newHashSet(int numElements) { return null; }
+    }
+
+    //public class Hashtable<K, V> extends Dictionary<K, V> implements Map<K, V>, Cloneable, Serializable
+    @Container
+    class Hashtable$<K, V> {
+        Hashtable$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
+    }
+
+    //public class IdentityHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Serializable, Cloneable
+    @Container
+    class IdentityHashMap$<K, V> {
+        IdentityHashMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
     }
 
     //public interface Iterator
@@ -2603,6 +2630,11 @@ public class JavaUtil {
             return null;
         }
     }
+
+    //public interface ListIterator<E> extends Iterator<E>
+    @Container
+    @Independent(hc = true)
+    class ListIterator$<E> { }
 
     //public final class Locale implements Cloneable, Serializable
     class Locale$ {
@@ -3529,6 +3561,10 @@ public class JavaUtil {
         PriorityQueue$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
     }
 
+    //public class Properties extends Hashtable<Object, Object>
+    @Container
+    class Properties$ { }
+
     //public interface Queue<E> extends Collection<E>
     @Container
     class Queue$<E> { }
@@ -3650,6 +3686,10 @@ public class JavaUtil {
         @NotModified SequencedCollection<V> sequencedValues() { return null; }
         @NotModified SequencedSet<Map.Entry<K, V>> sequencedEntrySet() { return null; }
     }
+
+    //public interface SequencedSet<E> extends SequencedCollection<E>, Set<E>
+    @Container
+    class SequencedSet$<E> { }
 
     //public interface Set implements Collection<E>
     @Container
@@ -3875,6 +3915,11 @@ public class JavaUtil {
     //public interface SortedSet<E> extends Set<E>, SequencedCollection<E>
     @Container
     class SortedSet$<E> { }
+
+    //public interface Spliterator<T>
+    @Container
+    @Independent(hc = true)
+    class Spliterator$<T> { }
 
     //public class Stack<E> extends Vector<E>
     @Container
@@ -4312,5 +4357,11 @@ public class JavaUtil {
         //override from java.lang.Iterable, java.util.Collection, java.util.List
         //@Independent(hc=true)[H] @NotModified[H] @NotNull[H]
         Spliterator<E> spliterator() { return null; }
+    }
+
+    //public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>
+    @Container
+    class WeakHashMap$<K, V> {
+        WeakHashMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
     }
 }

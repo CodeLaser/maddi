@@ -612,6 +612,36 @@ public class TestJavaUtil extends CommonTest {
         }
     }
 
+    // Full-coverage sweep: every remaining collection-framework type must be a @Container
+    // (interfaces carry the contract; concrete/abstract types re-assert it per type).
+    @Test
+    public void testRemainingFrameworkContainers() {
+        for (Class<?> c : new Class<?>[]{
+                ListIterator.class, Spliterator.class, Enumeration.class, SequencedSet.class,
+                EnumSet.class, EnumMap.class, Hashtable.class, Properties.class,
+                IdentityHashMap.class, WeakHashMap.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
+                    () -> c.getSimpleName() + " should be a @Container");
+        }
+    }
+
+    // The Map copy-constructors of the legacy/specialized maps copy entries, so their
+    // parameter is @Independent(hc=true) and unmodified, like HashMap/TreeMap.
+    @Test
+    public void testLegacyMapCopyConstructors() {
+        TypeInfo mapType = compiledTypesManager().get(Map.class);
+        for (Class<?> c : new Class<?>[]{
+                Hashtable.class, IdentityHashMap.class, WeakHashMap.class, EnumMap.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            MethodInfo constructor = typeInfo.findConstructor(mapType);
+            ParameterInfo p0 = constructor.parameters().getFirst();
+            assertFalse(p0.isModified(), () -> c.getSimpleName() + "(Map) param must be @NotModified");
+            assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT),
+                    () -> c.getSimpleName() + "(Map) param must be @Independent(hc=true)");
+        }
+    }
+
     @Test
     public void testTreeMapSortedMapConstructor() {
         TypeInfo typeInfo = compiledTypesManager().get(TreeMap.class);
