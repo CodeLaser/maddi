@@ -149,8 +149,17 @@ public class KotlinStatementPrinter {
                 .add(KotlinExpressionPrinter.print(ife.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
                 .add(SpaceEnum.ONE).add(block(ife.block(), q));
         if (ife.elseBlock() != null && !ife.elseBlock().isEmpty()) {
-            b.add(SpaceEnum.ONE).add(KotlinKeyword.ELSE).add(SpaceEnum.ONE).add(block(ife.elseBlock(), q));
+            b.add(SpaceEnum.ONE).add(KotlinKeyword.ELSE).add(SpaceEnum.ONE);
+            IfElseStatement chained = soleIfElse(ife.elseBlock());
+            // `else { if … }` -> idiomatic `else if …` (flatten the chain by recursing, not wrapping in a block)
+            b.add(chained != null ? ifElse(chained, q) : block(ife.elseBlock(), q));
         }
         return b;
+    }
+
+    /** If a block's only (non-synthetic) statement is an if/else, return it — for `else if` chain flattening. */
+    private static IfElseStatement soleIfElse(Block block) {
+        List<Statement> body = block.statements().stream().filter(x -> !x.isSynthetic()).toList();
+        return body.size() == 1 && body.getFirst() instanceof IfElseStatement ife ? ife : null;
     }
 }

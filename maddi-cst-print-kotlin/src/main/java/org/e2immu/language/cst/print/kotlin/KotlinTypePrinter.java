@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.print.kotlin;
 
+import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
@@ -130,8 +131,13 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             }
         }
 
+        // enum constants render as Kotlin entries (`RED, GREEN, BLUE`), not as `val RED = Color()` properties
+        Stream<OutputBuilder> enumEntryStream = enumConstants().isEmpty() ? Stream.of()
+                : Stream.of(enumEntries(typeInfo.methods().stream().anyMatch(m -> !m.isSynthetic())
+                || !typeInfo.subTypes().isEmpty() || constructors.stream().anyMatch(c -> !isImplicitDefaultConstructor(c)),
+                insideType));
         Stream<OutputBuilder> propertyStream = typeInfo.fields().stream()
-                .filter(f -> !f.isSynthetic() && !headerFields.contains(f.name()))
+                .filter(f -> !f.isSynthetic() && !headerFields.contains(f.name()) && !isEnumConstant(f))
                 .map(f -> fieldPrinterFactory.create(f, formatter2).print(insideType, false));
         Stream<OutputBuilder> constructorStream = constructors.stream()
                 .filter(c -> c != primaryFinal && !isImplicitDefaultConstructor(c))
@@ -143,7 +149,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .filter(st -> !st.isSynthetic())
                 .map(st -> enclosedTypePrinterFactory.create(st, formatter2).print(importData, true));
 
-        List<OutputBuilder> members = Stream.of(propertyStream, constructorStream, methodStream, subTypeStream)
+        List<OutputBuilder> members = Stream.of(enumEntryStream, propertyStream, constructorStream, methodStream, subTypeStream)
                 .flatMap(Function.identity()).toList();
         if (!members.isEmpty()) {
             // NEWLINE between members: Kotlin has no `;`, so members must be newline-separated to stay valid
@@ -151,6 +157,31 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE, GuideImpl.generatorForBlock())));
         }
         return out;
+    }
+
+    /** An enum constant: a static final field of the enum's own type (initialized by a constructor call). */
+    private boolean isEnumConstant(FieldInfo f) {
+        return typeInfo.typeNature().isEnum() && f.isStatic() && f.isFinal()
+                && f.type().typeInfo() == typeInfo;
+    }
+
+    private List<FieldInfo> enumConstants() {
+        return typeInfo.fields().stream().filter(this::isEnumConstant).toList();
+    }
+
+    /** `RED, GREEN, BLUE` (with `(args)` where a constant has constructor arguments); `;`-terminated if more follows. */
+    private OutputBuilder enumEntries(boolean moreMembersFollow, Qualification q) {
+        OutputBuilder entries = enumConstants().stream().map(f -> {
+            OutputBuilder e = new OutputBuilderImpl().add(new TextImpl(f.name()));
+            if (f.initializer() instanceof ConstructorCall cc && !cc.parameterExpressions().isEmpty()) {
+                e.add(cc.parameterExpressions().stream().map(x -> KotlinExpressionPrinter.print(x, q))
+                        .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
+                                SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator())));
+            }
+            return e;
+        }).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA));
+        if (moreMembersFollow) entries.add(SymbolEnum.SEMICOLON);
+        return entries;
     }
 
     private static boolean isAccessor(MethodInfo methodInfo) {
