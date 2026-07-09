@@ -34,6 +34,27 @@ import java.net.URI
  */
 class TestKotlinPrinterRoundTrip {
 
+    /** Parse one `.java` primary type with the openjdk front-end, run prepwork, and print it back as Kotlin. */
+    private fun printAsKotlin(fqn: String, source: String): String {
+        val javaInspector = JavaInspectorImpl()
+        val sourceSet = SourceSetImpl.Builder().setName(JavaInspector.TEST_PROTOCOL).setUri(URI.create("file:/")).build()
+        javaInspector.initialize(
+            InputConfigurationImpl.Builder().addSourceSets(sourceSet).addClassPath("jmod:java.base").build()
+        )
+        javaInspector.onlyPreload()
+        val runtime = javaInspector.runtime()
+        val type = javaInspector.parse(fqn, source)
+        PrepAnalyzer(runtime).doPrimaryTypes(setOf(type))
+
+        val ob = KotlinTypePrinter(type, true)
+            .print(ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType(), true)
+        return Formatter2Impl(runtime, FormattingOptionsImpl.Builder().build()).write(ob)
+    }
+
+    /** Java-only surface that must never survive translation of a fully-covered sample. */
+    private fun javaIsms(kotlin: String) =
+        listOf(" new ", "instanceof", " ? ", "switch", "<empty>", "k2-").filter { kotlin.contains(it) }
+
     private val richJava = """
         package a;
         public class Rich<T> {
@@ -68,21 +89,66 @@ class TestKotlinPrinterRoundTrip {
         }
         """.trimIndent()
 
+    private val calcJava = """
+        package a;
+        public class Calc {
+            public String describe(int n) {
+                return switch (n) {
+                    case 0 -> "zero";
+                    case 1 -> "one";
+                    default -> "many";
+                };
+            }
+            public boolean notString(Object x) { return !(x instanceof String); }
+            public int rounds(int n) {
+                int c = 0;
+                do { c = c + 1; n = n - 1; } while (n > 0);
+                return c;
+            }
+            public String grade(int score) {
+                if (score >= 90) return "A";
+                else if (score >= 80) return "B";
+                else return "C";
+            }
+            public <U> U identity(U u) { return u; }
+            public java.util.Map<String, Integer> counts() { return new java.util.HashMap<>(); }
+        }
+        """.trimIndent()
+
+    private val apiJava = """
+        package a;
+        public interface Api {
+            int size();
+            boolean isEmpty();
+            default boolean nonEmpty() { return !isEmpty(); }
+        }
+        """.trimIndent()
+
+    private val colorJava = """
+        package a;
+        public enum Color {
+            RED, GREEN, BLUE;
+            public boolean isRed() { return this == RED; }
+        }
+        """.trimIndent()
+
+    private val opsJava = """
+        package a;
+        public class Ops {
+            public int sumAll(int[] xs) {
+                int total = 0;
+                for (int x : xs) { total = total + x; }
+                return total;
+            }
+            public boolean either(boolean a, boolean b) { return a || !b; }
+            public int mod(int a, int b) { return a % b; }
+            public String join(String a, String b) { return a + "-" + b; }
+        }
+        """.trimIndent()
+
     @Test
     fun javaToKotlin() {
-        val javaInspector = JavaInspectorImpl()
-        val sourceSet = SourceSetImpl.Builder().setName(JavaInspector.TEST_PROTOCOL).setUri(URI.create("file:/")).build()
-        javaInspector.initialize(
-            InputConfigurationImpl.Builder().addSourceSets(sourceSet).addClassPath("jmod:java.base").build()
-        )
-        javaInspector.onlyPreload()
-        val runtime = javaInspector.runtime()
-        val type = javaInspector.parse("a.Rich", richJava)
-        PrepAnalyzer(runtime).doPrimaryTypes(setOf(type))
-
-        val ob = KotlinTypePrinter(type, true)
-            .print(ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType(), true)
-        val kotlin = Formatter2Impl(runtime, FormattingOptionsImpl.Builder().build()).write(ob)
+        val kotlin = printAsKotlin("a.Rich", richJava)
 
         // real Java -> idiomatic Kotlin, on a construct-rich class
         assertTrue(kotlin.contains("open class Rich<T>"), kotlin) // Java non-final class -> open
@@ -96,7 +162,55 @@ class TestKotlinPrinterRoundTrip {
         assertTrue(!kotlin.contains("instanceof") && !kotlin.contains(" new "), kotlin)
 
         // KNOWN gap: old-style (fall-through) `switch` is left as Java; arrow switches DO become `when`.
-        val unexpected = listOf(" new ", "instanceof", " ? ", "<empty>", "k2-").filter { kotlin.contains(it) }
-        assertTrue(unexpected.isEmpty(), "unexpected un-translated Java-isms $unexpected in:\n$kotlin")
+    }
+
+    @Test
+    fun javaToKotlin2() {
+        val kotlin = printAsKotlin("a.Calc", calcJava)
+
+        // arrow `switch` -> `when` (expression body); the default arm -> `else`
+        assertTrue(kotlin.contains("fun describe(n: Int): String = when (n) {"), kotlin)
+        assertTrue(kotlin.contains("else -> \"many\""), kotlin)
+        assertTrue(kotlin.contains("fun notString(x: Any): Boolean = x !is String"), kotlin) // !(x instanceof T) -> x !is T
+        assertTrue(kotlin.contains("} while (n > 0)"), kotlin) // do-while
+        assertTrue(kotlin.contains("else if (score >= 80)"), kotlin) // else-if chain flattens (no `else { if … }`)
+        assertTrue(kotlin.contains("fun <U> identity(u: U): U = u"), kotlin) // generic method
+        assertTrue(kotlin.contains("fun counts(): Map<String, Int> = HashMap<String, Int>()"), kotlin) // diamond + JDK type map
+
+        assertTrue(javaIsms(kotlin).isEmpty(), "unexpected un-translated Java-isms ${javaIsms(kotlin)} in:\n$kotlin")
+    }
+
+    @Test
+    fun javaToKotlin3_interface() {
+        val kotlin = printAsKotlin("a.Api", apiJava)
+
+        assertTrue(kotlin.contains("interface Api {"), kotlin) // Java interface -> Kotlin interface
+        assertTrue(kotlin.contains("fun size(): Int"), kotlin) // abstract method: no body
+        assertTrue(kotlin.contains("fun isEmpty(): Boolean"), kotlin)
+        assertTrue(kotlin.contains("fun nonEmpty(): Boolean = !isEmpty()"), kotlin) // default method -> expression body
+        assertTrue(javaIsms(kotlin).isEmpty(), "unexpected un-translated Java-isms ${javaIsms(kotlin)} in:\n$kotlin")
+    }
+
+    @Test
+    fun javaToKotlin4_enum() {
+        val kotlin = printAsKotlin("a.Color", colorJava)
+
+        assertTrue(kotlin.contains("enum class Color {"), kotlin)
+        assertTrue(kotlin.contains("RED, GREEN, BLUE;"), kotlin) // enum constants -> entries (not `val RED = Color()`)
+        assertTrue(kotlin.contains("fun isRed(): Boolean = this == Color.RED"), kotlin)
+        // the enum-constant `new Color()` initializers must NOT leak through as `new`
+        assertTrue(javaIsms(kotlin).isEmpty(), "unexpected un-translated Java-isms ${javaIsms(kotlin)} in:\n$kotlin")
+    }
+
+    @Test
+    fun javaToKotlin5_operators() {
+        val kotlin = printAsKotlin("a.Ops", opsJava)
+
+        assertTrue(kotlin.contains("fun sumAll(xs: Array<Int>): Int"), kotlin) // int[] -> Array<Int>
+        assertTrue(kotlin.contains("for (x in xs)"), kotlin)
+        assertTrue(kotlin.contains("fun either(a: Boolean, b: Boolean): Boolean = a || !b"), kotlin) // ||, unary !
+        assertTrue(kotlin.contains("fun mod(a: Int, b: Int): Int = a % b"), kotlin) // %
+        assertTrue(kotlin.contains("""fun join(a: String, b: String): String = a + "-" + b"""), kotlin) // string concat
+        assertTrue(javaIsms(kotlin).isEmpty(), "unexpected un-translated Java-isms ${javaIsms(kotlin)} in:\n$kotlin")
     }
 }

@@ -32,6 +32,9 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
 
 - **Declarations** — `class`/`interface`/`enum class`; `public`/`final` omitted (Kotlin defaults), a non-final
   class is `open`; supertypes via `:` (a class parent as a constructor call `Super()`); type parameters `<T>`.
+- **Enum constants** — the enum's own static-final self-typed fields print as Kotlin entries (`RED, GREEN, BLUE`,
+  with `(args)` when a constant has constructor arguments), `;`-terminated when other members follow — not as
+  `val RED = Color()` properties.
 - **Properties** — fields print as `val` (final) / `var` (non-final) `name: Type [= init]`.
 - **Functions** — `[vis] [override|abstract] fun [<T>] name(p: T, …)[: ReturnType] body`; `Unit`/void return
   omitted; `override` when the method overrides a supertype method. A single-`return` body prints as an
@@ -53,8 +56,9 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
   (statement and expression, arms unwrapped); `try`/`catch (e: T)`/`finally`. C-style `for` and try-with-resources
   are follow-ups.
 - **Lambdas** — `{ p1, p2 -> body }` (single-expression body inlined).
-- **Idioms via structure** — `!(x is T)`→`x !is T`; and elvis `a ?: b` recovered from the desugared
-  `InlineConditional` marked `NULL_COALESCING` in `DetailedSources` (rather than `if (a == null) b else a`).
+- **Idioms via structure** — `!(x is T)`→`x !is T`; an `else` branch that is a lone `if/else` flattens to
+  `else if …` (not `else { if … }`); and elvis `a ?: b` recovered from the desugared `InlineConditional`
+  marked `NULL_COALESCING` in `DetailedSources` (rather than `if (a == null) b else a`).
 - **Idiomatic reconstruction** (needs the analyzer's **prepwork** phase, which populates `getSetField`):
   - getter/setter methods (non-empty `getSetField`) are collapsed away — the backing field prints as its
     property, avoiding the Kotlin platform-declaration clash of a property *and* its `getX()`;
@@ -76,7 +80,22 @@ open class Rich<T> (val id: Int, var name: String) {               // non-final 
 }
 ```
 
-Two limitation classes it surfaced (both intentional):
+Further classes guard the constructs the first did not reach — an `interface` (abstract + `default` methods),
+an `enum` (`enum class Color { RED, GREEN, BLUE; … }`), and an operator/array grab-bag (`||`, `!`, `%`, string
+concat, `int[]`→`Array<Int>`) all come out idiomatic. A second class (`Calc`) covers:
+
+```kotlin
+open class Calc {
+    fun describe(n: Int): String = when (n) { 0 -> "zero"; 1 -> "one"; else -> "many" }  // arrow switch -> when
+    fun notString(x: Any): Boolean = x !is String                                        // !(x instanceof T) -> x !is T
+    fun rounds(n: Int): Int { … do { … } while (n > 0) … }                               // do-while
+    fun grade(score: Int): String { if (…) { … } else if (…) { … } else { … } }          // else-if chain flattens
+    fun <U> identity(u: U): U = u                                                        // generic method
+    fun counts(): Map<String, Int> = HashMap<String, Int>()                              // diamond filled + JDK type mapped
+}
+```
+
+Two limitation classes the first harness surfaced (both intentional):
 - **Old-style (fall-through) `switch`** stays as Java. Its labels anchor at positions inside one body block with
   C-style fall-through; a safe `when` conversion would need to reconstruct label→statement groups and could emit
   *wrong* Kotlin, so it is left recognizably Java. Arrow-switches *are* converted to `when`.
@@ -96,8 +115,8 @@ Two limitation classes it surfaced (both intentional):
   (e.g. `NULL_COALESCING` for elvis `?:`); a printer reaches them via `element.source().detailedSources()` and
   can reconstruct the idiomatic Kotlin form. This is the channel for things the (JVM-shaped) CST does not
   otherwise capture — nullability (`?`), `when` vs `if`, expression-body-ness, elvis, etc.
-- Records print as `class` (not `data class`); `object` singletons, companion objects, `sealed`/`enum` bodies,
-  annotations, and `val`-vs-`var` for locals (front-end does not always flag final) are best-effort / follow-ups.
+- `object` singletons, companion objects, `sealed` hierarchies, annotations, and `val`-vs-`var` for locals
+  (front-end does not always flag final) are best-effort / follow-ups.
 
 ## Example
 
