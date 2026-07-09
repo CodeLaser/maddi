@@ -1,5 +1,15 @@
 # sv engine — differential worklist (194 assertion failures)
 
+> **STATUS (superseded in large part):** the reconstruct half is now implemented; suite
+> is **144/383 failing** (was 196). The dominant `←`-drop cluster and the active-collapse
+> coarsening described below are **fixed** (commits `8fd6567f`, `a30fd159`, `e4bdd7e6`,
+> `bd10f936`). The "prototype outcome: reconstruct missing across the whole extraction
+> path" section below is now **done** — see `sv-engine-handoff.md` → STATUS UPDATE for the
+> mechanism (intra-group `assignmentEdgeStream`, `expandRepToMembers`, `rehome`+`FromPair`
+> faces, `isInvalidFieldContainment`). Remaining: §m on reconstructed edges (1 test) and
+> engine order-stability. The histograms below are the *original* baseline analysis, kept
+> for reference.
+
 Baseline: `sv-integration` big-bang, `maddi-modification-link` at 196/383 failing
 (15 skipped). This groups the **194 assertion diffs** by *what the new engine gets
 wrong* versus the old fixpoint, so the engine phase has a prioritized to-do.
