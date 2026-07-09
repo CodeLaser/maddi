@@ -272,6 +272,14 @@ public class JavaUtil {
         public String toString() { return null; }
     }
 
+    //public abstract class AbstractQueue extends AbstractCollection<E> implements Queue<E>
+    @Container
+    class AbstractQueue$<E> { }
+
+    //public abstract class AbstractSequentialList extends AbstractList<E>
+    @Container
+    class AbstractSequentialList$<E> { }
+
     //public abstract class AbstractSet extends AbstractCollection<E> implements Set<E>
     @Container
     class AbstractSet$<E> {
@@ -285,6 +293,12 @@ public class JavaUtil {
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.Set
         boolean removeAll(/*@Independent(hc=true)[H] @NotModified[H]*/ Collection<?> c) { return false; }
+    }
+
+    //public class ArrayDeque<E> extends AbstractCollection<E> implements Deque<E>, Cloneable, Serializable
+    @Container
+    class ArrayDeque$<E> {
+        ArrayDeque$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
     }
 
     //public class ArrayList extends AbstractList<E> implements List<E>, RandomAccess, Cloneable, Serializable
@@ -2006,6 +2020,10 @@ public class JavaUtil {
     }
 
     //public interface EventListener
+    //public interface Deque<E> extends Queue<E>, SequencedCollection<E>
+    @Container
+    class Deque$<E> { }
+
     //@Container[M]
     @Independent(hc = true) class EventListener$ { }
 
@@ -2203,6 +2221,12 @@ public class JavaUtil {
         E next() { return null; }
         void remove() { }
         void forEachRemaining(/*@IgnoreModifications[T]*/ @Independent(hc = true) @NotNull Consumer<? super E> action) { }
+    }
+
+    //public class LinkedHashSet<E> extends HashSet<E> implements SequencedSet<E>, Cloneable, Serializable
+    @Container
+    class LinkedHashSet$<E> {
+        LinkedHashSet$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
     }
 
     //public class LinkedList extends AbstractSequentialList<E> implements List<E>, Deque<E>, Cloneable, Serializable
@@ -3163,6 +3187,10 @@ public class JavaUtil {
         NavigableMap<K, V> reversed() { return null; }
     }
 
+    //public interface NavigableSet<E> extends SortedSet<E>
+    @Container
+    class NavigableSet$<E> { }
+
     //public class NoSuchElementException extends RuntimeException
     class NoSuchElementException$ {
         NoSuchElementException$() { }
@@ -3492,6 +3520,16 @@ public class JavaUtil {
         //@NotModified[T] @NotNull[H]
         public String toString() { return null; }
     }
+
+    //public class PriorityQueue<E> extends AbstractQueue<E> implements Serializable
+    @Container
+    class PriorityQueue$<E> {
+        PriorityQueue$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
+    }
+
+    //public interface Queue<E> extends Collection<E>
+    @Container
+    class Queue$<E> { }
 
     //public class Random implements RandomGenerator, Serializable
     class Random$ {
@@ -3832,6 +3870,14 @@ public class JavaUtil {
         SortedMap<K, V> reversed() { return null; }
     }
 
+    //public interface SortedSet<E> extends Set<E>, SequencedCollection<E>
+    @Container
+    class SortedSet$<E> { }
+
+    //public class Stack<E> extends Vector<E>
+    @Container
+    class Stack$<E> { }
+
     //public class TreeMap extends AbstractMap<K,V> implements NavigableMap<K,V>, Cloneable, Serializable
     @Container
     class TreeMap$<K, V> {
@@ -4061,6 +4107,12 @@ public class JavaUtil {
 
         //override from java.util.Map
         void replaceAll(/*@IgnoreModifications[T]*/ BiFunction<? super K, ? super V, ? extends V> function) { }
+    }
+
+    //public class TreeSet<E> extends AbstractSet<E> implements NavigableSet<E>, Cloneable, Serializable
+    @Container
+    class TreeSet$<E> {
+        TreeSet$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
     }
 
     //public final class UUID implements Serializable, Comparable<UUID>
