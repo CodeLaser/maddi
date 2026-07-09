@@ -17,6 +17,9 @@ import org.e2immu.annotation.ImmutableContainer;
 import org.e2immu.annotation.NotModified;
 
 import java.lang.annotation.Annotation;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.reflect.Method;
 
 public class JavaLangAnnotation {
     public static final String PACKAGE_NAME = "java.lang.annotation";
@@ -35,5 +38,33 @@ public class JavaLangAnnotation {
         //@NotModified[H] @NotNull[H]
         public String toString() { return null; }
         Class<? extends Annotation> annotationType() { return null; }
+    }
+
+    //public class AnnotationTypeMismatchException extends RuntimeException
+    // constructor params (Method, String) are immutable -> @Independent/@NotModified implied, so omitted
+    class AnnotationTypeMismatchException$ {
+        @NotModified Method element() { return null; }
+        @NotModified String foundType() { return null; }
+    }
+
+    //public enum ElementType extends Enum<ElementType>
+    @ImmutableContainer
+    class ElementType$ {
+        @NotModified static ElementType [] values() { return null; }
+        @NotModified static ElementType valueOf(String name) { return null; }
+    }
+
+    //public class IncompleteAnnotationException extends RuntimeException
+    // constructor params (Class, String) are immutable -> @Independent/@NotModified implied, so omitted
+    class IncompleteAnnotationException$ {
+        @NotModified Class<? extends Annotation> annotationType() { return null; }
+        @NotModified String elementName() { return null; }
+    }
+
+    //public enum RetentionPolicy extends Enum<RetentionPolicy>
+    @ImmutableContainer
+    class RetentionPolicy$ {
+        @NotModified static RetentionPolicy [] values() { return null; }
+        @NotModified static RetentionPolicy valueOf(String name) { return null; }
     }
 }
