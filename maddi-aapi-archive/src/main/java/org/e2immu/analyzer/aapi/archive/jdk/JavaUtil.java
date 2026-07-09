@@ -2206,6 +2206,7 @@ public class JavaUtil {
     }
 
     //public class LinkedList extends AbstractSequentialList<E> implements List<E>, Deque<E>, Cloneable, Serializable
+    @Container
     class LinkedList$<E> {
         LinkedList$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
         //override from java.util.Deque, java.util.List, java.util.SequencedCollection
@@ -4115,6 +4116,7 @@ public class JavaUtil {
     }
 
     //public class Vector extends AbstractList<E> implements List<E>, RandomAccess, Cloneable, Serializable
+    @Container
     class Vector$<E> {
         Vector$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
         void copyInto(Object [] anArray) { }
