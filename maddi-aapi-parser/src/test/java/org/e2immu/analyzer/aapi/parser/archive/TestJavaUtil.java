@@ -378,6 +378,67 @@ public class TestJavaUtil extends CommonTest {
         assertFalse(get.isModifying());
     }
 
+    // Vector's copy-constructor must match ArrayList/LinkedList/HashSet: it reads-but-does-not-modify
+    // the source collection, and only shares hidden content (the elements), so @Independent(hc=true).
+    @Test
+    public void testVectorCollectionConstructor() {
+        TypeInfo typeInfo = compiledTypesManager().get(Vector.class);
+        MethodInfo constructor = typeInfo.findConstructor(compiledTypesManager().get(Collection.class));
+        ParameterInfo p0 = constructor.parameters().getFirst();
+        assertSame(TRUE, p0.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE));
+        assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
+    }
+
+    @Test
+    public void testAbstractSetContainer() {
+        TypeInfo typeInfo = compiledTypesManager().get(AbstractSet.class);
+        assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
+    }
+
+    // Every concrete List should be a @Container like ArrayList; LinkedList and Vector were
+    // missing the type-level annotation and so computed CONTAINER=false.
+    @Test
+    public void testLinkedListContainer() {
+        TypeInfo typeInfo = compiledTypesManager().get(LinkedList.class);
+        assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
+    }
+
+    @Test
+    public void testVectorContainer() {
+        TypeInfo typeInfo = compiledTypesManager().get(Vector.class);
+        assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
+    }
+
+    // Newly added Set/Queue/Deque hierarchy: the interfaces carry the authoritative @Container
+    // contract; each concrete/abstract type re-asserts it (container-ness is not inherited).
+    @Test
+    public void testSetQueueDequeContainers() {
+        for (Class<?> c : new Class<?>[]{
+                SortedSet.class, NavigableSet.class, Queue.class, Deque.class,
+                AbstractQueue.class, AbstractSequentialList.class,
+                TreeSet.class, LinkedHashSet.class, ArrayDeque.class, PriorityQueue.class, Stack.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
+                    () -> c.getSimpleName() + " should be a @Container");
+        }
+    }
+
+    // The Collection copy-constructors of the new concrete types must, like ArrayList/Vector,
+    // read-not-modify their source and share only hidden content.
+    @Test
+    public void testNewCollectionCopyConstructors() {
+        for (Class<?> c : new Class<?>[]{
+                TreeSet.class, LinkedHashSet.class, ArrayDeque.class, PriorityQueue.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            MethodInfo constructor = typeInfo.findConstructor(compiledTypesManager().get(Collection.class));
+            ParameterInfo p0 = constructor.parameters().getFirst();
+            assertSame(TRUE, p0.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE),
+                    () -> c.getSimpleName() + "(Collection) param must be @NotModified");
+            assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT),
+                    () -> c.getSimpleName() + "(Collection) param must be @Independent(hc=true)");
+        }
+    }
+
     @Test
     public void testHashMap() {
         TypeInfo typeInfo = compiledTypesManager().get(HashMap.class);
@@ -526,6 +587,93 @@ public class TestJavaUtil extends CommonTest {
         assertFalse(p0.isModified());
         assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
         assertSame(NOT_NULL, p0.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
+    }
+
+    // LinkedHashMap was absent; it extends HashMap and must be a @Container like it.
+    @Test
+    public void testLinkedHashMapContainer() {
+        TypeInfo typeInfo = compiledTypesManager().get(LinkedHashMap.class);
+        assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
+    }
+
+    // The Map copy-constructors of HashMap/TreeMap/LinkedHashMap copy entries (sharing hidden
+    // content) rather than linking to the source map, so the parameter is @Independent(hc=true)
+    // and unmodified. TreeMap's were previously @Dependent (annotation only in a comment).
+    @Test
+    public void testMapCopyConstructors() {
+        TypeInfo mapType = compiledTypesManager().get(Map.class);
+        for (Class<?> c : new Class<?>[]{HashMap.class, TreeMap.class, LinkedHashMap.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            MethodInfo constructor = typeInfo.findConstructor(mapType);
+            ParameterInfo p0 = constructor.parameters().getFirst();
+            assertFalse(p0.isModified(), () -> c.getSimpleName() + "(Map) param must be @NotModified");
+            assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT),
+                    () -> c.getSimpleName() + "(Map) param must be @Independent(hc=true)");
+        }
+    }
+
+    // Full-coverage sweep: every remaining collection-framework type must be a @Container
+    // (interfaces carry the contract; concrete/abstract types re-assert it per type).
+    @Test
+    public void testRemainingFrameworkContainers() {
+        for (Class<?> c : new Class<?>[]{
+                ListIterator.class, Spliterator.class, Enumeration.class, SequencedSet.class,
+                EnumSet.class, EnumMap.class, Hashtable.class, Properties.class,
+                IdentityHashMap.class, WeakHashMap.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
+                    () -> c.getSimpleName() + " should be a @Container");
+        }
+    }
+
+    // The Map copy-constructors of the legacy/specialized maps copy entries, so their
+    // parameter is @Independent(hc=true) and unmodified, like HashMap/TreeMap.
+    @Test
+    public void testLegacyMapCopyConstructors() {
+        TypeInfo mapType = compiledTypesManager().get(Map.class);
+        for (Class<?> c : new Class<?>[]{
+                Hashtable.class, IdentityHashMap.class, WeakHashMap.class, EnumMap.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            MethodInfo constructor = typeInfo.findConstructor(mapType);
+            ParameterInfo p0 = constructor.parameters().getFirst();
+            assertFalse(p0.isModified(), () -> c.getSimpleName() + "(Map) param must be @NotModified");
+            assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT),
+                    () -> c.getSimpleName() + "(Map) param must be @Independent(hc=true)");
+        }
+    }
+
+    // Locale and Currency are final immutable value types: deep @Immutable (hc=false),
+    // @Independent, and containers.
+    @Test
+    public void testImmutableValueTypes() {
+        for (Class<?> c : new Class<?>[]{Locale.class, Currency.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE),
+                    () -> c.getSimpleName() + " should be deep @Immutable");
+            assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT),
+                    () -> c.getSimpleName() + " should be @Independent");
+            assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
+                    () -> c.getSimpleName() + " should be a @Container");
+        }
+    }
+
+    // BitSet/StringJoiner/StringTokenizer are mutable but never modify a parameter's content.
+    @Test
+    public void testMutableContainerUtilities() {
+        for (Class<?> c : new Class<?>[]{BitSet.class, StringJoiner.class, StringTokenizer.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
+                    () -> c.getSimpleName() + " should be a @Container");
+        }
+    }
+
+    @Test
+    public void testTreeMapSortedMapConstructor() {
+        TypeInfo typeInfo = compiledTypesManager().get(TreeMap.class);
+        MethodInfo constructor = typeInfo.findConstructor(compiledTypesManager().get(SortedMap.class));
+        ParameterInfo p0 = constructor.parameters().getFirst();
+        assertFalse(p0.isModified());
+        assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
     }
 
     @Test

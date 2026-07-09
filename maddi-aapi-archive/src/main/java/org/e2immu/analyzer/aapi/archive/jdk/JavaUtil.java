@@ -272,7 +272,16 @@ public class JavaUtil {
         public String toString() { return null; }
     }
 
+    //public abstract class AbstractQueue extends AbstractCollection<E> implements Queue<E>
+    @Container
+    class AbstractQueue$<E> { }
+
+    //public abstract class AbstractSequentialList extends AbstractList<E>
+    @Container
+    class AbstractSequentialList$<E> { }
+
     //public abstract class AbstractSet extends AbstractCollection<E> implements Set<E>
+    @Container
     class AbstractSet$<E> {
         //override from java.lang.Object, java.util.Collection, java.util.Set
         //@NotModified[H]
@@ -286,16 +295,15 @@ public class JavaUtil {
         boolean removeAll(/*@Independent(hc=true)[H] @NotModified[H]*/ Collection<?> c) { return false; }
     }
 
+    //public class ArrayDeque<E> extends AbstractCollection<E> implements Deque<E>, Cloneable, Serializable
+    @Container
+    class ArrayDeque$<E> {
+        ArrayDeque$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
+    }
+
     //public class ArrayList extends AbstractList<E> implements List<E>, RandomAccess, Cloneable, Serializable
     @Container
     class ArrayList$<E> {
-        //frequency 1
-        ArrayList$(int initialCapacity) { }
-
-        //frequency 58
-        ArrayList$() { }
-
-        //frequency 5
         ArrayList$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
         void trimToSize() { }
         void ensureCapacity(int minCapacity) { }
@@ -1506,6 +1514,11 @@ public class JavaUtil {
         static Base64.Decoder getMimeDecoder() { return null; }
     }
 
+    //public class BitSet implements Cloneable, Serializable
+    // mutable, but no method modifies a parameter's content (and(BitSet) etc. read the argument)
+    @Container
+    class BitSet$ { }
+
     //public interface Collection implements Iterable<E>
     @Container
     class Collection$<E> {
@@ -1954,6 +1967,10 @@ public class JavaUtil {
         }
     }
 
+    //public final class Currency implements Serializable
+    @ImmutableContainer
+    class Currency$ { }
+
     //public class Date implements Serializable, Cloneable, Comparable<Date>
     class Date$ {
         //frequency 7
@@ -2012,16 +2029,35 @@ public class JavaUtil {
     }
 
     //public interface EventListener
+    //public interface Deque<E> extends Queue<E>, SequencedCollection<E>
+    @Container
+    class Deque$<E> { }
+
+    //public abstract class Dictionary<K, V>
+    @Container
+    class Dictionary$<K, V> { }
+
+    //public class EnumMap<K extends Enum<K>, V> extends AbstractMap<K, V> implements Cloneable, Serializable
+    @Container
+    class EnumMap$<K, V> {
+        EnumMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<K, ? extends V> m) { }
+    }
+
+    //public abstract class EnumSet<E extends Enum<E>> extends AbstractSet<E> implements Cloneable, Serializable
+    @Container
+    class EnumSet$<E> { }
+
+    //public interface Enumeration<E>
+    @Container
+    @Independent(hc = true)
+    class Enumeration$<E> { }
+
     //@Container[M]
     @Independent(hc = true) class EventListener$ { }
 
     //public class HashMap extends AbstractMap<K,V> implements Map<K,V>, Cloneable, Serializable
     @Container
     class HashMap$<K, V> {
-        HashMap$(int initialCapacity, float loadFactor) { }
-        HashMap$(int initialCapacity) { }
-        //frequency 15
-        HashMap$() { }
         HashMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
         //override from java.util.AbstractMap, java.util.Map
         //@NotModified[H]
@@ -2155,13 +2191,7 @@ public class JavaUtil {
     //public class HashSet extends AbstractSet<E> implements Set<E>, Cloneable, Serializable
     @Container
     class HashSet$<E> {
-        //frequency 41
-        HashSet$() { }
-
-        //frequency 25
         HashSet$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Collection<? extends E> c) { }
-        HashSet$(int initialCapacity, float loadFactor) { }
-        HashSet$(int initialCapacity) { }
         //override from java.lang.Iterable, java.util.AbstractCollection, java.util.Collection, java.util.Set
         //@NotModified[H] @NotNull[H]
         Iterator<E> iterator() { return null; }
@@ -2205,6 +2235,18 @@ public class JavaUtil {
         static <T> HashSet<T> newHashSet(int numElements) { return null; }
     }
 
+    //public class Hashtable<K, V> extends Dictionary<K, V> implements Map<K, V>, Cloneable, Serializable
+    @Container
+    class Hashtable$<K, V> {
+        Hashtable$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
+    }
+
+    //public class IdentityHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Serializable, Cloneable
+    @Container
+    class IdentityHashMap$<K, V> {
+        IdentityHashMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
+    }
+
     //public interface Iterator
     @Container
     @Independent(hc = true)
@@ -2217,9 +2259,21 @@ public class JavaUtil {
         void forEachRemaining(/*@IgnoreModifications[T]*/ @Independent(hc = true) @NotNull Consumer<? super E> action) { }
     }
 
+    //public class LinkedHashMap<K, V> extends HashMap<K, V> implements SequencedMap<K, V>
+    @Container
+    class LinkedHashMap$<K, V> {
+        LinkedHashMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
+    }
+
+    //public class LinkedHashSet<E> extends HashSet<E> implements SequencedSet<E>, Cloneable, Serializable
+    @Container
+    class LinkedHashSet$<E> {
+        LinkedHashSet$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
+    }
+
     //public class LinkedList extends AbstractSequentialList<E> implements List<E>, Deque<E>, Cloneable, Serializable
+    @Container
     class LinkedList$<E> {
-        LinkedList$() { }
         LinkedList$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
         //override from java.util.Deque, java.util.List, java.util.SequencedCollection
         //@Independent(hc=true)[H] @NotModified[H]
@@ -2590,7 +2644,14 @@ public class JavaUtil {
         }
     }
 
+    //public interface ListIterator<E> extends Iterator<E>
+    @Container
+    @Independent(hc = true)
+    class ListIterator$<E> { }
+
     //public final class Locale implements Cloneable, Serializable
+    // final value type, all fields immutable -> deep @Immutable (hc=false); Builder (nested) is mutable
+    @ImmutableContainer
     class Locale$ {
         static final Locale ENGLISH = null;
         static final Locale FRENCH = null;
@@ -3175,6 +3236,10 @@ public class JavaUtil {
         NavigableMap<K, V> reversed() { return null; }
     }
 
+    //public interface NavigableSet<E> extends SortedSet<E>
+    @Container
+    class NavigableSet$<E> { }
+
     //public class NoSuchElementException extends RuntimeException
     class NoSuchElementException$ {
         NoSuchElementException$() { }
@@ -3505,6 +3570,20 @@ public class JavaUtil {
         public String toString() { return null; }
     }
 
+    //public class PriorityQueue<E> extends AbstractQueue<E> implements Serializable
+    @Container
+    class PriorityQueue$<E> {
+        PriorityQueue$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
+    }
+
+    //public class Properties extends Hashtable<Object, Object>
+    @Container
+    class Properties$ { }
+
+    //public interface Queue<E> extends Collection<E>
+    @Container
+    class Queue$<E> { }
+
     //public class Random implements RandomGenerator, Serializable
     class Random$ {
         //frequency 3
@@ -3622,6 +3701,10 @@ public class JavaUtil {
         @NotModified SequencedCollection<V> sequencedValues() { return null; }
         @NotModified SequencedSet<Map.Entry<K, V>> sequencedEntrySet() { return null; }
     }
+
+    //public interface SequencedSet<E> extends SequencedCollection<E>, Set<E>
+    @Container
+    class SequencedSet$<E> { }
 
     //public interface Set implements Collection<E>
     @Container
@@ -3844,13 +3927,33 @@ public class JavaUtil {
         SortedMap<K, V> reversed() { return null; }
     }
 
+    //public interface SortedSet<E> extends Set<E>, SequencedCollection<E>
+    @Container
+    class SortedSet$<E> { }
+
+    //public interface Spliterator<T>
+    @Container
+    @Independent(hc = true)
+    class Spliterator$<T> { }
+
+    //public class Stack<E> extends Vector<E>
+    @Container
+    class Stack$<E> { }
+
+    //public final class StringJoiner
+    // mutable, but add(CharSequence)/merge(StringJoiner) read their argument without modifying it
+    @Container
+    class StringJoiner$ { }
+
+    //public class StringTokenizer implements Enumeration<Object>
+    @Container
+    class StringTokenizer$ { }
+
     //public class TreeMap extends AbstractMap<K,V> implements NavigableMap<K,V>, Cloneable, Serializable
     @Container
     class TreeMap$<K, V> {
-        TreeMap$() { }
-        TreeMap$(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ Comparator<? super K> comparator) { }
-        TreeMap$(/*@NotModified[O]*/ Map<? extends K, ? extends V> m) { }
-        TreeMap$(/*@NotModified[O]*/ SortedMap<K, ? extends V> m) { }
+        TreeMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
+        TreeMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull SortedMap<K, ? extends V> m) { }
         //override from java.util.AbstractMap, java.util.Map
         //@NotModified[H]
         int size() { return 0; }
@@ -4075,6 +4178,12 @@ public class JavaUtil {
         void replaceAll(/*@IgnoreModifications[T]*/ BiFunction<? super K, ? super V, ? extends V> function) { }
     }
 
+    //public class TreeSet<E> extends AbstractSet<E> implements NavigableSet<E>, Cloneable, Serializable
+    @Container
+    class TreeSet$<E> {
+        TreeSet$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
+    }
+
     //public final class UUID implements Serializable, Comparable<UUID>
     @ImmutableContainer
     class UUID$ {
@@ -4128,11 +4237,9 @@ public class JavaUtil {
     }
 
     //public class Vector extends AbstractList<E> implements List<E>, RandomAccess, Cloneable, Serializable
+    @Container
     class Vector$<E> {
-        Vector$(int initialCapacity, int capacityIncrement) { }
-        Vector$(int initialCapacity) { }
-        Vector$() { }
-        Vector$(Collection<? extends E> c) { }
+        Vector$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
         void copyInto(Object [] anArray) { }
         void trimToSize() { }
         void ensureCapacity(int minCapacity) { }
@@ -4274,5 +4381,11 @@ public class JavaUtil {
         //override from java.lang.Iterable, java.util.Collection, java.util.List
         //@Independent(hc=true)[H] @NotModified[H] @NotNull[H]
         Spliterator<E> spliterator() { return null; }
+    }
+
+    //public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>
+    @Container
+    class WeakHashMap$<K, V> {
+        WeakHashMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
     }
 }
