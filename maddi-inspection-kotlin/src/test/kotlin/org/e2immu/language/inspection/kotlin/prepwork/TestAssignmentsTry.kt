@@ -25,13 +25,11 @@ import org.junit.jupiter.api.Test
  * both the try body and the catch body has both arms plus their merge (`D:0, A:[1.0.0, 1.1.0, 1=M]`); a
  * finally-only local is defined at its declaration and assigned in the finally arm (`D:1, A:[2.2.0, 2=M]`).
  *
- * Two deliberate deviations from the Java source, neither of which touches the try structure the test targets:
- *  - the trailing `System.out.println("… "+c)` becomes a plain local read (`val u = c`). Kotlin's `println` is a
- *    `kotlin.io` top-level function that `KotlinScan` does not resolve here, so its argument reads are not
- *    attributed; a local read records the post-try read of `c`/`d` faithfully.
- *  - the try body assigns `c = in.charAt(i)`; the Kotlin `in[i]` get-operator form does not track `in` as a read
- *    (same get/set convention documented elsewhere), so the `in` read assertion is omitted. The assignment of
- *    `c` at `1.0.0` — the actual subject — is unaffected.
+ * One deliberate deviation from the Java source, which does not touch the try structure the test targets: the
+ * try body assigns `c = in.charAt(i)`; the Kotlin `in[i]` get-operator form does not track `in` as a read (same
+ * get/set convention documented elsewhere), so the `in` read assertion is omitted. The assignment of `c` at
+ * `1.0.0` — the actual subject — is unaffected. (The trailing `println("… "+c)` faithfully mirrors Java: Kotlin's
+ * `kotlin.io.println` now resolves to `kotlin.io.ConsoleKt.println`, so its argument reads are tracked.)
  *
  * The Java suite's remaining cases have no faithful Kotlin form: try-with-resources becomes a `use { }` call, not
  * a resource header; multi-catch resource re-use has no Kotlin equivalent; and the nested-`for` cases use a
@@ -61,13 +59,13 @@ class TestAssignmentsTry : CommonKotlinPrep() {
                     } catch (e: IndexOutOfBoundsException) {
                         c = '2'
                     }
-                    val u: Char = c
+                    println("c is " + c)
                     return c
                 }
             }
         """.trimIndent())
         val c = v(vd, "c")
-        // 0: val c, 1: try, 1.0.0: try body, 1.1.0: catch body, 1=M: merge; 2: val u (reads c), 3: return
+        // 0: val c, 1: try, 1.0.0: try body, 1.1.0: catch body, 1=M: merge; 2: println (reads c), 3: return
         assertEquals("D:0, A:[1.0.0, 1.1.0, 1=M]", c.assignments().toString())
         assertEquals("2, 3", c.reads().toString())
     }
@@ -87,13 +85,13 @@ class TestAssignmentsTry : CommonKotlinPrep() {
                     } finally {
                         d = '9'
                     }
-                    val u: Boolean = c == d
+                    println("d is " + d + ", c is " + c)
                     return c
                 }
             }
         """.trimIndent())
         val c = v(vd, "c")
-        // 0: val c, 1: val d, 2: try, 2.0.0 try / 2.1.0 catch / 2.2.0 finally, 2=M merge; 3: reads c&d, 4: return
+        // 0: val c, 1: val d, 2: try, 2.0.0 try / 2.1.0 catch / 2.2.0 finally, 2=M merge; 3: println reads c&d, 4: return
         assertEquals("D:0, A:[2.0.0, 2.1.0, 2=M]", c.assignments().toString())
         assertEquals("3, 4", c.reads().toString())
         val d = v(vd, "d")
