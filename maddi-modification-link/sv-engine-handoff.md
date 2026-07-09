@@ -49,11 +49,14 @@ keyed back onto real variables at extraction.
   (call `virtualFieldComputer.addModificationFieldEquivalence` in the fold) breaks ~15
   tests: the added `§m ≡` feeds `notLinkedToModified`, which then removes the `m←…`
   links. Needs §m integrated at the `FollowGraph` pipeline point, not the post-hoc fold.
-- **2 order-dependent flakes** — `switchGuard` and `TestStreamMapSpec`'s `first`
-  assertion *fail in the full suite but PASS in isolation*. This is the pre-existing
-  engine **instability** (Phase 2 risk / "graph is not stable"): output depends on
-  computation order. The reconstruct work shifted *which* tests flake, not the
-  underlying non-determinism — still the top hardening target.
+- **Order-stability — diagnosed and fixed.** The "flakes" were **not** an engine bug: a
+  *serial* test run is byte-identical across repeats. The instability was
+  `maxParallelForks = 4` + JVM-global state leaking across test *classes* within a fork, so
+  the non-deterministic class→fork assignment flipped ~40 of 144 tests run-to-run.
+  `forkEvery = 1` (`build.gradle.kts`, fresh JVM per class) makes parallel runs
+  byte-identical and equal to the serial baseline. The engine's own witness/closure logic
+  is deterministic in-JVM (fqn-stable hashcodes). Latent: linking still reads JVM-global
+  state; `forkEvery=1` isolates it per class but eliminating the leak would be truer.
 
 ## TL;DR (original, for context)
 

@@ -4,11 +4,15 @@ Snapshot at `eaf67350` (`sv-integration`), full `:maddi-modification-link:test` 
 Baseline was 196; the reconstruct work (see `sv-engine-handoff.md` → STATUS UPDATE)
 brought it to **144/383**. This is the current, categorised to-do.
 
-> **Caveat — order-instability.** A *filtered* class run and a *full* run disagree on
-> which tests fail (the Phase-2 "graph is not stable" risk). Verify any single failure
-> **in isolation** before treating it as real, and treat exact counts as ±a few. This
-> instability is the top item to fix — it blocks the re-baseline work below (you cannot
-> pin exact-string expectations against non-deterministic output).
+> **Instability — diagnosed and fixed.** Earlier, two full runs disagreed on ~40 of the
+> 144 (which tests fail flipped run-to-run). Root cause: **not** the engine — a *serial*
+> run is byte-identical across repeats. It was `maxParallelForks = 4` + JVM-global state
+> that leaks across test *classes* within a fork, so the (non-deterministic) class→fork
+> assignment changed the accumulated state. **Fix:** `forkEvery = 1` in `build.gradle.kts`
+> (fresh JVM per class) — two parallel runs are now byte-identical **and** match the serial
+> baseline (0 flips). The 144 below is the canonical, reproducible set. (Latent note: a
+> method's links still depend on JVM-global state — `forkEvery=1` isolates it at class
+> granularity but the underlying leak is worth eliminating for true purity.)
 
 ## Top-line breakdown
 
@@ -76,7 +80,7 @@ The genuine remaining defects cluster:
 
 ## Suggested attack order
 
-0. **Order-stability first** (blocks everything below — see the caveat).
+0. ~~Order-stability~~ **done** (`forkEvery = 1`; see the instability note above).
 1. `acceptForLinkedVariables` (5 crashes, one fix).
 2. Regenerate the 60 assignment/identity re-baselines per class (mechanical, read-to-
    confirm) — drops the visible count ~40%.
