@@ -22,9 +22,15 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.SortedMap;
 
+import org.e2immu.annotation.Immutable;
+
 public class JavaNioCharset {
     public static final String PACKAGE_NAME = "java.nio.charset";
     //public abstract class Charset implements Comparable<Charset>
+    // immutable value (name/aliases are fixed); abstract, so this becomes @Immutable(hc=true).
+    // NOT a container: encode(CharBuffer)/decode(ByteBuffer) advance (modify) their buffer argument.
+    // Same shape as java.nio.file.Path.
+    @Immutable
     class Charset$ {
         static boolean isSupported(String charsetName) { return false; }
         static Charset forName(String charsetName) { return null; }
