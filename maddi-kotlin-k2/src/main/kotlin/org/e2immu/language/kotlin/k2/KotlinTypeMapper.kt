@@ -369,6 +369,28 @@ internal class KotlinTypeMapper(
         builder.commit()
     }
 
+    /**
+     * Populate the predefined `java.lang.String` with its real members (`charAt`/`length`/`substring`/…), once.
+     * `kotlin.String` maps to the predefined String shell, which otherwise carries no methods — so calls on a
+     * String (including `s[i]`, whose indexed-get intrinsic maps to `charAt`) would not resolve. Mirrors
+     * [bootstrapObject]; no-op if String is already inspected or isn't on the classpath.
+     */
+    internal fun KaSession.bootstrapString() {
+        val stringType = runtime.stringTypeInfo()
+        if (stringType.hasBeenInspected()) return
+        val symbol = findClass(ClassId.topLevel(FqName("java.lang.String"))) as? KaNamedClassSymbol ?: return
+        val builder = stringType.builder()
+        val seen = mutableSetOf<String>()
+        symbol.declaredMemberScope.declarations
+            .filterIsInstance<KaNamedFunctionSymbol>()
+            .map { convertLibraryMethod(stringType, it) }
+            .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+        symbol.declaredMemberScope.declarations
+            .filterIsInstance<KaConstructorSymbol>()
+            .forEach { builder.addConstructor(convertLibraryConstructor(stringType, it)) }
+        builder.commit()
+    }
+
     /** A library constructor: signature only (params), no body (like a class-file constructor). */
     private fun KaSession.convertLibraryConstructor(owner: TypeInfo, ctor: KaConstructorSymbol): MethodInfo {
         val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())

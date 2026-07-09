@@ -236,7 +236,7 @@ class KotlinScan(
     fun convert(ktFiles: List<KtFile>): List<TypeInfo> {
         // bootstrap: populate the predefined java.lang.Object with its real members (equals/hashCode/toString/
         // …) once, so source types resolve inherited-from-Object calls (mirrors openjdk's ScanCompilationUnits)
-        ktFiles.firstOrNull()?.let { analyze(it) { bootstrapObject() } }
+        ktFiles.firstOrNull()?.let { analyze(it) { bootstrapObject(); bootstrapString() } }
         // pass A (all files): create + register every type so cross-file references resolve
         val perFile = ktFiles.map { ktFile ->
             val compilationUnit = compilationUnitFor(ktFile)
@@ -833,6 +833,8 @@ class KotlinScan(
         with(typeMapper) { mapType(type, owner, method) }
 
     private fun KaSession.bootstrapObject() = with(typeMapper) { bootstrapObject() }
+
+    private fun KaSession.bootstrapString() = with(typeMapper) { bootstrapString() }
 
     private fun KaSession.applyHierarchy(builder: TypeInfo.Builder, owner: TypeInfo, classSymbol: KaClassSymbol) =
         with(typeMapper) { applyHierarchy(builder, owner, classSymbol) }

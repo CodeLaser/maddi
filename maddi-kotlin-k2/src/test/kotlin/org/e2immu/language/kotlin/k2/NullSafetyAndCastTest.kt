@@ -80,6 +80,17 @@ class NullSafetyAndCastTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun stringIndexBecomesGetCall() {
+        // `s[0]` on a String resolves via the predefined String's members (bootstrapped now), so the receiver
+        // `s` is kept as the call's object -- rather than collapsing to a placeholder that drops the read.
+        val expr = returnedExpression("class C { fun m(s: String): Char { return s[0] } }\n")
+        assertTrue(expr is MethodCall, "was ${expr.javaClass.simpleName}: $expr")
+        val call = expr as MethodCall
+        assertEquals("s", (call.`object`() as VariableExpression).variable().simpleName())
+        assertNotNull(call.source().detailedSources().detail(DetailedSources.INDEX_ACCESS))
+    }
+
+    @Test
     fun indexedAssignmentBecomesSetCall() {
         // `h[0] = "x"` -> `h.set(0, "x")`
         val c = KotlinScan(runtime, sourceSet).parse(
