@@ -164,4 +164,26 @@ public class TestJavaIo extends CommonTest {
 
         assertFalse(methodInfo.isModifying());
     }
+
+    // BufferedReader and BufferedWriter both wrap an external stream they are coupled to and modify,
+    // so both are mutable, @Dependent and not a @Container (same as FilterOutputStream). BufferedReader
+    // was previously (incorrectly) @Independent.
+    @Test
+    public void testBufferedReaderWriterAreDependent() {
+        for (Class<?> c : new Class<?>[]{BufferedReader.class, BufferedWriter.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE),
+                    () -> c.getSimpleName() + " is mutable");
+            assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT),
+                    () -> c.getSimpleName() + " is @Dependent (wraps an external stream)");
+            assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
+                    () -> c.getSimpleName() + " is not a @Container");
+        }
+
+        // the wrapped Reader parameter is itself dependent (it is linked into the BufferedReader)
+        TypeInfo br = compiledTypesManager().get(BufferedReader.class);
+        MethodInfo constructor = br.findConstructor(1);
+        ParameterInfo in = constructor.parameters().getFirst();
+        assertSame(DEPENDENT, in.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
+    }
 }
