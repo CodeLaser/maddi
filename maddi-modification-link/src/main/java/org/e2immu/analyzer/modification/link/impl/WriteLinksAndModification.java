@@ -144,10 +144,15 @@ class WriteLinksAndModification {
         for (Link link : builder2.linkSet()) {
             iterateOverShared(link.from()).forEach(from -> iterateOverShared(link.to())
                     .forEach(to -> {
-                        // expanding a shared-variable rep on the to-side can surface an internal self-field link
-                        // (e.g. 'choose ≻ $__sv_s1' → 'choose ≻ choose.s1') that FollowGraph's internal-reference
-                        // filter would have dropped had the member not been masked by the rep. Re-apply it here.
-                        if (!isInternalSelfFieldLink(from, to)) {
+                        // Expanding a shared-variable rep can surface two bad links that the rep previously masked:
+                        // (1) an internal self-field link ('choose ≻ $__sv_s1' → 'choose ≻ choose.s1'), which
+                        //     FollowGraph's internal-reference filter would have dropped;
+                        // (2) an INVALID containment: a 'field ← param' collapse groups the field with the param, so
+                        //     'wrap ≻ $__sv_v' expands to both 'wrap ≻ wrap.v' (valid, internal) and 'wrap ≻ 0:y'
+                        //     (invalid — 0:y is the value source, not a field of wrap). A ≻/≺ asserts the field is
+                        //     part of the container; drop the expansion when that does not hold.
+                        if (!isInternalSelfFieldLink(from, to)
+                            && !isInvalidFieldContainment(from, link.linkNature(), to)) {
                             builder.add(from, link.linkNature(), to);
                         }
                     }));
@@ -245,6 +250,15 @@ class WriteLinksAndModification {
                              && !firstRealTo.equals(primaryTo)
                              && !firstRealFrom.equals(firstRealTo);
         return !crossField;
+    }
+
+    // A field-containment link asserts the field is part of the container: 'A ≻ B' (CONTAINS_AS_FIELD) requires B
+    // to be part of A; 'A ≺ B' (IS_FIELD_OF) requires A to be part of B. After rep-expansion a 'field ← param'
+    // collapse can produce a link to the param side ('wrap ≻ 0:y'), which violates this — drop it.
+    private static boolean isInvalidFieldContainment(Variable from, LinkNature linkNature, Variable to) {
+        if (linkNature == CONTAINS_AS_FIELD) return !Util.isPartOf(from, to);
+        if (linkNature == IS_FIELD_OF) return !Util.isPartOf(to, from);
+        return false;
     }
 
     private Stream<Variable> iterateOverShared(Variable variable) {
