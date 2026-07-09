@@ -50,7 +50,12 @@ dependencies {
 
 tasks.withType<Test> {
     maxHeapSize = "2G"
-    maxParallelForks = 4
+    maxParallelForks = (findProperty("testForks") as String?)?.toInt() ?: 4
+    // Linking results leak across test classes via JVM-global state (interned types / loaded analysis), so with
+    // several parallel forks the class-to-fork assignment makes ~40 tests flip pass/fail between runs (a serial
+    // run is byte-identical). A fresh JVM per class isolates that accumulation, restoring determinism while
+    // keeping parallelism. Override with -PforkEvery=0 to disable.
+    forkEvery = (findProperty("forkEvery") as String?)?.toLong() ?: 1L
 
     jvmArgs(
         "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
