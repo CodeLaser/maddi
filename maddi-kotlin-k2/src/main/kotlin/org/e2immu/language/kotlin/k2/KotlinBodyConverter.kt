@@ -126,6 +126,10 @@ import java.nio.file.Files
 internal interface MemberConverter {
     fun KaSession.buildAnonProperty(owner: TypeInfo, property: KaPropertySymbol)
     fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo
+
+    /** Build a method-local type declaration (`class C : A { … }`) as a full source type, capturing [outerLocals]. */
+    fun KaSession.buildLocalType(enclosingMethod: MethodInfo, declaration: KtClassOrObject,
+                                 outerLocals: Map<String, Variable>): TypeInfo
 }
 
 /**
@@ -157,9 +161,11 @@ internal class KotlinBodyConverter(
      * not yet understood become an explicit [Runtime.newEmptyExpression] placeholder rather than failing.
      */
     internal fun KaSession.convertBody(function: KaNamedFunctionSymbol, returnType: ParameterizedType,
-                                      method: MethodInfo): Block {
+                                      method: MethodInfo, outerLocals: Map<String, Variable> = emptyMap()): Block {
         val psi = function.psi as? KtNamedFunction ?: return runtime.newBlockBuilder().build()
-        val locals = mutableMapOf<String, Variable>() // names in scope; references resolve against this
+        // start from the enclosing method's captured variables (for a local class's methods); references
+        // resolve against this, so an enclosing parameter/local read inside a local type binds to it.
+        val locals = outerLocals.toMutableMap()
         if (psi.hasBlockBody()) {
             return statementsToBlock(psi.bodyBlockExpression?.statements.orEmpty(), method, locals, "")
         }
@@ -308,7 +314,23 @@ internal class KotlinBodyConverter(
             .setSource(runtime.noSource()).build()
         statement is KtTryExpression -> convertTry(statement, method, locals, index)
         statement is KtDestructuringDeclaration -> convertDestructuring(statement, method, locals)
+        // a local class/interface declared in the body: `class C : A { … }` -> a LocalTypeDeclaration statement
+        statement is KtClassOrObject -> convertLocalType(statement, method, locals)
         else -> runtime.newExpressionAsStatement(convertExpression(statement, method, locals))
+    }
+
+    /**
+     * A local type declaration `class C : A { … }` inside a method body. Builds the local type (via the member
+     * converter, so it gets its full members) with the enclosing method's parameters and locals available for
+     * capture, and wraps it in a [org.e2immu.language.cst.api.statement.LocalTypeDeclaration].
+     */
+    private fun KaSession.convertLocalType(declaration: KtClassOrObject, method: MethodInfo,
+                                           locals: Map<String, Variable>): Statement {
+        // capture set: the enclosing method's locals PLUS its parameters (parameters are not in `locals`),
+        // so a read of an enclosing variable inside the local type's methods resolves to it
+        val captured = locals + method.parameters().associateBy { it.name() }
+        val typeInfo = with(memberConverter) { buildLocalType(method, declaration, captured) }
+        return runtime.newLocalTypeDeclarationBuilder().setTypeInfo(typeInfo).setSource(runtime.noSource()).build()
     }
 
     /**

@@ -69,6 +69,7 @@ import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSdkModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModule
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.lexer.KtTokens
+import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtBlockExpression
 import org.jetbrains.kotlin.psi.KtBreakExpression
@@ -157,7 +158,17 @@ internal class KotlinTypeMapper(
         else base
     }
 
+    // method-local types (`class C {…}` in a body) have no stable ClassId, so they can't be keyed by FQN in
+    // infoByFqn; the body converter registers each here by its PSI, and a use-site type resolves via its symbol.
+    private val localTypesByPsi = mutableMapOf<PsiElement, TypeInfo>()
+
+    internal fun registerLocalType(psi: PsiElement, typeInfo: TypeInfo) { localTypesByPsi[psi] = typeInfo }
+
     private fun KaSession.mapClassType(type: KaClassType, owner: TypeInfo, method: MethodInfo? = null): ParameterizedType {
+        // a method-local type: resolve to the type we built for its declaration (no ClassId to look up by)
+        (type.symbol as? KaNamedClassSymbol)?.psi?.let { psi ->
+            localTypesByPsi[psi]?.let { return parameterize(it, type, owner, method) }
+        }
         // primitives / void / the predefined java.lang singletons: predefined PTs (exact instances)
         when (type.classId.asFqNameString()) {
             "kotlin.Int" -> return runtime.intParameterizedType()
