@@ -38,12 +38,15 @@ public record FollowGraph(Graph graph) {
             for (Variable v : graph.variables()) {
                 if (Util.isPartOf(primary, v)) {
                     fromList.add(new FromPair(v, v));
-                } else if (v instanceof SharedVariable sv) {
-                    // a rep that is the whole vertex, standing for a member part of the primary. (A rep nested in a
-                    // field scope such as '$__sv_list1.§$s' is NOT yet handled here — see expandRepToMembers and the
-                    // TestAssignToField / return-alias-of-rep follow-up.)
-                    sv.variables().stream().filter(m -> Util.isPartOf(primary, m))
-                            .forEach(m -> fromList.add(new FromPair(v, m)));
+                } else {
+                    // a shared-variable rep somewhere in v's scope chain, standing for a member that is part of the
+                    // primary (a whole-vertex rep '$__sv_list1', or one nested in a field scope '$__sv_list1.§$s'
+                    // -> 'a.list1.§$s'). Query the rep's closure, emit keyed on the member form. The !e.equals(v)
+                    // guard keeps ordinary vertices on the fast path (expandRepToMembers rebuilds equal-but-distinct
+                    // FieldReferences, which must not replace the original).
+                    graph.expandRepToMembers(v)
+                            .filter(e -> !e.equals(v) && Util.isPartOf(primary, e))
+                            .forEach(e -> fromList.add(new FromPair(v, e)));
                 }
             }
         }
