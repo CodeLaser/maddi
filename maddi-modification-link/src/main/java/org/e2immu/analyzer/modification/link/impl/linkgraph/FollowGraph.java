@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
+import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
@@ -10,6 +11,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -18,24 +20,48 @@ import java.util.stream.Stream;
 
 public record FollowGraph(Graph graph) {
     // sorting is needed to consistently take the same direction for tests
+    // queryFrom is the graph vertex we read the closure of; emitFrom is the variable the resulting link is keyed
+    // on. They differ for a shared-variable rep: its field-precise member was collapsed out of the graph, so we
+    // read the rep's closure but emit keyed on the member (which is what is part of the primary).
+    private record FromPair(Variable queryFrom, Variable emitFrom) {
+    }
+
     public Links.Builder followGraph(VirtualFieldComputer virtualFieldComputer, Variable primary) {
         Links.Builder builder = new LinksImpl.Builder(primary);
-        List<Variable> fromList = primary instanceof This ? (graph.containsVariable(primary) ? List.of(primary) : List.of())
-                : graph.variables().stream()
-                .filter(v -> Util.isPartOf(primary, v))
-                .sorted((v1, v2) -> {
-                    if (v1.equals(v2)) return 0;
-                    if (Util.isPartOf(v1, v2)) return 1;
-                    if (Util.isPartOf(v2, v1)) return -1;
-                    // FIXME still an issue occasionally
-                    return Util.isPartOfComparator(v1, v2);
-                })
-                .toList();
+        // A vertex contributes when it, or one of its shared-variable-rep expansions (a rep as the whole vertex
+        // or nested in a field scope, e.g. '$__sv_list1.§$s' -> 'a.list1.§$s'), is part of the primary. We read
+        // the closure of the graph vertex (queryFrom) but key the emitted link on the member form (emitFrom).
+        List<FromPair> fromList = new ArrayList<>();
+        if (primary instanceof This) {
+            if (graph.containsVariable(primary)) fromList.add(new FromPair(primary, primary));
+        } else {
+            for (Variable v : graph.variables()) {
+                if (Util.isPartOf(primary, v)) {
+                    fromList.add(new FromPair(v, v));
+                } else if (v instanceof SharedVariable sv) {
+                    // a rep that is the whole vertex, standing for a member part of the primary. (A rep nested in a
+                    // field scope such as '$__sv_list1.§$s' is NOT yet handled here — see expandRepToMembers and the
+                    // TestAssignToField / return-alias-of-rep follow-up.)
+                    sv.variables().stream().filter(m -> Util.isPartOf(primary, m))
+                            .forEach(m -> fromList.add(new FromPair(v, m)));
+                }
+            }
+        }
+        fromList.sort((p1, p2) -> {
+            Variable v1 = p1.emitFrom();
+            Variable v2 = p2.emitFrom();
+            if (v1.equals(v2)) return 0;
+            if (Util.isPartOf(v1, v2)) return 1;
+            if (Util.isPartOf(v2, v1)) return -1;
+            // FIXME still an issue occasionally
+            return Util.isPartOfComparator(v1, v2);
+        });
 
         // stream.§$s⊆0:in.§$s
         Set<Edge> block = new HashSet<>();
-        for (Variable from : fromList) {
-            Stream<Map.Entry<Variable, LinkNature>> all = graph.closureStream(from);
+        for (FromPair fromPair : fromList) {
+            Variable from = fromPair.emitFrom();
+            Stream<Map.Entry<Variable, LinkNature>> all = graph.closureStream(fromPair.queryFrom());
 
             List<Map.Entry<Variable, LinkNature>> entries = all
                     .sorted((e1, e2) -> {

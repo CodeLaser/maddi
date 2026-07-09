@@ -143,8 +143,21 @@ class WriteLinksAndModification {
         // components of the variable can also be part of the shared variables...
         for (Link link : builder2.linkSet()) {
             iterateOverShared(link.from()).forEach(from -> iterateOverShared(link.to())
-                    .forEach(to -> builder.add(from, link.linkNature(), to)));
+                    .forEach(to -> {
+                        // expanding a shared-variable rep on the to-side can surface an internal self-field link
+                        // (e.g. 'choose ≻ $__sv_s1' → 'choose ≻ choose.s1') that FollowGraph's internal-reference
+                        // filter would have dropped had the member not been masked by the rep. Re-apply it here.
+                        if (!isInternalSelfFieldLink(from, to)) {
+                            builder.add(from, link.linkNature(), to);
+                        }
+                    }));
         }
+        // reconstruct intra-group shared-variable assignment edges (the collapse stores 'field ← param' once;
+        // e.g. a record constructor's this.s1 ← 0:s1). Unlike the §m fold below we do not gate on
+        // containsPrimaryOf: the summary of a both-fresh group has no external edge yet to anchor to.
+        followGraph.graph().sharedAssignmentEdgeStream(variable)
+                .filter(link -> !builder.contains(link.from(), link.linkNature(), link.to()))
+                .forEach(link -> builder.add(link.from(), link.linkNature(), link.to()));
         // finally, modification edges
         followGraph.graph().virtualModificationEdgeStream(variable)
                 .filter(link -> builder.containsPrimaryOf(link.to()))
@@ -218,6 +231,20 @@ class WriteLinksAndModification {
             newLinks.addFirst(new LinksImpl.LinkImpl(rv, IS_ASSIGNED_FROM, marker));
         }
         builder.replaceAll(newLinks);
+    }
+
+    // mirrors the internal-reference filter in FollowGraph.followGraph: a link between two variables sharing the
+    // same primary, where one is (part of) the primary itself, is an internal self-reference and not emitted.
+    private static boolean isInternalSelfFieldLink(Variable from, Variable to) {
+        Variable primaryFrom = Util.primary(from);
+        Variable primaryTo = Util.primary(to);
+        if (primaryFrom == null || !primaryFrom.equals(primaryTo)) return false;
+        Variable firstRealFrom = Util.firstRealVariable(from);
+        Variable firstRealTo = Util.firstRealVariable(to);
+        boolean crossField = !firstRealFrom.equals(primaryFrom)
+                             && !firstRealTo.equals(primaryTo)
+                             && !firstRealFrom.equals(firstRealTo);
+        return !crossField;
     }
 
     private Stream<Variable> iterateOverShared(Variable variable) {

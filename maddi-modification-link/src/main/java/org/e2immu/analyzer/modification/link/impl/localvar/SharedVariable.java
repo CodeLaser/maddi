@@ -6,13 +6,22 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.variable.LocalVariableImpl;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 public class SharedVariable extends LocalVariableImpl implements LinkVariable {
     public static final String PREFIX = "$__sv_";
 
+    // a directed assignment 'from ← to' (from IS_ASSIGNED_FROM to) that folded these two members into the group.
+    // Kept so the group's intra-member relation can be reconstructed at summary extraction (the collapse only
+    // stores it once; cf. VirtualModificationIdenticals.Group for the ≡ analogue).
+    public record Assignment(Variable from, Variable to) {
+    }
+
     private final Set<Variable> variables = new LinkedHashSet<>();
+    private final List<Assignment> assignments = new ArrayList<>();
 
     public SharedVariable(String name, ParameterizedType parameterizedType, Runtime runtime) {
         super(name, parameterizedType, runtime.newEmptyExpression());
@@ -20,6 +29,14 @@ public class SharedVariable extends LocalVariableImpl implements LinkVariable {
 
     public boolean add(Variable variable) {
         return variables.add(variable);
+    }
+
+    public void addAssignment(Variable from, Variable to) {
+        assignments.add(new Assignment(from, to));
+    }
+
+    public List<Assignment> assignments() {
+        return assignments;
     }
 
     @Override
@@ -33,9 +50,11 @@ public class SharedVariable extends LocalVariableImpl implements LinkVariable {
 
     public void removeAll(Set<Variable> variables) {
         this.variables.removeAll(variables);
+        assignments.removeIf(a -> variables.contains(a.from()) || variables.contains(a.to()));
     }
 
     public void remove(Variable variable) {
         variables.remove(variable);
+        assignments.removeIf(a -> variable.equals(a.from()) || variable.equals(a.to()));
     }
 }
