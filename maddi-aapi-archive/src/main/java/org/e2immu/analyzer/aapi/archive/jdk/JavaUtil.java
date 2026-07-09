@@ -1514,6 +1514,11 @@ public class JavaUtil {
         static Base64.Decoder getMimeDecoder() { return null; }
     }
 
+    //public class BitSet implements Cloneable, Serializable
+    // mutable, but no method modifies a parameter's content (and(BitSet) etc. read the argument)
+    @Container
+    class BitSet$ { }
+
     //public interface Collection implements Iterable<E>
     @Container
     class Collection$<E> {
@@ -1962,6 +1967,10 @@ public class JavaUtil {
         }
     }
 
+    //public final class Currency implements Serializable
+    @ImmutableContainer
+    class Currency$ { }
+
     //public class Date implements Serializable, Cloneable, Comparable<Date>
     class Date$ {
         //frequency 7
@@ -2023,6 +2032,10 @@ public class JavaUtil {
     //public interface Deque<E> extends Queue<E>, SequencedCollection<E>
     @Container
     class Deque$<E> { }
+
+    //public abstract class Dictionary<K, V>
+    @Container
+    class Dictionary$<K, V> { }
 
     //public class EnumMap<K extends Enum<K>, V> extends AbstractMap<K, V> implements Cloneable, Serializable
     @Container
@@ -2637,6 +2650,8 @@ public class JavaUtil {
     class ListIterator$<E> { }
 
     //public final class Locale implements Cloneable, Serializable
+    // final value type, all fields immutable -> deep @Immutable (hc=false); Builder (nested) is mutable
+    @ImmutableContainer
     class Locale$ {
         static final Locale ENGLISH = null;
         static final Locale FRENCH = null;
@@ -3924,6 +3939,15 @@ public class JavaUtil {
     //public class Stack<E> extends Vector<E>
     @Container
     class Stack$<E> { }
+
+    //public final class StringJoiner
+    // mutable, but add(CharSequence)/merge(StringJoiner) read their argument without modifying it
+    @Container
+    class StringJoiner$ { }
+
+    //public class StringTokenizer implements Enumeration<Object>
+    @Container
+    class StringTokenizer$ { }
 
     //public class TreeMap extends AbstractMap<K,V> implements NavigableMap<K,V>, Cloneable, Serializable
     @Container

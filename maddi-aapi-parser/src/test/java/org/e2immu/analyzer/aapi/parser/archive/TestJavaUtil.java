@@ -642,6 +642,31 @@ public class TestJavaUtil extends CommonTest {
         }
     }
 
+    // Locale and Currency are final immutable value types: deep @Immutable (hc=false),
+    // @Independent, and containers.
+    @Test
+    public void testImmutableValueTypes() {
+        for (Class<?> c : new Class<?>[]{Locale.class, Currency.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE),
+                    () -> c.getSimpleName() + " should be deep @Immutable");
+            assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT),
+                    () -> c.getSimpleName() + " should be @Independent");
+            assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
+                    () -> c.getSimpleName() + " should be a @Container");
+        }
+    }
+
+    // BitSet/StringJoiner/StringTokenizer are mutable but never modify a parameter's content.
+    @Test
+    public void testMutableContainerUtilities() {
+        for (Class<?> c : new Class<?>[]{BitSet.class, StringJoiner.class, StringTokenizer.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
+                    () -> c.getSimpleName() + " should be a @Container");
+        }
+    }
+
     @Test
     public void testTreeMapSortedMapConstructor() {
         TypeInfo typeInfo = compiledTypesManager().get(TreeMap.class);
