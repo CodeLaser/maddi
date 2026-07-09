@@ -76,6 +76,10 @@ public class Graph {
                && label != LinkNatureImpl.IS_ELEMENT_OF;
     }
 
+    public Stream<Link> sharedAssignmentEdgeStream(Variable primary) {
+        return sharedVariables.assignmentEdgeStream(primary);
+    }
+
     public Stream<Link> virtualModificationEdgeStream(Variable primary) {
         Set<Variable> variables = virtualModificationIdenticals.variablesPartOf(primary);
         Map<Variable, VirtualModificationIdenticals.Group> groups = variables.stream()
@@ -160,6 +164,24 @@ public class Graph {
 
     public Variable translateForward(Variable variable) {
         return sharedVariables.translateForward(variable);
+    }
+
+    // The inverse of translateForward for extraction: expand a graph vertex whose scope chain contains a
+    // shared-variable rep back to its member forms (a rep as the whole vertex, or nested in a field scope such
+    // as '$__sv_list1.§$s'). Mirrors WriteLinksAndModification.iterateOverShared. A vertex with no rep maps to
+    // itself.
+    public Stream<Variable> expandRepToMembers(Variable variable) {
+        if (variable instanceof SharedVariable sv) {
+            return sv.variables().stream();
+        }
+        if (variable instanceof FieldReference fr && fr.scopeVariable() != null) {
+            return expandRepToMembers(fr.scopeVariable())
+                    .map(scope -> scope.equals(fr.scopeVariable())
+                            ? fr
+                            : runtime.newFieldReference(fr.fieldInfo(),
+                            runtime.newVariableExpression(scope), fr.parameterizedType()));
+        }
+        return Stream.of(variable);
     }
 
     public String printEquivalence(Function<Variable, String> variablePrinter) {
