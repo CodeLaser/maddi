@@ -29,6 +29,7 @@ dependencies {
     implementation(project(":maddi-kotlin-k2"))
 
     testImplementation(project(":maddi-cst-impl"))
+    testImplementation(project(":maddi-cst-analysis")) // PropertyImpl.FINAL_FIELD / ValueImpl for final-field port
     testImplementation(project(":maddi-cst-print")) // the language-neutral formatter
     testImplementation(project(":maddi-cst-print-kotlin")) // the Kotlin printer under test
     testImplementation(project(":maddi-inspection-openjdk")) // Phase 1: the openjdk (javac) Java front-end, to share the JDK core
