@@ -189,14 +189,20 @@ public class ShallowTypeAnalyzer extends AnnotationToProperty {
                 fieldMap.put(UNMODIFIED_FIELD, DEFAULT_FALSE);
             }
         }
+        // A field of an immutable type is itself immutable, at least to the owner's level: an @Immutable
+        // type guarantees all its fields hold immutable content, even when a field's declared type is
+        // formally mutable (e.g. an unmodifiable Map constant inside an immutable class). Mirrors the
+        // owner-driven UNMODIFIED_FIELD rule above.
+        Value.Immutable effectiveImmutable = formallyImmutable.max(ownerImmutable);
         ValueOrigin imm = fieldMap.get(IMMUTABLE_FIELD);
         if (imm == null) {
-            if (!ValueImpl.ImmutableImpl.MUTABLE.equals(formallyImmutable)) {
-                fieldMap.put(IMMUTABLE_FIELD, new ValueOrigin(formallyImmutable, FROM_TYPE));
+            if (!ValueImpl.ImmutableImpl.MUTABLE.equals(effectiveImmutable)) {
+                fieldMap.put(IMMUTABLE_FIELD, new ValueOrigin(effectiveImmutable,
+                        effectiveImmutable.equals(formallyImmutable) ? FROM_TYPE : FROM_OWNER));
             }
         } else {
             Value.Immutable v = (Value.Immutable) imm.value();
-            Value.Immutable max = formallyImmutable.max(v);
+            Value.Immutable max = effectiveImmutable.max(v);
             if (!ValueImpl.ImmutableImpl.MUTABLE.equals(max) && !max.equals(v)) {
                 fieldMap.put(IMMUTABLE_FIELD, new ValueOrigin(max, FROM_TYPE));
             }
