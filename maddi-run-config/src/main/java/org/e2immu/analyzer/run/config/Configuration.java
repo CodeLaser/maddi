@@ -16,6 +16,8 @@ package org.e2immu.analyzer.run.config;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
+import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfigurationImpl;
 import org.e2immu.language.cst.api.runtime.LanguageConfiguration;
 import org.e2immu.language.cst.impl.runtime.LanguageConfigurationImpl;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
@@ -26,47 +28,41 @@ public class Configuration {
     private final GeneralConfiguration generalConfiguration;
     @JsonProperty
     private final InputConfiguration inputConfiguration;
-    //@JsonProperty
-   // private final AnnotatedAPIConfiguration annotatedAPIConfiguration;
+    @JsonProperty
+    private final AnnotatedAPIConfiguration annotatedAPIConfiguration;
     @JsonProperty
     private final LanguageConfiguration languageConfiguration;
 
-    // deserialization creator: the nested interface-typed fields need their concrete impls (as Main reads
-    // InputConfigurationImpl, and LanguageConfigurationImpl is the language config record)
+    // deserialization creator: the interface-typed fields are resolved to their impls by the SimpleAbstractType
+    // resolver in JsonStreaming (InputConfiguration, AnnotatedAPIConfiguration, LanguageConfiguration)
     @JsonCreator
     Configuration(@JsonProperty("generalConfiguration") GeneralConfiguration generalConfiguration,
-                  @JsonProperty("inputConfiguration") InputConfigurationImpl inputConfiguration,
-                  @JsonProperty("languageConfiguration") LanguageConfigurationImpl languageConfiguration) {
-        this(generalConfiguration, (InputConfiguration) inputConfiguration, (LanguageConfiguration) languageConfiguration);
-    }
-
-    private Configuration(GeneralConfiguration generalConfiguration,
-                          InputConfiguration inputConfiguration,
-                         // AnnotatedAPIConfiguration annotatedAPIConfiguration,
-                          LanguageConfiguration languageConfiguration) {
-     //   this.annotatedAPIConfiguration = annotatedAPIConfiguration;
+                  @JsonProperty("inputConfiguration") InputConfiguration inputConfiguration,
+                  @JsonProperty("annotatedAPIConfiguration") AnnotatedAPIConfiguration annotatedAPIConfiguration,
+                  @JsonProperty("languageConfiguration") LanguageConfiguration languageConfiguration) {
         this.generalConfiguration = generalConfiguration;
         this.inputConfiguration = inputConfiguration;
+        this.annotatedAPIConfiguration = annotatedAPIConfiguration;
         this.languageConfiguration = languageConfiguration;
     }
 
 
     @Override
     public String toString() {
-        return generalConfiguration + "\n" + inputConfiguration + "\n" //+ annotatedAPIConfiguration + "\n"
+        return generalConfiguration + "\n" + inputConfiguration + "\n" + annotatedAPIConfiguration + "\n"
                + languageConfiguration;
     }
 
     public static class Builder {
         private GeneralConfiguration generalConfiguration;
         private InputConfiguration inputConfiguration;
-     //   private AnnotatedAPIConfiguration annotatedAPIConfiguration;
+        private AnnotatedAPIConfiguration annotatedAPIConfiguration;
         private LanguageConfiguration languageConfiguration;
 
-     //   public Builder setAnnotatedAPIConfiguration(AnnotatedAPIConfiguration annotatedAPIConfiguration) {
-     //       this.annotatedAPIConfiguration = annotatedAPIConfiguration;
-     //       return this;
-     //   }
+        public Builder setAnnotatedAPIConfiguration(AnnotatedAPIConfiguration annotatedAPIConfiguration) {
+            this.annotatedAPIConfiguration = annotatedAPIConfiguration;
+            return this;
+        }
 
         public Builder setGeneralConfiguration(GeneralConfiguration generalConfiguration) {
             this.generalConfiguration = generalConfiguration;
@@ -88,8 +84,8 @@ public class Configuration {
                     ? new GeneralConfiguration.Builder().build() : generalConfiguration,
                     inputConfiguration == null
                             ? new InputConfigurationImpl.Builder().build() : inputConfiguration,
-             //       annotatedAPIConfiguration == null
-             //               ? new AnnotatedAPIConfigurationImpl.Builder().build() : annotatedAPIConfiguration,
+                    annotatedAPIConfiguration == null
+                            ? new AnnotatedAPIConfigurationImpl.Builder().build() : annotatedAPIConfiguration,
                     languageConfiguration == null ? new LanguageConfigurationImpl(true)
                             : languageConfiguration);
         }
@@ -103,9 +99,9 @@ public class Configuration {
         return inputConfiguration;
     }
 
-   // public AnnotatedAPIConfiguration annotatedAPIConfiguration() {
-   //     return annotatedAPIConfiguration;
-  //  }
+    public AnnotatedAPIConfiguration annotatedAPIConfiguration() {
+        return annotatedAPIConfiguration;
+    }
 
     public LanguageConfiguration languageConfiguration() {
         return languageConfiguration;

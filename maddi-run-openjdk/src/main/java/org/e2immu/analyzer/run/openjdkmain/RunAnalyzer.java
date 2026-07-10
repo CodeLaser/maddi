@@ -16,6 +16,7 @@ package org.e2immu.analyzer.run.openjdkmain;
 
 import ch.qos.logback.classic.Level;
 import org.e2immu.analyzer.aapi.parser.AnalysisHintsParser;
+import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
 import org.e2immu.analyzer.aapi.parser.AnalysisHintsComposer;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
@@ -102,7 +103,7 @@ public class RunAnalyzer implements Runnable {
         InputConfiguration inputConfiguration = configuration.inputConfiguration();
         javaInspector.initialize(inputConfiguration);
         javaInspector.preload("java.base::java.util");
-     //   AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
+        AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
 
         List<String> analysisSteps = configuration.generalConfiguration().analysisSteps();
         boolean modification = analysisSteps.contains(Main.AS_MODIFICATION);
@@ -112,7 +113,13 @@ public class RunAnalyzer implements Runnable {
                 sourceSetOfRequest = inputConfiguration.sourceSets().stream().findAny().orElse(null);
                 LOGGER.info("Cannot find a 'main' source set, default to {}", sourceSetOfRequest);
             }
-      //FIXME      new LoadAnalysisResults(sourceSetOfRequest).go(javaInspector, ac.analyzedAnnotatedApiDirs());
+            // use case 1: load pre-analyzed annotated-API (AAAPI) results for library types, so their
+            // annotations are available to the modification analysis
+            List<String> analyzedAnnotatedApiDirs = ac == null ? List.of() : ac.analyzedAnnotatedApiDirs();
+            if (!analyzedAnnotatedApiDirs.isEmpty()) {
+                LOGGER.info("Loading analyzed annotated API from {}", analyzedAnnotatedApiDirs);
+                new LoadAnalysisResults(javaInspector.runtime(), sourceSetOfRequest).go(analyzedAnnotatedApiDirs);
+            }
         } else {
             LOGGER.info("Skip loading analyzed package files, modification analysis disabled.");
         }
