@@ -151,4 +151,30 @@ public class TestJavaUtilFunction extends CommonTest {
         assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
     }
 
+    // BiFunction and the primitive families get the same treatment: @Independent(hc=true) at the type,
+    // and non-modifying default helpers.
+    @Test
+    public void testBiFunctionAndFriendsIndependentHc() {
+        for (Class<?> c : new Class<?>[]{
+                BiFunction.class, UnaryOperator.class,
+                IntPredicate.class, LongPredicate.class, DoublePredicate.class,
+                IntUnaryOperator.class, LongUnaryOperator.class, DoubleUnaryOperator.class,
+                IntConsumer.class, LongConsumer.class, DoubleConsumer.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT),
+                    () -> c.getSimpleName() + " should be @Independent(hc=true)");
+        }
+    }
+
+    @Test
+    public void testBiFunctionAndFriendsDefaultHelpersNonModifying() {
+        assertFalse(compiledTypesManager().get(BiFunction.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().get(IntPredicate.class).findUniqueMethod("and", 1).isModifying());
+        assertFalse(compiledTypesManager().get(IntPredicate.class).findUniqueMethod("negate", 0).isModifying());
+        assertFalse(compiledTypesManager().get(IntUnaryOperator.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().get(IntUnaryOperator.class).findUniqueMethod("compose", 1).isModifying());
+        assertFalse(compiledTypesManager().get(DoubleConsumer.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().get(LongPredicate.class).findUniqueMethod("or", 1).isModifying());
+    }
+
 }
