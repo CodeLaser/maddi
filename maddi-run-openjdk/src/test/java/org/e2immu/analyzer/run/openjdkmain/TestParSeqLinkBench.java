@@ -43,7 +43,7 @@ public class TestParSeqLinkBench {
 
     @Test
     public void bench() throws Exception {
-        Path log = Path.of(System.getProperty("jfocus.log", "/tmp/jfocus-debug.log"));
+        Path log = Path.of(System.getProperty("jfocus.log", "/tmp/jfocus-test-debug.log"));
         Assumptions.assumeTrue(Files.exists(log), "capture the jfocus compile log first (see class comment): " + log);
 
         InputConfiguration inputConfiguration = new ParseJavacList().parse(log);
@@ -71,14 +71,26 @@ public class TestParSeqLinkBench {
         // PRODUCTION disables the checkDuplicateNames debug assertion so linking runs to completion (we are
         // measuring time on deep structures, not asserting graph invariants).
         LinkComputerImpl link = new LinkComputerImpl(javaInspector, org.e2immu.analyzer.modification.link.LinkComputer.Options.PRODUCTION);
+        // first link the production parseq types so their method summaries (callees of the tests) are available
         for (TypeInfo t : parseqTypes) {
-            long s = System.nanoTime();
+            if (t.simpleName().startsWith("Test") || t.simpleName().startsWith("Common")) continue;
             link.doPrimaryType(t);
-            LOGGER.info("  LINK {} : {} ms", t.simpleName(), (System.nanoTime() - s) / 1_000_000);
         }
         long t3 = System.nanoTime();
+        LOGGER.info("PARSEQ BENCH  parse={}ms  prep={}ms  LINK(production parseq types)={}ms",
+                (t1 - t0) / 1_000_000, (t2 - t1) / 1_000_000, (t3 - t2) / 1_000_000);
 
-        LOGGER.info("PARSEQ BENCH  parse={}ms  prep={}ms  LINK(parseq {} types)={}ms",
-                (t1 - t0) / 1_000_000, (t2 - t1) / 1_000_000, parseqTypes.size(), (t3 - t2) / 1_000_000);
+        // now the target: time each test method of TestParSeqElement individually
+        TypeInfo test = parseqTypes.stream().filter(t -> "TestParSeqElement".equals(t.simpleName()))
+                .findFirst().orElseThrow(() -> new AssertionError("TestParSeqElement not parsed (use the test compile log)"));
+        long testTotal = 0;
+        for (var m : test.methodStream().filter(mi -> !mi.isSynthetic()).toList()) {
+            long s = System.nanoTime();
+            link.doMethod(m);
+            long ms = (System.nanoTime() - s) / 1_000_000;
+            testTotal += ms;
+            LOGGER.info("  TEST-METHOD {} : {} ms", m.name(), ms);
+        }
+        LOGGER.info("TESTPARSEQELEMENT total methods = {} ms", testTotal);
     }
 }
