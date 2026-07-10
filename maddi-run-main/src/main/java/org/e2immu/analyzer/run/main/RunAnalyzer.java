@@ -23,6 +23,7 @@ import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
+import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
 import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
 import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
 import org.e2immu.analyzer.run.config.Configuration;
@@ -97,7 +98,7 @@ public class RunAnalyzer implements Runnable {
         JavaInspector javaInspector = new JavaInspectorImpl(true, true);
         InputConfiguration inputConfiguration = configuration.inputConfiguration();
         javaInspector.initialize(inputConfiguration);
-      //  AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
+        AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
 
         List<String> analysisSteps = configuration.generalConfiguration().analysisSteps();
         boolean modification = analysisSteps.contains(Main.AS_MODIFICATION);
@@ -107,7 +108,12 @@ public class RunAnalyzer implements Runnable {
                 sourceSetOfRequest = inputConfiguration.sourceSets().stream().findAny().orElse(null);
                 LOGGER.info("Cannot find a 'main' source set, default to {}", sourceSetOfRequest);
             }
-     //FIXME       new LoadAnalysisResults(sourceSetOfRequest).go(javaInspector, ac.analyzedAnnotatedApiDirs());
+            // use case 1: load pre-analyzed annotated-API (AAAPI) results for library types
+            List<String> analyzedAnnotatedApiDirs = ac == null ? List.of() : ac.analyzedAnnotatedApiDirs();
+            if (!analyzedAnnotatedApiDirs.isEmpty()) {
+                LOGGER.info("Loading analyzed annotated API from {}", analyzedAnnotatedApiDirs);
+                new LoadAnalysisResults(javaInspector.runtime(), sourceSetOfRequest).go(analyzedAnnotatedApiDirs);
+            }
         } else {
             LOGGER.info("Skip loading analyzed package files, modification analysis disabled.");
         }

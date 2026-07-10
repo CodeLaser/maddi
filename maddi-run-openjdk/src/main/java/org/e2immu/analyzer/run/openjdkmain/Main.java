@@ -17,6 +17,8 @@ package org.e2immu.analyzer.run.openjdkmain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.cli.*;
 import org.apache.commons.cli.help.HelpFormatter;
+import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
+import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfigurationImpl;
 import org.e2immu.analyzer.run.config.Configuration;
 import org.e2immu.analyzer.run.config.GeneralConfiguration;
 import org.e2immu.analyzer.run.config.util.JsonStreaming;
@@ -155,8 +157,8 @@ public class Main {
         InputConfiguration inputConfiguration = parseInputConfiguration(cmd);
         builder.setInputConfiguration(inputConfiguration);
 
-     //   AnnotatedAPIConfiguration annotatedAPIConfiguration = parseAnnotatedAPIConfiguration(cmd);
-     //   builder.setAnnotatedAPIConfiguration(annotatedAPIConfiguration);
+        AnnotatedAPIConfiguration annotatedAPIConfiguration = parseAnnotatedAPIConfiguration(cmd);
+        builder.setAnnotatedAPIConfiguration(annotatedAPIConfiguration);
 
         builder.setLanguageConfiguration(new LanguageConfigurationImpl(true));
 
@@ -169,7 +171,7 @@ public class Main {
         GeneralConfiguration generalConfiguration = generalConfiguration(kvMap);
         builder.setGeneralConfiguration(generalConfiguration);
         builder.setInputConfiguration(inputConfiguration(kvMap));
-    //    builder.setAnnotatedAPIConfiguration(annotatedAPIConfiguration(kvMap));
+        builder.setAnnotatedAPIConfiguration(annotatedAPIConfiguration(kvMap));
 
         builder.setLanguageConfiguration(new LanguageConfigurationImpl(true));
 
@@ -384,7 +386,7 @@ public class Main {
                 .desc("Create AAPI skeletons from the following packages of the source.").get());
 
     }
-/*
+
     public static AnnotatedAPIConfiguration annotatedAPIConfiguration(Map<String, String> kvMap) {
         AnnotatedAPIConfigurationImpl.Builder builder = new AnnotatedAPIConfigurationImpl.Builder();
 
@@ -418,7 +420,7 @@ public class Main {
         splitAndAdd(writePackages, COMMA, builder::addAnnotatedApiPackages);
         return builder.build();
     }
-*/
+
     // *************************************** */
     private static final String DO_NOT_SPLIT = "__DO_NOT_SPLIT__";
 

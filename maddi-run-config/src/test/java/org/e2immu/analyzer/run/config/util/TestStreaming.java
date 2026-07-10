@@ -16,6 +16,9 @@ package org.e2immu.analyzer.run.config.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
+import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfigurationImpl;
+import org.e2immu.analyzer.run.config.Configuration;
 import org.e2immu.language.cst.api.element.FingerPrint;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
@@ -70,5 +73,27 @@ public class TestStreaming {
 
         SourceSet set2 = copy.sourceSets().get(1);
         Assertions.assertSame(set1, set2.dependencies().stream().findFirst().orElseThrow());
+    }
+
+    @Test
+    public void testAnnotatedApiConfiguration() throws JsonProcessingException {
+        ObjectMapper objectMapper = JsonStreaming.objectMapper();
+        AnnotatedAPIConfiguration aapi = new AnnotatedAPIConfigurationImpl.Builder()
+                .addAnalyzedAnnotatedApiDirs("dir1", "dir2")
+                .addAnnotatedApiPackages("java.util.")
+                .setAnnotatedApiTargetDir("/tmp/aapi")
+                .setAnnotatedApiTargetPackage("a.b")
+                .build();
+        Configuration configuration = new Configuration.Builder().setAnnotatedAPIConfiguration(aapi).build();
+
+        String json = objectMapper.writeValueAsString(configuration);
+        Configuration copy = objectMapper.readerFor(Configuration.class).readValue(json);
+
+        AnnotatedAPIConfiguration copyAapi = copy.annotatedAPIConfiguration();
+        assertNotNull(copyAapi);
+        Assertions.assertEquals(List.of("dir1", "dir2"), copyAapi.analyzedAnnotatedApiDirs());
+        Assertions.assertEquals(List.of("java.util."), copyAapi.annotatedApiPackages());
+        Assertions.assertEquals("/tmp/aapi", copyAapi.annotatedApiTargetDir());
+        Assertions.assertEquals("a.b", copyAapi.annotatedApiTargetPackage());
     }
 }
