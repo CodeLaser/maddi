@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
+import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
 import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
 import org.e2immu.analyzer.modification.prepwork.Util;
@@ -70,18 +71,42 @@ public class SharedVariables {
     public Stream<Link> assignmentEdgeStream(Variable primary) {
         Stream.Builder<Link> builder = Stream.builder();
         for (SharedVariable sv : new java.util.LinkedHashSet<>(memberToGroup.values())) {
+            // The group's recorded 'a ← b' assignments form a directed chain; an intermediate ($__rv) merged in
+            // the middle (makeFromGet.t ← $__rv ← box.t) breaks a direct pair once it is filtered out downstream.
+            // So follow the chain transitively: emit 'm ← t' for every t reachable from m along ←, and its reverse.
+            java.util.Map<Variable, java.util.List<Variable>> fwd = new java.util.HashMap<>();
+            java.util.Map<Variable, java.util.List<Variable>> bwd = new java.util.HashMap<>();
             for (SharedVariable.Assignment a : sv.assignments()) {
-                boolean fromPart = Util.isPartOf(primary, a.from());
-                boolean toPart = Util.isPartOf(primary, a.to());
-                if (fromPart) {
-                    builder.add(new LinksImpl.LinkImpl(a.from(), LinkNatureImpl.IS_ASSIGNED_FROM, a.to()));
+                fwd.computeIfAbsent(a.from(), k -> new java.util.ArrayList<>()).add(a.to());
+                bwd.computeIfAbsent(a.to(), k -> new java.util.ArrayList<>()).add(a.from());
+            }
+            for (Variable m : sv.variables()) {
+                if (!Util.isPartOf(primary, m)) continue;
+                for (Variable t : reachable(m, fwd)) {
+                    builder.add(new LinksImpl.LinkImpl(m, LinkNatureImpl.IS_ASSIGNED_FROM, t));
                 }
-                if (toPart) {
-                    builder.add(new LinksImpl.LinkImpl(a.to(), LinkNatureImpl.IS_ASSIGNED_TO, a.from()));
+                for (Variable t : reachable(m, bwd)) {
+                    builder.add(new LinksImpl.LinkImpl(m, LinkNatureImpl.IS_ASSIGNED_TO, t));
                 }
             }
         }
         return builder.build();
+    }
+
+    // variables reachable from 'start' along the adjacency map (excluding 'start'). Only recurse THROUGH a node
+    // that is a pass-through intermediate ($__rv) — those are filtered out downstream and would otherwise break
+    // a chain (makeFromGet.t ← $__rv ← box.t). Never chain through real variables or array elements: doing so
+    // links mismatched dimensions (crashes on grid[0][0]/varargs).
+    private static java.util.Set<Variable> reachable(Variable start, java.util.Map<Variable, java.util.List<Variable>> adj) {
+        java.util.Set<Variable> seen = new java.util.LinkedHashSet<>();
+        java.util.Deque<Variable> stack = new java.util.ArrayDeque<>(adj.getOrDefault(start, java.util.List.of()));
+        while (!stack.isEmpty()) {
+            Variable v = stack.pop();
+            if (seen.add(v) && Util.lvPrimaryOrNull(v) instanceof IntermediateVariable) {
+                stack.addAll(adj.getOrDefault(v, java.util.List.of()));
+            }
+        }
+        return seen;
     }
 
     public boolean isKnown(Variable from) {
