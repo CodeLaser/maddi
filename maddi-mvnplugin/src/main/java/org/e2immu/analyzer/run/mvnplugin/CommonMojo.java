@@ -7,18 +7,24 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.DependencyResolutionException;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.ProjectDependenciesResolver;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfiguration;
+import org.e2immu.analyzer.run.config.Configuration;
+import org.e2immu.analyzer.run.config.GeneralConfiguration;
 import org.e2immu.analyzer.run.config.util.ComputeDependencies;
 import org.e2immu.analyzer.run.config.util.JavaModules;
+import org.e2immu.analyzer.run.main.Main;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.runtime.LanguageConfiguration;
+import org.e2immu.language.cst.impl.runtime.LanguageConfigurationImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.ParseResult;
+import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
-import org.e2immu.language.inspection.integration.ToolChain;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.e2immu.util.internal.graph.G;
@@ -61,8 +67,95 @@ public abstract class CommonMojo extends AbstractMojo {
     @Parameter(property = "sourceEncoding", defaultValue = "UTF-8")
     private String sourceEncoding;
 
+    // --- general analysis configuration (mirrors the Gradle plugin's extension) ---
+
+    @Parameter(property = "analysisResultsDir", defaultValue = "")
+    private String analysisResultsDir;
+
+    @Parameter(property = "analysisSteps", defaultValue = "")
+    private String analysisSteps;
+
+    @Parameter(property = "incrementalAnalysis", defaultValue = "false")
+    private boolean incrementalAnalysis;
+
+    @Parameter(property = "parallel", defaultValue = "true")
+    private boolean parallel;
+
+    @Parameter(property = "quiet", defaultValue = "false")
+    private boolean quiet;
+
+    @Parameter(property = "debug", defaultValue = "")
+    private String debug;
+
+    // --- analysis-hints configuration (the three use cases) ---
+
+    @Parameter(property = "preloadAnalysisResultsDirs", defaultValue = "")
+    private String preloadAnalysisResultsDirs;
+
+    @Parameter(property = "analysisResultsTargetDir", defaultValue = "")
+    private String analysisResultsTargetDir;
+
+    @Parameter(property = "updatedHintsDir", defaultValue = "")
+    private String updatedHintsDir;
+
+    @Parameter(property = "updatedHintsPackage", defaultValue = "")
+    private String updatedHintsPackage;
+
+    @Parameter(property = "hintsPackages", defaultValue = "")
+    private String hintsPackages;
+
     @Component
     private ProjectDependenciesResolver dependenciesResolver;
+
+    /**
+     * Assemble the full {@link Configuration} (general + analysis-hints + language + input) the way the Gradle
+     * plugin's {@code AnalyzerPropertyComputer} does, so both plugins hand an identical object to {@code RunAnalyzer}.
+     */
+    protected Configuration computeConfiguration() throws DependencyResolutionException {
+        LanguageConfiguration languageConfiguration = new LanguageConfigurationImpl(true);
+        GeneralConfiguration generalConfiguration = Main.generalConfiguration(makeGeneralConfigMap());
+        AnalysisHintsConfiguration analysisHintsConfiguration = Main.analysisHintsConfiguration(makeAnalysisHintsMap());
+        InputConfiguration inputConfiguration = makeInputConfiguration();
+        return new Configuration.Builder()
+                .setAnalysisHintsConfiguration(analysisHintsConfiguration)
+                .setGeneralConfiguration(generalConfiguration)
+                .setLanguageConfiguration(languageConfiguration)
+                .setInputConfiguration(inputConfiguration)
+                .build();
+    }
+
+    private Map<String, String> makeGeneralConfigMap() {
+        Map<String, String> generalMap = new HashMap<>();
+        generalMap.put(Main.INCREMENTAL_ANALYSIS, "" + incrementalAnalysis);
+        String resultsDir = analysisResultsDir != null && !analysisResultsDir.isBlank() ? analysisResultsDir
+                : new File(project.getBuild().getDirectory(), "e2immu").getAbsolutePath();
+        generalMap.put(Main.ANALYSIS_RESULTS_DIR, resultsDir);
+        generalMap.put(Main.PARALLEL, "" + parallel);
+        if (analysisSteps != null && !analysisSteps.isBlank()) generalMap.put(Main.ANALYSIS_STEPS, analysisSteps);
+        if (debug != null && !debug.isBlank()) generalMap.put(Main.DEBUG, debug);
+        generalMap.put(Main.QUIET, "" + quiet);
+        return generalMap;
+    }
+
+    private Map<String, String> makeAnalysisHintsMap() {
+        Map<String, String> kvMap = new HashMap<>();
+        if (preloadAnalysisResultsDirs != null && !preloadAnalysisResultsDirs.isBlank()) {
+            kvMap.put(Main.PRELOAD_ANALYSIS_RESULTS_DIRS, preloadAnalysisResultsDirs);
+        }
+        if (analysisResultsTargetDir != null && !analysisResultsTargetDir.isBlank()) {
+            kvMap.put(Main.ANALYSIS_RESULTS_TARGET_DIR, analysisResultsTargetDir);
+        }
+        if (updatedHintsDir != null && !updatedHintsDir.isBlank()) {
+            kvMap.put(Main.UPDATED_HINTS_DIR, updatedHintsDir);
+        }
+        if (updatedHintsPackage != null && !updatedHintsPackage.isBlank()) {
+            kvMap.put(Main.UPDATED_HINTS_PACKAGE, updatedHintsPackage);
+        }
+        if (hintsPackages != null && !hintsPackages.isBlank()) {
+            kvMap.put(Main.HINTS_PACKAGES, hintsPackages);
+        }
+        return kvMap;
+    }
 
     protected InputConfiguration makeInputConfiguration() throws DependencyResolutionException {
         InputConfiguration.Builder builder = new InputConfigurationImpl.Builder();
@@ -79,17 +172,17 @@ public abstract class CommonMojo extends AbstractMojo {
 
         makeJavaModules(jmods).forEach(set -> result.sourceSetsByName().put(set.name(), set));
 
-        G<String> graph = new ComputeDependencies(s ->getLog().debug(s)).go(result);
+        G<String> graph = new ComputeDependencies(s -> getLog().debug(s)).go(result);
         List<String> linearization = Linearize.linearize(graph).asList(String::compareToIgnoreCase);
-        if(getLog().isDebugEnabled()) {
+        if (getLog().isDebugEnabled()) {
             getLog().debug("Graph: " + graph);
             getLog().debug("Linearization:\n  " + String.join("\n  ", linearization) + "\n");
         }
         for (String name : linearization) {
             Map<V<String>, Long> edges = graph.edges(new V<>(name));
-            Set<SourceSet> dependencies = edges == null ? Set.of() : edges.keySet()
+            List<SourceSet> dependencies = edges == null ? List.of() : edges.keySet()
                     .stream().map(v -> result.sourceSetsByName().get(v.t()))
-                    .filter(Objects::nonNull).collect(Collectors.toUnmodifiableSet());
+                    .filter(Objects::nonNull).collect(Collectors.toUnmodifiableList());
             SourceSet sourceSet = result.sourceSetsByName().get(name);
             if (sourceSet == null) {
                 getLog().warn("Don't know source set " + name);
@@ -107,10 +200,9 @@ public abstract class CommonMojo extends AbstractMojo {
         Set<String> jmods = JavaModules.jmodsFromString(jmodsString);
         for (String jmod : jmods) {
             if (!jmod.isBlank()) {
-                SourceSet set = new SourceSetImpl(jmod, null,
-                        URI.create("jmod:" + jmod),
-                        null, false, true, true, true, false,
-                        null, null);
+                SourceSet set = new SourceSetImpl.Builder().setName(jmod)
+                        .setUri(URI.create("jmod:" + jmod))
+                        .setLibrary(true).setExternalLibrary(true).setPartOfJdk(true).setModule(true).build();
                 sets.add(set);
             }
         }
@@ -122,24 +214,22 @@ public abstract class CommonMojo extends AbstractMojo {
                                         InputConfiguration inputConfiguration) {
     }
 
+    /**
+     * Parse the project's sources with the in-house parser (no {@code --add-exports} needed). Used by the auxiliary
+     * mojos ({@code statistics}, {@code write-analysis-hints}); the {@code run} mojo goes through {@code RunAnalyzer}.
+     */
     protected ParseSourcesResult parseSources() throws DependencyResolutionException, IOException {
-
         InputConfiguration inputConfiguration = makeInputConfiguration();
-        JavaInspector javaInspector = new JavaInspectorImpl();
+        JavaInspector javaInspector = new JavaInspectorImpl(true, true);
 
-        InputConfiguration withJavaModules = inputConfiguration.withE2ImmuSupportFromClasspath().withDefaultModules();
-        getLog().info("Working directory: " + withJavaModules.workingDirectory());
-        javaInspector.initialize(withJavaModules);
-
-        String jdkSpec = ToolChain.extractLibraryName(javaInspector.compiledTypesManager().typesLoaded(),
-                false);
-        String mapped = ToolChain.mapJreShortNameToAnalyzedPackageShortName(jdkSpec);
-        getLog().info("Resolved analyzed package files for " + jdkSpec + " -> " + mapped);
+        InputConfiguration withSupport = inputConfiguration.withE2ImmuSupportFromClasspath().withDefaultModules();
+        getLog().info("Working directory: " + withSupport.workingDirectory());
+        javaInspector.initialize(withSupport);
 
         JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder()
                 .setFailFast(true).setDetailedSources(true).build();
-        ParseResult parseResult = javaInspector.parse(parseOptions).parseResult();
-        return new ParseSourcesResult(parseResult, javaInspector, inputConfiguration);
+        Summary summary = javaInspector.parse(parseOptions);
+        return new ParseSourcesResult(summary.parseResult(), javaInspector, inputConfiguration);
     }
 
     protected static String packagePrefixGenerator(String packagePrefix, SourceSet sourceSet) {
