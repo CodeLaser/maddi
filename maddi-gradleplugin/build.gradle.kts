@@ -43,13 +43,17 @@ dependencies {
     testRuntimeOnly(project(":maddi-aapi-archive"))
 
     implementation(project(":maddi-run-config"))
-    implementation(project(":maddi-run-main"))
+    implementation(project(":maddi-run-main")) // GeneralConfiguration/InputConfiguration property mapping
+    implementation(project(":maddi-run-openjdk")) // the openjdk-parser-based RunAnalyzer, run in a forked worker
 
     implementation("ch.qos.logback:logback-classic")
     implementation("com.fasterxml.jackson.core:jackson-databind")
 
     // GRADLE PLUGIN
     implementation(gradleApi())
+    testImplementation(gradleTestKit())
+    testImplementation("org.junit.jupiter:junit-jupiter-api")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
 }
 
 gradlePlugin {

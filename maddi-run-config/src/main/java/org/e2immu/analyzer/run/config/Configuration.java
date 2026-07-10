@@ -31,14 +31,14 @@ public class Configuration {
     @JsonProperty
     private final LanguageConfiguration languageConfiguration;
 
-  //  @JsonCreator
-  //  private Configuration(@JsonProperty("generalConfiguration") GeneralConfiguration generalConfiguration,
-  //                        @JsonProperty("inputConfiguration") InputConfiguration inputConfiguration,
- //                         @JsonProperty("languageConfiguration") LanguageConfiguration languageConfiguration) {
-  //      this(generalConfiguration, inputConfiguration,
-               // null,
-  //              languageConfiguration);
-  //  }
+    // deserialization creator: the nested interface-typed fields need their concrete impls (as Main reads
+    // InputConfigurationImpl, and LanguageConfigurationImpl is the language config record)
+    @JsonCreator
+    Configuration(@JsonProperty("generalConfiguration") GeneralConfiguration generalConfiguration,
+                  @JsonProperty("inputConfiguration") InputConfigurationImpl inputConfiguration,
+                  @JsonProperty("languageConfiguration") LanguageConfigurationImpl languageConfiguration) {
+        this(generalConfiguration, (InputConfiguration) inputConfiguration, (LanguageConfiguration) languageConfiguration);
+    }
 
     private Configuration(GeneralConfiguration generalConfiguration,
                           InputConfiguration inputConfiguration,

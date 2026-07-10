@@ -349,8 +349,12 @@ public class JavaInspectorImpl implements JavaInspector {
             sourcesByClassName = sourcesByFqn;
         } else {
             sourcesByClassName = Map.of();
+            // resolve a source set's (possibly relative) directories against the configured working directory, so
+            // the analyzer does not depend on the process's current directory (e.g. when run from a Gradle worker)
+            Path workingDirectory = inputConfiguration == null ? null : inputConfiguration.workingDirectory();
             for (Path path : sourceSet.sourceDirectories()) {
-                sources.add(path.toFile());
+                Path resolved = workingDirectory == null || path.isAbsolute() ? path : workingDirectory.resolve(path);
+                sources.add(resolved.toFile());
             }
         }
 

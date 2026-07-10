@@ -24,6 +24,7 @@ import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
 import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
+import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
 import org.e2immu.analyzer.run.config.Configuration;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
@@ -91,7 +92,11 @@ public class RunAnalyzer implements Runnable {
     }
 
     private void runAnalyzer() throws IOException {
-        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
+        // only when logback is the active SLF4J backend (the CLI); under a different backend -- e.g. the Gradle
+        // worker's own SLF4J provider -- the root logger is not a logback Logger, so leave the level as configured
+        if (LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) instanceof ch.qos.logback.classic.Logger rootLogger) {
+            rootLogger.setLevel(Level.INFO);
+        }
 
         JavaInspector javaInspector = new JavaInspectorImpl(true, false);
         InputConfiguration inputConfiguration = configuration.inputConfiguration();
@@ -185,8 +190,8 @@ public class RunAnalyzer implements Runnable {
                 Trie<TypeInfo> trie = new Trie<>();
                 LOGGER.info("Writing results for {} types to {}", summary.types().size(), targetDir);
                 summary.types().forEach(ti -> trie.add(ti.packageName().split("\\."), ti));
-         //  FIXME     WriteAnalysis writeAnalysis = new WriteAnalysis(javaInspector.runtime());
-         //       writeAnalysis.write(targetDir, trie);
+                WriteAnalysisResults writeAnalysisResults = new WriteAnalysisResults(javaInspector.runtime());
+                writeAnalysisResults.write(targetDir, trie);
             } else {
                 LOGGER.warn("Not writing out results, " + Main.ANALYSIS_RESULTS_DIR + " is empty");
             }
