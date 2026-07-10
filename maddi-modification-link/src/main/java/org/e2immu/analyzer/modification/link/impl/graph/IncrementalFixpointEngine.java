@@ -293,18 +293,22 @@ public final class IncrementalFixpointEngine<V, L> {
     }
 
     public Set<V> replaceReturnAffected(V from, V to, L currentLabel, L newLabel) {
-        return replaceReturnAffected(new Fact<>(from, to, currentLabel), newLabel, reverse.apply(newLabel));
+        return replaceReturnAffected(new Fact<>(from, to, currentLabel), newLabel, reverse.apply(newLabel), new HashSet<>());
     }
 
-    private Set<V> replaceReturnAffected(Fact<V, L> fact, L newLabel, L reverseNewLabel) {
+    private Set<V> replaceReturnAffected(Fact<V, L> fact, L newLabel, L reverseNewLabel, Set<Fact<V, L>> visited) {
+        // the witness DAG is meant to be acyclic, but on deeply self-referential structures it can contain a cycle
+        // (io.codelaser...parseq); guard against re-entering a fact to avoid unbounded recursion. Fact equality is
+        // on source+target, and graph.replace is idempotent, so skipping an already-visited fact is safe.
+        if (!visited.add(fact)) return Set.of();
         Witness<V, L> witness = witnessIndex.get(fact);
         if (witness instanceof Witness.DirectWitness<V, L>) {
             return graph.replace(fact.source(), fact.target(), newLabel, reverseNewLabel)
                     ? Set.of(fact.source(), fact.target()) : Set.of();
         }
         if (witness instanceof Witness.CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right, _, _)) {
-            Set<V> set1 = left.label().equals(fact.label()) ? replaceReturnAffected(left, newLabel, reverseNewLabel) : Set.of();
-            Set<V> set2 = right.label().equals(fact.label()) ? replaceReturnAffected(right, newLabel, reverseNewLabel) : Set.of();
+            Set<V> set1 = left.label().equals(fact.label()) ? replaceReturnAffected(left, newLabel, reverseNewLabel, visited) : Set.of();
+            Set<V> set2 = right.label().equals(fact.label()) ? replaceReturnAffected(right, newLabel, reverseNewLabel, visited) : Set.of();
             return Stream.concat(Stream.concat(Stream.of(fact.source(), fact.target()), set1.stream()), set2.stream())
                     .collect(Collectors.toUnmodifiableSet());
         }
