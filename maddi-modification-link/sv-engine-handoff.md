@@ -11,9 +11,15 @@ Branch: **`sv-integration`** (off `openjdk`). `openjdk` itself is untouched and 
 ## STATUS UPDATE — the reconstruct half is now implemented (196 → 144 failing)
 
 The core gap this document described (collapse without reconstruct) has been **closed
-end-to-end**. The suite went **196 → 144 failing** (55 fixed, 1 genuine regression,
-2 order-dependent flakes). Foundational pins (`TestSimpleSharedVariable`,
-`staticvalues.TestSharedVariable`) are **green**. Four commits:
+end-to-end**. The suite went **196 → 140 failing**. Foundational pins
+(`TestSimpleSharedVariable`, `staticvalues.TestSharedVariable`) are **green**. Later work
+(after the four commits below): `acceptForLinkedVariables` implemented (crashes removed) +
+array rep-expansion (`8eb8319e`); §m generated for reconstructed edges — closes the
+enum-§m regression (`6a9f8092`, 144→141); transitive intra-group chain reconstruction, WIP
+(`338fa6e1`, 141→140 — constrained to pass-through intermediates; broadening to real locals
+needs a dimension guard). See `sv-remaining-catalogue.md` for the current 140 breakdown; the
+"assignment re-baselines" there proved to be reconstruct bugs, not re-baselines. The four
+foundational commits:
 
 - `8fd6567f` **reconstruct the collapse** — record assignment *direction* on the group
   (`SharedVariable.Assignment`), reconstruct `field ← param` at extraction
