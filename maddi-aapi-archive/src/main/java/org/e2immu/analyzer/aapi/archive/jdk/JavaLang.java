@@ -2720,7 +2720,7 @@ public class JavaLang {
         static Thread.Builder.OfPlatform ofPlatform() { return null; }
         static Thread.Builder.OfVirtual ofVirtual() { return null; }
         static Thread startVirtualThread(Runnable task) { return null; }
-        boolean isVirtual() { return false; }
+        @NotModified boolean isVirtual() { return false; }
         void start() { }
         //override from java.lang.Runnable
         void run() { }
@@ -2729,13 +2729,13 @@ public class JavaLang {
         @IgnoreModifications
         void interrupt() { }
         static boolean interrupted() { return false; }
-        boolean isInterrupted() { return false; }
-        boolean isAlive() { return false; }
+        @NotModified boolean isInterrupted() { return false; }
+        @NotModified boolean isAlive() { return false; }
         void setPriority(int newPriority) { }
-        int getPriority() { return 0; }
+        @NotModified int getPriority() { return 0; }
         void setName(String name) { }
-        String getName() { return null; }
-        ThreadGroup getThreadGroup() { return null; }
+        @NotModified String getName() { return null; }
+        @NotModified ThreadGroup getThreadGroup() { return null; }
         static int activeCount() { return 0; }
         static int enumerate(Thread [] tarray) { return 0; }
         void join(long millis) { }
@@ -2744,25 +2744,25 @@ public class JavaLang {
         boolean join(Duration duration) { return false; }
         static void dumpStack() { }
         void setDaemon(boolean on) { }
-        boolean isDaemon() { return false; }
+        @NotModified boolean isDaemon() { return false; }
         void checkAccess() { }
         //override from java.lang.Object
         //@NotModified[H] @NotNull[H]
         public String toString() { return null; }
-        ClassLoader getContextClassLoader() { return null; }
+        @NotModified ClassLoader getContextClassLoader() { return null; }
         void setContextClassLoader(ClassLoader cl) { }
         static boolean holdsLock(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object object) {
             return false;
         }
-        StackTraceElement [] getStackTrace() { return null; }
+        @NotModified StackTraceElement [] getStackTrace() { return null; }
         //@Independent[T]
-        static Map<Thread, StackTraceElement []> getAllStackTraces() { return null; }
-        long getId() { return 0L; }
+        @NotModified static Map<Thread, StackTraceElement []> getAllStackTraces() { return null; }
+        @NotModified long getId() { return 0L; }
         long threadId() { return 0L; }
-        Thread.State getState() { return null; }
+        @NotModified Thread.State getState() { return null; }
         static void setDefaultUncaughtExceptionHandler(Thread.UncaughtExceptionHandler ueh) { }
-        static Thread.UncaughtExceptionHandler getDefaultUncaughtExceptionHandler() { return null; }
-        Thread.UncaughtExceptionHandler getUncaughtExceptionHandler() { return null; }
+        @NotModified static Thread.UncaughtExceptionHandler getDefaultUncaughtExceptionHandler() { return null; }
+        @NotModified Thread.UncaughtExceptionHandler getUncaughtExceptionHandler() { return null; }
         void setUncaughtExceptionHandler(Thread.UncaughtExceptionHandler ueh) { }
     }
 
