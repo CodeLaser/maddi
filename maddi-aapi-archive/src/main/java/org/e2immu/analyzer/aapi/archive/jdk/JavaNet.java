@@ -17,9 +17,13 @@ import java.io.InputStream;
 import java.net.*;
 import java.nio.charset.Charset;
 
+import org.e2immu.annotation.ImmutableContainer;
+
 public class JavaNet {
     public static final String PACKAGE_NAME = "java.net";
     //public class InetAddress implements Serializable
+    // immutable value; not final (Inet4/6Address subtypes), so this lands as @Immutable(hc=true)
+    @ImmutableContainer
     class InetAddress$ {
         boolean isMulticastAddress() { return false; }
         boolean isAnyLocalAddress() { return false; }
@@ -61,6 +65,7 @@ public class JavaNet {
     }
 
     //public final class URI implements Comparable<URI>, Serializable
+    @ImmutableContainer
     class URI$ {
         //frequency 38
         URI$(String str) { }
@@ -115,6 +120,7 @@ public class JavaNet {
     }
 
     //public final class URL implements Serializable
+    @ImmutableContainer
     class URL$ {
         URL$(String protocol, String host, int port, String file) { }
         URL$(String protocol, String host, String file) { }
