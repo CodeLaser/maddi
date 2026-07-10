@@ -14,6 +14,7 @@
 
 package org.e2immu.gradleplugin;
 
+import org.e2immu.gradleplugin.task.AnalyzerTask;
 import org.e2immu.gradleplugin.task.WriteInputConfigurationTask;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
@@ -39,17 +40,30 @@ public class AnalyzerPlugin implements Plugin<Project> {
             Map<String, ActionBroadcast<AnalyzerProperties>> actionBroadcastMap = new HashMap<>();
             addExtensions(project, actionBroadcastMap);
 
-            // addTask(project, AnalyzerExtension.ANALYZER_TASK_NAME, AnalyzerTask.class,
-            //         "Analyses " + project + " and its sub-projects with the e2immu analyser.",
-            //         actionBroadcastMap);
+            LOGGER.debug("Adding " + AnalyzerExtension.ANALYZER_TASK_NAME + " task to " + project);
+            project.getTasks().register(AnalyzerExtension.ANALYZER_TASK_NAME,
+                    (Class<? extends ConventionTask>) AnalyzerTask.class, t -> {
+                        t.setDescription("Analyses " + project + " with the e2immu analyzer.");
+                        configureProperties(t, project, actionBroadcastMap);
+                        // the forked analyzer resolves relative source-set paths against this directory (the same
+                        // working directory AnalyzerPropertyComputer used to compute those paths)
+                        t.getConventionMapping().map("workingDirectory", () -> {
+                            String wd = project.getExtensions().getByType(AnalyzerExtension.class).workingDirectory;
+                            return wd == null || wd.isBlank() ? project.getProjectDir() : new File(wd);
+                        });
+                        dependOnCompileTasks(t, project);
+                    });
+
             LOGGER.debug("Adding " + AnalyzerExtension.WRITE_INPUT_CONFIGURATION_TASK_NAME + " task to " + project);
             project.getTasks().register(AnalyzerExtension.WRITE_INPUT_CONFIGURATION_TASK_NAME,
                     (Class<? extends ConventionTask>) WriteInputConfigurationTask.class, t -> {
                         t.setDescription("Writes out the input configuration of the project to a json file");
-                      //  File buildDir = project.getLayout().getBuildDirectory().get().getAsFile();
-                  //      t.getOutputs().file(new File(buildDir, "inputConfiguration.json"));
-                        configureTask(t, project, actionBroadcastMap);
-
+                        configureProperties(t, project, actionBroadcastMap);
+                        t.getConventionMapping().map("outputFile", () -> {
+                            File buildDir = project.getLayout().getBuildDirectory().get().getAsFile();
+                            return new File(buildDir, "inputConfiguration.json");
+                        });
+                        dependOnCompileTasks(t, project);
                     });
         }
     }
@@ -63,15 +77,15 @@ public class AnalyzerPlugin implements Plugin<Project> {
         });
     }
 
-    private void configureTask(ConventionTask task, Project project, Map<String, ActionBroadcast<AnalyzerProperties>> actionBroadcastMap) {
+    // this will call the AnalyzerPropertyComputer to populate the 'properties' of the task just before running it
+    private void configureProperties(ConventionTask task, Project project, Map<String, ActionBroadcast<AnalyzerProperties>> actionBroadcastMap) {
         ConventionMapping conventionMapping = task.getConventionMapping();
-        // this will call the AnalyzerPropertyComputer to populate the properties of the task just before running it
         conventionMapping.map("properties",
                 () -> new AnalyzerPropertyComputer(actionBroadcastMap, project).computeProperties());
-        conventionMapping.map("outputFile", () -> {
-            File buildDir = project.getLayout().getBuildDirectory().get().getAsFile();
-            return new File(buildDir, "inputConfiguration.json");
-        });
+    }
+
+    // the analyzer needs the compiled classes on the classpath, so run after the (non-skipped) Java compilations
+    private void dependOnCompileTasks(ConventionTask task, Project project) {
         Callable<Iterable<? extends Task>> compileTasks = () -> project.getAllprojects().stream()
                 .filter(p -> p.getPlugins().hasPlugin(JavaPlugin.class)
                              && !p.getExtensions().getByType(AnalyzerExtension.class).skipProject)

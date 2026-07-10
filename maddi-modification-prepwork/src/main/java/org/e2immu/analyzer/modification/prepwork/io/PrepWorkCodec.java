@@ -15,15 +15,20 @@
 package org.e2immu.analyzer.modification.prepwork.io;
 
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField;
+import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyProviderImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.cst.io.CodecImpl;
 
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 
@@ -50,6 +55,25 @@ public class PrepWorkCodec {
     class C extends CodecImpl {
         public C(Runtime runtime) {
             super(runtime, propertyProvider, decoderProvider, typeProvider, sourceSetOfRequest);
+        }
+
+        // the prep-work introduces the ReturnVariable, which the base codec (CST-only) does not know; encode it
+        // as ["R", <methodInfo>] and decode symmetrically, so linked-variable results round-trip
+        @Override
+        public EncodedValue encodeVariable(Context context, Variable variable) {
+            if (variable instanceof ReturnVariable rv) {
+                return encodeList(context, List.of(encodeString(context, "R"),
+                        encodeInfoOutOfContext(context, rv.methodInfo())));
+            }
+            return super.encodeVariable(context, variable);
+        }
+
+        @Override
+        protected Variable decodeVariable(Context context, String s, List<EncodedValue> list) {
+            if ("R".equals(s)) {
+                return new ReturnVariableImpl((MethodInfo) decodeInfoOutOfContext(context, list.get(1)));
+            }
+            return super.decodeVariable(context, s, list);
         }
     }
 
