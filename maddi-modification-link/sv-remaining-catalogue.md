@@ -4,15 +4,15 @@ Snapshot at `eaf67350` (`sv-integration`), full `:maddi-modification-link:test` 
 Baseline was 196; the reconstruct work (see `sv-engine-handoff.md` → STATUS UPDATE)
 brought it to **144/383**. This is the current, categorised to-do.
 
-> **Instability — diagnosed and fixed.** Earlier, two full runs disagreed on ~40 of the
-> 144 (which tests fail flipped run-to-run). Root cause: **not** the engine — a *serial*
-> run is byte-identical across repeats. It was `maxParallelForks = 4` + JVM-global state
-> that leaks across test *classes* within a fork, so the (non-deterministic) class→fork
-> assignment changed the accumulated state. **Fix:** `forkEvery = 1` in `build.gradle.kts`
-> (fresh JVM per class) — two parallel runs are now byte-identical **and** match the serial
-> baseline (0 flips). The 144 below is the canonical, reproducible set. (Latent note: a
-> method's links still depend on JVM-global state — `forkEvery=1` isolates it at class
-> granularity but the underlying leak is worth eliminating for true purity.)
+> **Determinism — the suite IS deterministic (the "instability" was a measurement
+> artifact).** An earlier report of ~40 tests flipping between runs was wrong: it came from
+> diffing two captures made with **inconsistent HTML-entity decoding** (`T->R` vs
+> `T-&gt;R` counted as different tests). With a consistent XML parser, **three independent
+> parallel runs (`forks=4, forkEvery=0`) are byte-identical, and equal serial, monolith
+> (all classes in one JVM), and isolated (JVM per class)** — 0 flips across all. So the
+> counts below are canonical and reproducible; `forkEvery=1` was reverted (bought no
+> determinism, cost ~20% wall time). The known intermittent javac `SharedNameTable` issue
+> is mitigated by `-XDuseUnsharedTable=true`.
 
 ## Top-line breakdown
 
