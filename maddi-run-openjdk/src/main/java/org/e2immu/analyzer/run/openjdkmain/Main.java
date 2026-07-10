@@ -23,6 +23,7 @@ import org.e2immu.analyzer.run.config.Configuration;
 import org.e2immu.analyzer.run.config.GeneralConfiguration;
 import org.e2immu.analyzer.run.config.util.JsonStreaming;
 import org.e2immu.language.cst.impl.runtime.LanguageConfigurationImpl;
+import org.e2immu.analyzer.run.openjdkmain.javac.ParseJavacList;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.slf4j.Logger;
@@ -30,7 +31,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -62,6 +65,10 @@ public class Main {
     public static final String DEBUG = "debug";
 
     public static final String INPUT_CONFIGURATION = "input-configuration";
+    // third way to obtain the input configuration: derive it from a build/javac log (see javac.ParseJavacList)
+    public static final String COMPILE_LOG = "compile-log";
+    public static final String EXTRA_JMOD = "extra-jmod";
+    public static final String WRITE_INPUT_CONFIGURATION = "write-input-configuration";
 
     public static final String SOURCE = "source";
     public static final String TEST_SOURCE = "test-source";
@@ -116,11 +123,20 @@ public class Main {
         }
     }
 
-    private static int execute(String[] args) throws ParseException, IOException {
+    static int execute(String[] args) throws ParseException, IOException {
         CommandLineParser commandLineParser = new DefaultParser();
         Options options = createOptions();
         CommandLine cmd = commandLineParser.parse(options, args);
         Configuration configuration = parseConfiguration(cmd, options);
+
+        String writeInputConfiguration = cmd.getOptionValue(WRITE_INPUT_CONFIGURATION);
+        if (writeInputConfiguration != null) {
+            File file = new File(writeInputConfiguration);
+            LOGGER.info("Writing input configuration to {} and exiting (no analysis)", file);
+            JsonStreaming.objectMapper().writerWithDefaultPrettyPrinter()
+                    .writeValue(file, configuration.inputConfiguration());
+            return EXIT_OK;
+        }
 
         // the following will be output if the CONFIGURATION logger is active!
         LOGGER.debug("Configuration:\n{}", configuration);
@@ -244,6 +260,19 @@ public class Main {
         options.addOption(Option.builder().longOpt(INPUT_CONFIGURATION).hasArg().argName("FILE")
                 .desc("Directly specify the input configuration file").get());
 
+        options.addOption(Option.builder().longOpt(COMPILE_LOG).hasArg().argName("FILE")
+                .desc("Derive the input configuration from a build/javac log (raw 'javac ...', Gradle " +
+                      "'Compiler arguments: ...' or Maven '[DEBUG] -d ...' markers; .gz accepted). A third way to " +
+                      "obtain the input configuration, next to --" + INPUT_CONFIGURATION + " and the explicit --" +
+                      SOURCE + "/--" + CLASSPATH + " options.").get());
+        options.addOption(Option.builder().longOpt(EXTRA_JMOD).hasArg().argName("JMOD")
+                .desc("Extra Java module(s) (e.g. java.sql) to add to the classpath closure when deriving the input " +
+                      "configuration from --" + COMPILE_LOG + ". Repeatable.").get());
+        options.addOption(Option.builder().longOpt(WRITE_INPUT_CONFIGURATION).hasArg().argName("FILE")
+                .desc("Write the (derived) input configuration to FILE as JSON and exit, without running the " +
+                      "analysis. Combine with --" + COMPILE_LOG + " to capture a project's configuration for later " +
+                      "runs via --" + INPUT_CONFIGURATION + ".").get());
+
         options.addOption(Option.builder().longOpt(JRE).hasArg().argName("DIR")
                 .desc("Provide an alternative location for the Java Runtime Environment (JRE). " +
                       "If absent, the JRE from the analyser is used: '" + System.getProperty("java.home") + "'.").get());
@@ -316,6 +345,13 @@ public class Main {
             File file = new File(inputConfigurationFile);
             LOGGER.info("Reading inputConfiguration from file {}", inputConfigurationFile);
             return objectMapper.readValue(file, InputConfigurationImpl.class);
+        }
+        String compileLog = cmd.getOptionValue(COMPILE_LOG);
+        if (compileLog != null) {
+            String[] extraJmods = cmd.getOptionValues(EXTRA_JMOD);
+            List<String> extraJmodList = extraJmods == null ? List.of() : Arrays.asList(extraJmods);
+            LOGGER.info("Deriving inputConfiguration from compile log {} (extra jmods {})", compileLog, extraJmodList);
+            return new ParseJavacList().parse(Path.of(compileLog), extraJmodList);
         }
         InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder();
 
