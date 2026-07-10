@@ -39,15 +39,15 @@ public class AnalyzerExtension {
     public String excludeFromClasspath;
     public String workingDirectory;
 
-    /* from AnnotatedAPIConfiguration */
+    /* from AnalysisHintsConfiguration */
     // use case 1
-    public String analyzedAnnotatedApiDirs;
+    public String preloadAnalysisResultsDirs;
     // use case 2
-    public String analyzedAnnotatedApiTargetDir;
+    public String analysisResultsTargetDir;
     // use case 3
-    public String annotatedApiTargetDir;
-    public String annotatedApiPackages;
-    public String annotatedApiTargetPackage;
+    public String updatedHintsDir;
+    public String hintsPackages;
+    public String updatedHintsPackage;
 
 
     private final ActionBroadcast<AnalyzerProperties> propertiesActions;

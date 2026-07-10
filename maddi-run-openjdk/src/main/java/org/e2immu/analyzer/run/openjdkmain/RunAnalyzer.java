@@ -17,7 +17,7 @@ package org.e2immu.analyzer.run.openjdkmain;
 import ch.qos.logback.classic.Level;
 import org.e2immu.analyzer.aapi.parser.AnalysisHints;
 import org.e2immu.analyzer.aapi.parser.AnalysisHintsCompiler;
-import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfiguration;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
@@ -69,10 +69,10 @@ public class RunAnalyzer implements Runnable {
     @Override
     public void run() {
         try {
-            AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
-            // use cases 2 (AAPI -> AAAPI) and 3 (write updated hints): both go through the AnalysisHintsCompiler
-            if (ac != null && (ac.analyzedAnnotatedApiTargetDir() != null || ac.annotatedApiTargetDir() != null)) {
-                runAnnotatedApiCompiler();
+            AnalysisHintsConfiguration ac = configuration.analysisHintsConfiguration();
+            // use cases 2 (analysis hints -> analysis results) and 3 (write updated hints): both go through the AnalysisHintsCompiler
+            if (ac != null && (ac.analysisResultsTargetDir() != null || ac.updatedHintsDir() != null)) {
+                runAnalysisHintsCompiler();
                 return;
             }
             runAnalyzer();
@@ -103,7 +103,7 @@ public class RunAnalyzer implements Runnable {
         InputConfiguration inputConfiguration = configuration.inputConfiguration();
         javaInspector.initialize(inputConfiguration);
         javaInspector.preload("java.base::java.util");
-        AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
+        AnalysisHintsConfiguration ac = configuration.analysisHintsConfiguration();
 
         List<String> analysisSteps = configuration.generalConfiguration().analysisSteps();
         boolean modification = analysisSteps.contains(Main.AS_MODIFICATION);
@@ -113,12 +113,12 @@ public class RunAnalyzer implements Runnable {
                 sourceSetOfRequest = inputConfiguration.sourceSets().stream().findAny().orElse(null);
                 LOGGER.info("Cannot find a 'main' source set, default to {}", sourceSetOfRequest);
             }
-            // use case 1: load pre-analyzed annotated-API (AAAPI) results for library types, so their
+            // use case 1: load pre-analyzed analysis-hints (analysis results) results for library types, so their
             // annotations are available to the modification analysis
-            List<String> analyzedAnnotatedApiDirs = ac == null ? List.of() : ac.analyzedAnnotatedApiDirs();
-            if (!analyzedAnnotatedApiDirs.isEmpty()) {
-                LOGGER.info("Loading analyzed annotated API from {}", analyzedAnnotatedApiDirs);
-                new LoadAnalysisResults(javaInspector.runtime(), sourceSetOfRequest).go(analyzedAnnotatedApiDirs);
+            List<String> preloadAnalysisResultsDirs = ac == null ? List.of() : ac.preloadAnalysisResultsDirs();
+            if (!preloadAnalysisResultsDirs.isEmpty()) {
+                LOGGER.info("Loading analyzed analysis hints from {}", preloadAnalysisResultsDirs);
+                new LoadAnalysisResults(javaInspector.runtime(), sourceSetOfRequest).go(preloadAnalysisResultsDirs);
             }
         } else {
             LOGGER.info("Skip loading analyzed package files, modification analysis disabled.");
@@ -135,7 +135,7 @@ public class RunAnalyzer implements Runnable {
         assert summary.parseResult().primaryTypes().stream()
                 .flatMap(TypeInfo::recursiveSubTypeStream)
                 .noneMatch(ti -> ti.simpleName().endsWith("$"))
-                : "It looks like the annotated API types are part of the primary types of the parse result";
+                : "It looks like the analysis hints types are part of the primary types of the parse result";
 
         boolean printMemory = configuration.generalConfiguration().debugTargets().contains("memory");
         if (printMemory) {
@@ -161,7 +161,7 @@ public class RunAnalyzer implements Runnable {
                     parseResult.sourceSetToModuleInfoMap().values(),
                     externalsToAccept, parseOptions.parallel());
             assert ccg.graph().vertices().stream().noneMatch(v -> v.t() instanceof TypeInfo typeInfo && typeInfo.simpleName().endsWith("$"))
-                    : "It looks like the annotated API types are part of the call graph.";
+                    : "It looks like the analysis hints types are part of the call graph.";
 
             if (printMemory) {
                 printMemUse();
@@ -216,27 +216,27 @@ public class RunAnalyzer implements Runnable {
                 heapUsage.getInit() / MB, heapUsage.getUsed() / MB, heapUsage.getCommitted() / MB, heapUsage.getMax() / MB);
     }
     /**
-     * Use case 2 (compile AAPI sources into analyzed-annotated-API results) and use case 3 (write updated hint
+     * Use case 2 (compile analysis hints sources into analyzed-analysis-hints results) and use case 3 (write updated hint
      * files): both are driven by {@link AnalysisHintsCompiler}. We derive one {@link AnalysisHints} per (non
      * -library) source set of the input configuration -- library name and hints path from the source set,
-     * results directory from {@code analyzedAnnotatedApiTargetDir}, updated-hints directory from
-     * {@code annotatedApiTargetDir}, package filter from {@code annotatedApiPackages}, preload dirs from
-     * {@code analyzedAnnotatedApiDirs}.
+     * results directory from {@code analysisResultsTargetDir}, updated-hints directory from
+     * {@code updatedHintsDir}, package filter from {@code hintsPackages}, preload dirs from
+     * {@code preloadAnalysisResultsDirs}.
      */
-    private void runAnnotatedApiCompiler() throws IOException {
-        AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
+    private void runAnalysisHintsCompiler() throws IOException {
+        AnalysisHintsConfiguration ac = configuration.analysisHintsConfiguration();
         InputConfiguration inputConfiguration = configuration.inputConfiguration();
 
-        String resultsDir = ac.analyzedAnnotatedApiTargetDir() != null ? ac.analyzedAnnotatedApiTargetDir()
+        String resultsDir = ac.analysisResultsTargetDir() != null ? ac.analysisResultsTargetDir()
                 : configuration.generalConfiguration().analysisResultsDir();
         if (resultsDir == null || Main.AS_NONE.equalsIgnoreCase(resultsDir)) {
-            throw new IllegalStateException("Annotated-API compilation needs an "
-                                            + Main.ANALYZED_ANNOTATED_API_TARGET_DIR + " (or an "
+            throw new IllegalStateException("AnalysisHints compilation needs an "
+                                            + Main.ANALYSIS_RESULTS_TARGET_DIR + " (or an "
                                             + Main.ANALYSIS_RESULTS_DIR + ")");
         }
         Path analysisResultsDir = Path.of(resultsDir);
-        Path updatedHintsPath = ac.annotatedApiTargetDir() == null ? null : Path.of(ac.annotatedApiTargetDir());
-        String packagePrefix = ac.annotatedApiPackages().isEmpty() ? null : ac.annotatedApiPackages().getFirst();
+        Path updatedHintsPath = ac.updatedHintsDir() == null ? null : Path.of(ac.updatedHintsDir());
+        String packagePrefix = ac.hintsPackages().isEmpty() ? null : ac.hintsPackages().getFirst();
 
         AnalysisHintsCompiler compiler = new AnalysisHintsCompiler(configurationFactory());
         for (SourceSet sourceSet : inputConfiguration.sourceSets()) {
@@ -245,16 +245,16 @@ public class RunAnalyzer implements Runnable {
                     .setLibraryName(sourceSet.name())
                     .setHintsPath(sourceSet.sourceDirectories().getFirst())
                     .setPackagePrefix(packagePrefix)
-                    .setPreloadAnalysisResultsDirs(ac.analyzedAnnotatedApiDirs())
+                    .setPreloadAnalysisResultsDirs(ac.preloadAnalysisResultsDirs())
                     .setAnalysisResultsDir(analysisResultsDir)
                     .setUpdatedHintsPath(updatedHintsPath)
                     .build();
-            LOGGER.info("Compiling annotated API for source set {} (hints {})", sourceSet.name(),
+            LOGGER.info("Compiling analysis hints for source set {} (hints {})", sourceSet.name(),
                     sourceSet.sourceDirectories().getFirst());
             List<Message> messages = compiler.go(hints);
-            LOGGER.info("Annotated-API compilation of {} produced {} message(s)", sourceSet.name(), messages.size());
+            LOGGER.info("AnalysisHints compilation of {} produced {} message(s)", sourceSet.name(), messages.size());
         }
-        LOGGER.info("End of e2immu, annotated-API compiler mode.");
+        LOGGER.info("End of e2immu, analysis-hints compiler mode.");
     }
 
     /** A {@link JavaInspectorFactory} over the input configuration: its class-path parts are the dependencies,

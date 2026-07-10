@@ -27,28 +27,31 @@ Input sources
   - which Java modules to add to the classpath
   - when absent, the default modules are added. This is a very short list.
 
-Annotated APIs
+Analysis hints
 --------------
 
-- `analyzedAnnotatedApiDirs` (list of strings): 
-  - When absent, analyzed annotated APIs are read from the default location.
-  - When present, they are read from the locations specified here.
-  - When the first entry in this list starts with '+', the default locations are kept. 
-  - When present and empty, no analyzed annotated APIs are read.
+Analysis hints are hand-written `.java` files that annotate a library's API surface (`@Immutable`,
+`@Container`, `@NotNull`, …) for types the analyzer can't see the source of. Compiling them yields
+*analysis results* (`.json`), the precomputed analysis values loaded when analyzing code that uses those
+libraries.
 
-- `annotatedApiSourcePackages` (list of strings): 
-  - When included, treat part of the analyzer's input as annotated API sources to be processed.
-  - Each entry is a package name. Sources in this package will be processed.
+- `preloadAnalysisResultsDirs` (list of strings):
+  - Directories of pre-computed analysis results (`.json`) to load for library types (use case 1).
+  - When absent, results are read from the default location; when present and empty, none are read.
+
+- `hintsPackages` (list of strings):
+  - Restricts which packages of hint sources are processed (use cases 2 and 3).
   - When an entry ends in a dot, all sub-packages are included as well.
 
-- `analyzedAnnotatedApiTargetDirectory` (single string):
-  - Only relevant when `annotatedApiSourcePackages` is present. 
-  - Absent means that the analyzed versions are not written out. 
-  - Present defines where they will be written to.
+- `analysisResultsTargetDir` (single string):
+  - Where to write the compiled analysis results (`.json`) when processing hint sources (use case 2).
+  - Absent means the results are not written out.
 
-- `annotatedApiTargetDirectory` (single string):
-  - When present, write AAPI skeletons to this directory for all active source packages.
-  - Merge strategy: append!
+- `updatedHintsDir` (single string):
+  - Where to write updated analysis-hint (`.java`) files for the processed packages (use case 3).
+
+- `updatedHintsPackage` (single string):
+  - Target package for the written hint files.
 
   
 Analysis

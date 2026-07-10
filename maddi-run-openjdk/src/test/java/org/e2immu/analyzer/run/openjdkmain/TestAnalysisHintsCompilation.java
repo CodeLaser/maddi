@@ -1,6 +1,6 @@
 package org.e2immu.analyzer.run.openjdkmain;
 
-import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfigurationImpl;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfigurationImpl;
 import org.e2immu.analyzer.run.config.Configuration;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
@@ -17,7 +17,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class TestAnnotatedApiCompiler {
+public class TestAnalysisHintsCompilation {
 
     // use case 2: compile an AAPI package into analyzed-annotated-API (.json) results;
     // use case 3: also write updated AAPI hint (.java) files.
@@ -35,14 +35,14 @@ public class TestAnnotatedApiCompiler {
                         SourceSetImpl.sourceSetOf(org.e2immu.annotation.Container.class),
                         SourceSetImpl.sourceSetOf(org.slf4j.Logger.class))
                 .build();
-        AnnotatedAPIConfigurationImpl aapi = (AnnotatedAPIConfigurationImpl) new AnnotatedAPIConfigurationImpl.Builder()
-                .setAnalyzedAnnotatedApiTargetDir(resultsDir.toString())  // use case 2
-                .setAnnotatedApiTargetDir(hintsDir.toString())            // use case 3
-                .addAnnotatedApiPackages("org.e2immu.analyzer.aapi.archive.libs.log")
+        AnalysisHintsConfigurationImpl aapi = (AnalysisHintsConfigurationImpl) new AnalysisHintsConfigurationImpl.Builder()
+                .setAnalysisResultsTargetDir(resultsDir.toString())  // use case 2
+                .setUpdatedHintsDir(hintsDir.toString())            // use case 3
+                .addHintsPackages("org.e2immu.analyzer.aapi.archive.libs.log")
                 .build();
         Configuration configuration = new Configuration.Builder()
                 .setInputConfiguration(inputConfiguration)
-                .setAnnotatedAPIConfiguration(aapi)
+                .setAnalysisHintsConfiguration(aapi)
                 .build();
 
         RunAnalyzer runAnalyzer = new RunAnalyzer(configuration);
