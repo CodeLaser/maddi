@@ -474,6 +474,18 @@ public class TestJavaLang extends CommonTest {
         assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
 
+    // Thread is mutable and not a @Container, so its read accessors need explicit @NotModified;
+    // mutators (setName/start/interrupt) and interrupted() (clears the flag) stay @Modified.
+    @Test
+    public void testThreadGettersNonModifying() {
+        TypeInfo thread = compiledTypesManager().get(Thread.class);
+        for (String g : new String[]{"getName", "getPriority", "isAlive", "isDaemon", "getState"}) {
+            assertFalse(thread.findUniqueMethod(g, 0).isModifying(), () -> "Thread." + g + " must be non-modifying");
+        }
+        assertTrue(thread.findUniqueMethod("setName", 1).isModifying(), "setName modifies");
+        assertTrue(thread.findUniqueMethod("interrupted", 0).isModifying(), "interrupted() clears the flag");
+    }
+
     @Test
     public void testStackTraceElementImmutableContainer() {
         TypeInfo typeInfo = compiledTypesManager().get(StackTraceElement.class);
