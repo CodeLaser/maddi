@@ -140,7 +140,14 @@ public class TestJavaLang extends CommonTest {
     @Test
     public void testCharSequence() {
         TypeInfo typeInfo = compiledTypesManager().get(CharSequence.class);
-        testImmutableContainer(typeInfo, true);
+        // @Immutable(hc=true) but NOT a @Container: the getChars(...,char[] dst,...) default method fills
+        // its array argument, so dst is @Modified (and no longer forced @NotModified onto String/
+        // StringBuilder/StringBuffer.getChars via override).
+        assertSame(IMMUTABLE_HC, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
+        assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
+        assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
+        MethodInfo getChars = typeInfo.findUniqueMethod("getChars", 4);
+        assertTrue(getChars.parameters().get(2).isModified());
     }
 
     @Test
