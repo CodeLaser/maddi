@@ -143,6 +143,8 @@ public class JavaNetHttp {
         public int hashCode() { return 0; }
     }
 
+    //public interface HttpResponse<T>
+    @ImmutableContainer
     interface HttpResponse$ {
 
         @Independent
