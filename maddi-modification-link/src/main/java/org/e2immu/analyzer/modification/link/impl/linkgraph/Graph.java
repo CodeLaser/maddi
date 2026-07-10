@@ -97,6 +97,10 @@ public class Graph {
         }
     }
 
+    // diagnostic: NOSV=1 in the environment disables the shared-variable collapse (assignments stay first-class
+    // edges), so the O(N^2) part-of link explosion is not bounded. Used to demonstrate what sv prevents.
+    private static final boolean NOSV = System.getenv("NOSV") != null;
+
     boolean mergeEdgeBi(Variable from, LinkNature linkNature, Variable to, String statementIndex) {
         if (from.equals(to)) {
             return engine.addVertex(from); // safety measure, is technically possible
@@ -105,7 +109,7 @@ public class Graph {
         if (linkNature.isIdenticalTo() && Util.isVirtualModification(from)) {
             return virtualModificationIdenticals.add(from, linkNature, to);
         }
-        if (linkNature.isAssignedFrom() && !(to instanceof MarkerVariable)) {
+        if (!NOSV && linkNature.isAssignedFrom() && !(to instanceof MarkerVariable)) {
             boolean fromInGroups = sharedVariables.isKnown(from);
             if (fromInGroups) {
                 // reassignment: we must remove 'from' if present in any shared variable
