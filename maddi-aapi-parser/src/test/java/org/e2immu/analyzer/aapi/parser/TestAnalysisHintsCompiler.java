@@ -21,9 +21,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.file.Path;
-
-import static org.e2immu.analyzer.modification.common.CommonTest.javaInspectorFactory;
 
 public class TestAnalysisHintsCompiler extends CommonTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestAnalysisHintsCompiler.class);
@@ -36,19 +33,6 @@ public class TestAnalysisHintsCompiler extends CommonTest {
 
     @Test
     public void test() throws IOException {
-        AnalysisHintsCompiler compiler = new AnalysisHintsCompiler(javaInspectorFactory());
-        go(compiler, "jdk");
-        go(compiler, "libs/test");
-        go(compiler, "libs/log");
-    }
-
-    private void go(AnalysisHintsCompiler compiler, String library) throws IOException {
-        AnalysisHints ah = new AnalysisHints.Builder()
-                .setLibraryName(library)
-                .setAnalysisResultsDir(Path.of("../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/" + library))
-                .setHintsPath(Path.of("../maddi-aapi-archive/src/main/java"))
-                .setPackagePrefix("org.e2immu.analyzer.aapi.archive." + (library.replace("/", ".")))
-                .build();
-        compiler.go(ah);
+        CompileAnalysisHints.compileAll();
     }
 }

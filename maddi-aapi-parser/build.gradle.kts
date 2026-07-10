@@ -56,16 +56,32 @@ dependencies {
 }
 
 
+// the openjdk front-end's javac internals need these exports (shared by the Test tasks and the compile task)
+val javacAddExports = listOf(
+    "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+    "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+    "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+    "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+    "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+)
+
+// Regenerate the analysis-result (.json) files in maddi-aapi-archive from the hand-written hints, without
+// running it as a test: ./gradlew :maddi-aapi-parser:compileAnalysisHints
+tasks.register<JavaExec>("compileAnalysisHints") {
+    group = "e2immu"
+    description = "Compile the analysis hints (maddi-aapi-archive) into their analysis-result JSON files"
+    dependsOn(tasks.named("testClasses")) // CompileAnalysisHints + its factory live in the test source set
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("org.e2immu.analyzer.aapi.parser.CompileAnalysisHints")
+    workingDir = projectDir // paths in CompileAnalysisHints are relative to this module directory
+    maxHeapSize = "2G"
+    jvmArgs(javacAddExports)
+}
+
 tasks.withType<Test> {
     maxHeapSize = "2G"
 
-    jvmArgs(
-        "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-        "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
-    )
+    jvmArgs(javacAddExports)
 
     val impl = System.getProperty("maddi_parser", "maddi")
 
