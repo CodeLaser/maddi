@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class MakeJavacList {
@@ -21,25 +20,35 @@ public class MakeJavacList {
 
     static List<String> executeShell(Pattern pattern, String command) throws IOException {
         LOGGER.info("Executing command: {}", command);
-        try(Process process = new ProcessBuilder().command(command).start()) {
+        // `command` is a full command line (e.g. "mvn -X compile", or "cd x && ./gradlew ..."), not a single
+        // program: run it through a shell. The previous ProcessBuilder.command(command) passed the whole string
+        // as argv[0], so it was executed as one executable literally named with the embedded spaces. (POSIX shell;
+        // PATH is inherited from this JVM's environment, and this is Unix-only -- Windows would need "cmd", "/c".)
+        ProcessBuilder processBuilder = new ProcessBuilder("/bin/sh", "-c", command)
+                // stream the subprocess's stderr straight through ours, so a full stderr pipe buffer cannot
+                // deadlock the stdout reader below (previously stderr was drained only after stdout reached EOF).
+                .redirectError(ProcessBuilder.Redirect.INHERIT);
+        try (Process process = processBuilder.start()) {
             List<String> matchingStdOutLines = new LinkedList<>();
-
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                Matcher m = pattern == null ? null : pattern.matcher(line);
-                if (m != null && m.matches()) {
-                    matchingStdOutLines.add(line);
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (pattern != null && pattern.matcher(line).matches()) {
+                        matchingStdOutLines.add(line);
+                    }
                 }
             }
-            BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-            while ((line = errorReader.readLine()) != null) {
-                System.err.println(line);
+            int exitValue = process.waitFor();
+            if (exitValue != 0) {
+                LOGGER.warn("Command exited with value {}: {}", exitValue, command);
             }
             if (pattern != null) {
                 LOGGER.info("Grepped {} javac lines", matchingStdOutLines.size());
             }
             return matchingStdOutLines;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while waiting for command: " + command, e);
         }
     }
 }
