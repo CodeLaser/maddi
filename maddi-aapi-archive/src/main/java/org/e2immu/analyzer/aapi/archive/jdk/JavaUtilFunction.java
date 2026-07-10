@@ -87,6 +87,10 @@ public class JavaUtilFunction {
         }
     }
 
+    //public interface BooleanSupplier
+    @Independent(hc = true)
+    class BooleanSupplier$ { }
+
     //public interface Consumer
     @Independent(hc = true)
     class Consumer$<T> {
@@ -100,11 +104,19 @@ public class JavaUtilFunction {
         }
     }
 
+    //public interface DoubleBinaryOperator
+    @Independent(hc = true)
+    class DoubleBinaryOperator$ { }
+
     //public interface DoubleConsumer
     @Independent(hc = true)
     class DoubleConsumer$ {
         @NotModified @NotNull DoubleConsumer andThen(/*@IgnoreModifications[T]*/ @NotNull DoubleConsumer after) { return null; }
     }
+
+    //public interface DoubleFunction
+    @Independent(hc = true)
+    class DoubleFunction$<R> { }
 
     //public interface DoublePredicate
     @Independent(hc = true)
@@ -113,6 +125,18 @@ public class JavaUtilFunction {
         @NotModified @NotNull DoublePredicate negate() { return null; }
         @NotModified @NotNull DoublePredicate or(/*@IgnoreModifications[T]*/ @NotNull DoublePredicate other) { return null; }
     }
+
+    //public interface DoubleSupplier
+    @Independent(hc = true)
+    class DoubleSupplier$ { }
+
+    //public interface DoubleToIntFunction
+    @Independent(hc = true)
+    class DoubleToIntFunction$ { }
+
+    //public interface DoubleToLongFunction
+    @Independent(hc = true)
+    class DoubleToLongFunction$ { }
 
     //public interface DoubleUnaryOperator
     @Independent(hc = true)
@@ -148,6 +172,10 @@ public class JavaUtilFunction {
         static <T> Function<T, T> identity() { return null; }
     }
 
+    //public interface IntBinaryOperator
+    @Independent(hc = true)
+    class IntBinaryOperator$ { }
+
     //public interface IntConsumer
     @Independent(hc = true)
     class IntConsumer$ {
@@ -169,6 +197,18 @@ public class JavaUtilFunction {
         @NotModified @NotNull IntPredicate or(/*@IgnoreModifications[T]*/ @NotNull IntPredicate other) { return null; }
     }
 
+    //public interface IntSupplier
+    @Independent(hc = true)
+    class IntSupplier$ { }
+
+    //public interface IntToDoubleFunction
+    @Independent(hc = true)
+    class IntToDoubleFunction$ { }
+
+    //public interface IntToLongFunction
+    @Independent(hc = true)
+    class IntToLongFunction$ { }
+
     //public interface IntUnaryOperator
     @Independent(hc = true)
     class IntUnaryOperator$ {
@@ -176,11 +216,19 @@ public class JavaUtilFunction {
         @NotModified @NotNull IntUnaryOperator andThen(/*@IgnoreModifications[T]*/ @NotNull IntUnaryOperator after) { return null; }
     }
 
+    //public interface LongBinaryOperator
+    @Independent(hc = true)
+    class LongBinaryOperator$ { }
+
     //public interface LongConsumer
     @Independent(hc = true)
     class LongConsumer$ {
         @NotModified @NotNull LongConsumer andThen(/*@IgnoreModifications[T]*/ @NotNull LongConsumer after) { return null; }
     }
+
+    //public interface LongFunction
+    @Independent(hc = true)
+    class LongFunction$<R> { }
 
     //public interface LongPredicate
     @Independent(hc = true)
@@ -190,11 +238,41 @@ public class JavaUtilFunction {
         @NotModified @NotNull LongPredicate or(/*@IgnoreModifications[T]*/ @NotNull LongPredicate other) { return null; }
     }
 
+    //public interface LongSupplier
+    @Independent(hc = true)
+    class LongSupplier$ { }
+
+    //public interface LongToDoubleFunction
+    @Independent(hc = true)
+    class LongToDoubleFunction$ { }
+
+    //public interface LongToIntFunction
+    @Independent(hc = true)
+    class LongToIntFunction$ { }
+
     //public interface LongUnaryOperator
     @Independent(hc = true)
     class LongUnaryOperator$ {
         @NotModified @NotNull LongUnaryOperator compose(/*@IgnoreModifications[T]*/ @NotNull LongUnaryOperator before) { return null; }
         @NotModified @NotNull LongUnaryOperator andThen(/*@IgnoreModifications[T]*/ @NotNull LongUnaryOperator after) { return null; }
+    }
+
+    //public interface ObjDoubleConsumer
+    @Independent(hc = true)
+    class ObjDoubleConsumer$<T> {
+        void accept(@Modified T t, double value) { }
+    }
+
+    //public interface ObjIntConsumer
+    @Independent(hc = true)
+    class ObjIntConsumer$<T> {
+        void accept(@Modified T t, int value) { }
+    }
+
+    //public interface ObjLongConsumer
+    @Independent(hc = true)
+    class ObjLongConsumer$<T> {
+        void accept(@Modified T t, long value) { }
     }
 
     //public interface Predicate
@@ -220,6 +298,42 @@ public class JavaUtilFunction {
     class Supplier$<T> {
         //@Independent(hc=true)[O]
         T get() { return null; }
+    }
+
+    //public interface ToDoubleBiFunction
+    @Independent(hc = true)
+    class ToDoubleBiFunction$<T, U> {
+        double applyAsDouble(@Modified T t, @Modified U u) { return 0.0; }
+    }
+
+    //public interface ToDoubleFunction
+    @Independent(hc = true)
+    class ToDoubleFunction$<T> {
+        double applyAsDouble(@Modified T value) { return 0.0; }
+    }
+
+    //public interface ToIntBiFunction
+    @Independent(hc = true)
+    class ToIntBiFunction$<T, U> {
+        int applyAsInt(@Modified T t, @Modified U u) { return 0; }
+    }
+
+    //public interface ToIntFunction
+    @Independent(hc = true)
+    class ToIntFunction$<T> {
+        int applyAsInt(@Modified T value) { return 0; }
+    }
+
+    //public interface ToLongBiFunction
+    @Independent(hc = true)
+    class ToLongBiFunction$<T, U> {
+        long applyAsLong(@Modified T t, @Modified U u) { return 0L; }
+    }
+
+    //public interface ToLongFunction
+    @Independent(hc = true)
+    class ToLongFunction$<T> {
+        long applyAsLong(@Modified T value) { return 0L; }
     }
 
     //public interface UnaryOperator implements Function<T,T>
