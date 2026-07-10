@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import java.awt.*;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.COMMUTABLE_METHODS;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -71,5 +72,16 @@ public class TestJavaAwt extends CommonTest {
     private void testCommutable(MethodInfo methodInfo) {
         Value.CommutableData cd = methodInfo.analysis().getOrNull(COMMUTABLE_METHODS, ValueImpl.CommutableData.class);
         assertTrue(cd.isBlankMultiParSeq());
+    }
+
+    // These mutable AWT components are not @Container/@Immutable, so their read accessors need explicit
+    // @NotModified; only the mutators (setX/paint/add) modify.
+    @Test
+    public void testComponentGettersNonModifying() {
+        TypeInfo component = compiledTypesManager().get(Component.class);
+        for (String g : new String[]{"getWidth", "getHeight", "getX", "getY", "isVisible", "isEnabled"}) {
+            assertFalse(component.findUniqueMethod(g, 0).isModifying(), () -> "Component." + g + " must be non-modifying");
+        }
+        assertTrue(component.findUniqueMethod("setVisible", 1).isModifying(), "setVisible modifies");
     }
 }
