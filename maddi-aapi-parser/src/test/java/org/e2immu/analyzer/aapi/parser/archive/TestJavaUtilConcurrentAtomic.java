@@ -34,10 +34,12 @@ import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.IN
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT_HC;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestJavaUtilConcurrentAtomic extends CommonTest {
 
     // AtomicBoolean/AtomicInteger hold an immutable primitive: @Container + deep @Independent.
+    // get() reads and must be non-modifying (set()/getAndSet()/incrementAndGet() do modify).
     @Test
     public void testAtomicPrimitiveHolders() {
         for (Class<?> c : new Class<?>[]{AtomicBoolean.class, AtomicInteger.class}) {
@@ -46,6 +48,10 @@ public class TestJavaUtilConcurrentAtomic extends CommonTest {
                     () -> c.getSimpleName() + " should be a @Container");
             assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT),
                     () -> c.getSimpleName() + " should be deep @Independent");
+            assertFalse(typeInfo.findUniqueMethod("get", 0).isModifying(),
+                    () -> c.getSimpleName() + ".get() must be non-modifying");
+            assertTrue(typeInfo.findUniqueMethod("set", 1).isModifying(),
+                    () -> c.getSimpleName() + ".set() modifies");
         }
     }
 
@@ -59,6 +65,7 @@ public class TestJavaUtilConcurrentAtomic extends CommonTest {
 
         // set(V) mutates the holder (isModifying), but does NOT modify V's content, and the V
         // parameter shares hidden content with the holder -> @Independent(hc=true).
+        assertFalse(typeInfo.findUniqueMethod("get", 0).isModifying(), "AtomicReference.get() must be non-modifying");
         MethodInfo set = typeInfo.findUniqueMethod("set", 1);
         ParameterInfo p0 = set.parameters().getFirst();
         assertFalse(p0.isModified());

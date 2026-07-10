@@ -39,6 +39,7 @@ import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DE
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT_HC;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestJavaUtilConcurrent extends CommonTest {
 
@@ -62,6 +63,22 @@ public class TestJavaUtilConcurrent extends CommonTest {
             assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT),
                     () -> c.getSimpleName() + " should be @Independent(hc=true)");
         }
+    }
+
+    // Query methods on the futures read state and must be non-modifying (isDone/get); the mutating
+    // methods (cancel/complete) stay @Modified.
+    @Test
+    public void testFutureQueriesNonModifying() {
+        for (Class<?> c : new Class<?>[]{Future.class, CompletableFuture.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertFalse(typeInfo.findUniqueMethod("isDone", 0).isModifying(),
+                    () -> c.getSimpleName() + ".isDone() must be non-modifying");
+            assertFalse(typeInfo.findUniqueMethod("get", 0).isModifying(),
+                    () -> c.getSimpleName() + ".get() must be non-modifying");
+        }
+        TypeInfo cf = compiledTypesManager().get(CompletableFuture.class);
+        assertFalse(cf.findUniqueMethod("join", 0).isModifying(), "CompletableFuture.join() must be non-modifying");
+        assertTrue(cf.findUniqueMethod("complete", 1).isModifying(), "CompletableFuture.complete() modifies");
     }
 
     // ConcurrentHashMap(Map) copies entries, so the source-map parameter is @Independent(hc=true).

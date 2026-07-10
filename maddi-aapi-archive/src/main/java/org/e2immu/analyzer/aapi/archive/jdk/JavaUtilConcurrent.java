@@ -22,6 +22,7 @@ import java.util.stream.LongStream;
 
 import org.e2immu.annotation.Container;
 import org.e2immu.annotation.Independent;
+import org.e2immu.annotation.NotModified;
 import org.e2immu.annotation.NotNull;
 
 public class JavaUtilConcurrent {
@@ -48,30 +49,30 @@ public class JavaUtilConcurrent {
 
         //override from java.util.concurrent.Future
         //frequency 1
-        boolean isDone() { return false; }
+        @NotModified boolean isDone() { return false; }
 
         //override from java.util.concurrent.Future
         //frequency 1
         //@Independent(hc=true)[H]
-        T get() { return null; }
+        @NotModified T get() { return null; }
 
         //override from java.util.concurrent.Future
         //@Independent(hc=true)[H]
-        T get(long timeout, TimeUnit timeUnit) { return null; }
+        @NotModified T get(long timeout, TimeUnit timeUnit) { return null; }
 
         //frequency 12
         //@Independent(hc=true)[T]
-        T join() { return null; }
+        @NotModified T join() { return null; }
 
         //@Independent(hc=true)[T]
-        T getNow(/*@Independent(hc=true)[T] @NotModified[T]*/ T valueIfAbsent) { return null; }
+        @NotModified T getNow(/*@Independent(hc=true)[T] @NotModified[T]*/ T valueIfAbsent) { return null; }
 
         //override from java.util.concurrent.Future
         //@Independent(hc=true)[H]
-        T resultNow() { return null; }
+        @NotModified T resultNow() { return null; }
 
         //override from java.util.concurrent.Future
-        Throwable exceptionNow() { return null; }
+        @NotModified Throwable exceptionNow() { return null; }
         boolean complete(/*@Independent(hc=true)[T] @NotModified[T]*/ T value) { return false; }
         boolean completeExceptionally(Throwable ex) { return false; }
         //override from java.util.concurrent.CompletionStage
@@ -272,13 +273,13 @@ public class JavaUtilConcurrent {
         boolean cancel(boolean mayInterruptIfRunning) { return false; }
 
         //override from java.util.concurrent.Future
-        boolean isCancelled() { return false; }
-        boolean isCompletedExceptionally() { return false; }
+        @NotModified boolean isCancelled() { return false; }
+        @NotModified boolean isCompletedExceptionally() { return false; }
         //override from java.util.concurrent.Future
-        Future.State state() { return null; }
+        @NotModified Future.State state() { return null; }
         void obtrudeValue(/*@Independent(hc=true)[T] @NotModified[T]*/ T value) { }
         void obtrudeException(Throwable ex) { }
-        int getNumberOfDependents() { return 0; }
+        @NotModified int getNumberOfDependents() { return 0; }
         //override from java.lang.Object
         //@NotModified[H] @NotNull[H]
         public String toString() { return null; }
@@ -946,21 +947,21 @@ public class JavaUtilConcurrent {
             static Future.State valueOf(String name) { return null; }
         }
         boolean cancel(boolean b) { return false; }
-        boolean isCancelled() { return false; }
+        @NotModified boolean isCancelled() { return false; }
         //override has frequency 1
-        boolean isDone() { return false; }
+        @NotModified boolean isDone() { return false; }
 
         //frequency 6
         //@Independent(hc=true)[T]
-        V get() { return null; }
+        @NotModified V get() { return null; }
 
         //@Independent(hc=true)[T]
-        V get(long l, TimeUnit timeUnit) { return null; }
+        @NotModified V get(long l, TimeUnit timeUnit) { return null; }
 
         //@Independent(hc=true)[T]
-        V resultNow() { return null; }
-        Throwable exceptionNow() { return null; }
-        Future.State state() { return null; }
+        @NotModified V resultNow() { return null; }
+        @NotModified Throwable exceptionNow() { return null; }
+        @NotModified Future.State state() { return null; }
     }
 
     //public interface ThreadFactory
