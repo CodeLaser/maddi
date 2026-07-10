@@ -15,26 +15,28 @@
 package org.e2immu.analyzer.run.openjdkmain;
 
 import ch.qos.logback.classic.Level;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsParser;
+import org.e2immu.analyzer.aapi.parser.AnalysisHints;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsCompiler;
 import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsComposer;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
-import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
 import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
 import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
 import org.e2immu.analyzer.run.config.Configuration;
+import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
+import org.e2immu.language.inspection.api.integration.JavaInspectorFactory;
 import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.openjdk.JavaInspectorImpl;
+import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.e2immu.util.internal.util.Trie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +45,7 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -66,15 +69,12 @@ public class RunAnalyzer implements Runnable {
     @Override
     public void run() {
         try {
-     /*       AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
-            if (ac.annotatedApiTargetDir() != null) {
-                runComposer();
+            AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
+            // use cases 2 (AAPI -> AAAPI) and 3 (write updated hints): both go through the AnalysisHintsCompiler
+            if (ac != null && (ac.analyzedAnnotatedApiTargetDir() != null || ac.annotatedApiTargetDir() != null)) {
+                runAnnotatedApiCompiler();
                 return;
             }
-            if (ac.analyzedAnnotatedApiTargetDir() != null) {
-                runShallowAnalyzer();
-                return;
-            }*/
             runAnalyzer();
         } catch (Summary.FailFastException ffe) {
             Throwable cause = ffe.getCause();
@@ -215,56 +215,74 @@ public class RunAnalyzer implements Runnable {
         LOGGER.info("Heap Memory Usage: {} MB initial, {} MB used, {} MB committed, {} MB max",
                 heapUsage.getInit() / MB, heapUsage.getUsed() / MB, heapUsage.getCommitted() / MB, heapUsage.getMax() / MB);
     }
-/*
-    private void runShallowAnalyzer() throws IOException {
+    /**
+     * Use case 2 (compile AAPI sources into analyzed-annotated-API results) and use case 3 (write updated hint
+     * files): both are driven by {@link AnalysisHintsCompiler}. We derive one {@link AnalysisHints} per (non
+     * -library) source set of the input configuration -- library name and hints path from the source set,
+     * results directory from {@code analyzedAnnotatedApiTargetDir}, updated-hints directory from
+     * {@code annotatedApiTargetDir}, package filter from {@code annotatedApiPackages}, preload dirs from
+     * {@code analyzedAnnotatedApiDirs}.
+     */
+    private void runAnnotatedApiCompiler() throws IOException {
         AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
-        AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser();
+        InputConfiguration inputConfiguration = configuration.inputConfiguration();
 
-        analysisHintsParser.initialize(configuration.inputConfiguration(), ac);
-        LOGGER.info("AAPI parser finds {} types", analysisHintsParser.types().size());
-        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(analysisHintsParser.runtime(), analysisHintsParser,
-                true);
-        Trie<TypeInfo> trie = new Trie<>();
-        ShallowAnalyzer.Result rs = shallowAnalyzer.go(analysisHintsParser.typesParsed());
-        LOGGER.info("Shallow analyzer found {} types", rs.allTypes().size());
-        analysisHintsParser.types().forEach(ti -> trie.add(ti.packageName().split("\\."), ti));
-        WriteAnalysis writeAnalysis = new WriteAnalysis(analysisHintsParser.runtime());
-        writeAnalysis.write(ac.analyzedAnnotatedApiTargetDir(), trie);
+        String resultsDir = ac.analyzedAnnotatedApiTargetDir() != null ? ac.analyzedAnnotatedApiTargetDir()
+                : configuration.generalConfiguration().analysisResultsDir();
+        if (resultsDir == null || Main.AS_NONE.equalsIgnoreCase(resultsDir)) {
+            throw new IllegalStateException("Annotated-API compilation needs an "
+                                            + Main.ANALYZED_ANNOTATED_API_TARGET_DIR + " (or an "
+                                            + Main.ANALYSIS_RESULTS_DIR + ")");
+        }
+        Path analysisResultsDir = Path.of(resultsDir);
+        Path updatedHintsPath = ac.annotatedApiTargetDir() == null ? null : Path.of(ac.annotatedApiTargetDir());
+        String packagePrefix = ac.annotatedApiPackages().isEmpty() ? null : ac.annotatedApiPackages().getFirst();
 
-        LOGGER.info("End of e2immu main, AAPI->AAAPI shallow analyzer.");
+        AnalysisHintsCompiler compiler = new AnalysisHintsCompiler(configurationFactory());
+        for (SourceSet sourceSet : inputConfiguration.sourceSets()) {
+            if (sourceSet.externalLibrary() || sourceSet.sourceDirectories().isEmpty()) continue;
+            AnalysisHints hints = new AnalysisHints.Builder()
+                    .setLibraryName(sourceSet.name())
+                    .setHintsPath(sourceSet.sourceDirectories().getFirst())
+                    .setPackagePrefix(packagePrefix)
+                    .setPreloadAnalysisResultsDirs(ac.analyzedAnnotatedApiDirs())
+                    .setAnalysisResultsDir(analysisResultsDir)
+                    .setUpdatedHintsPath(updatedHintsPath)
+                    .build();
+            LOGGER.info("Compiling annotated API for source set {} (hints {})", sourceSet.name(),
+                    sourceSet.sourceDirectories().getFirst());
+            List<Message> messages = compiler.go(hints);
+            LOGGER.info("Annotated-API compilation of {} produced {} message(s)", sourceSet.name(), messages.size());
+        }
+        LOGGER.info("End of e2immu, annotated-API compiler mode.");
     }
 
-    private void runComposer() throws IOException {
-        JavaInspector javaInspector = new JavaInspectorImpl();
+    /** A {@link JavaInspectorFactory} over the input configuration: its class-path parts are the dependencies,
+     * and each requested source set becomes the sole source of a fresh openjdk inspector. */
+    private JavaInspectorFactory configurationFactory() {
+        InputConfiguration inputConfiguration = configuration.inputConfiguration();
+        List<SourceSet> classPathParts = inputConfiguration.classPathParts();
+        String workingDirectory = inputConfiguration.workingDirectory() == null ? null
+                : inputConfiguration.workingDirectory().toString();
+        return new JavaInspectorFactory() {
+            @Override
+            public List<SourceSet> dependencies() {
+                return classPathParts;
+            }
 
-        javaInspector.initialize(configuration.inputConfiguration());
-
-        AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
-        String destinationPackage = ac.annotatedApiTargetPackage() == null ? "" : ac.annotatedApiTargetPackage();
-        Predicate<Info> filter;
-        if (ac.annotatedApiPackages().isEmpty()) {
-            filter = _ -> true;
-            LOGGER.info("No filter.");
-        } else {
-            filter = new PackageFilter(ac.annotatedApiPackages());
-            LOGGER.info("Created package filter based on {}", ac.annotatedApiPackages());
-        }
-        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, _ -> destinationPackage, filter);
-        List<TypeInfo> compiledPrimaryTypes = javaInspector.compiledTypesManager()
-                .typesLoaded(true).stream().filter(TypeInfo::isPrimaryType).toList();
-        LOGGER.info("Loaded {} compiled primary types", compiledPrimaryTypes.size());
-
-        JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder().setFailFast(true).build();
-        Summary summary = javaInspector.parse(parseOptions);
-        Collection<TypeInfo> sourcePrimaryTypes = summary.types();
-        LOGGER.info("Parsed {} primary source types", sourcePrimaryTypes.size());
-
-        List<TypeInfo> primaryTypes = Stream.concat(compiledPrimaryTypes.stream(), sourcePrimaryTypes.stream()).toList();
-        Collection<TypeInfo> apiTypes = analysisHintsComposer.compose(primaryTypes);
-        analysisHintsComposer.write(apiTypes, ac.annotatedApiTargetDir(), null);
-
-        LOGGER.info("End of e2immu main, AAPI skeleton generation mode.");
-    }*/
+            @Override
+            public JavaInspector withSources(SourceSet sourceSet) throws IOException {
+                JavaInspector javaInspector = new JavaInspectorImpl(true, false);
+                InputConfiguration hintsInput = new InputConfigurationImpl.Builder()
+                        .setWorkingDirectory(workingDirectory)
+                        .addSourceSets(sourceSet)
+                        .addClassPathParts(classPathParts)
+                        .build();
+                javaInspector.initialize(hintsInput);
+                return javaInspector;
+            }
+        };
+    }
 
     record PackageFilter(List<String> acceptedPackages) implements Predicate<Info> {
 
