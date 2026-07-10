@@ -162,7 +162,21 @@ class WriteLinksAndModification {
         // containsPrimaryOf: the summary of a both-fresh group has no external edge yet to anchor to.
         followGraph.graph().sharedAssignmentEdgeStream(variable)
                 .filter(link -> !builder.contains(link.from(), link.linkNature(), link.to()))
-                .forEach(link -> builder.add(link.from(), link.linkNature(), link.to()));
+                .forEach(link -> {
+                    builder.add(link.from(), link.linkNature(), link.to());
+                    // a real assignment graph edge gets its §m modification-equivalence generated in FollowGraph;
+                    // a reconstructed intra-group edge bypasses it, so add it here too (this.list ← 0:l yields
+                    // 0:l.§m ≡ this.list.§m). Same guards as FollowGraph: skip return values and virtual fields.
+                    Variable f = link.from(), t = link.to();
+                    if (!(Util.primary(f) instanceof ReturnVariable) && !(Util.primary(t) instanceof ReturnVariable)
+                        && !Util.virtual(f) && !Util.virtual(t) && virtualFieldComputer != null) {
+                        VirtualFieldComputer.M2 m2 = virtualFieldComputer.addModificationFieldEquivalence(f, t);
+                        LinkNature id = LinkNatureImpl.makeIdenticalTo(null);
+                        if (m2 != null && !builder.contains(m2.m1(), id, m2.m2())) {
+                            builder.add(m2.m1(), id, m2.m2());
+                        }
+                    }
+                });
         // finally, modification edges
         followGraph.graph().virtualModificationEdgeStream(variable)
                 .filter(link -> builder.containsPrimaryOf(link.to()))
