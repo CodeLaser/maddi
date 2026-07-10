@@ -643,12 +643,13 @@ public class JavaUtilConcurrent {
                 ? super V,
                 ? extends V> remappingFunction) { return null; }
 
+        @NotModified
         boolean contains(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object value) {
             return false;
         }
-        Enumeration<K> keys() { return null; }
-        Enumeration<V> elements() { return null; }
-        long mappingCount() { return 0L; }
+        @NotModified Enumeration<K> keys() { return null; }
+        @NotModified Enumeration<V> elements() { return null; }
+        @NotModified long mappingCount() { return 0L; }
         static <K> ConcurrentHashMap.KeySetView<K, Boolean> newKeySet() { return null; }
         static <K> ConcurrentHashMap.KeySetView<K, Boolean> newKeySet(int initialCapacity) { return null; }
         ConcurrentHashMap.KeySetView<K, V> keySet(/*@Independent(hc=true)[T] @NotModified[T]*/ V mappedValue) {

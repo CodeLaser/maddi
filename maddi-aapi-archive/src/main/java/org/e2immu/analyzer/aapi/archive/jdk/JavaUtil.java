@@ -1515,9 +1515,25 @@ public class JavaUtil {
     }
 
     //public class BitSet implements Cloneable, Serializable
-    // mutable, but no method modifies a parameter's content (and(BitSet) etc. read the argument)
+    // mutable, but no method modifies a parameter's content (and(BitSet) etc. read the argument).
+    // set/clear/flip/and/or/xor/andNot modify this and stay @Modified; the queries below do not.
     @Container
-    class BitSet$ { }
+    class BitSet$ {
+        @NotModified boolean get(int bitIndex) { return false; }
+        @NotModified BitSet get(int fromIndex, int toIndex) { return null; }
+        @NotModified int cardinality() { return 0; }
+        @NotModified boolean isEmpty() { return false; }
+        @NotModified int length() { return 0; }
+        @NotModified int size() { return 0; }
+        @NotModified int nextSetBit(int fromIndex) { return 0; }
+        @NotModified int nextClearBit(int fromIndex) { return 0; }
+        @NotModified int previousSetBit(int fromIndex) { return 0; }
+        @NotModified int previousClearBit(int fromIndex) { return 0; }
+        @NotModified boolean intersects(BitSet set) { return false; }
+        @NotModified byte [] toByteArray() { return null; }
+        @NotModified long [] toLongArray() { return null; }
+        @NotModified IntStream stream() { return null; }
+    }
 
     //public interface Collection implements Iterable<E>
     @Container
@@ -3941,13 +3957,23 @@ public class JavaUtil {
     class Stack$<E> { }
 
     //public final class StringJoiner
-    // mutable, but add(CharSequence)/merge(StringJoiner) read their argument without modifying it
+    // mutable, but add(CharSequence)/merge(StringJoiner) read their argument without modifying it.
+    // add/merge/setEmptyValue modify this; length()/toString() do not.
     @Container
-    class StringJoiner$ { }
+    class StringJoiner$ {
+        @NotModified int length() { return 0; }
+        //override from java.lang.Object
+        @NotModified public String toString() { return null; }
+    }
 
     //public class StringTokenizer implements Enumeration<Object>
+    // nextToken()/nextElement() advance the tokenizer (modifying); the counts/queries do not.
     @Container
-    class StringTokenizer$ { }
+    class StringTokenizer$ {
+        @NotModified int countTokens() { return 0; }
+        @NotModified boolean hasMoreTokens() { return false; }
+        @NotModified boolean hasMoreElements() { return false; }
+    }
 
     //public class TreeMap extends AbstractMap<K,V> implements NavigableMap<K,V>, Cloneable, Serializable
     @Container

@@ -79,6 +79,10 @@ public class TestJavaUtilConcurrent extends CommonTest {
         TypeInfo cf = compiledTypesManager().get(CompletableFuture.class);
         assertFalse(cf.findUniqueMethod("join", 0).isModifying(), "CompletableFuture.join() must be non-modifying");
         assertTrue(cf.findUniqueMethod("complete", 1).isModifying(), "CompletableFuture.complete() modifies");
+
+        // ConcurrentHashMap's own read methods (not inherited from Map) must also be non-modifying.
+        TypeInfo chm = compiledTypesManager().get(ConcurrentHashMap.class);
+        assertFalse(chm.findUniqueMethod("mappingCount", 0).isModifying(), "mappingCount() must be non-modifying");
     }
 
     // ConcurrentHashMap(Map) copies entries, so the source-map parameter is @Independent(hc=true).
