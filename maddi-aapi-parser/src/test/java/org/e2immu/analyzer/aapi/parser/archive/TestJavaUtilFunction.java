@@ -166,6 +166,41 @@ public class TestJavaUtilFunction extends CommonTest {
         }
     }
 
+    // Every java.util.function interface is @Independent(hc=true) (a lambda may capture hidden content).
+    @Test
+    public void testAllFunctionalInterfacesIndependentHc() {
+        for (Class<?> c : new Class<?>[]{
+                BiConsumer.class, BiFunction.class, BinaryOperator.class, BiPredicate.class, BooleanSupplier.class,
+                Consumer.class, DoubleBinaryOperator.class, DoubleConsumer.class, DoubleFunction.class,
+                DoublePredicate.class, DoubleSupplier.class, DoubleToIntFunction.class, DoubleToLongFunction.class,
+                DoubleUnaryOperator.class, Function.class, IntBinaryOperator.class, IntConsumer.class,
+                IntFunction.class, IntPredicate.class, IntSupplier.class, IntToDoubleFunction.class,
+                IntToLongFunction.class, IntUnaryOperator.class, LongBinaryOperator.class, LongConsumer.class,
+                LongFunction.class, LongPredicate.class, LongSupplier.class, LongToDoubleFunction.class,
+                LongToIntFunction.class, LongUnaryOperator.class, ObjDoubleConsumer.class, ObjIntConsumer.class,
+                ObjLongConsumer.class, Predicate.class, Supplier.class, ToDoubleBiFunction.class,
+                ToDoubleFunction.class, ToIntBiFunction.class, ToIntFunction.class, ToLongBiFunction.class,
+                ToLongFunction.class, UnaryOperator.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT),
+                    () -> c.getSimpleName() + " should be @Independent(hc=true)");
+        }
+    }
+
+    // The generic-input specializations must mark their SAM's generic parameter @Modified, like
+    // Consumer/Function (an unknown lambda body may mutate its argument); the primitive input of e.g.
+    // ObjIntConsumer stays unmodified.
+    @Test
+    public void testGenericInputSamsAreModified() {
+        assertTrue(compiledTypesManager().get(ToIntFunction.class).findUniqueMethod("applyAsInt", 1)
+                .parameters().getFirst().isModified());
+        ParameterInfo p0 = compiledTypesManager().get(ObjIntConsumer.class).findUniqueMethod("accept", 2)
+                .parameters().getFirst();
+        assertTrue(p0.isModified(), "ObjIntConsumer.accept T param must be @Modified");
+        assertTrue(compiledTypesManager().get(ToIntBiFunction.class).findUniqueMethod("applyAsInt", 2)
+                .parameters().get(1).isModified());
+    }
+
     @Test
     public void testBiFunctionAndFriendsDefaultHelpersNonModifying() {
         assertFalse(compiledTypesManager().get(BiFunction.class).findUniqueMethod("andThen", 1).isModifying());
