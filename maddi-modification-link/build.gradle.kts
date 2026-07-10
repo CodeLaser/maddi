@@ -51,11 +51,13 @@ dependencies {
 tasks.withType<Test> {
     maxHeapSize = "2G"
     maxParallelForks = (findProperty("testForks") as String?)?.toInt() ?: 4
-    // Linking results leak across test classes via JVM-global state (interned types / loaded analysis), so with
-    // several parallel forks the class-to-fork assignment makes ~40 tests flip pass/fail between runs (a serial
-    // run is byte-identical). A fresh JVM per class isolates that accumulation, restoring determinism while
-    // keeping parallelism. Override with -PforkEvery=0 to disable.
-    forkEvery = (findProperty("forkEvery") as String?)?.toLong() ?: 1L
+    // forkEvery=0 (gradle default): one JVM per fork runs all its classes. The test suite is deterministic in this
+    // mode — verified by three identical parallel runs plus serial==monolith==isolated (0 flips). An earlier
+    // forkEvery=1 (fresh JVM per class) was added on the belief the suite was order-unstable; that was a
+    // measurement artifact (inconsistent HTML-entity decoding when diffing two runs), and forkEvery=1 only cost
+    // ~20% wall time (261s vs 216s). Keep it configurable in case the known intermittent javac SharedNameTable
+    // issue (see -XDuseUnsharedTable below) ever needs a per-class reset: -PforkEvery=1.
+    forkEvery = (findProperty("forkEvery") as String?)?.toLong() ?: 0L
 
     jvmArgs(
         "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",

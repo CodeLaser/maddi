@@ -55,14 +55,14 @@ keyed back onto real variables at extraction.
   (call `virtualFieldComputer.addModificationFieldEquivalence` in the fold) breaks ~15
   tests: the added `§m ≡` feeds `notLinkedToModified`, which then removes the `m←…`
   links. Needs §m integrated at the `FollowGraph` pipeline point, not the post-hoc fold.
-- **Order-stability — diagnosed and fixed.** The "flakes" were **not** an engine bug: a
-  *serial* test run is byte-identical across repeats. The instability was
-  `maxParallelForks = 4` + JVM-global state leaking across test *classes* within a fork, so
-  the non-deterministic class→fork assignment flipped ~40 of 144 tests run-to-run.
-  `forkEvery = 1` (`build.gradle.kts`, fresh JVM per class) makes parallel runs
-  byte-identical and equal to the serial baseline. The engine's own witness/closure logic
-  is deterministic in-JVM (fqn-stable hashcodes). Latent: linking still reads JVM-global
-  state; `forkEvery=1` isolates it per class but eliminating the leak would be truer.
+- **Order-stability — there is none to fix; the "flakes" were a measurement artifact.**
+  The engine is deterministic (fqn-stable hashcodes). Three independent parallel runs
+  (`forks=4, forkEvery=0`) are byte-identical, and equal serial, monolith (all classes in
+  one JVM), and isolated (JVM per class) — 0 flips across every config. The earlier
+  ~40-flip report came from diffing two captures with inconsistent HTML-entity decoding
+  (`T->R` vs `T-&gt;R`). `forkEvery=1` was added on that false premise and **reverted**
+  (no determinism benefit, ~20% slower: 261s vs 216s). The known intermittent javac
+  `SharedNameTable` corruption is already mitigated by `-XDuseUnsharedTable=true`.
 
 ## TL;DR (original, for context)
 
