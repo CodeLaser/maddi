@@ -16,8 +16,8 @@ package org.e2immu.analyzer.run.config;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
-import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfigurationImpl;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfiguration;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfigurationImpl;
 import org.e2immu.language.cst.api.runtime.LanguageConfiguration;
 import org.e2immu.language.cst.impl.runtime.LanguageConfigurationImpl;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
@@ -29,38 +29,38 @@ public class Configuration {
     @JsonProperty
     private final InputConfiguration inputConfiguration;
     @JsonProperty
-    private final AnnotatedAPIConfiguration annotatedAPIConfiguration;
+    private final AnalysisHintsConfiguration analysisHintsConfiguration;
     @JsonProperty
     private final LanguageConfiguration languageConfiguration;
 
     // deserialization creator: the interface-typed fields are resolved to their impls by the SimpleAbstractType
-    // resolver in JsonStreaming (InputConfiguration, AnnotatedAPIConfiguration, LanguageConfiguration)
+    // resolver in JsonStreaming (InputConfiguration, AnalysisHintsConfiguration, LanguageConfiguration)
     @JsonCreator
     Configuration(@JsonProperty("generalConfiguration") GeneralConfiguration generalConfiguration,
                   @JsonProperty("inputConfiguration") InputConfiguration inputConfiguration,
-                  @JsonProperty("annotatedAPIConfiguration") AnnotatedAPIConfiguration annotatedAPIConfiguration,
+                  @JsonProperty("analysisHintsConfiguration") AnalysisHintsConfiguration analysisHintsConfiguration,
                   @JsonProperty("languageConfiguration") LanguageConfiguration languageConfiguration) {
         this.generalConfiguration = generalConfiguration;
         this.inputConfiguration = inputConfiguration;
-        this.annotatedAPIConfiguration = annotatedAPIConfiguration;
+        this.analysisHintsConfiguration = analysisHintsConfiguration;
         this.languageConfiguration = languageConfiguration;
     }
 
 
     @Override
     public String toString() {
-        return generalConfiguration + "\n" + inputConfiguration + "\n" + annotatedAPIConfiguration + "\n"
+        return generalConfiguration + "\n" + inputConfiguration + "\n" + analysisHintsConfiguration + "\n"
                + languageConfiguration;
     }
 
     public static class Builder {
         private GeneralConfiguration generalConfiguration;
         private InputConfiguration inputConfiguration;
-        private AnnotatedAPIConfiguration annotatedAPIConfiguration;
+        private AnalysisHintsConfiguration analysisHintsConfiguration;
         private LanguageConfiguration languageConfiguration;
 
-        public Builder setAnnotatedAPIConfiguration(AnnotatedAPIConfiguration annotatedAPIConfiguration) {
-            this.annotatedAPIConfiguration = annotatedAPIConfiguration;
+        public Builder setAnalysisHintsConfiguration(AnalysisHintsConfiguration analysisHintsConfiguration) {
+            this.analysisHintsConfiguration = analysisHintsConfiguration;
             return this;
         }
 
@@ -84,8 +84,8 @@ public class Configuration {
                     ? new GeneralConfiguration.Builder().build() : generalConfiguration,
                     inputConfiguration == null
                             ? new InputConfigurationImpl.Builder().build() : inputConfiguration,
-                    annotatedAPIConfiguration == null
-                            ? new AnnotatedAPIConfigurationImpl.Builder().build() : annotatedAPIConfiguration,
+                    analysisHintsConfiguration == null
+                            ? new AnalysisHintsConfigurationImpl.Builder().build() : analysisHintsConfiguration,
                     languageConfiguration == null ? new LanguageConfigurationImpl(true)
                             : languageConfiguration);
         }
@@ -99,8 +99,8 @@ public class Configuration {
         return inputConfiguration;
     }
 
-    public AnnotatedAPIConfiguration annotatedAPIConfiguration() {
-        return annotatedAPIConfiguration;
+    public AnalysisHintsConfiguration analysisHintsConfiguration() {
+        return analysisHintsConfiguration;
     }
 
     public LanguageConfiguration languageConfiguration() {

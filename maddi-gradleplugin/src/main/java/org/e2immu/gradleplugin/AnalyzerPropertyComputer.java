@@ -15,7 +15,7 @@
 package org.e2immu.gradleplugin;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfiguration;
 import org.e2immu.analyzer.run.config.GeneralConfiguration;
 import org.e2immu.analyzer.run.config.util.JavaModules;
 import org.e2immu.analyzer.run.config.util.JsonStreaming;
@@ -124,14 +124,14 @@ public record AnalyzerPropertyComputer(
         // general
         Map<String, String> generalMap = makeGeneralConfigMap(project, extension);
         GeneralConfiguration generalConfiguration = Main.generalConfiguration(generalMap);
-        // Annotated API
-        Map<String, String> aapiMap = makeAnnotatedAPIMap(extension);
-        AnnotatedAPIConfiguration annotatedAPIConfiguration = Main.annotatedAPIConfiguration(aapiMap);
+        // AnalysisHints
+        Map<String, String> aapiMap = makeAnalysisHintsMap(extension);
+        AnalysisHintsConfiguration analysisHintsConfiguration = Main.analysisHintsConfiguration(aapiMap);
         // Input
         InputConfiguration inputConfiguration = makeInputConfiguration(project, extension);
 
         return new org.e2immu.analyzer.run.config.Configuration.Builder()
-                .setAnnotatedAPIConfiguration(annotatedAPIConfiguration)
+                .setAnalysisHintsConfiguration(analysisHintsConfiguration)
                 .setGeneralConfiguration(generalConfiguration)
                 .setLanguageConfiguration(languageConfiguration)
                 .setInputConfiguration(inputConfiguration)
@@ -191,26 +191,26 @@ public record AnalyzerPropertyComputer(
         return sets;
     }
 
-    private static Map<String, String> makeAnnotatedAPIMap(AnalyzerExtension extension) {
-        // Annotated API
+    private static Map<String, String> makeAnalysisHintsMap(AnalyzerExtension extension) {
+        // AnalysisHints
         // use case 1
         Map<String, String> kvMap = new HashMap<>();
-        if (extension.analyzedAnnotatedApiDirs != null) {
-            kvMap.put(Main.ANALYZED_ANNOTATED_API_DIRS, extension.analyzedAnnotatedApiDirs);
+        if (extension.preloadAnalysisResultsDirs != null) {
+            kvMap.put(Main.PRELOAD_ANALYSIS_RESULTS_DIRS, extension.preloadAnalysisResultsDirs);
         }
         // use case 2
-        if (extension.analyzedAnnotatedApiTargetDir != null) {
-            kvMap.put(Main.ANALYZED_ANNOTATED_API_TARGET_DIR, extension.analyzedAnnotatedApiTargetDir);
+        if (extension.analysisResultsTargetDir != null) {
+            kvMap.put(Main.ANALYSIS_RESULTS_TARGET_DIR, extension.analysisResultsTargetDir);
         }
         // use case 3
-        if (extension.annotatedApiTargetDir != null) {
-            kvMap.put(Main.ANNOTATED_API_TARGET_DIR, extension.annotatedApiTargetDir);
+        if (extension.updatedHintsDir != null) {
+            kvMap.put(Main.UPDATED_HINTS_DIR, extension.updatedHintsDir);
         }
-        if (extension.annotatedApiTargetPackage != null) {
-            kvMap.put(Main.ANNOTATED_API_TARGET_PACKAGE, extension.annotatedApiTargetPackage);
+        if (extension.updatedHintsPackage != null) {
+            kvMap.put(Main.UPDATED_HINTS_PACKAGE, extension.updatedHintsPackage);
         }
-        if (extension.annotatedApiPackages != null) {
-            kvMap.put(Main.ANNOTATED_API_PACKAGES, extension.annotatedApiPackages);
+        if (extension.hintsPackages != null) {
+            kvMap.put(Main.HINTS_PACKAGES, extension.hintsPackages);
         }
         return kvMap;
     }

@@ -45,9 +45,9 @@ public class TestRunComposer {
         Main.main(new String[]{
                 "--classpath=jmod:java.base",
                 "--source=none",
-                "--annotated-api-packages=java.util.",
-                "--annotated-api-target-package=org.e2immu.aapi",
-                "--annotated-api-target-dir=" + file.getAbsolutePath()
+                "--hints-packages=java.util.",
+                "--updated-hints-package=org.e2immu.aapi",
+                "--updated-hints-dir=" + file.getAbsolutePath()
         });
         assertTrue(file.canRead());
         File pkg = new File(file, "org/e2immu/aapi");

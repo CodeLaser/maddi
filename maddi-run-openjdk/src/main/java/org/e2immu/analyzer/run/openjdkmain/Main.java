@@ -17,8 +17,8 @@ package org.e2immu.analyzer.run.openjdkmain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.cli.*;
 import org.apache.commons.cli.help.HelpFormatter;
-import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
-import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfigurationImpl;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfiguration;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfigurationImpl;
 import org.e2immu.analyzer.run.config.Configuration;
 import org.e2immu.analyzer.run.config.GeneralConfiguration;
 import org.e2immu.analyzer.run.config.util.JsonStreaming;
@@ -78,13 +78,13 @@ public class Main {
     public static final String DEPENDENCIES = "dependencies";
 
     // use case 1
-    public static final String ANALYZED_ANNOTATED_API_DIRS = "analyzed-annotated-api-dirs";
+    public static final String PRELOAD_ANALYSIS_RESULTS_DIRS = "preload-analysis-results-dirs";
     // use case 2
-    public static final String ANALYZED_ANNOTATED_API_TARGET_DIR = "analyzed-annotated-api-target-dir";
+    public static final String ANALYSIS_RESULTS_TARGET_DIR = "analysis-results-target-dir";
     // use case 3
-    public static final String ANNOTATED_API_TARGET_DIR = "annotated-api-target-dir";
-    public static final String ANNOTATED_API_TARGET_PACKAGE = "annotated-api-target-package";
-    public static final String ANNOTATED_API_PACKAGES = "annotated-api-packages";
+    public static final String UPDATED_HINTS_DIR = "updated-hints-dir";
+    public static final String UPDATED_HINTS_PACKAGE = "updated-hints-package";
+    public static final String HINTS_PACKAGES = "hints-packages";
 
     public static final String COMMA = ",";
 
@@ -138,7 +138,7 @@ public class Main {
         options.addOption("h", HELP, false, "Print help.");
         addGeneralConfigurationOptions(options);
         addInputConfigurationOptions(options);
-        addAnnotatedAPIConfigurationOptions(options);
+        addAnalysisHintsConfigurationOptions(options);
         return options;
     }
 
@@ -157,8 +157,8 @@ public class Main {
         InputConfiguration inputConfiguration = parseInputConfiguration(cmd);
         builder.setInputConfiguration(inputConfiguration);
 
-        AnnotatedAPIConfiguration annotatedAPIConfiguration = parseAnnotatedAPIConfiguration(cmd);
-        builder.setAnnotatedAPIConfiguration(annotatedAPIConfiguration);
+        AnalysisHintsConfiguration analysisHintsConfiguration = parseAnalysisHintsConfiguration(cmd);
+        builder.setAnalysisHintsConfiguration(analysisHintsConfiguration);
 
         builder.setLanguageConfiguration(new LanguageConfigurationImpl(true));
 
@@ -171,7 +171,7 @@ public class Main {
         GeneralConfiguration generalConfiguration = generalConfiguration(kvMap);
         builder.setGeneralConfiguration(generalConfiguration);
         builder.setInputConfiguration(inputConfiguration(kvMap));
-        builder.setAnnotatedAPIConfiguration(annotatedAPIConfiguration(kvMap));
+        builder.setAnalysisHintsConfiguration(analysisHintsConfiguration(kvMap));
 
         builder.setLanguageConfiguration(new LanguageConfigurationImpl(true));
 
@@ -346,78 +346,78 @@ public class Main {
         return builder.build();
     }
 
-    /* ******* Annotated API configuration ******** */
+    /* ******* AnalysisHints configuration ******** */
 
     /*
     Use cases.
-    1: normal reading of AAAPI files: specify ANALYZED_ANNOTATED_API directories
-         = normal parsing, with AAPI files for libraries and partial results for sources.
-         When in incremental mode, the AAAPI files containing source packages may be updated.
-         The first directory is chosen to write new AAAPI files.
-    2: compiling AAPI -> AAAPI: write packages ANNOTATED_API_PACKAGES from the source path
-         in to WRITE_ANALYZED_ANNOTATED_API_DIR. The source path may contain AAPI classes, and regular classes.
+    1: normal reading of analysis results files: specify PRELOAD_ANALYSIS_RESULTS_DIRS directories
+         = normal parsing, with analysis hints files for libraries and partial results for sources.
+         When in incremental mode, the analysis results files containing source packages may be updated.
+         The first directory is chosen to write new analysis results files.
+    2: compiling analysis hints -> analysis results: write packages HINTS_PACKAGES from the source path
+         in to WRITE_PRELOAD_ANALYSIS_RESULTS_DIRS_DIR. The source path may contain analysis hints classes, and regular classes.
          = running the shallow analyzer to prepare libraries for use by e2immu
-    3: writing AAPI skeletons: use WRITE_ANNOTATED_API_DIR as the target directory for the skeletons.
-        WRITE_ANNOTATED_API_PACKAGES contains the classes for which a skeleton will be generated.
-        WRITE_ANNOTATED_API_TARGET_PACKAGE contains the package to write to.
+    3: writing analysis hints skeletons: use WRITE_ANNOTATED_API_DIR as the target directory for the skeletons.
+        WRITE_HINTS_PACKAGES contains the classes for which a skeleton will be generated.
+        WRITE_UPDATED_HINTS_PACKAGE contains the package to write to.
          = running the composer
 
 
-    Apply use case 3 to generate the AAPI files for a library.
-    Edit them, then apply use case 2 to compile the edited AAPI files into AAAPI files for use in a project.
+    Apply use case 3 to generate the analysis hints files for a library.
+    Edit them, then apply use case 2 to compile the edited analysis hints files into analysis results files for use in a project.
     */
 
-    private static void addAnnotatedAPIConfigurationOptions(Options options) {
-        options.addOption(Option.builder("s").longOpt(ANALYZED_ANNOTATED_API_DIRS).hasArg().argName("DIRS")
-                .desc("Add a directory where the analyzed annotated API files can be found." +
+    private static void addAnalysisHintsConfigurationOptions(Options options) {
+        options.addOption(Option.builder("s").longOpt(PRELOAD_ANALYSIS_RESULTS_DIRS).hasArg().argName("DIRS")
+                .desc("Add a directory where the analyzed analysis hints files can be found." +
                       " Use the Java path separator '" + File.pathSeparator + "' to separate directories, " +
                       "or use this options multiple times.").get());
 
-        options.addOption(Option.builder().longOpt(ANALYZED_ANNOTATED_API_TARGET_DIR).hasArg().argName("DIR")
-                .desc("Where to write analyzed Annotated API files.").get());
+        options.addOption(Option.builder().longOpt(ANALYSIS_RESULTS_TARGET_DIR).hasArg().argName("DIR")
+                .desc("Where to write analyzed AnalysisHints files.").get());
 
-        options.addOption(Option.builder().longOpt(ANNOTATED_API_TARGET_DIR).hasArg().argName("DIR")
-                .desc("Where to write Annotated API skeleton files, extracted from sources.").get());
+        options.addOption(Option.builder().longOpt(UPDATED_HINTS_DIR).hasArg().argName("DIR")
+                .desc("Where to write AnalysisHints skeleton files, extracted from sources.").get());
 
-        options.addOption(Option.builder().longOpt(ANNOTATED_API_TARGET_PACKAGE).hasArg().argName("PACKAGE")
-                .desc("Which package to write the Annotated API skeleton files to").get());
+        options.addOption(Option.builder().longOpt(UPDATED_HINTS_PACKAGE).hasArg().argName("PACKAGE")
+                .desc("Which package to write the AnalysisHints skeleton files to").get());
 
-        options.addOption(Option.builder().longOpt(ANNOTATED_API_PACKAGES).hasArg().argName("PACKAGES")
-                .desc("Create AAPI skeletons from the following packages of the source.").get());
+        options.addOption(Option.builder().longOpt(HINTS_PACKAGES).hasArg().argName("PACKAGES")
+                .desc("Create analysis hints skeletons from the following packages of the source.").get());
 
     }
 
-    public static AnnotatedAPIConfiguration annotatedAPIConfiguration(Map<String, String> kvMap) {
-        AnnotatedAPIConfigurationImpl.Builder builder = new AnnotatedAPIConfigurationImpl.Builder();
+    public static AnalysisHintsConfiguration analysisHintsConfiguration(Map<String, String> kvMap) {
+        AnalysisHintsConfigurationImpl.Builder builder = new AnalysisHintsConfigurationImpl.Builder();
 
-        setSplitStringProperty(kvMap, ",", ANALYZED_ANNOTATED_API_DIRS, builder::addAnalyzedAnnotatedApiDirs);
+        setSplitStringProperty(kvMap, ",", PRELOAD_ANALYSIS_RESULTS_DIRS, builder::addPreloadAnalysisResultsDirs);
 
-        setStringProperty(kvMap, ANALYZED_ANNOTATED_API_TARGET_DIR, builder::setAnalyzedAnnotatedApiTargetDir);
-        setStringProperty(kvMap, ANNOTATED_API_TARGET_DIR, builder::setAnnotatedApiTargetDir);
-        setStringProperty(kvMap, ANNOTATED_API_TARGET_PACKAGE, builder::setAnnotatedApiTargetPackage);
+        setStringProperty(kvMap, ANALYSIS_RESULTS_TARGET_DIR, builder::setAnalysisResultsTargetDir);
+        setStringProperty(kvMap, UPDATED_HINTS_DIR, builder::setUpdatedHintsDir);
+        setStringProperty(kvMap, UPDATED_HINTS_PACKAGE, builder::setUpdatedHintsPackage);
 
-        setSplitStringProperty(kvMap, COMMA, ANNOTATED_API_PACKAGES, builder::addAnnotatedApiPackages);
+        setSplitStringProperty(kvMap, COMMA, HINTS_PACKAGES, builder::addHintsPackages);
 
         return builder.build();
     }
 
-    private static AnnotatedAPIConfiguration parseAnnotatedAPIConfiguration(CommandLine cmd) {
-        AnnotatedAPIConfigurationImpl.Builder builder = new AnnotatedAPIConfigurationImpl.Builder();
+    private static AnalysisHintsConfiguration parseAnalysisHintsConfiguration(CommandLine cmd) {
+        AnalysisHintsConfigurationImpl.Builder builder = new AnalysisHintsConfigurationImpl.Builder();
 
-        String[] analyzedDirs = cmd.getOptionValues(ANALYZED_ANNOTATED_API_DIRS);
-        splitAndAdd(analyzedDirs, ",", builder::addAnalyzedAnnotatedApiDirs);
+        String[] analyzedDirs = cmd.getOptionValues(PRELOAD_ANALYSIS_RESULTS_DIRS);
+        splitAndAdd(analyzedDirs, ",", builder::addPreloadAnalysisResultsDirs);
 
-        String writeAnalyzedDir = cmd.getOptionValue(ANALYZED_ANNOTATED_API_TARGET_DIR);
-        builder.setAnalyzedAnnotatedApiTargetDir(writeAnalyzedDir);
+        String writeAnalyzedDir = cmd.getOptionValue(ANALYSIS_RESULTS_TARGET_DIR);
+        builder.setAnalysisResultsTargetDir(writeAnalyzedDir);
 
-        String writeDir = cmd.getOptionValue(ANNOTATED_API_TARGET_DIR);
-        builder.setAnnotatedApiTargetDir(writeDir);
+        String writeDir = cmd.getOptionValue(UPDATED_HINTS_DIR);
+        builder.setUpdatedHintsDir(writeDir);
 
-        String targetPackage = cmd.getOptionValue(ANNOTATED_API_TARGET_PACKAGE);
-        builder.setAnnotatedApiTargetPackage(targetPackage);
+        String targetPackage = cmd.getOptionValue(UPDATED_HINTS_PACKAGE);
+        builder.setUpdatedHintsPackage(targetPackage);
 
-        String[] writePackages = cmd.getOptionValues(ANNOTATED_API_PACKAGES);
-        splitAndAdd(writePackages, COMMA, builder::addAnnotatedApiPackages);
+        String[] writePackages = cmd.getOptionValues(HINTS_PACKAGES);
+        splitAndAdd(writePackages, COMMA, builder::addHintsPackages);
         return builder.build();
     }
 

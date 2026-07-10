@@ -26,8 +26,8 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleAbstractTypeResolver;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
-import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
-import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfigurationImpl;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfiguration;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfigurationImpl;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.runtime.LanguageConfiguration;
 import org.e2immu.language.cst.impl.runtime.LanguageConfigurationImpl;
@@ -57,7 +57,7 @@ public class JsonStreaming {
         SimpleAbstractTypeResolver resolver = new SimpleAbstractTypeResolver();
         resolver.addMapping(SourceSet.class, SourceSetImpl.class);
         resolver.addMapping(InputConfiguration.class, InputConfigurationImpl.class);
-        resolver.addMapping(AnnotatedAPIConfiguration.class, AnnotatedAPIConfigurationImpl.class);
+        resolver.addMapping(AnalysisHintsConfiguration.class, AnalysisHintsConfigurationImpl.class);
         resolver.addMapping(LanguageConfiguration.class, LanguageConfigurationImpl.class);
 
         module.setAbstractTypes(resolver);
@@ -66,10 +66,10 @@ public class JsonStreaming {
         // source sets
         module.addSerializer(new InputConfigurationSerializer(InputConfigurationImpl.class));
         module.addSerializer(new SourceSetSerializer(SourceSetImpl.class));
-        module.addSerializer(new AnnotatedAPIConfigurationSerializer(AnnotatedAPIConfigurationImpl.class));
+        module.addSerializer(new AnalysisHintsConfigurationSerializer(AnalysisHintsConfigurationImpl.class));
         module.addDeserializer(SourceSetImpl.class, new SourceSetDeserializer(SourceSetImpl.class));
-        module.addDeserializer(AnnotatedAPIConfigurationImpl.class,
-                new AnnotatedAPIConfigurationDeserializer(AnnotatedAPIConfigurationImpl.class));
+        module.addDeserializer(AnalysisHintsConfigurationImpl.class,
+                new AnalysisHintsConfigurationDeserializer(AnalysisHintsConfigurationImpl.class));
         return module;
     }
 
@@ -229,58 +229,58 @@ public class JsonStreaming {
         }
     }
 
-    // AnnotatedAPIConfigurationImpl is jackson-free (like the other config impls); serialize/deserialize its
+    // AnalysisHintsConfigurationImpl is jackson-free (like the other config impls); serialize/deserialize its
     // flat fields here through its builder.
-    static class AnnotatedAPIConfigurationSerializer extends StdSerializer<AnnotatedAPIConfigurationImpl> {
-        public AnnotatedAPIConfigurationSerializer(Class<AnnotatedAPIConfigurationImpl> t) {
+    static class AnalysisHintsConfigurationSerializer extends StdSerializer<AnalysisHintsConfigurationImpl> {
+        public AnalysisHintsConfigurationSerializer(Class<AnalysisHintsConfigurationImpl> t) {
             super(t);
         }
 
         @Override
-        public void serialize(AnnotatedAPIConfigurationImpl value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+        public void serialize(AnalysisHintsConfigurationImpl value, JsonGenerator gen, SerializerProvider provider) throws IOException {
             gen.writeStartObject();
-            gen.writeArrayFieldStart("analyzedAnnotatedApiDirs");
-            for (String d : value.analyzedAnnotatedApiDirs()) gen.writeString(d);
+            gen.writeArrayFieldStart("preloadAnalysisResultsDirs");
+            for (String d : value.preloadAnalysisResultsDirs()) gen.writeString(d);
             gen.writeEndArray();
-            if (value.analyzedAnnotatedApiTargetDir() != null) {
-                gen.writeStringField("analyzedAnnotatedApiTargetDir", value.analyzedAnnotatedApiTargetDir());
+            if (value.analysisResultsTargetDir() != null) {
+                gen.writeStringField("analysisResultsTargetDir", value.analysisResultsTargetDir());
             }
-            gen.writeArrayFieldStart("annotatedApiPackages");
-            for (String p : value.annotatedApiPackages()) gen.writeString(p);
+            gen.writeArrayFieldStart("hintsPackages");
+            for (String p : value.hintsPackages()) gen.writeString(p);
             gen.writeEndArray();
-            if (value.annotatedApiTargetDir() != null) {
-                gen.writeStringField("annotatedApiTargetDir", value.annotatedApiTargetDir());
+            if (value.updatedHintsDir() != null) {
+                gen.writeStringField("updatedHintsDir", value.updatedHintsDir());
             }
-            if (value.annotatedApiTargetPackage() != null) {
-                gen.writeStringField("annotatedApiTargetPackage", value.annotatedApiTargetPackage());
+            if (value.updatedHintsPackage() != null) {
+                gen.writeStringField("updatedHintsPackage", value.updatedHintsPackage());
             }
             gen.writeEndObject();
         }
     }
 
-    static class AnnotatedAPIConfigurationDeserializer extends StdDeserializer<AnnotatedAPIConfigurationImpl> {
-        public AnnotatedAPIConfigurationDeserializer(Class<?> vc) {
+    static class AnalysisHintsConfigurationDeserializer extends StdDeserializer<AnalysisHintsConfigurationImpl> {
+        public AnalysisHintsConfigurationDeserializer(Class<?> vc) {
             super(vc);
         }
 
         @Override
-        public AnnotatedAPIConfigurationImpl deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException {
+        public AnalysisHintsConfigurationImpl deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException {
             JsonNode node = jp.getCodec().readTree(jp);
-            AnnotatedAPIConfigurationImpl.Builder builder = new AnnotatedAPIConfigurationImpl.Builder();
-            JsonNode dirs = node.get("analyzedAnnotatedApiDirs");
-            if (dirs != null) for (JsonNode n : dirs) builder.addAnalyzedAnnotatedApiDirs(n.asText());
-            JsonNode packages = node.get("annotatedApiPackages");
-            if (packages != null) for (JsonNode n : packages) builder.addAnnotatedApiPackages(n.asText());
-            if (node.hasNonNull("analyzedAnnotatedApiTargetDir")) {
-                builder.setAnalyzedAnnotatedApiTargetDir(node.get("analyzedAnnotatedApiTargetDir").asText());
+            AnalysisHintsConfigurationImpl.Builder builder = new AnalysisHintsConfigurationImpl.Builder();
+            JsonNode dirs = node.get("preloadAnalysisResultsDirs");
+            if (dirs != null) for (JsonNode n : dirs) builder.addPreloadAnalysisResultsDirs(n.asText());
+            JsonNode packages = node.get("hintsPackages");
+            if (packages != null) for (JsonNode n : packages) builder.addHintsPackages(n.asText());
+            if (node.hasNonNull("analysisResultsTargetDir")) {
+                builder.setAnalysisResultsTargetDir(node.get("analysisResultsTargetDir").asText());
             }
-            if (node.hasNonNull("annotatedApiTargetDir")) {
-                builder.setAnnotatedApiTargetDir(node.get("annotatedApiTargetDir").asText());
+            if (node.hasNonNull("updatedHintsDir")) {
+                builder.setUpdatedHintsDir(node.get("updatedHintsDir").asText());
             }
-            if (node.hasNonNull("annotatedApiTargetPackage")) {
-                builder.setAnnotatedApiTargetPackage(node.get("annotatedApiTargetPackage").asText());
+            if (node.hasNonNull("updatedHintsPackage")) {
+                builder.setUpdatedHintsPackage(node.get("updatedHintsPackage").asText());
             }
-            return (AnnotatedAPIConfigurationImpl) builder.build();
+            return (AnalysisHintsConfigurationImpl) builder.build();
         }
     }
 }

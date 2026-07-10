@@ -16,21 +16,21 @@ package org.e2immu.analyzer.aapi.parser;
 
 import java.util.List;
 
-public interface AnnotatedAPIConfiguration {
+public interface AnalysisHintsConfiguration {
 
     // use case 1: input for normal analyzer, and for use cases 2, 3
 
-    List<String> analyzedAnnotatedApiDirs();
+    List<String> preloadAnalysisResultsDirs();
 
-    // use case 2: read AAPI, write AAAPI
+    // use case 2: read analysis hints, write analysis results
 
-    String analyzedAnnotatedApiTargetDir();
+    String analysisResultsTargetDir();
 
-    // use case 3: read source code or byte code, write AAPI skeleton
+    // use case 3: read source code or byte code, write analysis hints skeleton
 
-    String annotatedApiTargetDir();
+    String updatedHintsDir();
 
-    List<String> annotatedApiPackages();
+    List<String> hintsPackages();
 
-    String annotatedApiTargetPackage();
+    String updatedHintsPackage();
 }

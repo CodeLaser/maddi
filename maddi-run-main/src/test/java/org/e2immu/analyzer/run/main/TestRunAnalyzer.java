@@ -51,7 +51,7 @@ public class TestRunAnalyzer {
                 "--classpath=" + String.join(":", ToolChain.CLASSPATH_SLF4J_LOGBACK),
                 "--source=" + sourceDir.getPath(),
                 "--analysis-results-dir=build/e2immu",
-                "--analyzed-annotated-api-dir=../maddi-aapi-archive/src/main/resources/json",
+                "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/json",
         });
 
         File output = new File("build/e2immu/OrgE2ImmuUtilInternalUtil.json");
