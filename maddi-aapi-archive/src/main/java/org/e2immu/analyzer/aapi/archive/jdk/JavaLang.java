@@ -153,7 +153,9 @@ public class JavaLang {
     class Byte$ { }
 
     //public interface CharSequence
-    @ImmutableContainer(hc = true)
+    // NOT a @Container: the getChars(...,char[] dst,...) default method fills its array argument (that
+    // would otherwise force dst @NotModified and propagate to String/StringBuilder/StringBuffer.getChars).
+    @Immutable(hc = true)
     @Independent
     class CharSequence$ {
         //override has frequency 17
