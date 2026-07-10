@@ -16,6 +16,7 @@ package org.e2immu.analyzer.aapi.archive.jdk;
 import java.util.function.*;
 import org.e2immu.annotation.Container;
 import org.e2immu.annotation.Independent;
+import org.e2immu.annotation.NotModified;
 
 public class JavaUtilConcurrentAtomic {
     public static final String PACKAGE_NAME = "java.util.concurrent.atomic";
@@ -24,7 +25,7 @@ public class JavaUtilConcurrentAtomic {
     @Container
     @Independent
     class AtomicBoolean$ {
-        boolean get() { return false; }
+        @NotModified boolean get() { return false; }
         boolean compareAndSet(boolean expectedValue, boolean newValue) { return false; }
         boolean weakCompareAndSet(boolean expectedValue, boolean newValue) { return false; }
         boolean weakCompareAndSetPlain(boolean expectedValue, boolean newValue) { return false; }
@@ -35,11 +36,11 @@ public class JavaUtilConcurrentAtomic {
         //override from java.lang.Object
         //@NotModified[H] @NotNull[H]
         public String toString() { return null; }
-        boolean getPlain() { return false; }
+        @NotModified boolean getPlain() { return false; }
         void setPlain(boolean newValue) { }
-        boolean getOpaque() { return false; }
+        @NotModified boolean getOpaque() { return false; }
         void setOpaque(boolean newValue) { }
-        boolean getAcquire() { return false; }
+        @NotModified boolean getAcquire() { return false; }
         void setRelease(boolean newValue) { }
         boolean compareAndExchange(boolean expectedValue, boolean newValue) { return false; }
         boolean compareAndExchangeAcquire(boolean expectedValue, boolean newValue) { return false; }
@@ -54,7 +55,7 @@ public class JavaUtilConcurrentAtomic {
     @Container
     @Independent
     class AtomicInteger$ {
-        int get() { return 0; }
+        @NotModified int get() { return 0; }
         void set(int newValue) { }
         void lazySet(int newValue) { }
         int getAndSet(int newValue) { return 0; }
@@ -79,24 +80,24 @@ public class JavaUtilConcurrentAtomic {
 
         //override from java.lang.Number
         //@NotModified[H]
-        int intValue() { return 0; }
+        @NotModified int intValue() { return 0; }
 
         //override from java.lang.Number
         //@NotModified[H]
-        long longValue() { return 0L; }
+        @NotModified long longValue() { return 0L; }
 
         //override from java.lang.Number
         //@NotModified[H]
-        float floatValue() { return 0.0F; }
+        @NotModified float floatValue() { return 0.0F; }
 
         //override from java.lang.Number
         //@NotModified[H]
-        double doubleValue() { return 0.0; }
-        int getPlain() { return 0; }
+        @NotModified double doubleValue() { return 0.0; }
+        @NotModified int getPlain() { return 0; }
         void setPlain(int newValue) { }
-        int getOpaque() { return 0; }
+        @NotModified int getOpaque() { return 0; }
         void setOpaque(int newValue) { }
-        int getAcquire() { return 0; }
+        @NotModified int getAcquire() { return 0; }
         void setRelease(int newValue) { }
         int compareAndExchange(int expectedValue, int newValue) { return 0; }
         int compareAndExchangeAcquire(int expectedValue, int newValue) { return 0; }
@@ -112,7 +113,7 @@ public class JavaUtilConcurrentAtomic {
     @Independent(hc = true)
     class AtomicReference$<V> {
         //@Independent(hc=true)[T]
-        V get() { return null; }
+        @NotModified V get() { return null; }
         void set(/*@Independent(hc=true)[T] @NotModified[T]*/ V newValue) { }
         void lazySet(/*@Independent(hc=true)[T] @NotModified[T]*/ V newValue) { }
         boolean compareAndSet(
@@ -151,13 +152,13 @@ public class JavaUtilConcurrentAtomic {
         public String toString() { return null; }
 
         //@Independent(hc=true)[T]
-        V getPlain() { return null; }
+        @NotModified V getPlain() { return null; }
         void setPlain(/*@Independent(hc=true)[T] @NotModified[T]*/ V newValue) { }
         //@Independent(hc=true)[T]
-        V getOpaque() { return null; }
+        @NotModified V getOpaque() { return null; }
         void setOpaque(/*@Independent(hc=true)[T] @NotModified[T]*/ V newValue) { }
         //@Independent(hc=true)[T]
-        V getAcquire() { return null; }
+        @NotModified V getAcquire() { return null; }
         void setRelease(/*@Independent(hc=true)[T] @NotModified[T]*/ V newValue) { }
         //@Independent(hc=true)[T]
         V compareAndExchange(
