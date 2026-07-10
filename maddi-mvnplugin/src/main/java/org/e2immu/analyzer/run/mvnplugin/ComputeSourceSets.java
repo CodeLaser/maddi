@@ -58,11 +58,15 @@ public class ComputeSourceSets {
         if (!sourcePaths.isEmpty()) {
             Set<String> restrictToPackages = stringToSet(sourcePackages);
 
-            SourceSet testSourceSet = new SourceSetImpl(projectName + "/main",
-                    sourcePaths, URI.create("file:" + sourcePaths.getFirst()),
-                    encoding, false, false, false,
-                    false, false, restrictToPackages, Set.copyOf(deps));
-            sourceSetsByName.put(testSourceSet.name(), testSourceSet);
+            SourceSet mainSourceSet = new SourceSetImpl.Builder()
+                    .setName(projectName + "/main")
+                    .setSourceDirectories(sourcePaths)
+                    .setUri(URI.create("file:" + sourcePaths.getFirst()))
+                    .setSourceEncoding(encoding)
+                    .setRestrictToPackages(restrictToPackages)
+                    .setDependencies(List.copyOf(deps))
+                    .build();
+            sourceSetsByName.put(mainSourceSet.name(), mainSourceSet);
         }
         deps.addAll(computeClassPathParts(JavaScopes.TEST, true, false, sourceSetsByName,
                 excludeFromClasspathSet));
@@ -72,10 +76,15 @@ public class ComputeSourceSets {
         if (!testSourcePaths.isEmpty()) {
             Set<String> restrictToTestPackages = stringToSet(testSourcePackages);
 
-            SourceSet testSourceSet = new SourceSetImpl(projectName + "/test", testSourcePaths,
-                    URI.create("file:" + testSourcePaths.getFirst()),
-                    encoding, true, false, false, false, false,
-                    restrictToTestPackages, Set.copyOf(deps));
+            SourceSet testSourceSet = new SourceSetImpl.Builder()
+                    .setName(projectName + "/test")
+                    .setSourceDirectories(testSourcePaths)
+                    .setUri(URI.create("file:" + testSourcePaths.getFirst()))
+                    .setSourceEncoding(encoding)
+                    .setTest(true)
+                    .setRestrictToPackages(restrictToTestPackages)
+                    .setDependencies(List.copyOf(deps))
+                    .build();
             sourceSetsByName.put(testSourceSet.name(), testSourceSet);
         }
 
@@ -123,9 +132,16 @@ public class ComputeSourceSets {
                 }
                 log.debug("**".repeat(indent) + " " + name + " has " + children.size() + " child(ren)");
                 URI uri = URI.create("file:" + artifact.getFile().getPath());
-                SourceSet sourceSet = new SourceSetImpl(name, null, uri, null, test,
-                        true, true, false, runtimeOnly, null,
-                        children);
+                SourceSet sourceSet = new SourceSetImpl.Builder()
+                        .setName(name)
+                        .setUri(uri)
+                        .setTest(test)
+                        .setLibrary(true)
+                        .setExternalLibrary(true)
+                        .setPartOfJdk(false)
+                        .setRuntimeOnly(runtimeOnly)
+                        .setDependencies(List.copyOf(children))
+                        .build();
                 sourceSetsByName.put(name, sourceSet);
                 log.debug("Added class path part " + name);
                 results.add(sourceSet);

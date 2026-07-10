@@ -6,11 +6,11 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.DependencyResolutionException;
-import org.e2immu.analyzer.aapi.parser.Composer;
-import org.e2immu.analyzer.modification.io.DecoratorImpl;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsComposer;
+import org.e2immu.analyzer.modification.prepwork.io.DecoratorImpl;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.info.ImportComputer;
+import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.Qualification;
@@ -22,9 +22,14 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@Mojo(name = WriteAnnotatedAPIsMojo.WRITE_AAPI_GOAL, defaultPhase = LifecyclePhase.COMPILE, threadSafe = true)
-public class WriteAnnotatedAPIsMojo extends CommonMojo {
-    public static final String WRITE_AAPI_GOAL = "write-annotated-apis";
+/**
+ * Generate first-cut analysis-hint ({@code .java}) skeletons for the library types the project's sources call into
+ * (use case 3), annotated with call-frequency comments. Uses {@link AnalysisHintsComposer} (the former
+ * {@code Composer}). Runs on the in-house parser via {@link #parseSources()}, so no {@code --add-exports} is needed.
+ */
+@Mojo(name = WriteAnalysisHintsMojo.WRITE_HINTS_GOAL, defaultPhase = LifecyclePhase.COMPILE, threadSafe = true)
+public class WriteAnalysisHintsMojo extends CommonMojo {
+    public static final String WRITE_HINTS_GOAL = "write-analysis-hints";
 
     @Parameter(property = "outputDirectory", defaultValue = "${project.build.directory}/annotatedAPI")
     private File outputDirectory;
@@ -36,7 +41,6 @@ public class WriteAnnotatedAPIsMojo extends CommonMojo {
     @Override
     public void execute() throws MojoExecutionException {
         try {
-            // Create output directory if it doesn't exist
             if (outputDirectory.mkdirs()) {
                 getLog().info("Created " + outputDirectory.getAbsolutePath());
             }
@@ -48,13 +52,11 @@ public class WriteAnnotatedAPIsMojo extends CommonMojo {
             Map<MethodInfo, Integer> overrideFrequencies = new HashMap<>();
             methodCallFrequencies.forEach((mi, f) ->
                     mi.overrides().forEach(o -> overrideFrequencies.putIfAbsent(o, f)));
-            ImportComputer importComputer = psr.javaInspector().importComputer(Integer.MAX_VALUE);
-            Composer composer = new Composer(psr.javaInspector(),
-                    importComputer,
+            AnalysisHintsComposer composer = new AnalysisHintsComposer(psr.javaInspector(),
                     set -> packagePrefixGenerator(packagePrefix, set),
-                    w -> acceptedTypes.contains(w.typeInfo()));
+                    info -> acceptedTypes.contains(info.typeInfo()));
             Set<TypeInfo> primaryTypes = psr.javaInspector().compiledTypesManager()
-                    .typesLoaded().stream().map(TypeInfo::primaryType)
+                    .typesLoaded(true).stream().map(TypeInfo::primaryType)
                     .collect(Collectors.toUnmodifiableSet());
             getLog().info("Have " + primaryTypes.size() + " primary types loaded");
 
@@ -66,7 +68,7 @@ public class WriteAnnotatedAPIsMojo extends CommonMojo {
             composer.write(apiTypes, outputDirectory, decorator);
 
         } catch (RuntimeException | IOException | DependencyResolutionException e) {
-            throw new MojoExecutionException("Failed to write input configuration", e);
+            throw new MojoExecutionException("Failed to write analysis hints", e);
         }
     }
 
@@ -92,7 +94,7 @@ public class WriteAnnotatedAPIsMojo extends CommonMojo {
                                      Map<Element, Element> translationMap,
                                      Map<MethodInfo, Integer> methodCallFrequencies,
                                      Map<MethodInfo, Integer> overrideFrequencies) {
-            super(runtime, translationMap);
+            super(runtime, null, translationMap);
             this.translationMap = translationMap;
             this.log = log;
             this.runtime = runtime;
