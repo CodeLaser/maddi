@@ -130,4 +130,25 @@ public class TestJavaUtilFunction extends CommonTest {
         assertEquals(0, u.arrays());
     }
 
+    // The default helper methods build a NEW composed function without touching `this`, so they must
+    // be non-modifying (unlike the SAM apply/accept/test, which may modify their input argument).
+    @Test
+    public void testDefaultHelpersNonModifying() {
+        assertFalse(compiledTypesManager().get(Function.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().get(Function.class).findUniqueMethod("compose", 1).isModifying());
+        assertFalse(compiledTypesManager().get(Consumer.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().get(BiConsumer.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().get(Predicate.class).findUniqueMethod("and", 1).isModifying());
+        assertFalse(compiledTypesManager().get(Predicate.class).findUniqueMethod("or", 1).isModifying());
+        assertFalse(compiledTypesManager().get(Predicate.class).findUniqueMethod("negate", 0).isModifying());
+        assertFalse(compiledTypesManager().get(BiPredicate.class).findUniqueMethod("negate", 0).isModifying());
+    }
+
+    // Predicate was missing the type-level @Independent(hc=true) all its siblings carry.
+    @Test
+    public void testPredicateIndependentHc() {
+        TypeInfo typeInfo = compiledTypesManager().get(Predicate.class);
+        assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
+    }
+
 }
