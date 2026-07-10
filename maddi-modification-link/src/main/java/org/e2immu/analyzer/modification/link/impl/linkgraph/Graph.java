@@ -132,6 +132,13 @@ public class Graph {
         }
         Variable tFrom = sharedVariables.translateForward(from);
         Variable tTo = sharedVariables.translateForward(to);
+        if (tFrom.equals(tTo)) {
+            // distinct 'from' and 'to' both translate to the same shared-variable representative (they are in one
+            // assignment group): the edge would be a self-loop, which the engine forbids (Fact asserts
+            // source != target). Nothing to link; just make sure the vertex exists. Mirrors the from.equals(to)
+            // guard at the top of this method, now applied after translateForward.
+            return engine.addVertex(tFrom);
+        }
         return engine.addSymmetricEdge(tFrom, tTo, linkNature, statementIndex) > 0;
     }
 
@@ -157,6 +164,10 @@ public class Graph {
             vtm.put(variable, sharedVariable);
             Variable newFrom = vtm.translateVariableRecursively(forwardLinks.getKey());
             for (Map.Entry<Variable, LinkNature> link : forwardLinks.getValue()) {
+                // re-homing a member's edges onto the shared representative can make the source coincide with the
+                // target (the edge pointed at another member of the same group); skip the resulting self-loop,
+                // which the engine forbids (Fact asserts source != target).
+                if (newFrom.equals(link.getKey())) continue;
                 engine.addSymmetricEdge(newFrom, link.getKey(), link.getValue(), statementIndex);
             }
         }
