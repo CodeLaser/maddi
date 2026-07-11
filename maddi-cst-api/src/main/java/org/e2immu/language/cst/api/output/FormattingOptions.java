@@ -46,4 +46,13 @@ public interface FormattingOptions {
     int tabsForLineSplit();
 
     WrapStyle wrapStyle();
+
+    /**
+     * When true, guide blocks marked as a {@code prioritySplit} (class bodies, method bodies,
+     * other {@code generatorForBlock} structures) are always broken onto their own indented
+     * lines, even when they would fit on the current line. This yields conventional
+     * "brace on its own line" layout instead of the compact, single-line-if-it-fits default.
+     * Default false, preserving the historical compact behaviour.
+     */
+    boolean alwaysBreakPriorityBlocks();
 }

@@ -26,7 +26,8 @@ public record FormattingOptionsImpl(int lengthOfLine,
                                 boolean allFieldsRequireThis,
                                 boolean allStaticFieldsRequireType,
                                 boolean skipComments,
-                                WrapStyle wrapStyle) implements FormattingOptions {
+                                WrapStyle wrapStyle,
+                                boolean alwaysBreakPriorityBlocks) implements FormattingOptions {
 
     public static final FormattingOptions DEFAULT = new Builder().build();
 
@@ -42,6 +43,7 @@ public record FormattingOptionsImpl(int lengthOfLine,
         private boolean allStaticFieldsRequireType;
         private boolean skipComments;
         private FormattingOptions.WrapStyle wrapStyle;
+        private boolean alwaysBreakPriorityBlocks;
 
         public Builder() {
             this.lengthOfLine = 120;
@@ -56,7 +58,12 @@ public record FormattingOptionsImpl(int lengthOfLine,
             this.spacesInTab = options.spacesInTab();
             this.tabsForLineSplit = options.tabsForLineSplit();
             this.binaryOperatorsAtEndOfLine = options.binaryOperatorsAtEndOfLine();
+            this.compact = options.compact();
+            this.allFieldsRequireThis = options.allFieldsRequireThis();
+            this.allStaticFieldsRequireType = options.allStaticFieldsRequireType();
+            this.skipComments = options.skipComments();
             this.wrapStyle = options.wrapStyle();
+            this.alwaysBreakPriorityBlocks = options.alwaysBreakPriorityBlocks();
         }
 
         public Builder setLengthOfLine(int lengthOfLine) {
@@ -108,10 +115,15 @@ public record FormattingOptionsImpl(int lengthOfLine,
             return this;
         }
 
+        public Builder setAlwaysBreakPriorityBlocks(boolean alwaysBreakPriorityBlocks) {
+            this.alwaysBreakPriorityBlocks = alwaysBreakPriorityBlocks;
+            return this;
+        }
+
         @NotModified
         public FormattingOptions build() {
             return new FormattingOptionsImpl(lengthOfLine, spacesInTab, tabsForLineSplit, binaryOperatorsAtEndOfLine, compact,
-                    allFieldsRequireThis, allStaticFieldsRequireType, skipComments, wrapStyle);
+                    allFieldsRequireThis, allStaticFieldsRequireType, skipComments, wrapStyle, alwaysBreakPriorityBlocks);
         }
     }
 }
