@@ -25,8 +25,7 @@ java {
     withSourcesJar()
 }
 
-group = "io.codelaser"
-version = "0.8.2"
+// group and version come from the root gradle.properties (single release train — see PUBLISHING.md)
 
 publishing {
     publications {
@@ -37,9 +36,9 @@ publishing {
                 name.set("maddi-support")
                 description = "Support library for Maddi, a modification analyser for duplication detection and immutability."
 
-                groupId = "io.codelaser"
+                groupId = project.group.toString()
                 artifactId = "maddi-support"
-                version = "0.8.2"
+                version = project.version.toString()
 
                 url.set("https://github.com/CodeLaser/maddi")
                 licenses {

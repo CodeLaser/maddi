@@ -26,7 +26,7 @@ java {
     targetCompatibility = JavaVersion.VERSION_25
 }
 
-version = "0.8.2"
+// version comes from the root gradle.properties (single release train — see PUBLISHING.md)
 
 val mavenVersion = "3.9.9"
 val mavenPluginToolsVersion = "3.15.1"

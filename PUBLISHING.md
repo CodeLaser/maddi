@@ -42,8 +42,16 @@ no K2 — and they run it on a classpath (a forked worker for Gradle), where the
 descriptors do not matter.
 
 * *Gradle plugin* (`maddi-gradleplugin`) → **Gradle Plugin Portal**, id `org.e2immu.analyzer-plugin`.
-* *Maven plugin* (`maddi-mvnplugin`) → **Maven Central**. (Blocked on generating the Maven plugin
-  descriptor; see the mvnplugin notes.)
+  **Shading DONE** (`com.gradleup.shadow`): a dedicated `shade` configuration lists the analyzer
+  modules; `implementation` extends it; `shadowJar` bundles only `shade`, so `gradleApi()` and
+  `kotlin-stdlib` (Gradle-provided) are excluded and the analyzer + jackson/logback/asm/congocc are
+  bundled (~11 MB, verified). Class names are **not relocated** — the forked worker references
+  `RunAnalyzer` by its real name, and it runs in an isolated process so third-party clashes with the
+  consuming build don't arise. The thin jar is pushed to the `-plain` classifier; the shadow jar takes
+  the main name. *Remaining:* apply `com.gradle.plugin-publish` and point its `pluginMaven` publication
+  at the shadow jar (no publishing plugin is applied yet, so nothing publishes the thin jar today).
+* *Maven plugin* (`maddi-mvnplugin`) → **Maven Central**. (Shading still to do; blocked upstream on
+  generating the Maven plugin descriptor — shade it once the descriptor lands. See the mvnplugin notes.)
 
 === 3. Command-line tools — GitHub Releases (not Maven)
 
@@ -62,9 +70,10 @@ Not published: none of the fine-grained analyzer modules (`maddi-cst-*`, `maddi-
 Versioning
 ----------
 
-One release train, one version for the whole project, centralized in `gradle.properties` (today the
-version is hard-coded as `0.8.2` in `maddi-support/build.gradle.kts` and `maddi-mvnplugin`). Bump it
-there before a release; Maven Central rejects re-publishing an existing version.
+One release train, one version for the whole project, centralized in `gradle.properties`
+(`group=io.codelaser`, `version=0.8.2`) — **DONE**: the root `gradle.properties` is inherited by every
+subproject, and `maddi-support` / `maddi-mvnplugin` no longer hard-code the version. Bump it there
+before a release; Maven Central rejects re-publishing an existing version.
 
 
 Release checklist
