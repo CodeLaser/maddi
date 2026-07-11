@@ -1,6 +1,8 @@
 package org.e2immu.language.java.openjdk;
 
 import com.sun.source.tree.CompilationUnitTree;
+
+import java.net.URI;
 import com.sun.source.tree.LineMap;
 import com.sun.source.util.DocTrees;
 import com.sun.source.util.JavacTask;
@@ -56,7 +58,18 @@ public class ScanCompilationUnits {
     private final ResolveJavaDoc resolveJavaDoc;
     private final List<String> packagesToPreload;
 
-    public record Result(List<TypeInfo> primaryTypes, List<ModuleInfo> modules, List<TypeInfo> preloads) {
+    public record Result(List<TypeInfo> primaryTypes, List<ModuleInfo> modules, List<TypeInfo> preloads,
+                         List<CompilationUnitFailure> failures) {
+    }
+
+    /**
+     * A single compilation unit that could not be scanned. When errors are ignored (accumulate mode), such a unit
+     * is dropped and recorded here rather than aborting the whole source set — so a run over a partial classpath
+     * reports <em>all</em> problem files and preps over the rest. {@code tolerable} is true when the cause is an
+     * {@link UnresolvedSymbolException} (an expected partial-classpath miss → a warning); otherwise it is a genuine
+     * failure → an error. The caller surfaces these into the {@code Summary}.
+     */
+    public record CompilationUnitFailure(URI uri, String detail, boolean tolerable, Throwable cause) {
     }
 
     public ScanCompilationUnits(Runtime runtime,
@@ -99,6 +112,9 @@ public class ScanCompilationUnits {
 
         List<TypeInfo> primaryTypes = new ArrayList<>();
         List<ModuleInfo> modules = new ArrayList<>();
+        // compilation units dropped by fault isolation (accumulate mode), and their recorded failures
+        List<CompilationUnitFailure> failures = new ArrayList<>();
+        Set<CompilationUnitTree> droppedUnits = new HashSet<>();
 
         // only index in the first pass; in the second pass, all predefined objects will be present
         List<TypeInfo> preloads;
@@ -153,8 +169,15 @@ public class ScanCompilationUnits {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException(ie);
                     } catch (ExecutionException ee) {
-                        Throwable cause = ee.getCause();
-                        throw cause instanceof RuntimeException re ? re : new RuntimeException(cause == null ? ee : cause);
+                        Throwable cause = ee.getCause() == null ? ee : ee.getCause();
+                        // the congocc pre-scan failed for this unit (e.g. a grammar gap on newer Java syntax).
+                        // fail-fast: rethrow. accumulate: drop the unit and record it, so it does not abort the
+                        // whole source set; Phase 1 then skips it (it has no scan result).
+                        if (!diagnosticCollector.ignoreErrors()) {
+                            throw cause instanceof RuntimeException re ? re : new RuntimeException(cause);
+                        }
+                        recordFailure(failures, e.getKey(), cause);
+                        droppedUnits.add(e.getKey());
                     }
                 }
             }
@@ -167,16 +190,22 @@ public class ScanCompilationUnits {
         List<ScanCompilationUnit> scanners = new ArrayList<>();
         List<CompilationUnitTree> unitList = new ArrayList<>();
         for (CompilationUnitTree unit : units) {
-            ScanCompilationUnit scu = createScanner(unit, scanResults.get(unit), topLevelClassSymbols);
+            if (droppedUnits.contains(unit)) continue; // congocc pre-scan already dropped this unit
             try {
+                ScanCompilationUnit scu = createScanner(unit, scanResults.get(unit), topLevelClassSymbols);
                 scu.buildCompilationUnit(unit);
+                classSymbolScanner.registerSourceCompilationUnit(scu.currentCompilationUnit());
+                scanners.add(scu);
+                unitList.add(unit);
             } catch (RuntimeException | AssertionError e) {
-                LOGGER.error("Caught exception (compilation-unit build) in source set {}", sourceSet.name());
-                throw e;
+                // fail-fast: preserve the historical abort. accumulate: drop this unit and keep going, so one
+                // unresolved reference (partial classpath) no longer kills the whole source set.
+                if (!diagnosticCollector.ignoreErrors()) {
+                    LOGGER.error("Caught exception (compilation-unit build) in source set {}", sourceSet.name());
+                    throw e;
+                }
+                recordFailure(failures, unit, e);
             }
-            classSymbolScanner.registerSourceCompilationUnit(scu.currentCompilationUnit());
-            scanners.add(scu);
-            unitList.add(unit);
         }
 
         // Phase 2: scan the bodies. Serial -- it touches shared javac state (symbol resolution, trees).
@@ -185,22 +214,63 @@ public class ScanCompilationUnits {
             ScanCompilationUnit scu = scanners.get(i);
             try {
                 scu.scanBodies(unitList.get(i));
+                primaryTypes.addAll(scu.types());
+                modules.addAll(scu.modules());
             } catch (RuntimeException | AssertionError e) {
-                LOGGER.error("Caught exception in source set {}", sourceSet.name());
-                throw e;
+                // fail-fast: preserve the historical abort. accumulate: drop this unit's (partial) types and keep
+                // going, so the run reports every problem file instead of dying on the first.
+                if (!diagnosticCollector.ignoreErrors()) {
+                    LOGGER.error("Caught exception in source set {}", sourceSet.name());
+                    throw e;
+                }
+                recordFailure(failures, unitList.get(i), e);
             }
-            primaryTypes.addAll(scu.types());
-            modules.addAll(scu.modules());
             TIMED_LOGGER.info("Done {}", ++done);
         }
         LOGGER.info("Start scanning javaDocs, committing {} primary types", primaryTypes.size());
 
-        for (TypeInfo primaryType : primaryTypes) {
+        Iterator<TypeInfo> ptIt = primaryTypes.iterator();
+        while (ptIt.hasNext()) {
+            TypeInfo primaryType = ptIt.next();
             if (!primaryType.hasBeenInspected()) {
-                scanJavaDocsAndCommit(primaryType);
+                try {
+                    scanJavaDocsAndCommit(primaryType);
+                } catch (RuntimeException | AssertionError e) {
+                    // a type we could not commit (e.g. a malformed supertype set after dropped units). fail-fast:
+                    // rethrow; accumulate: drop the type and keep going, so it is not returned to the analysis.
+                    if (!diagnosticCollector.ignoreErrors()) throw e;
+                    URI uri;
+                    try {
+                        uri = primaryType.compilationUnit().uri();
+                    } catch (RuntimeException ignore) {
+                        uri = null;
+                    }
+                    addFailure(failures, uri, e);
+                    ptIt.remove();
+                }
             }
         }
-        return new Result(List.copyOf(primaryTypes), List.copyOf(modules), List.copyOf(preloads));
+        return new Result(List.copyOf(primaryTypes), List.copyOf(modules), List.copyOf(preloads),
+                List.copyOf(failures));
+    }
+
+    /** Record a dropped compilation unit; an {@link UnresolvedSymbolException} cause is tolerable (→ warning). */
+    private static void recordFailure(List<CompilationUnitFailure> failures, CompilationUnitTree unit, Throwable e) {
+        addFailure(failures, unit.getSourceFile() == null ? null : unit.getSourceFile().toUri(), e);
+    }
+
+    private static void addFailure(List<CompilationUnitFailure> failures, URI uri, Throwable e) {
+        boolean tolerable = hasCause(e, UnresolvedSymbolException.class);
+        String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+        LOGGER.warn("Dropping compilation unit {} ({}): {}", uri, tolerable ? "unresolved symbol" : "error", detail);
+        failures.add(new CompilationUnitFailure(uri, detail, tolerable, e));
+    }
+
+    private static boolean hasCause(Throwable t, Class<? extends Throwable> type) {
+        for (Throwable c = t; c != null; c = c.getCause()) {
+            if (type.isInstance(c)) return true;
+        }
+        return false;
     }
 
     // create the scanner for one unit (builder + construction). The constructor registers it as the current source
