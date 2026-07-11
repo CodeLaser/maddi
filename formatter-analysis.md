@@ -117,14 +117,20 @@ default options, so greedy cannot be reached without a signature change). Remain
 add round-trip coverage in `maddi-inspection-integration` and decide whether to expose greedy as a
 production-selectable option.
 
-### F4 — Fragile string-sniffing hacks (robustness)
-The author's own TODOs mark these:
-- `ElementPrinter.java:137` — `line.stringBuilder.substring(0, 2).equals("//")` throws
-  `StringIndexOutOfBounds` if the builder holds <2 chars and mis-classifies any content that
-  merely starts with `//`. It is coupled to a matching hack in `BlockPrinter.java:136-138` and
-  `:253`. These drive comment/newline handling and are the most likely source of future
-  regressions. Recommendation: carry an explicit "is single-line comment" signal on the element
-  instead of sniffing the rendered string.
+### F4 — (FIXED) Fragile string-sniffing for single-line comments
+`ElementPrinter.handleNonSpaceNonSymbol` decided whether a forced split keeps the continuation at
+comment level by sniffing `line.stringBuilder.substring(0, 2).equals("//")` — which throws
+`StringIndexOutOfBounds` when the builder holds <2 chars and is a positional string hack.
+**Fixed** with a block-scoped `Line.singleLineComment` flag, set when the `SINGLE_LINE_COMMENT`
+symbol is written at the start of a line (mirroring the existing
+`isLeftBlockComment`/`isRightBlockComment` `protectSpaces` pattern) and read via
+`Line.isSingleLineComment()`. Behaviour-preserving — the flag is true under exactly the condition
+the substring check was. Covered by `TestBlockPrinter2.test3c`, `Test7`, and the round-trip
+`TestComments`/`TestJavaDoc` suites.
+
+Two related spots in `BlockPrinter` (the `output.spaceLevel().isNewLine()` "NEWLINE of `//`" check
+at `handleGuideBlock`, and the SPACE/NEWLINE handling in `handleBlock`) are labelled "is this a
+hack?" but are *type-based*, not string sniffs, and carry no crash risk — left as-is intentionally.
 
 ### F5 — Naming debt
 The `formatter2` package and `Formatter2Impl` were never renamed after the old formatter was
