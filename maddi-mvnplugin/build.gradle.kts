@@ -15,10 +15,12 @@
 
 plugins {
     id("java-library-conventions")
-    // NOTE: Maven-plugin descriptor (META-INF/maven/plugin.xml) generation is NOT wired here yet. The usual tool,
+    // NOTE: the Maven-plugin descriptor is NOT generated from the annotations — the usual tool,
     // id("de.benediktritter.maven-plugin-development") 0.4.3 (latest), is incompatible with Gradle 9 (it calls the
-    // removed ProjectDependency.getDependencyProject()). Until a Gradle-9-compatible release exists, this module
-    // only *compiles* the mojos in-tree; producing a runnable plugin needs the descriptor generated another way.
+    // removed ProjectDependency.getDependencyProject()). Instead a hand-maintained descriptor lives at
+    // src/main/resources/META-INF/maven/plugin.xml (kept in sync with the @Mojo/@Parameter annotations by hand;
+    // @project.version@ is substituted below). It is packaged into the jar, so `mvn maddi:<goal>` resolves the
+    // goals. Still pending for a Central-consumable plugin: shading the (unpublished) analyzer modules into the jar.
 }
 
 java {
@@ -67,4 +69,16 @@ dependencies {
 
     implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("ch.qos.logback:logback-classic")
+}
+
+// The hand-maintained Maven plugin descriptor carries @project.version@; substitute the gradle.properties
+// version at copy time. ReplaceTokens uses '@...@', so Maven's own ${...} expressions are left untouched.
+tasks.processResources {
+    val descriptorVersion = project.version.toString()
+    inputs.property("descriptorVersion", descriptorVersion)
+    filesMatching("META-INF/maven/plugin.xml") {
+        filter<org.apache.tools.ant.filters.ReplaceTokens>(
+            "tokens" to mapOf("project.version" to descriptorVersion)
+        )
+    }
 }

@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Maven plugin descriptor for maddi-mvnplugin, MAINTAINED BY HAND.
+
+  The usual generator, id("de.benediktritter.maven-plugin-development"), is incompatible with Gradle 9
+  (it calls the removed ProjectDependency.getDependencyProject()), so until a Gradle-9-compatible release
+  exists this file is written and kept in sync with the @Mojo/@Parameter annotations by hand. It is copied
+  verbatim into the jar at META-INF/maven/plugin.xml; only @project.version@ is substituted at build time
+  (processResources), so the descriptor version tracks gradle.properties. Maven's own ${...} expressions
+  (e.g. ${project.basedir}, ${jre}) use a different delimiter and are left for Maven to evaluate.
+
+  Every mojo extends CommonMojo, so the shared parameter block (jre .. hintsPackages + the read-only
+  project/session, and the ProjectDependenciesResolver requirement) is repeated in each <mojo>, which is
+  exactly what a generated descriptor does.
+-->
+<plugin>
+  <name>maddi Maven plugin</name>
+  <description>Run the maddi analyzer (modification analysis for duplication detection and immutability) from Maven.</description>
+  <groupId>io.codelaser</groupId>
+  <artifactId>maddi-mvnplugin</artifactId>
+  <version>@project.version@</version>
+  <goalPrefix>maddi</goalPrefix>
+  <isolatedRealm>false</isolatedRealm>
+  <inheritedByDefault>true</inheritedByDefault>
+
+  <mojos>
+
+    <!-- ===================================================================== run -->
+    <mojo>
+      <goal>run</goal>
+      <description>Parse the project's sources and run the prep- and modification-analysis, writing an analysis-result JSON per package (default &lt;build&gt;/e2immu). Uses the openjdk (javac) front-end, so the Maven JVM needs the javac --add-exports (via .mvn/jvm.config or MAVEN_OPTS).</description>
+      <requiresDirectInvocation>false</requiresDirectInvocation>
+      <requiresProject>true</requiresProject>
+      <requiresReports>false</requiresReports>
+      <aggregator>false</aggregator>
+      <requiresOnline>false</requiresOnline>
+      <inheritedByDefault>true</inheritedByDefault>
+      <phase>compile</phase>
+      <implementation>org.e2immu.analyzer.run.mvnplugin.RunAnalyzerMojo</implementation>
+      <language>java</language>
+      <instantiationStrategy>per-lookup</instantiationStrategy>
+      <executionStrategy>once-per-session</executionStrategy>
+      <threadSafe>true</threadSafe>
+      <parameters>
+        <parameter><name>project</name><type>org.apache.maven.project.MavenProject</type><required>true</required><editable>false</editable><description>The current Maven project.</description></parameter>
+        <parameter><name>session</name><type>org.apache.maven.execution.MavenSession</type><required>true</required><editable>false</editable><description>The current Maven session.</description></parameter>
+        <parameter><name>jre</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Alternative JRE/JDK home to resolve the JDK modules against; empty = the running JVM's.</description></parameter>
+        <parameter><name>workingDirectory</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Directory the analyzer resolves relative source/classpath paths against.</description></parameter>
+        <parameter><name>excludeFromClasspath</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma/semicolon-separated jar names to drop from the resolved classpath.</description></parameter>
+        <parameter><name>jmods</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Colon/comma-separated JDK modules to add to the classpath closure.</description></parameter>
+        <parameter><name>testSourcePackages</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Restrict parsed test sources to these packages (comma-separated; trailing dot = subpackages).</description></parameter>
+        <parameter><name>sourcePackages</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Restrict parsed main sources to these packages (comma-separated; trailing dot = subpackages).</description></parameter>
+        <parameter><name>sourceEncoding</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Source file encoding.</description></parameter>
+        <parameter><name>analysisResultsDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write analysis-result JSON; empty = &lt;build&gt;/e2immu.</description></parameter>
+        <parameter><name>analysisSteps</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma-separated analysis steps (none|prep|analysis-order|modification); empty = default.</description></parameter>
+        <parameter><name>incrementalAnalysis</name><type>boolean</type><required>false</required><editable>true</editable><description>Enable the analyzer's incremental mode.</description></parameter>
+        <parameter><name>parallel</name><type>boolean</type><required>false</required><editable>true</editable><description>Parallelize the analysis.</description></parameter>
+        <parameter><name>quiet</name><type>boolean</type><required>false</required><editable>true</editable><description>Suppress the warning/error summary on stdout.</description></parameter>
+        <parameter><name>debug</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma-separated debug targets.</description></parameter>
+        <parameter><name>preloadAnalysisResultsDirs</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Directories of precomputed analysis hints to preload.</description></parameter>
+        <parameter><name>analysisResultsTargetDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write analyzed AnalysisHints files.</description></parameter>
+        <parameter><name>updatedHintsDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write AnalysisHints skeleton files extracted from sources.</description></parameter>
+        <parameter><name>updatedHintsPackage</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Package to write the AnalysisHints skeletons to.</description></parameter>
+        <parameter><name>hintsPackages</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Source packages to create analysis-hint skeletons from.</description></parameter>
+      </parameters>
+      <configuration>
+        <project default-value="${project}"/>
+        <session default-value="${session}"/>
+        <jre implementation="java.lang.String" default-value="">${jre}</jre>
+        <workingDirectory implementation="java.lang.String" default-value="${project.basedir}">${workingDirectory}</workingDirectory>
+        <excludeFromClasspath implementation="java.lang.String" default-value="">${excludeFromClasspath}</excludeFromClasspath>
+        <jmods implementation="java.lang.String" default-value="java.base">${jmods}</jmods>
+        <testSourcePackages implementation="java.lang.String" default-value="">${testSourcePackages}</testSourcePackages>
+        <sourcePackages implementation="java.lang.String" default-value="">${sourcePackages}</sourcePackages>
+        <sourceEncoding implementation="java.lang.String" default-value="UTF-8">${sourceEncoding}</sourceEncoding>
+        <analysisResultsDir implementation="java.lang.String" default-value="">${analysisResultsDir}</analysisResultsDir>
+        <analysisSteps implementation="java.lang.String" default-value="">${analysisSteps}</analysisSteps>
+        <incrementalAnalysis implementation="boolean" default-value="false">${incrementalAnalysis}</incrementalAnalysis>
+        <parallel implementation="boolean" default-value="true">${parallel}</parallel>
+        <quiet implementation="boolean" default-value="false">${quiet}</quiet>
+        <debug implementation="java.lang.String" default-value="">${debug}</debug>
+        <preloadAnalysisResultsDirs implementation="java.lang.String" default-value="">${preloadAnalysisResultsDirs}</preloadAnalysisResultsDirs>
+        <analysisResultsTargetDir implementation="java.lang.String" default-value="">${analysisResultsTargetDir}</analysisResultsTargetDir>
+        <updatedHintsDir implementation="java.lang.String" default-value="">${updatedHintsDir}</updatedHintsDir>
+        <updatedHintsPackage implementation="java.lang.String" default-value="">${updatedHintsPackage}</updatedHintsPackage>
+        <hintsPackages implementation="java.lang.String" default-value="">${hintsPackages}</hintsPackages>
+      </configuration>
+      <requirements>
+        <requirement>
+          <role>org.apache.maven.project.ProjectDependenciesResolver</role>
+          <field-name>dependenciesResolver</field-name>
+        </requirement>
+      </requirements>
+    </mojo>
+
+    <!-- ================================================= write-input-configuration -->
+    <mojo>
+      <goal>write-input-configuration</goal>
+      <description>Resolve the project's source sets and classpath and write the derived InputConfiguration as JSON (default &lt;build&gt;/inputConfiguration.json), without running the analysis. Uses the in-house parser (no --add-exports needed).</description>
+      <requiresDirectInvocation>false</requiresDirectInvocation>
+      <requiresProject>true</requiresProject>
+      <requiresReports>false</requiresReports>
+      <aggregator>false</aggregator>
+      <requiresOnline>false</requiresOnline>
+      <inheritedByDefault>true</inheritedByDefault>
+      <phase>compile</phase>
+      <implementation>org.e2immu.analyzer.run.mvnplugin.WriteInputConfigurationMojo</implementation>
+      <language>java</language>
+      <instantiationStrategy>per-lookup</instantiationStrategy>
+      <executionStrategy>once-per-session</executionStrategy>
+      <threadSafe>true</threadSafe>
+      <parameters>
+        <parameter><name>project</name><type>org.apache.maven.project.MavenProject</type><required>true</required><editable>false</editable><description>The current Maven project.</description></parameter>
+        <parameter><name>session</name><type>org.apache.maven.execution.MavenSession</type><required>true</required><editable>false</editable><description>The current Maven session.</description></parameter>
+        <parameter><name>jre</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Alternative JRE/JDK home to resolve the JDK modules against; empty = the running JVM's.</description></parameter>
+        <parameter><name>workingDirectory</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Directory the analyzer resolves relative source/classpath paths against.</description></parameter>
+        <parameter><name>excludeFromClasspath</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma/semicolon-separated jar names to drop from the resolved classpath.</description></parameter>
+        <parameter><name>jmods</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Colon/comma-separated JDK modules to add to the classpath closure.</description></parameter>
+        <parameter><name>testSourcePackages</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Restrict parsed test sources to these packages.</description></parameter>
+        <parameter><name>sourcePackages</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Restrict parsed main sources to these packages.</description></parameter>
+        <parameter><name>sourceEncoding</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Source file encoding.</description></parameter>
+        <parameter><name>analysisResultsDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write analysis-result JSON; empty = &lt;build&gt;/e2immu.</description></parameter>
+        <parameter><name>analysisSteps</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma-separated analysis steps; empty = default.</description></parameter>
+        <parameter><name>incrementalAnalysis</name><type>boolean</type><required>false</required><editable>true</editable><description>Enable the analyzer's incremental mode.</description></parameter>
+        <parameter><name>parallel</name><type>boolean</type><required>false</required><editable>true</editable><description>Parallelize the analysis.</description></parameter>
+        <parameter><name>quiet</name><type>boolean</type><required>false</required><editable>true</editable><description>Suppress the warning/error summary on stdout.</description></parameter>
+        <parameter><name>debug</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma-separated debug targets.</description></parameter>
+        <parameter><name>preloadAnalysisResultsDirs</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Directories of precomputed analysis hints to preload.</description></parameter>
+        <parameter><name>analysisResultsTargetDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write analyzed AnalysisHints files.</description></parameter>
+        <parameter><name>updatedHintsDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write AnalysisHints skeleton files extracted from sources.</description></parameter>
+        <parameter><name>updatedHintsPackage</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Package to write the AnalysisHints skeletons to.</description></parameter>
+        <parameter><name>hintsPackages</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Source packages to create analysis-hint skeletons from.</description></parameter>
+        <parameter><name>outputFile</name><type>java.io.File</type><required>false</required><editable>true</editable><description>File to write the derived InputConfiguration JSON to.</description></parameter>
+      </parameters>
+      <configuration>
+        <project default-value="${project}"/>
+        <session default-value="${session}"/>
+        <jre implementation="java.lang.String" default-value="">${jre}</jre>
+        <workingDirectory implementation="java.lang.String" default-value="${project.basedir}">${workingDirectory}</workingDirectory>
+        <excludeFromClasspath implementation="java.lang.String" default-value="">${excludeFromClasspath}</excludeFromClasspath>
+        <jmods implementation="java.lang.String" default-value="java.base">${jmods}</jmods>
+        <testSourcePackages implementation="java.lang.String" default-value="">${testSourcePackages}</testSourcePackages>
+        <sourcePackages implementation="java.lang.String" default-value="">${sourcePackages}</sourcePackages>
+        <sourceEncoding implementation="java.lang.String" default-value="UTF-8">${sourceEncoding}</sourceEncoding>
+        <analysisResultsDir implementation="java.lang.String" default-value="">${analysisResultsDir}</analysisResultsDir>
+        <analysisSteps implementation="java.lang.String" default-value="">${analysisSteps}</analysisSteps>
+        <incrementalAnalysis implementation="boolean" default-value="false">${incrementalAnalysis}</incrementalAnalysis>
+        <parallel implementation="boolean" default-value="true">${parallel}</parallel>
+        <quiet implementation="boolean" default-value="false">${quiet}</quiet>
+        <debug implementation="java.lang.String" default-value="">${debug}</debug>
+        <preloadAnalysisResultsDirs implementation="java.lang.String" default-value="">${preloadAnalysisResultsDirs}</preloadAnalysisResultsDirs>
+        <analysisResultsTargetDir implementation="java.lang.String" default-value="">${analysisResultsTargetDir}</analysisResultsTargetDir>
+        <updatedHintsDir implementation="java.lang.String" default-value="">${updatedHintsDir}</updatedHintsDir>
+        <updatedHintsPackage implementation="java.lang.String" default-value="">${updatedHintsPackage}</updatedHintsPackage>
+        <hintsPackages implementation="java.lang.String" default-value="">${hintsPackages}</hintsPackages>
+        <outputFile implementation="java.io.File" default-value="${project.build.directory}/inputConfiguration.json">${outputFile}</outputFile>
+      </configuration>
+      <requirements>
+        <requirement>
+          <role>org.apache.maven.project.ProjectDependenciesResolver</role>
+          <field-name>dependenciesResolver</field-name>
+        </requirement>
+      </requirements>
+    </mojo>
+
+    <!-- ============================================================== statistics -->
+    <mojo>
+      <goal>statistics</goal>
+      <description>Parse the sources and write method-call-frequency histograms (overall, main-only, test-only, and per source set). Uses the in-house parser (no --add-exports needed).</description>
+      <requiresDirectInvocation>false</requiresDirectInvocation>
+      <requiresProject>true</requiresProject>
+      <requiresReports>false</requiresReports>
+      <aggregator>false</aggregator>
+      <requiresOnline>false</requiresOnline>
+      <inheritedByDefault>true</inheritedByDefault>
+      <phase>compile</phase>
+      <implementation>org.e2immu.analyzer.run.mvnplugin.StatisticsMojo</implementation>
+      <language>java</language>
+      <instantiationStrategy>per-lookup</instantiationStrategy>
+      <executionStrategy>once-per-session</executionStrategy>
+      <threadSafe>true</threadSafe>
+      <parameters>
+        <parameter><name>project</name><type>org.apache.maven.project.MavenProject</type><required>true</required><editable>false</editable><description>The current Maven project.</description></parameter>
+        <parameter><name>session</name><type>org.apache.maven.execution.MavenSession</type><required>true</required><editable>false</editable><description>The current Maven session.</description></parameter>
+        <parameter><name>jre</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Alternative JRE/JDK home to resolve the JDK modules against; empty = the running JVM's.</description></parameter>
+        <parameter><name>workingDirectory</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Directory the analyzer resolves relative source/classpath paths against.</description></parameter>
+        <parameter><name>excludeFromClasspath</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma/semicolon-separated jar names to drop from the resolved classpath.</description></parameter>
+        <parameter><name>jmods</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Colon/comma-separated JDK modules to add to the classpath closure.</description></parameter>
+        <parameter><name>testSourcePackages</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Restrict parsed test sources to these packages.</description></parameter>
+        <parameter><name>sourcePackages</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Restrict parsed main sources to these packages.</description></parameter>
+        <parameter><name>sourceEncoding</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Source file encoding.</description></parameter>
+        <parameter><name>analysisResultsDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write analysis-result JSON; empty = &lt;build&gt;/e2immu.</description></parameter>
+        <parameter><name>analysisSteps</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma-separated analysis steps; empty = default.</description></parameter>
+        <parameter><name>incrementalAnalysis</name><type>boolean</type><required>false</required><editable>true</editable><description>Enable the analyzer's incremental mode.</description></parameter>
+        <parameter><name>parallel</name><type>boolean</type><required>false</required><editable>true</editable><description>Parallelize the analysis.</description></parameter>
+        <parameter><name>quiet</name><type>boolean</type><required>false</required><editable>true</editable><description>Suppress the warning/error summary on stdout.</description></parameter>
+        <parameter><name>debug</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma-separated debug targets.</description></parameter>
+        <parameter><name>preloadAnalysisResultsDirs</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Directories of precomputed analysis hints to preload.</description></parameter>
+        <parameter><name>analysisResultsTargetDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write analyzed AnalysisHints files.</description></parameter>
+        <parameter><name>updatedHintsDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write AnalysisHints skeleton files extracted from sources.</description></parameter>
+        <parameter><name>updatedHintsPackage</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Package to write the AnalysisHints skeletons to.</description></parameter>
+        <parameter><name>hintsPackages</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Source packages to create analysis-hint skeletons from.</description></parameter>
+        <parameter><name>methodCallFrequencies</name><type>java.io.File</type><required>false</required><editable>true</editable><description>Output: overall method-call frequency histogram.</description></parameter>
+        <parameter><name>methodCallFrequenciesMain</name><type>java.io.File</type><required>false</required><editable>true</editable><description>Output: main-sources method-call frequency histogram.</description></parameter>
+        <parameter><name>methodCallFrequenciesTest</name><type>java.io.File</type><required>false</required><editable>true</editable><description>Output: test-sources method-call frequency histogram.</description></parameter>
+        <parameter><name>methodCallFrequenciesBySourceSet</name><type>java.io.File</type><required>false</required><editable>true</editable><description>Output: overall frequency histogram grouped by source set.</description></parameter>
+        <parameter><name>methodCallFrequenciesMainBySourceSet</name><type>java.io.File</type><required>false</required><editable>true</editable><description>Output: main-sources frequency histogram grouped by source set.</description></parameter>
+        <parameter><name>methodCallFrequenciesTestBySourceSet</name><type>java.io.File</type><required>false</required><editable>true</editable><description>Output: test-sources frequency histogram grouped by source set.</description></parameter>
+      </parameters>
+      <configuration>
+        <project default-value="${project}"/>
+        <session default-value="${session}"/>
+        <jre implementation="java.lang.String" default-value="">${jre}</jre>
+        <workingDirectory implementation="java.lang.String" default-value="${project.basedir}">${workingDirectory}</workingDirectory>
+        <excludeFromClasspath implementation="java.lang.String" default-value="">${excludeFromClasspath}</excludeFromClasspath>
+        <jmods implementation="java.lang.String" default-value="java.base">${jmods}</jmods>
+        <testSourcePackages implementation="java.lang.String" default-value="">${testSourcePackages}</testSourcePackages>
+        <sourcePackages implementation="java.lang.String" default-value="">${sourcePackages}</sourcePackages>
+        <sourceEncoding implementation="java.lang.String" default-value="UTF-8">${sourceEncoding}</sourceEncoding>
+        <analysisResultsDir implementation="java.lang.String" default-value="">${analysisResultsDir}</analysisResultsDir>
+        <analysisSteps implementation="java.lang.String" default-value="">${analysisSteps}</analysisSteps>
+        <incrementalAnalysis implementation="boolean" default-value="false">${incrementalAnalysis}</incrementalAnalysis>
+        <parallel implementation="boolean" default-value="true">${parallel}</parallel>
+        <quiet implementation="boolean" default-value="false">${quiet}</quiet>
+        <debug implementation="java.lang.String" default-value="">${debug}</debug>
+        <preloadAnalysisResultsDirs implementation="java.lang.String" default-value="">${preloadAnalysisResultsDirs}</preloadAnalysisResultsDirs>
+        <analysisResultsTargetDir implementation="java.lang.String" default-value="">${analysisResultsTargetDir}</analysisResultsTargetDir>
+        <updatedHintsDir implementation="java.lang.String" default-value="">${updatedHintsDir}</updatedHintsDir>
+        <updatedHintsPackage implementation="java.lang.String" default-value="">${updatedHintsPackage}</updatedHintsPackage>
+        <hintsPackages implementation="java.lang.String" default-value="">${hintsPackages}</hintsPackages>
+        <methodCallFrequencies implementation="java.io.File" default-value="${project.build.directory}/methodCallFrequencies.txt">${methodCallFrequencies}</methodCallFrequencies>
+        <methodCallFrequenciesMain implementation="java.io.File" default-value="${project.build.directory}/methodCallFrequenciesMain.txt">${methodCallFrequenciesMain}</methodCallFrequenciesMain>
+        <methodCallFrequenciesTest implementation="java.io.File" default-value="${project.build.directory}/methodCallFrequenciesTest.txt">${methodCallFrequenciesTest}</methodCallFrequenciesTest>
+        <methodCallFrequenciesBySourceSet implementation="java.io.File" default-value="${project.build.directory}/methodCallFrequenciesBySourceSet.txt">${methodCallFrequenciesBySourceSet}</methodCallFrequenciesBySourceSet>
+        <methodCallFrequenciesMainBySourceSet implementation="java.io.File" default-value="${project.build.directory}/methodCallFrequenciesMainBySourceSet.txt">${methodCallFrequenciesMainBySourceSet}</methodCallFrequenciesMainBySourceSet>
+        <methodCallFrequenciesTestBySourceSet implementation="java.io.File" default-value="${project.build.directory}/methodCallFrequenciesTestBySourceSet.txt">${methodCallFrequenciesTestBySourceSet}</methodCallFrequenciesTestBySourceSet>
+      </configuration>
+      <requirements>
+        <requirement>
+          <role>org.apache.maven.project.ProjectDependenciesResolver</role>
+          <field-name>dependenciesResolver</field-name>
+        </requirement>
+      </requirements>
+    </mojo>
+
+    <!-- ==================================================== write-analysis-hints -->
+    <mojo>
+      <goal>write-analysis-hints</goal>
+      <description>Generate first-cut analysis-hint (.java) skeletons for the library types the project's sources call into, annotated with call-frequency comments (default output &lt;build&gt;/annotatedAPI). Uses the in-house parser (no --add-exports needed).</description>
+      <requiresDirectInvocation>false</requiresDirectInvocation>
+      <requiresProject>true</requiresProject>
+      <requiresReports>false</requiresReports>
+      <aggregator>false</aggregator>
+      <requiresOnline>false</requiresOnline>
+      <inheritedByDefault>true</inheritedByDefault>
+      <phase>compile</phase>
+      <implementation>org.e2immu.analyzer.run.mvnplugin.WriteAnalysisHintsMojo</implementation>
+      <language>java</language>
+      <instantiationStrategy>per-lookup</instantiationStrategy>
+      <executionStrategy>once-per-session</executionStrategy>
+      <threadSafe>true</threadSafe>
+      <parameters>
+        <parameter><name>project</name><type>org.apache.maven.project.MavenProject</type><required>true</required><editable>false</editable><description>The current Maven project.</description></parameter>
+        <parameter><name>session</name><type>org.apache.maven.execution.MavenSession</type><required>true</required><editable>false</editable><description>The current Maven session.</description></parameter>
+        <parameter><name>jre</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Alternative JRE/JDK home to resolve the JDK modules against; empty = the running JVM's.</description></parameter>
+        <parameter><name>workingDirectory</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Directory the analyzer resolves relative source/classpath paths against.</description></parameter>
+        <parameter><name>excludeFromClasspath</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma/semicolon-separated jar names to drop from the resolved classpath.</description></parameter>
+        <parameter><name>jmods</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Colon/comma-separated JDK modules to add to the classpath closure.</description></parameter>
+        <parameter><name>testSourcePackages</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Restrict parsed test sources to these packages.</description></parameter>
+        <parameter><name>sourcePackages</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Restrict parsed main sources to these packages.</description></parameter>
+        <parameter><name>sourceEncoding</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Source file encoding.</description></parameter>
+        <parameter><name>analysisResultsDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write analysis-result JSON; empty = &lt;build&gt;/e2immu.</description></parameter>
+        <parameter><name>analysisSteps</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma-separated analysis steps; empty = default.</description></parameter>
+        <parameter><name>incrementalAnalysis</name><type>boolean</type><required>false</required><editable>true</editable><description>Enable the analyzer's incremental mode.</description></parameter>
+        <parameter><name>parallel</name><type>boolean</type><required>false</required><editable>true</editable><description>Parallelize the analysis.</description></parameter>
+        <parameter><name>quiet</name><type>boolean</type><required>false</required><editable>true</editable><description>Suppress the warning/error summary on stdout.</description></parameter>
+        <parameter><name>debug</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma-separated debug targets.</description></parameter>
+        <parameter><name>preloadAnalysisResultsDirs</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Directories of precomputed analysis hints to preload.</description></parameter>
+        <parameter><name>analysisResultsTargetDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write analyzed AnalysisHints files.</description></parameter>
+        <parameter><name>updatedHintsDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write AnalysisHints skeleton files extracted from sources.</description></parameter>
+        <parameter><name>updatedHintsPackage</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Package to write the AnalysisHints skeletons to.</description></parameter>
+        <parameter><name>hintsPackages</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Source packages to create analysis-hint skeletons from.</description></parameter>
+        <parameter><name>outputDirectory</name><type>java.io.File</type><required>false</required><editable>true</editable><description>Directory to write the generated hint (.java) skeletons to.</description></parameter>
+        <parameter><name>packagePrefix</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Package prefix prepended to generated hint packages; not part of the output directory.</description></parameter>
+      </parameters>
+      <configuration>
+        <project default-value="${project}"/>
+        <session default-value="${session}"/>
+        <jre implementation="java.lang.String" default-value="">${jre}</jre>
+        <workingDirectory implementation="java.lang.String" default-value="${project.basedir}">${workingDirectory}</workingDirectory>
+        <excludeFromClasspath implementation="java.lang.String" default-value="">${excludeFromClasspath}</excludeFromClasspath>
+        <jmods implementation="java.lang.String" default-value="java.base">${jmods}</jmods>
+        <testSourcePackages implementation="java.lang.String" default-value="">${testSourcePackages}</testSourcePackages>
+        <sourcePackages implementation="java.lang.String" default-value="">${sourcePackages}</sourcePackages>
+        <sourceEncoding implementation="java.lang.String" default-value="UTF-8">${sourceEncoding}</sourceEncoding>
+        <analysisResultsDir implementation="java.lang.String" default-value="">${analysisResultsDir}</analysisResultsDir>
+        <analysisSteps implementation="java.lang.String" default-value="">${analysisSteps}</analysisSteps>
+        <incrementalAnalysis implementation="boolean" default-value="false">${incrementalAnalysis}</incrementalAnalysis>
+        <parallel implementation="boolean" default-value="true">${parallel}</parallel>
+        <quiet implementation="boolean" default-value="false">${quiet}</quiet>
+        <debug implementation="java.lang.String" default-value="">${debug}</debug>
+        <preloadAnalysisResultsDirs implementation="java.lang.String" default-value="">${preloadAnalysisResultsDirs}</preloadAnalysisResultsDirs>
+        <analysisResultsTargetDir implementation="java.lang.String" default-value="">${analysisResultsTargetDir}</analysisResultsTargetDir>
+        <updatedHintsDir implementation="java.lang.String" default-value="">${updatedHintsDir}</updatedHintsDir>
+        <updatedHintsPackage implementation="java.lang.String" default-value="">${updatedHintsPackage}</updatedHintsPackage>
+        <hintsPackages implementation="java.lang.String" default-value="">${hintsPackages}</hintsPackages>
+        <outputDirectory implementation="java.io.File" default-value="${project.build.directory}/annotatedAPI">${outputDirectory}</outputDirectory>
+        <packagePrefix implementation="java.lang.String" default-value="">${packagePrefix}</packagePrefix>
+      </configuration>
+      <requirements>
+        <requirement>
+          <role>org.apache.maven.project.ProjectDependenciesResolver</role>
+          <field-name>dependenciesResolver</field-name>
+        </requirement>
+      </requirements>
+    </mojo>
+
+    <!-- ================================================== compile-analysis-hints -->
+    <mojo>
+      <goal>compile-analysis-hints</goal>
+      <description>Compile hand-written analysis hints (.java, from inputDirectory, default &lt;build&gt;/annotatedAPI) into analysis-result (.json) files (default outputDirectory &lt;build&gt;/compiledAPI). Uses the openjdk (javac) front-end, so the Maven JVM needs the javac --add-exports.</description>
+      <requiresDirectInvocation>false</requiresDirectInvocation>
+      <requiresProject>true</requiresProject>
+      <requiresReports>false</requiresReports>
+      <aggregator>false</aggregator>
+      <requiresOnline>false</requiresOnline>
+      <inheritedByDefault>true</inheritedByDefault>
+      <phase>compile</phase>
+      <implementation>org.e2immu.analyzer.run.mvnplugin.CompileAnalysisHintsMojo</implementation>
+      <language>java</language>
+      <instantiationStrategy>per-lookup</instantiationStrategy>
+      <executionStrategy>once-per-session</executionStrategy>
+      <threadSafe>true</threadSafe>
+      <parameters>
+        <parameter><name>project</name><type>org.apache.maven.project.MavenProject</type><required>true</required><editable>false</editable><description>The current Maven project.</description></parameter>
+        <parameter><name>session</name><type>org.apache.maven.execution.MavenSession</type><required>true</required><editable>false</editable><description>The current Maven session.</description></parameter>
+        <parameter><name>jre</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Alternative JRE/JDK home to resolve the JDK modules against; empty = the running JVM's.</description></parameter>
+        <parameter><name>workingDirectory</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Directory the analyzer resolves relative source/classpath paths against.</description></parameter>
+        <parameter><name>excludeFromClasspath</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma/semicolon-separated jar names to drop from the resolved classpath.</description></parameter>
+        <parameter><name>jmods</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Colon/comma-separated JDK modules to add to the classpath closure.</description></parameter>
+        <parameter><name>testSourcePackages</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Restrict parsed test sources to these packages.</description></parameter>
+        <parameter><name>sourcePackages</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Restrict parsed main sources to these packages.</description></parameter>
+        <parameter><name>sourceEncoding</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Source file encoding.</description></parameter>
+        <parameter><name>analysisResultsDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write analysis-result JSON; empty = &lt;build&gt;/e2immu.</description></parameter>
+        <parameter><name>analysisSteps</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma-separated analysis steps; empty = default.</description></parameter>
+        <parameter><name>incrementalAnalysis</name><type>boolean</type><required>false</required><editable>true</editable><description>Enable the analyzer's incremental mode.</description></parameter>
+        <parameter><name>parallel</name><type>boolean</type><required>false</required><editable>true</editable><description>Parallelize the analysis.</description></parameter>
+        <parameter><name>quiet</name><type>boolean</type><required>false</required><editable>true</editable><description>Suppress the warning/error summary on stdout.</description></parameter>
+        <parameter><name>debug</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma-separated debug targets.</description></parameter>
+        <parameter><name>preloadAnalysisResultsDirs</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Directories of precomputed analysis hints to preload.</description></parameter>
+        <parameter><name>analysisResultsTargetDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write analyzed AnalysisHints files.</description></parameter>
+        <parameter><name>updatedHintsDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write AnalysisHints skeleton files extracted from sources.</description></parameter>
+        <parameter><name>updatedHintsPackage</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Package to write the AnalysisHints skeletons to.</description></parameter>
+        <parameter><name>hintsPackages</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Source packages to create analysis-hint skeletons from.</description></parameter>
+        <parameter><name>inputDirectory</name><type>java.io.File</type><required>false</required><editable>true</editable><description>Directory holding the hand-written analysis-hint (.java) sources to compile.</description></parameter>
+        <parameter><name>outputDirectory</name><type>java.io.File</type><required>false</required><editable>true</editable><description>Directory to write the compiled analysis-result (.json) files to.</description></parameter>
+        <parameter><name>restrictToPackages</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Only process these packages (comma/semicolon-separated).</description></parameter>
+      </parameters>
+      <configuration>
+        <project default-value="${project}"/>
+        <session default-value="${session}"/>
+        <jre implementation="java.lang.String" default-value="">${jre}</jre>
+        <workingDirectory implementation="java.lang.String" default-value="${project.basedir}">${workingDirectory}</workingDirectory>
+        <excludeFromClasspath implementation="java.lang.String" default-value="">${excludeFromClasspath}</excludeFromClasspath>
+        <jmods implementation="java.lang.String" default-value="java.base">${jmods}</jmods>
+        <testSourcePackages implementation="java.lang.String" default-value="">${testSourcePackages}</testSourcePackages>
+        <sourcePackages implementation="java.lang.String" default-value="">${sourcePackages}</sourcePackages>
+        <sourceEncoding implementation="java.lang.String" default-value="UTF-8">${sourceEncoding}</sourceEncoding>
+        <analysisResultsDir implementation="java.lang.String" default-value="">${analysisResultsDir}</analysisResultsDir>
+        <analysisSteps implementation="java.lang.String" default-value="">${analysisSteps}</analysisSteps>
+        <incrementalAnalysis implementation="boolean" default-value="false">${incrementalAnalysis}</incrementalAnalysis>
+        <parallel implementation="boolean" default-value="true">${parallel}</parallel>
+        <quiet implementation="boolean" default-value="false">${quiet}</quiet>
+        <debug implementation="java.lang.String" default-value="">${debug}</debug>
+        <preloadAnalysisResultsDirs implementation="java.lang.String" default-value="">${preloadAnalysisResultsDirs}</preloadAnalysisResultsDirs>
+        <analysisResultsTargetDir implementation="java.lang.String" default-value="">${analysisResultsTargetDir}</analysisResultsTargetDir>
+        <updatedHintsDir implementation="java.lang.String" default-value="">${updatedHintsDir}</updatedHintsDir>
+        <updatedHintsPackage implementation="java.lang.String" default-value="">${updatedHintsPackage}</updatedHintsPackage>
+        <hintsPackages implementation="java.lang.String" default-value="">${hintsPackages}</hintsPackages>
+        <inputDirectory implementation="java.io.File" default-value="${project.build.directory}/annotatedAPI">${inputDirectory}</inputDirectory>
+        <outputDirectory implementation="java.io.File" default-value="${project.build.directory}/compiledAPI">${outputDirectory}</outputDirectory>
+        <restrictToPackages implementation="java.lang.String" default-value="">${restrictToPackages}</restrictToPackages>
+      </configuration>
+      <requirements>
+        <requirement>
+          <role>org.apache.maven.project.ProjectDependenciesResolver</role>
+          <field-name>dependenciesResolver</field-name>
+        </requirement>
+      </requirements>
+    </mojo>
+
+  </mojos>
+</plugin>
