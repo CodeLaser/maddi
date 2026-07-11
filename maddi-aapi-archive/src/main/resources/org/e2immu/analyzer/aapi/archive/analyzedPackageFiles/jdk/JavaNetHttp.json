@@ -10,11 +10,11 @@
   {"name": "McookieHandler(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"unmodifiedParameter":1}}},
   {"name": "Mexecutor(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
-   {"name": "Parg0(0)", "data":{"unmodifiedParameter":1}}},
+   {"name": "Parg0(0)", "data":{"containerParameter":1,"unmodifiedParameter":1}}},
   {"name": "MfollowRedirects(5)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
   {"name": "MlocalAddress(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
-   {"name": "Parg0(0)", "data":{"unmodifiedParameter":1}}},
+   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "Mpriority(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
   {"name": "Mproxy(8)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
@@ -38,13 +38,13 @@
  {"name": "MnewHttpClient(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MnewWebSocketBuilder(10)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "Mproxy(11)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "Msend(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Msend(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MsendAsync(13)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MsendAsync(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MsendAsync(14)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MsendAsync(14)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"independentParameter":2,"unmodifiedParameter":1}}]},
@@ -86,7 +86,7 @@
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "MofString(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2}}]}]},
+   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]}]},
  {"name": "SBuilder(2)", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "MDELETE(0)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}},
   {"name": "MGET(1)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}},
@@ -116,7 +116,7 @@
   {"name": "Mtimeout(13)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "Muri(14)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
-   {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "Mversion(15)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}}]},
  {"name": "MbodyPublisher(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
@@ -130,15 +130,15 @@
  {"name": "Mmethod(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MnewBuilder(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
  {"name": "MnewBuilder(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"getSetEquivalent":[[["P",["Tjava.net.http.HttpRequest","MnewBuilder(8)","Parg0(0)"]]],["Tjava.net.http.HttpRequest","MnewBuilder(7)"]],"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MnewBuilder(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}]},
  {"name": "Mtimeout(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "Muri(11)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Muri(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "Mversion(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}}]},
 
-{"name": "Tjava.net.http.HttpResponse", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
+{"name": "Tjava.net.http.HttpResponse", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
  {"name": "SBodyHandlers(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":2}, "subs":[
   {"name": "Mbuffering(0)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"independentParameter":2}},
@@ -174,7 +174,7 @@
   {"name": "MofPublisher(14)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
   {"name": "MofString(15)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
   {"name": "MofString(16)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-   {"name": "Parg0(0)", "data":{"independentParameter":2}}},
+   {"name": "Parg0(0)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "Mreplacing(17)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}}]},
  {"name": "SBodySubscribers(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":2}, "subs":[
@@ -187,7 +187,7 @@
   {"name": "MfromLineSubscriber(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"independentParameter":2}},
    {"name": "Parg1(1)", "data":{"ignoreModsParameter":1,"independentParameter":2}},
-   {"name": "Parg2(2)", "data":{"independentParameter":2}},
+   {"name": "Parg2(2)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
    {"name": "Parg3(3)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
   {"name": "MfromSubscriber(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
@@ -210,19 +210,19 @@
    {"name": "Parg1(1)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
   {"name": "MofInputStream(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
   {"name": "MofLines(13)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-   {"name": "Parg0(0)", "data":{"independentParameter":2}}},
+   {"name": "Parg0(0)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "MofPublisher(14)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
   {"name": "MofString(15)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-   {"name": "Parg0(0)", "data":{"independentParameter":2}}},
+   {"name": "Parg0(0)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "Mreplacing(16)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}}]},
- {"name": "Mbody(0)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
- {"name": "MconnectionLabel(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
- {"name": "Mheaders(2)", "data":{"defaultsAnalyzer":1}},
- {"name": "MpreviousResponse(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1}},
- {"name": "Mrequest(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
- {"name": "MsslSession(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1}},
- {"name": "MstatusCode(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
- {"name": "Muri(7)", "data":{"defaultsAnalyzer":1}},
- {"name": "Mversion(8)", "data":{"defaultsAnalyzer":1}}]}
+ {"name": "Mbody(0)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MconnectionLabel(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mheaders(2)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MpreviousResponse(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mrequest(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MsslSession(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MstatusCode(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "Muri(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mversion(8)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}}]}
 ]
