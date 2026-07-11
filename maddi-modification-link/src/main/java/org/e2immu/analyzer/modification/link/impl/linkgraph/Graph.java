@@ -124,12 +124,14 @@ public class Graph {
         if (!NOSV && linkNature.isAssignedFrom() && !(to instanceof MarkerVariable)
             && !Util.virtual(from) && !Util.virtual(to)) {
             boolean fromInGroups = sharedVariables.isKnown(from);
-            if (fromInGroups) {
-                // reassignment: we must remove 'from' if present in any shared variable
+            if (fromInGroups && sharedVariables.isReassignment(from, statementIndex)) {
+                // genuine reassignment ('from' was assigned at an earlier statement, now assigned again): drop its
+                // old group membership. A second value assigned in the SAME statement (multi-valued 'm = cond ? a : b'
+                // -> 'm ← a' and 'm ← b') is NOT a reassignment; keep 'from' so both sources join one group.
                 sharedVariables.remove(from);
                 // TODO what with fromInGraph?
             }
-            SharedVariable sv = sharedVariables.isAssignedFrom(from, to);
+            SharedVariable sv = sharedVariables.isAssignedFrom(from, to, statementIndex);
             Set<Variable> fromInGraph = isKnownInGraph(from);
             Set<Variable> toInGraph = isKnownInGraph(to);
             if (sv == null) {
