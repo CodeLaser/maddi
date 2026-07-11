@@ -26,6 +26,7 @@ import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
 import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
 import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
 import org.e2immu.analyzer.run.config.Configuration;
+import org.e2immu.analyzer.run.config.report.ErrorReport;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
@@ -57,6 +58,8 @@ public class RunAnalyzer implements Runnable {
 
     private final Configuration configuration;
     private int exitValue;
+    private Summary summary;
+    private Throwable terminalError;
 
     public RunAnalyzer(Configuration configuration) {
         this.configuration = configuration;
@@ -77,19 +80,16 @@ public class RunAnalyzer implements Runnable {
             }
             runAnalyzer();
         } catch (Summary.FailFastException ffe) {
-            Throwable cause = ffe.getCause();
-            while (cause.getCause() != null) {
-                cause = cause.getCause();
-            }
-            LOGGER.error("Caught exception", cause);
-            exitValue = 1;
+            terminalError = ffe;
+            exitValue = Main.EXIT_PARSER_ERROR;
         } catch (IOException ioe) {
-            LOGGER.error("Caught IO exception: {}", ioe.getMessage());
-            exitValue = 1;
+            terminalError = ioe;
+            exitValue = Main.EXIT_IO_EXCEPTION;
         } catch (RuntimeException re) {
-            LOGGER.error("Runtime exception", re);
-            exitValue = 1;
+            terminalError = re;
+            exitValue = Main.EXIT_INTERNAL_EXCEPTION;
         }
+        // enumerate whatever was collected/thrown to the user (previously printSummaries() was an empty no-op)
     }
 
     private void runAnalyzer() throws IOException {
@@ -124,7 +124,23 @@ public class RunAnalyzer implements Runnable {
                 .setParallel(configuration.generalConfiguration().parallel())
                 .setLombok(inputConfiguration.containsLombok())
                 .build();
-        Summary summary = javaInspector.parse(parseOptions);
+        Summary summary;
+        try {
+            summary = javaInspector.parse(parseOptions);
+        } catch (RuntimeException parseError) {
+            // a front-end may throw a raw parser exception on a syntax error (e.g. the openjdk body parser) rather
+            // than accumulating it in the Summary; treat any parse-phase failure uniformly as a parser error
+            terminalError = parseError;
+            exitValue = Main.EXIT_PARSER_ERROR;
+            return;
+        }
+        this.summary = summary;
+        // check errors BEFORE the assert below: parseResult() throws when haveErrors(), and with assertions on
+        // (tests) that would mask a parse error as an internal exception. Report + exit with a parser code.
+        if (summary.haveErrors()) {
+            exitValue = Main.EXIT_PARSER_ERROR;
+            return;
+        }
         assert summary.parseResult().primaryTypes().stream()
                 .flatMap(TypeInfo::recursiveSubTypeStream)
                 .noneMatch(ti -> ti.simpleName().endsWith("$"))
@@ -133,10 +149,6 @@ public class RunAnalyzer implements Runnable {
         boolean printMemory = configuration.generalConfiguration().debugTargets().contains("memory");
         if (printMemory) {
             printMemUse();
-        }
-        if (summary.haveErrors()) {
-            LOGGER.error("Have parsing errors, bailing out");
-            return;
         }
         if (analysisSteps.size() == 1 && Main.AS_NONE.equalsIgnoreCase(analysisSteps.getFirst())) {
             return;
@@ -182,7 +194,13 @@ public class RunAnalyzer implements Runnable {
                     .setTrackObjectCreations(false)
                     .build();
             IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(javaInspector, modConfig);
-            analyzer.analyze(order);
+            try {
+                analyzer.analyze(order);
+            } catch (RuntimeException | AssertionError analyzerError) {
+                terminalError = analyzerError;
+                exitValue = Main.EXIT_ANALYSER_ERROR;
+                return;
+            }
 
             // write results
             String targetDir = configuration.generalConfiguration().analysisResultsDir();
@@ -296,6 +314,6 @@ public class RunAnalyzer implements Runnable {
     }
 
     public void printSummaries() {
-
+        ErrorReport.report(summary, terminalError);
     }
 }

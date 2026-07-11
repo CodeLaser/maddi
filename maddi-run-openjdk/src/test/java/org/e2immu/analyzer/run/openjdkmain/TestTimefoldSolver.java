@@ -16,6 +16,11 @@ public class TestTimefoldSolver {
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("org.e2immu.analyzer.shallow")).setLevel(Level.DEBUG);
     }
 
+    // External corpus (/Users/.../test-oss/timefold-solver) not present on this machine, like TestLangchain4j.
+    // It previously false-passed via the silent-exit-0 bug (now fixed); with correct exit codes the missing corpus
+    // yields a non-zero exit, and Main.main's System.exit then crashes the test JVM. Re-enable where the corpus
+    // exists (ideally switching Main.main -> Main.execute so a non-zero exit fails the test instead of the JVM).
+    @Disabled("external timefold-solver corpus not present; see comment")
     @Test
     public void test() {
         Main.main(new String[]{
