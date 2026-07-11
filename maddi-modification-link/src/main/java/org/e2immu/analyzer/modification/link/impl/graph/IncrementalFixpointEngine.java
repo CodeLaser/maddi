@@ -323,9 +323,12 @@ public final class IncrementalFixpointEngine<V, L> {
             Set<V> extra = witnessIndex.removeFacts(remove, removedFacts);
             if (!remove.addAll(extra)) break;
         }
-        // rebuild it
+        // rebuild it. NOTE: seed from the full 'remove' set, not just 'affected': removeFacts above grows 'remove'
+        // to include vertices ('extra') whose facts were removed because their witnesses depended on removed facts.
+        // Re-seeding only 'affected' left those extra vertices' base edges out of the closure (a base edge present
+        // in the graph but missing from the closure -- consistencyCheck failure on '$__sv_ ⊇ $__rv.§ts').
         List<Fact<V, L>> seeds = new ArrayList<>();
-        for (V u : affected) {
+        for (V u : remove) {
             for (var edge : graph.successors(u)) {
                 seeds.add(new Fact<>(u, edge.getKey(), edge.getValue()));
                 seeds.add(new Fact<>(edge.getKey(), u, reverse.apply(edge.getValue())));
