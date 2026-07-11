@@ -28,6 +28,18 @@ public class BlockPrinter {
     public static final int GUIDE_SPLIT = 10;
 
     /*
+    Hardening floor for deeply-nested blocks. When indentation consumes most (or all) of the page
+    width, the raw content budget (lengthOfLine - indent) drops to ~0 or negative; every candidate
+    split position then "overflows", so the formatter breaks at all of them and shatters short lines
+    into one-token-per-line garbage (plus spurious blank lines from the "both sides split" heuristic).
+    We guarantee each block at least this many columns of content budget: deeply-indented lines may
+    exceed lengthOfLine, but they stay intact instead of degenerating. Chosen small enough not to
+    interfere with intentionally narrow-but-shallow layouts (the floor only engages once indentation
+    already exceeds lengthOfLine - MIN_CONTENT_WIDTH, which shallow blocks never reach).
+     */
+    static final int MIN_CONTENT_WIDTH = 16;
+
+    /*
     A guide block (parameter list, argument list, method chain, …) marks one of these levels at
     each boundary between its sub-blocks. The level governs what happens at that boundary in the
     two layout paths: chop-down (one element per line) and greedy fill (pack until overflow).
@@ -100,7 +112,8 @@ public class BlockPrinter {
      * @return an output instance
      */
     Output write(Formatter2Impl.Block block, FormattingOptions options) {
-        int maxAvailable = options.lengthOfLine() - block.tab() * options.spacesInTab();
+        int maxAvailable = Math.max(MIN_CONTENT_WIDTH,
+                options.lengthOfLine() - block.tab() * options.spacesInTab());
         if (block.guide() != null) {
             return handleGuideBlock(block, options);
         }
