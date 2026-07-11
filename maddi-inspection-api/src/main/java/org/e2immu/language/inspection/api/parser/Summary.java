@@ -14,8 +14,11 @@
 
 package org.e2immu.language.inspection.api.parser;
 
+import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.ModuleInfo;
+import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 
@@ -38,18 +41,38 @@ public interface Summary {
         private final URI uri;
         private final Throwable throwable;
         private final Object where;
-
+        private final Source source;       // line/col, derived from 'where' when it is a located Element
+        private final Message.Level level; // WARN (tolerable) or ERROR
 
         public ParseException(URI uri, Object where, String msg, Throwable throwable) {
-            super(makeMessage(uri, where, msg, throwable), throwable);
+            this(uri, where, msg, throwable, Message.Severity.ERROR);
+        }
+
+        public ParseException(URI uri, Object where, String msg, Throwable throwable, Message.Level level) {
+            super(makeMessage(uri, deriveSource(where), where, msg, throwable), throwable);
             this.uri = uri;
             this.where = where;
+            this.source = deriveSource(where);
+            this.level = level;
             this.throwable = throwable;
         }
 
-        private static String makeMessage(URI uri, Object where, String msg, Throwable throwable) {
+        // the CST carries a Source (line/col) on every element; recover it from 'where' so errors are locatable
+        private static Source deriveSource(Object where) {
+            if (where instanceof Source s) return s.isNoSource() ? null : s;
+            if (where instanceof Element e) {
+                Source s = e.source();
+                return s == null || s.isNoSource() ? null : s;
+            }
+            return null;
+        }
+
+        private static String makeMessage(URI uri, Source source, Object where, String msg, Throwable throwable) {
+            String at = uri == null ? "?" : uri.toString();
+            if (source != null) at += ":" + source.compact();
             return (throwable == null ? "" : "Exception: " + throwable.getClass().getCanonicalName() + "\n")
-                   + "In: " + uri + (uri == where || where == null ? "" : "\nIn: " + where) + "\nMessage: " + msg;
+                   + "In: " + at + (uri == where || where == null ? "" : "\nIn: " + where)
+                   + "\nMessage: " + msg;
         }
 
         public ParseException(Context context, Object where, String msg, Throwable throwable) {
@@ -76,6 +99,16 @@ public interface Summary {
 
         public Object where() {
             return where;
+        }
+
+        /** Location (line/col) of this error, or {@code null} if unknown. */
+        public Source source() {
+            return source;
+        }
+
+        /** Severity: {@link Message.Severity#WARN} or {@link Message.Severity#ERROR}. */
+        public Message.Level level() {
+            return level;
         }
     }
 

@@ -45,9 +45,9 @@ public class TestParserError extends CommonTestParse {
         assertTrue(s.haveErrors());
         assertEquals("""
                         Exception: org.e2immu.language.inspection.api.parser.Summary.ParseException
-                        In: input
+                        In: input:3-3
                         In: a.b.C.method1(String[])
-                        Message: In: input
+                        Message: In: input:3-3
                         In: a.b.C.method1(String[])
                         Message: Unknown identifier 'arguments'\
                         """,

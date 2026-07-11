@@ -25,6 +25,21 @@ public interface Message {
         boolean isError();
     }
 
+    /** Concrete severities, shared by the parse path (Summary.ParseException) and the analysis path (Message). */
+    enum Severity implements Level {
+        WARN, ERROR;
+
+        @Override
+        public boolean isWarning() {
+            return this == WARN;
+        }
+
+        @Override
+        public boolean isError() {
+            return this == ERROR;
+        }
+    }
+
     Source source();
 
     Info info();

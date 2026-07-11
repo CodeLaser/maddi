@@ -13,6 +13,7 @@ import org.e2immu.language.cst.print.FormattingOptionsImpl;
 import org.e2immu.language.cst.print.formatter2.Formatter2Impl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.ParseResult;
+import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
@@ -334,7 +335,7 @@ public class JavaInspectorImpl implements JavaInspector {
             if (d.diagnosticKind() == MaddiDiagnosticCollector.DiagnosticKind.ERROR) {
                 URI uri = d.path() == null ? sourceSet.uri() : new File(d.path()).toURI();
                 summary.addParseWarning(new Summary.ParseException(uri,
-                        "line " + d.line() + ", col " + d.col(), d.msg(), null));
+                        "line " + d.line() + ", col " + d.col(), d.msg(), null, Message.Severity.WARN));
             }
         }
 
