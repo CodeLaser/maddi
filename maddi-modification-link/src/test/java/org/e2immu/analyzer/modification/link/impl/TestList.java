@@ -69,7 +69,7 @@ public class TestList extends CommonTest {
         MethodInfo get = X.findUniqueMethod("get", 1);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, doNotRecurse);
         MethodLinkedVariables mlv = tlc.doMethod(get);
-        assertEquals("get←this.ts[0:index],get∈this.ts", mlv.ofReturnValue().toString());
+        assertEquals("get∈this.ts,get←this.ts[0:index]", mlv.ofReturnValue().toString());
     }
 
     @DisplayName("Analyze 'method', given method links for 'get'")
@@ -85,7 +85,7 @@ public class TestList extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, doNotRecurse);
         // first, do get()
         MethodLinkedVariables lvGet = get.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(get));
-        assertEquals("get←this.ts[0:index],get∈this.ts", lvGet.ofReturnValue().toString());
+        assertEquals("get∈this.ts,get←this.ts[0:index]", lvGet.ofReturnValue().toString());
         assertTrue(lvGet.modified().isEmpty());
 
         // then, do method
@@ -94,7 +94,7 @@ public class TestList extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
         Links linksK = k0.linkedVariablesOrEmpty();
-        assertEquals("k←1:x.ts[0:i],k∈1:x.ts", linksK.toString());
+        assertEquals("k∈1:x.ts,k←1:x.ts[0:i]", linksK.toString());
 
         assertEquals("[-, 1:x.ts[0:i]∈1:x.ts] --> method←1:x.ts[0:i],method∈1:x.ts", lvMethod.toString());
     }
@@ -114,7 +114,7 @@ public class TestList extends CommonTest {
         MethodLinkedVariables lvAsShortList = asShortList.analysis().getOrCreate(METHOD_LINKS,
                 () -> tlc.doMethod(asShortList));
 
-        assertEquals("asShortList.§ts∋this.ts[0],asShortList.§ts~this.ts",
+        assertEquals("asShortList.§ts~this.ts,asShortList.§ts∋this.ts[0]",
                 lvAsShortList.ofReturnValue().toString());
     }
 
@@ -153,7 +153,7 @@ public class TestList extends CommonTest {
                 """, vd0.knownVariableNamesToString());
 
         VariableInfo viP0 = vd0.variableInfo(p0);
-        assertEquals("0:t→this.ts[1:index],0:t∈this.ts", viP0.linkedVariables().toString());
+        assertEquals("0:t∈this.ts,0:t→this.ts[1:index]", viP0.linkedVariables().toString());
         assertFalse(viP0.isModified());
 
         VariableInfo viP1 = vd0.variableInfo(p1);
@@ -163,7 +163,7 @@ public class TestList extends CommonTest {
         VariableInfo viTsIndex = vd0.variableInfo("a.b.X.ts[a.b.X.set(Object,int):1:index]");
         assertEquals("this.ts[1:index]←0:t", viTsIndex.linkedVariables().toString());
 
-        assertEquals("[0:t→this.ts*[1:index],0:t∈this.ts*, -] --> -", mlv.toString());
+        assertEquals("[0:t∈this.ts*,0:t→this.ts*[1:index], -] --> -", mlv.toString());
     }
 
     @Language("java")

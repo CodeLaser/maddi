@@ -79,7 +79,7 @@ public class TestStream extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
         VariableInfo viStream21 = vd1.variableInfo("stream2");
         Links lvStream21 = viStream21.linkedVariablesOrEmpty();
-        assertEquals("stream2.§xs←stream1.§xs,stream2.§xs⊆0:list.§xs", lvStream21.toString());
+        assertEquals("stream2.§xs⊆0:list.§xs,stream2.§xs←stream1.§xs", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
@@ -204,7 +204,7 @@ public class TestStream extends CommonTest {
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
         Links lvResult = viResult.linkedVariablesOrEmpty();
-        assertEquals("result.§xs⊆stream2.§xs,result.§xs≤0:list.§xss,result.§xs≤stream1.§xss",
+        assertEquals("result.§xs≤0:list.§xss,result.§xs⊆stream2.§xs,result.§xs≤stream1.§xss",
                 lvResult.toString());
 
         assertEquals("[-] --> method1.§xs≤0:list.§xss", mlv1.toString());
@@ -271,7 +271,7 @@ public class TestStream extends CommonTest {
         VariableInfo viStream21 = vd1.variableInfo("stream2");
         Links lvStream21 = viStream21.linkedVariablesOrEmpty();
         // wrapping in R is invisible
-        assertEquals("stream2.§xs←stream1.§xs,stream2.§xs⊆0:list.§xs", lvStream21.toString());
+        assertEquals("stream2.§xs⊆0:list.§xs,stream2.§xs←stream1.§xs", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
@@ -337,7 +337,7 @@ public class TestStream extends CommonTest {
 
         Links lvStream21 = viStream21.linkedVariablesOrEmpty();
         // wrapping in another list is visible!
-        assertEquals("stream2.§xss≥stream1.§xs,stream2.§xss∩0:list.§xs", lvStream21.toString());
+        assertEquals("stream2.§xss∩0:list.§xs,stream2.§xss≥stream1.§xs", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");

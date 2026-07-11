@@ -46,7 +46,7 @@ public class TestRedundantModificationLinks extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo vi0L1 = vd0.variableInfo("l1");
-        assertEquals("l1←0:list,l1.§m≡0:list.§m", vi0L1.linkedVariables().toString());
+        assertEquals("l1.§m≡0:list.§m,l1←0:list", vi0L1.linkedVariables().toString());
         VariableInfo vi0List = vd0.variableInfo(list);
         assertEquals("0:list→l1,0:list.§m≡l1.§m", vi0List.linkedVariables().toString());
 

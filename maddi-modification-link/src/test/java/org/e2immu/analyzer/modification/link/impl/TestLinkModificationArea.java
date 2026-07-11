@@ -456,14 +456,14 @@ public class TestLinkModificationArea extends CommonTest {
         {
             VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
             VariableInfo vi1Array = vd1.variableInfo("array");
-            assertEquals("array[0]←0:m1,array∋0:m1", vi1Array.linkedVariables().toString());
+            assertEquals("array∋0:m1,array[0]←0:m1", vi1Array.linkedVariables().toString());
             //assertEquals("0M-2-*M|0-*:array[0], 0M-2-*M|0-*:m1", vi1Array.linkedVariables().toString());
             assertTrue(vi1Array.isModified());
         }
         {
             VariableData vd2 = VariableDataImpl.of(method.methodBody().statements().get(2));
             VariableInfo vi2Array = vd2.variableInfo("array");
-            assertEquals("array[0]←0:m1,array[1]←1:m2,array∋0:m1,array∋1:m2", vi2Array.linkedVariables().toString());
+            assertEquals("array∋0:m1,array∋1:m2,array[0]←0:m1,array[1]←1:m2", vi2Array.linkedVariables().toString());
             //assertEquals("0M-2-*M|0-*:array[0], 0M-2-*M|1-*:array[1], 0M-2-*M|0-*:m1, 0M-2-*M|1-*:m2",
             //        vi2Array.linkedVariables().toString());
             assertTrue(vi2Array.isModified());
@@ -514,7 +514,7 @@ public class TestLinkModificationArea extends CommonTest {
         {
             VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
             VariableInfo vi1Array = vd1.variableInfo("array");
-            assertEquals("array[2:i]←0:m1,array∋0:m1", vi1Array.linkedVariables().toString());
+            assertEquals("array∋0:m1,array[2:i]←0:m1", vi1Array.linkedVariables().toString());
             //assertEquals("0M-2-*M|?-*:array[i], 0M-2-*M|?-*:m1", vi1Array.linkedVariables().toString());
             assertTrue(vi1Array.isModified());
             VariableInfo vi1M1 = vd1.variableInfo(m1);
@@ -523,7 +523,7 @@ public class TestLinkModificationArea extends CommonTest {
         {
             VariableData vd2 = VariableDataImpl.of(method.methodBody().statements().get(2));
             VariableInfo vi2Array = vd2.variableInfo("array");
-            assertEquals("array[i+1]←1:m2,array[2:i]←0:m1,array∋0:m1,array∋1:m2",
+            assertEquals("array∋0:m1,array∋1:m2,array[i+1]←1:m2,array[2:i]←0:m1",
                     vi2Array.linkedVariables().toString());
             // assertEquals("0M-2-*M|?-*:array[i+1], 0M-2-*M|?-*:array[i], 0M-2-*M|?-*:m1, 0M-2-*M|?-*:m2",
             assertTrue(vi2Array.isModified());

@@ -242,7 +242,7 @@ public class TestLanguageConstructs extends CommonTest {
                 package a.b;
                 public class C<X> { X m(X... xs) { return xs[0]; } }
                 """;
-        assertEquals("[-] --> m←0:xs[0],m∈0:xs", link("a.b.C", src, "m"));
+        assertEquals("[-] --> m∈0:xs,m←0:xs[0]", link("a.b.C", src, "m"));
     }
 
     @DisplayName("anonymous class captures a parameter: the instance links to the captured variable")
@@ -339,7 +339,7 @@ public class TestLanguageConstructs extends CommonTest {
                 public class C<X> { void m(X[] arr, X x) { arr[0] = x; } }
                 """;
         MethodLinkedVariables mlv = compute("a.b.C", src, "m");
-        assertEquals("[0:arr*[0]←1:x,0:arr*∋1:x, 1:x→0:arr*[0],1:x∈0:arr*] --> -", mlv.toString());
+        assertEquals("[0:arr*∋1:x,0:arr*[0]←1:x, 1:x∈0:arr*,1:x→0:arr*[0]] --> -", mlv.toString());
         assertEquals("a.b.C.m(Object[],Object):0:arr", mlv.sortedModifiedString());
     }
 

@@ -85,7 +85,7 @@ public class TestConstructor extends CommonTest {
             VariableInfo iis1 = vd1.variableInfo("iis");
             Links tlvIIS1 = iis1.linkedVariablesOrEmpty();
             // NOTE: the ~ instead of ⊆ is because iis has been modified!
-            assertEquals("iis.§$s∋removed,iis.§$s~0:input.§$s", tlvIIS1.toString());
+            assertEquals("iis.§$s~0:input.§$s,iis.§$s∋removed", tlvIIS1.toString());
 
             Statement callM2 = methodB.methodBody().statements().get(2);
             VariableData vd2 = VariableDataImpl.of(callM2);

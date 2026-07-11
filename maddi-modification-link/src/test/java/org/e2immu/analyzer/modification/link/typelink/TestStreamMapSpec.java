@@ -127,7 +127,7 @@ public class TestStreamMapSpec extends CommonTest {
         assertEquals("[-] --> identity←0:y", mlv("identity"));           // Y -> Y            : return is the argument
         assertEquals("[-] --> wrap.v←0:y", mlv("wrap"));                 // Y -> R<Y>         : field holds the argument
         assertEquals("[-] --> wrapList.§$s≥0:y", mlv("wrapList"));       // Y -> List<R<Y>>   : content contains the argument
-        assertEquals("[-] --> first←0:ys[0],first∈0:ys", mlv("first"));  // Y[] -> Y          : an element of the array
+        assertEquals("[-] --> first∈0:ys,first←0:ys[0]", mlv("first"));  // Y[] -> Y          : an element of the array
         assertEquals("[-] --> firstOf∈0:l.§ys", mlv("firstOf"));         // List<Y> -> Y      : an element of the collection
         assertEquals("[-] --> -", mlv("toStr"));                         // Y -> String       : unrelated (fresh)
         assertEquals("[-] --> -", mlv("constString"));                   // Y -> String       : constant, unrelated
