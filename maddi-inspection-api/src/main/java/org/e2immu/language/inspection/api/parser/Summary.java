@@ -80,6 +80,11 @@ public interface Summary {
                     throwable);
         }
 
+        public ParseException(Context context, Object where, String msg, Throwable throwable, Message.Level level) {
+            this(context.enclosingType() == null ? null : context.enclosingType().compilationUnit().uri(), where, msg,
+                    throwable, level);
+        }
+
         public ParseException(Context context, String msg) {
             this(context.enclosingType() == null ? null : context.enclosingType().compilationUnit().uri(),
                     context.info(), msg, null);
