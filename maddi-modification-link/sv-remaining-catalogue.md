@@ -1,6 +1,33 @@
 # sv engine — catalogue of the remaining link failures
 
-## UPDATE `45d1046f` — now 116 failing (was 144 → 140 → 120 → 116)
+## UPDATE `33fa42a9` — now 112 failing; the DROP[←] cluster mapped
+
+Since 116: `e9779b5c` reconstructs field/element return endpoints via sibling faces
+(116→114); `33fa42a9` suppresses coarse scope-up links (copy≈0:pair) redundant with
+reconstructed field links (114→112). Both 0-regression.
+
+**The dominant remaining cluster is DROP[←] (~35 of 112): a return summary drops a `←`
+link that is present at statement level.** Sub-clusters:
+- **Supplier/Optional `result ← optional.§x` (~13, biggest): TestSupplier×8, TestSupplierSpec×~7.**
+  Root cause (traced): `X x = optional.orElseGet(...); return x;` collapses {x, alternative,
+  return} into a rep. The whole-object group assignments (`method←x`, `method←1:alternative`)
+  are reconstructed by `sharedAssignmentEdgeStream`, but `x`'s NON-group link
+  `x←0:optional.§x` (to a param virtual field that never collapsed) is carried by neither the
+  group reconstruct NOR the graph (it lives only in VariableData; `optional.§x` is never a
+  graph vertex at extraction — a FollowGraph probe gated on it never fired). The return
+  statement (`LinkComputerImpl` ~547-555) only adds `return ← x`. **Fix needed: carry a
+  collapsed local member's non-group VariableData links onto the return, rehomed member→return
+  (filter internal/local targets).** Non-trivial; touches the return-summary assembly.
+- getter/setter `setX.x←this*.x` (~3: TestGetSet×2, TestStaticValues1) — fluent setter returns
+  `this`, field flow to a `this*` face.
+- LanguageConstructs `m←0:a` (~4: ternary, switch-guard, intersection bound, wildcard-super) —
+  param→return through a control-flow construct.
+- one-offs: `reverse3←$_v` (whole←value-marker), `prev←1:x.ts[0:i]`, record-builder array elts.
+
+DROP[→]×4, DROP[≡]×3 (§m companions), SPUR[∋]×5 / SPUR[⊆]×4 / SPUR[∩]×3 (coarsening) are the
+next bands. 23 of 112 are fully-empty-got.
+
+## UPDATE `45d1046f` — 116 failing (was 144 → 140 → 120 → 116)
 
 Since the snapshot below (144), three things landed:
 - **Test infra / speed (not link fixes).** AAPI analysis hints are now gated on
