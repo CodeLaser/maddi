@@ -14,6 +14,7 @@
 
 plugins {
     id("java-library-conventions")
+    application
 }
 java {
     // 26 (not 25 like most Java modules): this module consumes the Kotlin front-end modules (maddi-inspection-mixed
@@ -32,9 +33,9 @@ dependencies {
     implementation(project(":maddi-inspection-mixed"))      // MixedInspector: shared-core Java+Kotlin parse
     implementation(project(":maddi-modification-prepwork")) // PrepAnalyzer, ComputeAnalysisOrder
     implementation(project(":maddi-graph"))                 // G<Info>
+    implementation("com.fasterxml.jackson.core:jackson-databind") // Main reads/writes InputConfiguration JSON
 
     testImplementation(project(":maddi-cst-impl"))
-    testImplementation("com.fasterxml.jackson.core:jackson-databind")
 }
 
 // the openjdk (javac) front-end that MixedInspector uses reaches into these javac internals
@@ -49,4 +50,10 @@ val javacAddExports = listOf(
 tasks.withType<Test> {
     useJUnitPlatform()
     jvmArgs(javacAddExports)
+}
+
+application {
+    mainClass = "org.e2immu.analyzer.run.kotlinmain.Main"
+    // ./gradlew :maddi-run-kotlin:run --args="--compile-log <mixed build log>"
+    applicationDefaultJvmArgs = javacAddExports
 }
