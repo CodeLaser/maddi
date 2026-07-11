@@ -446,6 +446,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             dsb.putIfNotNull(typeInfo.typeNature(), scanResult.findTypeKeyword(scanSource(jcClassDecl)));
             // the type's simple name, keyed by the simple-name string
             dsb.putIfNotNull(typeInfo.simpleName(), scanResult.findTypeName(scanSource(jcClassDecl)));
+            if (typeInfo.typeNature().isRecord()) {
+                // the closing ')' of the record header's component list, so consumers can locate where to append
+                // an 'implements ...' clause after 'record R(...)'
+                dsb.putIfNotNull(DetailedSources.END_OF_PARAMETER_LIST,
+                        scanResult.findEndOfParameterList(scanSource(jcClassDecl)));
+            }
         }
         Source source = sourceForNode(jcClassDecl, dsb);
 
@@ -1594,9 +1600,32 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         Source source;
         if (isConstructor && currentType.typeNature().isRecord()
             && (methodInfo.isCompactConstructor() || methodInfo.isSynthetic())) {
-            Source base = sourceForNode(jcVariableDecl);
-            String string = jcVariableDecl.toString();
-            source = extendSource(base, string, name).withDetailedSources(dsbParam.build());
+            // javac synthesises the canonical-constructor parameters (both for the implicit canonical constructor
+            // and for a compact one); their tree positions -- and hence the type/name detailed sources gathered
+            // above from jcVariableDecl -- are unreliable: the type range is off by a character, the name detail
+            // lands in the 'record' keyword, and the whole-parameter source is sometimes truncated. The record
+            // component FIELD, scanned earlier in handleRecordType from the real component declaration, carries the
+            // correct source; mirror it onto the parameter, re-keyed to the parameter's own name-string and
+            // parameterized-type instances (DetailedSources is identity-keyed).
+            FieldInfo field = currentType.getFieldByName(name, false);
+            Source fieldSource = field == null ? null : field.source();
+            if (fieldSource != null && fieldSource.detailedSources() != null) {
+                DetailedSources fieldDs = fieldSource.detailedSources();
+                DetailedSources.Builder fixed = runtime.newDetailedSourcesBuilder();
+                Source typeDetail = fieldDs.detail(field.type());
+                if (typeDetail != null) fixed.put(parameterInfo.parameterizedType(), typeDetail);
+                Source nameDetail = fieldDs.detail(field.name());
+                if (nameDetail != null) fixed.put(name, nameDetail);
+                if (scanResult != null) {
+                    fixed.putIfNotNull(DetailedSources.PRECEDING_COMMA, scanResult.findPrecedingComma(fieldSource));
+                    fixed.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, scanResult.findSucceedingComma(fieldSource));
+                }
+                source = fieldSource.withDetailedSources(fixed.build());
+            } else {
+                Source base = sourceForNode(jcVariableDecl);
+                String string = jcVariableDecl.toString();
+                source = extendSource(base, string, name).withDetailedSources(dsbParam.build());
+            }
         } else {
             source = sourceForNode(jcVariableDecl, dsbParam);
         }

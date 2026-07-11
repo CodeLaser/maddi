@@ -103,7 +103,7 @@ public record FlagHelper(Runtime runtime) {
         long flags = cs.flags();
         if ((flags & Flags.PUBLIC) != 0) builder.addTypeModifier(runtime.typeModifierPublic());
         if ((flags & Flags.PROTECTED) != 0) builder.addTypeModifier(runtime.typeModifierProtected());
-        if ((flags & Flags.PROTECTED) != 0) builder.addTypeModifier(runtime.typeModifierPrivate());
+        if ((flags & Flags.PRIVATE) != 0) builder.addTypeModifier(runtime.typeModifierPrivate());
         if ((flags & Flags.STATIC) != 0) builder.addTypeModifier(runtime.typeModifierStatic());
         if ((flags & Flags.ABSTRACT) != 0) builder.addTypeModifier(runtime.typeModifierAbstract());
         if ((flags & Flags.SEALED) != 0) builder.addTypeModifier(runtime.typeModifierSealed());
