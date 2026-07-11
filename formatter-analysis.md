@@ -131,6 +131,20 @@ The `formatter2` package and `Formatter2Impl` were never renamed after the old f
 removed (commit `26d8b553`). 18 references across 5 files. Low risk, mechanical, do with an IDE
 refactor when convenient.
 
+### F6 — (FIXED) deep nesting on a narrow page went off the rails
+For a block at depth `t`, the content budget is `maxAvailable = lengthOfLine - t*spacesInTab`. In
+very deep blocks (e.g. 10 nested `if`s) this collapses to ~0 or negative, so **every** candidate
+split position "overflows" and the formatter breaks at all of them. Reproduced with the real
+parser at widths 40/30/20: `if(` dangling at the end of a line, expressions shattered
+one-token-per-line (`p =` / `p +` / `9;`), and spurious blank lines (the `baseSplitLevel`
+DOUBLE_NEWLINE "both neighbours wrapped" heuristic firing on every pair). **Fixed** with a
+`MIN_CONTENT_WIDTH = 16` floor on the budget in `BlockPrinter.write`: deeply-indented lines may
+now exceed `lengthOfLine`, but each statement stays intact instead of degenerating. The floor only
+engages once indentation exceeds `lengthOfLine - 16` — shallow blocks (all existing narrow tests)
+and all width-120 round trips never reach it. Regression test `TestDeepNestingPrint`
+(maddi-java-openjdk, real parser). Follow-up option: make the floor a `FormattingOptions` field
+rather than a constant if callers want to tune it.
+
 ## 5. Strengths (worth preserving)
 
 - The recursive `Block`/`Guide` model is clean and the `minimal()` debug rendering
