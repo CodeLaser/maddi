@@ -141,7 +141,7 @@ We will in this work make a distinction between a property being _effectively_ o
 The former indicates a property as computed after construction of the object, which is potentially a little broader
 than the definition of the language.
 The latter is used when this property can only be obtained after the code reaches a certain state.
-More on this later, but here is a first example of type with eventually final fields:
+More on this later, but here is a first example of a type with eventually final fields:
 
 .Example {counter:example}, simplified version of `SetOnce`
 [source,java]
@@ -172,7 +172,7 @@ Once a value has been set, the field `random` cannot be assigned anymore.
 We have just observed that if one restricts to primitives and types like `java.lang.String`, final fields are sufficient
 to guarantee deep immutability.
 It is not feasible, and we do not wish to, work _only_ with deeply immutable objects.
-Moreover, it is easy to see that final fields alone not enough to guarantee what we intuitively may think immutability
+Moreover, it is easy to see that final fields alone are not enough to guarantee what we intuitively may think immutability
 stands for:
 
 .Example {counter:example}, final fields do not guarantee intuitive immutability

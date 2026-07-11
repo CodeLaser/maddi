@@ -267,7 +267,7 @@ class ApplyLocalFunctions2 {
 It is not a container.
 This is clearly visible in the explicit variant...
 <2> Here we see why `incrementer` is not a container: the method modifies its parameters.
-<3> Now, we have a container, because in the anonymous type does not modify its parameters.
+<3> Now, we have a container, because the anonymous type does not modify its parameters.
 <4> Explicitly visible here in `explicitPrinter`.
 <5> If we insist that all parameters are containers, ...
 <6> We can use the annotations to detect errors.

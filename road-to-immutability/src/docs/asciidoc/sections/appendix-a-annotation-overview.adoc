@@ -5,23 +5,23 @@ When annotating abstract types and methods, or types in the Annotated APIs, obse
 A method is {nm} unless otherwise specified, its parameters are assumed to be {modified}, unless they are of
 immutable type.
 
-Due to the large amount of circular type dependencies in the JDK, combined with the current limitations of the analyser,
-the implementation of the Annotated API analyser requires contracted annotations about independence,
+Due to the large amount of circular type dependencies in the JDK, combined with the current limitations of the analyzer,
+the implementation of the Annotated API analyzer requires contracted annotations about independence,
 immutability, and container on the type.
-The following combinations are possible with respect ot independence and immutability:
+The following combinations are possible with respect to independence and immutability:
 
 * no independence information: (in)dependence according to the immutability value
 (not immutable -> dependent, {immutableHC} -> {independentHC}, {immutable} -> {independent})
 * {independentAbsent}: dependent; this requires that the type is not immutable
 * {independentHC}: this is the default for {immutableHC}, {immutableContainerHC}, so explicitly writing this annotation
 is only necessary on non-immutable types
-* {independent}: this is the default for {immutable}, {immutableContainer}, so so explicitly writing this annotation
+* {independent}: this is the default for {immutable}, {immutableContainer}, so explicitly writing this annotation
 is only useful for mutable or {immutableHC} types
 
 Recall that abstract types always have hidden content, so the `hc=true` is always implicitly present on
 {independent} and {immutable}, {immutableContainer} on the type.
 We generally do not write `hc=false`, as that is the default value in the annotation.
-The analyser will complain when `hc=false` is present on the {immutable} annotation of an abstract type.
+The analyzer will complain when `hc=false` is present on the {immutable} annotation of an abstract type.
 
 To support the user, a warning will be raised when the independence value on the type is incompatible with
 that on its methods, parameters and fields.
@@ -44,7 +44,7 @@ Methods marked {fluent} are always {independent}, because returning the type its
 
 Following its definition, {utilityClass} on a type implies {immutable}.
 
-In application mode, the analyser will regard every class that is never extended as effectively final.
+In application mode, the analyzer will regard every class that is never extended as effectively final.
 This property is only relevant when the type is immutable; the absence of `hc=true` is a marker.
 
 Parameters of "official" functional interface type (i.e., the type is a functional interface type in the package
@@ -55,7 +55,7 @@ The default nullable annotation for parameters and return values of non-primitiv
 A factory method is a static method returning an object of the type of the class.
 Independence of a factory method is always with respect to the method's parameters, rather than to the type.
 Independence of a factory method's parameters corresponds to the immutability of the parameter type.
-These two rules also applies to any static method in an immutable type.
+These two rules also apply to any static method in an immutable type.
 Note that utility classes are classes that are deeply immutable and cannot be instantiated, so it applies to their static methods.
 
 In general, annotations are inherited on types, methods and parameters.
@@ -68,6 +68,6 @@ but not from right to left
 non-immutable type can never be immutable
 
 When a method has a single statement, returning a constant value, the `@ImmutableContainer("value")` is implicit.
-Similarly, when a field is explicitly final (it has the `final` modifier) and it has an initialiser, then both {final}
+Similarly, when a field is explicitly final (it has the `final` modifier) and it has an initializer, then both {final}
 and, if relevant, `@ImmutableContainer("value")`, is implicit.
 

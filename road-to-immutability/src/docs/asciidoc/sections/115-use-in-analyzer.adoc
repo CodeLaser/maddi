@@ -44,4 +44,4 @@ public class TypeInfo {
 
 In this way, if we keep playing by the book recursively downward, `TypeInfo` will become an eventually immutable type.
 Software engineers writing applications which use the {maddi} analyzer as a library, can feel secure that once the
-analysis phase is over, all the inspected and analysed information remains stable.
+analysis phase is over, all the inspected and analyzed information remains stable.

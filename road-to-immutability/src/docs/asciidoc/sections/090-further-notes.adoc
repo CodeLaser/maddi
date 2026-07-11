@@ -106,13 +106,13 @@ The second question to answer is whether we can or should relax the requirement 
 Remember that the `protected` access modifier allows access to classes that inherit from the type, _and_ to members of the same package.
 
 First, consider allowing 'package-private'.
-If we were to assume that all types in the same package are fully visible to the analyzer at the time of analysis, we could consider extending the rules to analyse all types in the package at the same time, as we did for nested types inside a primary type.
+If we were to assume that all types in the same package are fully visible to the analyzer at the time of analysis, we could consider extending the rules to analyze all types in the package at the same time, as we did for nested types inside a primary type.
 However, firstly, it is perfectly possible, even if it is bad practice, to spread a package over multiple jars.
 This denies the analyzer complete visibility over the types in a package.
 Secondly, the complications that arise computationally are too much for efficient analysis.
 
 So there's no point in considering `protected` access.
-Even if inheritance where the only criterion used to define this access level, we would not allow it, because the child class can be invisible to the analyzer at the time of analysis of the parent.
+Even if inheritance were the only criterion used to define this access level, we would not allow it, because the child class can be invisible to the analyzer at the time of analysis of the parent.
 
 When annotating APIs (see {maddi} manual), we do use the public vs non-public criterion instead of the non-private vs private one, mostly as a matter of convenience.
 We assume (hope?) that library designers and implementers shield off internal types sufficiently, and rely on the project implementer to stick to their package prefix.

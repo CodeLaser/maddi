@@ -116,7 +116,7 @@ The fields `point1` and `point2` are effectively final.
 Without the translation method, the fields would be {nm} as well.
 The translation method modifies the fields' content, preventing the type from becoming immutable.
 
-From the restriction of rule 1, that all its fields should remain unmodified, it follows that, excluding external changes, every method call on a immutable container object with the same arguments will render the same result.
+From the restriction of rule 1, that all its fields should remain unmodified, it follows that, excluding external changes, every method call on an immutable container object with the same arguments will render the same result.
 We note that this statement cannot be bypassed by using _static_ state, i.e., state specific to the type rather than the object.
 The definitions make no distinction between static and instance fields.
 
@@ -146,7 +146,7 @@ Note that:
 
 * We state that all primitive types are immutable, as is `java.lang.Object`.
 Whilst this is fairly obvious in the case of primitives, immutability for `Object` requires us to either ignore the methods related to synchronization, or to assume that its implementation (for it is not an abstract type) has no fields.
-* A consequence of rule 1 is that all methods in a immutable type must be {nm}.
+* A consequence of rule 1 is that all methods in an immutable type must be {nm}.
 * A field whose type is an unbound type parameter, can locally be considered to be of immutable type, and therefore need not be private.
 This is because the type parameter could be substituted by `java.lang.Object`, which we have just declared to be immutable.
 More details can be found in the section on <<generics>>.
@@ -455,7 +455,7 @@ The analyzer simply treats the parameterized type `T` as if it were the type `E`
 In the case of an unbound parameter type, only the public methods of `java.lang.Object` are accessible.
 By definition, the type belongs to the hidden content, as defined in <<accessible-hidden-content>>.
 
-The analyzer recognises types that can be replaced by an unbound parameter type, when they are used _transparently_, and therefore belong to the hidden content: no methods are called on it, save the ones from `java.lang.Object`; none of its fields are accessed, and it is not used as an argument to parameters where anything more specific than
+The analyzer recognizes types that can be replaced by an unbound parameter type, when they are used _transparently_, and therefore belong to the hidden content: no methods are called on it, save the ones from `java.lang.Object`; none of its fields are accessed, and it is not used as an argument to parameters where anything more specific than
 `java.lang.Object` is required.
 It will issue a warning, and internally treat the type as an unbound parameter type, and hence {immutableContainer}, even if the type is obviously modifiable.
 
@@ -484,7 +484,7 @@ Nowhere in `OddPair` do we make actual use of the fact that `set` is of type `Se
 The analyzer encourages you to replace `Set` by some unbound parameter type, say `K`, and `StringBuilder` by some other, say `V`.
 The result is, of course, the type `Pair` as defined <<type-pair,earlier>>.
 
-Making a concrete choices for a type parameter may have an effect on the immutability status, as will be explained in
+Making a concrete choice for a type parameter may have an effect on the immutability status, as will be explained in
 <<hidden-content>>.
 Some examples are easy to see: any {finalFields} type whose fields consist only of types of unbound type parameter, will become immutable when the unbound type parameters are substituted for immutable types.
 Any immutable type whose hidden content consists only of types of unbound type parameter, will become deeply immutable (i.e., devoid of hidden content) when the unbound type parameters are substituted for deeply immutable types.
@@ -523,7 +523,7 @@ Furthermore, we will also impose special variants of the rules for immutability 
 ****
 *Variant of rule 1*: Abstract methods must be non-modifying.
 
-*Variant of rule 3*: Abstract methods returning values must be not be dependent, i.e., the object they return must be not be dependent on the fields.
+*Variant of rule 3*: Abstract methods returning values must not be dependent, i.e., the object they return must not be dependent on the fields.
 They cannot expose the fields via parameters: parameters of non-primitive, non-immutable type must not be dependent.
 ****
 
@@ -543,13 +543,13 @@ interface Comparable<T> {
 
 as an immutable type when the only method we can access is `compareTo`.
 
-As for as the modification status of the _parameters_ of abstract methods is concerned, we also start off with {modified}:
+As far as the modification status of the _parameters_ of abstract methods is concerned, we also start off with {modified}:
 
 IMPORTANT: Unless otherwise explicitly annotated, or their types are immutable, we will assume that the parameters of abstract methods, be they in interfaces or abstract classes, are {modified}.
 Overriding the method, the contract can change from {modified} to {nm}, but not from {nm} to {modified}.
 
 While it is possible to compute the immutability and container status of interface types, using the rules presented above, it often makes more practical sense to use the annotations as contracts: they may save a lot of annotation work on the abstract methods in the interface.
-We repeat that no implementation of a immutable interface is guaranteed to be immutable itself; nor does this guarantee hold for the container property unless no new non-private methods have been added.
+We repeat that no implementation of an immutable interface is guaranteed to be immutable itself; nor does this guarantee hold for the container property unless no new non-private methods have been added.
 
 We continue this section with some examples which will form the backbone of the examples in <<hidden-content>>.
 
@@ -594,7 +594,7 @@ interface NonEmptyImmutableList<T> extends HasSize {
 }
 ----
 
-<1> Whilst formally, `T` can never be dependent because it must belong to the hidden content of the interface, contracting the {independentHc} annotation here will force all concrete implementations to have an non-dependent
+<1> Whilst formally, `T` can never be dependent because it must belong to the hidden content of the interface, contracting the {independentHc} annotation here will force all concrete implementations to have a non-dependent
 `first` method.
 Even if the concrete choice for `T` is modifiable, the independence rule must be satisfied.
 <2> The parameter `consumer` would normally be {modified}, which would break the {container} property that we wish for
@@ -899,7 +899,7 @@ Quoting from the JDK 8 documentation, value-based classes are
 
 . final and immutable (though may contain references to mutable objects);
 . have implementations of equals, hashCode, and toString which are computed solely from the instance's state and not from its identity or the state of any other object or variable;
-. make no use of identity-sensitive operations such as reference equality (==) between instances, identity hash code of instances, or synchronization on an instances's intrinsic lock;
+. make no use of identity-sensitive operations such as reference equality (==) between instances, identity hash code of instances, or synchronization on an instance's intrinsic lock;
 . are considered equal solely based on equals(), not based on reference equality (==);
 . do not have accessible constructors, but are instead instantiated through factory methods which make no commitment as to the identity of returned instances;
 . are freely substitutable when equal, meaning that interchanging any two instances _x_ and _y_ that are equal according to `equals()` in any computation or method invocation should produce no visible change in behavior.

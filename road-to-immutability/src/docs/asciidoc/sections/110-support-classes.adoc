@@ -153,7 +153,7 @@ public class EventuallyFinal<T> {
 ----
 
 Note the occurrence of a negated {testMark} annotation: `isVariable` returns the negation of the normal
-`iFinal` mark test.
+`isFinal` mark test.
 
 [#support-freezable]
 == Freezable
@@ -285,7 +285,7 @@ public class Lazy<T> {
 }
 ----
 
-<1> The annotation has travelled from the field to the parameter; therefore the parameter has `@Independent(hc=true)`.
+<1> The annotation has traveled from the field to the parameter; therefore the parameter has `@Independent(hc=true)`.
 <2> The {mark} annotation is conditional; the transition is triggered by nullity of `t`
 <3> Here `t`, part of the hidden content, links to `supplier`, as explained in <<content-linking>>.
 The statement also causes the {nncontent} annotation, as defined in <<nullable-section>> and <<identity-and-fluent>>.
@@ -304,7 +304,7 @@ Consequently, the constructor should link to the field, and `supplier` cannot be
 The answer lies in the eventual nature of `Lazy`: _before_ the first call to `get`, the `supplier` field
 is of relevance to the type, and `t` is not.
 _After_ the call to `get()`, the converse is true, because `supplier` has been emptied.
-We should extend rule 2 of effective immutability by slightly augmenting rule 2:
+We should extend the rules of effective immutability by slightly augmenting rule 2:
 
 ****
 *Rule 2*: All fields are either private, of immutable type, or equal to null.
@@ -313,7 +313,7 @@ We should extend rule 2 of effective immutability by slightly augmenting rule 2:
 A null field cannot be modified, and cannot be but {independent}, so no changes are necessary to rules 1 and 3.
 One can argue that they do not belong to the accessible content, nor to the hidden content, since they cannot be
 accessed, and are content-less: rule 4 should not be affected.
-In combination with effective finality, this allows the eventually "blanking out" of modifiable fields in
+In combination with effective finality, this allows the eventual "blanking out" of modifiable fields in
 immutable types.
 
 [#support-firstthen]
