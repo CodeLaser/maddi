@@ -22,6 +22,7 @@ import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.inspection.api.parser.*;
 import org.e2immu.util.internal.graph.util.TimedLogger;
+import org.e2immu.language.cst.api.analysis.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -140,9 +141,7 @@ public class ResolverImpl implements Resolver {
                 AnnotationExpression ae = parseAnnotationExpression(annotationTodo);
                 annotationTodo.infoBuilder.setAnnotationExpression(annotationTodo.indexInAnnotationList, ae);
             } catch (RuntimeException | AssertionError re) {
-                LOGGER.error("Caught exception resolving annotation {}", annotationTodo);
-                Summary.ParseException pe = new Summary.ParseException(annotationTodo.context, annotationTodo.infoBuilder, re.getMessage(), re);
-                annotationTodo.context.summary().addParseException(pe);
+                registerResolutionFailure(annotationTodo.context, annotationTodo.infoBuilder, re);
             }
         });
         Stream<JavaDocToDo> javaDocToDoStream = parallel ? javaDocs.parallelStream() : javaDocs.stream();
@@ -151,9 +150,7 @@ public class ResolverImpl implements Resolver {
                 JavaDoc resolved = resolveJavaDoc(javaDocToDo);
                 javaDocToDo.infoBuilder.setJavaDoc(resolved);
             } catch (RuntimeException | AssertionError re) {
-                LOGGER.error("Caught exception resolving javaDoc {}", javaDocToDo.info);
-                Summary.ParseException pe = new Summary.ParseException(javaDocToDo.context, javaDocToDo.info, re.getMessage(), re);
-                javaDocToDo.context.summary().addParseException(pe);
+                registerResolutionFailure(javaDocToDo.context, javaDocToDo.info, re);
             }
         });
 
@@ -164,18 +161,14 @@ public class ResolverImpl implements Resolver {
                 try {
                     resolveField(todo, builder);
                 } catch (RuntimeException | AssertionError re) {
-                    LOGGER.error("Caught exception resolving field {}, done {}", todo.info, done);
-                    Summary.ParseException pe = new Summary.ParseException(todo.context, todo.info, re.getMessage(), re);
-                    todo.context.summary().addParseException(pe);
+                    registerResolutionFailure(todo.context, todo.info, re);
                 }
                 todo.context.summary().addType(todo.context.enclosingType().primaryType());
             } else if (todo.infoBuilder instanceof MethodInfo.Builder builder) {
                 try {
                     resolveMethod(todo, builder);
                 } catch (RuntimeException | AssertionError re) {
-                    LOGGER.error("Caught exception resolving method {}, done {}", todo.info, done);
-                    Summary.ParseException pe = new Summary.ParseException(todo.context, todo.info, re.getMessage(), re);
-                    todo.context.summary().addParseException(pe);
+                    registerResolutionFailure(todo.context, todo.info, re);
                 }
                 todo.context.summary().addType(todo.context.enclosingType().primaryType());
             } else throw new UnsupportedOperationException("In java, we cannot have expressions in other places");
@@ -196,6 +189,31 @@ public class ResolverImpl implements Resolver {
         for (TypeInfo.Builder builder : types) {
             builder.commit();
         }
+    }
+
+    /**
+     * Conservative severity classification for a resolution failure: an {@link UnresolvedTypeException} (a type
+     * not on the partial classpath) is a tolerable <em>warning</em> (matching the openjdk front-end); every other
+     * failure stays a fatal error. Warnings never fail-fast, so a run continues past an unresolved library type.
+     */
+    private void registerResolutionFailure(Context context, Object where, Throwable failure) {
+        boolean unresolvedType = hasCause(failure, UnresolvedTypeException.class);
+        Summary.ParseException pe = new Summary.ParseException(context, where, failure.getMessage(), failure,
+                unresolvedType ? Message.Severity.WARN : Message.Severity.ERROR);
+        if (unresolvedType) {
+            LOGGER.debug("Unresolved type while resolving {}: {}", where, failure.getMessage());
+            context.summary().addParseWarning(pe);
+        } else {
+            LOGGER.error("Caught exception resolving {}", where, failure);
+            context.summary().addParseException(pe);
+        }
+    }
+
+    private static boolean hasCause(Throwable throwable, Class<? extends Throwable> type) {
+        for (Throwable c = throwable; c != null; c = (c.getCause() == c ? null : c.getCause())) {
+            if (type.isInstance(c)) return true;
+        }
+        return false;
     }
 
     private JavaDoc resolveJavaDoc(JavaDocToDo javaDocToDo) {

@@ -210,8 +210,9 @@ public class TypeContextImpl implements TypeContext {
     private TypeInfo loadTypeDoNotImport(String fqn) {
         TypeInfo typeInfo = data.compiledTypesManager.getOrLoad(fqn, sourceSet());
         if (typeInfo == null) {
-            LOGGER.error("ERROR: Cannot find type '{}'", fqn);
-            throw new UnsupportedOperationException(fqn);
+            // not on the (partial) classpath: a tolerable warning, not a fatal error (see UnresolvedTypeException)
+            LOGGER.debug("Cannot find type '{}'", fqn);
+            throw new UnresolvedTypeException(fqn);
         }
         return typeInfo;
     }
@@ -325,7 +326,7 @@ public class TypeContextImpl implements TypeContext {
             return List.of(getOrCreateStubType(name));
         }
         if (complain) {
-            throw new UnsupportedOperationException("Cannot find type " + name);
+            throw new UnresolvedTypeException(name);
         }
         return null;
     }
