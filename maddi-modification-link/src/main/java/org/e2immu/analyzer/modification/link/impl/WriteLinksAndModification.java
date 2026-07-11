@@ -129,7 +129,13 @@ class WriteLinksAndModification {
         Links.Builder builder1 = followGraph.followGraph(virtualFieldComputer, toFollow);
         if (toFollow != variable) {
             builder2 = new LinksImpl.Builder(variable);
+            // A pure assignment source (a value that flows INTO the collapsed variable, e.g. 'alternative' in
+            // 'x ← alternative') must not inherit the rep's incoming edges: 'rep ← optional.§x' belongs to the
+            // recipient x (and whatever x flows into), not to the source. Attributing it would produce the spurious
+            // 'alternative ← optional.§x'. So drop the rep's incoming-assignment edges when rehoming onto a source.
+            boolean pureSource = followGraph.graph().isPureAssignmentSource(variable);
             builder1.linkSet().forEach(link -> {
+                if (pureSource && link.linkNature().isAssignedFrom() && link.from().equals(toFollow)) return;
                 VariableTranslationMap vtm = new VariableTranslationMap(runtime);
                 vtm.put(toFollow, variable);
                 Link translated = link.translateFrom(vtm);
@@ -142,7 +148,13 @@ class WriteLinksAndModification {
         Links.Builder builder = new LinksImpl.Builder(builder2.primary());
         // components of the variable can also be part of the shared variables...
         for (Link link : builder2.linkSet()) {
-            iterateOverShared(link.from()).forEach(from -> iterateOverShared(link.to())
+            // Directionality: on an assignment edge the recipient side (the 'from' of ←, the 'to' of →) must expand
+            // only to recipient members of the rep, not to a pure source. 'optional.§x → rep' ({x, alternative})
+            // means optional.§x flowed into x, not into the source 'alternative'; expanding to 'alternative' would
+            // produce the spurious 'optional.§x → alternative'.
+            boolean fromRecipient = link.linkNature().isAssignedFrom();
+            boolean toRecipient = link.linkNature() == IS_ASSIGNED_TO;
+            expandShared(link.from(), fromRecipient).forEach(from -> expandShared(link.to(), toRecipient)
                     .forEach(to -> {
                         // Expanding a shared-variable rep can surface two bad links that the rep previously masked:
                         // (1) an internal self-field link ('choose ≻ $__sv_s1' → 'choose ≻ choose.s1'), which
@@ -306,6 +318,13 @@ class WriteLinksAndModification {
         if (linkNature == CONTAINS_AS_FIELD) return !Util.isPartOf(from, to);
         if (linkNature == IS_FIELD_OF) return !Util.isPartOf(to, from);
         return false;
+    }
+
+    // iterateOverShared, but when 'recipientSide' the rep expands only to recipient members (drops pure sources),
+    // so an incoming assignment edge is not attributed to a value that merely flows into the collapsed variable.
+    private Stream<Variable> expandShared(Variable variable, boolean recipientSide) {
+        if (!recipientSide) return iterateOverShared(variable);
+        return iterateOverShared(variable).filter(m -> !followGraph.graph().isPureAssignmentSource(m));
     }
 
     private Stream<Variable> iterateOverShared(Variable variable) {

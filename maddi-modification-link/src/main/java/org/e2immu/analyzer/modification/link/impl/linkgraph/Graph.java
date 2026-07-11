@@ -87,6 +87,10 @@ public class Graph {
         return sharedVariables.assignmentEdgeStream(primary);
     }
 
+    public boolean isPureAssignmentSource(Variable variable) {
+        return sharedVariables.isPureAssignmentSource(variable);
+    }
+
     public Stream<Link> virtualModificationEdgeStream(Variable primary) {
         Set<Variable> variables = virtualModificationIdenticals.variablesPartOf(primary);
         Map<Variable, VirtualModificationIdenticals.Group> groups = variables.stream()
