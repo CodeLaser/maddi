@@ -24,8 +24,8 @@ import java.util.*;
 
 public class SummaryImpl implements Summary {
     private final Set<TypeInfo> types = new HashSet<>();
-    private final List<ParseException> parseExceptions = new LinkedList<>();
-    private final List<ParseException> parseWarnings = new LinkedList<>();
+    // one list; errors vs warnings distinguished by ParseException.level() (single source of truth)
+    private final List<ParseException> messages = new LinkedList<>();
     private final boolean failFast;
     private final Map<String, SourceSet> sourceSetsByName = new HashMap<>();
     private final Map<SourceSet, ModuleInfo> sourceSetToModuleInfo = new HashMap<>();
@@ -78,27 +78,27 @@ public class SummaryImpl implements Summary {
         if (failFast) {
             throw new Summary.FailFastException(parseException);
         }
-        this.parseExceptions.add(parseException);
+        this.messages.add(parseException);
     }
 
     @Override
-    public List<ParseException> parseExceptions() {
-        return parseExceptions;
+    public synchronized List<ParseException> parseExceptions() {
+        return messages.stream().filter(m -> m.level().isError()).toList();
     }
 
     @Override
     public synchronized void addParseWarning(ParseException parseWarning) {
         // warnings never fail-fast and never contribute to haveErrors()
-        this.parseWarnings.add(parseWarning);
+        this.messages.add(parseWarning);
     }
 
     @Override
-    public List<ParseException> parseWarnings() {
-        return parseWarnings;
+    public synchronized List<ParseException> parseWarnings() {
+        return messages.stream().filter(m -> m.level().isWarning()).toList();
     }
 
     @Override
-    public boolean haveErrors() {
-        return !parseExceptions.isEmpty();
+    public synchronized boolean haveErrors() {
+        return messages.stream().anyMatch(m -> m.level().isError());
     }
 }

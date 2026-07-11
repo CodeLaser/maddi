@@ -70,6 +70,7 @@ public class TestJavaInspector2JarOnClasspath {
         // non-fatal warning, not a parse error, so parsing still yields a ParseResult
         assertFalse(summary.haveErrors());
         assertFalse(summary.parseWarnings().isEmpty(), "expected a warning for the unresolved commons-cli import");
+        assertTrue(summary.parseWarnings().getFirst().level().isWarning(), "diagnostic must carry WARN severity");
         ParseResult parseResult = summary.parseResult();
         TypeInfo C = parseResult.findType("a.b.C");
         assertEquals("@ImmutableContainer", C.annotations().getFirst().toString());
