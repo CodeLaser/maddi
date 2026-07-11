@@ -176,7 +176,15 @@ public class BlockPrinter {
             return SplitLevel.DOUBLE_NEWLINE;
         }
         if (output.spaceLevel().isNoSpace()) {
-            return SplitLevel.NONE_IF_COMPACT;
+            // This block's far (trailing) end is no-space, which normally means "glue" (a method-chain
+            // link `.foo()` glued to the previous `)`. But the separator between two sub-blocks is
+            // governed by whether the PREVIOUS block wants a trailing space, not this block's far end.
+            // When the previous block ends in something that wants a space — e.g. a binary operator at
+            // end of line: `(a > 0) &&` (SPACE_IS_NICE) followed by `(b < 0)` (NO_SPACE) — keep the
+            // separator, otherwise the space is dropped (`(a > 0) &&(b < 0)`).
+            Line.SpaceLevel prev = prevOutput == null ? null : prevOutput.spaceLevel();
+            boolean prevWantsSpace = prev == Line.SpaceLevel.SPACE || prev == Line.SpaceLevel.SPACE_IS_NICE;
+            return prevWantsSpace ? SplitLevel.SINGLE_NEWLINE : SplitLevel.NONE_IF_COMPACT;
         }
         return SplitLevel.SINGLE_NEWLINE;
     }

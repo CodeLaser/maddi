@@ -74,7 +74,7 @@ public class TestVariousPrint2Issues extends CommonTest {
 
                     // SentinelConfig
                     // so not use SentinelConfig.charset()
-                    return Charset.forName(System.getProperty("csp.sentinel.charset",StandardCharsets.UTF_8.name()));
+                    return Charset.forName(System.getProperty("csp.sentinel.charset", StandardCharsets.UTF_8.name()));
                 }
             }
             """;
@@ -107,7 +107,7 @@ public class TestVariousPrint2Issues extends CommonTest {
 
             class AgentLauncher {
                 private String method(File file) {
-                    return format("%s",file.getName());
+                    return format("%s", file.getName());
                 }
             }
             """;
@@ -115,7 +115,7 @@ public class TestVariousPrint2Issues extends CommonTest {
     @Language("java")
     private static final String OUTPUT3 = """
             import java.io.File;
-            class AgentLauncher {private String method(File file) { return String.format("%s",file.getName()); } }
+            class AgentLauncher {private String method(File file) { return String.format("%s", file.getName()); } }
             """;
 
     @DisplayName("static import issue")

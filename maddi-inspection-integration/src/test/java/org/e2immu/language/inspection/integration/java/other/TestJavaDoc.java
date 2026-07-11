@@ -42,7 +42,7 @@ public class TestJavaDoc extends CommonTest {
                  */
             
                 public String method(String in, int len) {
-                    if(len < 0 ||len >= in.length()) { throw new IndexOutOfBoundsException(); }
+                    if(len < 0 || len >= in.length()) { throw new IndexOutOfBoundsException(); }
                     return in.substring(len);
                 }
             }
@@ -78,7 +78,7 @@ public class TestJavaDoc extends CommonTest {
                  */
                 
                 public String method(String in, int len) {
-                    if(len < 0 ||len >= in.length()) { throw new IndexOutOfBoundsException(); }
+                    if(len < 0 || len >= in.length()) { throw new IndexOutOfBoundsException(); }
                     return in.substring(len);
                 }
             }
