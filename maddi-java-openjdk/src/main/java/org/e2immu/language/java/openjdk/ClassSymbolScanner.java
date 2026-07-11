@@ -165,7 +165,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             case null -> throw new UnsupportedOperationException("Null owner for type " + cs.fullname);
             default -> {
                 if (cs.owner.kind == Kinds.Kind.NIL) {
-                    throw new UnsupportedOperationException("Type " + cs.fullname + " not found");
+                    throw new UnresolvedSymbolException("Type " + cs.fullname + " not found");
                 }
                 throw new UnsupportedOperationException();
             }

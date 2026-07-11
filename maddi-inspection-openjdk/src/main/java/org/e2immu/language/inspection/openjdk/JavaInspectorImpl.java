@@ -24,6 +24,7 @@ import org.e2immu.language.inspection.resource.SummaryImpl;
 import org.e2immu.language.java.openjdk.InMemoryJavaFileObject;
 import org.e2immu.language.java.openjdk.MaddiDiagnosticCollector;
 import org.e2immu.language.java.openjdk.ScanCompilationUnits;
+import org.e2immu.language.java.openjdk.UnresolvedSymbolException;
 import org.e2immu.util.internal.graph.G;
 import org.e2immu.util.internal.graph.ImmutableGraph;
 import org.e2immu.util.internal.graph.op.Linearize;
@@ -326,6 +327,18 @@ public class JavaInspectorImpl implements JavaInspector {
         if (!scanned.modules().isEmpty()) {
             summary.putSourceSetToModuleInfo(sourceSet, scanned.modules().getFirst());
         }
+        // Surface compilation units that ScanCompilationUnits had to drop (accumulate mode): an unresolved symbol
+        // on the partial classpath is a *warning* (the run proceeds and preps over what parsed); anything else is a
+        // genuine *error* (non-zero exit) — but either way we no longer abort the whole run on the first bad file.
+        for (ScanCompilationUnits.CompilationUnitFailure f : scanned.failures()) {
+            if (f.tolerable()) {
+                summary.addParseWarning(new Summary.ParseException(f.uri(), "compilation unit",
+                        f.detail(), f.cause(), Message.Severity.WARN));
+            } else {
+                summary.addParseException(new Summary.ParseException(f.uri(), "compilation unit",
+                        f.detail(), f.cause()));
+            }
+        }
         // Surface javac ERROR diagnostics as Summary *warnings* (not fatal errors): maddi runs javac on a
         // deliberately partial classpath, so unresolved references ("package x.y does not exist", "cannot find
         // symbol") are expected noise, not failures. Previously these were only logged (at INFO) in
@@ -347,11 +360,39 @@ public class JavaInspectorImpl implements JavaInspector {
         for (TypeInfo typeInfo : loaded) {
             // TODO completing is a choice, and may be an unnecessary and expensive operation.
             //  offer this choice to the user
-            if (typeInfo.isPrimaryType() && !typeInfo.hasBeenInspected()) {
-                scanCompilationUnits.classSymbolScanner().commitType(typeInfo);
+            try {
+                if (typeInfo.isPrimaryType() && !typeInfo.hasBeenInspected()) {
+                    scanCompilationUnits.classSymbolScanner().commitType(typeInfo);
+                }
+                compiledTypesManager.addTypeInfo(null, typeInfo);
+            } catch (RuntimeException | AssertionError e) {
+                // committing a type whose references were dropped by fault isolation can fail. fail-fast: rethrow;
+                // accumulate: skip the type and record it, so the run still completes over what did commit.
+                if (!ignoreErrors) throw e;
+                URI uri;
+                try {
+                    uri = typeInfo.compilationUnit().uri();
+                } catch (RuntimeException ignore) {
+                    uri = null;
+                }
+                boolean tolerable = hasCause(e, UnresolvedSymbolException.class);
+                String detail = "commit: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+                if (tolerable) {
+                    summary.addParseWarning(new Summary.ParseException(uri, typeInfo.fullyQualifiedName(),
+                            detail, e, Message.Severity.WARN));
+                } else {
+                    summary.addParseException(new Summary.ParseException(uri, typeInfo.fullyQualifiedName(),
+                            detail, e));
+                }
             }
-            compiledTypesManager.addTypeInfo(null, typeInfo);
         }
+    }
+
+    private static boolean hasCause(Throwable t, Class<? extends Throwable> type) {
+        for (Throwable c = t; c != null; c = c.getCause()) {
+            if (type.isInstance(c)) return true;
+        }
+        return false;
     }
 
     private JavacTask createTask(SourceSet sourceSet,

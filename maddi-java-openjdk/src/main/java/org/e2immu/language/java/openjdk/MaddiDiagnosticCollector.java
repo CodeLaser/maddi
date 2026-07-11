@@ -13,6 +13,10 @@ public class MaddiDiagnosticCollector implements DiagnosticListener<JavaFileObje
     private static final Logger LOGGER = LoggerFactory.getLogger(MaddiDiagnosticCollector.class);
     private final boolean ignoreErrors;
 
+    public boolean ignoreErrors() {
+        return ignoreErrors;
+    }
+
     public MaddiDiagnosticCollector(boolean ignoreErrors) {
         this.ignoreErrors = ignoreErrors;
     }

@@ -2384,7 +2384,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 if (fieldAccess.sym instanceof Symbol.MethodSymbol methodSymbol) {
                     methodInfo = typeData.getOrLoadMethod(methodSymbol);
                 } else if (fieldAccess.type instanceof Type.ErrorType) {
-                    throw new UnsupportedOperationException("Unresolved method call '" + methodName + "'");
+                    throw new UnresolvedSymbolException("Unresolved method call '" + methodName + "'");
                 } else throw new UnsupportedOperationException("NYI");
             } else {
                 throw new UnsupportedOperationException("NYI");
@@ -2598,7 +2598,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             if (newClass.constructor instanceof Symbol.MethodSymbol ms) {
                 constructor = typeData.getOrLoadMethod(ms);
             } else {
-                throw new UnsupportedOperationException(
+                throw new UnresolvedSymbolException(
                         "Compilation error in " + typeStack.getLast() + "? Cannot resolve " + newClass);
             }
         }
