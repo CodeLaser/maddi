@@ -56,6 +56,10 @@ public record FormattingOptionsImpl(int lengthOfLine,
             this.spacesInTab = options.spacesInTab();
             this.tabsForLineSplit = options.tabsForLineSplit();
             this.binaryOperatorsAtEndOfLine = options.binaryOperatorsAtEndOfLine();
+            this.compact = options.compact();
+            this.allFieldsRequireThis = options.allFieldsRequireThis();
+            this.allStaticFieldsRequireType = options.allStaticFieldsRequireType();
+            this.skipComments = options.skipComments();
             this.wrapStyle = options.wrapStyle();
         }
 
