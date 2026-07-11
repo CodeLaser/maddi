@@ -82,10 +82,17 @@ public class SharedVariables {
             }
             for (Variable m : sv.variables()) {
                 if (!Util.isPartOf(primary, m)) continue;
-                for (Variable t : reachable(m, fwd)) {
+                // Chain through method-internal locals only when reconstructing the whole return value: there a
+                // chain of whole-object assignments (return ← ttt ← tt ← 0:t) must collapse to 'method ← 0:t'.
+                // For field/parameter endpoints the field-precise link already arrives via the always-chained
+                // pass-through intermediates ($__rv), and bridging locals there would add a spurious primary-level
+                // shortcut (makeFromGet ≈ 0:box). For a plain local 'm' (per-statement view) we also stay shallow,
+                // preserving the collapse's dedup ('ttt ← tt', not the transitive 'ttt ← 0:t').
+                boolean deep = m instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+                for (Variable t : reachable(m, fwd, deep)) {
                     builder.add(new LinksImpl.LinkImpl(m, LinkNatureImpl.IS_ASSIGNED_FROM, t));
                 }
-                for (Variable t : reachable(m, bwd)) {
+                for (Variable t : reachable(m, bwd, deep)) {
                     builder.add(new LinksImpl.LinkImpl(m, LinkNatureImpl.IS_ASSIGNED_TO, t));
                 }
             }
@@ -93,20 +100,33 @@ public class SharedVariables {
         return builder.build();
     }
 
-    // variables reachable from 'start' along the adjacency map (excluding 'start'). Only recurse THROUGH a node
-    // that is a pass-through intermediate ($__rv) — those are filtered out downstream and would otherwise break
-    // a chain (makeFromGet.t ← $__rv ← box.t). Never chain through real variables or array elements: doing so
-    // links mismatched dimensions (crashes on grid[0][0]/varargs).
-    private static java.util.Set<Variable> reachable(Variable start, java.util.Map<Variable, java.util.List<Variable>> adj) {
+    // variables reachable from 'start' along the adjacency map (excluding 'start'). Recurse THROUGH a node that is
+    // a pass-through intermediate ($__rv) — filtered downstream, and would otherwise break a chain
+    // (makeFromGet.t ← $__rv ← box.t) — OR a plain scalar local variable, to bridge an assignment chain through
+    // method-internal locals (return ← ttt ← tt ← 0:t collapses to method ← 0:t; the locals are filtered
+    // downstream). The dimension guard is 'canChainThrough': never recurse through an array element
+    // (DependentVariable) or any field/parameter/this face, which would link mismatched dimensions
+    // (crashes on grid[0][0]/varargs).
+    private static java.util.Set<Variable> reachable(Variable start,
+                                                     java.util.Map<Variable, java.util.List<Variable>> adj,
+                                                     boolean deep) {
         java.util.Set<Variable> seen = new java.util.LinkedHashSet<>();
         java.util.Deque<Variable> stack = new java.util.ArrayDeque<>(adj.getOrDefault(start, java.util.List.of()));
         while (!stack.isEmpty()) {
             Variable v = stack.pop();
-            if (seen.add(v) && Util.lvPrimaryOrNull(v) instanceof IntermediateVariable) {
+            if (seen.add(v) && canChainThrough(v, deep)) {
                 stack.addAll(adj.getOrDefault(v, java.util.List.of()));
             }
         }
         return seen;
+    }
+
+    // a node we may transitively chain through: a pass-through intermediate ($__rv) always, or (only when 'deep',
+    // i.e. reconstructing a summary endpoint) a bare scalar local variable — never an array element / field /
+    // parameter, so the assignment dimension is preserved.
+    private static boolean canChainThrough(Variable v, boolean deep) {
+        if (Util.lvPrimaryOrNull(v) instanceof IntermediateVariable) return true;
+        return deep && v instanceof org.e2immu.language.cst.api.variable.LocalVariable;
     }
 
     public boolean isKnown(Variable from) {
