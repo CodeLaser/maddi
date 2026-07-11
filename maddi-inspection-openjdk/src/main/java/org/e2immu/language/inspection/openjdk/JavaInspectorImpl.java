@@ -325,11 +325,18 @@ public class JavaInspectorImpl implements JavaInspector {
         if (!scanned.modules().isEmpty()) {
             summary.putSourceSetToModuleInfo(sourceSet, scanned.modules().getFirst());
         }
-        // NOTE: javac ERROR diagnostics collected here are still only logged (at INFO) in ScanCompilationUnits,
-        // not transferred into the Summary. Doing so naively promotes *tolerated* missing-library diagnostics
-        // ("package x.y does not exist") to fatal parse errors (see TestJavaInspector2JarOnClasspath). A correct
-        // transfer needs the tolerable-missing-library vs real-error classification — a structural follow-up, not
-        // this quick win. Syntax errors still surface: the body parser throws, caught as a parser error upstream.
+        // Surface javac ERROR diagnostics as Summary *warnings* (not fatal errors): maddi runs javac on a
+        // deliberately partial classpath, so unresolved references ("package x.y does not exist", "cannot find
+        // symbol") are expected noise, not failures. Previously these were only logged (at INFO) in
+        // ScanCompilationUnits and lost to the caller; now they reach the user via printSummaries() without
+        // failing the run (genuine syntax errors still fail: the body parser throws, caught upstream).
+        for (MaddiDiagnosticCollector.MaddiDiagnostic d : diagnostics.diagnostics()) {
+            if (d.diagnosticKind() == MaddiDiagnosticCollector.DiagnosticKind.ERROR) {
+                URI uri = d.path() == null ? sourceSet.uri() : new File(d.path()).toURI();
+                summary.addParseWarning(new Summary.ParseException(uri,
+                        "line " + d.line() + ", col " + d.col(), d.msg(), null));
+            }
+        }
 
         // copy into CTM
         List<TypeInfo> loaded = Stream.concat(Stream.concat(scanned.primaryTypes().stream(),

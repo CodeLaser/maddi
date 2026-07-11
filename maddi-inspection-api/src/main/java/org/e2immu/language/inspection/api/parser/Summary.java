@@ -91,6 +91,12 @@ public interface Summary {
 
     List<ParseException> parseExceptions();
 
+    // Non-fatal diagnostics (e.g. javac errors on maddi's deliberately partial classpath: unresolved references
+    // that are expected, not failures). Warnings never trigger fail-fast and never make haveErrors() true.
+    void addParseWarning(ParseException parseWarning);
+
+    List<ParseException> parseWarnings();
+
     Map<SourceSet, ModuleInfo> sourceSetToModuleInfoMap();
 
     void putSourceSetToModuleInfo(SourceSet sourceSet, ModuleInfo moduleInfo);

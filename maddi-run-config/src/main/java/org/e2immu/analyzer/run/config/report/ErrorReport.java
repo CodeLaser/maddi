@@ -28,6 +28,7 @@ import java.util.List;
  */
 public final class ErrorReport {
     private static final Logger LOGGER = LoggerFactory.getLogger(ErrorReport.class);
+    private static final int MAX_WARNINGS_SHOWN = 50;
 
     private ErrorReport() {
     }
@@ -56,6 +57,18 @@ public final class ErrorReport {
         } else if (terminal != null) {
             LOGGER.error("Analysis aborted with {}: {}", terminal.getClass().getName(), rootMessage(terminal));
             count++;
+        }
+        if (summary != null && !summary.parseWarnings().isEmpty()) {
+            List<Summary.ParseException> warnings = summary.parseWarnings();
+            LOGGER.warn("Parsing produced {} warning(s) (unresolved references on the partial classpath):",
+                    warnings.size());
+            int shown = Math.min(warnings.size(), MAX_WARNINGS_SHOWN);
+            for (int i = 0; i < shown; i++) {
+                LOGGER.warn("  [{}] {}", i + 1, warnings.get(i).getMessage());
+            }
+            if (warnings.size() > shown) {
+                LOGGER.warn("  ... and {} more", warnings.size() - shown);
+            }
         }
         return count;
     }

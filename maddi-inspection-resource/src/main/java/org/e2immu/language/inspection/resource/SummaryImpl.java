@@ -25,6 +25,7 @@ import java.util.*;
 public class SummaryImpl implements Summary {
     private final Set<TypeInfo> types = new HashSet<>();
     private final List<ParseException> parseExceptions = new LinkedList<>();
+    private final List<ParseException> parseWarnings = new LinkedList<>();
     private final boolean failFast;
     private final Map<String, SourceSet> sourceSetsByName = new HashMap<>();
     private final Map<SourceSet, ModuleInfo> sourceSetToModuleInfo = new HashMap<>();
@@ -83,6 +84,17 @@ public class SummaryImpl implements Summary {
     @Override
     public List<ParseException> parseExceptions() {
         return parseExceptions;
+    }
+
+    @Override
+    public synchronized void addParseWarning(ParseException parseWarning) {
+        // warnings never fail-fast and never contribute to haveErrors()
+        this.parseWarnings.add(parseWarning);
+    }
+
+    @Override
+    public List<ParseException> parseWarnings() {
+        return parseWarnings;
     }
 
     @Override
