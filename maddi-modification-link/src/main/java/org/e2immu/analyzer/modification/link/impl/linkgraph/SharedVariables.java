@@ -36,12 +36,12 @@ public class SharedVariables {
         return sv.variables();
     }
 
-    public SharedVariable isAssignedFrom(Variable from, Variable to) {
+    public SharedVariable isAssignedFrom(Variable from, Variable to, String statementIndex) {
         SharedVariable sv1 = memberToGroup.get(from);
         SharedVariable sv2 = memberToGroup.get(to);
         if (sv1 == null && sv2 == null) {
             SharedVariable sv = create(from, to);
-            sv.addAssignment(from, to);
+            sv.addAssignment(from, to, statementIndex);
             return sv;
         }
         if (sv1 == sv2) {
@@ -49,17 +49,24 @@ public class SharedVariables {
         }
         if (sv1 == null) {
             add(sv2, from);
-            sv2.addAssignment(from, to);
+            sv2.addAssignment(from, to, statementIndex);
             return sv2;
         }
         if (sv2 == null) {
             add(sv1, to);
-            sv1.addAssignment(from, to);
+            sv1.addAssignment(from, to, statementIndex);
             return sv1;
         }
         // merge 2 groups
         merge(sv1, sv2, from, to);
         return sv1;
+    }
+
+    // true when 'from' is being reassigned (it already recipient-participates in an assignment at a different
+    // statement), as opposed to a multi-valued assignment where 'from' is assigned several values in one statement.
+    public boolean isReassignment(Variable from, String statementIndex) {
+        SharedVariable sv = memberToGroup.get(from);
+        return sv != null && sv.recipientAtOtherStatement(from, statementIndex);
     }
 
     /*

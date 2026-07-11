@@ -16,8 +16,10 @@ public class SharedVariable extends LocalVariableImpl implements LinkVariable {
 
     // a directed assignment 'from ← to' (from IS_ASSIGNED_FROM to) that folded these two members into the group.
     // Kept so the group's intra-member relation can be reconstructed at summary extraction (the collapse only
-    // stores it once; cf. VirtualModificationIdenticals.Group for the ≡ analogue).
-    public record Assignment(Variable from, Variable to) {
+    // stores it once; cf. VirtualModificationIdenticals.Group for the ≡ analogue). statementIndex records where the
+    // assignment happened, so a genuine reassignment (a later statement) can be told apart from a multi-valued
+    // assignment (two arms of one statement, e.g. 'm = cond ? a : b' produces 'm ← a' and 'm ← b' at the same index).
+    public record Assignment(Variable from, Variable to, String statementIndex) {
     }
 
     private final Set<Variable> variables = new LinkedHashSet<>();
@@ -31,8 +33,14 @@ public class SharedVariable extends LocalVariableImpl implements LinkVariable {
         return variables.add(variable);
     }
 
-    public void addAssignment(Variable from, Variable to) {
-        assignments.add(new Assignment(from, to));
+    public void addAssignment(Variable from, Variable to, String statementIndex) {
+        assignments.add(new Assignment(from, to, statementIndex));
+    }
+
+    // 'from' is the recipient of an assignment recorded at a statement OTHER than 'statementIndex': a genuine
+    // reassignment, as opposed to a second arm of the same (multi-valued) assignment.
+    public boolean recipientAtOtherStatement(Variable from, String statementIndex) {
+        return assignments.stream().anyMatch(a -> a.from().equals(from) && !a.statementIndex().equals(statementIndex));
     }
 
     public List<Assignment> assignments() {
