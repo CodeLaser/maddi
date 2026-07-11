@@ -475,22 +475,34 @@ public class JavaInspectorImpl implements JavaInspector {
             if (!ignoreModule && hasModuleInfo && moduleJars.isEmpty()) {
                 LOGGER.warn("The source set {} declares a module but no module path was provided.", sourceSet.name());
             }
-            return (JavacTask) javaCompiler.getTask(
-                    null, fm, diagnostics,
-                    // -parameters makes javac's ClassReader keep formal parameter names read from the
-                    // MethodParameters attribute (and the LocalVariableTable) of class files on the class/module
-                    // path; without it Symbol.MethodSymbol.getParameters() yields synthetic arg0, arg1, ...
-                    // -XDuseUnsharedTable=true: give each compilation its OWN javac name table instead of pulling
-                    // from javac's process-wide SharedNameTable freelist. That freelist is shared static state
-                    // across all JavacTask/Context instances in a JVM; under repeated parsing (e.g. hundreds of
-                    // parseSingleFileInSourceSet calls) it intermittently corrupts and surfaces as
-                    // "tree.starImportScope is null" during task.analyze(). maddi keys its CST by FQN strings, not
-                    // javac Names, so not sharing names across compilations is safe here.
-                    List.of("-proc:none", "--enable-preview", "--release=26", "-parameters",
-                            "-XDuseUnsharedTable=true"),
-                    null,
-                    allCompilationUnits
-            );
+            // -parameters makes javac's ClassReader keep formal parameter names read from the MethodParameters
+            // attribute (and the LocalVariableTable) of class files on the class/module path; without it
+            // Symbol.MethodSymbol.getParameters() yields synthetic arg0, arg1, ...
+            // -XDuseUnsharedTable=true: give each compilation its OWN javac name table instead of pulling from
+            // javac's process-wide SharedNameTable freelist. That freelist is shared static state across all
+            // JavacTask/Context instances in a JVM; under repeated parsing (e.g. hundreds of
+            // parseSingleFileInSourceSet calls) it intermittently corrupts and surfaces as
+            // "tree.starImportScope is null" during task.analyze(). maddi keys its CST by FQN strings, not javac
+            // Names, so not sharing names across compilations is safe here.
+            List<String> options = new ArrayList<>(List.of("-proc:none", "-parameters", "-XDuseUnsharedTable=true"));
+            // Parsing JDK-internal-using sources (e.g. deducing analysis hints from java.net.http src.zip) needs
+            // extra javac options: --add-exports to reach non-exported jdk.internal/sun packages, and
+            // --patch-module to recompile a module whose name already exists as a system module. --release
+            // compiles against ct.sym (which OMITS jdk.internal/sun), so when raw options are supplied we drop it
+            // and compile against the running system modules. Supply comma-separated raw tokens, e.g.
+            // "--patch-module;java.net.http=/path/to/src;--add-exports;java.base/sun.net=java.net.http" (each javac
+            // token is a separate ';'-separated element). Read from the environment so paths/'='/',' pass through
+            // cleanly to the child JVM (unlike JAVA_OPTS word-splitting).
+            String extraJavac = System.getenv("MADDI_JAVAC_OPTIONS");
+            if (extraJavac != null && !extraJavac.isBlank()) {
+                for (String tok : extraJavac.split(";")) {
+                    if (!tok.isBlank()) options.add(tok.trim());
+                }
+            } else {
+                options.add("--enable-preview");
+                options.add("--release=26");
+            }
+            return (JavacTask) javaCompiler.getTask(null, fm, diagnostics, options, null, allCompilationUnits);
         }
     }
 
