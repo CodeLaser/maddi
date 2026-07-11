@@ -54,14 +54,19 @@ descriptors do not matter.
   `TestAnalyzerPluginShadedJarIsolation`: it publishes to a local repo and resolves+runs the plugin from
   there *with no analyzer module on any classpath*. *Remaining:* apply `com.gradle.plugin-publish`
   (website/vcsUrl/tags) and run `publishPlugins` with a Portal key — the actual push, needs credentials.
-* *Maven plugin* (`maddi-mvnplugin`) → **Maven Central**. The plugin **descriptor is now present**: a
-  hand-maintained `src/main/resources/META-INF/maven/plugin.xml` (auto-generation stays blocked on the
-  Gradle-9-incompatible `maven-plugin-development` tool) describes all 5 goals (`run`,
-  `write-input-configuration`, `statistics`, `write-analysis-hints`, `compile-analysis-hints`),
-  `goalPrefix=maddi`; `processResources` keeps its `<version>` in sync with `gradle.properties`. *Remaining:*
-  shade the (unpublished) analyzer modules into the plugin jar (same technique as the Gradle plugin) so it
-  is Central-consumable, and test it against a real `mvn` invocation. NB: the openjdk front-end means the
-  host Maven JVM needs the javac `--add-exports` (via `.mvn/jvm.config` or `MAVEN_OPTS`).
+* *Maven plugin* (`maddi-mvnplugin`) → **Maven Central**. **Descriptor + shading DONE.** A hand-maintained
+  `src/main/resources/META-INF/maven/plugin.xml` (auto-generation stays blocked on the Gradle-9-incompatible
+  `maven-plugin-development` tool) describes all 5 goals (`run`, `write-input-configuration`, `statistics`,
+  `write-analysis-hints`, `compile-analysis-hints`), `goalPrefix=maddi`; `processResources` keeps its
+  `<version>` in sync with `gradle.properties`. Shadow bundles the (unpublished) analyzer modules +
+  jackson/logback/asm/congocc + the aapi-archive analysis-result resources (~12 MB, verified). Unlike the
+  Gradle plugin, three things are **left to the Maven runtime, not bundled**: the Maven API, the Aether
+  resolver (`maven-resolver-*` → `compileOnly`; its `org.eclipse.aether.*` objects come from Maven core's
+  injected `ProjectDependenciesResolver`, so a second bundled copy would `LinkageError`), and `slf4j-api`
+  (excluded from the jar; Maven core exports it + its binding). The publication ships the shadow jar with a
+  `packaging=maven-plugin`, dependency-free POM. *Remaining:* test against a real `mvn` invocation (not done
+  — no Maven on this laptop); the host Maven JVM needs the javac `--add-exports` (via `.mvn/jvm.config` or
+  `MAVEN_OPTS`) for the openjdk-based goals.
 
 === 3. Command-line tools — GitHub Releases (not Maven)
 
