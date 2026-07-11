@@ -140,11 +140,17 @@ public class BlockPrinter {
         boolean hasBeenSplit = false;
         Output prevOutput = null;
         boolean prevHasNestedGuide = false;
+        // A blank line ("breathing space") between two internally-wrapped sub-blocks is wanted for a
+        // statement/declaration block (prioritySplit) or a top-level grouping (tabs==0: file lists,
+        // annotation/comment groups). It must NOT appear inside the inline decomposition of a single
+        // construct — a method chain, argument list or parameter list (prioritySplit=false, tabs>=1) —
+        // where a blank line in the middle of the expression is wrong. See baseSplitLevel.
+        boolean guideWantsBreathingSpace = block.guide().prioritySplit() || block.guide().tabs() == 0;
         for (OutputElement element : block.elements()) {
             if (!(element instanceof Formatter2Impl.Block sub)) throw new UnsupportedOperationException();
             Output output = write(sub, options);
             boolean currentHasNestedGuide = containsNestedGuideBlock(sub);
-            SplitLevel splitLevel = baseSplitLevel(prevOutput, output);
+            SplitLevel splitLevel = baseSplitLevel(prevOutput, output, guideWantsBreathingSpace);
             splitLevel = isolateNestedGuide(splitLevel, prevHasNestedGuide, currentHasNestedGuide);
             if (splitLevel == SplitLevel.SINGLE_NEWLINE && output.spaceLevel().isNewLine()) {
                 // TODO is this a hack? to ensure that the NEWLINE of '//' passes
@@ -164,8 +170,9 @@ public class BlockPrinter {
     The base level computed purely from the previous and current sub-block outputs —
     independent of any "force isolation" decision based on nested guide blocks.
      */
-    private static SplitLevel baseSplitLevel(Output prevOutput, Output output) {
-        if (prevOutput != null && prevOutput.hasBeenSplit && output.hasBeenSplit) {
+    private static SplitLevel baseSplitLevel(Output prevOutput, Output output, boolean guideWantsBreathingSpace) {
+        if (guideWantsBreathingSpace
+                && prevOutput != null && prevOutput.hasBeenSplit && output.hasBeenSplit) {
             return SplitLevel.DOUBLE_NEWLINE;
         }
         if (output.spaceLevel().isNoSpace()) {

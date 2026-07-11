@@ -151,22 +151,27 @@ and all width-120 round trips never reach it. Regression test `TestDeepNestingPr
 (maddi-java-openjdk, real parser). Follow-up option: make the floor a `FormattingOptions` field
 rather than a constant if callers want to tune it.
 
-### F7 — (OPEN) spurious blank line inside a wrapped method chain
-When two adjacent sub-blocks both wrap, `baseSplitLevel` promotes their boundary to
-`DOUBLE_NEWLINE` (a blank line) *before* it checks whether the boundary is a no-space one. In a
-fluent chain whose links each wrap, this inserts a blank line **inside** the chain:
+### F7 — (FIXED) spurious blank line inside a wrapped method chain
+When two adjacent sub-blocks both wrap, `baseSplitLevel` promoted their boundary to `DOUBLE_NEWLINE`
+(a blank line). In a fluent chain whose links each wrap, this inserted a blank line **inside** the
+chain:
 ```
 r
     .computeIfAbsent(s, k -> new ArrayList<>())
 
     .add(in.get(i % in.size()));
 ```
-A blank line mid-chain is wrong (though still valid Java — `TestFormatterRoundTripStable` passes).
-The obvious fix (check `isNoSpace()` first) is **too blunt**: the same predicate governs a
-legitimately-wanted blank line between imports and a comment block (`TestBlockPrinter2.test3c`), so
-it regresses that test. A correct fix needs a more precise "this boundary is glue" signal than the
-current `spaceLevel`/`hasBeenSplit` interplay exposes — deferred rather than shipped half-understood.
-Guard test to keep green when addressing this: `TestBlockPrinter2.test3c`.
+Diagnosis (instrumented both cases): the chain boundary and a *legitimately-wanted* blank line
+(imports → comment block, `TestBlockPrinter2.test3c`) are **indistinguishable** on
+`prevSpace`/`currSpace` (both `NO_SPACE`) and on every `Guide` flag except the parent guide identity:
+a method chain / argument list uses `defaultGuideGenerator` (`prioritySplit=false, tabs=1`), whereas
+statement blocks use `generatorForBlock` (`prioritySplit=true`) and top-level groupings use
+`tabs==0` guides. **Fixed** by gating the `DOUBLE_NEWLINE` promotion on
+`guide.prioritySplit() || guide.tabs() == 0` — breathing space is kept for statement/declaration
+blocks and top-level groupings, but never inserted inside the inline decomposition of a single
+construct (chains, argument lists, parameter lists). Regression test `TestChainNoBlankLine`
+(widths 12–40); `TestBlockPrinter2.test3c` and the statement-level blank lines in `Test6` are
+preserved.
 
 ### Robustness verification (no defects found)
 Two stress guards were added (`TestFormatterStress`, `TestFormatterRoundTripStable`, both real
