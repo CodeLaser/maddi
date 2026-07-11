@@ -1,5 +1,26 @@
 # sv engine — catalogue of the remaining link failures
 
+## UPDATE `cdf7cf3f` — now 86 failing; remaining roots mapped
+
+Since 100: `aa5a8593`+`73551f8c` directionality attribution of a rep's incoming
+edges (100→92); `cdf7cf3f` multi-valued-assignment vs reassignment
+(`m = cond ? a : b` keeps both `m←a` and `m←b`; 92→86). All 0-regression.
+
+Remaining 86 are scattered across many small roots (biggest class TestStaticValuesRecord
+×11, TestLanguageConstructs ×9). Clean roots identified but DEFERRED as deeper/riskier:
+- **Fluent setter `setX.x←this*.x` (~3: TestGetSet×2, TestStaticValues1).** `return this`
+  collapses {return, this*}; the whole-object link `setI←this*` is present but its
+  field-level mirror `setI.i←this*.i` is not derived. Needs field-expansion of a
+  whole-object `←` link, or the FollowGraph sibling-face pass (reverted earlier for
+  regressing) applied to non-assignment field edges.
+- **Varargs `∩` fan-out (4: TestVarargs, all miss `0:target.§is∩1:collections.§iss`).**
+  `for(collection: collections) target.addAll(collection)`: `target.§is ~ collection.§is`
+  plus `collection ∈∈ collections.§iss` should CLOSE to `target.§is ∩ collections.§iss`.
+  Deep — a combine/closure derivation over nested hidden content (`~` ∘ `⊆` → `∩`),
+  not firing even at statement level. Touches the label algebra.
+- Scattered: `DROP[] SPUR[]` (13, heterogeneous — `∈`/`∈?`, `*`-modification-marker,
+  var-name), `DROP[→]` (4, TestCast), Stream/BoundTypeParameter HC (structural).
+
 ## UPDATE `9c971a99`/`ea7ca0b3` — Supplier cluster CORE FIXED (112 → 100)
 
 The Supplier/Optional `result ← optional.§x` drop was root-caused (after four
