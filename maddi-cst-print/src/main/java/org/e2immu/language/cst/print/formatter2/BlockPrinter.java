@@ -244,7 +244,12 @@ public class BlockPrinter {
         TreeMap<Integer, SplitLevel> splits = output.splitInfo.map.getOrDefault(GUIDE_SPLIT, new TreeMap<>());
         int indent = sub.tab() * options.spacesInTab();
         int addToLine = output.endPos() + splits.size();
-        if (output.hasBeenSplit || addToLine > line.available()) {
+        // When requested, a priority guide block (class/method body, other generatorForBlock
+        // structures) is always broken onto its own lines, even if it would fit — conventional
+        // "brace on its own line" layout rather than the compact single-line-if-it-fits default.
+        boolean forcePriorityBreak = options.alwaysBreakPriorityBlocks()
+                && sub.guide() != null && sub.guide().prioritySplit();
+        if (output.hasBeenSplit || addToLine > line.available() || forcePriorityBreak) {
             splitOutputOfBlock(line, output, indent, splits, options);
             return true;
         }
