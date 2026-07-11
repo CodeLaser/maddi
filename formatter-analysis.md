@@ -173,6 +173,26 @@ construct (chains, argument lists, parameter lists). Regression test `TestChainN
 (widths 12–40); `TestBlockPrinter2.test3c` and the statement-level blank lines in `Test6` are
 preserved.
 
+### F8 — (FIXED) dropped separator space between guide sub-blocks (`&&(`, `||len`, `@A@B`, `,x`)
+`baseSplitLevel` decided a boundary was `NONE_IF_COMPACT` (no separator) from
+`output.spaceLevel().isNoSpace()` — **this block's trailing (far) end**. But the separator between
+two inline sub-blocks is governed by whether the *previous* block wants a trailing space. When the
+previous sub-block ended in a space-wanting element and the next one ended in `)`/`>` (no-space),
+the space was dropped. Reported as "`(` immediately after an operator"; the real signature is any
+guide boundary where prev wants a space and the next block's far end is no-space:
+```
+(a > 0) &&(b < 0)      // should be: (a > 0) && (b < 0)
+len < 0 ||len >= n     // should be: len < 0 || len >= n
+@Independent@Container // should be: @Independent @Container   (two annotations glued!)
+format("%s",file...)   // should be: format("%s", file...)
+```
+**Fixed** by keeping the separator (`SINGLE_NEWLINE`) when the *previous* block's trailing space is
+`SPACE`/`SPACE_IS_NICE`, only falling back to `NONE_IF_COMPACT` otherwise (method-chain links, whose
+previous segment ends in `)` with a no-space trailing, are unaffected). Regression test
+`TestSpaceBeforeParenOperand`. Seven frozen round-trip expectations across `maddi-java-openjdk` and
+`maddi-inspection-integration` had baked in the glued output (including plainly-wrong
+`@Independent@Container` and `||len`) and were corrected.
+
 ### Robustness verification (no defects found)
 Two stress guards were added (`TestFormatterStress`, `TestFormatterRoundTripStable`, both real
 parser). Across widths 8–160 and both wrap styles: no exceptions, no trailing whitespace, no
