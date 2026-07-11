@@ -14,10 +14,20 @@ Remaining 86 are scattered across many small roots (biggest class TestStaticValu
   whole-object `←` link, or the FollowGraph sibling-face pass (reverted earlier for
   regressing) applied to non-assignment field edges.
 - **Varargs `∩` fan-out (4: TestVarargs, all miss `0:target.§is∩1:collections.§iss`).**
-  `for(collection: collections) target.addAll(collection)`: `target.§is ~ collection.§is`
-  plus `collection ∈∈ collections.§iss` should CLOSE to `target.§is ∩ collections.§iss`.
-  Deep — a combine/closure derivation over nested hidden content (`~` ∘ `⊆` → `∩`),
-  not firing even at statement level. Touches the label algebra.
+  DIAGNOSED (confirmed correct, incl. the ∩-vs-~ question): the fields carry multiplicity as
+  array dimension — `target.§is : I[]` (depth 1), `collections.§iss : I[][]` (depth 2). So
+  `collection.§is : I[]` is an ELEMENT (a row) of `collections.§iss : I[][]`, i.e. the bridge is
+  `∈`, and `~ ∘ ∈ = ∩` (combine table line 369-373). So `∩` is correct and type-consistent (NOT
+  `~`; `~` would need a flattened I-set model). NOSV == SV here (both miss it), so this is a
+  base-engine gap, not sv. Root: `collection.§is` is structurally DISCONNECTED in the closure —
+  its only edge is `~ target.§is`; nothing links it to `collections.§iss`. The whole `collection`
+  has `∈ collections.§iss` but that ∈ never descends to `collection.§is`.
+  DEAD END (reverted, regressed 86→90): adding `collection.§is ∈ collections.§iss` in the
+  for-each handler (`LinkComputerImpl` ~520, via VirtualFieldComputer hidden-content of loop var
+  vs container) — it perturbs the loop variable's own links (breaks the `collection∈∈…` assertion)
+  and over-produces elsewhere. The descent must NOT touch the loop var's links; it likely belongs
+  in the iterator/next() nested-hidden-content flow (where `collection ∈ collections.§iss` is
+  established) or as a multiplicity-aware closure rule, not a raw extra edge on the for-each.
 - Scattered: `DROP[] SPUR[]` (13, heterogeneous — `∈`/`∈?`, `*`-modification-marker,
   var-name), `DROP[→]` (4, TestCast), Stream/BoundTypeParameter HC (structural).
 
