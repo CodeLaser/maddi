@@ -54,8 +54,14 @@ descriptors do not matter.
   `TestAnalyzerPluginShadedJarIsolation`: it publishes to a local repo and resolves+runs the plugin from
   there *with no analyzer module on any classpath*. *Remaining:* apply `com.gradle.plugin-publish`
   (website/vcsUrl/tags) and run `publishPlugins` with a Portal key — the actual push, needs credentials.
-* *Maven plugin* (`maddi-mvnplugin`) → **Maven Central**. (Shading still to do; blocked upstream on
-  generating the Maven plugin descriptor — shade it once the descriptor lands. See the mvnplugin notes.)
+* *Maven plugin* (`maddi-mvnplugin`) → **Maven Central**. The plugin **descriptor is now present**: a
+  hand-maintained `src/main/resources/META-INF/maven/plugin.xml` (auto-generation stays blocked on the
+  Gradle-9-incompatible `maven-plugin-development` tool) describes all 5 goals (`run`,
+  `write-input-configuration`, `statistics`, `write-analysis-hints`, `compile-analysis-hints`),
+  `goalPrefix=maddi`; `processResources` keeps its `<version>` in sync with `gradle.properties`. *Remaining:*
+  shade the (unpublished) analyzer modules into the plugin jar (same technique as the Gradle plugin) so it
+  is Central-consumable, and test it against a real `mvn` invocation. NB: the openjdk front-end means the
+  host Maven JVM needs the javac `--add-exports` (via `.mvn/jvm.config` or `MAVEN_OPTS`).
 
 === 3. Command-line tools — GitHub Releases (not Maven)
 
