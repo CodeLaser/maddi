@@ -280,6 +280,16 @@ public final class SourceCodeScan {
                 case TypeParameters tps -> {
                     scanTypeParameters(tps);
                 }
+                case RecordHeader rh -> {
+                    // the closing ')' of the record header's component list, keyed by the type source (mirrors how
+                    // a method's END_OF_PARAMETER_LIST is recorded); consumers use it to locate where to append an
+                    // 'implements ...' clause after 'record R(...)'.
+                    for (Node child : rh.children()) {
+                        if (child instanceof Delimiter d && d.getType() == Token.TokenType.RPAREN) {
+                            argumentLists.put(source(td), Map.of(DetailedSources.END_OF_PARAMETER_LIST, source(d)));
+                        }
+                    }
+                }
                 case ClassOrInterfaceBody _, EnumBody _, AnnotationTypeBody _, RecordBody _ -> {
                     for (Node node2 : node.children()) {
                         String string2 = node2.getSource();
