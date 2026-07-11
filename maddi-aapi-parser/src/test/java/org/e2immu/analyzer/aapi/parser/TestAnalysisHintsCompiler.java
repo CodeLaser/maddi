@@ -36,7 +36,8 @@ public class TestAnalysisHintsCompiler extends CommonTest {
 
     @Test
     public void test() throws IOException {
-        AnalysisHintsCompiler compiler = new AnalysisHintsCompiler(javaInspectorFactory());
+        // the archive covers java.desktop (swing/awt) and java.net.http, which the lean default omits
+        AnalysisHintsCompiler compiler = new AnalysisHintsCompiler(javaInspectorFactory("java.desktop", "java.net.http"));
         go(compiler, "jdk");
         go(compiler, "libs/test");
         go(compiler, "libs/log");

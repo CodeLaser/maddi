@@ -79,8 +79,12 @@ public abstract class CommonTest {
         List<String> extraSourceSetNames = openJdkExtraSourceSetNames();
         JavaInspector ji;
         Map<String, SourceSet> sourceSetsByName = new HashMap<>();
+        List<String> jdkModules = Arrays.stream(jmods)
+                .map(s -> s.startsWith("jmod:") ? s.substring("jmod:".length()) : s).toList();
         if (extraSourceSetNames.isEmpty()) {
-            ji = org.e2immu.analyzer.modification.common.CommonTest.javaInspectorFactory().withSources(testProtocol);
+            // lean default classpath, plus any JDK modules the test declared via jmods (e.g. "jmod:java.desktop")
+            ji = org.e2immu.analyzer.modification.common.CommonTest
+                    .javaInspectorWithExtras(testProtocol, List.of(), jdkModules);
         } else {
             // clone-bench style test: register one source set per directory (JDK types resolve via the global
             // input configuration; the per-directory sets keep identically-named types apart) and add the
@@ -91,8 +95,6 @@ public abstract class CommonTest {
                 sourceSetsByName.put(name, set);
                 extraSets.add(set);
             }
-            List<String> jdkModules = Arrays.stream(jmods)
-                    .map(s -> s.startsWith("jmod:") ? s.substring("jmod:".length()) : s).toList();
             ji = org.e2immu.analyzer.modification.common.CommonTest
                     .javaInspectorWithExtras(testProtocol, extraSets, jdkModules);
             extraSets.forEach(SourceSet::computePriorityDependencies);

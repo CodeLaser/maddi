@@ -11,6 +11,11 @@ import java.util.List;
 
 public class TestVarious2 extends CommonTest {
 
+    // INPUT2 imports java.awt.geom.*, so java.desktop must be on the (otherwise lean) classpath
+    public TestVarious2() {
+        super("jmod:java.desktop");
+    }
+
     @Language("java")
     private static final String INPUT1 = """
             import java.lang.reflect.Modifier;
