@@ -65,8 +65,14 @@ public class ElementPrinter {
             int pos = line.stringBuilder.lastIndexOf("\n");
             updateForSplit(splitInfo, pos);
         }
+        // a single-line comment '//' opening the block-line: remember it so a forced split inside
+        // the comment does not add continuation indent (replaces the old substring(0,2) sniff).
+        boolean atLineStart = line.length() == 0;
         String string = symbol.symbol();
         line.appendNoNewLine(string);
+        if (atLineStart && symbol.isSingleLineComment()) {
+            line.markSingleLineComment();
+        }
         Line.SpaceLevel right = computeSpaceLevel(options, symbol.right(), symbol, false);
         line.setSpace(right);
         if (!lastElement && !symbol.right().split().isNever()) {
@@ -131,11 +137,11 @@ public class ElementPrinter {
         if (line.available() < 0 && !splitInfo.map().isEmpty()) {
             int indent = block.tab() * options.spacesInTab();
             int pos = updateForSplit(splitInfo, indent);
-            int increment;
 
-            // TODO this is a hack, works in concert with BlockPrinter.handleBlock if-statement (line.appendNewLine(...))
-            if (line.stringBuilder.substring(0, 2).equals("//")) increment = 0;
-            else increment = options.spacesInTab();
+            // A wrapped single-line comment keeps its continuation at comment level (no extra
+            // indent); everything else gets a continuation indent. Works in concert with
+            // BlockPrinter.handleBlock (line.appendNewLine(...)).
+            int increment = line.isSingleLineComment() ? 0 : options.spacesInTab();
 
             line.carryOutSplit(pos, indent + increment, false);
             line.computeAvailable();

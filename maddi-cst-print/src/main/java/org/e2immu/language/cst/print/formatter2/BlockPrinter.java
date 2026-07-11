@@ -28,6 +28,18 @@ public class BlockPrinter {
     public static final int GUIDE_SPLIT = 10;
 
     /*
+    Hardening floor for deeply-nested blocks. When indentation consumes most (or all) of the page
+    width, the raw content budget (lengthOfLine - indent) drops to ~0 or negative; every candidate
+    split position then "overflows", so the formatter breaks at all of them and shatters short lines
+    into one-token-per-line garbage (plus spurious blank lines from the "both sides split" heuristic).
+    We guarantee each block at least this many columns of content budget: deeply-indented lines may
+    exceed lengthOfLine, but they stay intact instead of degenerating. Chosen small enough not to
+    interfere with intentionally narrow-but-shallow layouts (the floor only engages once indentation
+    already exceeds lengthOfLine - MIN_CONTENT_WIDTH, which shallow blocks never reach).
+     */
+    static final int MIN_CONTENT_WIDTH = 16;
+
+    /*
     A guide block (parameter list, argument list, method chain, …) marks one of these levels at
     each boundary between its sub-blocks. The level governs what happens at that boundary in the
     two layout paths: chop-down (one element per line) and greedy fill (pack until overflow).
@@ -100,7 +112,8 @@ public class BlockPrinter {
      * @return an output instance
      */
     Output write(Formatter2Impl.Block block, FormattingOptions options) {
-        int maxAvailable = options.lengthOfLine() - block.tab() * options.spacesInTab();
+        int maxAvailable = Math.max(MIN_CONTENT_WIDTH,
+                options.lengthOfLine() - block.tab() * options.spacesInTab());
         if (block.guide() != null) {
             return handleGuideBlock(block, options);
         }
@@ -127,11 +140,17 @@ public class BlockPrinter {
         boolean hasBeenSplit = false;
         Output prevOutput = null;
         boolean prevHasNestedGuide = false;
+        // A blank line ("breathing space") between two internally-wrapped sub-blocks is wanted for a
+        // statement/declaration block (prioritySplit) or a top-level grouping (tabs==0: file lists,
+        // annotation/comment groups). It must NOT appear inside the inline decomposition of a single
+        // construct — a method chain, argument list or parameter list (prioritySplit=false, tabs>=1) —
+        // where a blank line in the middle of the expression is wrong. See baseSplitLevel.
+        boolean guideWantsBreathingSpace = block.guide().prioritySplit() || block.guide().tabs() == 0;
         for (OutputElement element : block.elements()) {
             if (!(element instanceof Formatter2Impl.Block sub)) throw new UnsupportedOperationException();
             Output output = write(sub, options);
             boolean currentHasNestedGuide = containsNestedGuideBlock(sub);
-            SplitLevel splitLevel = baseSplitLevel(prevOutput, output);
+            SplitLevel splitLevel = baseSplitLevel(prevOutput, output, guideWantsBreathingSpace);
             splitLevel = isolateNestedGuide(splitLevel, prevHasNestedGuide, currentHasNestedGuide);
             if (splitLevel == SplitLevel.SINGLE_NEWLINE && output.spaceLevel().isNewLine()) {
                 // TODO is this a hack? to ensure that the NEWLINE of '//' passes
@@ -151,12 +170,21 @@ public class BlockPrinter {
     The base level computed purely from the previous and current sub-block outputs —
     independent of any "force isolation" decision based on nested guide blocks.
      */
-    private static SplitLevel baseSplitLevel(Output prevOutput, Output output) {
-        if (prevOutput != null && prevOutput.hasBeenSplit && output.hasBeenSplit) {
+    private static SplitLevel baseSplitLevel(Output prevOutput, Output output, boolean guideWantsBreathingSpace) {
+        if (guideWantsBreathingSpace
+                && prevOutput != null && prevOutput.hasBeenSplit && output.hasBeenSplit) {
             return SplitLevel.DOUBLE_NEWLINE;
         }
         if (output.spaceLevel().isNoSpace()) {
-            return SplitLevel.NONE_IF_COMPACT;
+            // This block's far (trailing) end is no-space, which normally means "glue" (a method-chain
+            // link `.foo()` glued to the previous `)`. But the separator between two sub-blocks is
+            // governed by whether the PREVIOUS block wants a trailing space, not this block's far end.
+            // When the previous block ends in something that wants a space — e.g. a binary operator at
+            // end of line: `(a > 0) &&` (SPACE_IS_NICE) followed by `(b < 0)` (NO_SPACE) — keep the
+            // separator, otherwise the space is dropped (`(a > 0) &&(b < 0)`).
+            Line.SpaceLevel prev = prevOutput == null ? null : prevOutput.spaceLevel();
+            boolean prevWantsSpace = prev == Line.SpaceLevel.SPACE || prev == Line.SpaceLevel.SPACE_IS_NICE;
+            return prevWantsSpace ? SplitLevel.SINGLE_NEWLINE : SplitLevel.NONE_IF_COMPACT;
         }
         return SplitLevel.SINGLE_NEWLINE;
     }
@@ -244,7 +272,12 @@ public class BlockPrinter {
         TreeMap<Integer, SplitLevel> splits = output.splitInfo.map.getOrDefault(GUIDE_SPLIT, new TreeMap<>());
         int indent = sub.tab() * options.spacesInTab();
         int addToLine = output.endPos() + splits.size();
-        if (output.hasBeenSplit || addToLine > line.available()) {
+        // When requested, a priority guide block (class/method body, other generatorForBlock
+        // structures) is always broken onto its own lines, even if it would fit — conventional
+        // "brace on its own line" layout rather than the compact single-line-if-it-fits default.
+        boolean forcePriorityBreak = options.alwaysBreakPriorityBlocks()
+                && sub.guide() != null && sub.guide().prioritySplit();
+        if (output.hasBeenSplit || addToLine > line.available() || forcePriorityBreak) {
             splitOutputOfBlock(line, output, indent, splits, options);
             return true;
         }
@@ -282,13 +315,21 @@ public class BlockPrinter {
         boolean greedy = options.wrapStyle() == FormattingOptions.WrapStyle.GREEDY_FILL
                 && !output.string.contains("\n");
 
+        // The pending space level that the inline path (BlockPrinter.handleBlock) would emit before
+        // the block. Chop-down always breaks the position-0 boundary onto a new line, so it never
+        // needs this separator; greedy keeps position 0 on the current line, so without it the block
+        // glues onto its neighbour (e.g. `throwsMalformedURLException`, `{buff.append(...)`).
+        Line.SpaceLevel pending = line.spaceLevel();
+        boolean leadingSpaceWanted = pending == Line.SpaceLevel.SPACE
+                || (pending == Line.SpaceLevel.SPACE_IS_NICE && !options.compact());
+
         int availableBeforeAppend = line.available();
         int start = line.length();
         line.appendBeforeSplit(output.string);
 
         if (greedy) {
             greedyFill(line, output.string, indent, splits, start,
-                    availableBeforeAppend, options.lengthOfLine(), allowSplitAtPosition0);
+                    availableBeforeAppend, options.lengthOfLine(), allowSplitAtPosition0, leadingSpaceWanted);
         } else {
             for (Map.Entry<Integer, SplitLevel> entry : splits.entrySet()) {
                 int relativePos = entry.getKey();
@@ -311,7 +352,7 @@ public class BlockPrinter {
     private static void greedyFill(Line line, String content, int indent,
                                    TreeMap<Integer, SplitLevel> splits, int start,
                                    int availableOnCurrentLine, int lengthOfLine,
-                                   boolean allowSplitAtPosition0) {
+                                   boolean allowSplitAtPosition0, boolean leadingSpaceWanted) {
         Integer[] positions = splits.keySet().toArray(new Integer[0]);
         int n = positions.length;
         if (n == 0) return;
@@ -352,9 +393,12 @@ public class BlockPrinter {
             } else {
                 // mirror appendAndInsertSpaceSplits: keep elements visually separated when they
                 // remain on the same line (a Guide ".mid()" between two symbols has no space).
-                // Position 0 is skipped — the preceding context (e.g. "(") decides whether a
-                // separator belongs there, not this block.
-                if (level != SplitLevel.NONE_IF_COMPACT && p > 0) {
+                // Position 0 normally defers to the preceding context (e.g. "(") for its separator;
+                // when that context wants a space (leadingSpaceWanted, e.g. after "throws" or "{"),
+                // we must emit it here because the split path skipped the inline space-writing.
+                boolean wantSeparator = (p > 0 && level != SplitLevel.NONE_IF_COMPACT)
+                        || (p == 0 && leadingSpaceWanted);
+                if (wantSeparator) {
                     int actualPos = p + start + cumulativeShift;
                     if (line.ensureSpace(actualPos)) {
                         cumulativeShift += 1;
