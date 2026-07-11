@@ -156,6 +156,19 @@ public class SharedVariables {
         return memberToGroup.containsKey(from);
     }
 
+    // A member that only appears on the 'to' (upstream) side of its group's assignments is a PURE SOURCE: a value
+    // that flows into the collapsed variable, not a recipient of it. When 'x ← alternative' collapses {x, alternative}
+    // and x also has 'x ← optional.§x', the rep carries 'rep ← optional.§x' — an edge that belongs to the recipient
+    // (x, and whatever x flows into, e.g. the return), NOT to the source 'alternative'. So a pure source must not
+    // inherit the rep's incoming edges; its own extraction stays empty. Returns false for non-collapsed variables.
+    public boolean isPureAssignmentSource(Variable variable) {
+        SharedVariable sv = memberToGroup.get(variable);
+        if (sv == null) return false;
+        boolean appearsAsFrom = sv.assignments().stream().anyMatch(a -> a.from().equals(variable));
+        boolean appearsAsTo = sv.assignments().stream().anyMatch(a -> a.to().equals(variable));
+        return appearsAsTo && !appearsAsFrom;
+    }
+
     public Variable translateForward(Variable variable) {
         return variableTranslationMap.translateVariableRecursively(variable);
     }
