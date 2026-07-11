@@ -19,66 +19,51 @@ import org.e2immu.analyzer.run.config.Configuration;
 import org.e2immu.analyzer.run.config.util.JsonStreaming;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.gradle.api.internal.ConventionTask;
+import org.gradle.api.DefaultTask;
+import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
-import org.gradle.api.tasks.CacheableTask;
+import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.io.UncheckedIOException;
 
-import static org.e2immu.gradleplugin.AnalyzerPropertyComputer.E2IMMU_CONFIGURATION;
-
-@CacheableTask
-public class WriteInputConfigurationTask extends ConventionTask {
+/**
+ * Writes the project's {@link InputConfiguration} (extracted from the plugin-computed
+ * {@link Configuration}) to a JSON file. Modern lazy-property task: configuration-cache compatible, holds no
+ * {@code Project} at execution.
+ */
+public abstract class WriteInputConfigurationTask extends DefaultTask {
     private static final Logger LOGGER = Logging.getLogger(WriteInputConfigurationTask.class);
-    private Map<String, String> analyserProperties;
+
+    /** The serialized {@code run-config} {@link Configuration}; its input configuration is written out. */
+    @Input
+    public abstract Property<String> getConfigurationJson();
+
+    @OutputFile
+    public abstract RegularFileProperty getOutputFile();
 
     @TaskAction
     public void run() {
-        Map<String, String> properties = getProperties();
-        String configurationJson = properties.get(E2IMMU_CONFIGURATION);
         ObjectMapper objectMapper = JsonStreaming.objectMapper();
+        File outputFile = getOutputFile().getAsFile().get();
         try {
             Configuration configuration = objectMapper.readerFor(Configuration.class)
-                    .readValue(configurationJson);
+                    .readValue(getConfigurationJson().get());
             InputConfiguration inputConfiguration = configuration.inputConfiguration();
-            if (getOutputFile().getParentFile().mkdirs()) {
-                LOGGER.debug("Created parent directories for output file {}", getOutputFile());
+            File parent = outputFile.getParentFile();
+            if (parent != null && parent.mkdirs()) {
+                LOGGER.debug("Created parent directories for output file {}", outputFile);
             }
             objectMapper.writerFor(InputConfigurationImpl.class)
                     .withDefaultPrettyPrinter()
-                    .writeValue(getOutputFile(), inputConfiguration);
+                    .writeValue(outputFile, inputConfiguration);
         } catch (IOException ioException) {
-            LOGGER.error("Caught IOException", ioException);
+            throw new UncheckedIOException("Cannot write the input configuration", ioException);
         }
-    }
-
-    private File outputFile;
-
-    @OutputFile
-    public File getOutputFile() {
-        return outputFile;
-    }
-
-    public void setOutputFile(File outputFile) {
-        this.outputFile = outputFile;
-    }
-
-    /**
-     * @return The String key/value pairs to be passed to the analyser.
-     * {@code null} values are not permitted.
-     */
-    @Input
-    public Map<String, String> getProperties() {
-        if (analyserProperties == null) {
-            analyserProperties = new LinkedHashMap<>();
-        }
-        return analyserProperties;
     }
 }

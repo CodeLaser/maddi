@@ -14,12 +14,21 @@
 
 package org.e2immu.gradleplugin.inputconfig;
 
+import org.e2immu.language.cst.api.element.SourceSet;
+import org.gradle.api.Project;
+import org.gradle.api.file.SourceDirectorySet;
+import org.gradle.api.plugins.ExtensionAware;
+import org.gradle.api.plugins.JavaPluginExtension;
+import org.gradle.testfixtures.ProjectBuilder;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestComputeSourceSets {
@@ -35,7 +44,34 @@ public class TestComputeSourceSets {
         assertFalse(srcMainJava.isAbsolute());
         Path absSrcMainJava = srcMainJava.toAbsolutePath();
         assertTrue(absSrcMainJava.isAbsolute());
-        // Path relativeAgain = css.improveRelativePathKeepAbsolute(absSrcMainJava.toFile());
-        // assertEquals(srcMainJava, relativeAgain);
+    }
+
+    /**
+     * Kotlin-awareness: a Gradle {@code SourceSet} is {@link ExtensionAware}, and the Kotlin JVM plugin registers a
+     * {@code kotlin} {@link SourceDirectorySet} per source set. We attach one by hand (so the test needs no
+     * dependency on the Kotlin Gradle plugin) and assert {@link ComputeSourceSets} folds its directory into the
+     * computed maddi source set alongside {@code src/main/java}.
+     */
+    @Test
+    public void collectsKotlinSourceDirs() {
+        Project project = ProjectBuilder.builder().build();
+        project.getPluginManager().apply("java");
+
+        new File(project.getProjectDir(), "src/main/java").mkdirs();
+        new File(project.getProjectDir(), "src/main/kotlin").mkdirs();
+
+        var main = project.getExtensions().getByType(JavaPluginExtension.class).getSourceSets().getByName("main");
+        SourceDirectorySet kotlin = project.getObjects().sourceDirectorySet("kotlin", "Kotlin sources");
+        kotlin.srcDir("src/main/kotlin");
+        ((ExtensionAware) main).getExtensions().add("kotlin", kotlin);
+
+        ComputeSourceSets css = new ComputeSourceSets(project.getProjectDir().toPath().toAbsolutePath());
+        ComputeSourceSets.Result result = css.compute(project, null, null, Set.of());
+
+        SourceSet mainSet = result.sourceSetsByName().get(project.getName() + "/main");
+        assertNotNull(mainSet, "expected a maddi source set for main; got " + result.sourceSetsByName().keySet());
+        boolean hasKotlin = mainSet.sourceDirectories().stream()
+                .anyMatch(p -> p.toString().replace('\\', '/').endsWith("src/main/kotlin"));
+        assertTrue(hasKotlin, "expected the kotlin source directory; got " + mainSet.sourceDirectories());
     }
 }
