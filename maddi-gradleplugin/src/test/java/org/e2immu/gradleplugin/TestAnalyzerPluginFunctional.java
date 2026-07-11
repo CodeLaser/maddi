@@ -36,6 +36,58 @@ public class TestAnalyzerPluginFunctional {
 
     @Test
     public void analyzerTaskRunsAndWritesResults(@TempDir Path projectDir) throws IOException {
+        writeSimpleJavaProject(projectDir);
+
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(projectDir.toFile())
+                .withPluginClasspath()
+                .withArguments("e2immu-analyzer", "--stacktrace", "--info")
+                .forwardOutput()
+                .build();
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":e2immu-analyzer").getOutcome());
+        // toRealPath() resolves the macOS /var -> /private/var symlink, so the results directory the analyzer
+        // wrote (canonical path) matches what we check here
+        Path results = projectDir.toRealPath().resolve("build/e2immu");
+        assertTrue(Files.isDirectory(results), "expected results directory " + results);
+        try (var stream = Files.walk(results)) {
+            assertTrue(stream.anyMatch(p -> p.getFileName().toString().endsWith(".json")),
+                    "expected at least one analysis-result .json in " + results);
+        }
+    }
+
+    /**
+     * Modernization proof: with the configuration cache enabled and {@code problems=fail}, the task must store the
+     * entry on the first run (a hard failure on any configuration-cache incompatibility) and reuse it on the second.
+     */
+    @Test
+    public void configurationCacheCompatible(@TempDir Path projectDir) throws IOException {
+        writeSimpleJavaProject(projectDir);
+        Files.writeString(projectDir.resolve("gradle.properties"), """
+                org.gradle.configuration-cache=true
+                org.gradle.configuration-cache.problems=fail
+                """);
+
+        GradleRunner runner = GradleRunner.create()
+                .withProjectDir(projectDir.toFile())
+                .withPluginClasspath()
+                .withArguments("e2immu-analyzer", "--stacktrace")
+                .forwardOutput();
+
+        BuildResult first = runner.build();
+        assertEquals(TaskOutcome.SUCCESS, first.task(":e2immu-analyzer").getOutcome());
+
+        BuildResult second = runner.build();
+        assertTrue(second.getOutput().contains("Reusing configuration cache")
+                   || second.getOutput().contains("Configuration cache entry reused"),
+                "expected the configuration cache to be reused on the second run:\n" + second.getOutput());
+        // and, unchanged inputs + present outputs => the analyzer is not re-executed (up-to-date / from cache)
+        TaskOutcome secondOutcome = second.task(":e2immu-analyzer").getOutcome();
+        assertTrue(secondOutcome == TaskOutcome.UP_TO_DATE || secondOutcome == TaskOutcome.FROM_CACHE,
+                "expected the second run to be incremental, was " + secondOutcome);
+    }
+
+    private static void writeSimpleJavaProject(Path projectDir) throws IOException {
         Files.writeString(projectDir.resolve("settings.gradle.kts"), "rootProject.name = \"tp\"\n");
         Files.writeString(projectDir.resolve("build.gradle.kts"), """
                 plugins {
@@ -57,22 +109,5 @@ public class TestAnalyzerPluginFunctional {
                     public int get() { return count; }
                 }
                 """);
-
-        BuildResult result = GradleRunner.create()
-                .withProjectDir(projectDir.toFile())
-                .withPluginClasspath()
-                .withArguments("e2immu-analyzer", "--stacktrace", "--info")
-                .forwardOutput()
-                .build();
-
-        assertEquals(TaskOutcome.SUCCESS, result.task(":e2immu-analyzer").getOutcome());
-        // toRealPath() resolves the macOS /var -> /private/var symlink, so the results directory the analyzer
-        // wrote (canonical path) matches what we check here
-        Path results = projectDir.toRealPath().resolve("build/e2immu");
-        assertTrue(Files.isDirectory(results), "expected results directory " + results);
-        try (var stream = Files.walk(results)) {
-            assertTrue(stream.anyMatch(p -> p.getFileName().toString().endsWith(".json")),
-                    "expected at least one analysis-result .json in " + results);
-        }
     }
 }

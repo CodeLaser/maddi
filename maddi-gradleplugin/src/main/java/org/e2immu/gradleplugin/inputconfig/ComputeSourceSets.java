@@ -20,8 +20,10 @@ import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.artifacts.result.ResolvedArtifactResult;
+import org.gradle.api.file.SourceDirectorySet;
 import org.gradle.api.internal.artifacts.DefaultProjectComponentIdentifier;
 import org.gradle.api.internal.plugins.DslObject;
+import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.tasks.compile.JavaCompile;
 import org.jetbrains.annotations.NotNull;
@@ -240,7 +242,15 @@ public class ComputeSourceSets {
                         .filter(s -> !s.isBlank())
                         .collect(Collectors.toUnmodifiableSet());
         Charset sourceEncoding = encodingString == null ? null : Charset.forName(encodingString);
-        List<Path> paths = gradleSourceSet.getAllJava().getSrcDirs().stream()
+        // Java source dirs, plus Kotlin source dirs when the Kotlin JVM plugin is applied. SourceSet is
+        // ExtensionAware and the Kotlin plugin registers a 'kotlin' SourceDirectorySet per source set; reading it
+        // through the extension keeps this plugin free of any compile-time dependency on the Kotlin Gradle plugin.
+        Set<File> srcDirs = new LinkedHashSet<>(gradleSourceSet.getAllJava().getSrcDirs());
+        Object kotlin = ((ExtensionAware) gradleSourceSet).getExtensions().findByName("kotlin");
+        if (kotlin instanceof SourceDirectorySet kotlinDirs) {
+            srcDirs.addAll(kotlinDirs.getSrcDirs());
+        }
+        List<Path> paths = srcDirs.stream()
                 .filter(File::canRead).map(this::toRelativePath).toList();
         if (paths.isEmpty()) return null;
         Path path = paths.getFirst();
