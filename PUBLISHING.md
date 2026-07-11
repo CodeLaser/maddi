@@ -42,14 +42,18 @@ no K2 — and they run it on a classpath (a forked worker for Gradle), where the
 descriptors do not matter.
 
 * *Gradle plugin* (`maddi-gradleplugin`) → **Gradle Plugin Portal**, id `org.e2immu.analyzer-plugin`.
-  **Shading DONE** (`com.gradleup.shadow`): a dedicated `shade` configuration lists the analyzer
-  modules; `implementation` extends it; `shadowJar` bundles only `shade`, so `gradleApi()` and
-  `kotlin-stdlib` (Gradle-provided) are excluded and the analyzer + jackson/logback/asm/congocc are
-  bundled (~11 MB, verified). Class names are **not relocated** — the forked worker references
-  `RunAnalyzer` by its real name, and it runs in an isolated process so third-party clashes with the
-  consuming build don't arise. The thin jar is pushed to the `-plain` classifier; the shadow jar takes
-  the main name. *Remaining:* apply `com.gradle.plugin-publish` and point its `pluginMaven` publication
-  at the shadow jar (no publishing plugin is applied yet, so nothing publishes the thin jar today).
+  **Shading + publication wiring DONE** (`com.gradleup.shadow` + `maven-publish`): a dedicated `shade`
+  configuration lists the analyzer modules; `implementation` extends it; `shadowJar` bundles only
+  `shade`, so `gradleApi()` and `kotlin-stdlib` (Gradle-provided) are excluded and the analyzer +
+  jackson/logback/asm/congocc are bundled (~11 MB, verified). Class names are **not relocated** — the
+  forked worker references `RunAnalyzer` by its real name, and it runs in an isolated process so
+  third-party clashes with the consuming build don't arise. The thin jar is pushed to the `-plain`
+  classifier; the shadow jar takes the main name. The `pluginMaven` publication ships the shadow jar
+  and a **dependency-free POM** (Gradle Module Metadata disabled, `<dependencies>`/`<dependencyManagement>`
+  stripped — nothing to resolve, everything is bundled). Proven self-contained by
+  `TestAnalyzerPluginShadedJarIsolation`: it publishes to a local repo and resolves+runs the plugin from
+  there *with no analyzer module on any classpath*. *Remaining:* apply `com.gradle.plugin-publish`
+  (website/vcsUrl/tags) and run `publishPlugins` with a Portal key — the actual push, needs credentials.
 * *Maven plugin* (`maddi-mvnplugin`) → **Maven Central**. (Shading still to do; blocked upstream on
   generating the Maven plugin descriptor — shade it once the descriptor lands. See the mvnplugin notes.)
 

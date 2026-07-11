@@ -15,6 +15,7 @@
 
 plugins {
     `java-gradle-plugin`
+    `maven-publish`
     id("java-library-conventions")
     // Shadow: bundle the (Kotlin-free) Java analyzer into the plugin jar so it is self-contained.
     // We do not publish the fine-grained analyzer modules (see PUBLISHING.md), so the plugin cannot
@@ -94,4 +95,47 @@ gradlePlugin {
         description = "Run the e2immu analyzer from Gradle"
         isAutomatedPublishing = true
     }
+}
+
+// A local file repository, used by the isolation test (TestAnalyzerPluginShadedJarIsolation): the plugin
+// is published here and then resolved from it — with none of the analyzer modules on the classpath — so
+// the run exercises the self-contained shadow jar alone. It is also handy for a local smoke test.
+val localPluginRepoDir = layout.buildDirectory.dir("local-plugin-repo")
+
+publishing {
+    repositories {
+        maven {
+            name = "localPluginRepo"
+            url = uri(localPluginRepoDir)
+        }
+    }
+}
+
+// java-gradle-plugin creates the `pluginMaven` publication from the java component (thin jar + the
+// analyzer modules as POM dependencies). For the shaded plugin that is wrong on both counts: ship the
+// self-contained shadow jar instead, and strip the dependencies — they are all bundled, so a consumer
+// resolves nothing beyond the jar itself (Gradle provides gradleApi/kotlin at runtime).
+// Gradle Module Metadata would advertise the java component's variants (and thus the unpublished analyzer
+// modules as dependencies) — exactly what shading exists to avoid. Publish plain POM + jar only.
+tasks.withType<GenerateModuleMetadata>().configureEach { enabled = false }
+
+afterEvaluate {
+    (publishing.publications.getByName("pluginMaven") as MavenPublication).apply {
+        setArtifacts(listOf(tasks.shadowJar.get()))
+        pom.withXml {
+            // Everything is bundled in the shadow jar, so the POM needs no dependencies and no BOM import
+            // (the internal io.codelaser:platform BOM is not published either).
+            val root = asNode()
+            listOf("dependencies", "dependencyManagement").forEach { tag ->
+                val nodes = root.get(tag)
+                if (nodes is groovy.util.NodeList) nodes.toList().forEach { root.remove(it as groovy.util.Node) }
+            }
+        }
+    }
+}
+
+tasks.named<Test>("test") {
+    // the isolation test resolves the plugin from the local repo, so publish there first
+    dependsOn("publishAllPublicationsToLocalPluginRepoRepository")
+    systemProperty("e2immu.localPluginRepo", localPluginRepoDir.get().asFile.absolutePath)
 }
