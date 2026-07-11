@@ -72,9 +72,15 @@ public class Graph {
 
     private boolean invalidEdge(Variable from, LinkNature label, Variable to) {
         if (Util.isVirtualModification(from) != Util.isVirtualModification(to)) return true;
+        // an edge between a real variable and a virtual (hidden-content) field is legitimate for element/membership
+        // (∈ ∋) and for assignment of the content itself (← →): a value read out of a container's hidden content is
+        // assigned from it, e.g. 'X x = optional.orElseGet(...)' yields 'x ← optional.§x'. Other natures between a
+        // real and a virtual endpoint remain malformed.
         return Util.virtual(from) != Util.virtual(to)
                && label != LinkNatureImpl.CONTAINS_AS_MEMBER
-               && label != LinkNatureImpl.IS_ELEMENT_OF;
+               && label != LinkNatureImpl.IS_ELEMENT_OF
+               && label != LinkNatureImpl.IS_ASSIGNED_FROM
+               && label != LinkNatureImpl.IS_ASSIGNED_TO;
     }
 
     public Stream<Link> sharedAssignmentEdgeStream(Variable primary) {
@@ -109,7 +115,10 @@ public class Graph {
         if (linkNature.isIdenticalTo() && Util.isVirtualModification(from)) {
             return virtualModificationIdenticals.add(from, linkNature, to);
         }
-        if (!NOSV && linkNature.isAssignedFrom() && !(to instanceof MarkerVariable)) {
+        // only collapse whole-object assignment aliases; a hidden-content virtual field ('x ← optional.§x' — x is a
+        // copy of the content, not an alias of the container) stays a first-class edge so 'x ← optional.§x' survives.
+        if (!NOSV && linkNature.isAssignedFrom() && !(to instanceof MarkerVariable)
+            && !Util.virtual(from) && !Util.virtual(to)) {
             boolean fromInGroups = sharedVariables.isKnown(from);
             if (fromInGroups) {
                 // reassignment: we must remove 'from' if present in any shared variable
