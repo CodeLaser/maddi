@@ -14,6 +14,8 @@
 
 package org.e2immu.analyzer.run.kotlinmain;
 
+import org.e2immu.analyzer.run.config.report.ErrorReport;
+import org.e2immu.analyzer.run.config.report.ExitCode;
 import org.e2immu.analyzer.run.config.util.JsonStreaming;
 import org.e2immu.analyzer.run.kotlinmain.kotlinc.ParseMixedList;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
@@ -39,8 +41,7 @@ import java.util.List;
 public class Main {
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
 
-    public static final int EXIT_OK = 0;
-    public static final int EXIT_ERROR = 1;
+    public static final int EXIT_OK = ExitCode.OK;
 
     static final String COMPILE_LOG = "--compile-log";
     static final String INPUT_CONFIGURATION = "--input-configuration";
@@ -65,7 +66,7 @@ public class Main {
                 default -> {
                     LOGGER.error("Unknown argument '{}'. Use {} <file> or {} <file> [{} <module>]...",
                             args[i], COMPILE_LOG, INPUT_CONFIGURATION, EXTRA_JMOD);
-                    return EXIT_ERROR;
+                    return ExitCode.INTERNAL_EXCEPTION;
                 }
             }
         }
@@ -81,18 +82,18 @@ public class Main {
                 inputConfiguration = new ParseMixedList().parse(Path.of(compileLog), extraJmods);
             } else {
                 LOGGER.error("Provide either {} <file> or {} <file>", COMPILE_LOG, INPUT_CONFIGURATION);
-                return EXIT_ERROR;
+                return ExitCode.INTERNAL_EXCEPTION;
             }
             RunMixedPrepAnalyzer.Summary summary = new RunMixedPrepAnalyzer().go(inputConfiguration);
             LOGGER.info("Mixed prep complete: {} Kotlin + {} Java type(s), {} primary; analysis order size {}",
                     summary.kotlinTypes(), summary.javaTypes(), summary.primaryTypes(), summary.analysisOrderSize());
             return EXIT_OK;
         } catch (IOException ioException) {
-            LOGGER.error("IO exception", ioException);
-            return EXIT_ERROR;
+            ErrorReport.report(null, ioException);
+            return ExitCode.IO_EXCEPTION;
         } catch (RuntimeException runtimeException) {
-            LOGGER.error("Failed to run the mixed prep analysis", runtimeException);
-            return EXIT_ERROR;
+            ErrorReport.report(null, runtimeException);
+            return ExitCode.ANALYSER_ERROR;
         }
     }
 

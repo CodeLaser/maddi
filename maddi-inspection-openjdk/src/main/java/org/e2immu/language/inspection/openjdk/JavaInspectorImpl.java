@@ -203,8 +203,11 @@ public class JavaInspectorImpl implements JavaInspector {
                 singleSourceSet(summary, sourcesByFqn, infoByFqn, sourceSet, !parseOptions.failFast(),
                         parseOptions.ignoreModule(), parseOptions.parameterNames() || parameterNames);
             } catch (IOException ioe) {
-                LOGGER.error("Caught exception", ioe);
-                throw new UnsupportedOperationException("TODO error handling");
+                // register the failure in the Summary (preserving the cause) instead of dropping it and aborting
+                // with a cause-less UnsupportedOperationException; harmonizes with the in-house inspector
+                LOGGER.error("Cannot set up/parse source set {}", sourceSet.name(), ioe);
+                summary.addParseException(new Summary.ParseException(sourceSet.uri(), sourceSet.name(),
+                        "Cannot set up/parse source set: " + ioe.getMessage(), ioe));
             }
         }
         return summary;
@@ -220,8 +223,11 @@ public class JavaInspectorImpl implements JavaInspector {
                 singleSourceSet(summary, sourcesByFqn, infoByFqn, sourceSet, !parseOptions.failFast(),
                         parseOptions.ignoreModule(), parseOptions.parameterNames() || parameterNames);
             } catch (IOException ioe) {
-                LOGGER.error("Caught exception", ioe);
-                throw new UnsupportedOperationException("TODO error handling");
+                // register the failure in the Summary (preserving the cause) instead of dropping it and aborting
+                // with a cause-less UnsupportedOperationException; harmonizes with the in-house inspector
+                LOGGER.error("Cannot set up/parse source set {}", sourceSet.name(), ioe);
+                summary.addParseException(new Summary.ParseException(sourceSet.uri(), sourceSet.name(),
+                        "Cannot set up/parse source set: " + ioe.getMessage(), ioe));
             }
         }
         return summary;
@@ -319,6 +325,11 @@ public class JavaInspectorImpl implements JavaInspector {
         if (!scanned.modules().isEmpty()) {
             summary.putSourceSetToModuleInfo(sourceSet, scanned.modules().getFirst());
         }
+        // NOTE: javac ERROR diagnostics collected here are still only logged (at INFO) in ScanCompilationUnits,
+        // not transferred into the Summary. Doing so naively promotes *tolerated* missing-library diagnostics
+        // ("package x.y does not exist") to fatal parse errors (see TestJavaInspector2JarOnClasspath). A correct
+        // transfer needs the tolerable-missing-library vs real-error classification — a structural follow-up, not
+        // this quick win. Syntax errors still surface: the body parser throws, caught as a parser error upstream.
 
         // copy into CTM
         List<TypeInfo> loaded = Stream.concat(Stream.concat(scanned.primaryTypes().stream(),
