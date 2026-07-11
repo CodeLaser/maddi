@@ -5,6 +5,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.ParseResult;
+import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
@@ -19,6 +20,7 @@ import java.util.Map;
 import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 import static org.e2immu.language.inspection.openjdk.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestJavaInspector2JarOnClasspath {
@@ -63,8 +65,12 @@ public class TestJavaInspector2JarOnClasspath {
 
     @Test
     public void test1() {
-        ParseResult parseResult = javaInspector.parse(Map.of("a.b.C", INPUT1),
-                JavaInspectorImpl.DETAILED_SOURCES).parseResult();
+        Summary summary = javaInspector.parse(Map.of("a.b.C", INPUT1), JavaInspectorImpl.DETAILED_SOURCES);
+        // the unresolved 'org.apache.commons.cli' import (not on the partial classpath) is surfaced as a
+        // non-fatal warning, not a parse error, so parsing still yields a ParseResult
+        assertFalse(summary.haveErrors());
+        assertFalse(summary.parseWarnings().isEmpty(), "expected a warning for the unresolved commons-cli import");
+        ParseResult parseResult = summary.parseResult();
         TypeInfo C = parseResult.findType("a.b.C");
         assertEquals("@ImmutableContainer", C.annotations().getFirst().toString());
         TypeInfo immutableContainer = runtime.getFullyQualified("org.e2immu.annotation.ImmutableContainer",
