@@ -287,13 +287,21 @@ public class BlockPrinter {
         boolean greedy = options.wrapStyle() == FormattingOptions.WrapStyle.GREEDY_FILL
                 && !output.string.contains("\n");
 
+        // The pending space level that the inline path (BlockPrinter.handleBlock) would emit before
+        // the block. Chop-down always breaks the position-0 boundary onto a new line, so it never
+        // needs this separator; greedy keeps position 0 on the current line, so without it the block
+        // glues onto its neighbour (e.g. `throwsMalformedURLException`, `{buff.append(...)`).
+        Line.SpaceLevel pending = line.spaceLevel();
+        boolean leadingSpaceWanted = pending == Line.SpaceLevel.SPACE
+                || (pending == Line.SpaceLevel.SPACE_IS_NICE && !options.compact());
+
         int availableBeforeAppend = line.available();
         int start = line.length();
         line.appendBeforeSplit(output.string);
 
         if (greedy) {
             greedyFill(line, output.string, indent, splits, start,
-                    availableBeforeAppend, options.lengthOfLine(), allowSplitAtPosition0);
+                    availableBeforeAppend, options.lengthOfLine(), allowSplitAtPosition0, leadingSpaceWanted);
         } else {
             for (Map.Entry<Integer, SplitLevel> entry : splits.entrySet()) {
                 int relativePos = entry.getKey();
@@ -316,7 +324,7 @@ public class BlockPrinter {
     private static void greedyFill(Line line, String content, int indent,
                                    TreeMap<Integer, SplitLevel> splits, int start,
                                    int availableOnCurrentLine, int lengthOfLine,
-                                   boolean allowSplitAtPosition0) {
+                                   boolean allowSplitAtPosition0, boolean leadingSpaceWanted) {
         Integer[] positions = splits.keySet().toArray(new Integer[0]);
         int n = positions.length;
         if (n == 0) return;
@@ -357,9 +365,12 @@ public class BlockPrinter {
             } else {
                 // mirror appendAndInsertSpaceSplits: keep elements visually separated when they
                 // remain on the same line (a Guide ".mid()" between two symbols has no space).
-                // Position 0 is skipped — the preceding context (e.g. "(") decides whether a
-                // separator belongs there, not this block.
-                if (level != SplitLevel.NONE_IF_COMPACT && p > 0) {
+                // Position 0 normally defers to the preceding context (e.g. "(") for its separator;
+                // when that context wants a space (leadingSpaceWanted, e.g. after "throws" or "{"),
+                // we must emit it here because the split path skipped the inline space-writing.
+                boolean wantSeparator = (p > 0 && level != SplitLevel.NONE_IF_COMPACT)
+                        || (p == 0 && leadingSpaceWanted);
+                if (wantSeparator) {
                     int actualPos = p + start + cumulativeShift;
                     if (line.ensureSpace(actualPos)) {
                         cumulativeShift += 1;
