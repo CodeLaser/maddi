@@ -19,9 +19,12 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.*;
 import java.util.Comparator;
 
+import org.e2immu.annotation.ImmutableContainer;
+
 public class JavaTimeChrono {
     public static final String PACKAGE_NAME = "java.time.chrono";
     //public interface ChronoLocalDate implements Temporal, TemporalAdjuster, Comparable<ChronoLocalDate>
+    @ImmutableContainer
     class ChronoLocalDate$ {
         //@Immutable(hc=true)[T] @Independent[T]
         static Comparator<ChronoLocalDate> timeLineOrder() { return null; }
@@ -89,6 +92,7 @@ public class JavaTimeChrono {
     }
 
     //public interface ChronoLocalDateTime implements Temporal, TemporalAdjuster, Comparable<ChronoLocalDateTime<?>>
+    @ImmutableContainer(hc = true)
     class ChronoLocalDateTime$<D extends ChronoLocalDate> {
         //@Immutable(hc=true)[T] @Independent[T]
         static Comparator<ChronoLocalDateTime<?>> timeLineOrder() { return null; }
@@ -151,6 +155,7 @@ public class JavaTimeChrono {
     }
 
     //public interface ChronoZonedDateTime implements Temporal, Comparable<ChronoZonedDateTime<?>>
+    @ImmutableContainer(hc = true)
     class ChronoZonedDateTime$<D extends ChronoLocalDate> {
         //@Immutable(hc=true)[T] @Independent[T]
         static Comparator<ChronoZonedDateTime<?>> timeLineOrder() { return null; }

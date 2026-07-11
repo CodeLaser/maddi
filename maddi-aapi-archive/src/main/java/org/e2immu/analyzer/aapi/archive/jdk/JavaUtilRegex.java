@@ -23,6 +23,7 @@ import java.util.stream.Stream;
 
 import org.e2immu.annotation.Container;
 import org.e2immu.annotation.ImmutableContainer;
+import org.e2immu.annotation.NotModified;
 
 public class JavaUtilRegex {
     public static final String PACKAGE_NAME = "java.util.regex";
@@ -31,24 +32,24 @@ public class JavaUtilRegex {
     // mutable Matcher, so @Container but not @Immutable.
     @Container
     class MatchResult$ {
-        int start() { return 0; }
-        int start(int i) { return 0; }
-        int start(String name) { return 0; }
-        int end() { return 0; }
-        int end(int i) { return 0; }
-        int end(String name) { return 0; }
-        String group() { return null; }
-        String group(int i) { return null; }
-        String group(String name) { return null; }
-        int groupCount() { return 0; }
-        Map<String, Integer> namedGroups() { return null; }
-        boolean hasMatch() { return false; }
+        @NotModified int start() { return 0; }
+        @NotModified int start(int i) { return 0; }
+        @NotModified int start(String name) { return 0; }
+        @NotModified int end() { return 0; }
+        @NotModified int end(int i) { return 0; }
+        @NotModified int end(String name) { return 0; }
+        @NotModified String group() { return null; }
+        @NotModified String group(int i) { return null; }
+        @NotModified String group(String name) { return null; }
+        @NotModified int groupCount() { return 0; }
+        @NotModified Map<String, Integer> namedGroups() { return null; }
+        @NotModified boolean hasMatch() { return false; }
     }
 
     //public final class Matcher implements MatchResult
     class Matcher$ {
-        Pattern pattern() { return null; }
-        MatchResult toMatchResult() { return null; }
+        @NotModified Pattern pattern() { return null; }
+        @NotModified MatchResult toMatchResult() { return null; }
         Matcher usePattern(Pattern newPattern) { return null; }
         Matcher reset() { return null; }
         Matcher reset(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ CharSequence input) {
@@ -56,34 +57,34 @@ public class JavaUtilRegex {
         }
 
         //override from java.util.regex.MatchResult
-        int start() { return 0; }
+        @NotModified int start() { return 0; }
 
         //override from java.util.regex.MatchResult
         int start(int group) { return 0; }
 
         //override from java.util.regex.MatchResult
-        int start(String name) { return 0; }
+        @NotModified int start(String name) { return 0; }
 
         //override from java.util.regex.MatchResult
-        int end() { return 0; }
+        @NotModified int end() { return 0; }
 
         //override from java.util.regex.MatchResult
         int end(int group) { return 0; }
 
         //override from java.util.regex.MatchResult
-        int end(String name) { return 0; }
+        @NotModified int end(String name) { return 0; }
 
         //override from java.util.regex.MatchResult
-        String group() { return null; }
+        @NotModified String group() { return null; }
 
         //override from java.util.regex.MatchResult
         String group(int group) { return null; }
 
         //override from java.util.regex.MatchResult
-        String group(String name) { return null; }
+        @NotModified String group(String name) { return null; }
 
         //override from java.util.regex.MatchResult
-        int groupCount() { return 0; }
+        @NotModified int groupCount() { return 0; }
         boolean matches() { return false; }
         boolean find() { return false; }
         boolean find(int start) { return false; }
@@ -100,22 +101,22 @@ public class JavaUtilRegex {
         String replaceFirst(String replacement) { return null; }
         String replaceFirst(/*@IgnoreModifications[T]*/ Function<MatchResult, String> replacer) { return null; }
         Matcher region(int start, int end) { return null; }
-        int regionStart() { return 0; }
-        int regionEnd() { return 0; }
-        boolean hasTransparentBounds() { return false; }
+        @NotModified int regionStart() { return 0; }
+        @NotModified int regionEnd() { return 0; }
+        @NotModified boolean hasTransparentBounds() { return false; }
         Matcher useTransparentBounds(boolean b) { return null; }
-        boolean hasAnchoringBounds() { return false; }
+        @NotModified boolean hasAnchoringBounds() { return false; }
         Matcher useAnchoringBounds(boolean b) { return null; }
         //override from java.lang.Object
         //@NotModified[H] @NotNull[H]
         public String toString() { return null; }
-        boolean hitEnd() { return false; }
-        boolean requireEnd() { return false; }
+        @NotModified boolean hitEnd() { return false; }
+        @NotModified boolean requireEnd() { return false; }
         //override from java.util.regex.MatchResult
-        Map<String, Integer> namedGroups() { return null; }
+        @NotModified Map<String, Integer> namedGroups() { return null; }
 
         //override from java.util.regex.MatchResult
-        boolean hasMatch() { return false; }
+        @NotModified boolean hasMatch() { return false; }
     }
 
     //public final class Pattern implements Serializable
@@ -159,7 +160,7 @@ public class JavaUtilRegex {
             return null;
         }
         static String quote(String s) { return null; }
-        Map<String, Integer> namedGroups() { return null; }
+        @NotModified Map<String, Integer> namedGroups() { return null; }
         Predicate<String> asPredicate() { return null; }
         Predicate<String> asMatchPredicate() { return null; }
         Stream<String> splitAsStream(

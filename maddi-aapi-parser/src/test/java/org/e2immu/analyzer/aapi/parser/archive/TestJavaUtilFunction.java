@@ -130,4 +130,86 @@ public class TestJavaUtilFunction extends CommonTest {
         assertEquals(0, u.arrays());
     }
 
+    // The default helper methods build a NEW composed function without touching `this`, so they must
+    // be non-modifying (unlike the SAM apply/accept/test, which may modify their input argument).
+    @Test
+    public void testDefaultHelpersNonModifying() {
+        assertFalse(compiledTypesManager().get(Function.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().get(Function.class).findUniqueMethod("compose", 1).isModifying());
+        assertFalse(compiledTypesManager().get(Consumer.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().get(BiConsumer.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().get(Predicate.class).findUniqueMethod("and", 1).isModifying());
+        assertFalse(compiledTypesManager().get(Predicate.class).findUniqueMethod("or", 1).isModifying());
+        assertFalse(compiledTypesManager().get(Predicate.class).findUniqueMethod("negate", 0).isModifying());
+        assertFalse(compiledTypesManager().get(BiPredicate.class).findUniqueMethod("negate", 0).isModifying());
+    }
+
+    // Predicate was missing the type-level @Independent(hc=true) all its siblings carry.
+    @Test
+    public void testPredicateIndependentHc() {
+        TypeInfo typeInfo = compiledTypesManager().get(Predicate.class);
+        assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
+    }
+
+    // BiFunction and the primitive families get the same treatment: @Independent(hc=true) at the type,
+    // and non-modifying default helpers.
+    @Test
+    public void testBiFunctionAndFriendsIndependentHc() {
+        for (Class<?> c : new Class<?>[]{
+                BiFunction.class, UnaryOperator.class,
+                IntPredicate.class, LongPredicate.class, DoublePredicate.class,
+                IntUnaryOperator.class, LongUnaryOperator.class, DoubleUnaryOperator.class,
+                IntConsumer.class, LongConsumer.class, DoubleConsumer.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT),
+                    () -> c.getSimpleName() + " should be @Independent(hc=true)");
+        }
+    }
+
+    // Every java.util.function interface is @Independent(hc=true) (a lambda may capture hidden content).
+    @Test
+    public void testAllFunctionalInterfacesIndependentHc() {
+        for (Class<?> c : new Class<?>[]{
+                BiConsumer.class, BiFunction.class, BinaryOperator.class, BiPredicate.class, BooleanSupplier.class,
+                Consumer.class, DoubleBinaryOperator.class, DoubleConsumer.class, DoubleFunction.class,
+                DoublePredicate.class, DoubleSupplier.class, DoubleToIntFunction.class, DoubleToLongFunction.class,
+                DoubleUnaryOperator.class, Function.class, IntBinaryOperator.class, IntConsumer.class,
+                IntFunction.class, IntPredicate.class, IntSupplier.class, IntToDoubleFunction.class,
+                IntToLongFunction.class, IntUnaryOperator.class, LongBinaryOperator.class, LongConsumer.class,
+                LongFunction.class, LongPredicate.class, LongSupplier.class, LongToDoubleFunction.class,
+                LongToIntFunction.class, LongUnaryOperator.class, ObjDoubleConsumer.class, ObjIntConsumer.class,
+                ObjLongConsumer.class, Predicate.class, Supplier.class, ToDoubleBiFunction.class,
+                ToDoubleFunction.class, ToIntBiFunction.class, ToIntFunction.class, ToLongBiFunction.class,
+                ToLongFunction.class, UnaryOperator.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT),
+                    () -> c.getSimpleName() + " should be @Independent(hc=true)");
+        }
+    }
+
+    // The generic-input specializations must mark their SAM's generic parameter @Modified, like
+    // Consumer/Function (an unknown lambda body may mutate its argument); the primitive input of e.g.
+    // ObjIntConsumer stays unmodified.
+    @Test
+    public void testGenericInputSamsAreModified() {
+        assertTrue(compiledTypesManager().get(ToIntFunction.class).findUniqueMethod("applyAsInt", 1)
+                .parameters().getFirst().isModified());
+        ParameterInfo p0 = compiledTypesManager().get(ObjIntConsumer.class).findUniqueMethod("accept", 2)
+                .parameters().getFirst();
+        assertTrue(p0.isModified(), "ObjIntConsumer.accept T param must be @Modified");
+        assertTrue(compiledTypesManager().get(ToIntBiFunction.class).findUniqueMethod("applyAsInt", 2)
+                .parameters().get(1).isModified());
+    }
+
+    @Test
+    public void testBiFunctionAndFriendsDefaultHelpersNonModifying() {
+        assertFalse(compiledTypesManager().get(BiFunction.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().get(IntPredicate.class).findUniqueMethod("and", 1).isModifying());
+        assertFalse(compiledTypesManager().get(IntPredicate.class).findUniqueMethod("negate", 0).isModifying());
+        assertFalse(compiledTypesManager().get(IntUnaryOperator.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().get(IntUnaryOperator.class).findUniqueMethod("compose", 1).isModifying());
+        assertFalse(compiledTypesManager().get(DoubleConsumer.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().get(LongPredicate.class).findUniqueMethod("or", 1).isModifying());
+    }
+
 }

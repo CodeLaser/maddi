@@ -32,10 +32,12 @@ import org.e2immu.annotation.rare.AllowsInterrupt;
 public class JavaIo {
     public static final String PACKAGE_NAME = "java.io";
     //public class BufferedReader extends Reader
-    @Independent
+    // wraps an external Reader (advancing/consuming it), so it is linked to and modifies its
+    // source -> @Dependent, like BufferedWriter/FilterOutputStream. (Was incorrectly @Independent,
+    // which contradicted its own dependent 'in' constructor parameter.)
     class BufferedReader$ {
-        BufferedReader$(/*@Independent[T]*/ Reader in, int sz) { }
-        BufferedReader$(/*@Independent[T]*/ Reader in) { }
+        BufferedReader$(Reader in, int sz) { }
+        BufferedReader$(Reader in) { }
         //override from java.io.Reader
         //@AllowsInterrupt[H]
         int read() { return 0; }

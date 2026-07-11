@@ -148,8 +148,14 @@ public class JavaLang {
         Optional<DynamicConstantDesc<Boolean>> describeConstable() { return null; }
     }
 
+    //public final class Byte extends Number implements Comparable<Byte>, Constable
+    @ImmutableContainer
+    class Byte$ { }
+
     //public interface CharSequence
-    @ImmutableContainer(hc = true)
+    // NOT a @Container: the getChars(...,char[] dst,...) default method fills its array argument (that
+    // would otherwise force dst @NotModified and propagate to String/StringBuilder/StringBuffer.getChars).
+    @Immutable(hc = true)
     @Independent
     class CharSequence$ {
         //override has frequency 17
@@ -184,6 +190,11 @@ public class JavaLang {
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ CharSequence cs1,
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ CharSequence cs2) { return 0; }
     }
+
+    //public final class Character implements Serializable, Comparable<Character>, Constable
+    // has static toChars(int, char[], int) which fills its array argument -> @Immutable (not @Container), like String
+    @Immutable
+    class Character$ { }
 
     //public final class Class implements Serializable, GenericDeclaration, Type, AnnotatedElement, TypeDescriptor.OfField<Class<?>>, Constable
     @ImmutableContainer
@@ -2039,24 +2050,246 @@ public class JavaLang {
         String resolveConstantDesc(/*@Independent[M]*/ MethodHandles.Lookup lookup) { return null; }
     }
 
+    //public final class Short extends Number implements Comparable<Short>, Constable
+    @ImmutableContainer
+    class Short$ { }
+
+    //public final class StackTraceElement implements Serializable
+    @ImmutableContainer
+    class StackTraceElement$ { }
+
+    //public final class StringBuffer extends AbstractStringBuilder implements Appendable, Serializable, Comparable<StringBuffer>, CharSequence
+    @Independent
+    class StringBuffer$ {
+        //frequency 3
+        StringBuffer$() { }
+        StringBuffer$(int capacity) { }
+        StringBuffer$(String str) { }
+        StringBuffer$(/*@Immutable(hc=true)[T] @Independent[T] @NotModified[O]*/ @NotModified CharSequence seq) { }
+        //override from java.lang.Comparable
+        //@NotModified[H]
+        int compareTo(/*@Independent[M] @NotModified[O] @NotNull[H]*/ @NotModified StringBuffer another) { return 0; }
+
+        //override from java.lang.AbstractStringBuilder
+        //frequency 3
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer append(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified Object obj) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //frequency 6
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer append(String str) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer append(/*@Independent[H] @NotModified[O]*/ @NotModified StringBuffer sb) { return null; }
+
+        //override from java.lang.AbstractStringBuilder, java.lang.Appendable
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer append(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence s) { return null; }
+
+        //override from java.lang.AbstractStringBuilder, java.lang.Appendable
+        //@Independent[O] @NotNull[M]
+        @Fluent
+
+        StringBuffer append(
+            /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence s,
+            int start,
+            int end) { return null; }
+
+        //override from java.lang.AbstractStringBuilder, java.lang.Appendable
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer append(/*@Independent[H] @NotModified[O] @NotNull[H]*/ @NotModified char [] str) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer append(/*@Independent[H] @NotModified[O]*/ @NotModified char [] str, int offset, int len) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer append(boolean b) { return null; }
+
+        //override from java.lang.AbstractStringBuilder, java.lang.Appendable
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer append(char c) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer append(int i) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //frequency 1
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer append(long lng) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer append(float f) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer append(double d) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer appendCodePoint(int codePoint) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer delete(int start, int end) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer deleteCharAt(int index) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer replace(int start, int end, String str) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+
+        StringBuffer insert(int index, /*@Independent[H] @NotModified[O]*/ @NotModified char [] str, int offset, int len) {
+            return null;
+        }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+
+        StringBuffer insert(int offset, /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified Object obj) {
+            return null;
+        }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer insert(int offset, String str) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer insert(int offset, /*@Independent[H] @NotModified[O]*/ @NotModified char [] str) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+
+        StringBuffer insert(int dstOffset, /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence s) {
+            return null;
+        }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+
+        StringBuffer insert(
+            int dstOffset,
+            /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence s,
+            int start,
+            int end) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer insert(int offset, boolean b) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer insert(int offset, char c) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer insert(int offset, int i) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer insert(int offset, long l) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer insert(int offset, float f) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer insert(int offset, double d) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        int indexOf(String str) { return 0; }
+
+        //override from java.lang.AbstractStringBuilder
+        int indexOf(String str, int fromIndex) { return 0; }
+
+        //override from java.lang.AbstractStringBuilder
+        int lastIndexOf(String str) { return 0; }
+
+        //override from java.lang.AbstractStringBuilder
+        int lastIndexOf(String str, int fromIndex) { return 0; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer reverse() { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+        StringBuffer repeat(int codePoint, int count) { return null; }
+
+        //override from java.lang.AbstractStringBuilder
+        //@Independent[O] @NotNull[M]
+        @Fluent
+
+        StringBuffer repeat(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence cs, int count) {
+            return null;
+        }
+
+        //override from java.lang.AbstractStringBuilder, java.lang.CharSequence, java.lang.Object
+        //frequency 3
+        //@NotNull[H]
+        @NotModified
+        public String toString() { return null; }
+    }
+
     //public final class StringBuilder extends AbstractStringBuilder implements Appendable, Serializable, Comparable<StringBuilder>, CharSequence
-    @Container
     @Independent
     class StringBuilder$ {
         //frequency 3
         StringBuilder$() { }
         StringBuilder$(int capacity) { }
         StringBuilder$(String str) { }
-        StringBuilder$(/*@Immutable(hc=true)[T] @Independent[T] @NotModified[O]*/ CharSequence seq) { }
+        StringBuilder$(/*@Immutable(hc=true)[T] @Independent[T] @NotModified[O]*/ @NotModified CharSequence seq) { }
         //override from java.lang.Comparable
         //@NotModified[H]
-        int compareTo(/*@Independent[M] @NotModified[O] @NotNull[H]*/ StringBuilder another) { return 0; }
+        int compareTo(/*@Independent[M] @NotModified[O] @NotNull[H]*/ @NotModified StringBuilder another) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
         //frequency 3
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuilder append(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ Object obj) { return null; }
+        StringBuilder append(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified Object obj) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //frequency 6
@@ -2067,31 +2300,31 @@ public class JavaLang {
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuilder append(/*@Independent[H] @NotModified[O]*/ StringBuffer sb) { return null; }
+        StringBuilder append(/*@Independent[H] @NotModified[O]*/ @NotModified StringBuffer sb) { return null; }
 
         //override from java.lang.AbstractStringBuilder, java.lang.Appendable
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuilder append(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ CharSequence s) { return null; }
+        StringBuilder append(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence s) { return null; }
 
         //override from java.lang.AbstractStringBuilder, java.lang.Appendable
         //@Independent[O] @NotNull[M]
         @Fluent
 
         StringBuilder append(
-            /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ CharSequence s,
+            /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence s,
             int start,
             int end) { return null; }
 
         //override from java.lang.AbstractStringBuilder, java.lang.Appendable
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuilder append(/*@Independent[H] @NotModified[O] @NotNull[H]*/ char [] str) { return null; }
+        StringBuilder append(/*@Independent[H] @NotModified[O] @NotNull[H]*/ @NotModified char [] str) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuilder append(/*@Independent[H] @NotModified[O]*/ char [] str, int offset, int len) { return null; }
+        StringBuilder append(/*@Independent[H] @NotModified[O]*/ @NotModified char [] str, int offset, int len) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
@@ -2148,7 +2381,7 @@ public class JavaLang {
         //@Independent[O] @NotNull[M]
         @Fluent
 
-        StringBuilder insert(int index, /*@Independent[H] @NotModified[O]*/ char [] str, int offset, int len) {
+        StringBuilder insert(int index, /*@Independent[H] @NotModified[O]*/ @NotModified char [] str, int offset, int len) {
             return null;
         }
 
@@ -2156,7 +2389,7 @@ public class JavaLang {
         //@Independent[O] @NotNull[M]
         @Fluent
 
-        StringBuilder insert(int offset, /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ Object obj) {
+        StringBuilder insert(int offset, /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified Object obj) {
             return null;
         }
 
@@ -2168,13 +2401,13 @@ public class JavaLang {
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuilder insert(int offset, /*@Independent[H] @NotModified[O]*/ char [] str) { return null; }
+        StringBuilder insert(int offset, /*@Independent[H] @NotModified[O]*/ @NotModified char [] str) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
 
-        StringBuilder insert(int dstOffset, /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ CharSequence s) {
+        StringBuilder insert(int dstOffset, /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence s) {
             return null;
         }
 
@@ -2184,7 +2417,7 @@ public class JavaLang {
 
         StringBuilder insert(
             int dstOffset,
-            /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ CharSequence s,
+            /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence s,
             int start,
             int end) { return null; }
 
@@ -2244,7 +2477,7 @@ public class JavaLang {
         //@Independent[O] @NotNull[M]
         @Fluent
 
-        StringBuilder repeat(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ CharSequence cs, int count) {
+        StringBuilder repeat(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence cs, int count) {
             return null;
         }
 
@@ -2487,7 +2720,7 @@ public class JavaLang {
         static Thread.Builder.OfPlatform ofPlatform() { return null; }
         static Thread.Builder.OfVirtual ofVirtual() { return null; }
         static Thread startVirtualThread(Runnable task) { return null; }
-        boolean isVirtual() { return false; }
+        @NotModified boolean isVirtual() { return false; }
         void start() { }
         //override from java.lang.Runnable
         void run() { }
@@ -2496,13 +2729,13 @@ public class JavaLang {
         @IgnoreModifications
         void interrupt() { }
         static boolean interrupted() { return false; }
-        boolean isInterrupted() { return false; }
-        boolean isAlive() { return false; }
+        @NotModified boolean isInterrupted() { return false; }
+        @NotModified boolean isAlive() { return false; }
         void setPriority(int newPriority) { }
-        int getPriority() { return 0; }
+        @NotModified int getPriority() { return 0; }
         void setName(String name) { }
-        String getName() { return null; }
-        ThreadGroup getThreadGroup() { return null; }
+        @NotModified String getName() { return null; }
+        @NotModified ThreadGroup getThreadGroup() { return null; }
         static int activeCount() { return 0; }
         static int enumerate(Thread [] tarray) { return 0; }
         void join(long millis) { }
@@ -2511,25 +2744,25 @@ public class JavaLang {
         boolean join(Duration duration) { return false; }
         static void dumpStack() { }
         void setDaemon(boolean on) { }
-        boolean isDaemon() { return false; }
+        @NotModified boolean isDaemon() { return false; }
         void checkAccess() { }
         //override from java.lang.Object
         //@NotModified[H] @NotNull[H]
         public String toString() { return null; }
-        ClassLoader getContextClassLoader() { return null; }
+        @NotModified ClassLoader getContextClassLoader() { return null; }
         void setContextClassLoader(ClassLoader cl) { }
         static boolean holdsLock(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object object) {
             return false;
         }
-        StackTraceElement [] getStackTrace() { return null; }
+        @NotModified StackTraceElement [] getStackTrace() { return null; }
         //@Independent[T]
-        static Map<Thread, StackTraceElement []> getAllStackTraces() { return null; }
-        long getId() { return 0L; }
+        @NotModified static Map<Thread, StackTraceElement []> getAllStackTraces() { return null; }
+        @NotModified long getId() { return 0L; }
         long threadId() { return 0L; }
-        Thread.State getState() { return null; }
+        @NotModified Thread.State getState() { return null; }
         static void setDefaultUncaughtExceptionHandler(Thread.UncaughtExceptionHandler ueh) { }
-        static Thread.UncaughtExceptionHandler getDefaultUncaughtExceptionHandler() { return null; }
-        Thread.UncaughtExceptionHandler getUncaughtExceptionHandler() { return null; }
+        @NotModified static Thread.UncaughtExceptionHandler getDefaultUncaughtExceptionHandler() { return null; }
+        @NotModified Thread.UncaughtExceptionHandler getUncaughtExceptionHandler() { return null; }
         void setUncaughtExceptionHandler(Thread.UncaughtExceptionHandler ueh) { }
     }
 

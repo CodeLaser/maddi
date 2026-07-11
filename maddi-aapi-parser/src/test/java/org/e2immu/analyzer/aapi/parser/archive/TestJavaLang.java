@@ -85,7 +85,9 @@ public class TestJavaLang extends CommonTest {
     public void testStringBuilder() {
         TypeInfo typeInfo = compiledTypesManager().get(StringBuilder.class);
         assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
-        assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
+        // NOT a @Container: getChars(...,char[] dst,...) fills its array argument. The read parameters
+        // (append(Object) etc.) carry @NotModified directly instead - see testStringBuildersAppendNotModified.
+        assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         /*
          There is no specific "length()" method in StringBuilder, we inherit from CharSequence.
@@ -138,7 +140,14 @@ public class TestJavaLang extends CommonTest {
     @Test
     public void testCharSequence() {
         TypeInfo typeInfo = compiledTypesManager().get(CharSequence.class);
-        testImmutableContainer(typeInfo, true);
+        // @Immutable(hc=true) but NOT a @Container: the getChars(...,char[] dst,...) default method fills
+        // its array argument, so dst is @Modified (and no longer forced @NotModified onto String/
+        // StringBuilder/StringBuffer.getChars via override).
+        assertSame(IMMUTABLE_HC, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
+        assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
+        assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
+        MethodInfo getChars = typeInfo.findUniqueMethod("getChars", 4);
+        assertTrue(getChars.parameters().get(2).isModified());
     }
 
     @Test
@@ -418,6 +427,70 @@ public class TestJavaLang extends CommonTest {
         assertSame(INDEPENDENT, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
         assertSame(NOT_NULL, p0.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
         assertSame(FALSE, p0.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE));
+    }
+
+    private MethodInfo appendObject(TypeInfo typeInfo) {
+        for (MethodInfo mi : typeInfo.methods()) {
+            if (mi.name().equals("append") && mi.parameters().size() == 1
+                && mi.parameters().getFirst().parameterizedType().typeInfo() != null
+                && "java.lang.Object".equals(mi.parameters().getFirst().parameterizedType().typeInfo().fullyQualifiedName())) {
+                return mi;
+            }
+        }
+        throw new AssertionError("no append(Object) on " + typeInfo);
+    }
+
+    // StringBuilder/StringBuffer are NOT @Container (getChars fills an output array); instead the
+    // read parameters carry @NotModified directly, e.g. append(Object).
+    @Test
+    public void testStringBuildersAppendNotModified() {
+        for (Class<?> c : new Class<?>[]{StringBuilder.class, StringBuffer.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
+                    () -> c.getSimpleName() + " must not be a @Container");
+            ParameterInfo p0 = appendObject(typeInfo).parameters().getFirst();
+            assertSame(TRUE, p0.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE),
+                    () -> c.getSimpleName() + ".append(Object) parameter must be @NotModified");
+        }
+    }
+
+    // Byte/Short are immutable wrapper value types (no array-output method) -> @ImmutableContainer.
+    @Test
+    public void testByteShortImmutableContainer() {
+        for (Class<?> c : new Class<?>[]{Byte.class, Short.class}) {
+            TypeInfo typeInfo = compiledTypesManager().get(c);
+            assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE),
+                    () -> c.getSimpleName() + " should be deep @Immutable");
+            assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
+                    () -> c.getSimpleName() + " should be a @Container");
+        }
+    }
+
+    // Character is immutable but has toChars(int,char[],int) filling its array -> @Immutable, not @Container.
+    @Test
+    public void testCharacterImmutableNotContainer() {
+        TypeInfo typeInfo = compiledTypesManager().get(Character.class);
+        assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
+        assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
+    }
+
+    // Thread is mutable and not a @Container, so its read accessors need explicit @NotModified;
+    // mutators (setName/start/interrupt) and interrupted() (clears the flag) stay @Modified.
+    @Test
+    public void testThreadGettersNonModifying() {
+        TypeInfo thread = compiledTypesManager().get(Thread.class);
+        for (String g : new String[]{"getName", "getPriority", "isAlive", "isDaemon", "getState"}) {
+            assertFalse(thread.findUniqueMethod(g, 0).isModifying(), () -> "Thread." + g + " must be non-modifying");
+        }
+        assertTrue(thread.findUniqueMethod("setName", 1).isModifying(), "setName modifies");
+        assertTrue(thread.findUniqueMethod("interrupted", 0).isModifying(), "interrupted() clears the flag");
+    }
+
+    @Test
+    public void testStackTraceElementImmutableContainer() {
+        TypeInfo typeInfo = compiledTypesManager().get(StackTraceElement.class);
+        assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
+        assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
 
 }
