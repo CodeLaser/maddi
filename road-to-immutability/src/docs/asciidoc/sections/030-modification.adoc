@@ -69,7 +69,7 @@ We will apply a similar reasoning to a field:
 ****
 *Definition*:
 The analyzer marks a *field* as *modified* when at least one of the type's methods, transitively reachable from a
-non-private non-constructor method, applies at least one assignment to or modifying method to this field's object graph.
+non-private non-constructor method, applies at least one assignment or modifying method to this field's object graph.
 ****
 
 Let us start by agreeing that the methods of `Object` and `String` are all {nm}.
@@ -131,7 +131,7 @@ Adding all elements of a collection to the object (in `addAll`) should not modif
 Other types in the parameters have not been annotated with {nm}:
 
 * `Object` because it is immutable;
-* `E` because it is of an unbound generic type, it has the same methods available as `Object`.
+* `E` because it is of an unbounded generic type, it has the same methods available as `Object`.
 No code visible to implementations of `Collection` can make modifications to `E` without explicit down-casting;
 * `Consumer` because it is a functional interface (an interface with a single abstract method) in `java.util.function`;
 they are {ignoreModifications} by convention, as explained later.

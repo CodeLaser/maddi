@@ -1,6 +1,6 @@
 = Linking by example
 
-Goal is to use this section as a reference: most linking situations should be
+The goal is to use this section as a reference: most linking situations should be
 described here.
 
 Let `X` be an unbound type parameter, and `M` be a mutable type.
@@ -165,7 +165,7 @@ The normal situation for constructors is to link the arguments to the newly cons
 
 == Functional interfaces
 
-The situation becomes more complicated when we consider method arguments that are of functional interface type: method references, lambda's, anonymous classes, and any variable representing such objects.
+The situation becomes more complicated when we consider method arguments that are of functional interface type: method references, lambdas, anonymous classes, and any variable representing such objects.
 
 The analyzer applies the following linking rule:
 

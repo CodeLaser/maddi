@@ -65,7 +65,7 @@ There is currently no plan to implement beyond {nnContent}, however.
 [#identity-and-fluent]
 == Identity and fluent methods
 
-The analyzer marks methods which returns their first parameter with `@Identity`, and methods which return
+The analyzer marks methods which return their first parameter with `@Identity`, and methods which return
 `this` with `@Fluent`.
 The former are convenient to introduce preconditions, the latter occur frequently when chaining methods in builders.
 Here is an integrated example:
@@ -139,7 +139,7 @@ The following need to be true at all times when using types with finalizer metho
 
 . Any field of a type with finalizers must be effectively final (marked with {final}).
 . A finalizer method can only be called on a field inside a method which is marked as a finalizer as well.
-. A finalizer method can never be called on a parameter or any variable linked to it, with linking as defined throughout this document (see <<linking-and-independence>>).
+. A finalizer method can never be called on a parameter or any variable linked to it, with linking as defined throughout this document (see <<linking-dependence>>).
 ****
 
 Interestingly, these restrictions are such that they help you control the life-cycle of objects with a {finalizer}, by not letting them out of sight.
@@ -253,9 +253,9 @@ class Processor {
 }
 ----
 
-<1> symbolises the temporary data to be destroyed after processing
+<1> symbolizes the temporary data to be destroyed after processing
 <2> the field is private, not passed on, no {mark} method is called on it, and it is exposed only in a {finalizer}
-<3> symbolises the modifications that act as processing
+<3> symbolizes the modifications that act as processing
 <4> the result of processing: an eventually immutable object in the same initial state.
 
 The purpose of a _finisher_ is to receive an object in the {beforeMark} state, and return it in the final state.
@@ -290,9 +290,9 @@ class Finisher {
 }
 ----
 
-<1> symbolises the temporary data to be destroyed.
+<1> symbolizes the temporary data to be destroyed.
 <2> only possible because the transition occurs in a {finalizer} method
-<3> symbolises the modifications that act as finishing
+<3> symbolizes the modifications that act as finishing
 <4> the result of finishing: an eventually immutable object in its end-state.
 
 

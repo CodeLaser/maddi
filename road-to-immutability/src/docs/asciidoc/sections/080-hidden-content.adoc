@@ -255,7 +255,7 @@ public ImmutableOne(@Independent(hc=true) T t) {
 }
 ----
 
-Returning a part of the hidden content of the type, or exposing it as argument, both warrants a {independentHc}
+Returning a part of the hidden content of the type, or exposing it as argument, both warrant a {independentHc}
 annotation:
 
 .Example {counter:example}, more methods of `ImmutableOne`
@@ -273,7 +273,7 @@ public void visit(@Independent(hc=true) Consumer<T> consumer) {
 }
 ----
 
-Observe that content dependence implies absence of dependence, as described in <<linking-and-independence>>
+Observe that content dependence implies absence of dependence, as described in <<linking-dependence>>
 and <<computing-dependence>>, exactly because we are dealing with type parameters of an immutable type.
 
 Another place where the hidden content linking can be seen, is the _for-each_ statement:

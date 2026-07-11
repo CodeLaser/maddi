@@ -3,9 +3,9 @@
 
 This document aims to be a logical walk through of the concepts of the {maddi} project.
 It does not intend to be complete, and is not structured for reference.
-The acronym {maddi} stands for __m__odification __a__nalyzer for __d__uplicatation __d__etection and __i__mmutability.
+The acronym {maddi} stands for __m__odification __a__nalyzer for __d__uplication __d__etection and __i__mmutability.
 
-The overarching aim of the {maddi} project is to improve every day programming by making code more readable, more robust, and more future-proof.
+The overarching aim of the {maddi} project is to improve everyday programming by making code more readable, more robust, and more future-proof.
 Concretely, the project focuses on adding various forms of immutability protections to your Java code base, by making the (im)mutable nature of the types more visible.
 
 _Why Java?_ As a widely used object-oriented programming language, it has evolved over the years, and it has been increasingly equipped with functional programming machinery.
@@ -17,7 +17,7 @@ _Why immutability?_ An important aspect of understanding the code of large softw
 _object lifecycle_ of the data it manages: when and how are these objects modified?
 In object-oriented programming, full of public getters and setters, objects can be modified all the time.
 In many a functional set-up, objects are immutable but new immutable versions pop up all the time.
-Java allows for the whole scala from object-oriented to functional, and the whole ecosystem reflects this choice.
+Java allows for the whole scale from object-oriented to functional, and the whole ecosystem reflects this choice.
 
 An easy way to envisage the life cycle of an object is to assume that it consists of a building phase, followed by an immutable phase.
 We set out to show that there are different forms of immutability, from very strict deep immutability to weak guarantees of non-modification, that can be made visible in the code.
@@ -29,7 +29,7 @@ Using {maddi} in your project will help to maintain higher coding standards, the
 A _lack of references to academic literature_ in this version of the document is explained by the fact that this is my first foray into the world of static code analyzers, and theory of software engineering and programming languages.
 Academically coming from the theory of machine learning, I spent two decades writing software and managing teams of software engineers.
 This work builds on that practical experience alone.
-I did not consult or research the literature, and I realise I may be duplicating quite a lot here.
+I did not consult or research the literature, and I realize I may be duplicating quite a lot here.
 
 [#assumptions]
 == Assumptions

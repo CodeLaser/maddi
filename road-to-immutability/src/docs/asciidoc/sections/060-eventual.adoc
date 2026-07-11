@@ -1,7 +1,7 @@
 [[eventual-immutability]]
 = Eventual immutability
 
-In this section we explore types which follow a two-phase life cycle: the start off as mutable, then somehow become
+In this section we explore types which follow a two-phase life cycle: they start off as mutable, then somehow become
 immutable.
 
 == Builders
@@ -231,7 +231,7 @@ public SimpleImmutableSet1 create() {
 ----
 
 Similarly, the analyzer can compute a parameter to be {beforeMark}, when in the method, at least one before-mark
-methods is called on the parameter.
+method is called on the parameter.
 
 Finally, a field can even be {beforeMark}, when it is created or arrives in the type as {beforeMark}, and stays in
 this state.
@@ -256,7 +256,7 @@ Since in an IDE it is not too easy to have multiple visual markers, it seems bes
 state.
 
 When a type is effectively {finalFields} (not eventually), all fields are effectively final.
-The analyzer wants to emphasise the rules needed to obtain (eventual) immutability, by clearly indicating which fields
+The analyzer wants to emphasize the rules needed to obtain (eventual) immutability, by clearly indicating which fields
 break the immutability rules.
 
 Eventual finality simply adds a `@Final(after="mark")` annotation to each of these situations.
