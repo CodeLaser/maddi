@@ -1,0 +1,47 @@
+[[error-reporting]]
+= Reading the output: errors, warnings, exit codes
+
+A run reports what happened in two channels: a human-readable *summary* logged at the end, and a
+*process exit code*.
+
+== Errors versus warnings
+
+{maddi} distinguishes two severities, because it analyzes with a partial classpath and must tolerate the
+gaps:
+
+*Warnings* are non-fatal. The most common is a reference to a type that is not on the classpath — from
+either front-end (the openjdk parser surfaces javac's diagnostics; the in-house parser surfaces its
+unresolved-type resolutions). Warnings do not stop the run and do not, on their own, make it fail. They
+are listed in the summary with their file, line and column, capped to keep the output readable.
+
+*Errors* are genuine failures: a syntax error, an IO failure setting up a source set, or an exception
+during analysis. Errors are listed in the summary and drive the exit code.
+
+== The summary
+
+Unless `--quiet` (CLI) / `quiet = true` (Gradle) is set, the run prints, at the end, the collected
+errors and warnings — each with its location and message. This is the first thing to read when a run
+does not produce the results you expected.
+
+== Exit codes
+
+The exit code reflects the outcome; a parse error never yields `0`. The full table is in
+<<appendix-exit-codes>>. In short:
+
+* `0` — success;
+* `2` — a parser/inspection error (a source failed to parse);
+* `4` — an IO failure;
+* `5` — an analyzer error (the modification analysis threw);
+* `1` — an unexpected internal error.
+
+The Gradle plugin turns any non-zero code into a task failure; the Maven plugin fails the build; the
+CLI returns the code from `main` (a launcher will `System.exit` with it).
+
+== Fail-fast versus accumulate
+
+The parse can run in *fail-fast* mode (stop and report at the first error) or *accumulate* mode (collect
+all errors, then report). The openjdk runner accumulates by default; a single syntax error still yields
+a parser exit code, but you see every problem the parse found rather than only the first.
+
+// TODO: once the model-unification work lands, document a `failOnWarning` policy and any SARIF /
+// Gradle-Problems output.

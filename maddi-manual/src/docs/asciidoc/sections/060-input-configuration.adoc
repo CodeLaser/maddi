@@ -1,0 +1,46 @@
+[[input-configuration]]
+= The input configuration
+
+Whatever front door you use, the analyzer ultimately consumes one object: the *input configuration*. It
+is worth understanding, because it is the thing you serialize (`--write-input-configuration`), inspect,
+and hand around.
+
+== What it contains
+
+An input configuration is:
+
+* a set of *source sets* — each a named group of source directories (e.g. `main`, `test`), with an
+  encoding, a test flag, an optional package restriction, and *dependencies* on other source sets;
+* a set of *class-path parts* — the compiled libraries (jars/directories) and JDK modules the sources
+  are analyzed against;
+* a working directory (relative paths are resolved against it), and an optional alternative JRE.
+
+Source sets carry a dependency graph, which the analyzer linearizes so that a set is analyzed after the
+sets it depends on. Class-path parts marked as JDK modules use the `jmod:` URI scheme.
+
+== The three ways to build one
+
+[cols="1,3",options="header"]
+|===
+| Way | How it is derived
+
+| Build-tool plugins
+| The <<gradle-plugin>> and <<maven-plugin>> read their build model — source sets and the *resolved*
+  compile classpath — directly. This is the most faithful for a project you own.
+
+| Compile-log capture
+| `--compile-log` (<<command-line>>) reconstructs the configuration from the compiler command lines a
+  build actually issued (`javac`/`kotlinc`). Because it consumes what the compiler was told, it works
+  for *any* build system, not just Gradle/Maven.
+
+| Explicit / serialized
+| The CLI `--source`/`--classpath`/`--jmod` flags build one by hand; `--input-configuration` reads a
+  previously written one.
+|===
+
+== Partial classpaths are fine
+
+The analyzer does not require every transitive dependency. A reference to a type that is not on the
+classpath is reported as a *warning* and the run continues (see <<error-reporting>>). In practice you
+add just enough of the classpath for the analysis to be meaningful; library types you care about are
+better supplied as pre-computed *analysis hints* (<<analysis-hints>>) than as full jars.

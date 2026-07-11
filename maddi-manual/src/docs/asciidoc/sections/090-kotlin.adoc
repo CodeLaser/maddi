@@ -1,0 +1,37 @@
+[[kotlin]]
+= Kotlin and mixed projects
+
+{maddi} has a Kotlin front-end (built on the Kotlin K2 analysis API) and a *mixed inspector* that parses
+Java and Kotlin over one shared core, so a cross-language reference (a Java class using a Kotlin type,
+or vice versa) resolves to a single type.
+
+== What works today
+
+* *Source-set collection.* The Gradle plugin recognizes Kotlin source directories and can emit a mixed
+  input configuration (see <<gradle-plugin>>).
+* *Mixed input-configuration derivation.* The compile-log path reconstructs a mixed configuration from a
+  build log containing both `javac` and `kotlinc` invocations (see <<command-line>>).
+* *Prep analysis.* The `run-kotlin` runner parses a mixed project (each type placed in its own source
+  set, honouring the classpath) and runs the *prep* analysis — call graph and analysis order — over the
+  combined Java+Kotlin types.
+
+[source,console]
+----
+$ ./gradlew :maddi-run-kotlin:run --args="--compile-log mixed-build.log"
+----
+
+== Current limits
+
+[CAUTION]
+====
+Kotlin/mixed support is *prep-only* for now:
+
+* the *modification* analysis is not yet run on mixed projects;
+* the Gradle `e2immu-analyzer` task drives only the Java (openjdk) analyzer, so it does not yet analyze
+  `.kt` (Kotlin sources are recorded in the configuration but skipped by that task);
+* the mixed inspector's cross-language scope has known follow-ups (some Java↔Java and both-direction
+  cross-language cases);
+* the Kotlin front-end's own language coverage is still growing.
+====
+
+This section will grow as the Kotlin/mixed pipeline moves beyond prep.

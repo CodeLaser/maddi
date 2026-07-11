@@ -1,0 +1,84 @@
+[[gradle-plugin]]
+= The Gradle plugin
+
+The Gradle plugin (id `org.e2immu.analyzer-plugin`) derives the input configuration from your project's
+source sets and resolved classpath, then runs the analyzer in a forked worker JVM (so the required
+`--add-exports` are injected without touching your build's daemon).
+
+== Applying it and the tasks
+
+[source,kotlin]
+----
+plugins {
+    java                               // or java-library
+    id("org.e2immu.analyzer-plugin")
+}
+----
+
+It registers two tasks (group `e2immu`):
+
+`e2immu-analyzer`:: Run the analyzer over the project and write results. Depends on `compileJava`
+(and `compileKotlin` when the Kotlin JVM plugin is applied). Declares its source files and classpath
+as inputs and the results directory as its output, so Gradle skips it when nothing relevant changed.
+
+`e2immu-write-input-configuration`:: Write the computed input configuration to
+`build/inputConfiguration.json` without running the analysis — useful for inspection, or to hand to
+the CLI later (see <<command-line>>).
+
+== The `e2immu` extension
+
+Configure the run through the `e2immu` extension block. All options are optional.
+
+[cols="1,1,3",options="header"]
+|===
+| Option | Type | Meaning
+
+| `analysisSteps` | String | Comma-separated steps to run: `none`, `prep`, `modification`,
+`rewire-tests`. Absent runs the default pipeline.
+| `analysisResultsDir` | String | Where result `.json` files are written. Default `<build>/e2immu`.
+| `incrementalAnalysis` | boolean | Build on results already present in the results directory.
+| `parallel` | boolean | Parallelize the analysis where possible.
+| `quiet` | boolean | Suppress the end-of-run summary (the exit code still reflects the outcome).
+| `debugTargets` | String | Debug channels to enable (e.g. `memory`).
+
+| `sourcePackages` | String | Restrict analysis to these packages (dot-suffix includes sub-packages).
+| `testSourcePackages` | String | As above, for test sources.
+| `jmods` | String | JDK modules to add to the classpath (e.g. `java.base`).
+| `jre` | String | Alternative JRE location.
+| `excludeFromClasspath` | String | Jar names/coordinates to drop from the classpath.
+| `workingDirectory` | String | Base directory the analyzer resolves relative paths against.
+
+| `preloadAnalysisResultsDirs` | String | Directories of pre-computed analysis results to load for
+library types (see <<analysis-hints>>, use case 1).
+| `analysisResultsTargetDir` | String | Compile analysis-hint sources into results here (use case 2).
+| `updatedHintsDir`, `updatedHintsPackage`, `hintsPackages` | String | Write updated hint files
+(use case 3).
+|===
+
+Example:
+
+[source,kotlin]
+----
+e2immu {
+    analysisSteps = "modification"
+    sourcePackages = "com.example."           // this package and below
+    jmods = "java.base"
+    excludeFromClasspath = "some-noisy-lib.jar"
+}
+----
+
+== Configuration cache and up-to-date behaviour
+
+The plugin is built on lazily-configured tasks and holds no `Project` reference at execution time, so
+it is compatible with Gradle's configuration cache. Because `e2immu-analyzer` declares its inputs and
+output, a second run with unchanged sources and classpath is `UP-TO-DATE`.
+
+== Kotlin-aware source-set collection
+
+When the Kotlin JVM plugin is applied, the plugin also collects each source set's Kotlin source
+directories (and depends on `compileKotlin`), so `e2immu-write-input-configuration` produces a correct
+mixed Java+Kotlin configuration.
+
+CAUTION: The `e2immu-analyzer` task itself currently drives the *openjdk (Java)* analyzer, which parses
+only `.java`; Kotlin sources in the configuration are recorded but not yet analyzed by this task. See
+<<kotlin>> for the state of Kotlin/mixed analysis.

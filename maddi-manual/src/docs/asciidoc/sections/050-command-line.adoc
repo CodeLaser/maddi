@@ -1,0 +1,69 @@
+[[command-line]]
+= The command line
+
+There are two command-line entry points, both requiring the javac `--add-exports` from <<overview>>
+on the launching JVM:
+
+* the *openjdk runner* (`org.e2immu.analyzer.run.openjdkmain.Main`) — the primary CLI, for Java projects;
+* the *Kotlin/mixed runner* (`org.e2immu.analyzer.run.kotlinmain.Main`) — for mixed Java+Kotlin, prep
+  only (see <<kotlin>>).
+
+In the examples below, `maddi` stands for a launcher that starts the appropriate main class with the
+`--add-exports` already applied (the `run-openjdk` / `run-kotlin` modules apply Gradle's `application`
+plugin, so `./gradlew :maddi-run-openjdk:run --args="…"` works too).
+
+== Providing the input
+
+The openjdk CLI accepts the input configuration in three mutually-exclusive ways (checked in this
+order):
+
+`--input-configuration <file.json>`:: Read a previously written input configuration.
+`--compile-log <file>`:: Derive it from a build/compiler log — raw `javac …` lines, Gradle
+`Compiler arguments: …` lines, or Maven `[DEBUG] -d …` lines; `.gz` is accepted. Add `--extra-jmod
+<module>` (repeatable) to widen the JDK-module closure.
+Explicit flags:: `--source <dirs>`, `--test-source <dirs>`, `--classpath <cp>`, `--jmod <module>`,
+`--source-packages <pkgs>`, `--test-source-packages`, `--exclude-from-classpath`.
+
+See <<input-configuration>> for what these build.
+
+== Choosing what to run
+
+`--analysis-steps <steps>`:: `none`, `prep`, `modification`, `rewire-tests` (comma-separated).
+`--analysis-results-dir <dir>`:: Where results are written.
+`--preload-analysis-results-dirs <dirs>`:: Load pre-computed analysis results for library types
+before modification analysis (see <<analysis-hints>>).
+`-p`/`--parallel`, `--quiet`, `-d`/`--debug <targets>`, `--jre <dir>`, `--source-encoding <enc>`.
+
+== Two workflows
+
+*Derive once, run many.* `--write-input-configuration <file>` writes the (derived) input configuration
+and exits without analyzing — capture a project's configuration, then re-run against it:
+
+[source,console]
+----
+$ maddi --compile-log build.log --extra-jmod java.sql --write-input-configuration project.json
+$ maddi --input-configuration project.json --analysis-steps modification --analysis-results-dir out
+----
+
+*Straight run from a log.*
+
+[source,console]
+----
+$ maddi --compile-log build.log --analysis-steps prep --analysis-results-dir out
+----
+
+== The Kotlin/mixed runner
+
+The `run-kotlin` CLI mirrors the openjdk one for mixed projects. It takes `--compile-log <mixed log>`
+(a log containing both `javac` and `kotlinc` invocations, parsed into one configuration) or
+`--input-configuration <json>`, runs the *prep* analysis, and prints a summary:
+
+[source,console]
+----
+$ ./gradlew :maddi-run-kotlin:run --args="--compile-log mixed-build.log"
+----
+
+== Exit codes
+
+Every run returns a code: `0` on success, and distinct non-zero codes for parser / IO / analyzer
+failures. See <<appendix-exit-codes>>. A parse error never returns `0`.

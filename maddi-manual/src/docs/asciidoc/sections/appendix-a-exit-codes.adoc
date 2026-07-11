@@ -1,0 +1,21 @@
+[[appendix-exit-codes]]
+= Exit codes
+
+Every runner returns one of these process exit codes (shared across the openjdk, in-house and Kotlin
+runners). A parse error never returns `0`.
+
+[cols="1,2,4",options="header"]
+|===
+| Code | Name | Meaning
+
+| `0` | OK | The run completed; results (if any step wrote them) are in the results directory.
+| `1` | Internal exception | An unexpected error not attributable to a specific phase.
+| `2` | Parser error | One or more sources failed to parse (or a fail-fast parse aborted on the first).
+| `3` | Inspection error | An error during type inspection. (Reserved; parse-phase failures currently
+map to `2`.)
+| `4` | IO exception | An IO failure — e.g. a source directory or classpath entry could not be read.
+| `5` | Analyser error | The modification analysis threw.
+|===
+
+TIP: Unresolved references to types not on the (partial) classpath are *warnings*, not errors — they do
+not change the exit code. See <<error-reporting>>.

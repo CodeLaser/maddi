@@ -1,0 +1,38 @@
+[[analysis-hints]]
+= Analysis hints
+
+{maddi} cannot analyze the source of the libraries you depend on — you rarely have it, and even the JDK
+is only available as bytecode. *Analysis hints* fill that gap: hand-written `.java` files that annotate
+a library's public API surface (`@Immutable`, `@Container`, `@NotModified`, `@NotNull`, …) with the
+conclusions the analyzer would have drawn had it seen the source.
+
+Compiling those hint sources produces *analysis results* (`.json`) — the same format the analyzer emits
+for your own code — which are then loaded before your project is analyzed, so calls into those
+libraries resolve to real annotations instead of unknowns.
+
+The JDK and a set of common libraries ship pre-annotated in the `maddi-aapi-archive` module.
+
+== The three use cases
+
+Use case 1 — *load* pre-computed results::
+Point `preloadAnalysisResultsDirs` (extension / `--preload-analysis-results-dirs`) at directories of
+analysis-result `.json` files. Loaded before modification analysis so library types have annotations.
+
+Use case 2 — *compile* hints into results::
+Turn a directory of hand-written hint sources into result `.json` files. Gradle:
+`analysisResultsTargetDir`; Maven: the `compile-analysis-hints` goal; CLI: an
+`--analysis-results-target-dir`.
+
+Use case 3 — *write* first-cut hints::
+Generate skeleton hint sources for the library types your project actually calls into (annotated with
+call-frequency comments), as a starting point to curate. Gradle: `updatedHintsDir` /
+`updatedHintsPackage`; Maven: the `write-analysis-hints` goal.
+
+// TODO: expand — the on-disk layout of the archive (jdk/, libs/), how to add hints for your own
+// library end-to-end, and how the default-location preload is intended to work once wired.
+[NOTE]
+====
+*Status.* Out of the box the runner only preloads results when you *explicitly* point it at them; an
+automatic "default location" preload of the shipped JDK/library results is not yet wired into the
+openjdk runner. Until then, supply `preloadAnalysisResultsDirs` yourself to get library annotations.
+====
