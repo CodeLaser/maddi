@@ -242,7 +242,7 @@ public class TestLinkMethodCall extends CommonTest {
     @DisplayName("returning an array element: return value links to the element and is an element of the array")
     @Test
     public void arrayElement() {
-        assertEquals("[-] --> arrayElement←0:boxes[0],arrayElement∈0:boxes", link("arrayElement"));
+        assertEquals("[-] --> arrayElement∈0:boxes,arrayElement←0:boxes[0]", link("arrayElement"));
     }
 
     @DisplayName("returning a two-dimensional array element: nested element-of links to the array")

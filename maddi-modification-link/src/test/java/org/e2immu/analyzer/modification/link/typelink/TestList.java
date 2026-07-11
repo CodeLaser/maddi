@@ -139,7 +139,7 @@ public class TestList extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo prev0 = vd0.variableInfo("prev");
         Links tlvPrev0 = prev0.linkedVariablesOrEmpty();
-        assertEquals("prev←1:x.ts[0:i],prev∈1:x.ts", tlvPrev0.toString());
+        assertEquals("prev∈1:x.ts,prev←1:x.ts[0:i]", tlvPrev0.toString());
 
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
         // order of processing
