@@ -16,8 +16,10 @@ plugins {
     id("java-library-conventions")
 }
 java {
-    sourceCompatibility = JavaVersion.VERSION_25
-    targetCompatibility = JavaVersion.VERSION_25
+    // 26 (not 25 like most Java modules): this module consumes the Kotlin front-end modules (maddi-inspection-mixed
+    // / -kotlin-k2), which the Kotlin plugin compiles to the daemon JDK's bytecode version (26).
+    sourceCompatibility = JavaVersion.VERSION_26
+    targetCompatibility = JavaVersion.VERSION_26
 }
 dependencies {
     api(project(":maddi-inspection-api"))
@@ -26,10 +28,25 @@ dependencies {
     // for ParseMixedList: reuse the javac line reader so one log's javac + kotlinc invocations link in one pass
     implementation(project(":maddi-run-openjdk"))
 
+    // the prep-only mixed runner (RunMixedPrepAnalyzer)
+    implementation(project(":maddi-inspection-mixed"))      // MixedInspector: shared-core Java+Kotlin parse
+    implementation(project(":maddi-modification-prepwork")) // PrepAnalyzer, ComputeAnalysisOrder
+    implementation(project(":maddi-graph"))                 // G<Info>
+
     testImplementation(project(":maddi-cst-impl"))
     testImplementation("com.fasterxml.jackson.core:jackson-databind")
 }
 
-tasks.test {
+// the openjdk (javac) front-end that MixedInspector uses reaches into these javac internals
+val javacAddExports = listOf(
+    "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+    "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+    "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+    "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+    "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+)
+
+tasks.withType<Test> {
     useJUnitPlatform()
+    jvmArgs(javacAddExports)
 }
