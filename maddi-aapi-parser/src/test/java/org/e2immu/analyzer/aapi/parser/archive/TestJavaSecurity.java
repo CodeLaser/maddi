@@ -22,9 +22,13 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.junit.jupiter.api.Test;
 
 import java.security.MessageDigest;
+import java.security.Principal;
 import java.security.SecureRandom;
 import java.util.stream.Collectors;
 
+import static org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_TYPE;
+import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
+import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestJavaSecurity extends CommonTest {
@@ -72,5 +76,13 @@ public class TestJavaSecurity extends CommonTest {
         MethodInfo methodInfo = typeInfo.findUniqueMethod("getDigestLength", 0);
         assertFalse(methodInfo.allowsInterrupts());
         assertFalse(methodInfo.isModifying());
+    }
+
+    // Principal is a read-only identity interface: getName()/implies(Subject) never modify a
+    // parameter, so it is a @Container.
+    @Test
+    public void testPrincipalContainer() {
+        TypeInfo typeInfo = compiledTypesManager().get(Principal.class);
+        assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
 }

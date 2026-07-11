@@ -667,6 +667,18 @@ public class TestJavaUtil extends CommonTest {
         }
     }
 
+    // Their read methods must be non-modifying, while the mutating ones stay @Modified.
+    @Test
+    public void testMutableContainerUtilityQueries() {
+        assertFalse(compiledTypesManager().get(BitSet.class).findUniqueMethod("cardinality", 0).isModifying());
+        assertFalse(compiledTypesManager().get(BitSet.class).findUniqueMethod("get", 1).isModifying());
+        assertTrue(compiledTypesManager().get(BitSet.class).findUniqueMethod("flip", 1).isModifying());
+        assertFalse(compiledTypesManager().get(StringJoiner.class).findUniqueMethod("length", 0).isModifying());
+        assertTrue(compiledTypesManager().get(StringJoiner.class).findUniqueMethod("add", 1).isModifying());
+        assertFalse(compiledTypesManager().get(StringTokenizer.class).findUniqueMethod("countTokens", 0).isModifying());
+        assertTrue(compiledTypesManager().get(StringTokenizer.class).findUniqueMethod("nextToken", 0).isModifying());
+    }
+
     @Test
     public void testTreeMapSortedMapConstructor() {
         TypeInfo typeInfo = compiledTypesManager().get(TreeMap.class);

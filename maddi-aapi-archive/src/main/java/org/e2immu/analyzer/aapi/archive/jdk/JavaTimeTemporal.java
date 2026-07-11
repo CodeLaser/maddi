@@ -17,9 +17,12 @@ import java.time.Duration;
 import java.time.temporal.*;
 import java.util.List;
 
+import org.e2immu.annotation.ImmutableContainer;
+
 public class JavaTimeTemporal {
     public static final String PACKAGE_NAME = "java.time.temporal";
     //public enum ChronoUnit extends Enum<ChronoUnit> implements TemporalUnit
+    @ImmutableContainer
     class ChronoUnit$ {
         //@NotNull[O]
         static final ChronoUnit NANOS = null;
@@ -98,6 +101,7 @@ public class JavaTimeTemporal {
     }
 
     //public interface Temporal implements TemporalAccessor
+    @ImmutableContainer
     class Temporal$ {
         boolean isSupported(TemporalUnit temporalUnit) { return false; }
         Temporal with(TemporalAdjuster adjuster) { return null; }
@@ -112,6 +116,7 @@ public class JavaTimeTemporal {
     }
 
     //public interface TemporalAccessor
+    @ImmutableContainer
     class TemporalAccessor$ {
         boolean isSupported(TemporalField temporalField) { return false; }
         ValueRange range(TemporalField field) { return null; }
@@ -122,9 +127,11 @@ public class JavaTimeTemporal {
     }
 
     //public interface TemporalAdjuster
+    @ImmutableContainer(hc = true)
     class TemporalAdjuster$ {Temporal adjustInto(Temporal temporal) { return null; } }
 
     //public interface TemporalAmount
+    @ImmutableContainer
     class TemporalAmount$ {
         long get(TemporalUnit temporalUnit) { return 0L; }
         List<TemporalUnit> getUnits() { return null; }
@@ -133,6 +140,7 @@ public class JavaTimeTemporal {
     }
 
     //public interface TemporalUnit
+    @ImmutableContainer
     class TemporalUnit$ {
         Duration getDuration() { return null; }
         boolean isDurationEstimated() { return false; }

@@ -13,6 +13,7 @@
  */
 
 package org.e2immu.analyzer.aapi.archive.jdk;
+import org.e2immu.annotation.NotModified;
 import org.e2immu.annotation.Commutable;
 
 import java.beans.PropertyChangeListener;
@@ -32,35 +33,35 @@ public class JavaxSwingTable {
         TableColumn$(int modelIndex, int width) { }
         TableColumn$(int modelIndex, int width, TableCellRenderer cellRenderer, TableCellEditor cellEditor) { }
         void setModelIndex(int modelIndex) { }
-        int getModelIndex() { return 0; }
+        @NotModified int getModelIndex() { return 0; }
         void setIdentifier(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object identifier) { }
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]
-        Object getIdentifier() { return null; }
+        @NotModified Object getIdentifier() { return null; }
         void setHeaderValue(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object headerValue) { }
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]
-        Object getHeaderValue() { return null; }
+        @NotModified Object getHeaderValue() { return null; }
         void setHeaderRenderer(TableCellRenderer headerRenderer) { }
-        TableCellRenderer getHeaderRenderer() { return null; }
+        @NotModified TableCellRenderer getHeaderRenderer() { return null; }
         void setCellRenderer(TableCellRenderer cellRenderer) { }
-        TableCellRenderer getCellRenderer() { return null; }
+        @NotModified TableCellRenderer getCellRenderer() { return null; }
         void setCellEditor(TableCellEditor cellEditor) { }
-        TableCellEditor getCellEditor() { return null; }
+        @NotModified TableCellEditor getCellEditor() { return null; }
         void setWidth(int width) { }
-        int getWidth() { return 0; }
+        @NotModified int getWidth() { return 0; }
         @Commutable
         void setPreferredWidth(int preferredWidth) { }
-        int getPreferredWidth() { return 0; }
+        @NotModified int getPreferredWidth() { return 0; }
         void setMinWidth(int minWidth) { }
-        int getMinWidth() { return 0; }
+        @NotModified int getMinWidth() { return 0; }
         void setMaxWidth(int maxWidth) { }
-        int getMaxWidth() { return 0; }
+        @NotModified int getMaxWidth() { return 0; }
         void setResizable(boolean isResizable) { }
-        boolean getResizable() { return false; }
+        @NotModified boolean getResizable() { return false; }
         void sizeWidthToFit() { }
         void disableResizedPosting() { }
         void enableResizedPosting() { }
         void addPropertyChangeListener(PropertyChangeListener listener) { }
         void removePropertyChangeListener(PropertyChangeListener listener) { }
-        PropertyChangeListener [] getPropertyChangeListeners() { return null; }
+        @NotModified PropertyChangeListener [] getPropertyChangeListeners() { return null; }
     }
 }

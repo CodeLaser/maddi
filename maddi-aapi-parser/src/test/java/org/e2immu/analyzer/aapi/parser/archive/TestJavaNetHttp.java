@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
@@ -91,6 +92,15 @@ public class TestJavaNetHttp extends CommonTest {
         assertSame(TRUE, methodInfo.analysis().getOrDefault(FLUENT_METHOD, FALSE));
         assertSame(DEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
         assertSame(MUTABLE, methodInfo.analysis().getOrDefault(IMMUTABLE_METHOD, MUTABLE));
+    }
+
+    // HttpResponse<T> is an immutable read-only view of a response -> @Immutable(hc=true) + @Container.
+    @Test
+    public void testHttpResponseImmutableContainer() {
+        TypeInfo typeInfo = compiledTypesManager().get(HttpResponse.class);
+        Value.Immutable imm = (Value.Immutable) typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE);
+        assertTrue(imm.isAtLeastImmutableHC());
+        assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
 
     private void testCommutable(MethodInfo methodInfo) {

@@ -13,6 +13,7 @@
  */
 
 package org.e2immu.analyzer.aapi.archive.jdk;
+import org.e2immu.annotation.Container;
 import org.e2immu.annotation.ImmutableContainer;
 import org.e2immu.annotation.Independent;
 import org.e2immu.annotation.NotModified;
@@ -53,6 +54,8 @@ public class JavaSecurity {
     }
 
     //public interface Principal
+    // read-only identity: getName()/implies(Subject) never modify a parameter
+    @Container
     class Principal$ {
         //override from java.lang.Object
         //@NotModified[H]
