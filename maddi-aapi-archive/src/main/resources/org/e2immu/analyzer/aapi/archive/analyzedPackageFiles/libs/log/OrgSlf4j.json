@@ -4,7 +4,7 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}}},
 
 {"name": "Torg.slf4j.Logger", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
- {"name": "FROOT_LOGGER_NAME(0)", "data":{"annotatedApi":1,"finalField":1,"unmodifiedField":1}},
+ {"name": "FROOT_LOGGER_NAME(0)", "data":{"annotatedApi":1,"finalField":1,"immutableField":2,"unmodifiedField":1}},
  {"name": "MatDebug(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MatError(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MatInfo(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},

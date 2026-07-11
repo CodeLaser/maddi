@@ -51,6 +51,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final Set<TypeInfo> typeAnnotationsLoaded = Collections.newSetFromMap(new IdentityHashMap<>());
     // interfaces are likewise appended (addInterfaceImplemented), so a second pass would duplicate them: guard too
     private final Set<TypeInfo> typeInterfacesLoaded = Collections.newSetFromMap(new IdentityHashMap<>());
+    // the type-setup block (access, type parameters, parent class, interfaces) must run exactly once per type,
+    // and BEFORE the type is committed. Normally a LAZILY load does it and a later COMPLETE relies on that; but a
+    // type reached only via bytecode (e.g. a transitively-referenced JDK internal) can arrive at COMPLETE without a
+    // prior LAZILY, leaving parentClass/access null -> commit fails. Guarding on this set lets COMPLETE run the
+    // setup when it was skipped, while never running it twice (which would re-create/commit type parameters).
+    private final Set<TypeInfo> typeSetupDone = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<String, TypeInfo> predefinedTypes = new HashMap<>();
     private final Deque<Map<String, TypeParameter>> typeParameterStack = new ArrayDeque<>();
     private final Map<String, SourceSet> sourceSetMap;
@@ -242,7 +248,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             //The following completely loads 'cs', so leave it here even though it can move nearer to its usage
             List<? extends Element> members = elements.getAllMembers(cs);
             flagHelper.type(cs, builder);
-            if (loadMode != LoadMode.COMPLETE) {
+            if (typeSetupDone.add(newTypeInfo)) {
                 // ensure that the enclosing types have at least been lazily loaded; so that we can compute access
                 // as soon as possible
                 if (newTypeInfo.compilationUnitOrEnclosingType().isRight()) {
