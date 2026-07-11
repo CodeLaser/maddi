@@ -16,45 +16,73 @@
 plugins {
     `java-gradle-plugin`
     id("java-library-conventions")
+    // Shadow: bundle the (Kotlin-free) Java analyzer into the plugin jar so it is self-contained.
+    // We do not publish the fine-grained analyzer modules (see PUBLISHING.md), so the plugin cannot
+    // declare Maven dependencies on them — it ships them inside its own jar instead.
+    id("com.gradleup.shadow") version "9.2.2"
 }
 java {
     sourceCompatibility = JavaVersion.VERSION_25
     targetCompatibility = JavaVersion.VERSION_25
 }
-dependencies {
-    api(project(":maddi-inspection-api"))
-    implementation(project(":maddi-modification-common"))
-    implementation(project(":maddi-modification-prepwork"))
-    implementation(project(":maddi-modification-link"))
-    implementation(project(":maddi-modification-analyzer"))
-    implementation(project(":maddi-graph"))
-    implementation(project(":maddi-util"))
-    implementation(project(":maddi-cst-analysis"))
 
-    implementation(project(":maddi-cst-impl"))
-    implementation(project(":maddi-cst-io"))
-    implementation(project(":maddi-cst-print"))
-    implementation(project(":maddi-inspection-parser"))
-    implementation(project(":maddi-inspection-integration"))
-    implementation(project(":maddi-inspection-resource"))
-    implementation(project(":maddi-java-bytecode"))
-    implementation(project(":maddi-java-parser"))
-    implementation(project(":maddi-aapi-parser"))
+// The analyzer modules and their third-party transitives (jackson, logback, asm, congocc, ...) go into
+// `shade`: everything here is bundled into the shadow jar. `implementation` extends it so the same
+// artifacts are on the compile/runtime classpath. gradleApi() (added to `api` by java-gradle-plugin)
+// is deliberately NOT in `shade` — Gradle provides it at runtime, so it must not be bundled.
+val shade: Configuration by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+configurations.named("implementation") { extendsFrom(shade) }
+
+dependencies {
+    shade(project(":maddi-inspection-api"))
+    shade(project(":maddi-modification-common"))
+    shade(project(":maddi-modification-prepwork"))
+    shade(project(":maddi-modification-link"))
+    shade(project(":maddi-modification-analyzer"))
+    shade(project(":maddi-graph"))
+    shade(project(":maddi-util"))
+    shade(project(":maddi-cst-analysis"))
+
+    shade(project(":maddi-cst-impl"))
+    shade(project(":maddi-cst-io"))
+    shade(project(":maddi-cst-print"))
+    shade(project(":maddi-inspection-parser"))
+    shade(project(":maddi-inspection-integration"))
+    shade(project(":maddi-inspection-resource"))
+    shade(project(":maddi-java-bytecode"))
+    shade(project(":maddi-java-parser"))
+    shade(project(":maddi-aapi-parser"))
     testRuntimeOnly(project(":maddi-aapi-archive"))
 
-    implementation(project(":maddi-run-config"))
-    implementation(project(":maddi-run-main")) // GeneralConfiguration/InputConfiguration property mapping
-    implementation(project(":maddi-run-openjdk")) // the openjdk-parser-based RunAnalyzer, run in a forked worker
+    shade(project(":maddi-run-config"))
+    shade(project(":maddi-run-main")) // GeneralConfiguration/InputConfiguration property mapping
+    shade(project(":maddi-run-openjdk")) // the openjdk-parser-based RunAnalyzer, run in a forked worker
 
-    implementation("ch.qos.logback:logback-classic")
-    implementation("com.fasterxml.jackson.core:jackson-databind")
+    shade("ch.qos.logback:logback-classic")
+    shade("com.fasterxml.jackson.core:jackson-databind")
 
     // GRADLE PLUGIN
-    implementation(gradleApi())
     testImplementation(gradleTestKit())
     testImplementation("org.junit.jupiter:junit-jupiter-api")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
 }
+
+tasks.shadowJar {
+    // The shadow jar replaces the thin jar as the plugin artifact (no classifier).
+    archiveClassifier.set("")
+    configurations = listOf(shade)
+    // Keep maddi's own class names intact: the forked worker references RunAnalyzer by its real name,
+    // so relocating org.e2immu.* would break it. The analyzer runs in an isolated worker process, so
+    // no relocation of third-party deps is needed either.
+    mergeServiceFiles()
+}
+
+// The plain jar yields its place to the shadow jar as the plugin artifact.
+tasks.named<Jar>("jar") { archiveClassifier.set("plain") }
+tasks.named("assemble") { dependsOn(tasks.shadowJar) }
 
 gradlePlugin {
     plugins {
