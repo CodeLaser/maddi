@@ -15,9 +15,18 @@ link that is present at statement level.** Sub-clusters:
   `x←0:optional.§x` (to a param virtual field that never collapsed) is carried by neither the
   group reconstruct NOR the graph (it lives only in VariableData; `optional.§x` is never a
   graph vertex at extraction — a FollowGraph probe gated on it never fired). The return
-  statement (`LinkComputerImpl` ~547-555) only adds `return ← x`. **Fix needed: carry a
-  collapsed local member's non-group VariableData links onto the return, rehomed member→return
-  (filter internal/local targets).** Non-trivial; touches the return-summary assembly.
+  statement (`LinkComputerImpl` ~547-555) only adds `return ← x`.
+  **DEEPER (second trace): the fix is NOT at the return summary.** At the return statement's
+  forward pass, `previousVd.variableInfo("x")` is already just `x←1:alternative` — x has
+  ALREADY lost `←optional.§x` — while the test's final `vd0` read (post-fixpoint) has both.
+  So `←optional.§x` exists only in statement 0's *final/back-propagated* extraction, not in
+  the forward-carried state that feeds the return summary, and `r.links()` for the bare
+  `return x` is empty. x is assigned from TWO sources (`optional.§x` OR `alternative`); the
+  collapse via `x←alternative` keeps only the group member and drops the non-group
+  `x←optional.§x` from x's carried state (cf. the `merge()` NYI note for `x=y;x=z`). **Real
+  fix is cross-statement / fixpoint-ordering, not the summary** — either preserve a collapsed
+  variable's non-group links across statements, or recompute the return summary after
+  back-propagation. Materially larger; needs a dedicated design pass.
 - getter/setter `setX.x←this*.x` (~3: TestGetSet×2, TestStaticValues1) — fluent setter returns
   `this`, field flow to a `this*` face.
 - LanguageConstructs `m←0:a` (~4: ternary, switch-guard, intersection bound, wildcard-super) —
