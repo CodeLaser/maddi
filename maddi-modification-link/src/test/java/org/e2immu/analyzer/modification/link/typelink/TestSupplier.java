@@ -66,7 +66,7 @@ public class TestSupplier extends CommonTest {
         Links tlvX = viX0.linkedVariablesOrEmpty();
         assertEquals("x←1:alternative,x←0:optional.§x", tlvX.toString());
 
-        assertEquals("[-, -] --> method←0:optional.§x,method←1:alternative", mlvMethod.toString());
+        assertEquals("[-, -] --> method←1:alternative,method←0:optional.§x", mlvMethod.toString());
     }
 
     @Test
@@ -87,7 +87,7 @@ public class TestSupplier extends CommonTest {
         FunctionalInterfaceVariable fi0 = (FunctionalInterfaceVariable) viLambda0.linkedVariables()
                 .stream().findFirst().orElseThrow().to();
         assertEquals("Result{links=get←1:alternative, evaluated=lambda}", fi0.result().toString());
-        assertEquals("[-, -] --> method2←0:optional.§x,method2←1:alternative", mlvMethod.toString());
+        assertEquals("[-, -] --> method2←1:alternative,method2←0:optional.§x", mlvMethod.toString());
     }
 
     @Language("java")
@@ -127,7 +127,7 @@ public class TestSupplier extends CommonTest {
         Links tlvX = viX0.linkedVariablesOrEmpty();
         assertEquals("x←this.alternative,x←0:optional.§x", tlvX.toString());
 
-        assertEquals("[-] --> method←0:optional.§x,method←this.alternative", mlv.toString());
+        assertEquals("[-] --> method←this.alternative,method←0:optional.§x", mlv.toString());
     }
 
 

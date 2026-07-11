@@ -88,14 +88,14 @@ public class TestSupplierSpec extends CommonTest {
     @DisplayName("supplier captures a field: result is the optional's content OR the field")
     @Test
     public void supField() {
-        assertEquals("[-] --> supField←0:opt.§x,supField←this.field", link("supField"));
+        assertEquals("[-] --> supField←this.field,supField←0:opt.§x", link("supField"));
         assertEquals("", modified("supField"));
     }
 
     @DisplayName("supplier captures a parameter: result is the optional's content OR the parameter")
     @Test
     public void supParam() {
-        assertEquals("[-, -] --> supParam←0:opt.§x,supParam←1:alt", link("supParam"));
+        assertEquals("[-, -] --> supParam←1:alt,supParam←0:opt.§x", link("supParam"));
     }
 
     @DisplayName("supplier returns an element of a captured collection: result relates to those elements")
@@ -125,7 +125,7 @@ public class TestSupplierSpec extends CommonTest {
     @DisplayName("bound method reference (this::getField) behaves like the equivalent lambda")
     @Test
     public void supMethodRef() {
-        assertEquals("[-] --> supMethodRef←0:opt.§x,supMethodRef←this.field", link("supMethodRef"));
+        assertEquals("[-] --> supMethodRef←this.field,supMethodRef←0:opt.§x", link("supMethodRef"));
     }
 
     @DisplayName("method reference on another instance: result relates to that instance's field")
