@@ -95,15 +95,27 @@ a line and each exception drops onto its own line even though `throws A, B` fits
 Currently uncalled → no production impact, but a latent landmine. **Fixed on branch
 `formatter-analysis`** + regression test `TestFormattingOptionsBuilder`.
 
-### F2 — `prioritySplit`/`startWithNewLine` are ignored (style lever)
-See §3. Recommendation: honor them behind a new `FormattingOptions` flag (default off, so the
-compact style and all existing tests are preserved), giving callers a conventional-layout mode.
-Blast radius if made default: ~44 test files.
+### F2 — (IMPLEMENTED, opt-in) `prioritySplit`/`startWithNewLine` were ignored (style lever)
+See §3. Implemented on branch `formatter-analysis` as a new `FormattingOptions`
+flag `alwaysBreakPriorityBlocks` (default **off**, so the compact style and all existing tests
+are preserved). When on, `BlockPrinter.handleBlock` forces a break for any priority guide block
+(class/method/if bodies), giving conventional "brace on its own line" layout. Test
+`TestBreakPriorityBlocks` covers both flag states. Blast radius if ever made default: ~44 test files.
 
-### F3 — `GREEDY_FILL` is unproven end-to-end
-Only synthetic unit tests. Recommendation: add real round-trip coverage and harden the fallback
-(`BlockPrinter.java:282` already degrades to chop-down when a sub-block contains newlines) before
-offering it as a production option.
+### F3 — (BUG FOUND + FIXED) `GREEDY_FILL` dropped the separator space before an inline block
+Driving the realistic `Test6.create1` class through `GREEDY_FILL` surfaced a real defect: when
+greedy keeps a guide block on the current line (position-0 boundary does not wrap), the separator
+space was lost — producing `throwsMalformedURLException` (width 120/60) and `{buff.append(...)`
+(width 60). Root cause: `splitOutputOfBlock` never emits the pending space level (only the inline
+path in `handleBlock` did), and `greedyFill` deliberately skips the position-0 boundary. **Fixed**
+by threading the pending space level into `greedyFill` and emitting it at position 0 when it stays
+inline; a wrap there consumes it into the newline, so chop-down and wrapped cases are unaffected.
+Regression test `TestGreedySpacing`.
+
+`GREEDY_FILL` is still unproven on real parse→print round-trips (production `print2` hardcodes
+default options, so greedy cannot be reached without a signature change). Remaining recommendation:
+add round-trip coverage in `maddi-inspection-integration` and decide whether to expose greedy as a
+production-selectable option.
 
 ### F4 — Fragile string-sniffing hacks (robustness)
 The author's own TODOs mark these:
