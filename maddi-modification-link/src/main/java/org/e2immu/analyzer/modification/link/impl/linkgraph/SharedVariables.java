@@ -70,6 +70,10 @@ public class SharedVariables {
      */
     public Stream<Link> assignmentEdgeStream(Variable primary) {
         Stream.Builder<Link> builder = Stream.builder();
+        // The primary's faces: the primary plus its whole-object shared-group siblings. A collapsed 'return p'
+        // groups the return with 'p', so a field assignment keyed on the sibling ('p.f ← 0:x') belongs to the
+        // return, rehomed onto the return's face ('create2.f ← 0:x').
+        java.util.Collection<Variable> primaryFaces = allShared(primary);
         for (SharedVariable sv : new java.util.LinkedHashSet<>(memberToGroup.values())) {
             // The group's recorded 'a ← b' assignments form a directed chain; an intermediate ($__rv) merged in
             // the middle (makeFromGet.t ← $__rv ← box.t) breaks a direct pair once it is filtered out downstream.
@@ -81,19 +85,22 @@ public class SharedVariables {
                 bwd.computeIfAbsent(a.to(), k -> new java.util.ArrayList<>()).add(a.from());
             }
             for (Variable m : sv.variables()) {
-                if (!Util.isPartOf(primary, m)) continue;
+                // emitM is 'm' keyed onto the primary: 'm' itself when part of the primary, or the sibling-rehomed
+                // form ('p.f' -> 'create2.f') when 'm' is a proper field/element of a sibling face.
+                Variable emitM = faceKeyed(m, primary, primaryFaces);
+                if (emitM == null) continue;
                 // Chain through method-internal locals only when reconstructing the whole return value: there a
                 // chain of whole-object assignments (return ← ttt ← tt ← 0:t) must collapse to 'method ← 0:t'.
                 // For field/parameter endpoints the field-precise link already arrives via the always-chained
                 // pass-through intermediates ($__rv), and bridging locals there would add a spurious primary-level
                 // shortcut (makeFromGet ≈ 0:box). For a plain local 'm' (per-statement view) we also stay shallow,
                 // preserving the collapse's dedup ('ttt ← tt', not the transitive 'ttt ← 0:t').
-                boolean deep = m instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+                boolean deep = emitM instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
                 for (Variable t : reachable(m, fwd, deep)) {
-                    builder.add(new LinksImpl.LinkImpl(m, LinkNatureImpl.IS_ASSIGNED_FROM, t));
+                    if (!emitM.equals(t)) builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_FROM, t));
                 }
                 for (Variable t : reachable(m, bwd, deep)) {
-                    builder.add(new LinksImpl.LinkImpl(m, LinkNatureImpl.IS_ASSIGNED_TO, t));
+                    if (!emitM.equals(t)) builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_TO, t));
                 }
             }
         }
@@ -119,6 +126,22 @@ public class SharedVariables {
             }
         }
         return seen;
+    }
+
+    // 'm' keyed onto the primary: 'm' itself when it is part of the primary; the sibling-rehomed form when 'm' is a
+    // proper field/element of a shared-group sibling of the primary (create2 ≡ p ⇒ 'p.f' -> 'create2.f'); null when
+    // 'm' belongs to neither. The whole sibling ('p' itself, m.equals(face)) is skipped: its whole-object edge is
+    // already emitted from the primary's own member, and rehoming it would produce a self-link.
+    private Variable faceKeyed(Variable m, Variable primary, java.util.Collection<Variable> faces) {
+        if (Util.isPartOf(primary, m)) return m;
+        for (Variable face : faces) {
+            if (!face.equals(primary) && !m.equals(face) && Util.isPartOf(face, m)) {
+                VariableTranslationMap vtm = new VariableTranslationMap(runtime);
+                vtm.put(face, primary);
+                return vtm.translateVariableRecursively(m);
+            }
+        }
+        return null;
     }
 
     // a node we may transitively chain through: a pass-through intermediate ($__rv) always, or (only when 'deep',
