@@ -151,6 +151,30 @@ and all width-120 round trips never reach it. Regression test `TestDeepNestingPr
 (maddi-java-openjdk, real parser). Follow-up option: make the floor a `FormattingOptions` field
 rather than a constant if callers want to tune it.
 
+### F7 — (OPEN) spurious blank line inside a wrapped method chain
+When two adjacent sub-blocks both wrap, `baseSplitLevel` promotes their boundary to
+`DOUBLE_NEWLINE` (a blank line) *before* it checks whether the boundary is a no-space one. In a
+fluent chain whose links each wrap, this inserts a blank line **inside** the chain:
+```
+r
+    .computeIfAbsent(s, k -> new ArrayList<>())
+
+    .add(in.get(i % in.size()));
+```
+A blank line mid-chain is wrong (though still valid Java — `TestFormatterRoundTripStable` passes).
+The obvious fix (check `isNoSpace()` first) is **too blunt**: the same predicate governs a
+legitimately-wanted blank line between imports and a comment block (`TestBlockPrinter2.test3c`), so
+it regresses that test. A correct fix needs a more precise "this boundary is glue" signal than the
+current `spaceLevel`/`hasBeenSplit` interplay exposes — deferred rather than shipped half-understood.
+Guard test to keep green when addressing this: `TestBlockPrinter2.test3c`.
+
+### Robustness verification (no defects found)
+Two stress guards were added (`TestFormatterStress`, `TestFormatterRoundTripStable`, both real
+parser). Across widths 8–160 and both wrap styles: no exceptions, no trailing whitespace, no
+whitespace-only lines, and — critically — **no token corruption** (format → re-parse → re-print is
+stable). The commented-out "head of split must not be blank" assertion (`Line.java:164`,
+FIXME `TestSwitchFor,1`) could not be reproduced with rich switch/chain/generic inputs at any width.
+
 ## 5. Strengths (worth preserving)
 
 - The recursive `Block`/`Guide` model is clean and the `minimal()` debug rendering
