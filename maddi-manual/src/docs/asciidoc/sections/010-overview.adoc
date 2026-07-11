@@ -1,0 +1,71 @@
+[[overview]]
+= Overview
+
+{maddi} (short for __m__odification __a__nalyzer for __d__uplication __d__etection and __i__mmutability)
+is a static analyzer for Java. It reads your source code and its compile classpath, works out how each
+type behaves — is it modified, is it immutable, does it leak its internals — and records the result as
+a set of annotations (`@Immutable`, `@Container`, `@NotModified`, `@Independent`, …) together with a
+machine-readable *analysis result* per package.
+
+This manual is about *operating* the tool. The meaning of the annotations, and the theory that produces
+them, are described in the companion document _The Road to Immutability_.
+
+== What it does, concretely
+
+Given a set of source directories and a classpath, a {maddi} run performs, in order:
+
+. *parse* — build a concrete syntax tree (CST) of your sources;
+. *prep* — resolve the types, build the call graph, and compute the analysis order;
+. *modification analysis* — the actual immutability / modification computation (iterative);
+. *write results* — one analysis-result `.json` file per package, under the results directory
+  (default `<build>/e2immu`).
+
+You can stop after any step with the `analysis-steps` option (see <<command-line>>); running `prep`
+only is a fast way to check that a project parses and resolves cleanly.
+
+== The three ways to run it
+
+There is one analysis engine, reached through three front doors:
+
+[cols="1,3",options="header"]
+|===
+| Entry point | Use when
+
+| <<gradle-plugin>>
+| Your project builds with Gradle. The plugin derives the source sets and classpath from the Gradle
+  model for you and runs the analyzer as a task.
+
+| <<maven-plugin>>
+| Your project builds with Maven. Mojos derive the input from the Maven project model.
+
+| <<command-line>>
+| You want to drive the analyzer directly — from a captured build log (`--compile-log`), a saved
+  input configuration, or explicit source/classpath flags. Works for any build system.
+|===
+
+All three assemble the same object — an *input configuration* (source sets + classpath + JDK modules)
+— and hand it to the analyzer. That object is the subject of <<input-configuration>>.
+
+== Prerequisites
+
+* *A recent JDK.* {maddi} is built and run on current Java (the modules target Java 25/26). Run it on a
+  JDK at least as new as the one that built it.
+* *`--add-exports` for the openjdk front-end.* The default (openjdk) parser reaches into
+  `jdk.compiler`'s `com.sun.tools.javac.*` internals, so the JVM that runs the analyzer must be started
+  with:
++
+[source]
+----
+--add-exports jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
+--add-exports jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED
+--add-exports jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED
+--add-exports jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED
+--add-exports jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
+----
++
+The Gradle plugin injects these into a forked worker automatically. For the Maven plugin and the CLI
+you supply them yourself (see the relevant sections).
+
+NOTE: {maddi} deliberately analyzes with a _partial_ classpath — it does not need every transitive
+dependency to be present. Types it cannot resolve are reported as *warnings*, not fatal errors (see
+<<error-reporting>>).

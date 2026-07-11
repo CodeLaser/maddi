@@ -1,0 +1,77 @@
+= The maddi Manual
+Bart Naudts <bart.naudts@codelaser.io>
+:url-repo: https://codelaser.io/maddi
+:revnumber: 1
+:revdate: {docdate}
+:doctype: book
+:source-highlighter: rouge
+:rouge-style: github
+:icons: font
+:sectlinks:
+:sectanchors:
+:idprefix:
+:idseparator: -
+:includedir: sections
+:imagesdir: images
+:toc: left
+:toclevels: 3
+:numbered:
+:experimental:
+:attribute-missing: warn
+:description: A practical guide to running maddi on your Java (and Kotlin) project
+:maddi: pass:normal[ _maddi_ ]
+
+// PDF-specific TOC placement
+ifdef::backend-pdf[]
+:toc: macro
+endif::[]
+
+[abstract]
+This is the _operator's manual_ for {maddi}: how to run the analyzer on your own project — through
+the Gradle plugin, the Maven plugin, or the command line — how to give it the right inputs, how to
+read its output, and how to supply analysis hints for libraries. For the *concepts* behind the
+annotations it produces (immutability, modification, independence, linking), see the companion
+document _The Road to Immutability_.
+
+// Table of contents for PDF
+ifdef::backend-pdf[]
+toc::[]
+<<<
+endif::[]
+
+include::{includedir}/010-overview.adoc[leveloffset=+1]
+
+<<<
+
+include::{includedir}/020-getting-started.adoc[leveloffset=+1]
+
+<<<
+
+include::{includedir}/030-gradle-plugin.adoc[leveloffset=+1]
+
+<<<
+
+include::{includedir}/040-maven-plugin.adoc[leveloffset=+1]
+
+<<<
+
+include::{includedir}/050-command-line.adoc[leveloffset=+1]
+
+<<<
+
+include::{includedir}/060-input-configuration.adoc[leveloffset=+1]
+
+<<<
+
+include::{includedir}/070-analysis-hints.adoc[leveloffset=+1]
+
+<<<
+
+include::{includedir}/080-error-reporting.adoc[leveloffset=+1]
+
+<<<
+
+include::{includedir}/090-kotlin.adoc[leveloffset=+1]
+
+[appendix]
+include::{includedir}/appendix-a-exit-codes.adoc[leveloffset=+1]

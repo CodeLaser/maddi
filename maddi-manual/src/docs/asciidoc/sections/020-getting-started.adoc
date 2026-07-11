@@ -1,0 +1,69 @@
+[[getting-started]]
+= Getting started
+
+Two quick paths, depending on how your project is built.
+
+== A Gradle project
+
+Apply the plugin and configure the `e2immu` extension:
+
+[source,kotlin]
+----
+plugins {
+    java
+    id("org.e2immu.analyzer-plugin")
+}
+
+e2immu {
+    analysisSteps = "modification"   // parse -> prep -> modification -> write results
+    // analysisResultsDir defaults to "$buildDir/e2immu"
+}
+----
+
+Then run:
+
+[source,console]
+----
+$ ./gradlew e2immu-analyzer
+----
+
+The plugin computes the input configuration from your source sets and compile classpath, forks a
+worker JVM with the required `--add-exports`, runs the analyzer, and writes one result `.json` per
+package under `build/e2immu`. A non-zero exit fails the task; see <<error-reporting>>. The plugin is
+described in full in <<gradle-plugin>>.
+
+== Any project, from a build log
+
+If you are not on Gradle — or you want to analyze a project exactly as its build compiles it — capture
+the compiler invocation from a verbose build and feed it to the CLI. This is the *compile-log* path:
+{maddi} reconstructs the input configuration from the `javac` (and, for Kotlin, `kotlinc`) command
+lines the build actually issued.
+
+[source,console]
+----
+# 1. capture the compiler arguments from a Gradle build (Maven and raw javac also work)
+$ ./gradlew :your-module:compileJava --debug 2>&1 | grep 'Compiler arguments:' > build.log
+
+# 2. derive the input configuration and run the prep analysis
+$ maddi --compile-log build.log --analysis-steps prep --analysis-results-dir out
+----
+
+Here `maddi` is the CLI launcher for the openjdk runner (started with the `--add-exports` from
+<<overview>>). You can also derive the configuration once and reuse it:
+
+[source,console]
+----
+$ maddi --compile-log build.log --write-input-configuration project.json
+$ maddi --input-configuration project.json --analysis-steps modification --analysis-results-dir out
+----
+
+The command line is covered in <<command-line>>; the input-configuration object it produces in
+<<input-configuration>>.
+
+== What you get
+
+* A results directory (default `build/e2immu`) containing one `.json` per analyzed package. These hold
+  the computed annotations and are what downstream tooling — and subsequent {maddi} runs — consume.
+* A summary printed to the log, including any errors and warnings with their file/line/column.
+* An exit code that reflects the outcome (`0` OK, non-zero on parse/analysis failure — see
+  <<appendix-exit-codes>>).
