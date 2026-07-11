@@ -20,7 +20,7 @@ import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.mixed.MixedInspector;
+import org.e2immu.language.inspection.mixed.MixedProjectInspector;
 import org.e2immu.util.internal.graph.G;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,15 +31,16 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Prep-only runner for a mixed Java+Kotlin project. Parses the input configuration with {@link MixedInspector}
- * (the openjdk and K2 front-ends share one core, so a cross-language reference resolves to a single
- * {@link TypeInfo}), then runs the prep analysis — the call graph and analysis order — over the combined primary
- * types.
+ * Prep-only runner for a mixed Java+Kotlin project. Parses the input configuration with
+ * {@link MixedProjectInspector} — the openjdk and K2 front-ends share one core (so a cross-language reference
+ * resolves to a single {@link TypeInfo}), each type keeps its own source set, and the configuration's library
+ * class-path parts are honoured — then runs the prep analysis (call graph + analysis order) over the combined
+ * primary types.
  * <p>
  * It deliberately stops after prep: no modification analysis is run and no results are written (the modification
- * analysis has open issues on real code, handled elsewhere). It inherits {@link MixedInspector}'s current
- * first-increment limits: sources are flattened into one bag and the classpath is {@code java.base} + the Kotlin
- * stdlib (supplied by K2) + generated stubs, so external library dependencies are not yet resolved.
+ * analysis has open issues on real code, handled elsewhere). It inherits {@link MixedProjectInspector}'s current
+ * scope (Java↔Java across rebuilt source sets, and a project mixing both cross-language directions in one module,
+ * are follow-ups).
  * <p>
  * The running JVM must be started with the openjdk {@code --add-exports jdk.compiler/com.sun.tools.javac.*=ALL-UNNAMED}.
  */
@@ -51,9 +52,8 @@ public class RunMixedPrepAnalyzer {
     }
 
     public Summary go(InputConfiguration inputConfiguration) {
-        MixedInspector mixedInspector = new MixedInspector();
-        MixedInspector.Result parsed = mixedInspector.parseFromConfiguration(inputConfiguration);
-        Runtime runtime = mixedInspector.getRuntime();
+        MixedProjectInspector.Result parsed = new MixedProjectInspector().parse(inputConfiguration);
+        Runtime runtime = parsed.getRuntime();
 
         Set<TypeInfo> primaryTypes = Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream())
                 .map(TypeInfo::primaryType)

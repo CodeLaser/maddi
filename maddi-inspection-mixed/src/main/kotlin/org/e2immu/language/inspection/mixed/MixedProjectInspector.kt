@@ -16,6 +16,7 @@ package org.e2immu.language.inspection.mixed
 
 import org.e2immu.language.cst.api.element.SourceSet
 import org.e2immu.language.cst.api.info.TypeInfo
+import org.e2immu.language.cst.api.runtime.Runtime
 import org.e2immu.language.inspection.api.integration.JavaInspector
 import org.e2immu.language.inspection.api.resource.InputConfiguration
 import org.e2immu.language.inspection.kotlin.JavaStubGenerator
@@ -56,8 +57,13 @@ class MixedProjectInspector {
 
     private val stubDir = Files.createTempDirectory("mixed-proj-stubs")
 
-    /** [kotlinBySourceSet] keeps the per-source-set placement; [javaTypes] are the primary Java types. */
-    data class Result(val kotlinBySourceSet: Map<SourceSet, List<TypeInfo>>, val javaTypes: List<TypeInfo>) {
+    /** [kotlinBySourceSet] keeps the per-source-set placement; [javaTypes] are the primary Java types;
+     *  [runtime] is the shared core both front-ends populated (needed by downstream analysis). */
+    data class Result(
+        val kotlinBySourceSet: Map<SourceSet, List<TypeInfo>>,
+        val javaTypes: List<TypeInfo>,
+        val runtime: Runtime,
+    ) {
         val kotlinTypes: List<TypeInfo> get() = kotlinBySourceSet.values.flatten()
     }
 
@@ -113,7 +119,7 @@ class MixedProjectInspector {
             val javaSourceRoots = javaSets.flatMap { it.sourceDirectories() }
             val kotlinBySourceSet = KotlinProjectScan(runtime, infoByFqn, ctm)
                 .parse(orderedKotlin, libraryRoots, jdkHome, javaSourceRoots)
-            return Result(kotlinBySourceSet, javaTypes)
+            return Result(kotlinBySourceSet, javaTypes, runtime)
         }
 
         // Java→Kotlin (or independent): Kotlin first, generate stubs, then Java resolves Kotlin via the stubs.
@@ -123,7 +129,7 @@ class MixedProjectInspector {
             compileStubs(kotlinTypes.associate { it.fullyQualifiedName() to JavaStubGenerator.stub(it) })
         }
         val javaTypes = javaInspector.parse(mapOf(), options).parseResult().primaryTypes().toList()
-        return Result(kotlinBySourceSet, javaTypes)
+        return Result(kotlinBySourceSet, javaTypes, runtime)
     }
 
     private fun hasExtension(sourceSet: SourceSet, extension: String): Boolean =
