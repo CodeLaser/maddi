@@ -54,6 +54,11 @@ class Line {
     // space level at the end of the string in the stringBuilder.
     // it is NOT counted in "available", and has not been added to the builder.
     private SpaceLevel spaceLevel = SpaceLevel.NO_SPACE;
+    // true once this block-line begins with a '//' single-line comment. A forced split inside such
+    // a line must not add the usual continuation indent (the wrapped remainder stays at comment
+    // level). Set when the SINGLE_LINE_COMMENT symbol is written at the start of the line; the flag
+    // is block-scoped because each block renders into a fresh Line.
+    private boolean singleLineComment;
 
     Line(int maxAvailable, int indent) {
         this.maxAvailable = maxAvailable;
@@ -182,6 +187,14 @@ class Line {
 
     public SpaceLevel spaceLevel() {
         return spaceLevel;
+    }
+
+    public void markSingleLineComment() {
+        this.singleLineComment = true;
+    }
+
+    public boolean isSingleLineComment() {
+        return singleLineComment;
     }
 
 }
