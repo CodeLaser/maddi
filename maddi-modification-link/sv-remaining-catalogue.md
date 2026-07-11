@@ -1,6 +1,30 @@
 # sv engine — catalogue of the remaining link failures
 
-## UPDATE `33fa42a9` — now 112 failing; the DROP[←] cluster mapped
+## UPDATE `9c971a99`/`ea7ca0b3` — Supplier cluster CORE FIXED (112 → 100)
+
+The Supplier/Optional `result ← optional.§x` drop was root-caused (after four
+misdirections — return summary, cross-statement carry, LinkMethodCall this.§t,
+final-vd union — all ruled out by tracing) to **two adjacent drops in
+`Graph.mergeEdgeBi`**, found by logging every edge touching `§x`:
+1. `invalidEdge` rejected any real↔virtual edge whose label wasn't `∈`/`∋`, so
+   `x ← optional.§x` was dropped outright. Fixed: also allow `←`/`→` (a value read
+   out of hidden content is assigned from it).
+2. the shared-variable collapse then folded `optional.§x` into x's group. Fixed:
+   collapse only whole-object aliases (skip when either endpoint is virtual).
+`9c971a99` — 11 tests recovered, 0 regressions. `ea7ca0b3` — re-baselined the
+order-only `§x` assertions the fix exposed. `TestSupplier.test1` (canonical case)
+passes.
+
+**Remaining Supplier sub-issue (secondary, ~4-8 tests):** a spurious param
+cross-link `0:optional.§x → 1:alternative`. Cause: `x` is multi-source
+(`x ← optional.§x` OR `x ← alternative`); `{x, alternative}` still collapse, and
+the rep's edge `rep ← optional.§x` (which belongs to x) is wrongly attributed to
+the sibling `alternative` when the parameter is extracted — the collapse can't tell
+which member owns a non-group edge. Specific to stored-lambda FI shapes (inline
+lambda `test1` is clean). Fix needs per-member edge provenance or not collapsing a
+variable with its own source when it has other sources. Deferred.
+
+## UPDATE `33fa42a9` — 112 failing; the DROP[←] cluster mapped
 
 Since 116: `e9779b5c` reconstructs field/element return endpoints via sibling faces
 (116→114); `33fa42a9` suppresses coarse scope-up links (copy≈0:pair) redundant with
