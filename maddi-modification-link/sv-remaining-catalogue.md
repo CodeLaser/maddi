@@ -1,4 +1,36 @@
-# sv engine — catalogue of the 144 remaining link failures
+# sv engine — catalogue of the remaining link failures
+
+## UPDATE `45d1046f` — now 116 failing (was 144 → 140 → 120 → 116)
+
+Since the snapshot below (144), three things landed:
+- **Test infra / speed (not link fixes).** AAPI analysis hints are now gated on
+  classpath module presence (`d2304078`): the loader skips a primary type whose
+  module is absent instead of force-loading it. The shared test classpath is lean
+  by default (java.base only; heavy = explicit `javaInspectorFactory("java.desktop"…)`)
+  (`8fd9d59c`). Link suite 2m45s → ~1m20s.
+- **Order-only re-baseline `b7e08432` (140 → 120).** 38 failing assertions differed
+  from expectation only in link ORDER (multiset-identical), an artifact of §m being
+  synthesized inline after its parent ←/→/≡ edge rather than as a rank-sorted graph
+  edge. Re-baselined to the engine's deterministic output; 20 tests went green (the
+  other 18 touched tests still fail on genuine diffs). The deep fix remains
+  **§m-as-a-real-edge** (would remove the artifact at source + the truly-dropped-§m
+  cluster + the enum regression).
+- **Return-summary reconstruct `45d1046f` (120 → 116).** `SharedVariables.reachable`
+  now chains through bare scalar locals (not just `$__rv` intermediates), gated to the
+  whole `ReturnVariable` start with a dimension guard (no array elements / field faces).
+  Fixes the `return ← ttt ← tt ← 0:t` → `method←0:t` drop
+  (`TestAssignmentIdentityMethod.test1`, the regression test). 0 regressions.
+
+Remaining 116 are genuine diffs. Dominant clusters (re-measured): **empty-got return
+summaries (~29)** and **dropped-`←` (~30 more)** — the same return-summary-lost family,
+now partly addressed; next candidates are the field/element return endpoints
+(`TestSupplier`, `TestSupplierSpec`, `TestLinkTypeParameters`, `TestStaticValuesRecord`
+builders) that still lose their `←`. Then structural (varargs `∩`, Map `∋`, Stream/
+bound-type-param HC) and the §m-as-edge work.
+
+---
+
+# (historical) catalogue of the 144 remaining link failures
 
 Snapshot at `eaf67350` (`sv-integration`), full `:maddi-modification-link:test` run.
 Baseline was 196; the reconstruct work (see `sv-engine-handoff.md` → STATUS UPDATE)
