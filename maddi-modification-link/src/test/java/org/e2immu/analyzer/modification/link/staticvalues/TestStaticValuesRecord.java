@@ -422,7 +422,7 @@ public class TestStaticValuesRecord extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().getLast());
         VariableInfo rVi1 = vd1.variableInfo(r);
         assertEquals("""
-                r.§$s←1:rr.§$s,r.§$s←0:in,r.§$s⊇method.§$s,r.§m→method.§m,r.§m≡1:rr.§m\
+                r.§$s←1:rr.§$s,r.§$s←0:in,r.§$s⊇method.§$s,r.§m≡1:rr.§m,r.§m→method.§m\
                 """, rVi1.linkedVariables().toString());
         assertFalse(rVi1.isModified());
 
