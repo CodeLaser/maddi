@@ -84,6 +84,10 @@ public class LoadAnalysisResults {
                 }
             }
         }
+        if (skippedPrimaryTypes > 0) {
+            LOGGER.info("Skipped analysis hints for {} primary types whose module is not on the classpath",
+                    skippedPrimaryTypes);
+        }
         return countPrimaryTypes;
     }
 
@@ -144,18 +148,27 @@ public class LoadAnalysisResults {
         Node root = parser.rootNode();
         int countPrimaryTypes = 0;
         for (JSONObject jo : root.getFirst().childrenOfType(JSONObject.class)) {
-            processPrimaryType(codec, jo);
-            ++countPrimaryTypes;
+            if (processPrimaryType(codec, jo)) ++countPrimaryTypes;
+            else ++skippedPrimaryTypes;
         }
         return countPrimaryTypes;
     }
 
-    private static void processPrimaryType(Codec codec, JSONObject jo) {
-        Codec.Context context = new CodecImpl.ContextImpl();
-        processSub(codec, context, jo);
+    // number of primary types whose module is not on the classpath, so their hints were skipped
+    private int skippedPrimaryTypes;
+
+    public int skippedPrimaryTypes() {
+        return skippedPrimaryTypes;
     }
 
-    private static void processSub(Codec codec, Codec.Context context, JSONObject jo) {
+    // returns false if the primary type's module is not on the classpath (its hints are skipped)
+    private static boolean processPrimaryType(Codec codec, JSONObject jo) {
+        Codec.Context context = new CodecImpl.ContextImpl();
+        return processSub(codec, context, jo, true);
+    }
+
+    // returns false if 'jo' is a primary type whose type cannot be resolved (module absent from classpath)
+    private static boolean processSub(Codec codec, Codec.Context context, JSONObject jo, boolean topLevel) {
         KeyValuePair nameKv = (KeyValuePair) jo.get(1);
         String fullyQualifiedWithType = CodecImpl.unquote(nameKv.get(2).getSource());
         KeyValuePair dataKv = (KeyValuePair) jo.get(3);
@@ -166,6 +179,11 @@ public class LoadAnalysisResults {
         try {
             Info info = codec.decodeInfoInContext(context, type, name);
             if (info == null) {
+                if (topLevel) {
+                    // the module carrying this type is not on the classpath; skip its analysis hints entirely
+                    LOGGER.debug("Skipping analysis hints for {}: type not on the classpath", name);
+                    return false;
+                }
                 throw new UnsupportedOperationException("Cannot find " + name);
             }
             context.push(info);
@@ -174,12 +192,12 @@ public class LoadAnalysisResults {
                 KeyValuePair subs = (KeyValuePair) jo.get(5);
                 String subKey = subs.get(0).getSource();
                 if ("\"sub\"".equals(subKey)) {
-                    processSub(codec, context, (JSONObject) subs.get(2));
+                    processSub(codec, context, (JSONObject) subs.get(2), false);
                 } else {
                     assert "\"subs\"".equals(subKey);
                     Array array = (Array) subs.get(2);
                     for (int i = 1; i < array.size(); i += 2) {
-                        processSub(codec, context, (JSONObject) array.get(i));
+                        processSub(codec, context, (JSONObject) array.get(i), false);
                     }
                 }
             }
@@ -188,6 +206,7 @@ public class LoadAnalysisResults {
             throw re;
         }
         context.pop();
+        return true;
     }
 
     private static void processData(Codec codec, Codec.Context context, Info info, JSONObject dataJo) {
