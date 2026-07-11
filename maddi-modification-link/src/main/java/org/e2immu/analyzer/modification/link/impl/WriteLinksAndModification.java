@@ -185,6 +185,11 @@ class WriteLinksAndModification {
 
         List<Link> toRemove = new ArrayList<>();
         if (variable instanceof ReturnVariable rv) {
+            // A coarse scope-up link (copy ≈ 0:pair) is redundant once the finer link (copy.f ← 0:pair.f) exists.
+            // FollowGraph suppresses such redundancy within its own builder, but the finer field links can arrive
+            // from a different builder (the shared-variable reconstruct), which FollowGraph's block never sees. So
+            // re-apply the redundancy suppression across the fully-assembled return builder.
+            suppressRedundantScopeUps(builder);
             // return variables will always be complete
             handleReturnVariable(rv, builder);
         } else {
@@ -229,6 +234,34 @@ class WriteLinksAndModification {
                   && !(l.linkNature().equals(IS_ASSIGNED_FROM) || l.linkNature().equals(CONTAINS_AS_MEMBER))
                || l.from() instanceof MarkerVariable mvf && mvf.isConstant()
                   && !(l.linkNature().equals(IS_ASSIGNED_TO) || l.linkNature().equals(IS_ELEMENT_OF));
+    }
+
+    // remove any coarse scope-up link that a finer link in the same builder makes redundant (mirrors the
+    // redundantFromUp/redundantToUp/redundantUp suppression in FollowGraph, but applied across builders): drop
+    // 'coarse' when some 'fine' link has coarse.from/​to in its from/to scope and coarse's nature among fine's
+    // scope-up natures (e.g. 'copy ≈ 0:pair' given 'copy.f ← 0:pair.f').
+    private void suppressRedundantScopeUps(Links.Builder builder) {
+        List<Link> links = new ArrayList<>(builder.linkSet());
+        Set<Link> toRemove = new HashSet<>();
+        for (Link coarse : links) {
+            for (Link fine : links) {
+                if (fine.equals(coarse)) continue;
+                boolean fromUp = Util.scopeVariables(fine.from()).contains(coarse.from())
+                                 && fine.to().equals(coarse.to())
+                                 && fine.linkNature().redundantFromUp().contains(coarse.linkNature());
+                boolean toUp = fine.from().equals(coarse.from())
+                               && Util.scopeVariables(fine.to()).contains(coarse.to())
+                               && fine.linkNature().redundantToUp().contains(coarse.linkNature());
+                boolean bothUp = Util.scopeVariables(fine.from()).contains(coarse.from())
+                                 && Util.scopeVariables(fine.to()).contains(coarse.to())
+                                 && fine.linkNature().redundantUp().contains(coarse.linkNature());
+                if (fromUp || toUp || bothUp) {
+                    toRemove.add(coarse);
+                    break;
+                }
+            }
+        }
+        builder.removeIf(toRemove::contains);
     }
 
     private void handleReturnVariable(ReturnVariable rv, Links.Builder builder) {
