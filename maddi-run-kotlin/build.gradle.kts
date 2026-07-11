@@ -53,6 +53,9 @@ tasks.withType<Test> {
 }
 
 application {
+    // launcher script `bin/maddi-kotlin`, distribution `maddi-kotlin-<version>.zip` — this bundle is how
+    // Kotlin support ships: the K2 'for-ide' jars ride along in lib/ (see PUBLISHING.md)
+    applicationName = "maddi-kotlin"
     mainClass = "org.e2immu.analyzer.run.kotlinmain.Main"
     // ./gradlew :maddi-run-kotlin:run --args="--compile-log <mixed build log>"
     applicationDefaultJvmArgs = javacAddExports

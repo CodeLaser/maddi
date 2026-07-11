@@ -50,6 +50,8 @@ dependencies {
 }
 
 application {
+    // launcher script `bin/maddi`, distribution `maddi-<version>.zip` (see PUBLISHING.md)
+    applicationName = "maddi"
     mainClass = "org.e2immu.analyzer.run.openjdkmain.Main"
     applicationDefaultJvmArgs = listOf(
         "-enableassertions", "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",

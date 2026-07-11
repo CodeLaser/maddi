@@ -63,9 +63,17 @@ The runners apply the Gradle `application` plugin, so `distZip` / `installDist` 
 bundles (launcher + every runtime jar in `lib/`, with the required javac `--add-exports` baked into the
 launcher). Publish these as **GitHub Release** assets:
 
-* `maddi` — the openjdk (Java) runner, from `maddi-run-openjdk:distZip`.
-* `maddi-kotlin` — the mixed Java+Kotlin runner, from `maddi-run-kotlin:distZip`. **This is how Kotlin
-  support ships**: the K2 "for-ide" jars ride along in `lib/`.
+* `maddi` — the openjdk (Java) runner, from `maddi-run-openjdk:distZip` → `maddi-<version>.zip`, launcher
+  `bin/maddi`.
+* `maddi-kotlin` — the mixed Java+Kotlin runner, from `maddi-run-kotlin:distZip` →
+  `maddi-kotlin-<version>.zip`, launcher `bin/maddi-kotlin`. **This is how Kotlin support ships**: the K2
+  "for-ide" jars ride along in `lib/` (verified: the 7 `*-for-ide` jars + `kotlin-compiler` are bundled).
+
+**DONE**: both runners set `applicationName` so the launcher/archive names are `maddi` / `maddi-kotlin`
+(not the module names). The build+upload is wired in `release-cli.sh <tag>` (builds both `distZip`s and
+`gh release create`/`upload`s the two zips). Both launchers are smoke-tested self-contained (`maddi
+--help` exits 0; `maddi-kotlin` loads and reports usage). *Remaining:* run `release-cli.sh` for a tag —
+needs an authenticated `gh` and is an outward-facing publish, so run it deliberately.
 
 Not published: none of the fine-grained analyzer modules (`maddi-cst-*`, `maddi-inspection-*`,
 `maddi-java-*`, `maddi-modification-*`, `maddi-aapi-*`, `maddi-run-config`, …). No BOM.
@@ -87,8 +95,8 @@ Release checklist
 . Annotations: `./gradlew :maddi-support:clean :maddi-support:publishMavenJavaPublicationToStagingRepository :maddi-support:jreleaserDeploy` (see `HOWTO.md` for the credentials/GPG setup).
 . Gradle plugin: `./gradlew :maddi-gradleplugin:publishPlugins` (Gradle Plugin Portal key required).
 . Maven plugin: publish to Central once the descriptor is generated.
-. CLI: `./gradlew :maddi-run-openjdk:distZip :maddi-run-kotlin:distZip` and attach the two zips to the
-  GitHub Release for the tag.
+. CLI: `./release-cli.sh <tag>` (builds both `distZip`s and attaches `maddi-<version>.zip` +
+  `maddi-kotlin-<version>.zip` to the GitHub Release for `<tag>`; needs an authenticated `gh`).
 
 
 Deferred: the analyzer as a library
