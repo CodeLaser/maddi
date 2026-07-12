@@ -347,17 +347,14 @@ public class TestList extends CommonTest {
         VariableInfo viIntermediate2 = vd2.variableInfo("intermediate2");
         // the 4th link is created by LinkGraph.makeComparableSub
         assertEquals("""
-                intermediate2.§$s←intermediate1.§$s,\
-                intermediate2.§$s⊆0:in.§$s,\
-                intermediate2.§m≡intermediate1.§m,\
-                intermediate2←intermediate1\
+                intermediate2←intermediate1,intermediate2.§$s⊆0:in.§$s,intermediate2.§$s←intermediate1.§$s,intermediate2.§m≡intermediate1.§m\
                 """, viIntermediate2.linkedVariables().toString());
         VariableInfo viIntermediate1 = vd2.variableInfo("intermediate1");
         assertEquals("""
-                intermediate1.§$s→intermediate2.§$s,intermediate1.§$s⊆0:in.§$s,\
+                intermediate1→intermediate2,intermediate1.§$s⊆0:in.§$s,\
+                intermediate1.§$s→intermediate2.§$s,\
                 intermediate1.§m≡0:in.§m,\
-                intermediate1.§m≡intermediate2.§m,\
-                intermediate1→intermediate2\
+                intermediate1.§m≡intermediate2.§m\
                 """, viIntermediate1.linkedVariables().toString());
         VariableInfo viIn = vd2.variableInfo(in);
         assertEquals("""

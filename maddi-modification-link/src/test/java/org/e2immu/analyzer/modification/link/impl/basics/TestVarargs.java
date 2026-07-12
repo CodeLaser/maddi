@@ -139,8 +139,7 @@ public class TestVarargs extends CommonTest {
                 viTargetM.linkedVariables().toString());
 
         assertEquals("""
-                [0:target*.§is∩1:collections.§iss, 1:collections.§iss∩0:target*.§is] --> \
-                combine.§is←0:target*.§is,combine.§is∩1:collections.§iss,combine←0:target*\
+                [0:target*.§is∩1:collections.§iss, 1:collections.§iss∩0:target*.§is] --> combine←0:target*,combine.§is←0:target*.§is,combine.§is∩1:collections.§iss\
                 """, mlv.toString());
     }
 
@@ -185,8 +184,7 @@ public class TestVarargs extends CommonTest {
                 viTargetM.linkedVariables().toString());
 
         assertEquals("""
-                [0:target*.§is∩1:collections.§iss, 1:collections.§iss∩0:target*.§is] --> \
-                combine.§is←0:target*.§is,combine.§is∩1:collections.§iss,combine←0:target*\
+                [0:target*.§is∩1:collections.§iss, 1:collections.§iss∩0:target*.§is] --> combine←0:target*,combine.§is←0:target*.§is,combine.§is∩1:collections.§iss\
                 """, mlv.toString());
     }
 
@@ -232,8 +230,7 @@ public class TestVarargs extends CommonTest {
                 """, viTargetM.linkedVariables().toString());
 
         assertEquals("""
-                [0:target*.§is∩1:collections.§iss, 1:collections.§iss∩0:target*.§is] --> \
-                combine.§is←0:target*.§is,combine.§is∩1:collections.§iss,combine←0:target*\
+                [0:target*.§is∩1:collections.§iss, 1:collections.§iss∩0:target*.§is] --> combine←0:target*,combine.§is←0:target*.§is,combine.§is∩1:collections.§iss\
                 """, mlv.toString());
     }
 
@@ -291,8 +288,7 @@ public class TestVarargs extends CommonTest {
                 viTargetM.linkedVariables().toString());
 
         assertEquals("""
-                [0:target*.§es∩1:collections.§iss, 1:collections.§iss∩0:target*.§es] --> \
-                combine.§es←0:target*.§es,combine.§es∩1:collections.§iss,combine←0:target*\
+                [0:target*.§es∩1:collections.§iss, 1:collections.§iss∩0:target*.§es] --> combine←0:target*,combine.§es←0:target*.§es,combine.§es∩1:collections.§iss\
                 """, mlv.toString());
     }
 }
