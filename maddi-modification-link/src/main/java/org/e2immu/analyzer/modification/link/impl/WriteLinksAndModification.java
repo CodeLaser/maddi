@@ -315,8 +315,12 @@ class WriteLinksAndModification {
     // to be part of A; 'A ≺ B' (IS_FIELD_OF) requires A to be part of B. After rep-expansion a 'field ← param'
     // collapse can produce a link to the param side ('wrap ≻ 0:y'), which violates this — drop it.
     private static boolean isInvalidFieldContainment(Variable from, LinkNature linkNature, Variable to) {
-        if (linkNature == CONTAINS_AS_FIELD) return !Util.isPartOf(from, to);
-        if (linkNature == IS_FIELD_OF) return !Util.isPartOf(to, from);
+        // Only a REAL field-side can make the containment invalid ('wrap ≻ 0:y' — 0:y is a value source, not a
+        // part of wrap). A VIRTUAL field-side is content: with the owner≻own-content spine the closure derives
+        // legitimate cross-variable content containment ('entry.§xy.§x ≺ 0:optional' — entry's content lives in
+        // optional's object graph), which is expected output.
+        if (linkNature == CONTAINS_AS_FIELD) return !Util.virtual(to) && !Util.isPartOf(from, to);
+        if (linkNature == IS_FIELD_OF) return !Util.virtual(from) && !Util.isPartOf(to, from);
         return false;
     }
 
@@ -349,7 +353,20 @@ class WriteLinksAndModification {
     private boolean notLinkedToModifiedVirtualModification(Variable variable,
                                                            Variable toFollow,
                                                            Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause) {
-        return followGraph.graph().eqVariables(variable).noneMatch(modifiedVariablesAndTheirCause::containsKey);
+        // Respect the ☷ pass semantics per group (mirrors the ≡-branch of notLinkedToModified): a pass-marked
+        // §m-equivalence ('identical except via remove()', Iterable.iterator()) propagates a member's modification
+        // only when the modifying method is in the pass set. E.g. iterating a collection modifies the ITERATOR
+        // (next()), which must not mark the collection modified; remove() would.
+        if (System.getenv("NOPASSFIX") != null) {
+            return followGraph.graph().eqVariables(variable).noneMatch(modifiedVariablesAndTheirCause::containsKey);
+        }
+        return followGraph.graph().eqGroups(variable).noneMatch(group ->
+                group.members().stream().map(Util::firstRealVariable).anyMatch(m -> {
+                    Set<MethodInfo> causes = modifiedVariablesAndTheirCause.get(m);
+                    if (causes == null) return false;
+                    Set<MethodInfo> pass = group.linkNature().pass();
+                    return pass.isEmpty() || !Collections.disjoint(pass, causes);
+                }));
     }
 
     private boolean notLinkedToModified(Links.Builder builder,

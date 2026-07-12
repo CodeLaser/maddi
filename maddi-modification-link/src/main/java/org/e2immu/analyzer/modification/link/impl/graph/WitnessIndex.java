@@ -36,11 +36,32 @@ public final class WitnessIndex<V, L> {
             || candidate instanceof Witness.DirectWitness<V, L> && existing instanceof Witness.DirectWitness<V, L>
                && witnessCost(candidate) < witnessCost(existing)
             || candidate instanceof Witness.CompositeWitness<V, L> c && existing instanceof Witness.CompositeWitness<V, L> e
-               && (c.inferred() && !e.inferred() || witnessCost(candidate) < witnessCost(existing))) {
+               && (c.inferred() && !e.inferred() || witnessCost(candidate) < witnessCost(existing))
+            || equalQuality(candidate, existing)
+               && canonicalKey(candidate).compareTo(canonicalKey(existing)) < 0) {
             witnesses.put(fact, candidate);
             return true;
         }
         return false;
+    }
+
+    // Equal-quality witnesses used to be resolved first-arrival-wins — but arrival order depends on map iteration
+    // over identity-hashed variables (LocalVariableImpl has no hashCode override), which varies per JVM run and
+    // made witness choice, and everything downstream of it (fact survival on vertex removal, closure dumps),
+    // nondeterministic. Tie-break instead on a canonical textual key so the chosen witness is order-independent.
+    private boolean equalQuality(Witness<V, L> candidate, Witness<V, L> existing) {
+        if (candidate instanceof Witness.DirectWitness<V, L> && existing instanceof Witness.DirectWitness<V, L>) {
+            return witnessCost(candidate) == witnessCost(existing);
+        }
+        if (candidate instanceof Witness.CompositeWitness<V, L> c
+            && existing instanceof Witness.CompositeWitness<V, L> e) {
+            return c.inferred() == e.inferred() && witnessCost(candidate) == witnessCost(existing);
+        }
+        return false;
+    }
+
+    private String canonicalKey(Witness<V, L> witness) {
+        return witness.print(Object::toString);
     }
 
     public Witness<V, L> get(Fact<V, L> fact) {

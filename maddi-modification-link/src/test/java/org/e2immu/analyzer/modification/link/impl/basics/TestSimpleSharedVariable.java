@@ -44,7 +44,10 @@ public class TestSimpleSharedVariable extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, (statementIndex, graph) -> {
             if ("1".equals(statementIndex)) {
                 Assertions.assertEquals("""
+                        $__sv_copy ≻ $__sv_copy.§$s   1($__sv_copy ≻ $__sv_copy.§$s)
+                        return method ≤ $__sv_copy   *[return method ∈ $__sv_copy.§$s, $__sv_copy.§$s ≺ $__sv_copy]
                         return method ∈ $__sv_copy.§$s   1(return method ∈ $__sv_copy.§$s)
+                        $__sv_copy.§$s ≺ $__sv_copy   1($__sv_copy.§$s ≺ $__sv_copy)
                         $__sv_copy.§$s ∋ return method   1($__sv_copy.§$s ∋ return method)
                         """, graph.printClosure());
             }
@@ -76,13 +79,21 @@ public class TestSimpleSharedVariable extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, (statementIndex, graph) -> {
             if ("1".equals(statementIndex)) {
                 Assertions.assertEquals("""
+                        $__sv_copy ≥ first   *[$__sv_copy ≻ $__sv_copy.§$s, $__sv_copy.§$s ∋ first]
+                        $__sv_copy ≻ $__sv_copy.§$s   1($__sv_copy ≻ $__sv_copy.§$s)
+                        first ≤ $__sv_copy   *[first ∈ $__sv_copy.§$s, $__sv_copy.§$s ≺ $__sv_copy]
                         first ∈ $__sv_copy.§$s   1(first ∈ $__sv_copy.§$s)
+                        $__sv_copy.§$s ≺ $__sv_copy   1($__sv_copy.§$s ≺ $__sv_copy)
                         $__sv_copy.§$s ∋ first   1($__sv_copy.§$s ∋ first)
                         """, graph.printClosure());
             }
             if ("2".equals(statementIndex)) {
                 Assertions.assertEquals("""
+                        $__sv_copy ≥ $__sv_return method   *[$__sv_copy ≻ $__sv_copy.§$s, $__sv_copy.§$s ∋ $__sv_return method]
+                        $__sv_copy ≻ $__sv_copy.§$s   1($__sv_copy ≻ $__sv_copy.§$s)
+                        $__sv_return method ≤ $__sv_copy   *[$__sv_return method ∈ $__sv_copy.§$s, $__sv_copy.§$s ≺ $__sv_copy]
                         $__sv_return method ∈ $__sv_copy.§$s   2($__sv_return method ∈ $__sv_copy.§$s)
+                        $__sv_copy.§$s ≺ $__sv_copy   1($__sv_copy.§$s ≺ $__sv_copy)
                         $__sv_copy.§$s ∋ $__sv_return method   2($__sv_copy.§$s ∋ $__sv_return method)
                         """, graph.printClosure());
             }
@@ -116,17 +127,41 @@ public class TestSimpleSharedVariable extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, (statementIndex, graph) -> {
             if ("0".equals(statementIndex)) {
                 assertEquals("""
+                        0:in ∩ copy   *[0:in ≥ copy.§$s, copy.§$s ≺ copy] support: 0:in ≻ 0:in.§$s, 0:in.§$s ⊇ copy.§$s
+                        0:in ≻ 0:in.§$s   0(0:in ≻ 0:in.§$s)
+                        0:in ≥ copy.§$s   *[0:in ≻ 0:in.§$s, 0:in.§$s ⊇ copy.§$s]
+                        copy ∩ 0:in   *[copy ≻ copy.§$s, copy.§$s ≤ 0:in] support: 0:in.§$s ≺ 0:in, copy.§$s ⊆ 0:in.§$s
+                        copy ∩ 0:in.§$s   *[copy ≻ copy.§$s, copy.§$s ⊆ 0:in.§$s]
+                        copy ≻ copy.§$s   0(copy ≻ copy.§$s)
+                        0:in.§$s ≺ 0:in   0(0:in.§$s ≺ 0:in)
+                        0:in.§$s ∩ copy   *[0:in.§$s ⊇ copy.§$s, copy.§$s ≺ copy]
                         0:in.§$s ⊇ copy.§$s   0(0:in.§$s ⊇ copy.§$s)
+                        copy.§$s ≤ 0:in   *[copy.§$s ⊆ 0:in.§$s, 0:in.§$s ≺ 0:in]
+                        copy.§$s ≺ copy   0(copy.§$s ≺ copy)
                         copy.§$s ⊆ 0:in.§$s   0(copy.§$s ⊆ 0:in.§$s)
                         """, graph.printClosure());
             }
             // (3 choose 2) = 3 combinations; always x2 because of symmetry
             if ("1".equals(statementIndex)) {
                 assertEquals("""
+                        0:in ∩ copy   *[0:in ≥ copy.§$s, copy.§$s ≺ copy] support: 0:in ≻ 0:in.§$s, 0:in.§$s ⊇ copy.§$s
+                        0:in ≥ first   *[0:in ≻ 0:in.§$s, 0:in.§$s ∋ first] support: 0:in.§$s ⊇ copy.§$s, copy.§$s ∋ first
+                        0:in ≻ 0:in.§$s   0(0:in ≻ 0:in.§$s)
+                        0:in ≥ copy.§$s   *[0:in ≥ first, first ∈ copy.§$s] support: 0:in ≻ 0:in.§$s, 0:in.§$s ⊇ copy.§$s, copy.§$s ∋ first
+                        copy ∩ 0:in   *[copy ≻ copy.§$s, copy.§$s ≤ 0:in] support: 0:in.§$s ≺ 0:in, copy.§$s ⊆ 0:in.§$s
+                        copy ≥ first   *[copy ≻ copy.§$s, copy.§$s ∋ first]
+                        copy ∩ 0:in.§$s   *[copy ≥ first, first ∈ 0:in.§$s] support: copy ≻ copy.§$s, copy.§$s ∋ first, copy.§$s ⊆ 0:in.§$s, first ∈ copy.§$s
+                        copy ≻ copy.§$s   0(copy ≻ copy.§$s)
+                        first ≤ 0:in   *[first ∈ 0:in.§$s, 0:in.§$s ≺ 0:in] support: copy.§$s ⊆ 0:in.§$s, first ∈ copy.§$s
+                        first ≤ copy   *[first ∈ copy.§$s, copy.§$s ≺ copy]
                         first ∈ 0:in.§$s   *[first ∈ copy.§$s, copy.§$s ⊆ 0:in.§$s]
                         first ∈ copy.§$s   1(first ∈ copy.§$s)
+                        0:in.§$s ≺ 0:in   0(0:in.§$s ≺ 0:in)
+                        0:in.§$s ∩ copy   *[0:in.§$s ∋ first, first ≤ copy] support: 0:in.§$s ⊇ copy.§$s, copy.§$s ∋ first, copy.§$s ≺ copy, first ∈ copy.§$s
                         0:in.§$s ∋ first   *[0:in.§$s ⊇ copy.§$s, copy.§$s ∋ first]
                         0:in.§$s ⊇ copy.§$s   0(0:in.§$s ⊇ copy.§$s)
+                        copy.§$s ≤ 0:in   *[copy.§$s ∋ first, first ≤ 0:in] support: 0:in.§$s ≺ 0:in, copy.§$s ⊆ 0:in.§$s, first ∈ copy.§$s
+                        copy.§$s ≺ copy   0(copy.§$s ≺ copy)
                         copy.§$s ∋ first   1(copy.§$s ∋ first)
                         copy.§$s ⊆ 0:in.§$s   0(copy.§$s ⊆ 0:in.§$s)
                         """, graph.printClosure());
@@ -135,11 +170,25 @@ public class TestSimpleSharedVariable extends CommonTest {
             // the alternative was 6 instead of 2 related to first+return
             if ("2".equals(statementIndex)) {
                 assertEquals("""
+                        $__sv_return method ≤ 0:in   *[$__sv_return method ∈ 0:in.§$s, 0:in.§$s ≺ 0:in] support: $__sv_return method ∈ copy.§$s, copy.§$s ⊆ 0:in.§$s
+                        $__sv_return method ≤ copy   *[$__sv_return method ∈ copy.§$s, copy.§$s ≺ copy]
                         $__sv_return method ∈ 0:in.§$s   *[$__sv_return method ∈ copy.§$s, copy.§$s ⊆ 0:in.§$s]
                         $__sv_return method ∈ copy.§$s   2($__sv_return method ∈ copy.§$s)
+                        0:in ≥ $__sv_return method   *[0:in ≻ 0:in.§$s, 0:in.§$s ∋ $__sv_return method] support: 0:in.§$s ⊇ copy.§$s, copy.§$s ∋ $__sv_return method
+                        0:in ∩ copy   *[0:in ≥ copy.§$s, copy.§$s ≺ copy] support: 0:in ≻ 0:in.§$s, 0:in.§$s ⊇ copy.§$s
+                        0:in ≻ 0:in.§$s   0(0:in ≻ 0:in.§$s)
+                        0:in ≥ copy.§$s   mat(0:in ≥ copy.§$s)
+                        copy ≥ $__sv_return method   *[copy ≻ copy.§$s, copy.§$s ∋ $__sv_return method]
+                        copy ∩ 0:in   *[copy ≻ copy.§$s, copy.§$s ≤ 0:in] support: 0:in.§$s ≺ 0:in, copy.§$s ⊆ 0:in.§$s
+                        copy ∩ 0:in.§$s   mat(copy ∩ 0:in.§$s)
+                        copy ≻ copy.§$s   0(copy ≻ copy.§$s)
                         0:in.§$s ∋ $__sv_return method   *[0:in.§$s ⊇ copy.§$s, copy.§$s ∋ $__sv_return method]
+                        0:in.§$s ≺ 0:in   0(0:in.§$s ≺ 0:in)
+                        0:in.§$s ∩ copy   mat(0:in.§$s ∩ copy)
                         0:in.§$s ⊇ copy.§$s   0(0:in.§$s ⊇ copy.§$s)
                         copy.§$s ∋ $__sv_return method   2(copy.§$s ∋ $__sv_return method)
+                        copy.§$s ≤ 0:in   mat(copy.§$s ≤ 0:in)
+                        copy.§$s ≺ copy   0(copy.§$s ≺ copy)
                         copy.§$s ⊆ 0:in.§$s   0(copy.§$s ⊆ 0:in.§$s)
                         """, graph.printClosure());
             }
@@ -178,22 +227,38 @@ public class TestSimpleSharedVariable extends CommonTest {
         LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, (statementIndex, graph) -> {
             if ("1".equals(statementIndex) || "2".equals(statementIndex)) {
                 Assertions.assertEquals("""
+                        $__sv_copy ≥ this.field   *[$__sv_copy ≻ $__sv_copy.§$s, $__sv_copy.§$s ∋ this.field]
+                        $__sv_copy ≻ $__sv_copy.§$s   1($__sv_copy ≻ $__sv_copy.§$s)
+                        this.field ≤ $__sv_copy   *[this.field ∈ $__sv_copy.§$s, $__sv_copy.§$s ≺ $__sv_copy]
                         this.field ∈ $__sv_copy.§$s   1(this.field ∈ $__sv_copy.§$s)
+                        $__sv_copy.§$s ≺ $__sv_copy   1($__sv_copy.§$s ≺ $__sv_copy)
                         $__sv_copy.§$s ∋ this.field   1($__sv_copy.§$s ∋ this.field)
                         """, graph.printClosure());
             }
             if ("3".equals(statementIndex)) {
                 Assertions.assertEquals("""
+                        $__sv_copy ≥ this.field   *[$__sv_copy ≻ $__sv_copy.§$s, $__sv_copy.§$s ∋ this.field]
+                        $__sv_copy ≻ $__sv_copy.§$s   1($__sv_copy ≻ $__sv_copy.§$s)
+                        this.field ≤ $__sv_copy   *[this.field ∈ $__sv_copy.§$s, $__sv_copy.§$s ≺ $__sv_copy]
                         this.field ∈ $__sv_copy.§$s   1(this.field ∈ $__sv_copy.§$s)
+                        this.second ≤ copy   *[this.second ∈ copy.§$s, copy.§$s ≺ copy]
                         this.second ∈ copy.§$s   3(this.second ∈ copy.§$s)
+                        copy ≥ this.second   *[copy ≻ copy.§$s, copy.§$s ∋ this.second]
+                        copy ≻ copy.§$s   3(copy ≻ copy.§$s)
+                        $__sv_copy.§$s ≺ $__sv_copy   1($__sv_copy.§$s ≺ $__sv_copy)
                         $__sv_copy.§$s ∋ this.field   1($__sv_copy.§$s ∋ this.field)
                         copy.§$s ∋ this.second   3(copy.§$s ∋ this.second)
+                        copy.§$s ≺ copy   3(copy.§$s ≺ copy)
                         """, graph.printClosure());
             }
             if ("4".equals(statementIndex)) {
                 Assertions.assertEquals("""
+                        $__sv_copy ≥ this.field   *[$__sv_copy ≻ $__sv_copy.§$s, $__sv_copy.§$s ∋ this.field]
+                        $__sv_copy ≻ $__sv_copy.§$s   1($__sv_copy ≻ $__sv_copy.§$s)
+                        this.field ≤ $__sv_copy   *[this.field ∈ $__sv_copy.§$s, $__sv_copy.§$s ≺ $__sv_copy]
                         this.field ∈ $__sv_copy.§$s   1(this.field ∈ $__sv_copy.§$s)
                         this.second ∈ $__sv_return method.§$s   4(this.second ∈ $__sv_return method.§$s)
+                        $__sv_copy.§$s ≺ $__sv_copy   1($__sv_copy.§$s ≺ $__sv_copy)
                         $__sv_copy.§$s ∋ this.field   1($__sv_copy.§$s ∋ this.field)
                         $__sv_return method.§$s ∋ this.second   4($__sv_return method.§$s ∋ this.second)
                         """, graph.printClosure());

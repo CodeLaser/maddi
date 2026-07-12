@@ -161,7 +161,7 @@ public class TestLanguageConstructs extends CommonTest {
                 """;
         // for-each over an ARRAY: the loop variable is an element of the array (arr[i]); the returned value is
         // therefore linked to the array parameter, mirroring the collection case.
-        assertEquals("[0:arr∋$_ce1] --> m←0:arr[0],m←$_ce1,m∈0:arr", link("a.b.Arr", arr, "m"));
+        assertEquals("[0:arr∋$_ce1] --> m←$_ce1,m∈0:arr,m←0:arr[0]", link("a.b.Arr", arr, "m"));
     }
 
     @DisplayName("wildcard ? extends X: get() links the result to the list's hidden content")
