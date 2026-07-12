@@ -158,4 +158,40 @@ public class TestContainer extends CommonTest {
         assertTrue(isContainer(X.findSubType("GoodChild")), "GoodChild only adds a non-modifying method");
         assertFalse(isContainer(X.findSubType("BadChild")), "BadChild modifies an argument via list.clear()");
     }
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            class X {
+                static class M { int i; void set(int v) { this.i = v; } }
+                // stores the argument, then modifies the stored object in a later method: the argument is
+                // transitively modified, so this is NOT a container
+                static class Keeper {
+                    private M kept;
+                    void keep(M m) { this.kept = m; }
+                    void mutate() { kept.set(1); }
+                }
+                // a constructor that modifies its argument -> not a container
+                static class Ctor {
+                    Ctor(M m) { m.set(1); }
+                }
+            }
+            """;
+
+    @DisplayName("transitively modifying a stored argument, or modifying an argument in a constructor, breaks container")
+    @Test
+    public void test4() {
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT4);
+        List<Info> ao = prepWork(X);
+        analyzer.go(ao);
+
+        TypeInfo keeper = X.findSubType("Keeper");
+        assertTrue(keeper.findUniqueMethod("keep", 1).parameters().getFirst().isModified(),
+                "the stored argument is modified later via the field");
+        assertFalse(isContainer(keeper), "Keeper transitively modifies an argument");
+
+        TypeInfo ctor = X.findSubType("Ctor");
+        assertTrue(ctor.findConstructor(1).parameters().getFirst().isModified());
+        assertFalse(isContainer(ctor), "a constructor modifies its argument");
+    }
 }
