@@ -25,9 +25,8 @@ import org.junit.jupiter.api.Test
 
 /**
  * Kotlin port of `modification-prepwork` `TestAssignmentsEmpty`: a for-each whose body declares a local and
- * contains an empty `if` block. The merge of the empty block still tracks the local `n`. (The only deviation
- * from the Java oracle is the parameter type spelling: a Kotlin `Array<String>` renders as `kotlin.Array` in the
- * method FQN where Java has `String[]`; the VariableData structure is identical.)
+ * contains an empty `if` block. The merge of the empty block still tracks the local `n`. A Kotlin
+ * `Array<String>` is the JVM reified array `String[]`, so it renders identically to the Java oracle.
  */
 class TestAssignmentsEmpty : CommonKotlinPrep() {
 
@@ -51,15 +50,15 @@ class TestAssignmentsEmpty : CommonKotlinPrep() {
         val vdMethod: VariableData = VariableDataImpl.of(method)
         assertNotNull(vdMethod)
 
-        assertEquals("a.b.X.method(kotlin.Array):0:strings, s", vdMethod.knownVariableNamesToString())
+        assertEquals("a.b.X.method(String[]):0:strings, s", vdMethod.knownVariableNamesToString())
 
         val s0 = method.methodBody().statements().first()
         val vd0 = VariableDataImpl.of(s0)
-        assertEquals("a.b.X.method(kotlin.Array):0:strings, s", vd0.knownVariableNamesToString())
+        assertEquals("a.b.X.method(String[]):0:strings, s", vd0.knownVariableNamesToString())
 
         val s001 = s0.block().statements()[1]
         val vd001 = VariableDataImpl.of(s001)
-        assertEquals("a.b.X.method(kotlin.Array):0:strings, n, s", vd001.knownVariableNamesToString())
+        assertEquals("a.b.X.method(String[]):0:strings, n, s", vd001.knownVariableNamesToString())
         val vicN = vd001.variableInfoContainerOrNull("n")
         assertTrue(vicN.hasMerge())
         assertTrue(vicN.hasEvaluation())
