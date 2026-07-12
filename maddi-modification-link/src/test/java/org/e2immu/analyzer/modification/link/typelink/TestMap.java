@@ -439,7 +439,7 @@ public class TestMap extends CommonTest {
         VariableInfo thisMap1 = vd1.variableInfo("a.b.C.map");
         Links thisMap1Links = thisMap1.linkedVariablesOrEmpty();
         assertEquals("""
-                this.map.§kvs∋entry,this.map.§kvs~map.§vks,this.map.§kvs≥entry.§kv.§k,this.map.§kvs≥entry.§kv.§v,this.map.§kvs∩map.§vks[-1],this.map.§kvs∩map.§vks[-2]\
+                this.map.§kvs∋entry,this.map.§kvs≥entry.§kv.§k,this.map.§kvs≥entry.§kv.§v,this.map.§kvs~map.§vks,this.map.§kvs∩map.§vks[-1],this.map.§kvs∩map.§vks[-2]\
                 """, thisMap1Links.toString());
 
         // reverse.map∩this.map.§kvs is lost due to new version of Util.isPartOf()
