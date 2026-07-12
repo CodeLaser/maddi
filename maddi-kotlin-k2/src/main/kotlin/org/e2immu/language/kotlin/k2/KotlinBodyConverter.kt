@@ -891,10 +891,18 @@ internal class KotlinBodyConverter(
     private fun logicalNot(e: Expression): Expression =
         runtime.newUnaryOperator(listOf(), runtime.noSource(), runtime.logicalNotOperatorBool(), e, runtime.precedenceUnary())
 
-    private fun resolveCallee(type: TypeInfo, name: String, arguments: List<Expression>): MethodInfo? {
-        val candidates = mutableListOf<MethodInfo>()
-        collectMethods(type, name, arguments.size, mutableSetOf(), candidates)
-        if (candidates.size <= 1) return candidates.firstOrNull()
+    private fun resolveCallee(type: TypeInfo, name: String, arguments: List<Expression>,
+                             returnTypeFqn: String? = null): MethodInfo? {
+        val all = mutableListOf<MethodInfo>()
+        collectMethods(type, name, arguments.size, mutableSetOf(), all)
+        if (all.size <= 1) return all.firstOrNull()
+        // overloads that share erased params but differ by return type (Kotlin inline numeric specializations,
+        // e.g. maxOf((T)->Double):Double vs :Float vs :R): pick the one whose erased return type matches the
+        // resolved call. Then disambiguate any remainder by argument type, as before.
+        val candidates = returnTypeFqn
+            ?.let { rt -> all.filter { it.returnType().erasedForFQN().fullyQualifiedName() == rt }.ifEmpty { all } }
+            ?: all
+        if (candidates.size == 1) return candidates.first()
         val argTypes = arguments.map { it.parameterizedType() }
         fun matches(predicate: (ParameterizedType, ParameterizedType) -> Boolean) = candidates.firstOrNull { c ->
             c.parameters().withIndex().all { (i, p) -> predicate(p.parameterizedType(), argTypes[i]) }
@@ -903,6 +911,10 @@ internal class KotlinBodyConverter(
             ?: matches { p, a -> p.typeInfo() != null && p.typeInfo() == a.typeInfo() }
             ?: candidates.first()
     }
+
+    /** The erased-FQN of a call's resolved result type, used to disambiguate return-type overloads. */
+    private fun KaSession.callReturnFqn(call: KtCallExpression, method: MethodInfo): String? =
+        call.expressionType?.let { mapType(it, method.typeInfo(), method).erasedForFQN().fullyQualifiedName() }
 
     /**
      * The [TypeInfo] on which to resolve a member of [expr]'s value. Normally that is the expression's
@@ -1054,7 +1066,7 @@ internal class KotlinBodyConverter(
         }
 
         val ownerType = receiver?.second ?: method.typeInfo()
-        val callee = resolveCallee(ownerType, name, arguments)
+        val callee = resolveCallee(ownerType, name, arguments, callReturnFqn(call, method))
             ?: return runtime.newEmptyExpression("k2-unresolved-call:$name")
         val obj = receiver?.first ?: variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
@@ -1091,7 +1103,7 @@ internal class KotlinBodyConverter(
                                         symbol: KaNamedFunctionSymbol, call: KtCallExpression, method: MethodInfo): Expression? {
         val facade = extensionFacade(symbol) ?: return null
         val facadeArgs = listOf(receiverExpr) + arguments
-        val callee = resolveCallee(facade, name, facadeArgs) ?: return null
+        val callee = resolveCallee(facade, name, facadeArgs, callReturnFqn(call, method)) ?: return null
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
         return runtime.newMethodCallBuilder()
             .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
@@ -1119,7 +1131,7 @@ internal class KotlinBodyConverter(
         val companionName = companionDecl.name ?: "Companion"
         val companion = enclosing.subTypes().firstOrNull { it.simpleName() == companionName } ?: return null
         val companionField = enclosing.fields().firstOrNull { it.name() == companionName } ?: return null
-        val callee = resolveCallee(companion, name, arguments) ?: return null
+        val callee = resolveCallee(companion, name, arguments, callReturnFqn(call, method)) ?: return null
         return singletonMemberCall(enclosing, companionField, callee, arguments, call, method)
     }
 
@@ -1134,7 +1146,7 @@ internal class KotlinBodyConverter(
         val fqn = (objectDecl.symbol as? KaNamedClassSymbol)?.classId?.asFqNameString() ?: return null
         val objectType = infoByFqn.getType(fqn, sourceSet) ?: return null
         val instanceField = objectType.fields().firstOrNull { it.name() == "INSTANCE" } ?: return null
-        val callee = resolveCallee(objectType, name, arguments) ?: return null
+        val callee = resolveCallee(objectType, name, arguments, callReturnFqn(call, method)) ?: return null
         return singletonMemberCall(objectType, instanceField, callee, arguments, call, method)
     }
 
@@ -1170,7 +1182,7 @@ internal class KotlinBodyConverter(
         val facade = extensionFacade(calleeSymbol)?.takeIf { it != method.typeInfo() }
             ?: with(typeMapper) { loadLibraryFacadeFor(calleeSymbol) }
             ?: return null
-        val callee = resolveCallee(facade, name, arguments) ?: return null
+        val callee = resolveCallee(facade, name, arguments, callReturnFqn(call, method)) ?: return null
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
         return runtime.newMethodCallBuilder()
             .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
