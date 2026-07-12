@@ -4,7 +4,36 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
-## UPDATE `90b06320` — fluent-setter band + reverse-pair dedup; 62 failing
+## UPDATE `66be9fbd` — TestParSeqLinkBench re-run: 2 crash fixes; SPINE COST DECISION PENDING
+
+First deep-structure bench run since the spine era. Found and fixed two production crashes
+(addVertex non-idempotence — silently clobbered vertex edges AND spun the expand loop into
+'cycle protection'; SharedVariables.merge NYI — the x=y;x=z two-group bridge, hit for the
+first time). Suite 62→61 (the clobbering had been corrupting 'instanceof pattern binding').
+
+**Performance profile (TestParSeqElement methods total):**
+| config | time |
+|---|---|
+| golden era (pre-spine) | ~630ms |
+| full stack HEAD | 48,669ms |
+| NOMAT (spine on) | 29,330ms |
+| ALL gates off | 1,049ms |
+| **NOSPINE only** (all else on) | **362ms** |
+
+The spine is the entire explosion: it re-enables the deep §-content ∩-web on recursive
+generics — the exact O(N²) cost that made the old engine grind 8 minutes and that the
+29d597d9 reduction cut. All other session mechanisms are performance-neutral or better
+(RedundantLinks speeds things up by pruning). Materialization's share only matters because
+the spine bloats the closure it scans.
+
+**Open design decision (fidelity vs production cost):** the spine bought ~85 tests of
+old-engine content semantics. Options: (1) Options-gated spine (TEST fidelity /
+PRODUCTION fast-coarse; precedent: checkDuplicateNames); (2) bounded derivation depth
+through spine edges (tests need 2-3 hops; the explosion is long transitive chains);
+(3) accept the cost (contradicts sv's purpose). Working rule added: **run
+TestParSeqLinkBench after every engine-level change** (needs /tmp/jfocus-test-debug.log).
+
+## UPDATE `90b06320` — fluent-setter band + reverse-pair dedup; 62 failing (historical)
 
 Applying the techniques doc: (a) fluent-setter field mirror — the source face's field
 ('this.i') is collapsed into a DIFFERENT group, so `memberFieldsOf` + a source-face
