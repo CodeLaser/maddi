@@ -121,6 +121,14 @@ what they were built for**:
   a virtual field-side is *content*, and the owner≻content spine legitimately derives
   cross-variable content containment (`entry.§xy.§x ≺ 0:optional`) which is expected output.
   Making this filter fire on virtual sides killed the whole Supplier `≺`-family.
+- `dedupReversePairs` (every variable's builder, after assembly): the multiple assembly paths can
+  contribute exact duplicates and both directions of one pair
+  (`b.variables[0] ∈ b.variables` alongside `b.variables ∋ b.variables[0]`) — FollowGraph's
+  reverse-block only sees its own emissions. Keep-rule for a reverse-pair: the link keyed on the
+  structurally **deeper** from-side wins (parts-first, FollowGraph's fromList convention): `∈`
+  keyed on the element beats `∋` keyed on the container; `s.r.j → s.k` beats `s.k ← s.r.j`.
+  Implementation note: `Link` is a record with value equality — track removals by INDEX, or one
+  removal sweeps all equal duplicates. Survivors keep insertion order (output order is asserted).
 - `suppressRedundantScopeUps` (returns only): a coarse scope-up (`copy ≈ 0:pair`) is redundant
   once the finer link (`copy.f ← 0:pair.f`) exists — but the finer links arrive from a
   *different* builder (the reconstruct), which FollowGraph's own redundancy block never sees.
