@@ -28,6 +28,7 @@ import java.util.List;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -148,5 +149,35 @@ public class TestIndependent extends CommonTest {
                         .analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT).isDependent(),
                 "the accessor hands out the mutable array");
         assertTrue(independentType(arrHolder).isDependent());
+    }
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            class X {
+                // copies its argument into the field and hands out copies -> the caller's list is never aliased,
+                // so the constructor parameter and the type are independent
+                static class Defensive {
+                    private final List<String> list;
+                    Defensive(List<String> input) { this.list = new ArrayList<>(input); }
+                    List<String> snapshot() { return new ArrayList<>(list); }
+                }
+            }
+            """;
+
+    @DisplayName("defensive copying makes the constructor parameter and the type independent")
+    @Test
+    public void test4() {
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT4);
+        List<Info> ao = prepWork(X);
+        analyzer.go(ao);
+
+        TypeInfo defensive = X.findSubType("Defensive");
+        assertFalse(defensive.findConstructor(1).parameters().getFirst()
+                        .analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT).isDependent(),
+                "the argument is copied, not aliased into the field");
+        assertFalse(independentType(defensive).isDependent(), "Defensive retains no alias to the caller's list");
     }
 }
