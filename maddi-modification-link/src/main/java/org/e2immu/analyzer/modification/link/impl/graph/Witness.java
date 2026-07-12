@@ -56,6 +56,7 @@ public sealed interface Witness<V, L>
                    + (support.size() > 2 ? support.stream()
                     .filter(f -> !f.equals(left) && !f.equals(right))
                     .map(f -> f.print(vertexPrinter))
+                    .sorted() // the support set is unordered; sort for deterministic output (dumps, tie-break keys)
                     .collect(Collectors.joining(", ", " support: ", "")) : "");
         }
     }

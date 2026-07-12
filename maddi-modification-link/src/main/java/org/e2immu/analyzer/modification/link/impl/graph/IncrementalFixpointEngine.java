@@ -120,8 +120,48 @@ public final class IncrementalFixpointEngine<V, L> {
     }
 
     public boolean removeVertices(Set<V> vertices) {
+        if (System.getenv("NOMAT") == null) materializeWitnessOrphans(vertices);
         closure.removeVertices(vertices);
         return graph.removeVertices(vertices);
+    }
+
+    /*
+    A closure fact between two SURVIVING vertices whose (transitive) witness support touches a vertex being
+    removed would die in the next recompute cascade — and whether it dies depends on WHICH witness the
+    derivation happened to record among equally-valid paths (order-dependent: nondeterministic output).
+    Link facts describe object-graph relationships that outlive the local variable that established them
+    ('target.§is ∩ collections.§iss' remains true after the loop variable goes out of scope). So before removal,
+    promote such facts to raw graph edges with a direct witness, making them self-supporting. (The old engine
+    achieved the same by re-materializing derived links into each statement's graph via VariableData.)
+    Deliberate fact-removal flows (replaceReturnAffected: ⊆→~ after modification) do not pass through
+    removeVertices, so they are unaffected.
+     */
+    private void materializeWitnessOrphans(Set<V> dead) {
+        List<Fact<V, L>> orphans = new ArrayList<>();
+        closure.factStream().forEach(fact -> {
+            if (dead.contains(fact.source()) || dead.contains(fact.target())) return;
+            Witness<V, L> w = witnessIndex.get(fact);
+            if (!(w instanceof Witness.CompositeWitness<V, L>)) return;
+            boolean orphaned = w.support().stream().anyMatch(f ->
+                    dead.contains(f.source()) || dead.contains(f.target()));
+            if (orphaned) orphans.add(fact);
+        });
+        for (Fact<V, L> fact : orphans) {
+            // The closure's two directions derive independently (feature #1: rev(combined) != combine(reversed))
+            // and may hold different-strength labels (∩ one way, ~ the other). The consistency invariant demands
+            // symmetric coherence of graph edges: closure(v,u) >= reverse(graph(u,v)). Facts are semantically
+            // symmetric-by-reverse (features #2/3), so upgrade both directions to the strongest coherent label.
+            L liveReverse = closure.label(fact.target(), fact.source());
+            L strongest = liveReverse == null ? fact.label() : best.apply(fact.label(), reverse.apply(liveReverse));
+            L strongestReverse = reverse.apply(strongest);
+            graph.addSymmetricEdge(fact.source(), fact.target(), strongest, strongestReverse);
+            closure.add(fact.source(), fact.target(), strongest);
+            closure.add(fact.target(), fact.source(), strongestReverse);
+            witnessIndex.putIfBetter(new Fact<>(fact.source(), fact.target(), strongest),
+                    new Witness.DirectWitness<>(new Fact<>(fact.source(), fact.target(), strongest), "mat"));
+            witnessIndex.putIfBetter(new Fact<>(fact.target(), fact.source(), strongestReverse),
+                    new Witness.DirectWitness<>(new Fact<>(fact.target(), fact.source(), strongestReverse), "mat"));
+        }
     }
 
     public int addSymmetricEdge(V from, V to, L label, String statementIndex) {

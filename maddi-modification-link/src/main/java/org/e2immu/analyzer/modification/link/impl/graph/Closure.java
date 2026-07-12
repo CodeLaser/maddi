@@ -37,6 +37,12 @@ public class Closure<V, L> {
         return reachable.values().stream().mapToInt(Map::size).sum();
     }
 
+    public Stream<Fact<V, L>> factStream() {
+        return reachable.entrySet().stream()
+                .flatMap(e -> e.getValue().entrySet().stream()
+                        .map(e2 -> new Fact<>(e.getKey(), e2.getKey(), e2.getValue())));
+    }
+
     public L label(V from, V to) {
         return reachable.getOrDefault(from, Map.of()).get(to);
     }
