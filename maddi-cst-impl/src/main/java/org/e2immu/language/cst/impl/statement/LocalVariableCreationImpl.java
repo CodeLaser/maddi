@@ -75,10 +75,10 @@ public class LocalVariableCreationImpl extends StatementImpl implements LocalVar
         super(comments, source, annotations, 0, label);
         assert localVariable.assignmentExpression() != null;
         this.localVariable = localVariable;
-        ParameterizedType baseType = localVariable.parameterizedType().copyWithoutArrays();
-        assert otherLocalVariables.stream()
-                .allMatch(lv -> lv.assignmentExpression() != null
-                                && lv.parameterizedType().copyWithoutArrays().equals(baseType));
+        // every 'other' variable has an initializer. They usually share the base type (Java `int a, b`), but a
+        // Kotlin destructuring `val (a, b) = pair` binds independently-typed components (component1()/component2())
+        // to a single creation, so equal base types are NOT required here -- each variable carries its own type.
+        assert otherLocalVariables.stream().allMatch(lv -> lv.assignmentExpression() != null);
         this.otherLocalVariables = otherLocalVariables;
         this.modifiers = modifiers;
     }
