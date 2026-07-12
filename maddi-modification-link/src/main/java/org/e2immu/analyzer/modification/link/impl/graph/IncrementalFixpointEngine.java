@@ -120,8 +120,46 @@ public final class IncrementalFixpointEngine<V, L> {
     }
 
     public boolean removeVertices(Set<V> vertices) {
+        if (System.getenv("NOMAT") == null) materializeWitnessOrphans(vertices);
         closure.removeVertices(vertices);
         return graph.removeVertices(vertices);
+    }
+
+    /*
+    A closure fact between two SURVIVING vertices whose (transitive) witness support touches a vertex being
+    removed would die in the next recompute cascade — and whether it dies depends on WHICH witness the
+    derivation happened to record among equally-valid paths (order-dependent: nondeterministic output).
+    Link facts describe object-graph relationships that outlive the local variable that established them
+    ('target.§is ∩ collections.§iss' remains true after the loop variable goes out of scope). So before removal,
+    promote such facts to raw graph edges with a direct witness, making them self-supporting. (The old engine
+    achieved the same by re-materializing derived links into each statement's graph via VariableData.)
+    Deliberate fact-removal flows (replaceReturnAffected: ⊆→~ after modification) do not pass through
+    removeVertices, so they are unaffected.
+     */
+    private void materializeWitnessOrphans(Set<V> dead) {
+        List<Fact<V, L>> orphans = new ArrayList<>();
+        closure.factStream().forEach(fact -> {
+            if (dead.contains(fact.source()) || dead.contains(fact.target())) return;
+            Witness<V, L> w = witnessIndex.get(fact);
+            if (!(w instanceof Witness.CompositeWitness<V, L>)) return;
+            boolean orphaned = w.support().stream().anyMatch(f ->
+                    dead.contains(f.source()) || dead.contains(f.target()));
+            if (orphaned) orphans.add(fact);
+        });
+        for (Fact<V, L> fact : orphans) {
+            // the closure is direction-asymmetric (rev(combined) != combine(reversed), feature #1): the reverse
+            // fact's label in the closure may differ from reverse(label). Write the graph edge with the closure's
+            // OWN labels for both directions, so the graph⊆closure consistency invariant holds.
+            L reverseInClosure = closure.label(fact.target(), fact.source());
+            L reverseLabel = reverseInClosure != null ? reverseInClosure : reverse.apply(fact.label());
+            graph.addSymmetricEdge(fact.source(), fact.target(), fact.label(), reverseLabel);
+            witnessIndex.putIfBetter(fact, new Witness.DirectWitness<>(fact, "mat"));
+            Fact<V, L> reverseFact = new Fact<>(fact.target(), fact.source(), reverseLabel);
+            if (reverseInClosure == null) {
+                closure.add(reverseFact.source(), reverseFact.target(), reverseFact.label());
+            }
+            witnessIndex.putIfBetter(reverseFact, new Witness.DirectWitness<>(reverseFact, "mat"));
+        }
     }
 
     public int addSymmetricEdge(V from, V to, L label, String statementIndex) {

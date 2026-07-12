@@ -128,4 +128,15 @@ public class VirtualModificationIdenticals {
         return groups.stream().flatMap(g -> this.groups.getOrDefault(g, EMPTY).members.stream())
                 .map(Util::firstRealVariable);
     }
+
+    // the groups (with their nature, which carries the ☷ pass set) that 'variable' belongs to via its §m member.
+    // Unlike equivalentStream, this keeps the group boundary so modification propagation can respect the pass
+    // semantics ('identical except via remove()', see Iterable.iterator()).
+    public Stream<Group> groupsOf(Variable variable) {
+        return memberToGroup.entrySet().stream()
+                .filter(e -> variable.equals(Util.firstRealVariable(e.getKey())))
+                .map(Map.Entry::getValue)
+                .distinct()
+                .map(g -> groups.getOrDefault(g, EMPTY));
+    }
 }
