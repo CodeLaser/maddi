@@ -1,5 +1,26 @@
 # sv engine — catalogue of the remaining link failures
 
+## UPDATE — RedundantLinks ported; 74 failing
+
+The pre-sv engine ran a **cross-variable transitive-redundancy suppressor**
+(`graph/RedundantLinks`, per-statement accumulating guards per nature-group) on every
+extracted builder — it did not survive the sv big-bang port, which explains the whole
+SPUR[⊆] band ('stream1.§xs⊆0:in.§xs' emitted where the old model kept only the nearest
+hop 'stream1.§xs⊆stream.§xs'). Ported to `linkgraph/RedundantLinks` and wired into
+WriteLinksAndModification (skip returns; skip last-statement parameters — the method
+summary reads them there; `lastStatement` re-threaded through doBlock/doStatement/go).
+[NORL gates]
+
+Suite 79 → 74: fixed MR-swap/find-first/identity/test4 + filter and 4 more turned
+order-only (re-baselined). One documented trade-off: TestLinkMethodCall 'generic
+factory method' gains a spurious `0:from*≈1:to*` — a second-order effect through the
+modification flow (RL-pruned builder → different unmodified verdict → different graph
+state), NOT a direct suppression; joins test7/Stream.generate as known gaps. The old
+engine also coupled its §m-modification check to RedundantLinks.modificationLinks
+(completion-based, with the ☷ pass logic) — NOT ported; the VMI groups-based check
+covers it. Porting modificationLinks for full fidelity is a candidate follow-up if the
+≈ or the DROP[≡] band (5, missing return-side §m companions) point there.
+
 ## UPDATE `9ac37d4b` — SPINE MERGED; suite 79 failing, deterministic
 
 `sv-spine-wip` is merged into `sv-integration` (86 → 79, 0 regressions vs 140, verified

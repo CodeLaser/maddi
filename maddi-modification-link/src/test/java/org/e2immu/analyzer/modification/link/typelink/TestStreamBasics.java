@@ -331,7 +331,7 @@ public class TestStreamBasics extends CommonTest {
                 VariableInfo vi = vd.variableInfo("array");
                 Links tlv = vi.linkedVariablesOrEmpty();
                 assertEquals("""
-                        array.§$s⊆stream.§$s,array→method1\
+                        array→method1,array.§$s⊆stream.§$s\
                         """, tlv.toString()); // array.§$s→method1.§$s,array.§$s⊆0:in.§$s,array.§$s⊆sorted.§$s dropped
             }
             // NOTE: because of the "@Independent(hcReturnValue = true)" force annotation, we lose the information of $

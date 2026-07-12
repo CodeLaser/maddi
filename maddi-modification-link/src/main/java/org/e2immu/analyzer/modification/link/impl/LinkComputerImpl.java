@@ -299,7 +299,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
         // TODO: copy linked variables of a variable in closure to others in the closure, to that closure
         public MethodLinkedVariables go() {
-            VariableData vd = doBlock(methodInfo.methodBody(), null);
+            VariableData vd = doBlock(methodInfo.methodBody(), null, true);
             Links ofReturnValue = vd == null || returnVariable == null
                                   || !vd.isKnown(returnVariable.fullyQualifiedName())
                     ? LinksImpl.EMPTY
@@ -441,17 +441,22 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         VariableData doBlock(Block block, VariableData previousVd) {
+            return doBlock(block, previousVd, false);
+        }
+
+        VariableData doBlock(Block block, VariableData previousVd, boolean topBlock) {
             VariableData vd = previousVd;
             boolean firstStatementOfBlock = true;
             for (Statement statement : block.statements()) {
                 if (statement instanceof ExplicitConstructorInvocation eci &&
                     eci.isSuper() && eci.isSynthetic()) continue; // ignore, artifact of openjdk
+                boolean lastStatement = topBlock && statement == block.statements().getLast();
                 if (statement instanceof Block b) {
                     // a block among the statements
                     vd = doBlock(b, vd);
                 } else {
                     try {
-                        vd = doStatement(statement, vd, firstStatementOfBlock);
+                        vd = doStatement(statement, vd, firstStatementOfBlock, lastStatement);
                     } catch (RuntimeException | AssertionError re) {
                         LOGGER.error("Caught exception in statement {} of {}: {}", statement.source(), methodInfo,
                                 re.getMessage());
@@ -466,6 +471,13 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         public VariableData doStatement(Statement statement,
                                         VariableData previousVd,
                                         boolean firstStatementOfBlock) {
+            return doStatement(statement, previousVd, firstStatementOfBlock, false);
+        }
+
+        public VariableData doStatement(Statement statement,
+                                        VariableData previousVd,
+                                        boolean firstStatementOfBlock,
+                                        boolean lastStatement) {
             Stage stageOfPrevious = firstStatementOfBlock ? Stage.EVALUATION : Stage.MERGE;
             LocalVariable forEachLv;
             boolean evaluate;
@@ -570,8 +582,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                         r.modified());
             }
             Set<Variable> previouslyModified = computePreviouslyModified(vd, previousVd, stageOfPrevious);
-            WriteLinksAndModification.WriteResult wr = writeLinksAndModification.go(statement, vd, previouslyModified,
-                    r == null ? Map.of() : r.modified());
+            WriteLinksAndModification.WriteResult wr = writeLinksAndModification.go(statement, lastStatement, vd,
+                    previouslyModified, r == null ? Map.of() : r.modified());
             copyEvalIntoVariableData(wr.newLinks(), vd);
             modificationsOutsideVariableData.addAll(wr.modifiedOutsideVariableData());
 

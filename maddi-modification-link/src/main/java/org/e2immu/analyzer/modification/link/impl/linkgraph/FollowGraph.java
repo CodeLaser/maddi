@@ -28,6 +28,10 @@ public record FollowGraph(Graph graph) {
 
     public Links.Builder followGraph(VirtualFieldComputer virtualFieldComputer, Variable primary) {
         Links.Builder builder = new LinksImpl.Builder(primary);
+        if (System.getenv("SBDUMP") != null && "stream1".equals(primary.simpleName())) {
+            System.out.println("SBDUMP closure with witnesses:");
+            System.out.println(graph.printClosure());
+        }
         // A vertex contributes when it, or one of its shared-variable-rep expansions (a rep as the whole vertex
         // or nested in a field scope, e.g. '$__sv_list1.§$s' -> 'a.list1.§$s'), is part of the primary. We read
         // the closure of the graph vertex (queryFrom) but key the emitted link on the member form (emitFrom).
