@@ -201,6 +201,15 @@ public class Graph {
                 // TODO what with fromInGraph?
             }
             SharedVariable sv = sharedVariables.isAssignedFrom(from, to, statementIndex);
+            SharedVariable mergedAway = sharedVariables.consumeLastMergedAway();
+            if (mergedAway != null && sv != null) {
+                // two existing groups were bridged: re-key the discarded rep's graph vertices onto the survivor
+                Set<Variable> inGraph = isKnownInGraph(mergedAway);
+                if (!inGraph.isEmpty()) {
+                    transformToSharedVariable(mergedAway, inGraph, sv, statementIndex);
+                }
+                return true;
+            }
             Set<Variable> fromInGraph = isKnownInGraph(from);
             Set<Variable> toInGraph = isKnownInGraph(to);
             if (sv == null) {

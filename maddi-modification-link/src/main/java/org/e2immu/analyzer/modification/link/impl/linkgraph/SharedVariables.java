@@ -57,9 +57,20 @@ public class SharedVariables {
             sv1.addAssignment(from, to, statementIndex);
             return sv1;
         }
-        // merge 2 groups
-        merge(sv1, sv2, from, to);
+        // merge 2 groups: sv2 folds into sv1; the caller must re-key sv2's graph vertices onto sv1
+        // (Graph.mergeEdgeBi does, via lastMergedAway)
+        merge(sv1, sv2, from, to, statementIndex);
         return sv1;
+    }
+
+    // the group representative that was discarded by the most recent isAssignedFrom-triggered merge; the caller
+    // (Graph.mergeEdgeBi) consumes it to re-key that rep's graph vertices onto the surviving group's rep
+    private SharedVariable lastMergedAway;
+
+    public SharedVariable consumeLastMergedAway() {
+        SharedVariable sv = lastMergedAway;
+        lastMergedAway = null;
+        return sv;
     }
 
     // true when 'from' is being reassigned (it already recipient-participates in an assignment at a different
@@ -250,8 +261,19 @@ public class SharedVariables {
         variableTranslationMap.put(variable, sharedVariable);
     }
 
-    private void merge(SharedVariable sv1, SharedVariable sv2, Variable from, Variable to) {
-        throw new UnsupportedOperationException("NYI");
+    // 'x = y; ...; x = z' style bridging of two existing groups: fold sv2 into sv1. Members, assignments and
+    // member->group/translation entries move; the bridging assignment is recorded on the survivor. sv2's rep is
+    // remembered in lastMergedAway so the caller can re-key its graph vertices onto sv1.
+    private void merge(SharedVariable sv1, SharedVariable sv2, Variable from, Variable to, String statementIndex) {
+        for (Variable v : sv2.variables()) {
+            sv1.add(v);
+            memberToGroup.put(v, sv1);
+            variableTranslationMap.put(v, sv1);
+        }
+        sv1.assignments().addAll(sv2.assignments());
+        sv1.addAssignment(from, to, statementIndex);
+        sharedVariablesByName.remove(sv2.fullyQualifiedName());
+        lastMergedAway = sv2;
     }
 
 }
