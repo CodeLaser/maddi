@@ -271,6 +271,7 @@ class KotlinScan(
      * real classpath before calling this); this is where multi-file projects are handled.
      */
     fun convert(ktFiles: List<KtFile>): List<TypeInfo> {
+        facadeByFqn.clear()
         // bootstrap: populate the predefined java.lang.Object with its real members (equals/hashCode/toString/
         // …) once, so source types resolve inherited-from-Object calls (mirrors openjdk's ScanCompilationUnits)
         ktFiles.firstOrNull()?.let { analyze(it) { bootstrapObject(); bootstrapString() } }
@@ -306,12 +307,17 @@ class KotlinScan(
         }
         // pass B2 (all files): wire constructor this(...)/super(...) delegations — now every constructor
         // exists, so even super() to another source type resolves — then commit.
+        val committedFacades = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<TypeInfo, Boolean>())
         perFile.forEach { fc ->
             analyze(fc.ktFile) { fc.declarations.zip(fc.types).forEach { (d, ti) -> finalizeType(d, ti) } }
-            fc.facade?.builder()?.commit()
-            fc.compilationUnit.setTypes(fc.allTypes())
+            val facade = fc.facade
+            // a @JvmMultifileClass facade is shared by several files: commit it once (its first file owns it)
+            // and list it only in that file's compilation unit
+            val ownsFacade = facade != null && committedFacades.add(facade)
+            if (ownsFacade) facade!!.builder().commit()
+            fc.compilationUnit.setTypes(if (facade != null && !ownsFacade) fc.types else fc.allTypes())
         }
-        return perFile.flatMap { it.allTypes() }
+        return perFile.flatMap { it.allTypes() }.distinct()
     }
 
     private class FileConversion(
@@ -379,10 +385,19 @@ class KotlinScan(
         return listOf(declaration to typeInfo) + nested
     }
 
+    // @JvmMultifileClass facades shared across files in this convert() run: FQN -> the single facade TypeInfo
+    private val facadeByFqn = HashMap<String, TypeInfo>()
+
     /** Pass A: create + register the file-facade [TypeInfo] `<FileName>Kt`. Members are added in pass B1. */
     private fun registerFacade(compilationUnit: CompilationUnit, ktFile: KtFile): TypeInfo {
         val facade = runtime.newTypeInfo(compilationUnit, facadeSimpleName(ktFile))
-        infoByFqn.put(facade.fullyQualifiedName(), facade, sourceSet)
+        val fqn = facade.fullyQualifiedName()
+        // @JvmMultifileClass: several files contribute to ONE facade (e.g. kotlin.collections.CollectionsKt
+        // spans 10 files). Reuse the facade registered by the first file; the others add their top-level
+        // members to it in pass B1, and it is committed once (see convert's pass B2).
+        facadeByFqn[fqn]?.let { return it }
+        facadeByFqn[fqn] = facade
+        infoByFqn.put(fqn, facade, sourceSet)
         return facade
     }
 
