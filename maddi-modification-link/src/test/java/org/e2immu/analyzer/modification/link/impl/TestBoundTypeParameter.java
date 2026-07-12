@@ -99,7 +99,7 @@ public class TestBoundTypeParameter extends CommonTest {
         Links linksK = k0.linkedVariablesOrEmpty();
         assertEquals("k∈1:x.ts,k←1:x.ts[0:i]", linksK.toString());
 
-        assertEquals("[-, 1:x.ts[0:i]∈1:x.ts] --> method←1:x.ts[0:i],method∈1:x.ts", lvMethod.toString());
+        assertEquals("[-, 1:x.ts[0:i]∈1:x.ts] --> method∈1:x.ts,method←1:x.ts[0:i]", lvMethod.toString());
     }
 
     @DisplayName("Analyze 'asShortList'")
