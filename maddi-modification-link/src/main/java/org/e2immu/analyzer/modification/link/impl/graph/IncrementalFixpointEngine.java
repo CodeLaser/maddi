@@ -176,10 +176,14 @@ public final class IncrementalFixpointEngine<V, L> {
         int newFacts = 0;
         Deque<Fact<V, L>> queue = new ArrayDeque<>();
         for (Fact<V, L> fact : seeds) {
-            if (closure.add(fact.source(), fact.target(), fact.label())) {
+            boolean added = closure.add(fact.source(), fact.target(), fact.label());
+            // a seed IS a graph edge: register its direct witness even when the fact was already derived
+            // (closure.add false). A direct witness beats any composite (putIfBetter), makes the fact robust
+            // against removal of the intermediates the composite depended on, and makes witness choice
+            // independent of whether the direct edge arrived before or after the derivation.
+            witnessIndex.putIfBetter(fact, new Witness.DirectWitness<>(fact, statementIndex));
+            if (added) {
                 newFacts++;
-                witnessIndex.putIfBetter(fact,
-                        new Witness.DirectWitness<>(fact, statementIndex));
                 queue.add(fact);
             }
         }

@@ -51,6 +51,15 @@ public class LocalVariableImpl extends VariableImpl implements LocalVariable {
         this.assignmentExpression = assignmentExpression;
     }
 
+    /*
+     NOTE: a local variable's FQN is its bare name, so equals/hashCode (VariableImpl, FQN-based) make two
+     same-named locals from different contexts EQUAL. This is safe under two invariants the analyzers maintain:
+     (1) within a method, scope-disjoint same-named locals never coexist in an analysis structure (variables are
+         cleared from the link graph at block end), and
+     (2) linking/analysis graphs are per-method, so cross-method name collisions cannot meet.
+     Do not key a CROSS-method structure by Variable without qualifying locals first. The name-based hashCode is
+     deterministic across JVM runs (String hash), which analysis determinism relies on.
+     */
     @Override
     public String fullyQualifiedName() {
         return name;
