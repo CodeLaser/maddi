@@ -97,10 +97,7 @@ public class TestGetSet extends CommonTest {
             assertSame(objects, set.getSetField().field());
             MethodLinkedVariables setSv = set.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
             assertEquals("""
-                    [-, 1:o→this.objects*[0:i],1:o∈this.objects*] --> set.objects[0:i]←this.objects*[0:i],\
-                    set.objects[0:i]←1:o,set.objects[0:i]∈set.objects,\
-                    set.objects[0:i]∈this.objects*,set.objects←this.objects*,\
-                    set.objects∋this.objects*[0:i],set.objects∋1:o,set←this*\
+                    [-, 1:o∈this.objects*,1:o→this.objects*[0:i]] --> set.objects←this.objects*,set.objects∋this.objects*[0:i],set.objects∋1:o,set.objects[0:i]∈this.objects*,set.objects[0:i]∈set.objects,set.objects[0:i]←this.objects*[0:i],set.objects[0:i]←1:o,set←this*\
                     """, setSv.toString());
         }
         {
