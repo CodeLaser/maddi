@@ -23,7 +23,8 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
                                    List<String> analysisSteps,
                                    List<String> debugTargets,
                                    boolean quiet,
-                                   boolean parallel) {
+                                   boolean parallel,
+                                   boolean jdkInternals) {
 
     public static class Builder {
         private boolean incrementalAnalysis;
@@ -31,6 +32,7 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
         private final List<String> debugTargets = new ArrayList<>();
         private boolean quiet;
         private boolean parallel;
+        private boolean jdkInternals;
         private String analysisResultsDir;
 
         public Builder setIncrementalAnalysis(boolean incrementalAnalysis) {
@@ -58,6 +60,11 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
             return this;
         }
 
+        public Builder setJdkInternals(boolean jdkInternals) {
+            this.jdkInternals = jdkInternals;
+            return this;
+        }
+
         public Builder setAnalysisResultsDir(String analysisResultsDir) {
             this.analysisResultsDir = analysisResultsDir;
             return this;
@@ -65,7 +72,7 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
 
         public GeneralConfiguration build() {
             return new GeneralConfiguration(incrementalAnalysis, analysisResultsDir, List.copyOf(analysisSteps),
-                    List.copyOf(debugTargets), quiet, parallel);
+                    List.copyOf(debugTargets), quiet, parallel, jdkInternals);
         }
     }
 }

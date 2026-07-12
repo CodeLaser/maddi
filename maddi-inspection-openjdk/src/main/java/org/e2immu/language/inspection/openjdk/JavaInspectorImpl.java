@@ -45,6 +45,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.lang.module.ModuleDescriptor;
+import java.lang.module.ModuleFinder;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import java.util.zip.GZIPInputStream;
@@ -67,6 +71,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private ScanCompilationUnits lastScanUnits;
     private boolean parameterNames;
     private ParameterNameIndex parameterNameIndex; // lazily loaded when parameterNames is on
+    private boolean jdkInternals; // "we're working with JDK internals": load jdk.internal.* types + open javac
 
     // the JDK modules for which a faithful parameter-name index is shipped in maddi-aapi-archive
     private static final List<String> PARAMETER_NAME_MODULES = List.of("java.base", "java.desktop", "java.net.http");
@@ -119,6 +124,11 @@ public class JavaInspectorImpl implements JavaInspector {
     @Override
     public void setParameterNames(boolean parameterNames) {
         this.parameterNames = parameterNames;
+    }
+
+    @Override
+    public void setJdkInternals(boolean jdkInternals) {
+        this.jdkInternals = jdkInternals;
     }
 
     // lazily load and merge the per-module .paramnames.gz indices shipped in maddi-aapi-archive
@@ -313,7 +323,7 @@ public class JavaInspectorImpl implements JavaInspector {
         // shipped index instead of javac's synthetic arg0, arg1, ...
         ParameterNameIndex pni = parameterNames ? parameterNameIndex() : null;
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
-                javacTask, sourceSet, infoByFqn, true, diagnostics, preload, pni);
+                javacTask, sourceSet, infoByFqn, true, diagnostics, preload, pni, jdkInternals);
         ScanCompilationUnits.Result scanned = scanCompilationUnits.scan();
         this.lastScanUnits = scanCompilationUnits; // keep the live task for on-demand getOrLoad
 
@@ -393,6 +403,38 @@ public class JavaInspectorImpl implements JavaInspector {
             if (type.isInstance(c)) return true;
         }
         return false;
+    }
+
+    // "we're working with JDK internals": open javac up to the JDK's non-exported packages, replacing the old
+    // per-project env var. --release compiles against ct.sym (which OMITS jdk.internal/sun), so we drop it and
+    // compile against the running system modules (-XDignore.symbol.file); --add-export every non-exported package
+    // of the declared JDK modules to the unnamed module (the runner compiles with ignoreModule); and --limit-modules
+    // to the declared ones so a JDK module's own sources (e.g. java.net.http) do not clash with the system module of
+    // the same name ("package exists in another module").
+    private static List<String> jdkInternalsJavacOptions(SourceSet sourceSet) {
+        List<String> options = new ArrayList<>();
+        options.add("-XDignore.symbol.file=true");
+        List<String> jdkModules = sourceSet.dependencies().stream()
+                .filter(SourceSet::partOfJdk).map(SourceSet::name).distinct().sorted().toList();
+        if (!jdkModules.isEmpty()) {
+            options.add("--limit-modules");
+            options.add(String.join(",", jdkModules));
+        }
+        ModuleFinder systemModules = ModuleFinder.ofSystem();
+        for (String modName : jdkModules) {
+            systemModules.find(modName).ifPresent(ref -> {
+                ModuleDescriptor d = ref.descriptor();
+                Set<String> exported = d.exports().stream().filter(e -> !e.isQualified())
+                        .map(ModuleDescriptor.Exports::source).collect(Collectors.toSet());
+                new TreeSet<>(d.packages()).forEach(pkg -> {
+                    if (!exported.contains(pkg)) {
+                        options.add("--add-exports");
+                        options.add(modName + "/" + pkg + "=ALL-UNNAMED");
+                    }
+                });
+            });
+        }
+        return options;
     }
 
     private JavacTask createTask(SourceSet sourceSet,
@@ -485,19 +527,8 @@ public class JavaInspectorImpl implements JavaInspector {
             // "tree.starImportScope is null" during task.analyze(). maddi keys its CST by FQN strings, not javac
             // Names, so not sharing names across compilations is safe here.
             List<String> options = new ArrayList<>(List.of("-proc:none", "-parameters", "-XDuseUnsharedTable=true"));
-            // Parsing JDK-internal-using sources (e.g. deducing analysis hints from java.net.http src.zip) needs
-            // extra javac options: --add-exports to reach non-exported jdk.internal/sun packages, and
-            // --patch-module to recompile a module whose name already exists as a system module. --release
-            // compiles against ct.sym (which OMITS jdk.internal/sun), so when raw options are supplied we drop it
-            // and compile against the running system modules. Supply comma-separated raw tokens, e.g.
-            // "--patch-module;java.net.http=/path/to/src;--add-exports;java.base/sun.net=java.net.http" (each javac
-            // token is a separate ';'-separated element). Read from the environment so paths/'='/',' pass through
-            // cleanly to the child JVM (unlike JAVA_OPTS word-splitting).
-            String extraJavac = System.getenv("MADDI_JAVAC_OPTIONS");
-            if (extraJavac != null && !extraJavac.isBlank()) {
-                for (String tok : extraJavac.split(";")) {
-                    if (!tok.isBlank()) options.add(tok.trim());
-                }
+            if (jdkInternals) {
+                options.addAll(jdkInternalsJavacOptions(sourceSet));
             } else {
                 options.add("--enable-preview");
                 options.add("--release=26");

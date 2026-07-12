@@ -80,7 +80,8 @@ public class ScanCompilationUnits {
                                 boolean detailedSources,
                                 MaddiDiagnosticCollector diagnosticCollector,
                                 List<String> packagesToPreload,
-                                org.e2immu.language.inspection.api.resource.ParameterNameIndex parameterNameIndex) {
+                                org.e2immu.language.inspection.api.resource.ParameterNameIndex parameterNameIndex,
+                                boolean jdkInternals) {
         this.runtime = runtime;
         this.diagnosticCollector = diagnosticCollector;
         this.task = task;
@@ -95,7 +96,7 @@ public class ScanCompilationUnits {
         computeMethodOverrides = new ComputeMethodOverrides(types, elements);
         flagHelper = new FlagHelper(runtime);
         classSymbolScanner = new ClassSymbolScanner(runtime, inputConfiguration, infoByFqn, sourceSet,
-                flagHelper, types, elements, diagnosticCollector, parameterNameIndex);
+                flagHelper, types, elements, diagnosticCollector, parameterNameIndex, jdkInternals);
         resolveJavaDoc = new ResolveJavaDoc(runtime, classSymbolScanner);
     }
 

@@ -54,6 +54,7 @@ public class Main {
     public static final String PARALLEL = "parallel";
     public static final String SOURCE_ENCODING = "source-encoding";
     public static final String INCREMENTAL_ANALYSIS = "incremental-analysis";
+    public static final String JDK_INTERNALS = "jdk-internals";
     public static final String ANALYSIS_STEPS = "analysis-steps";
 
     public static final String AS_NONE = "none";
@@ -223,6 +224,9 @@ public class Main {
         options.addOption("i", INCREMENTAL_ANALYSIS, false, "Incremental analysis mode.");
         options.addOption("p", PARALLEL, false, "Parallelize as much as possible.");
         options.addOption("q", QUIET, false, "Silent mode. Do not write warnings, errors, etc. to stdout.");
+        options.addOption(null, JDK_INTERNALS, false, "We're working with JDK internals: load jdk.internal.*/sun.* "
+                + "types, and open the JDK modules to javac (add-exports every non-exported package, bypass ct.sym, "
+                + "avoid system-module package clashes). Needed to parse the JDK's own sources.");
     }
 
     public static GeneralConfiguration generalConfiguration(Map<String, String> kvMap) {
@@ -230,6 +234,7 @@ public class Main {
         setBooleanProperty(kvMap, QUIET, builder::setQuiet);
         setBooleanProperty(kvMap, PARALLEL, builder::setParallel);
         setBooleanProperty(kvMap, INCREMENTAL_ANALYSIS, builder::setIncrementalAnalysis);
+        setBooleanProperty(kvMap, JDK_INTERNALS, builder::setJdkInternals);
         setSplitStringProperty(kvMap, COMMA, DEBUG, builder::addDebugTargets);
         setSplitStringProperty(kvMap, COMMA, ANALYSIS_STEPS, builder::addAnalysisSteps);
         setStringProperty(kvMap, ANALYSIS_RESULTS_DIR, builder::setAnalysisResultsDir);
@@ -242,6 +247,7 @@ public class Main {
         builder.setParallel(cmd.hasOption(PARALLEL));
         builder.setQuiet(cmd.hasOption(QUIET));
         builder.setIncrementalAnalysis(cmd.hasOption(INCREMENTAL_ANALYSIS));
+        builder.setJdkInternals(cmd.hasOption(JDK_INTERNALS));
 
         String[] analysisSteps = cmd.getOptionValues(ANALYSIS_STEPS);
         splitAndAdd(analysisSteps, COMMA, builder::addAnalysisSteps);

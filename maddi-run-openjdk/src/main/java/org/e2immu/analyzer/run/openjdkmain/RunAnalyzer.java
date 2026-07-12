@@ -100,6 +100,7 @@ public class RunAnalyzer implements Runnable {
         }
 
         JavaInspector javaInspector = new JavaInspectorImpl(true, false);
+        javaInspector.setJdkInternals(configuration.generalConfiguration().jdkInternals());
         InputConfiguration inputConfiguration = configuration.inputConfiguration();
         javaInspector.initialize(inputConfiguration);
         javaInspector.preload("java.base::java.util");

@@ -65,6 +65,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final MaddiDiagnosticCollector diagnosticCollector;
     // when non-null, supplies faithful formal parameter names for class-file methods (javac only gives arg0,...)
     private final ParameterNameIndex parameterNameIndex;
+    // "we're working with JDK internals": when true, jdk.internal.* types are loaded from bytecode like any other
+    // type (nature/parent/access set) instead of being left as bare stubs. Needed to analyze code that uses JDK
+    // internals (e.g. the java.net.http sources, for hint deduction).
+    private final boolean jdkInternals;
 
     private final InfoByFqn infoByFqn; // Javac qualified name -> typeInfo, methodInfo, fieldInfo
     private final Map<Symbol.MethodSymbol, MethodInfo> methodSymbolMap = new IdentityHashMap<>();
@@ -102,7 +106,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                               Types types,
                               Elements elements,
                               MaddiDiagnosticCollector maddiDiagnosticCollector,
-                              @Nullable ParameterNameIndex parameterNameIndex) {
+                              @Nullable ParameterNameIndex parameterNameIndex,
+                              boolean jdkInternals) {
         this.runtime = runtime;
         this.flagHelper = flagHelper;
         this.elements = elements;
@@ -112,6 +117,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         assert inputConfiguration.sourceSets().contains(sourceSetOfCurrentTask);
         this.diagnosticCollector = maddiDiagnosticCollector;
         this.parameterNameIndex = parameterNameIndex;
+        this.jdkInternals = jdkInternals;
         this.computeMethodOverrides = new ComputeMethodOverrides(types, elements);
         this.createSyntheticFieldsForGetSet = new CreateSyntheticFieldsForGetSet(runtime);
 
@@ -216,7 +222,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 cu = runtime.newCompilationUnitStub(packageName);
                 internal = false;
             } else {
-                internal = cs.packge().toString().startsWith("jdk.internal.");
+                // jdk.internal.* is normally left as a stub (not loaded); with the JDK-internals flag we load it
+                // like any other class-file type, so its nature/parent/access are set and referencing types commit.
+                internal = !jdkInternals && cs.packge().toString().startsWith("jdk.internal.");
                 if (internal) {
                     uri = URI.create("jrt:/internal/");
                 } else {
