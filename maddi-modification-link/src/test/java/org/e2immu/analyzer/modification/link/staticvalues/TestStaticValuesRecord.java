@@ -579,14 +579,7 @@ public class TestStaticValuesRecord extends CommonTest {
         MethodLinkedVariables mlvSetVariable = setVariable.analysis().getOrCreate(METHOD_LINKS,
                 () -> tlc.doMethod(setVariable));
         assertEquals("""
-                [-, 1:value→this.variables*[0:pos],1:value∈this.variables*] --> \
-                setVariable.variables[0:pos]←this.variables*[0:pos],\
-                setVariable.variables[0:pos]←1:value,\
-                setVariable.variables[0:pos]∈setVariable.variables,\
-                setVariable.variables[0:pos]∈this.variables*,\
-                setVariable.variables←this.variables*,\
-                setVariable.variables∋this.variables*[0:pos],\
-                setVariable.variables∋1:value,setVariable←this*\
+                [-, 1:value∈this.variables*,1:value→this.variables*[0:pos]] --> setVariable←this*,setVariable.variables∋1:value,setVariable.variables←this.variables*,setVariable.variables∋this.variables*[0:pos],setVariable.variables[0:pos]←1:value,setVariable.variables[0:pos]∈this.variables*,setVariable.variables[0:pos]∈setVariable.variables,setVariable.variables[0:pos]←this.variables*[0:pos]\
                 """, mlvSetVariable.toString());
 
         Value.FieldValue fv = setVariable.getSetField();
