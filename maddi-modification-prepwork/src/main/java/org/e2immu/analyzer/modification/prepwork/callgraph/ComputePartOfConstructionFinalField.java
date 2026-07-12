@@ -183,7 +183,9 @@ public class ComputePartOfConstructionFinalField {
             for (MethodInfo methodInfo : constructorsAndMethodsOfPrimaryType) {
                 if (methodInfo.isConstructor()) {
                     changes |= calledFromConstruction.add(methodInfo);
-                } else if (!methodInfo.access().isPrivate()) {
+                } else if (methodInfo.access() == null || !methodInfo.access().isPrivate()) {
+                    // a null access is only possible for a method left partially built by a dropped (fault-
+                    // isolated) compilation unit; treat it conservatively as non-private (called from outside)
                     changes |= calledFromOutside.add(methodInfo);
                 }
                 boolean isCalledFromConstruction = calledFromConstruction.contains(methodInfo);
@@ -212,8 +214,10 @@ public class ComputePartOfConstructionFinalField {
     }
 
     private boolean canBePartOfConstruction(MethodInfo mi) {
+        // a null access (only from a method left partially built by a dropped compilation unit) is treated as
+        // non-private, i.e. not part of construction
         return mi.isConstructor()
-               || mi.access().isPrivate() && mi.typeInfo().enclosingMethod() == null
+               || mi.access() != null && mi.access().isPrivate() && mi.typeInfo().enclosingMethod() == null
                || mi.typeInfo().enclosingMethod() != null && canBePartOfConstruction(mi.typeInfo().enclosingMethod());
     }
 }
