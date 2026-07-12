@@ -22,7 +22,13 @@ plugins {
 
 group = "io.codelaser"
 
+// resolve the kotlin-stdlib *sources* jar (not on the compile/runtime classpath) so TestKotlinStdlibParse can
+// parse the real stdlib source against its own bytecode (which IS on the test classpath)
+val kotlinStdlibSources: Configuration by configurations.creating { isTransitive = false }
+
 dependencies {
+    kotlinStdlibSources("org.jetbrains.kotlin:kotlin-stdlib:2.4.0:sources")
+
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-cst-api"))
     implementation(project(":maddi-inspection-resource"))
@@ -50,4 +56,5 @@ tasks.withType<Test> {
         "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
     )
+    systemProperty("kotlin.stdlib.sources", kotlinStdlibSources.singleFile.absolutePath)
 }
