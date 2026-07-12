@@ -245,8 +245,14 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     variableCounter);
             this.returnVariable = methodInfo.hasReturnValue() ? new ReturnVariableImpl(methodInfo) : null;
 
+            // see Options.objectGraphLinks: the coarse ∩/≤/≥ web is not consumed by linking's applications and
+            // is quadratic on deep structures; PRODUCTION excludes those labels from the closure entirely
+            java.util.function.Predicate<LinkNature> valid = options.objectGraphLinks()
+                    ? LinkNature::valid
+                    : ln -> ln.valid() && ln != LinkNatureImpl.OBJECT_GRAPH_OVERLAPS
+                            && ln != LinkNatureImpl.IS_IN_OBJECT_GRAPH && ln != LinkNatureImpl.OBJECT_GRAPH_CONTAINS;
             IncrementalFixpointEngine<Variable, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine,
-                    LinkNature::best, LinkNature::valid, LinkNature::score, LinkNature::reverse,
+                    LinkNature::best, valid, LinkNature::score, LinkNature::reverse,
                     LinkGraph::vertexPrinter, Variable::compareTo, v -> !(v instanceof ReturnVariable));
             Graph graph = new Graph(javaInspector.runtime(), engine);
             this.followGraph = new FollowGraph(graph);
