@@ -112,10 +112,13 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
     private Immutable immutableSuper(TypeInfo typeInfo) {
         Immutable immutable = typeInfo.analysis().getOrNull(IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.class);
         if (immutable != null || !typeInfo.isAbstract()) return immutable;
-        Boolean immFromFieldNonAbstract = loopOverFieldsAndMethods(typeInfo, false);
-        if (immFromFieldNonAbstract == null) return null;
-        if (!immFromFieldNonAbstract) return FINAL_FIELDS;
-        return IMMUTABLE_HC; // abstract type is extensible
+        // The abstract supertype's own immutability has not been decided yet. We must NOT estimate it from only its
+        // non-abstract members: that ignores the abstract methods, which can make the abstract type mutable (e.g. a
+        // modifying abstract method on an interface). Such an over-optimistic estimate gets committed onto a subtype,
+        // and then -- once the abstract type is correctly decided lower -- the subtype's immutability would have to be
+        // downgraded, tripping the monotonic-overwrite guard. Instead we wait: a null return leaves the subtype
+        // undecided until the abstract supertype's own analysis (which does account for abstract methods) completes.
+        return null;
     }
 
     private static boolean isNotSelf(FieldInfo fieldInfo) {
