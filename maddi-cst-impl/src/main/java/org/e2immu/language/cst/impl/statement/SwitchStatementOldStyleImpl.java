@@ -83,7 +83,7 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
             if (patternVariable != null) {
                 outputBuilder.add(SpaceEnum.ONE).add(patternVariable.print(qualification));
 
-                if (!whenExpression.isEmpty()) {
+                if (whenExpression != null && !whenExpression.isEmpty()) {
                     outputBuilder.add(SpaceEnum.ONE).add(whenExpression.print(qualification));
                 }
             }
@@ -114,7 +114,8 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
         public SwitchLabel translate(TranslationMap translationMap) {
             Expression tLiteral = literal.translate(translationMap);
             RecordPattern tPatternVariable = patternVariable == null ? null : patternVariable.translate(translationMap);
-            Expression tWhen = whenExpression.translate(translationMap);
+            // whenExpression is nullable (a plain old-style label `case 0:` has no `when` guard)
+            Expression tWhen = whenExpression == null ? null : whenExpression.translate(translationMap);
             if (tLiteral == literal && tPatternVariable == patternVariable && tWhen == whenExpression) return this;
             return new SwitchLabelImpl(tLiteral, startFromPosition, tPatternVariable, tWhen);
         }
@@ -128,7 +129,7 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
         public SwitchLabel rewire(InfoMap infoMap) {
             return new SwitchLabelImpl(literal.rewire(infoMap), startFromPosition,
                     patternVariable == null ? null : (RecordPattern) patternVariable.rewire(infoMap),
-                    whenExpression.rewire(infoMap));
+                    whenExpression == null ? null : whenExpression.rewire(infoMap));
         }
 
         @Override
