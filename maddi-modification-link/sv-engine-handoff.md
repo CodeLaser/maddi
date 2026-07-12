@@ -2,6 +2,8 @@
 
 Entry point for the `sv` (shared-variable) engine integration. Read this first, then
 the companion docs:
+- `sv-reconstruction-techniques.md` — the design reference for the collapse-reconstruction
+  machinery (techniques, guards, direction rules, open shapes).
 - `sv-integration-plan.md` — the overall port strategy + delta map + phases.
 - `sv-semantic-differences.md` — the new link model vs the legacy one (the "why").
 - `sv-engine-differential-worklist.md` — the 194-failure breakdown + root-cause notes.
