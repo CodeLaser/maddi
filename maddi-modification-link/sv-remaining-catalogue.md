@@ -1,6 +1,44 @@
 # sv engine — catalogue of the remaining link failures
 
-## UPDATE `cdf7cf3f` — now 86 failing; remaining roots mapped
+## UPDATE branch `sv-spine-wip` (331b1f21) — varargs-∩ ROOT CAUSE SOLVED; integration WIP parked
+
+**Ground truth obtained by running the OLD engine** (worktree on the `openjdk` branch,
+graph dump of TestVarargs.test3a): the old graph links every variable to its own virtual
+field — `collection ≻ collection.§is`, `0:target ≻ target.§is` — via `AddEdge.addField`,
+unconditionally. The varargs ∩ derives through
+`target.§is ~ collection.§is ≺ collection ∈ collections.§iss` (`~∘≺=∩`, `∩∘∈=∩`).
+**The sv engine's `invalidEdge` (commit `29d597d9`, a graph-size reduction) severed this
+owner≻own-virtual-field SPINE** — that one reduction is the root of the entire fan-out
+family, NOT a missing for-each edge (all 3 earlier edge-injection attempts were doomed).
+
+Branch `sv-spine-wip` holds the five-component restoration (each env-gated: NOBOTH/NOMAT/
+NOPASSFIX/NOMIRROR), with four REAL engine bugs found and fixed along the way:
+1. `invalidEdge`: allow ≻/≺ for owner↔own-virtual-field only (`from == fieldScopeRoot(to)`).
+2. `transformToSharedVariable` re-keyed only the FROM side of member edges — the
+   untranslated to-side resurrected removed vertices; half-translated spine edges were
+   dropped at every collapse, order-dependently.
+3. **Witness-choice nondeterminism**: a closure fact between two survivors dies on vertex
+   removal iff the (arbitrarily chosen) recorded witness routes through the removed vertex.
+   Fixed by `materializeWitnessOrphans` in `removeVertices`: promote such facts to raw
+   edges — with the closure's OWN label per direction (the closure is direction-asymmetric,
+   rev(combined)≠combine(reversed)), else the graph⊆closure consistency invariant breaks.
+4. `notLinkedToModifiedVirtualModification` ignored the ☷ pass set (flat equivalentStream):
+   `next()` modifying the ITERATOR marked the iterated COLLECTION modified (spurious `*`).
+   Fixed group-aware with the pass check (mirrors the ≡-branch of notLinkedToModified).
+5. Field-level mirrors of reconstructed intra-group assignments (`combine.§is←target.§is`),
+   projecting the rep's field vertices onto both endpoints in sharedAssignmentEdgeStream.
+
+WIP status: TestVarargs 4/4 content-exact (order-only), deterministic; suite 92 vs 86 —
+net -6, so NOT merged. Remaining on the branch: 4× TestSimpleSharedVariable closure-dump
+re-baselines (spine facts are correct, additive), TestConstructor coarse `≤` (broadened
+algebra), TestDeepStructureBench consistency assert (`Worse! mapRight.§tts[-1] ~ $__rv26.§ts
+have ∩` — removal semantics of slices/intermediates vs materialized edges; note clear()
+leaves `v.§f` vertices orphaned when `v` is removed), TestSupplier test7 + Stream.generate,
+and a 2-test run-to-run flip (TestSupplier test1/test5Method2). The remaining work is
+concentrated in the engine's REMOVAL SEMANTICS — a focused design pass, with the gates
+making each component independently testable.
+
+## UPDATE `cdf7cf3f` — 86 failing; remaining roots mapped
 
 Since 100: `aa5a8593`+`73551f8c` directionality attribution of a rep's incoming
 edges (100→92); `cdf7cf3f` multi-valued-assignment vs reassignment
