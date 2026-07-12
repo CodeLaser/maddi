@@ -2672,8 +2672,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     case JCTree.JCPatternCaseLabel pcl -> {
                         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
                         List<AnnotationExpression> annotations = new ArrayList<>();
-                        assert recordPatternResult == null : "Not allowed, multiple real record patterns";
-                        recordPatternResult = parseRecordPattern(pcl.getPattern(), dsb, annotations);
+                        RecordPatternResult rpr = parseRecordPattern(pcl.getPattern(), dsb, annotations);
+                        if (recordPatternResult == null) {
+                            recordPatternResult = rpr;
+                        }
+                        // else: a case with several patterns, e.g. 'case BaseTypeSig _, TypeVarSig _ ->' (JEP 456).
+                        // Java permits this only when none of them declares a (named) pattern variable (JLS
+                        // 14.11.1), so the arm body cannot reference a binding. The switch-entry model carries a
+                        // single pattern, so keep the first and ignore the binding-free alternatives.
                     }
                     case null, default -> throw new UnsupportedOperationException("NYI");
                 }
