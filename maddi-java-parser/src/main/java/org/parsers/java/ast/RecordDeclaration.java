@@ -22,8 +22,7 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
-
-public class RecordDeclaration extends BaseNode implements TypeDeclaration {
+public class RecordDeclaration extends BaseNode implements TypeDeclaration { 
 }
 
 

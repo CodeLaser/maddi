@@ -22,8 +22,7 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
-
-public class LambdaLHS extends BaseNode {
+public class LambdaLHS extends BaseNode { 
 }
 
 

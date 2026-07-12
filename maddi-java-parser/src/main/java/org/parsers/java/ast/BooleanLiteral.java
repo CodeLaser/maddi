@@ -21,13 +21,11 @@ package org.parsers.java.ast;
 import org.parsers.java.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class BooleanLiteral extends KeyWord { 
 
-public class BooleanLiteral extends KeyWord {
-
-    public BooleanLiteral(TokenType type, TokenSource tokenSource, int beginOffset, int endOffset) {
+    public BooleanLiteral(TokenType type, TokenSource tokenSource, int beginOffset, int endOffset) { 
         super(type, tokenSource, beginOffset, endOffset);
     }
-
 }
 
 

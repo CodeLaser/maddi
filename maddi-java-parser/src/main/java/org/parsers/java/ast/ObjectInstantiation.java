@@ -22,13 +22,11 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class ObjectInstantiation extends AllocationExpression { 
 
-public class ObjectInstantiation extends AllocationExpression {
-
-    public boolean canBeThrown() {
+    public boolean canBeThrown() { 
         return true;
     }
-
 }
 
 

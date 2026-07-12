@@ -21,13 +21,11 @@ package org.parsers.java.ast;
 import org.parsers.java.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class Delimiter extends Token { 
 
-public class Delimiter extends Token {
-
-    public Delimiter(TokenType type, TokenSource tokenSource, int beginOffset, int endOffset) {
+    public Delimiter(TokenType type, TokenSource tokenSource, int beginOffset, int endOffset) { 
         super(type, tokenSource, beginOffset, endOffset);
     }
-
 }
 
 

@@ -89,6 +89,7 @@ public class ParseStatement extends CommonParse {
         List<AnnotationExpression> annotations = new ArrayList<>();
         List<LocalVariableCreation.Modifier> lvcModifiers = new ArrayList<>();
         DetailedSources.Builder detailedSourcesBuilder = context.newDetailedSourcesBuilder();
+        boolean varSeen = false;
 
         // annotations
         int i = 0;
@@ -108,6 +109,7 @@ public class ParseStatement extends CommonParse {
                     m = runtime.localVariableModifierFinal();
                 } else if (Token.TokenType.VAR.equals(si.getType())) {
                     m = runtime.localVariableModifierVar();
+                    varSeen = true;
                 } else {
                     break;
                 }
@@ -144,19 +146,15 @@ public class ParseStatement extends CommonParse {
                     .build();
         }
 
-        if (statement instanceof VarDeclaration varDeclaration) {
-            return localVariableCreationWithVar(context, index, varDeclaration, i, lvcModifiers, source,
-                    detailedSourcesBuilder, comments, label, annotations);
-        }
-
+        // the grammar unified 'var x' and 'Type x' under LocalVariableDeclaration (the former separate
+        // VarDeclaration/NoVarDeclaration nodes were removed). A leading 'var' keyword is captured as a modifier
+        // by the loop above (varSeen), which also advances i past it to the VariableDeclarator; in that case use
+        // the var-inference path (there is no explicit type node to parse). Otherwise parse the type at i.
         // type declarator delimiter declarator
         if (statement instanceof LocalVariableDeclaration nvd) {
             Source corrected = source(index, nvd, nvd.getLastChild());
-            if (nvd.get(i) instanceof Token t && Token.TokenType.VAR.equals(t.getType())) {
-                LocalVariableCreation.Modifier modifierVar = runtime.localVariableModifierVar();
-                lvcModifiers.add(modifierVar);
-                if (detailedSourcesBuilder != null) detailedSourcesBuilder.put(modifierVar, source(t));
-                return localVariableCreationWithVar(context, index, nvd, i + 1, lvcModifiers, corrected,
+            if (varSeen) {
+                return localVariableCreationWithVar(context, index, nvd, i, lvcModifiers, corrected,
                         detailedSourcesBuilder, comments, label, annotations);
             }
             return localVariableCreation(context, index, nvd, i, lvcModifiers, corrected, detailedSourcesBuilder,

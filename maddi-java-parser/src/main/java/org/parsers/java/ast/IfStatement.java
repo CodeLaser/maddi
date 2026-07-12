@@ -22,16 +22,14 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class IfStatement extends BaseNode implements Statement { 
 
-public class IfStatement extends BaseNode implements Statement {
-
-    public Node getElseBlock() {
+    public Node getElseBlock() { 
         Node result = getLastChild();
         Token tok = (Token) result.previousSibling();
         if (tok.getType() == ELSE) return result;
         return null;
     }
-
 }
 
 

@@ -21,8 +21,7 @@ package org.parsers.java.ast;
 import org.parsers.java.*;
 import java.util.*;
 
-
-public interface Type extends Node {
+public interface Type extends Node { 
 }
 
 

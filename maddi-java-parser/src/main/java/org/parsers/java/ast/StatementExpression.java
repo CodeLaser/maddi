@@ -22,8 +22,7 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
-
-public class StatementExpression extends BaseNode implements Expression {
+public class StatementExpression extends BaseNode implements Expression { 
 }
 
 

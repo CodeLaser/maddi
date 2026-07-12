@@ -22,8 +22,7 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
-
-public class RequiresDirective extends BaseNode {
+public class RequiresDirective extends BaseNode { 
 }
 
 

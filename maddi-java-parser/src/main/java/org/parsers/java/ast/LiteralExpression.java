@@ -22,13 +22,11 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class LiteralExpression extends BaseNode implements PrimaryExpression, Expression { 
 
-public class LiteralExpression extends BaseNode implements PrimaryExpression, Expression {
-
-    public boolean canBeThrown() {
+    public boolean canBeThrown() { 
         return toString().equals("this");
     }
-
 }
 
 

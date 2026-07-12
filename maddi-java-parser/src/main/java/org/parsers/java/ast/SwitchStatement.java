@@ -22,21 +22,19 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
-
-public class SwitchStatement extends BaseNode implements Statement {
+public class SwitchStatement extends BaseNode implements Statement { 
 
     /**
     * Is this a newer style switch statement, that uses
     * the -> arrow after case/default?
     */
-    public boolean isNewStyle() {
+    public boolean isNewStyle() { 
         return firstChildOfType(NewCaseStatement.class) != null;
     }
 
-    public Expression getSelectorExpression() {
+    public Expression getSelectorExpression() { 
         return (Expression) get(2);
     }
-
 }
 
 

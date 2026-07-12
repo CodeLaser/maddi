@@ -21,17 +21,15 @@ package org.parsers.java.ast;
 import org.parsers.java.*;
 import java.util.*;
 
+public interface Expression extends Node { 
 
-public interface Expression extends Node {
-
-    default boolean canBeAssignedTo() {
+    default boolean canBeAssignedTo() { 
         return false;
     }
 
-    default boolean canBeThrown() {
+    default boolean canBeThrown() { 
         return false;
     }
-
 }
 
 

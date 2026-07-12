@@ -22,8 +22,7 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
-
-public class SingleMemberAnnotation extends BaseNode implements Annotation {
+public class SingleMemberAnnotation extends BaseNode implements Annotation { 
 }
 
 

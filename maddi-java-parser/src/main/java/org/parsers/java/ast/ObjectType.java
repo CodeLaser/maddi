@@ -22,16 +22,14 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class ObjectType extends BaseNode implements Type { 
 
-public class ObjectType extends BaseNode implements Type {
-
-    public boolean equals(Object obj) {
-        if (obj instanceof ObjectType) {
+    public boolean equals(Object obj) { 
+        if (obj instanceof ObjectType) { 
             return ((ObjectType) obj).toString().equals(this.toString());
         }
         return false;
     }
-
 }
 
 
