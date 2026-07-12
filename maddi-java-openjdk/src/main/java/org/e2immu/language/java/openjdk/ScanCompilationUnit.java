@@ -629,6 +629,20 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
                         convertTypeWithAnnotations(jcVariableDecl.getType(), dsbParam, ignored -> {
                         });
+                        // This method (and hence its parameters) was created earlier from its symbol -- e.g. via a
+                        // method reference scanned before this declaration is reached -- so parameterInfo has a
+                        // symbol-built type instance, distinct from the tree-built instance convertTypeWithAnnotations
+                        // just keyed into dsbParam. DetailedSources is identity-keyed, so detail(...) by the
+                        // parameter's own type would miss. Whether the two instances happen to coincide depends on
+                        // scan order, which varies between JVM runs, so the miss is intermittent: a caller that looks
+                        // up the parameter type's source (e.g. to place a type-replacement edit) then NPEs on a null
+                        // Source in some runs but not others. Key the parameter's own type instance to the same type
+                        // source so the lookup resolves deterministically. (The fresh-method path at addParameter
+                        // already stores the tree-built instance as the parameter type, so it needs no fix-up.)
+                        Source paramTypeSource = sourceForNode(jcVariableDecl.getType());
+                        if (paramTypeSource != null && !paramTypeSource.isNoSource()) {
+                            dsbParam.put(parameterInfo.parameterizedType(), paramTypeSource);
+                        }
                         setParameterSource(jcVariableDecl, parameterInfo, dsbParam,
                                 methodInfo.isConstructor(), methodInfo, currentType);
                     }
