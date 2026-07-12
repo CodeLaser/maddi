@@ -70,6 +70,7 @@ import org.jetbrains.kotlin.types.Variance as KotlinVariance
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtLibraryModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSdkModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModule
+import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtBlockExpression
@@ -278,10 +279,16 @@ class KotlinScan(
         // pass A (all files): create + register every type so cross-file references resolve
         val perFile = ktFiles.map { ktFile ->
             val compilationUnit = compilationUnitFor(ktFile)
+            // Kotlin-multiplatform: an `expect` declaration (commonMain) is realised by an `actual` of the same
+            // FQN (jvmMain); on the JVM the `actual` is authoritative, so drop the `expect` here to avoid a
+            // "Duplicating type" collision (e.g. kotlin.Annotation is expect in common, actual in jvm)
             val declarations = ktFile.declarations.filterIsInstance<KtClassOrObject>()
+                .filterNot { it.hasModifier(KtTokens.EXPECT_KEYWORD) }
             // top-level functions/properties live on the JVM file facade `<FileName>Kt` (a static container)
             val topLevelFunctions = ktFile.declarations.filterIsInstance<KtNamedFunction>()
+                .filterNot { it.hasModifier(KtTokens.EXPECT_KEYWORD) }
             val topLevelProperties = ktFile.declarations.filterIsInstance<KtProperty>()
+                .filterNot { it.hasModifier(KtTokens.EXPECT_KEYWORD) }
             val hasFacade = topLevelFunctions.isNotEmpty() || topLevelProperties.isNotEmpty()
             // flatten top-level + nested classes into parallel (declaration, type) lists for the later passes
             val (pairs, facade) = analyze(ktFile) {
