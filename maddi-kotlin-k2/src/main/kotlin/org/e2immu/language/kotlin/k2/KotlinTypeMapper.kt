@@ -182,6 +182,15 @@ internal class KotlinTypeMapper(
             "kotlin.Unit" -> return runtime.voidParameterizedType()
             "kotlin.String" -> return runtime.stringParameterizedType()
             "kotlin.Any" -> return runtime.objectParameterizedType()
+            "kotlin.Array" -> {
+                // Kotlin's Array<T> is the JVM reified array T[] (boxed element): model it as an array so that
+                // overloads differing only in the element type -- Array<Double>.max vs Array<Float>.max, both
+                // @JvmName("maxOrThrow") -- keep distinct erased signatures, matching JVM overload rules
+                val elementRaw = type.typeArguments.firstOrNull()?.type?.let { mapType(it, owner, method) }
+                    ?: runtime.objectParameterizedType()
+                val element = if (elementRaw.isPrimitiveExcludingVoid) elementRaw.ensureBoxed(runtime) else elementRaw
+                return element.copyWithArrays(element.arrays() + 1)
+            }
         }
         // an anonymous object type (`val r = object : Runnable {}`) has no named symbol: map it to its
         // first declared supertype (the SAM/base type), else Object -- there is no CST type of its own.
