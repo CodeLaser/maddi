@@ -21,13 +21,11 @@ package org.parsers.java.ast;
 import org.parsers.java.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class NumericalLiteral extends Literal { 
 
-public class NumericalLiteral extends Literal {
-
-    public NumericalLiteral(TokenType type, TokenSource tokenSource, int beginOffset, int endOffset) {
+    public NumericalLiteral(TokenType type, TokenSource tokenSource, int beginOffset, int endOffset) { 
         super(type, tokenSource, beginOffset, endOffset);
     }
-
 }
 
 

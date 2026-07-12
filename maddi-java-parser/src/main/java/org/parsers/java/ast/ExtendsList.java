@@ -23,13 +23,11 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class ExtendsList extends BaseNode { 
 
-public class ExtendsList extends BaseNode {
-
-    public List<ObjectType> getTypes() {
+    public List<ObjectType> getTypes() { 
         return childrenOfType(ObjectType.class);
     }
-
 }
 
 

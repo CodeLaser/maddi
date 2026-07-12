@@ -23,13 +23,11 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class TypeParameters extends BaseNode { 
 
-public class TypeParameters extends BaseNode {
-
-    public List<TypeParameter> getParameters() {
+    public List<TypeParameter> getParameters() { 
         return childrenOfType(TypeParameter.class);
     }
-
 }
 
 

@@ -22,13 +22,11 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class CompilationUnit extends BaseNode { 
 
-public class CompilationUnit extends BaseNode {
-
-    public PackageDeclaration getPackageDeclaration() {
+    public PackageDeclaration getPackageDeclaration() { 
         return firstChildOfType(PackageDeclaration.class);
     }
-
 }
 
 

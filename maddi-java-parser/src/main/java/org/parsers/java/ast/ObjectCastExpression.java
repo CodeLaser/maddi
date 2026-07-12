@@ -22,13 +22,11 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class ObjectCastExpression extends CastExpression { 
 
-public class ObjectCastExpression extends CastExpression {
-
-    public boolean canBeThrown() {
+    public boolean canBeThrown() { 
         return true;
     }
-
 }
 
 

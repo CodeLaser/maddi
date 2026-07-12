@@ -22,8 +22,12 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class SwitchExpression extends BaseNode implements Expression { 
 
-public class SwitchExpression extends BaseNode implements Expression {
+    // This doesnt check any deeper (Maybe REVISIT)
+    public boolean canBeThrown() { 
+        return true;
+    }
 }
 
 

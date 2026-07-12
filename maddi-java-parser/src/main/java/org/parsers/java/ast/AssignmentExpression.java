@@ -22,13 +22,11 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class AssignmentExpression extends BaseNode implements Expression { 
 
-public class AssignmentExpression extends BaseNode implements Expression {
-
-    public boolean canBeThrown() {
+    public boolean canBeThrown() { 
         return ((Expression) getLastChild()).canBeThrown();
     }
-
 }
 
 

@@ -22,8 +22,7 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
-
-public abstract class AllocationExpression extends BaseNode implements PrimaryExpression {
+public abstract class AllocationExpression extends BaseNode implements PrimaryExpression { 
 }
 
 

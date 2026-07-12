@@ -22,13 +22,11 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class CatchBlock extends BaseNode { 
 
-public class CatchBlock extends BaseNode {
-
-    public CodeBlock getBlock() {
+    public CodeBlock getBlock() { 
         return firstChildOfType(CodeBlock.class);
     }
-
 }
 
 

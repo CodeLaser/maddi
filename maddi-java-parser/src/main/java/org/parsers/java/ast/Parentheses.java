@@ -22,29 +22,28 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class Parentheses extends BaseNode implements PrimaryExpression { 
 
-public class Parentheses extends BaseNode implements PrimaryExpression {
     private Expression nestedExpression;
 
     //Inserted getter for nestedExpression
-    public Expression getNestedExpression() {
+    public Expression getNestedExpression() { 
         return nestedExpression;
     }
 
     //Inserted setter for nestedExpression
-    public void setNestedExpression(Expression nestedExpression) {
+    public void setNestedExpression(Expression nestedExpression) { 
         this.nestedExpression = nestedExpression;
     }
 
     // TODO: remove this @Property after jar refresh
-    public boolean canBeAssignedTo() {
+    public boolean canBeAssignedTo() { 
         return nestedExpression.canBeAssignedTo();
     }
 
-    public boolean canBeThrown() {
+    public boolean canBeThrown() { 
         return nestedExpression.canBeThrown();
     }
-
 }
 
 

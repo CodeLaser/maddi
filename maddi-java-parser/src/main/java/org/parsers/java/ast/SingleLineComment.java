@@ -21,13 +21,11 @@ package org.parsers.java.ast;
 import org.parsers.java.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class SingleLineComment extends Comment { 
 
-public class SingleLineComment extends Comment {
-
-    public SingleLineComment(TokenType type, TokenSource tokenSource, int beginOffset, int endOffset) {
+    public SingleLineComment(TokenType type, TokenSource tokenSource, int beginOffset, int endOffset) { 
         super(type, tokenSource, beginOffset, endOffset);
     }
-
 }
 
 

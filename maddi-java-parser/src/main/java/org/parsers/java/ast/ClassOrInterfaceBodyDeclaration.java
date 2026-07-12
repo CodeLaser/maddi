@@ -21,8 +21,7 @@ package org.parsers.java.ast;
 import org.parsers.java.*;
 import java.util.*;
 
-
-public interface ClassOrInterfaceBodyDeclaration extends Node {
+public interface ClassOrInterfaceBodyDeclaration extends Node { 
 }
 
 

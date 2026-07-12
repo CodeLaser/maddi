@@ -21,13 +21,11 @@ package org.parsers.java.ast;
 import org.parsers.java.*;
 import java.util.*;
 
+public interface Annotation extends Node { 
 
-public interface Annotation extends Node {
-
-    default String getName() {
+    default String getName() { 
         return firstChildOfType(Name.class).toString();
     }
-
 }
 
 

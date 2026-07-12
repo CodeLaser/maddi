@@ -22,17 +22,15 @@ import org.parsers.java.*;
 import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
+public class DotName extends BaseNode implements PrimaryExpression { 
 
-public class DotName extends BaseNode implements PrimaryExpression {
-
-    public boolean canBeAssignedTo() {
+    public boolean canBeAssignedTo() { 
         return true;
     }
 
-    public boolean canBeThrown() {
+    public boolean canBeThrown() { 
         return true;
     }
-
 }
 
 
