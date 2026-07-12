@@ -1,6 +1,20 @@
 # sv engine — catalogue of the remaining link failures
 
-## UPDATE — RedundantLinks ported; 74 failing
+## UPDATE `953bf6e3` — §m source-inheritance; 71 failing
+
+`virtualModificationEdgeStream` now rehomes VMI members of a primary's assignment
+SOURCES onto the primary (SharedVariables.assignmentSources; 'return zs' + view
+semantics gives 'sub.§m≡0:in.§m'). Fixed both 'asShortList' §m cases; 74→72, plus
+order-only sweeps →71. Only-source-direction transfers (cf. isPureAssignmentSource).
+
+DEAD END (reverted): TO-side return-face rehoming for the remaining §m cases
+('l1.§m≡method.§m' on a LOCAL's summary, TestRedundantModificationLinks simple chain,
+TestStaticValuesRecord record/test3): naively rehoming link TARGETS onto return
+recipients leaks LATER-statement knowledge into EARLIER per-statement views
+(stmt-1 l2 gained ≡l3.§m/≡method.§m from stmt-3's collapse). Needs statement-scoped
+face substitution — the face is only valid in views at/after the collapse statement.
+
+## UPDATE — RedundantLinks ported; 74 failing (now historical)
 
 The pre-sv engine ran a **cross-variable transitive-redundancy suppressor**
 (`graph/RedundantLinks`, per-statement accumulating guards per nature-group) on every
