@@ -163,6 +163,23 @@ public class SharedVariables {
         return memberToGroup.containsKey(from);
     }
 
+    // the whole-object group members that 'variable' was (transitively) assigned FROM: for 'return zs' with group
+    // {return, zs}, assignmentSources(return) = {zs}. Knowledge attached to a source (its §m equivalences, its
+    // field-precise links) legitimately transfers to the recipient; the reverse direction does not (a pure source
+    // must not inherit the recipient's links, see isPureAssignmentSource).
+    public java.util.Set<Variable> assignmentSources(Variable variable) {
+        SharedVariable sv = memberToGroup.get(variable);
+        if (sv == null) return java.util.Set.of();
+        java.util.Map<Variable, java.util.List<Variable>> fwd = new java.util.HashMap<>();
+        for (SharedVariable.Assignment a : sv.assignments()) {
+            fwd.computeIfAbsent(a.from(), k -> new java.util.ArrayList<>()).add(a.to());
+        }
+        boolean deep = variable instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+        java.util.Set<Variable> result = new java.util.LinkedHashSet<>(reachable(variable, fwd, deep));
+        result.retainAll(sv.variables());
+        return result;
+    }
+
     // A member that only appears on the 'to' (upstream) side of its group's assignments is a PURE SOURCE: a value
     // that flows into the collapsed variable, not a recipient of it. When 'x ← alternative' collapses {x, alternative}
     // and x also has 'x ← optional.§x', the rep carries 'rep ← optional.§x' — an edge that belongs to the recipient

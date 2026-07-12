@@ -132,7 +132,20 @@ public class Graph {
         Set<Variable> variables = virtualModificationIdenticals.variablesPartOf(primary);
         Map<Variable, VirtualModificationIdenticals.Group> groups = variables.stream()
                 .collect(Collectors.toUnmodifiableMap(v -> v, virtualModificationIdenticals::members));
-        return groups.entrySet().stream().flatMap(e -> e.getValue().expand(e.getKey()));
+        Stream<Link> own = groups.entrySet().stream().flatMap(e -> e.getValue().expand(e.getKey()));
+        // §m knowledge of an assignment SOURCE transfers to the recipient: 'return zs' collapses {return, zs}, and
+        // zs.§m ≡ 0:in.§m (subList returns a view) must surface as return.§m ≡ 0:in.§m on the return's summary.
+        // The VMI members are keyed on the source (primary(zs.§m) = zs), so variablesPartOf(primary) misses them;
+        // rehome each source-face member onto the primary. Only the SOURCE direction transfers (see
+        // isPureAssignmentSource for why the reverse must not).
+        List<Link> inherited = new ArrayList<>();
+        for (Variable face : sharedVariables.assignmentSources(primary)) {
+            for (Variable v : virtualModificationIdenticals.variablesPartOf(face)) {
+                Variable rehomed = rehome(v, face, primary);
+                virtualModificationIdenticals.members(v).expand(rehomed).forEach(inherited::add);
+            }
+        }
+        return Stream.concat(own, inherited.stream());
     }
 
 
