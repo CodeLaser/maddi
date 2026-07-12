@@ -147,18 +147,20 @@ public final class IncrementalFixpointEngine<V, L> {
             if (orphaned) orphans.add(fact);
         });
         for (Fact<V, L> fact : orphans) {
-            // the closure is direction-asymmetric (rev(combined) != combine(reversed), feature #1): the reverse
-            // fact's label in the closure may differ from reverse(label). Write the graph edge with the closure's
-            // OWN labels for both directions, so the graph⊆closure consistency invariant holds.
-            L reverseInClosure = closure.label(fact.target(), fact.source());
-            L reverseLabel = reverseInClosure != null ? reverseInClosure : reverse.apply(fact.label());
-            graph.addSymmetricEdge(fact.source(), fact.target(), fact.label(), reverseLabel);
-            witnessIndex.putIfBetter(fact, new Witness.DirectWitness<>(fact, "mat"));
-            Fact<V, L> reverseFact = new Fact<>(fact.target(), fact.source(), reverseLabel);
-            if (reverseInClosure == null) {
-                closure.add(reverseFact.source(), reverseFact.target(), reverseFact.label());
-            }
-            witnessIndex.putIfBetter(reverseFact, new Witness.DirectWitness<>(reverseFact, "mat"));
+            // The closure's two directions derive independently (feature #1: rev(combined) != combine(reversed))
+            // and may hold different-strength labels (∩ one way, ~ the other). The consistency invariant demands
+            // symmetric coherence of graph edges: closure(v,u) >= reverse(graph(u,v)). Facts are semantically
+            // symmetric-by-reverse (features #2/3), so upgrade both directions to the strongest coherent label.
+            L liveReverse = closure.label(fact.target(), fact.source());
+            L strongest = liveReverse == null ? fact.label() : best.apply(fact.label(), reverse.apply(liveReverse));
+            L strongestReverse = reverse.apply(strongest);
+            graph.addSymmetricEdge(fact.source(), fact.target(), strongest, strongestReverse);
+            closure.add(fact.source(), fact.target(), strongest);
+            closure.add(fact.target(), fact.source(), strongestReverse);
+            witnessIndex.putIfBetter(new Fact<>(fact.source(), fact.target(), strongest),
+                    new Witness.DirectWitness<>(new Fact<>(fact.source(), fact.target(), strongest), "mat"));
+            witnessIndex.putIfBetter(new Fact<>(fact.target(), fact.source(), strongestReverse),
+                    new Witness.DirectWitness<>(new Fact<>(fact.target(), fact.source(), strongestReverse), "mat"));
         }
     }
 

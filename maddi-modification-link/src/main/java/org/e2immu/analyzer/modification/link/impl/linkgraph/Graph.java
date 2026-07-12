@@ -90,6 +90,7 @@ public class Graph {
         // 'target.§is ~ collection.§is ≺ collection ∈ collections.§iss' closes to 'target.§is ∩ collections.§iss'
         // only through them. The general real↔virtual ≺/≻ ban (a graph-size reduction) stays for CROSS-variable
         // containment, which is malformed.
+        if (System.getenv("NOSPINE") != null) return true;
         if (label == LinkNatureImpl.CONTAINS_AS_FIELD && Util.virtual(to) && from.equals(fieldScopeRoot(to))) {
             return false;
         }
@@ -137,7 +138,18 @@ public class Graph {
 
     public void clear(Variable variable, String statementIndex) {
         sharedVariables.remove(variable);
-        Set<Variable> set = Set.of(variable);
+        // remove the variable AND every graph vertex whose scope chain contains it (its virtual fields 'v.§f',
+        // array accesses 'v.f[i]', ...): with the owner≻own-virtual-field spine each variable owns such vertices,
+        // and leaving them orphaned (scope pointing at a removed variable) pollutes the graph and later closures.
+        // materializeWitnessOrphans (inside removeVertices) first preserves knowledge between SURVIVORS whose
+        // witnesses routed through any of these.
+        Set<Variable> set;
+        if (System.getenv("NODESC") != null) {
+            set = Set.of(variable);
+        } else {
+            set = new HashSet<>(isKnownInGraph(variable));
+            set.add(variable);
+        }
         if (engine.removeVertices(set)) {
             engine.recompute(set, statementIndex, _ -> true);
         }
