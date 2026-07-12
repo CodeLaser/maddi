@@ -150,6 +150,11 @@ public interface JavaInspector {
     default void setParameterNames(boolean parameterNames) {
     }
 
+    // "we're working with JDK internals": the openjdk loader then loads jdk.internal.* types (instead of leaving
+    // them as bare stubs) and opens javac up to the internal packages. Default no-op for loaders that don't need it.
+    default void setJdkInternals(boolean jdkInternals) {
+    }
+
     default ImportComputer importComputer(int minStar, SourceSet sourceSetOfRequest) {
         return runtime().newImportComputer(minStar, packageName ->
                 compiledTypesManager().primaryTypesInPackageEnsureLoaded(packageName, sourceSetOfRequest));

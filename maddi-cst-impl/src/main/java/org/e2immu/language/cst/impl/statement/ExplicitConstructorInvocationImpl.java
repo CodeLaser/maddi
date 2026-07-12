@@ -37,7 +37,6 @@ import org.e2immu.language.cst.impl.output.TextImpl;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public class ExplicitConstructorInvocationImpl extends StatementImpl implements ExplicitConstructorInvocation {
@@ -46,7 +45,6 @@ public class ExplicitConstructorInvocationImpl extends StatementImpl implements 
     private final List<Expression> parameterExpressions;
     private final boolean synthetic;
 
-    private static final Pattern ZEROS = Pattern.compile("0+");
 
     public ExplicitConstructorInvocationImpl(List<Comment> comments,
                                              Source source, List<AnnotationExpression> annotations,
@@ -60,7 +58,9 @@ public class ExplicitConstructorInvocationImpl extends StatementImpl implements 
         this.methodInfo = methodInfo;
         this.parameterExpressions = parameterExpressions;
         this.synthetic = synthetic;
-        assert synthetic || source.index() != null && ZEROS.matcher(source.index()).matches();
+        // Java 25 flexible constructor bodies (JEP 482) allow statements before super()/this(), so an explicit
+        // constructor invocation is no longer necessarily the first statement (index 0+); only require a real index.
+        assert synthetic || source.index() != null;
     }
 
     @Override

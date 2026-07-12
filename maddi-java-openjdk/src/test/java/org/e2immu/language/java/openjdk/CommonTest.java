@@ -101,7 +101,7 @@ public class CommonTest {
                     .build();
             ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                     javacTask, sourceSet, infoByFqn, true, diagnostics,
-                    preload, parameterNameIndex);
+                    preload, parameterNameIndex, false);
             classSymbolScanner = scanCompilationUnits.classSymbolScanner();
             return scanCompilationUnits.scan();
         } catch (IOException io) {
