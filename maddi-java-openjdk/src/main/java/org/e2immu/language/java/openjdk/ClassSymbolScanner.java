@@ -1038,6 +1038,18 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     private ParameterizedType classType(Type.ClassType ct, Set<Type> visited) {
+        if (ct.tsym instanceof Symbol.ClassSymbol cs
+            && cs.owner instanceof Symbol.MethodSymbol
+            && cs.getSimpleName().isEmpty()
+            && getType(cs.toString()) == null) {
+            // an anonymous class ('new Base(){...}') can surface in a type-argument position through
+            // inference (e.g. Optional.map(...) whose inferred R is the anonymous type) *before* its body
+            // is scanned and registered in typeData. In that forward-reference case it has no simple name
+            // to look up on the element stack and is never generic, so represent it by the type it extends,
+            // or, failing that, the interface it implements. Once registered, classTypeInfo resolves it
+            // normally via the 'known' path, so only intercept while it is still unknown.
+            return anonymousClassType(cs, visited);
+        }
         TypeInfo typeInfo = classTypeInfo(ct);
         if (ct.getTypeArguments().isEmpty()) {
             return typeInfo.asSimpleParameterizedType();
@@ -1046,6 +1058,19 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 .map(ta -> convert(ta, visited))
                 .toList();
         return runtime.newParameterizedType(typeInfo, typeParameters);
+    }
+
+    private ParameterizedType anonymousClassType(Symbol.ClassSymbol cs, Set<Type> visited) {
+        Type superclass = cs.getSuperclass();
+        boolean superIsObject = superclass == null || superclass.tsym == null
+                                || "java.lang.Object".contentEquals(superclass.tsym.getQualifiedName());
+        if (superIsObject) {
+            for (Type itf : cs.getInterfaces()) {
+                return convert(itf, visited);
+            }
+            return runtime.objectParameterizedType();
+        }
+        return convert(superclass, visited);
     }
 
     private TypeInfo classTypeInfo(Type.ClassType ct) {
