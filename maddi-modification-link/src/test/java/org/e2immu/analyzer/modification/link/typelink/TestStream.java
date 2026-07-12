@@ -348,7 +348,7 @@ public class TestStream extends CommonTest {
         VariableInfo viStream22 = vd2.variableInfo("stream2");
         Links lvStream22 = viStream22.linkedVariablesOrEmpty();
         // wrapping in another list is visible!
-        assertEquals("stream2.§xss≥stream1.§xs,stream2.§xss∩0:list.§xs", lvStream22.toString());
+        assertEquals("stream2.§xss∩0:list.§xs,stream2.§xss≥stream1.§xs", lvStream22.toString());
         // stream2.§xss⊇result.§xss dropped
 
         assertEquals("[-] --> method1.§xss∩0:list.§xs", mlv1.toString());

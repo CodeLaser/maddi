@@ -3,6 +3,7 @@ package org.e2immu.analyzer.modification.link.impl;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.impl.graph.Fact;
 import org.e2immu.analyzer.modification.link.impl.linkgraph.FollowGraph;
+import org.e2immu.analyzer.modification.link.impl.linkgraph.RedundantLinks;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
@@ -46,6 +47,7 @@ class WriteLinksAndModification {
     }
 
     @NotNull WriteResult go(Statement statement,
+                            boolean lastStatement,
                             VariableData vd,
                             Set<Variable> previouslyModified,
                             Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation) {
@@ -60,9 +62,10 @@ class WriteLinksAndModification {
             }
         }
 
+        RedundantLinks redundantLinks = new RedundantLinks();
         for (VariableInfo vi : vd.variableInfoIterable(Stage.EVALUATION)) {
-            toRemove.addAll(doVariableReturnRecompute(statement, vi, unmarkedModifications,
-                    previouslyModified, expandedModifiedDuringEvaluation, newLinkedVariables));
+            toRemove.addAll(doVariableReturnRecompute(statement, lastStatement, vi, unmarkedModifications,
+                    previouslyModified, expandedModifiedDuringEvaluation, newLinkedVariables, redundantLinks));
         }
         /*
          toRemove now contains links that should change from ⊆, ⊇ to ~, see e.g. TestConstructor,1; TestDependent,1
@@ -115,11 +118,13 @@ class WriteLinksAndModification {
     On top of that, we add the relevant modification links kept in VirtualModificationIdenticals.
     */
     private List<Link> doVariableReturnRecompute(Statement statement,
+                                                 boolean lastStatement,
                                                  VariableInfo vi,
                                                  Set<Variable> unmarkedModifications,
                                                  Set<Variable> previouslyModified,
                                                  Map<Variable, Set<MethodInfo>> modifiedInThisEvaluation,
-                                                 Map<Variable, Links.Builder> newLinkedVariables) {
+                                                 Map<Variable, Links.Builder> newLinkedVariables,
+                                                 RedundantLinks redundantLinks) {
         Variable variable = vi.variable();
         unmarkedModifications.remove(variable);
 
@@ -205,6 +210,15 @@ class WriteLinksAndModification {
             // return variables will always be complete
             handleReturnVariable(rv, builder);
         } else {
+            // cross-variable transitive-redundancy suppression, ported from the pre-sv engine: keep the nearest
+            // hop, drop the origin ('stream1.§xs⊆stream.§xs' stays, the transitive 'stream1.§xs⊆0:in.§xs' goes,
+            // because 'stream.§xs⊆0:in.§xs' was already emitted for an earlier variable of this statement).
+            // Returns stay complete (handled above); in the last statement, parameters stay complete too — the
+            // method summary reads them there.
+            if (System.getenv("NORL") == null
+                && (!lastStatement || !(variable instanceof org.e2immu.language.cst.api.info.ParameterInfo))) {
+                redundantLinks.redundantLinks(builder);
+            }
             boolean unmodified =
                     variable.isIgnoreModifications()
                     ||
