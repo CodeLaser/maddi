@@ -141,7 +141,7 @@ public class TestLanguageConstructs extends CommonTest {
                     }
                 }
                 """;
-        assertEquals("[0:g[0][0]∈0:g[0]] --> m←0:g[0][0],m∈0:g[0],m∈∈0:g", link("a.b.C", src, "m"));
+        assertEquals("[0:g[0][0]∈0:g[0]] --> m∈∈0:g,m∈0:g[0],m←0:g[0][0]", link("a.b.C", src, "m"));
     }
 
     @DisplayName("for-each links the loop variable to the elements, for both a collection and an array")

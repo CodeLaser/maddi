@@ -249,7 +249,7 @@ public class TestLinkMethodCall extends CommonTest {
     @Test
     public void grid2dElement() {
         assertEquals("[0:grid[0][0]∈0:grid[0]] -->"
-                     + " grid2dElement←0:grid[0][0],grid2dElement∈0:grid[0],grid2dElement∈∈0:grid",
+                     + " grid2dElement∈∈0:grid,grid2dElement∈0:grid[0],grid2dElement←0:grid[0][0]",
                 link("grid2dElement"));
     }
 

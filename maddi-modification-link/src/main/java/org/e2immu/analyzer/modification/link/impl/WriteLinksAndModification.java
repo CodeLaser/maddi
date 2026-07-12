@@ -206,6 +206,7 @@ class WriteLinksAndModification {
                 .filter(link -> !builder.contains(link.from(), link.linkNature(), link.to()))
                 .forEach(link -> builder.add(link.from(), link.linkNature(), link.to()));
 
+        dedupReversePairs(builder);
         List<Link> toRemove = new ArrayList<>();
         if (variable instanceof ReturnVariable rv) {
             // A coarse scope-up link (copy ≈ 0:pair) is redundant once the finer link (copy.f ← 0:pair.f) exists.
@@ -272,6 +273,60 @@ class WriteLinksAndModification {
     // redundantFromUp/redundantToUp/redundantUp suppression in FollowGraph, but applied across builders): drop
     // 'coarse' when some 'fine' link has coarse.from/​to in its from/to scope and coarse's nature among fine's
     // scope-up natures (e.g. 'copy ≈ 0:pair' given 'copy.f ← 0:pair.f').
+    /*
+     Links enter the assembled builder from several paths (FollowGraph, the shared-variable reconstruct, the §m
+     folds, rep expansion); FollowGraph's reverse-block only sees its own emissions. Remove exact duplicates and,
+     for a pair present in BOTH directions ('b.variables[0] ∈ b.variables' and 'b.variables ∋ b.variables[0]'),
+     keep the link keyed on the DEEPER from-side — FollowGraph's parts-first fromList convention ('∈' keyed on
+     the element wins over '∋' keyed on the container; 's.r.j → s.k' wins over 's.k ← s.r.j'). Survivors keep
+     their insertion order (output order is asserted by the tests).
+     */
+    private void dedupReversePairs(Links.Builder builder) {
+        List<Link> links = new ArrayList<>(builder.linkSet());
+        // removals tracked BY INDEX: Link is a record with value equality, so equal duplicates would otherwise
+        // all be swept by one removal (that bug dropped both ∈ copies while keeping the ∋)
+        boolean[] removed = new boolean[links.size()];
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < links.size(); i++) {
+            Link link = links.get(i);
+            String key = link.from() + "|" + link.linkNature() + "|" + link.to();
+            if (!seen.add(key)) removed[i] = true; // exact duplicate: keep the first
+        }
+        for (int i = 0; i < links.size(); i++) {
+            if (removed[i]) continue;
+            Link a = links.get(i);
+            for (int j = i + 1; j < links.size(); j++) {
+                if (removed[j]) continue;
+                Link b = links.get(j);
+                if (a.from().equals(b.to()) && a.to().equals(b.from())
+                    && a.linkNature().reverse().equals(b.linkNature())) {
+                    if (depth(a.from()) >= depth(b.from())) removed[j] = true;
+                    else removed[i] = true;
+                }
+            }
+        }
+        boolean any = false;
+        for (boolean r : removed) any |= r;
+        if (any) {
+            builder.removeIf(_ -> true);
+            for (int i = 0; i < links.size(); i++) {
+                if (!removed[i]) {
+                    Link link = links.get(i);
+                    builder.add(link.from(), link.linkNature(), link.to());
+                }
+            }
+        }
+    }
+
+    // structural depth of a variable's access chain: b=0, b.variables=1, b.variables[0]=2
+    private static int depth(Variable v) {
+        if (v instanceof FieldReference fr && fr.scopeVariable() != null) return 1 + depth(fr.scopeVariable());
+        if (v instanceof org.e2immu.language.cst.api.variable.DependentVariable dv && dv.arrayVariable() != null) {
+            return 1 + depth(dv.arrayVariable());
+        }
+        return 0;
+    }
+
     private void suppressRedundantScopeUps(Links.Builder builder) {
         List<Link> links = new ArrayList<>(builder.linkSet());
         Set<Link> toRemove = new HashSet<>();
