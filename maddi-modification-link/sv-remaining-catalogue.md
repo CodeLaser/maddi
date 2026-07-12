@@ -4,7 +4,18 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
-## UPDATE `953bf6e3` — §m source-inheritance; 71 failing
+## UPDATE `90b06320` — fluent-setter band + reverse-pair dedup; 62 failing
+
+Applying the techniques doc: (a) fluent-setter field mirror — the source face's field
+('this.i') is collapsed into a DIFFERENT group, so `memberFieldsOf` + a source-face
+projection in sharedAssignmentEdgeStream ('setI ← this' mirrors 'setI.i ← this.i', §1.2
+direction); (b) reverse-dedup in the reconstruct fold with rank-desc processing; (c)
+`dedupReversePairs` on every assembled builder (deeper-from-side wins; index-tracked
+removal). TestStaticValues1 ×3, TestGetSet ×2 green; order-only sweeps. 66→62, no new
+regressions. Remaining bands: statement-scoped §m faces (~4), the ≈ coarse family
+(generic factory + receiver chain), scattered structural.
+
+## UPDATE `953bf6e3` — §m source-inheritance; 71 failing (historical)
 
 `virtualModificationEdgeStream` now rehomes VMI members of a primary's assignment
 SOURCES onto the primary (SharedVariables.assignmentSources; 'return zs' + view
