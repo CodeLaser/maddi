@@ -349,7 +349,20 @@ class WriteLinksAndModification {
     private boolean notLinkedToModifiedVirtualModification(Variable variable,
                                                            Variable toFollow,
                                                            Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause) {
-        return followGraph.graph().eqVariables(variable).noneMatch(modifiedVariablesAndTheirCause::containsKey);
+        // Respect the ☷ pass semantics per group (mirrors the ≡-branch of notLinkedToModified): a pass-marked
+        // §m-equivalence ('identical except via remove()', Iterable.iterator()) propagates a member's modification
+        // only when the modifying method is in the pass set. E.g. iterating a collection modifies the ITERATOR
+        // (next()), which must not mark the collection modified; remove() would.
+        if (System.getenv("NOPASSFIX") != null) {
+            return followGraph.graph().eqVariables(variable).noneMatch(modifiedVariablesAndTheirCause::containsKey);
+        }
+        return followGraph.graph().eqGroups(variable).noneMatch(group ->
+                group.members().stream().map(Util::firstRealVariable).anyMatch(m -> {
+                    Set<MethodInfo> causes = modifiedVariablesAndTheirCause.get(m);
+                    if (causes == null) return false;
+                    Set<MethodInfo> pass = group.linkNature().pass();
+                    return pass.isEmpty() || !Collections.disjoint(pass, causes);
+                }));
     }
 
     private boolean notLinkedToModified(Links.Builder builder,
