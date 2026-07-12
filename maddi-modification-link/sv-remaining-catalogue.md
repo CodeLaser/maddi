@@ -26,7 +26,11 @@ generics — the exact O(N²) cost that made the old engine grind 8 minutes and 
 (RedundantLinks speeds things up by pruning). Materialization's share only matters because
 the spine bloats the closure it scans.
 
-**Open design decision (fidelity vs production cost):** the spine bought ~85 tests of
+**RESOLVED via `Options.objectGraphLinks`** (TEST=true / PRODUCTION=false): the ∩/≤/≥ web
+is consumed by NONE of linking's three applications (modification: ≻ ≈ ∋ → + §m; same-type/
+VL2O: reachability over direct links; object tracking: assignments), so PRODUCTION excludes
+those labels from the closure via the engine's valid-predicate. Bench 48.7s → 0.73s with all
+mechanisms active; TEST suite byte-identical. Original framing of the decision: the spine bought ~85 tests of
 old-engine content semantics. Options: (1) Options-gated spine (TEST fidelity /
 PRODUCTION fast-coarse; precedent: checkDuplicateNames); (2) bounded derivation depth
 through spine edges (tests need 2-3 hops; the explosion is long transitive chains);

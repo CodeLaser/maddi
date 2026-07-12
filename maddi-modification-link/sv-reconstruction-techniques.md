@@ -167,6 +167,17 @@ Known second-order effect: pruning a builder can change the modification verdict
   `TestEngineDeterminism`: closure facts+labels are insertion-order-independent; witness choice
   is canonical among offered candidates.
 
+## 6b. The cost boundary — `Options.objectGraphLinks`
+
+The spine makes the coarse object-graph web (`∩ ≤ ≥`) derivable across deep recursive
+structures — quadratically (TestParSeqLinkBench: 48.7s vs ~0.7s). Linking's three
+applications (modification propagation: `≻ ≈ ∋ →` + §m; same-type/VL2O: reachability over
+direct links; new-object tracking: assignments) consume none of those natures — they are
+full-fidelity OUTPUT for the tests. `Options.objectGraphLinks` (TEST=true, PRODUCTION=false)
+excludes the three labels from the closure via the engine's valid-predicate; the direct spine
+edges (which modification's `≻` check does use) stay. **Run TestParSeqLinkBench after every
+engine-level change** — it found two production crashes and this cost cliff in one session.
+
 ## 7. Open shapes, in this vocabulary
 
 - **Fluent setter** (`setI.i ← this*.i`, ~9 tests): `return this` groups `{return, this}`; the
