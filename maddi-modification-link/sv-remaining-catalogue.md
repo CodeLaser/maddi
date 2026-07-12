@@ -1,5 +1,9 @@
 # sv engine — catalogue of the remaining link failures
 
+> Design reference for HOW links are reconstructed after the collapse (techniques, guards,
+> direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
+> extending the reconstruction machinery.
+
 ## UPDATE `953bf6e3` — §m source-inheritance; 71 failing
 
 `virtualModificationEdgeStream` now rehomes VMI members of a primary's assignment
