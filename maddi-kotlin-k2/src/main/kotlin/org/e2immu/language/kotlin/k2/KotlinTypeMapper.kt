@@ -191,9 +191,14 @@ internal class KotlinTypeMapper(
                 ?: runtime.objectParameterizedType()
         }
         val kotlinFqn = type.classId.asFqNameString()
+        val jvmFqn = mapToJvmFqn(type.classId)
+        val mapped = jvmFqn != kotlinFqn
+        // A mapped builtin (kotlin.Enum -> java.lang.Enum, kotlin.String -> java.lang.String, …) must always
+        // resolve to its JVM type, even while parsing kotlin-stdlib itself -- where kotlin.Enum is ALSO a source
+        // type, so the sibling-source lookup below would otherwise return it and break the JVM model (and the
+        // enum/annotation parent invariants asserted at commit). So skip that lookup for mapped builtins.
         // already known (a sibling source type, or a previously loaded library type), else load it:
-        val typeInfo = infoByFqn.getType(kotlinFqn, sourceSet) ?: run {
-            val jvmFqn = mapToJvmFqn(type.classId)
+        val typeInfo = (if (mapped) null else infoByFqn.getType(kotlinFqn, sourceSet)) ?: run {
             // Phase 1 -- shared JDK/library core: delegate to the injected CompiledTypesManager (its
             // getOrLoad lazily loads from bytecode), so java.* is ONE TypeInfo instance across the Java and
             // Kotlin front-ends. Cache it locally; fall back to the K2-based load when absent (standalone) or
