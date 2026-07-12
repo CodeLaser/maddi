@@ -2787,7 +2787,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     .setPrefixPrimitiveOperator(isPrefix)
                     .setAssignmentOperatorIsPlus(isPlus)
                     .setBinaryOperator(isPlus ? runtime.plusOperatorInt() : runtime.minusOperatorInt())
-                    .setTarget((VariableExpression) expression)
+                    .setTarget(asAssignmentTarget(expression))
                     .setValue(runtime.intOne(runtime.noSource()))
                     .setSource(sourceForNode(node))
                     .build();
