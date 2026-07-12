@@ -713,8 +713,15 @@ class KotlinScan(
         fieldBuilder.computeAccess().commit()
         owner.builder().addField(field)
 
-        owner.builder().addMethod(buildGetter(owner, field, type, property, static))
-        if (!isVal) owner.builder().addMethod(buildSetter(owner, field, type, property, static))
+        // Getter: a `const val` (inlined static-final field) and a `private` property have no getter method on
+        // the JVM -- only the backing field -- and a synthetic one clashes with an explicitly-declared getX()
+        // of the same signature (DoubleCompanionObject.getMIN_VALUE; ParameterizedTypeImpl.getOwnerType, a
+        // private val overriding a Java interface method). Setter: kept for every `var` (incl. private) -- the
+        // finality analysis models a var's field-demoting setter (see TestFinalFieldBranchAssignment).
+        val isConst = (property as? KaKotlinPropertySymbol)?.isConst == true
+        val isPrivate = property.visibility == KaSymbolVisibility.PRIVATE
+        if (!isConst && !isPrivate) owner.builder().addMethod(buildGetter(owner, field, type, property, static))
+        if (!isConst && !isVal) owner.builder().addMethod(buildSetter(owner, field, type, property, static))
     }
 
     private fun methodType(static: Boolean) =
