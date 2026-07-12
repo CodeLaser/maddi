@@ -119,6 +119,14 @@ public class Graph {
                         result.add(new LinksImpl.LinkImpl(fromSub, link.linkNature(), toSub));
                     }
                 }
+                // A field of the SOURCE face may itself be collapsed into a DIFFERENT group ('this.i' lives in
+                // {this.i, 0:i}), so its vertex sits under that group's rep and is invisible above. Project such
+                // member-fields of the source onto the recipient: 'setI ← this' mirrors to 'setI.i ← this.i'
+                // (source knowledge transfers to the recipient, techniques §1.2; never the reverse).
+                if (link.linkNature().isAssignedFrom()) {
+                    sharedVariables.memberFieldsOf(to).forEach(m ->
+                            result.add(new LinksImpl.LinkImpl(rehome(m, to, from), link.linkNature(), m)));
+                }
             }
         });
         return result.stream();

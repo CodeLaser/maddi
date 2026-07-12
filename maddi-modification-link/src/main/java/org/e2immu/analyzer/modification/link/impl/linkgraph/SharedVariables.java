@@ -163,6 +163,14 @@ public class SharedVariables {
         return memberToGroup.containsKey(from);
     }
 
+    // group members (of ANY group) that are proper fields/elements of 'owner': for the fluent setter, 'this.i'
+    // is a member of the {this.i, 0:i} group and therefore invisible under the {return, this} group's rep — but
+    // it is a field of the face 'this' and must be discoverable for the field-level mirror (setI.i ← this.i).
+    public Stream<Variable> memberFieldsOf(Variable owner) {
+        return memberToGroup.keySet().stream()
+                .filter(m -> !m.equals(owner) && Util.isPartOf(owner, m));
+    }
+
     // the whole-object group members that 'variable' was (transitively) assigned FROM: for 'return zs' with group
     // {return, zs}, assignmentSources(return) = {zs}. Knowledge attached to a source (its §m equivalences, its
     // field-precise links) legitimately transfers to the recipient; the reverse direction does not (a pure source

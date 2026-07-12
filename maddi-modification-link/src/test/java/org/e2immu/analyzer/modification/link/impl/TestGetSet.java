@@ -91,7 +91,7 @@ public class TestGetSet extends CommonTest {
             MethodInfo get = X.findUniqueMethod("getObject", 1);
             assertSame(objects, get.getSetField().field());
             MethodLinkedVariables getSv = get.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("[-] --> getObject←this.objects[0:i],getObject∈this.objects", getSv.toString());
+            assertEquals("[-] --> getObject∈this.objects,getObject←this.objects[0:i]", getSv.toString());
 
             MethodInfo set = X.findUniqueMethod("set", 2);
             assertSame(objects, set.getSetField().field());

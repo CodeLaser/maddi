@@ -178,7 +178,13 @@ class WriteLinksAndModification {
         // e.g. a record constructor's this.s1 ← 0:s1). Unlike the §m fold below we do not gate on
         // containsPrimaryOf: the summary of a both-fresh group has no external edge yet to anchor to.
         followGraph.graph().sharedAssignmentEdgeStream(variable)
-                .filter(link -> !builder.contains(link.from(), link.linkNature(), link.to()))
+                // rank-desc, FollowGraph's convention: when the stream carries both directions of a pair
+                // ('s.r.j → s.k' and 's.k ← s.r.j'), the higher-ranked → is processed first and wins the dedup
+                .sorted((l1, l2) -> l2.linkNature().rank() - l1.linkNature().rank())
+                .filter(link -> !builder.contains(link.from(), link.linkNature(), link.to())
+                                // reverse-dedup, mirroring FollowGraph's block: if 's.r.j → s.k' is already in the
+                                // builder, do not also add the reconstructed 's.k ← s.r.j'
+                                && !builder.contains(link.to(), link.linkNature().reverse(), link.from()))
                 .forEach(link -> {
                     builder.add(link.from(), link.linkNature(), link.to());
                     // a real assignment graph edge gets its §m modification-equivalence generated in FollowGraph;
