@@ -22,12 +22,31 @@ Remaining 86 are scattered across many small roots (biggest class TestStaticValu
   base-engine gap, not sv. Root: `collection.§is` is structurally DISCONNECTED in the closure —
   its only edge is `~ target.§is`; nothing links it to `collections.§iss`. The whole `collection`
   has `∈ collections.§iss` but that ∈ never descends to `collection.§is`.
-  DEAD END (reverted, regressed 86→90): adding `collection.§is ∈ collections.§iss` in the
-  for-each handler (`LinkComputerImpl` ~520, via VirtualFieldComputer hidden-content of loop var
-  vs container) — it perturbs the loop variable's own links (breaks the `collection∈∈…` assertion)
-  and over-produces elsewhere. The descent must NOT touch the loop var's links; it likely belongs
-  in the iterator/next() nested-hidden-content flow (where `collection ∈ collections.§iss` is
-  established) or as a multiplicity-aware closure rule, not a raw extra edge on the for-each.
+  DEAD ENDS (3 attempts, all reverted, all regress). Full-graph dump at that statement:
+  ```
+  [collection]        -> ∈ $__rv0.§iss, ∈ collections.§iss     ($__rv0 = iterator, deep content)
+  [collections.§iss]  -> ∋ collection, ⊇ $__rv0.§iss
+  [$__rv0.§iss]       -> ∋ collection, ⊆ collections.§iss
+  [target.§is]        -> ~ collection.§is
+  [collection.§is]    -> ~ target.§is                          ← ISOLATED pair
+  ```
+  The two facts `target.§is ~ collection.§is` and `collection ∈ collections.§iss` share NO vertex
+  (`collection.§is` ≠ `collection`), so the closure cannot combine them. To bridge, `collection.§is`
+  must connect to `collection` or `collections.§iss`. Attempts:
+  1. `collection.§is ∈ collections.§iss` as a raw for-each extra edge — over-produces: the ∈
+     combines broadly in the closure (spurious `ii.§$∈iis.§$s`, `0:from*≈1:to*`, dropped `←`/`≥`
+     in TestForEach/TestLinkMethodCall/TestList/TestPrefix), and it surfaces as a first-class link
+     on the loop var's own view (`collection.§is∈…`, breaks the `collection∈∈…` assertion).
+     Re-visiting the iterable to get the container var also renumbers intermediates globally.
+  2/3. Variants of (1) with tighter guards / no re-visit — same over-production.
+  BLOCKER: the natural container↔own-hidden-content edge (`collection ∋/∈ collection.§is`, or
+  `collection.§is ⊆ collection`) that would let the closure bridge is either rejected by
+  `invalidEdge` (real↔virtual allows only ∈ ∋ ← →, NOT ⊆/~/≡/≺/≻) or doesn't combine
+  (`∈ ∘ ∈` is undefined in the table). So the fix is NOT a raw edge; it needs either a
+  multiplicity-aware CLOSURE rule (descend an element-of through hidden content) or a precise
+  nested-content mapping in `LinkMethodCall.objectToReturnValue` for `iterator().next()` (map the
+  returned element's `§is` to the object's one-deeper `§iss`), done so it does NOT materialise a
+  standalone edge on the loop var. Both are deep label-algebra/closure surface; needs a design pass.
 - Scattered: `DROP[] SPUR[]` (13, heterogeneous — `∈`/`∈?`, `*`-modification-marker,
   var-name), `DROP[→]` (4, TestCast), Stream/BoundTypeParameter HC (structural).
 
