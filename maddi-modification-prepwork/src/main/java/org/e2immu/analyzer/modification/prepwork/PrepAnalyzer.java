@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.prepwork;
 
+import org.e2immu.analyzer.modification.common.AnalyzerException;
 import org.e2immu.analyzer.modification.common.getset.GetSetHelper;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
@@ -29,7 +30,9 @@ import org.e2immu.util.internal.graph.util.TimedLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -59,16 +62,20 @@ public class PrepAnalyzer {
     private final Runtime runtime;
     final Options options;
     private int typesProcessed;
+    // collects per-type/per-method failures when options.faultTolerant; thread-safe for parallel runs
+    private final List<AnalyzerException> exceptions = Collections.synchronizedList(new ArrayList<>());
 
     public PrepAnalyzer(Runtime runtime) {
         this(runtime, new Options.Builder().build());
     }
 
-    public record Options(boolean doNotRecurseIntoAnonymous, boolean trackObjectCreations, boolean parallel) {
+    public record Options(boolean doNotRecurseIntoAnonymous, boolean trackObjectCreations, boolean parallel,
+                          boolean faultTolerant) {
         public static class Builder {
             boolean doNotRecurseIntoAnonymous;
             boolean trackObjectCreations;
             boolean parallel;
+            boolean faultTolerant;
 
             public Builder setDoNotRecurseIntoAnonymous(boolean doNotRecurseIntoAnonymous) {
                 this.doNotRecurseIntoAnonymous = doNotRecurseIntoAnonymous;
@@ -85,8 +92,18 @@ public class PrepAnalyzer {
                 return this;
             }
 
+            /**
+             * When true, a failure while analyzing one type or method is recorded (see {@link #exceptions()})
+             * and analysis continues with the remaining types/methods, instead of aborting the whole run.
+             * Default false, so tests and direct callers keep their fail-fast behaviour.
+             */
+            public Builder setFaultTolerant(boolean faultTolerant) {
+                this.faultTolerant = faultTolerant;
+                return this;
+            }
+
             public Options build() {
-                return new Options(doNotRecurseIntoAnonymous, trackObjectCreations, parallel);
+                return new Options(doNotRecurseIntoAnonymous, trackObjectCreations, parallel, faultTolerant);
             }
         }
     }
@@ -167,12 +184,42 @@ public class PrepAnalyzer {
            the "linked variables" analyzer requires a more complicated one, computed in the statements below.
         */
 
-            gettersAndSetters.forEach(this::doMethod);
-            otherConstructorsAndMethods.forEach(this::doMethod);
+            gettersAndSetters.forEach(this::doMethodIsolated);
+            otherConstructorsAndMethods.forEach(this::doMethodIsolated);
             ++typesProcessed;
-        } catch (RuntimeException re) {
-            LOGGER.error("Caught exception in prep analyzer. Processed {}, failing on type {}", typesProcessed, typeInfo);
-            throw re;
+        } catch (RuntimeException | AssertionError | StackOverflowError t) {
+            if (options.faultTolerant) {
+                // backstop for failures in the type-level work (get/set classification, field initializers,
+                // hidden content); individual methods are already isolated in doMethodIsolated. Record the
+                // type and let the remaining primary types proceed instead of aborting the whole run.
+                LOGGER.error("Caught exception in prep analyzer, isolating type {} (processed {} so far)",
+                        typeInfo, typesProcessed, t);
+                exceptions.add(new AnalyzerException(typeInfo, t));
+            } else {
+                LOGGER.error("Caught exception in prep analyzer. Processed {}, failing on type {}", typesProcessed, typeInfo);
+                throw t;
+            }
+        }
+    }
+
+    // in fault-tolerant mode, isolate a single method: record its failure and carry on with the next method
+    private void doMethodIsolated(MethodInfo methodInfo) {
+        if (options.faultTolerant) {
+            try {
+                doMethod(methodInfo);
+            } catch (RuntimeException | AssertionError | StackOverflowError t) {
+                LOGGER.error("Caught exception in prep analyzer, isolating method {}", methodInfo, t);
+                exceptions.add(new AnalyzerException(methodInfo, t));
+            }
+        } else {
+            doMethod(methodInfo);
+        }
+    }
+
+    /** Failures collected during a fault-tolerant run (empty otherwise); see {@link Options#faultTolerant()}. */
+    public List<AnalyzerException> exceptions() {
+        synchronized (exceptions) {
+            return List.copyOf(exceptions);
         }
     }
 

@@ -20,6 +20,7 @@ import org.e2immu.analyzer.aapi.parser.AnalysisHintsCompiler;
 import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfiguration;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
+import org.e2immu.analyzer.modification.common.AnalyzerException;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
@@ -87,6 +88,11 @@ public class RunAnalyzer implements Runnable {
             exitValue = Main.EXIT_IO_EXCEPTION;
         } catch (RuntimeException re) {
             terminalError = re;
+            exitValue = Main.EXIT_INTERNAL_EXCEPTION;
+        } catch (AssertionError | StackOverflowError err) {
+            // backstop: an assertion or deep recursion in analysis must not kill the process with an
+            // uncaught throwable; report it and exit with a code, like any other internal failure
+            terminalError = err;
             exitValue = Main.EXIT_INTERNAL_EXCEPTION;
         }
         // enumerate whatever was collected/thrown to the user (previously printSummaries() was an empty no-op)
@@ -169,12 +175,33 @@ public class RunAnalyzer implements Runnable {
             ParseResult parseResult = summary.parseResult();
             Predicate<TypeInfo> externalsToAccept = _ -> false;
             LOGGER.info("Running prep analyzer on {} types", summary.types().size());
-            PrepAnalyzer prepAnalyzer = new PrepAnalyzer(javaInspector.runtime());
+            PrepAnalyzer prepAnalyzer = new PrepAnalyzer(javaInspector.runtime(),
+                    new PrepAnalyzer.Options.Builder().setFaultTolerant(true).build());
             ccg = prepAnalyzer.doPrimaryTypesReturnComputeCallGraph(Set.copyOf(parseResult.primaryTypes()),
                     parseResult.sourceSetToModuleInfoMap().values(),
                     externalsToAccept, parseOptions.parallel());
             assert ccg.graph().vertices().stream().noneMatch(v -> v.t() instanceof TypeInfo typeInfo && typeInfo.simpleName().endsWith("$"))
                     : "It looks like the analysis hints types are part of the call graph.";
+
+            // fault isolation: one failing type/method no longer aborts the whole run; surface what was skipped
+            List<AnalyzerException> prepExceptions = prepAnalyzer.exceptions();
+            if (!prepExceptions.isEmpty()) {
+                LOGGER.error("Prep analysis produced {} error(s); the affected types/methods were skipped:",
+                        prepExceptions.size());
+                int i = 1;
+                for (AnalyzerException ae : prepExceptions) {
+                    Info info = ae.getInfo();
+                    String at = info == null || info.source() == null ? "?" : info.source().compact2();
+                    Throwable cause = ae.getCause() == null ? ae : ae.getCause();
+                    LOGGER.error("  [{}] {} ({}): {}: {}", i++, info, at,
+                            cause.getClass().getName(), cause.getMessage());
+                }
+                exitValue = Main.EXIT_ANALYSER_ERROR;
+                if (modification) {
+                    LOGGER.error("Skipping modification analysis: prep analysis had errors.");
+                    return;
+                }
+            }
 
             if (printMemory) {
                 printMemUse();

@@ -49,4 +49,38 @@ public class TestErrorReporting {
         assertNotEquals(Main.EXIT_OK, exit, "a parse error must not report success");
         assertEquals(Main.EXIT_PARSER_ERROR, exit, "a parse error must exit with the parser error code");
     }
+
+    /**
+     * Prep-phase fault isolation: a failure while analyzing one method must be recorded and skipped, letting the
+     * rest of the run complete, instead of an uncaught throwable aborting the process. The source below (a
+     * qualified explicit {@code super()} in a class extending another class's inner class) currently trips an
+     * assertion in downstream get/set analysis; whatever the outcome, the run must end with a clean exit code and
+     * <em>never</em> the internal-exception code that an escaped throwable would produce. This asserts the isolation
+     * happens inside {@code PrepAnalyzer} (exit ANALYSER_ERROR, or OK once the get/set bug is fixed upstream), not
+     * merely that a run-level backstop caught it (which would be EXIT_INTERNAL_EXCEPTION).
+     */
+    @Test
+    public void prepMethodFailureIsIsolatedNotFatal(@TempDir Path tmp) throws Exception {
+        Path src = tmp.resolve("src");
+        Files.createDirectories(src.resolve("p"));
+        Files.writeString(src.resolve("p/A.java"), """
+                package p;
+                public class A {
+                    public class Inner { }
+                    static class Sub extends A.Inner {
+                        Sub(A a) {
+                            a.super();
+                        }
+                    }
+                }
+                """);
+
+        int exit = Main.execute(new String[]{
+                "--" + Main.SOURCE, src.toString(),
+                "--" + Main.JMOD, "java.base",
+                "--" + Main.ANALYSIS_STEPS, Main.AS_PREP});
+
+        assertNotEquals(Main.EXIT_INTERNAL_EXCEPTION, exit,
+                "a per-method prep failure must be isolated, not escape as an uncaught throwable");
+    }
 }
