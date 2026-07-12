@@ -1270,7 +1270,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         Expression selector = currentExpression;
 
         JCTree.JCSwitch jcSwitch = (JCTree.JCSwitch) node;
-        boolean newStyle = jcSwitch.cases.getFirst().caseKind == CaseTree.CaseKind.RULE;
+        // an empty switch body (switch(x){}) has no cases; treat it as old-style with no labels
+        boolean newStyle = !jcSwitch.cases.isEmpty()
+                && jcSwitch.cases.getFirst().caseKind == CaseTree.CaseKind.RULE;
 
         Statement s;
         if (newStyle) {
