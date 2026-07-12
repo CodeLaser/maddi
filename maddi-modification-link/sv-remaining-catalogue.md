@@ -1,6 +1,24 @@
 # sv engine — catalogue of the remaining link failures
 
-## UPDATE branch `sv-spine-wip` (331b1f21) — varargs-∩ ROOT CAUSE SOLVED; integration WIP parked
+## UPDATE `9ac37d4b` — SPINE MERGED; suite 79 failing, deterministic
+
+`sv-spine-wip` is merged into `sv-integration` (86 → 79, 0 regressions vs 140, verified
+run-to-run deterministic). The owner≻own-virtual-field spine is restored; the varargs ∩
+family is GREEN. Four engine bugs fixed en route: half-translated collapse re-keying,
+witness-orphan loss on vertex removal (materialization, with symmetric-coherence labels),
+the ☷ pass set ignored in §m modification propagation, and NONDETERMINISTIC witness
+choice (putIfBetter first-arrival ties + unsorted support print) rooted in
+LocalVariableImpl's missing hashCode (identity-hash map iteration). Env gates
+NOSPINE/NOMAT/NOBOTH/NOMIRROR/NOPASSFIX/NODESC remain for bisecting.
+
+Remaining known gaps vs the pre-spine baseline (2): TestSupplier.test7 (one link,
+`entry.§xy≺0:optional` — at baseline it arrives via an unidentified post-extraction
+path; note test7 fails in ISOLATION even at baseline, class runs only) and
+TestSupplierSpec Stream.generate. Follow-ups worth noting: LocalVariableImpl.hashCode
+(core CST fix would de-risk everything), and the closure-dump tests now assert
+deterministic witness text (re-baselined).
+
+## (historical) UPDATE branch `sv-spine-wip` (331b1f21) — varargs-∩ ROOT CAUSE SOLVED; integration WIP parked
 
 **Ground truth obtained by running the OLD engine** (worktree on the `openjdk` branch,
 graph dump of TestVarargs.test3a): the old graph links every variable to its own virtual
