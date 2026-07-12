@@ -223,7 +223,10 @@ public final class SourceCodeScan {
             "synchronized", "native", "default", "volatile", "transient",
             "sealed", "non-sealed", "strictfp");
     // 'record' arrives as a Token rather than a KeyWord, so it is handled separately
-    private static final Set<String> TYPE_NATURE_KEYWORDS = Set.of("class", "interface", "enum", "@interface");
+    // the updated CongoCC grammar emits 'record' as a KeyWord (like class/interface/enum), not a bare Token, so it
+    // must be listed here for the KeyWord branch to register its nature-keyword source (the separate Token case below
+    // is now dead for records, but harmless).
+    private static final Set<String> TYPE_NATURE_KEYWORDS = Set.of("class", "interface", "enum", "@interface", "record");
 
     // collects the modifier keywords of an element declaration node, whether they are wrapped in a Modifiers
     // child node (types, fields, parameters) or appear as direct KeyWord children (methods), as keyword -> source
