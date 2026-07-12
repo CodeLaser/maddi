@@ -48,6 +48,10 @@ public final class LabeledGraph<V, L> {
     }
 
     public boolean addVertex(V v) {
+        // must be idempotent: an unconditional put CLOBBERED an existing vertex's successors, and the
+        // unconditional 'true' made mergeEdgeBi's self-loop guards report change forever — the MakeGraph
+        // expand loop then never converged ('cycle protection' on deep structures, TestParSeqLinkBench).
+        if (map.containsKey(v)) return false;
         map.put(v, new LinkedHashMap<>());
         return true;
     }
