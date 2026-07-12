@@ -315,8 +315,12 @@ class WriteLinksAndModification {
     // to be part of A; 'A ≺ B' (IS_FIELD_OF) requires A to be part of B. After rep-expansion a 'field ← param'
     // collapse can produce a link to the param side ('wrap ≻ 0:y'), which violates this — drop it.
     private static boolean isInvalidFieldContainment(Variable from, LinkNature linkNature, Variable to) {
-        if (linkNature == CONTAINS_AS_FIELD) return !Util.isPartOf(from, to);
-        if (linkNature == IS_FIELD_OF) return !Util.isPartOf(to, from);
+        // Only a REAL field-side can make the containment invalid ('wrap ≻ 0:y' — 0:y is a value source, not a
+        // part of wrap). A VIRTUAL field-side is content: with the owner≻own-content spine the closure derives
+        // legitimate cross-variable content containment ('entry.§xy.§x ≺ 0:optional' — entry's content lives in
+        // optional's object graph), which is expected output.
+        if (linkNature == CONTAINS_AS_FIELD) return !Util.virtual(to) && !Util.isPartOf(from, to);
+        if (linkNature == IS_FIELD_OF) return !Util.virtual(from) && !Util.isPartOf(to, from);
         return false;
     }
 
