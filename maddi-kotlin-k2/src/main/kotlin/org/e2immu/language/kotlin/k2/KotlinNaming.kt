@@ -14,8 +14,10 @@
 
 package org.e2immu.language.kotlin.k2
 
+import org.jetbrains.kotlin.psi.KtAnnotationEntry
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
+import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
 
 // Pure file-facade naming, shared by KotlinScan (facade creation) and KotlinBodyConverter (extension
@@ -32,9 +34,19 @@ internal fun facadeSimpleName(ktFile: KtFile): String {
 }
 
 /** The string in a `@file:JvmName("…")` annotation, or null. */
-private fun jvmNameOverride(ktFile: KtFile): String? {
-    val jvmName = ktFile.fileAnnotationList?.annotationEntries
-        ?.firstOrNull { it.shortName?.asString() == "JvmName" } ?: return null
+private fun jvmNameOverride(ktFile: KtFile): String? =
+    jvmNameFromEntries(ktFile.fileAnnotationList?.annotationEntries)
+
+/**
+ * The string in a function's `@JvmName("…")` annotation, or null. Kotlin uses it to disambiguate overloads
+ * that erase to the same JVM signature (e.g. stdlib's `flatMap` taking `(T)->Iterable` vs `(T)->Sequence`,
+ * the latter `@JvmName("flatMapSequence")`), so the JVM method name must reflect it or the two collide.
+ */
+internal fun jvmNameOverride(function: KtNamedFunction): String? =
+    jvmNameFromEntries(function.annotationEntries)
+
+private fun jvmNameFromEntries(entries: List<KtAnnotationEntry>?): String? {
+    val jvmName = entries?.firstOrNull { it.shortName?.asString() == "JvmName" } ?: return null
     val literal = jvmName.valueArguments.firstOrNull()?.getArgumentExpression() as? KtStringTemplateExpression
     return (literal?.entries?.singleOrNull() as? KtLiteralStringTemplateEntry)?.text
 }

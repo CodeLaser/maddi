@@ -829,7 +829,9 @@ class KotlinScan(
     private fun KaSession.convertMethodSignature(owner: TypeInfo, function: KaNamedFunctionSymbol,
                                                  static: Boolean = false): MethodInfo {
         val methodType = if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
-        val method = runtime.newMethod(owner, function.name.asString(), methodType)
+        // honour @JvmName on the function (overloads that erase to the same JVM signature are disambiguated by it)
+        val jvmName = (function.psi as? KtNamedFunction)?.let { jvmNameOverride(it) }
+        val method = runtime.newMethod(owner, jvmName ?: function.name.asString(), methodType)
         val builder = method.builder()
         // compiler-generated members of a source class (a data class's componentN()/copy(), …) are synthetic
         if (function.origin == KaSymbolOrigin.SOURCE_MEMBER_GENERATED) builder.setSynthetic(true)
