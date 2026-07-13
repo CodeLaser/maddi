@@ -4,6 +4,38 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — extraction round 2: derived from-pairs, reverse return facts, reassignment gates; analyzer 13
+
+Fixed (each A/B-clean, link suite 61 byte-identical throughout, bench ~860-930ms):
+1. **Derived from-pairs** (`FollowGraph`, gate `NODFP`): read closure knowledge stranded on a
+   collapsed chain rep's field face ($__sv_$__rv6.bodyThrowingFunction carrying ←Λ$_fi), emit
+   keyed on the recipient group-sibling face (td.throwingFunction). ThrowingFunction part 1.
+2. **Reverse return-targeted facts** (`FollowGraph`, gate `NORVREV`): engine feature #9 never
+   composes facts TARGETING a return; emit the reverse of return-keyed facts onto non-return
+   primaries ('1:r.function ↗ run'). MR-encapsulated-in-record.
+3. **Reassignment gates** (gate `NORSRC`): (a) a source-only group member later assigned must
+   not alias the new value into its group; (b) ReturnVariable exempt from reassignment removal
+   (a second 'return' is a path merge). TestIdentity re-assigned-param verdict now passes.
+
+Open shapes found this round:
+- **Loop-carried old-value provenance**: `clear`-on-reassign of `0:amb` removes the vertex and
+  with it OTHER-keyed edges about the old value (`method ← 0:amb` from an earlier statement);
+  the old engine kept those. Affects loop-reassigned parameter provenance in summaries
+  (test3 re-pinned to `method←1:num`; @Identity verdict unaffected).
+- **≺-family containment** (TestInstanceOf `set≺0:i`, TestCast accessor, MR ×2 `s.r.function≺s.r`):
+  the old engine emitted value-level ≺ for record-PATTERN bindings but not accessor copies. A
+  group-aware relaxation of `isInvalidFieldContainment` was tried and REVERTED (wrong on both
+  counts: admits `o≺0:r` for accessor copies — group {o, 0:r.object} — misses `set≺0:i` — group
+  {set, o}). The distinction must be made where the pattern binding is linked, not in the filter.
+- **$_v constructor-result drop** (TestIdentity test2/test4): `return new URL(...)` produces NO
+  graph link at all at statement level (graph size 0, no group) — `method ← $__oc` never reaches
+  mergeEdgeBi, so `handleReturnVariable` never inserts the `← $_v` marker. Root is in
+  ExpressionVisitor's constructor-call handling (mlv EMPTY for unannotated external ctor?), not
+  in the collapse. Next scoped item.
+- **MR 2-records residue**: `r→s.r` / `r→Λs.r` — the to-side/recipient reverse faces (same shape
+  as the deferred `matrix→ldIn.variables[1]`), plus `s.r.function≺s.r` above.
+- TestModificationBasics test3 second assert: `m.i←1:k` lost (consumed ←) — uninvestigated.
+
 ## UPDATE — goal refocused on MODIFICATION; analyzer suite 24 → 16; two verdict bugs fixed
 
 Strategy shift (user decision): application-level guards (modification verdicts, summaries,
