@@ -145,23 +145,19 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
                 VariableInfo vi1Rv = vd1.variableInfo(withException.fullyQualifiedName());
                 Links links = vi1Rv.linkedVariables();
                 assertEquals("""
+                        a.b.X.Exit.exception#a.b.X.LoopData.exit#a.b.X.LoopDataImpl.withException(Exception)
                         a.b.X.LoopDataImpl.withException(Exception)
                         java.lang.Exception.§m#a.b.X.Exit.exception#a.b.X.LoopData.exit#a.b.X.LoopDataImpl.withException(Exception)
-                        a.b.X.Exit.exception#a.b.X.LoopData.exit#a.b.X.LoopDataImpl.withException(Exception)
-                        a.b.X.LoopData.exit#a.b.X.LoopDataImpl.withException(Exception)
+                        a.b.X.LoopDataImpl.withException(Exception):0:e
                         $_v
                         java.lang.Exception.§m#a.b.X.LoopDataImpl.withException(Exception):0:e
-                        a.b.X.LoopDataImpl.withException(Exception):0:e
                         """, Stream.concat(links.stream().map(Link::from), links.stream().map(Link::to))
                         .distinct()
                         .map(Variable::fullyQualifiedName)
                         .collect(Collectors.joining("\n", "", "\n")));
             }
             assertEquals("""
-                    [-] --> withException.exit.exception.§m≡0:e.§m,\
-                    withException.exit.exception←0:e,\
-                    withException.exit.exception∩withException.exit,\
-                    withException.exit≈withException.exit.exception\
+                    [-] --> withException.exit.exception←0:e,withException.exit.exception.§m≡0:e.§m\
                     """, withException.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
         }
 
@@ -217,11 +213,7 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
             // formal type of variable:
             assertEquals("Type a.b.X.LoopData", vi0Rv.variable().parameterizedType().toString());
             assertEquals("""
-                    withException←Λ$_v,\
-                    withException.exit.exception.§m≡0:e.§m,\
-                    withException.exit.exception←0:e,\
-                    withException.exit.exception∩withException.exit,\
-                    withException.exit≈withException.exit.exception\
+                    withException.exit.exception←0:e,withException←Λ$_v,withException.exit.exception.§m≡0:e.§m\
                     """, vi0Rv.linkedVariables().toString());
         }
         testLoopData(X);

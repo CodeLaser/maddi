@@ -206,12 +206,23 @@ public class SharedVariables {
             if (pf.equals(primary) || !Util.isPartOf(primary, pf)) continue;
             for (Variable s : assignmentSources(pf)) {
                 Variable root = Util.primary(s);
-                if (root.equals(s)) continue; // whole-object source: faceKeyed's sibling faces already cover it
-                for (Variable sibling : allShared(root)) {
-                    VariableTranslationMap toSibling = new VariableTranslationMap(runtime);
-                    toSibling.put(root, sibling);
-                    Variable sFace = toSibling.translateVariableRecursively(s);
-                    // m may BE the sibling face itself (fluent chain 'new Builder().setJ(jp).setK(kp)':
+                java.util.List<Variable> sourceFaces;
+                if (root.equals(s)) {
+                    // whole-object source ('withException.exit ← $__c_a'): its own faces
+                    // ($__c_a.exception ← 0:e) rehome directly onto pf (withException.exit.exception).
+                    // (faceKeyed's sibling faces only cover this when the PRIMARY itself is in the
+                    // whole-object group; here only its field pf is.)
+                    sourceFaces = java.util.List.of(s);
+                } else {
+                    sourceFaces = new java.util.ArrayList<>();
+                    for (Variable sibling : allShared(root)) {
+                        VariableTranslationMap toSibling = new VariableTranslationMap(runtime);
+                        toSibling.put(root, sibling);
+                        sourceFaces.add(toSibling.translateVariableRecursively(s));
+                    }
+                }
+                for (Variable sFace : sourceFaces) {
+                    // m may BE the face itself (fluent chain 'new Builder().setJ(jp).setK(kp)':
                     // m = $__rv9.j, the setJ face, sibling of b's source) — the emit loop's
                     // !emitM.equals(t) guard prevents self-links
                     if (Util.isPartOf(sFace, m)) {
