@@ -536,9 +536,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private void addMemberToType(TypeInfo typeInfo, Symbol.ClassSymbol owner, Element member, LoadMode loadMode) {
         boolean alwaysLoad = loadMode == LoadMode.LOAD_MEMBERS || loadMode == LoadMode.COMPLETE_SUB;
         if (member instanceof Symbol.MethodSymbol ms && ms.owner == owner) {
-            // the check for JLO is actually only for the clone() method
-            boolean isNotPrivate = (ms.flags() & Flags.PRIVATE) == 0;
-            if (isNotPrivate
+            // the check for JLO is actually only for the clone() method.
+            // constructors are loaded even when private: a type's constructors are part of its shape and can be
+            // referenced by analyzed-package files (e.g. the private no-arg constructor of a static-utility class
+            // such as java.lang.Math); skipping them left typeInfo.constructors() empty and broke analysis decode.
+            boolean load = (ms.flags() & Flags.PRIVATE) == 0 || ms.isConstructor();
+            if (load
                 && (alwaysLoad || loadMode == LoadMode.COMPLETE && !methodSymbolMap.containsKey(ms))
                 && (loadMode == LoadMode.LOAD_MEMBERS || !methodSymbolMap.containsKey(ms))) {
                 MethodInfo methodInfo = addMethodToType(typeInfo, ms, false);
