@@ -38,6 +38,7 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.util.*;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -138,12 +139,38 @@ public class CodecImpl implements Codec {
         Matcher m = NAME_INDEX_PATTERN.matcher(fqnNameIndex);
         if (m.matches()) {
             int index = Integer.parseInt(m.group(2));
-            MethodInfo methodInfo = typeAndSorted.sortedConstructors().get(index);
+            List<MethodInfo> sorted = reinspectIfNeeded(typeAndSorted.typeInfo(), typeAndSorted.sortedConstructors(),
+                    index, ti -> ti.constructors().stream()
+                            .sorted(Comparator.comparing(MethodInfo::fullyQualifiedName)).toList());
+            if (index >= sorted.size()) {
+                throw new DecoderException("constructor index " + index + " out of range; "
+                                           + typeAndSorted.typeInfo() + " has " + sorted.size() + " constructor(s)");
+            }
+            MethodInfo methodInfo = sorted.get(index);
             assert methodInfo.isConstructor();
             return methodInfo;
         } else {
             throw new UnsupportedOperationException();
         }
+    }
+
+    /**
+     * The lists in a {@link TypeAndSorted} are derived eagerly from the live type. Under the openjdk inspector a
+     * referenced type may only be shallow-loaded (lazy member loading) at decode time, so those lists can be empty
+     * even though the encoder -- which had the type fully inspected -- emitted a valid index. When the captured list
+     * cannot satisfy the index, force the type to be fully inspected and re-derive the list; the caller then does a
+     * final bounds check so a genuine mismatch fails with a clear {@link DecoderException} rather than an AIOOBE.
+     */
+    private <T> List<T> reinspectIfNeeded(TypeInfo typeInfo, List<T> captured, int index,
+                                          Function<TypeInfo, List<T>> derive) {
+        if (index < captured.size()) return captured;
+        try {
+            runtime.getFullyQualified(typeInfo.fullyQualifiedName(), false, sourceSetOfRequest);
+        } catch (RuntimeException ignore) {
+            // a runtime without on-demand loading (e.g. a synthetic test runtime): nothing more we can do here,
+            // fall through to the (possibly still short) derived list and let the caller report the mismatch.
+        }
+        return derive.apply(typeInfo);
     }
 
     @Override
@@ -161,11 +188,13 @@ public class CodecImpl implements Codec {
         Matcher m = NAME_INDEX_PATTERN.matcher(nameIndex);
         if (m.matches()) {
             int index = Integer.parseInt(m.group(2));
-            if (index >= typeAndSorted.sortedFields().size()) {
-                throw new UnsupportedOperationException("Index " + index
-                                                        + " greater than the number of fields in " + typeAndSorted);
+            List<FieldInfo> sorted = reinspectIfNeeded(typeAndSorted.typeInfo(), typeAndSorted.sortedFields(),
+                    index, ti -> ti.fields().stream().sorted(Comparator.comparing(FieldInfo::name)).toList());
+            if (index >= sorted.size()) {
+                throw new DecoderException("field index " + index + " out of range; "
+                                           + typeAndSorted.typeInfo() + " has " + sorted.size() + " field(s)");
             }
-            FieldInfo fieldInfo = typeAndSorted.sortedFields().get(index);
+            FieldInfo fieldInfo = sorted.get(index);
             assert fieldInfo.name().equals(m.group(1));
             return fieldInfo;
         } else {
@@ -302,7 +331,14 @@ public class CodecImpl implements Codec {
         Matcher m = NAME_INDEX_PATTERN.matcher(nameIndex);
         if (m.matches()) {
             int index = Integer.parseInt(m.group(2));
-            MethodInfo methodInfo = typeAndSorted.sortedMethods().get(index);
+            List<MethodInfo> sorted = reinspectIfNeeded(typeAndSorted.typeInfo(), typeAndSorted.sortedMethods(),
+                    index, ti -> ti.methods().stream()
+                            .sorted(Comparator.comparing(MethodInfo::fullyQualifiedName)).toList());
+            if (index >= sorted.size()) {
+                throw new DecoderException("method index " + index + " out of range; "
+                                           + typeAndSorted.typeInfo() + " has " + sorted.size() + " method(s)");
+            }
+            MethodInfo methodInfo = sorted.get(index);
             assert !methodInfo.isConstructor();
             assert methodInfo.name().equals(m.group(1)) : "Method names do not agree: " + methodInfo + " vs " + m.group(1);
             return methodInfo;
