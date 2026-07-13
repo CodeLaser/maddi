@@ -4,6 +4,20 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — dying-local face bridging; analyzer 9 real, link suite 60
+
+Summary reconstruction now bridges the field faces of DYING LOCALS: `justJ.j ← b.j ← 0:jp`
+collapses to `justJ.j ← 0:jp` in METHOD_LINKS (canChainThrough under `deep`, which now keys on
+`Util.primary(emitM)` so return-value FACES reconstruct deeply). Plain FieldReference on a real
+local only — never DependentVariables (dimension guard) or parameter/this faces (summary
+endpoints). Also: derivedFaceKeyed's `m != sibling-face` guard dropped — in a fluent chain the
+group member IS the sibling face ($__rv9.j of `new Builder().setJ(jp).setK(kp)`).
+TestStaticValuesAssignment + TestModificationBasics green; **link suite 61 → 60**
+(TestStaticValuesRecord `@Identity, accessor` newly passes, zero regressions; `/tmp/cur_final.txt`
+refreshed); bench 778ms. Analyzer remaining (9 + CloneBench): ≺-family ×4 (binding-site
+semantics decision pending), TestLinkConstructorInMethodCall ×2, TestIndependentOfByteArray,
+TestVarious illegal-links.
+
 ## UPDATE — $_v fresh-object provenance FIXED; analyzer 11
 
 `LinkGraph.reduceLinks` eliminated the single-link pair `method ← $__c(new URL(...))` entirely,
