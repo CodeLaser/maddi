@@ -4,6 +4,20 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — constructor-in-call summaries; analyzer 6 real
+
+`derivedFaceKeyed` now rehomes a WHOLE-OBJECT source's own faces directly onto the primary's
+field (`withException.exit ← $__c_a` + `$__c_a.exception ← 0:e` → `withException.exit.exception
+← 0:e`) — the earlier whole-object skip only held when the primary itself was in the group. The
+reconstructed-fold's §m companions now cover return FIELD FACES (whole-return endpoints stay
+out): `withException.exit.exception.§m ≡ 0:e.§m` reaches the summary — the very link call-site
+modification propagation consumes (jfocus withException shape;
+TestLinkConstructorInMethodCall 2/2). Extra §m equivalences elsewhere
+(`add[0].§m≡1:item.§m`, `set.objects.§m≡this.objects*.§m`) are strengthened-modification
+output, re-pinned. ∩/≈ decorations on reconstructed faces are NOT re-derived (unconsumed;
+re-pinned out). Analyzer remaining (6 real + CloneBench): ≺-family ×4 (binding-site semantics
+decision pending), TestIndependentOfByteArray, TestVarious illegal-links. Link 60, bench ~960ms.
+
 ## UPDATE — dying-local face bridging; analyzer 9 real, link suite 60
 
 Summary reconstruction now bridges the field faces of DYING LOCALS: `justJ.j ← b.j ← 0:jp`
