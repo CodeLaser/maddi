@@ -54,10 +54,22 @@ class WriteLinksAndModification {
         Set<Variable> unmarkedModifications = new HashSet<>(modifiedDuringEvaluation.keySet());
         Map<Variable, Links.Builder> newLinkedVariables = new HashMap<>();
         List<Link> toRemove = new ArrayList<>();
+        if (System.getenv("SVDUMP") != null) {
+            System.out.println("SVDUMP stmt " + statement.source().index() + "\n"
+                               + followGraph.graph().printShared(Object::toString));
+            System.out.println("SVDUMP-MOD stmt " + statement.source().index() + " "
+                               + modifiedDuringEvaluation.keySet());
+        }
 
         Map<Variable, Set<MethodInfo>> expandedModifiedDuringEvaluation = new HashMap<>();
         for (Map.Entry<Variable, Set<MethodInfo>> entry : modifiedDuringEvaluation.entrySet()) {
             for (Variable v : followGraph.graph().allShared(entry.getKey())) {
+                expandedModifiedDuringEvaluation.put(v, entry.getValue());
+            }
+            // a modified key that never existed as a graph vertex (ldIn.variables[1], marked through a
+            // functional-interface call) still denotes the same runtime slot as its source-chain group faces
+            // ({matrix, 0:ld.variables[1]}); expand through the derived-face composition as well
+            for (Variable v : followGraph.graph().derivedShared(entry.getKey())) {
                 expandedModifiedDuringEvaluation.put(v, entry.getValue());
             }
         }
