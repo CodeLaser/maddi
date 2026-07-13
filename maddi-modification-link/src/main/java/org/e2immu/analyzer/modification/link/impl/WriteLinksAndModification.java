@@ -370,7 +370,9 @@ class WriteLinksAndModification {
     private void handleReturnVariable(ReturnVariable rv, Links.Builder builder) {
         // replace all intermediates by a marker; don't worry about duplicate makers for now
         // don't bother with modifications; not relevant.
-        boolean needMarker = false;
+        // side-band fresh-object fact: 'return new URL(...)' whose reduced intermediate never entered the
+        // graph (LinkGraph.reduceLinks) — the marker must still appear
+        boolean needMarker = followGraph.graph().isFreshObjectReturn(rv);
         List<Link> newLinks = new ArrayList<>();
         for (Link link : builder) {
             if (link.linkNature().isIdenticalToOrAssignedFromTo()
