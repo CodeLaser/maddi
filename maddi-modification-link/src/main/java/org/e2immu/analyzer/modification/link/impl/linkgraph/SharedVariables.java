@@ -122,13 +122,16 @@ public class SharedVariables {
                     derivedFace = emitM != null;
                 }
                 if (emitM == null) continue;
-                // Chain through method-internal locals only when reconstructing the whole return value: there a
-                // chain of whole-object assignments (return ← ttt ← tt ← 0:t) must collapse to 'method ← 0:t'.
-                // For field/parameter endpoints the field-precise link already arrives via the always-chained
-                // pass-through intermediates ($__rv), and bridging locals there would add a spurious primary-level
-                // shortcut (makeFromGet ≈ 0:box). For a plain local 'm' (per-statement view) we also stay shallow,
-                // preserving the collapse's dedup ('ttt ← tt', not the transitive 'ttt ← 0:t').
-                boolean deep = emitM instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+                // Chain through method-internal locals only when reconstructing the return value (the whole
+                // return, or one of its faces — 'justJ.j'): there a chain of assignments
+                // (return ← ttt ← tt ← 0:t; justJ.j ← b.j ← 0:jp) must collapse to the summary form
+                // ('method ← 0:t', 'justJ.j ← 0:jp'). For field/parameter endpoints the field-precise link
+                // already arrives via the always-chained pass-through intermediates ($__rv), and bridging locals
+                // there would add a spurious primary-level shortcut (makeFromGet ≈ 0:box). For a plain local 'm'
+                // (per-statement view) we also stay shallow, preserving the collapse's dedup ('ttt ← tt', not
+                // the transitive 'ttt ← 0:t').
+                boolean deep = Util.primary(emitM)
+                        instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
                 for (Variable t : reachable(m, fwd, deep)) {
                     if (!emitM.equals(t)) {
                         builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_FROM, t));
@@ -208,7 +211,10 @@ public class SharedVariables {
                     VariableTranslationMap toSibling = new VariableTranslationMap(runtime);
                     toSibling.put(root, sibling);
                     Variable sFace = toSibling.translateVariableRecursively(s);
-                    if (!m.equals(sFace) && Util.isPartOf(sFace, m)) {
+                    // m may BE the sibling face itself (fluent chain 'new Builder().setJ(jp).setK(kp)':
+                    // m = $__rv9.j, the setJ face, sibling of b's source) — the emit loop's
+                    // !emitM.equals(t) guard prevents self-links
+                    if (Util.isPartOf(sFace, m)) {
                         VariableTranslationMap vtm = new VariableTranslationMap(runtime);
                         vtm.put(sFace, pf);
                         return vtm.translateVariableRecursively(m);
@@ -249,11 +255,21 @@ public class SharedVariables {
     }
 
     // a node we may transitively chain through: a pass-through intermediate ($__rv) always, or (only when 'deep',
-    // i.e. reconstructing a summary endpoint) a bare scalar local variable — never an array element / field /
-    // parameter, so the assignment dimension is preserved.
+    // i.e. reconstructing a summary endpoint) a bare scalar local variable — never an array element (dimension
+    // guard) / parameter / this, which are summary endpoints themselves.
     private static boolean canChainThrough(Variable v, boolean deep) {
         if (Util.lvPrimaryOrNull(v) instanceof IntermediateVariable) return true;
-        return deep && v instanceof org.e2immu.language.cst.api.variable.LocalVariable;
+        if (!deep) return false;
+        if (v instanceof org.e2immu.language.cst.api.variable.LocalVariable) return true;
+        // the field face of a DYING LOCAL ('b.j' of builder 'b') does not survive into the summary either:
+        // bridge it (justJ.j ← b.j ← 0:jp → justJ.j ← 0:jp). Plain FieldReference only (never a
+        // DependentVariable — dimensions), and only on a real local (not a synthetic LinkVariable).
+        if (v instanceof org.e2immu.language.cst.api.variable.FieldReference fr) {
+            Variable pr = Util.primary(fr);
+            return pr instanceof org.e2immu.language.cst.api.variable.LocalVariable
+                   && !(pr instanceof org.e2immu.analyzer.modification.link.impl.LinkVariable);
+        }
+        return false;
     }
 
     public boolean isKnown(Variable from) {
