@@ -215,7 +215,7 @@ public class TestModificationFunctional extends CommonTest {
             assertEquals("r.function←Λ$_fi4,r.function→Λs.r.function,r→s.r",
                     vi1R.linkedVariables().toString());
             VariableInfo vi1S = vd1.variableInfo("s");
-            assertEquals("s.r.function←Λr.function,s.r.function←Λ$_fi4,s.r.function≺s.r,s.r←r",
+            assertEquals("s.r.function←Λ$_fi4,s.r.function←Λr.function,s.r←r",
                     vi1S.linkedVariables().toString());
         }
         assertTrue(go.isModifying());
@@ -298,7 +298,7 @@ public class TestModificationFunctional extends CommonTest {
                     vi1R.linkedVariables().toString());
             VariableInfo vi1S = vd1.variableInfo("s");
             assertEquals("""
-                    s.r.function←Λr.function,s.r.function←Λ$_fi4,s.r.function≺Λs.r,s.r←Λr\
+                    s.r.function←Λ$_fi4,s.r.function←Λr.function,s.r←Λr\
                     """, vi1S.linkedVariables().toString());
         }
 
