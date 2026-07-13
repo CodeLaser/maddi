@@ -48,7 +48,54 @@ re-confirm transform.jar now decodes.
 `StarImportScope` NPE / CompilationProblems under parallel test execution -- which occurs with and without this
 change, with a different failing set each run. Not caused by this fix.)
 
-### CONFIRMATION from the reporter (2026-07-13, jfocus-stdbase openjdk branch)
+### CONFIRMATION #2 from the reporter (2026-07-13, after inspector fix 49883ac1)
+
+**The `ArrayUtil` private-constructor fix works** — that error is gone; the decode now advances past `ArrayUtil`
+(and processes `Loop.*`). But `transform.jar` **still doesn't fully decode**; it now hits a *different, later*
+failure — a **nested-type resolution** during **linked-variable** decoding:
+
+```
+java.lang.AssertionError: Cannot find io.codelaser.jfocus.transform.support.Try.TryData
+    at org.e2immu.language.cst.io.CodecImpl.decodeSimpleType(CodecImpl.java:382)
+    at org.e2immu.analyzer.modification.link.io.LinkCodec$C.decodeSimpleType(LinkCodec.java:289)
+    at org.e2immu.language.cst.io.CodecImpl.decodeType(CodecImpl.java:424)
+    at ...decodeInfoOutOfContext ... CodecImpl.decodeVariable(CodecImpl.java:500)
+    at org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.decodeLink(MethodLinkedVariablesImpl.java:89)
+    at ...MethodLinkedVariablesImpl.lambda$decodeLinks$0
+```
+
+So `decodeSimpleType` (CodecImpl:382) looks up the **nested** type `Try.TryData` by name and asserts it is found,
+but it is not (`Try` is a transform-support class with a nested `TryData` interface, like `Loop.LoopData`). This is
+a separate issue from the constructor one: nested-type resolution by name during decode of a method's linked
+variables. Likely candidates: the type not (yet) inspected/registered under its nested name, or a `Try.TryData`
+vs `Try$TryData` naming mismatch in `decodeSimpleType`.
+
+Non-fatal but related warnings seen just before: `@GetSet: Cannot find field set in Loop.LoopDataImpl.Builder`
+and `... field iterator in Loop.LoopDataImpl.Builder` (nested-member resolution).
+
+Net: real progress (constructor path fixed); `transform.jar` still aborts, now at `Try.TryData`, so the bridge
+stays and the 23 stdbase tests remain blocked. Same deterministic repro (any Loop/transform-support test's
+`beforeEach`). The confirmation below is now **superseded** by this one (it described the pre-49883ac1 state).
+
+### FOLLOW-UP FIX #2 on the inspector side — nested types by dotted FQN (2026-07-13, commit `a6306c30`)
+
+Root cause of the `Try.TryData` failure found and fixed. `ScanCompilationUnits.loadCompiledTypeOrNull` rejected
+**any type whose owner is not a package** (`// primary (top-level) types only`), so
+`getOrLoad("java.util.Map.Entry")` / `getOrLoad("...Try.TryData")` returned `null` even though javac's
+`getTypeElement` *does* resolve the nested symbol. Nested types are loaded as part of their enclosing type, so
+the fix: for a nested type, walk up to the top-level enclosing class, load that (which registers all nested
+types via `addEnclosedTypeToType`), then return the requested one by its dotted FQN. Verified with
+`TestNestedTypeLoad` (`java.util.Map.Entry` and the doubly-nested `java.util.AbstractMap.SimpleEntry` now
+resolve; the `$` binary form stays `null`, which is fine -- decode uses dotted names and `getTypeElement` does
+not take `$` names). Openjdk suites green.
+
+This is the exact capability `CodecImpl.decodeSimpleType` needs: `findType` → `typeProvider.get("...Try.TryData")`
+→ `getFullyQualified` → `getOrLoad`. As before it can't be reproduced end-to-end inside maddi-kotlin, so:
+**please re-confirm `transform.jar` on the stdbase openjdk branch** -- the `Try.TryData` assertion should now be
+gone (watch for any further nested-member gaps behind it, e.g. the `@GetSet: Cannot find field set/iterator in
+Loop.LoopDataImpl.Builder` warnings, which are nested-member resolution and may or may not be fatal).
+
+### CONFIRMATION from the reporter (2026-07-13, jfocus-stdbase openjdk branch) — SUPERSEDED by #2 above
 
 Rebuilt against the fix. **`transform.jar` still does NOT decode** — but the failure is now the clear, contextual
 error (good), which pinpoints the real culprit:
