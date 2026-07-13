@@ -54,9 +54,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     // the type-setup block (access, type parameters, parent class, interfaces) must run exactly once per type,
     // and BEFORE the type is committed. Normally a LAZILY load does it and a later COMPLETE relies on that; but a
     // type reached only via bytecode (e.g. a transitively-referenced JDK internal) can arrive at COMPLETE without a
-    // prior LAZILY, leaving parentClass/access null -> commit fails. Guarding on this set lets COMPLETE run the
-    // setup when it was skipped, while never running it twice (which would re-create/commit type parameters).
-    private final Set<TypeInfo> typeSetupDone = Collections.newSetFromMap(new IdentityHashMap<>());
+    // prior LAZILY, leaving parentClass/access null -> commit fails. The guard lets COMPLETE run the setup when it
+    // was skipped, while never running it twice (which would re-create/commit type parameters and duplicate the
+    // appended interfaces/annotations). It lives on the shared InfoByFqn -- NOT here -- because TypeInfo instances
+    // outlive any single scanner: a fresh scanner (next parse's on-demand load) must see a prior scanner's setup as
+    // already done. See InfoByFqn.markClassScannerSetupDone.
     private final Map<String, TypeInfo> predefinedTypes = new HashMap<>();
     private final Deque<Map<String, TypeParameter>> typeParameterStack = new ArrayDeque<>();
     private final Map<String, SourceSet> sourceSetMap;
@@ -256,7 +258,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             //The following completely loads 'cs', so leave it here even though it can move nearer to its usage
             List<? extends Element> members = elements.getAllMembers(cs);
             flagHelper.type(cs, builder);
-            if (typeSetupDone.add(newTypeInfo)) {
+            if (infoByFqn.markClassScannerSetupDone(newTypeInfo)) {
                 // ensure that the enclosing types have at least been lazily loaded; so that we can compute access
                 // as soon as possible
                 if (newTypeInfo.compilationUnitOrEnclosingType().isRight()) {
