@@ -4,6 +4,21 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — $_v fresh-object provenance FIXED; analyzer 11
+
+`LinkGraph.reduceLinks` eliminated the single-link pair `method ← $__c(new URL(...))` entirely,
+losing the fresh-object fact behind the `← $_v` marker (@Identity false-positive risk). Fixed
+side-band: `Graph.markFreshObjectReturn` / `handleReturnVariable.isFreshObjectReturn`. Two
+hard-won constraints: (1) a real `$_v` GRAPH edge is a closure HUB — bench 0.9s → 3-19s,
+nondeterministic; never put shared markers in the graph; (2) `ExpressionVisitor`'s
+no-data-constructor fallback must fire for EXTERNAL types only — fabricating intermediates on
+recursion-prevention nulls floods deeply recursive code. someValue markers are now opaque
+everywhere (no §-mirrors, no §m equivalence, no composites targeting them, gate `NOACM`).
+TestIdentity 6/6 green. Remaining analyzer failures (11): CloneBench (parser-side), the
+≺-family (TestCast accessor, TestInstanceOf, MR ×2 — binding-site decision pending),
+TestModificationBasics (`m.i←1:k`), TestStaticValuesAssignment (←), TestLinkConstructorInMethodCall ×2,
+TestIndependentOfByteArray (naming/$_ce), TestVarious illegal-links (~← vs ∈∋).
+
 ## UPDATE — extraction round 2: derived from-pairs, reverse return facts, reassignment gates; analyzer 13
 
 Fixed (each A/B-clean, link suite 61 byte-identical throughout, bench ~860-930ms):
