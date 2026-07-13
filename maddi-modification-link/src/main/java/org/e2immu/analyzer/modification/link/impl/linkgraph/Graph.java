@@ -48,6 +48,18 @@ public class Graph {
         return sharedVariables.assignmentSources(variable);
     }
 
+    // return variables that were assigned a fresh, unanalyzable object ('return new URL(...)') whose
+    // reduced intermediate never entered the graph; handleReturnVariable adds the '← $_v' marker for them
+    private final Set<Variable> freshObjectReturns = new HashSet<>();
+
+    public void markFreshObjectReturn(Variable returnVariable) {
+        freshObjectReturns.add(returnVariable);
+    }
+
+    public boolean isFreshObjectReturn(Variable returnVariable) {
+        return freshObjectReturns.contains(returnVariable);
+    }
+
     public IncrementalFixpointEngine<Variable, LinkNature> engine() {
         return engine;
     }

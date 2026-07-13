@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
+import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
@@ -174,6 +175,8 @@ public record FollowGraph(Graph graph) {
                             && !(primaryTo instanceof ReturnVariable) && !(primaryFrom instanceof ReturnVariable)
                             && !Util.virtual(from)
                             && !Util.virtual(to)
+                            // no §m equivalence with an opaque someValue marker ('method.§m ≡ $_v.§m' is noise)
+                            && !(primaryTo instanceof MarkerVariable mv && mv.isSomeValue())
                             && virtualFieldComputer != null) {
                             VirtualFieldComputer.M2 m2 = virtualFieldComputer.addModificationFieldEquivalence(from, to);
                             LinkNature id = LinkNatureImpl.makeIdenticalTo(null);

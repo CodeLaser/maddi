@@ -2,6 +2,7 @@ package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
+import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
@@ -150,6 +151,13 @@ public class LinkGraph {
                 Variable v = entry.getKey() == source ? target : entry.getKey();
                 Links links = entry.getValue().translate(vtm);
                 res.put(v, links);
+            } else if (source instanceof IntermediateVariable iv && iv.isNewObject()
+                       && Util.primary(target) instanceof ReturnVariable) {
+                // the reduced pair 'method ← $__c(new URL(...))' carries the FRESH-OBJECT fact: a return
+                // value that is a fresh (unanalyzable) object must not end up looking like a parameter
+                // identity. Record it side-band for handleReturnVariable's '← $_v' marker — NOT as a graph
+                // edge: a shared $_v graph vertex acts as a closure hub (TestParSeqLinkBench 0.9s -> 3-19s).
+                graph.markFreshObjectReturn(Util.primary(target));
             }
         }
         return new Reduce(res, target);

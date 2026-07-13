@@ -253,7 +253,13 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                             && ln != LinkNatureImpl.IS_IN_OBJECT_GRAPH && ln != LinkNatureImpl.OBJECT_GRAPH_CONTAINS;
             IncrementalFixpointEngine<Variable, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine,
                     LinkNature::best, valid, LinkNature::score, LinkNature::reverse,
-                    LinkGraph::vertexPrinter, Variable::compareTo, v -> !(v instanceof ReturnVariable));
+                    LinkGraph::vertexPrinter, Variable::compareTo,
+                    // composite facts must not TARGET a return variable (feature #9) nor an opaque someValue
+                    // marker ('add[0] ∈ $_v' — a fresh unanalyzable value takes no derived content facts;
+                    // the direct 'add ← $_v' edge itself stays)
+                    v -> !(v instanceof ReturnVariable)
+                         && (System.getenv("NOACM") != null
+                             || !(v instanceof MarkerVariable mv && mv.isSomeValue())));
             Graph graph = new Graph(javaInspector.runtime(), engine);
             this.followGraph = new FollowGraph(graph);
             MakeGraph makeGraph = new MakeGraph(javaInspector, javaInspector.runtime(), graph);
@@ -571,6 +577,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 Links rvLinks = new LinksImpl.Builder(returnVariable)
                         .add(LinkNatureImpl.IS_ASSIGNED_FROM, destination)
                         .build();
+                if (System.getenv("RVTRACE") != null) {
+                    System.out.println("RVTRACE stmt " + statement.source().index() + " dest=" + destination
+                                       + " rLinks=" + r.links());
+                }
                 if (r != null) {
                     r = r.with(rvLinks);
                     r = r.copyLinksToExtra();

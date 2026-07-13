@@ -87,6 +87,9 @@ public record MakeGraph(JavaInspector javaInspector, Runtime runtime, Graph grap
     }
 
     private static boolean isNotNullConstant(Variable v) {
+        // a someValue marker ($_v) is an opaque fresh value: mirroring §-content/sub faces onto it
+        // ('add.§$ ← $_v.§$', 'add[0] ∈ $_v') is noise — like the null constant, it takes no subs
+        if (v instanceof MarkerVariable m && m.isSomeValue()) return false;
         return !(v instanceof MarkerVariable mv)
                || !mv.isConstant()
                || !(mv.assignmentExpression() instanceof NullConstant);

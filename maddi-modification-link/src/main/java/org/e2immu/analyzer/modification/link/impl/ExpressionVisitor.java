@@ -474,7 +474,17 @@ public record ExpressionVisitor(Runtime runtime,
 
         // only translate wrt concrete type
         MethodLinkedVariables mlv0 = recurseIntoLinkComputer(cc.constructor());
-        if (mlv0 == null) return EMPTY; // cannot do anything at the moment, no data
+        if (mlv0 == null) {
+            // No data for an EXTERNAL constructor (unannotated library type, 'new URL(...)'): the sound
+            // minimal result is still a FRESH OBJECT — return the new-object intermediate with no links, so
+            // the assignment records 'x ← $__oc' and handleReturnVariable substitutes the '← $_v' marker (a
+            // fresh unanalyzable return value must not look like a parameter identity, @Identity verdicts).
+            // For SOURCE constructors the null means 'not yet analyzed' (recursion prevention) — keep the old
+            // EMPTY short-circuit there: fabricating intermediates mid-cycle floods deeply recursive
+            // structures (TestParSeqLinkBench 0.9s -> 19s).
+            if (cc.constructor().typeInfo().compilationUnit().externalLibrary()) return object;
+            return EMPTY; // cannot do anything at the moment, no data
+        }
         MethodLinkedVariables mlv = mlv0.removeSomeValue();
         MethodLinkedVariables mlvTranslated1;
         if (mlv.virtual()) {
