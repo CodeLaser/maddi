@@ -40,10 +40,27 @@ public class InfoByFqn {
 
     private final Set<TypeInfo> loadedForThisSourceSet = new HashSet<>();
 
+    // The class scanner's "type setup block" (access, type parameters, parent class, interfaces, annotations) must
+    // run exactly once per TypeInfo, EVER -- not once per scanner. Each parse() builds a fresh ClassSymbolScanner,
+    // but TypeInfo instances (and their still-open builders) are shared through this registry: a type left LAZILY-
+    // loaded-but-uncommitted by one scanner would otherwise have its whole setup re-run by the next scanner (a later
+    // parse's on-demand bytecode load), appending its interfaces/annotations a second time and tripping the "Extending
+    // multiple identical interfaces" assertion in commit(). Persisting the guard here, alongside the shared TypeInfo
+    // instances it keys on, makes the double-run impossible across scanner instances. Identity-keyed, like the scanner's
+    // other guards. Source entries are cleared with the source TypeInfos in removeAllSources() (they are re-created with
+    // fresh identities on re-parse); library/JDK entries persist for the inspector's lifetime, as those types do.
+    private final Set<TypeInfo> classScannerSetupDone = Collections.newSetFromMap(new IdentityHashMap<>());
+
+    /** Returns true the first time this type's class-scanner setup runs; false on every later attempt (skip it). */
+    public boolean markClassScannerSetupDone(TypeInfo typeInfo) {
+        return classScannerSetupDone.add(typeInfo);
+    }
+
     public void removeAllSources() {
         singleTypeByFqn.values().removeIf(InfoByFqn::isSourceType);
         multiTypeByFqn.values().forEach(list -> list.removeIf(InfoByFqn::isSourceType));
         multiTypeByFqn.values().removeIf(List::isEmpty);
+        classScannerSetupDone.removeIf(InfoByFqn::isSourceType);
     }
 
     private static boolean isSourceType(TypeInfo ti) {
