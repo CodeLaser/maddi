@@ -155,7 +155,7 @@ public class TestIdentity extends CommonTest {
         // the openjdk parser zero-pads statement indices to the block's digit width (this method body has >= 10
         // statements), so '1' -> '01' and '3' -> '03'
         assertEquals("D:-, A:[01.0.0, 03]", viRv.assignments().toString());
-        assertEquals("method→1:num,method←0:amb", viRv.linkedVariables().toString());
+        assertEquals("method←1:num", viRv.linkedVariables().toString());
 
         assertFalse(method.isIdentity());
     }

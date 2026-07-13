@@ -80,6 +80,16 @@ public class SharedVariables {
         return sv != null && sv.recipientAtOtherStatement(from, statementIndex);
     }
 
+    // true when 'from' participated in its group only as a SOURCE ('method ← from' at an earlier statement) and
+    // is now being assigned at a different statement: the group's past knowledge stays valid for the OLD value,
+    // but the new value must not join the group as an alias (a re-assigned parameter must not make
+    // 'method ← 0:amb' collapse into an identity pool with the parameter's original value; @Identity verdicts).
+    public boolean isSourceAtOtherStatement(Variable from, String statementIndex) {
+        SharedVariable sv = memberToGroup.get(from);
+        return sv != null && sv.assignments().stream()
+                .anyMatch(a -> a.to().equals(from) && !a.statementIndex().equals(statementIndex));
+    }
+
     /*
      Reconstruct the intra-group assignment relations that touch 'primary'. The group stores each 'from ← to'
      once (the collapse's whole point); here we hand back, keyed on the member that is part of 'primary', the
