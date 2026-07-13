@@ -137,7 +137,7 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
                 Statement s0 = withException.methodBody().statements().getFirst();
                 VariableData vd0 = VariableDataImpl.of(s0);
                 VariableInfo vi0Ee = vd0.variableInfo("ee");
-                assertEquals("ee.exception.§m≡0:e.§m,ee.exception←0:e", vi0Ee.linkedVariables().toString());
+                assertEquals("ee.exception←0:e,ee.exception.§m≡0:e.§m", vi0Ee.linkedVariables().toString());
             }
             {
                 Statement s1 = withException.methodBody().lastStatement();

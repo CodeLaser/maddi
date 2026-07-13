@@ -97,7 +97,7 @@ public class TestIndependentOfByteArray extends CommonTest {
 
         MethodInfo readFully = B.findUniqueMethod("readFully", 3);
         assertEquals("""
-                [0:b*.§$←this*.arrayIn.§$,0:b*∋this*.back, -, -] --> -\
+                [0:b*∋this*.back,0:b*.§$←this*.arrayIn.§$, -, -] --> -\
                 """, readFully.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
         MethodInfo read = B.findUniqueMethod("read", 3);
