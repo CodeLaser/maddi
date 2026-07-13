@@ -28,6 +28,63 @@ reproducible inside maddi-kotlin, so the *force-load* branch is verified by cons
 (encoder emitting `C` for a constructor-less type) was not observed and is not addressed; if it exists it would now
 surface as a clear `DecoderException` rather than an AIOOBE.
 
+### FOLLOW-UP FIX on the inspector side (2026-07-13, kotlin trunk)
+
+Root cause confirmed and fixed upstream of the codec. `ClassSymbolScanner.addMemberToType` skipped **all** private
+methods -- including constructors -- when loading a compiled type on demand, so a static-utility class with only a
+private no-arg constructor (`ArrayUtil`, `org.slf4j.MDC`, ...) ended up with `constructors()` empty. Fix: load
+constructors even when private (`ms.isConstructor()`). Verified with `TestPrivateConstructor` (slf4j MDC /
+LoggerFactory / Util: 0 constructors before, 1 after) -- commit `49883ac1`.
+
+Caveat on scope: this only recovers constructors of **regular classpath JARs**, whose classfiles carry private
+members so javac exposes them. **JDK platform types are still not recoverable**: their javac symbols come from the
+stripped `ct.sym`, which contains no private members at all (verified: `java.lang.Math`'s private constructor is
+absent from `getAllMembers`, `getEnclosedElements` and the internal member scope even after `complete()`). If an
+analyzed-package file ever references a JDK type's private constructor, that needs a different mechanism (read the
+real module classfile via ASM, or synthesize). `ArrayUtil` is a regular JAR, so this fix should unblock it; please
+re-confirm transform.jar now decodes.
+
+(Unrelated: the maddi-modification-analyzer suite shows pre-existing intermittent flakiness -- a javac
+`StarImportScope` NPE / CompilationProblems under parallel test execution -- which occurs with and without this
+change, with a different failing set each run. Not caused by this fix.)
+
+### CONFIRMATION from the reporter (2026-07-13, jfocus-stdbase openjdk branch)
+
+Rebuilt against the fix. **`transform.jar` still does NOT decode** — but the failure is now the clear, contextual
+error (good), which pinpoints the real culprit:
+
+```
+org.e2immu.language.cst.api.analysis.Codec$DecoderException:
+constructor index 0 out of range; io.codelaser.jfocus.transform.support.ArrayUtil has 0 constructor(s)
+```
+
+So the `C0` reference is **legitimate, not a suggestion-3 encoder bug**: `ArrayUtil` really has a constructor —
+
+```java
+public class ArrayUtil {
+    private ArrayUtil() { }          // the one (private) constructor -> index 0
+    public static Iterable<Boolean> iterable(boolean[] array) { ... }
+    ...
+}
+```
+
+The problem is that **after the force-load, `ArrayUtil.constructors()` is still empty**. So `getFullyQualified` →
+`getOrLoad` loaded the type but **did not populate its constructor** (note it is `private` — the shape here is a
+static-utility class whose *only* member of interest is a private no-arg constructor). The force-load branch
+therefore doesn't rescue this case; the real gap is upstream of the codec, in the **openjdk inspector's on-demand
+member loading not recording (private?) constructors** for a compiled classpath type.
+
+Net: the guard/DecoderException improvement is confirmed working and useful; but transform.jar still aborts at the
+first type (`ArrayUtil`), so no transform-support type is analyzed yet, and **the bridge in
+`codelaser-transform-common` `CommonTest` and in stdbase's `CommonTest` must stay for now**. Next step is on the
+inspector side: ensure `getOrLoad`/force-inspection populates constructors (incl. private) — or, if constructors
+are intentionally lazy, have the codec's `reinspectIfNeeded` trigger the specific load that fills
+`typeInfo.constructors()` before indexing.
+
+Repro is deterministic: on the stdbase openjdk branch, any Loop/transform-support test logs the above at
+`CommonTest.beforeEach` (the `LoadAnalysisResults(...).go(...)` bridge). `ArrayUtil` is the first offender; there
+may be more behind it once its constructor loads.
+
 ---
 
 
