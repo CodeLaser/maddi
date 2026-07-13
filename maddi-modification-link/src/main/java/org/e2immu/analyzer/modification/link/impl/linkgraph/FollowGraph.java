@@ -63,6 +63,25 @@ public record FollowGraph(Graph graph) {
                             return;
                         }
                     }
+                    // Derived from-pair (gate NODFP): 'e' (rv6.bodyThrowingFunction, a face of the collapsed
+                    // builder chain) is not part of the primary, but a RECIPIENT group-sibling of it
+                    // (td.throwingFunction ← rv6.bodyThrowingFunction) is. The vertex 'v'
+                    // ($__sv_$__rv6.bodyThrowingFunction) then carries knowledge the collapse stranded on the
+                    // chain rep's field face (the ←Λ$_fi method-reference edge): read v's closure, emit keyed
+                    // on the recipient face. Only the source→recipient direction transfers (assignmentSources).
+                    if (System.getenv("NODFP") == null) {
+                        for (Variable sibling : graph.allShared(e)) {
+                            if (sibling.equals(e) || !graph.assignmentSources(sibling).contains(e)) continue;
+                            for (Variable face : faces) {
+                                if (Util.isPartOf(face, sibling)) {
+                                    Variable emit = face.equals(primary) ? sibling
+                                            : graph.rehome(sibling, face, primary);
+                                    fromList.add(new FromPair(v, emit));
+                                    return;
+                                }
+                            }
+                        }
+                    }
                 });
             }
         }

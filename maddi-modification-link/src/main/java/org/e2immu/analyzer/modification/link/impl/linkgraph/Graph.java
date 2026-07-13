@@ -44,6 +44,10 @@ public class Graph {
         return sharedVariables.derivedShared(variable);
     }
 
+    public Set<Variable> assignmentSources(Variable variable) {
+        return sharedVariables.assignmentSources(variable);
+    }
+
     public IncrementalFixpointEngine<Variable, LinkNature> engine() {
         return engine;
     }

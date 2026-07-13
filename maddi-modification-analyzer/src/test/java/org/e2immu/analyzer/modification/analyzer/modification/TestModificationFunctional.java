@@ -646,8 +646,7 @@ public class TestModificationFunctional extends CommonTest {
         // moreover, modifications to td.variables[0] will propagate into this.someSet
         assertEquals("""
                 td.throwingFunction←Λ$_fi9,td.variables∋this.someSet,td.variables[0]∈td.variables,\
-                td.variables[0]←this.someSet,td.variables.§m≡this.someSet.§m,td.variables[0].§m≡td.variables.§m,\
-                td.variables[0].§m≡this.someSet.§m\
+                td.variables[0]←this.someSet,td.variables[0].§m≡td.variables.§m,td.variables[0].§m≡this.someSet.§m\
                 """, viTd.linkedVariables().toString());
 
         MethodInfo run = X.findUniqueMethod("run", 1);
@@ -775,8 +774,7 @@ public class TestModificationFunctional extends CommonTest {
         // moreover, modifications to td.variables[0] will propagate into this.someSet
         assertEquals("""
                 td.throwingFunction←Λ$_fi9,td.variables∋this.someSet,td.variables[0]∈td.variables,\
-                td.variables[0]←this.someSet,td.variables.§m≡this.someSet.§m,td.variables[0].§m≡td.variables.§m,\
-                td.variables[0].§m≡this.someSet.§m\
+                td.variables[0]←this.someSet,td.variables[0].§m≡td.variables.§m,td.variables[0].§m≡this.someSet.§m\
                 """, viTd.linkedVariables().toString());
 
         MethodInfo run = X.findUniqueMethod("run", 1);
@@ -910,8 +908,7 @@ public class TestModificationFunctional extends CommonTest {
         // moreover, modifications to td.variables[0] will propagate into this.someSet
         assertEquals("""
                 td.throwingFunction←Λ$_fi9,td.variables∋this.someSet,td.variables[0]∈td.variables,\
-                td.variables[0]←this.someSet,td.variables.§m≡this.someSet.§m,td.variables[0].§m≡td.variables.§m,\
-                td.variables[0].§m≡this.someSet.§m\
+                td.variables[0]←this.someSet,td.variables[0].§m≡td.variables.§m,td.variables[0].§m≡this.someSet.§m\
                 """, viTd.linkedVariables().toString());
 
         MethodInfo run = X.findUniqueMethod("run", 2);
