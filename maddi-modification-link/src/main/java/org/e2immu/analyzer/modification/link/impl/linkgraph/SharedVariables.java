@@ -13,6 +13,7 @@ import org.e2immu.language.cst.api.variable.Variable;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -21,8 +22,10 @@ import java.util.stream.Stream;
 // variant on EquivalenceGroup, to be used for equivalent SharedVariable objects
 public class SharedVariables {
     private final Runtime runtime;
-    private final Map<String, SharedVariable> sharedVariablesByName = new HashMap<>();
-    private final Map<Variable, SharedVariable> memberToGroup = new HashMap<>();
+    // LinkedHashMaps: derivedFaceKeyed/faceKeyed take the FIRST match while iterating — insertion order
+    // (statement-deterministic) must decide, not hash order (TestModificationBasics m∩copy flickered)
+    private final Map<String, SharedVariable> sharedVariablesByName = new LinkedHashMap<>();
+    private final Map<Variable, SharedVariable> memberToGroup = new LinkedHashMap<>();
     private final VariableTranslationMap variableTranslationMap;
 
     public SharedVariables(Runtime runtime) {
