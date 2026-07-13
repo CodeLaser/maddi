@@ -203,7 +203,11 @@ class WriteLinksAndModification {
                     // a reconstructed intra-group edge bypasses it, so add it here too (this.list ← 0:l yields
                     // 0:l.§m ≡ this.list.§m). Same guards as FollowGraph: skip return values and virtual fields.
                     Variable f = link.from(), t = link.to();
-                    if (!(Util.primary(f) instanceof ReturnVariable) && !(Util.primary(t) instanceof ReturnVariable)
+                    // whole-return endpoints get no §m companion (FollowGraph's convention), but a return's
+                    // FIELD FACE does: 'withException.exit.exception ← 0:e' carries
+                    // 'withException.exit.exception.§m ≡ 0:e.§m' into the summary — the §m is what modification
+                    // propagation consumes at the call site
+                    if (!(f instanceof ReturnVariable) && !(t instanceof ReturnVariable)
                         && !Util.virtual(f) && !Util.virtual(t) && virtualFieldComputer != null) {
                         VirtualFieldComputer.M2 m2 = virtualFieldComputer.addModificationFieldEquivalence(f, t);
                         LinkNature id = LinkNatureImpl.makeIdenticalTo(null);
