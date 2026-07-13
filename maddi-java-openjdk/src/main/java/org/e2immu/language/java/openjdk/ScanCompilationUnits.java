@@ -437,7 +437,16 @@ public class ScanCompilationUnits {
             TypeElement te = task.getElements().getTypeElement(fullyQualifiedName);
             if (!(te instanceof Symbol.ClassSymbol cs)) return null;
             cs.complete();
-            if (!(cs.owner instanceof Symbol.PackageSymbol)) return null; // primary (top-level) types only
+            if (!(cs.owner instanceof Symbol.PackageSymbol)) {
+                // a nested type (e.g. java.util.Map.Entry, io.codelaser...Try.TryData): it is loaded as part of its
+                // enclosing type, not on its own. Load the top-level enclosing type -- which registers all nested
+                // types -- then return the requested one by its (dotted) fully-qualified name.
+                Symbol.ClassSymbol top = cs;
+                while (top.owner instanceof Symbol.ClassSymbol enclosing) top = enclosing;
+                if (!(top.owner instanceof Symbol.PackageSymbol)) return null; // local/anonymous: not addressable
+                loadCompiledTypeOrNull(top.getQualifiedName().toString());
+                return classSymbolScanner.getType(fullyQualifiedName);
+            }
             TypeInfo pt = classSymbolScanner.getType(fullyQualifiedName);
             if (pt == null) {
                 pt = classSymbolScanner.lazilyLoadPrimaryTypeFromClassFile(cs);
