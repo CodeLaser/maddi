@@ -150,7 +150,7 @@ public class TestModificationBasics extends CommonTest {
                 VariableData vd1 = VariableDataImpl.of(m.methodBody().statements().get(1));
                 VariableInfo vi1m = vd1.variableInfo("m");
                 // copy ⊆ list, so m is not an element of copy!
-                assertEquals("m∈0:list.§$s", vi1m.linkedVariables().toString());
+                assertEquals("m∩copy,m∈0:list.§$s", vi1m.linkedVariables().toString());
                 VariableInfo vi1list = vd1.variableInfo(pi0);
                 assertFalse(vi1list.isModified());
             }

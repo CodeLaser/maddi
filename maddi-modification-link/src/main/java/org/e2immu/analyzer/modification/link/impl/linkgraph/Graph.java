@@ -205,12 +205,25 @@ public class Graph {
         if (!NOSV && linkNature.isAssignedFrom() && !(to instanceof MarkerVariable)
             && !Util.virtual(from) && !Util.virtual(to)) {
             boolean fromInGroups = sharedVariables.isKnown(from);
-            if (fromInGroups && sharedVariables.isReassignment(from, statementIndex)) {
+            if (fromInGroups && !(from instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable)
+                && sharedVariables.isReassignment(from, statementIndex)) {
                 // genuine reassignment ('from' was assigned at an earlier statement, now assigned again): drop its
                 // old group membership. A second value assigned in the SAME statement (multi-valued 'm = cond ? a : b'
                 // -> 'm ← a' and 'm ← b') is NOT a reassignment; keep 'from' so both sources join one group.
+                // A ReturnVariable is exempt: a second 'return' statement is a merge over paths, not a
+                // reassignment — removing it abandons the group rep carrying the first path's knowledge.
                 sharedVariables.remove(from);
                 // TODO what with fromInGraph?
+            } else if (System.getenv("NORSRC") == null
+                       && fromInGroups && sharedVariables.isSourceAtOtherStatement(from, statementIndex)) {
+                // 'from' was a pure SOURCE in its group ('method ← 1:num' at an earlier statement) and is now
+                // being assigned ('num = amb'): its past source-participation stays valid for the OLD value, but
+                // the new value must not join the group as an alias. Keep the edge as a plain graph edge onto the
+                // rep: extraction then yields both 'method ← 1:num' (intra-group) and 'method ← 0:amb' (rep edge).
+                Variable tFromR = sharedVariables.translateForward(from);
+                Variable tToR = sharedVariables.translateForward(to);
+                if (tFromR.equals(tToR)) return engine.addVertex(tFromR);
+                return engine.addSymmetricEdge(tFromR, tToR, linkNature, statementIndex) > 0;
             }
             SharedVariable sv = sharedVariables.isAssignedFrom(from, to, statementIndex);
             SharedVariable mergedAway = sharedVariables.consumeLastMergedAway();
@@ -286,6 +299,12 @@ public class Graph {
                 // target (the edge pointed at another member of the same group); skip the resulting self-loop,
                 // which the engine forbids (Fact asserts source != target).
                 if (newFrom.equals(newTo)) continue;
+                if (System.getenv("TRACEVAR") != null
+                    && (newFrom.toString().contains(System.getenv("TRACEVAR"))
+                        || newTo.toString().contains(System.getenv("TRACEVAR")))) {
+                    System.out.println("TRACE transform " + variable + "->" + sharedVariable + " re-add: "
+                                       + newFrom + " " + link.getValue() + " " + newTo);
+                }
                 engine.addSymmetricEdge(newFrom, newTo, link.getValue(), statementIndex);
             }
         }

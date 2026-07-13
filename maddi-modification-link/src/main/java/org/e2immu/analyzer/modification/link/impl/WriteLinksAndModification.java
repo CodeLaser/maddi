@@ -218,6 +218,10 @@ class WriteLinksAndModification {
                 .filter(link -> !builder.contains(link.from(), link.linkNature(), link.to()))
                 .forEach(link -> builder.add(link.from(), link.linkNature(), link.to()));
 
+        if (System.getenv("RVTRACE") != null && variable instanceof ReturnVariable) {
+            System.out.println("RVTRACE b1=" + builder1.linkSet() + " b2=" + builder2.linkSet()
+                               + " b=" + builder.linkSet());
+        }
         dedupReversePairs(builder);
         List<Link> toRemove = new ArrayList<>();
         if (variable instanceof ReturnVariable rv) {
@@ -401,6 +405,12 @@ class WriteLinksAndModification {
     // A field-containment link asserts the field is part of the container: 'A ≻ B' (CONTAINS_AS_FIELD) requires B
     // to be part of A; 'A ≺ B' (IS_FIELD_OF) requires A to be part of B. After rep-expansion a 'field ← param'
     // collapse can produce a link to the param side ('wrap ≻ 0:y'), which violates this — drop it.
+    // NOTE (≺-family cluster): a group-aware relaxation of this filter (allow 'A ≺ B' when a group sibling of A
+    // is part of B) was tried and reverted: it admits the unwanted 'o ≺ 0:r' for the accessor-copy shape
+    // (TestCast, group {o, 0:r.object}) while NOT producing the wanted 'set ≺ 0:i' for the record-pattern shape
+    // (TestInstanceOf, group {set, o} — the cast local, not the field face). The old engine emitted containment
+    // for pattern bindings but not accessor copies; that distinction must come from the binding site, not from
+    // this filter.
     private static boolean isInvalidFieldContainment(Variable from, LinkNature linkNature, Variable to) {
         // Only a REAL field-side can make the containment invalid ('wrap ≻ 0:y' — 0:y is a value source, not a
         // part of wrap). A VIRTUAL field-side is content: with the owner≻own-content spine the closure derives
