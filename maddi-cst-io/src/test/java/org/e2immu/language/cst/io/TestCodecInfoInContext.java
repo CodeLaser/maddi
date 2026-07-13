@@ -14,11 +14,14 @@
 
 package org.e2immu.language.cst.io;
 
+import org.e2immu.language.cst.api.analysis.Codec;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Round-trips for the in-context info encoding ({@link CodecImpl#encodeInfoInContext} / {@code decodeInfoInContext}):
@@ -60,6 +63,30 @@ public class TestCodecInfoInContext extends CommonTest {
         String encoded = "\"Mmax(0)\"";
         assertEquals(encoded, codec.encodeInfoInContext(context, max, "0").toString());
         assertSame(max, codec.decodeInfoInContext(context, makeD(encoded)));
+    }
+
+    @DisplayName("constructor (C) round-trip in the current type")
+    @Test
+    public void testConstructor() {
+        MethodInfo constructor = runtime.newConstructor(typeInfo);
+        typeInfo.builder().addConstructor(constructor);
+        constructor.builder().commit();
+        context.push(typeInfo);
+        String encoded = "\"C<init>(0)\"";
+        assertEquals(encoded, codec.encodeInfoInContext(context, constructor, "0").toString());
+        assertSame(constructor, codec.decodeInfoInContext(context, makeD(encoded)));
+    }
+
+    @DisplayName("constructor (C) index out of range -> clear DecoderException, not AIOOBE")
+    @Test
+    public void testConstructorOutOfRange() {
+        MethodInfo constructor = runtime.newConstructor(typeInfo);
+        typeInfo.builder().addConstructor(constructor);
+        constructor.builder().commit();
+        context.push(typeInfo);
+        // only index 0 exists; index 1 must fail with a contextual DecoderException, not an AIOOBE
+        assertThrows(Codec.DecoderException.class,
+                () -> codec.decodeInfoInContext(context, makeD("\"C<init>(1)\"")));
     }
 
     @DisplayName("parameter (P) resolved in the current method")
