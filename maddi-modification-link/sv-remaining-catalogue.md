@@ -4,6 +4,86 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — goal refocused on MODIFICATION; analyzer suite 24 → 16; two verdict bugs fixed
+
+Strategy shift (user decision): application-level guards (modification verdicts, summaries,
+determinism, bench) define "stable"; literal link strings are engine unit tests pinned to
+CURRENT output — old-engine literal values are no longer the target. Of the 61 link failures:
+24 are output-fidelity only (10 order/names, 9 `∩≤≥`-only, 5 `+≈`) → re-baseline; 37 carry
+consumed-nature diffs → triage by verdict impact. The analyzer suite is the primary suite now.
+
+Fixed this round:
+1. **Both-sides re-key on collapse** (`Graph.mergeEdgeBi`): when BOTH endpoints of an
+   `a ← b` collapse had graph vertices, the to-side was `removeVertices(Set.of(to))` — the bare
+   vertex only — leaving `to.§$$s` orphaned (assert crash on the next edge of the same pair,
+   `TestVarious::makeSub`) and silently deleting the to-side knowledge. Now both sides are
+   re-keyed (to-side recomputed after the from-pass). Link suite unaffected.
+2. **Inherited-default-method modification** (`FieldAnalyzerImpl.modifiableThroughInheritedDefaultMethod`,
+   from `notes/default-method-modification-not-propagated-to-impl-field.md`): a modifying
+   `default` method inherited from an interface marks accessor-backed fields of the implementor
+   as modifiable (sound over-approximation; the interface-side summary only records 'modifies
+   this'). New test `nolink/TestDefaultMethodModification` (ported from maddi-aapi, reproducer
+   enabled) passes; the maddi-aapi `@Disabled` marker can be lifted once sv-integration lands.
+3. **∈/∋ containment companions for DERIVED slot faces** (`SharedVariables.assignmentEdgeStream`):
+   a derived face `td.variables[0] ← someSet` now also emits `td.variables[0] ∈ td.variables`
+   and `td.variables ∋ someSet`. First attempt at the fold level (all reconstructed DV
+   assignments) regressed 7 link + 7 analyzer tests — the companions are correct ONLY for
+   derived faces; scoped version is byte-neutral on the link suite.
+4. **Re-pins** (verdicts confirmed green afterwards): TestArrayVariable, TestCast (record),
+   TestWriteAnalysisSyntheticFields, TestIdentity (identity-and-variables),
+   ThrowingFunction parts 2–4 (their downstream `isModifying`/`someSet.isModified` verdicts all
+   pass — the FI-builder propagation chain works end-to-end). Re-pin tool:
+   session scratchpad `repin.py` (reconstructs text blocks, verifies before replacing).
+
+Remaining analyzer failures (16): `TestCloneBench` (parser-side `Applet` lazy-load — NOT ours,
+overlaps uncommitted maddi-java-openjdk work); **ThrowingFunction part 1 ROOT-CAUSED**: after
+the collapses, two disconnected vertices denote the same slot — the field-group rep
+(`$__sv_bodyThrowingFunction` ∋ td.throwingFunction) vs the whole-object-chain rep's field face
+(`$__sv_$__rv6.bodyThrowingFunction`, which carries the `← $_fi5` edge); extraction on td reads
+only the former. Fix direction: derived FromPairs in `FollowGraph` (graph-side analogue of
+`derivedFaceKeyed`). Then: MR-in-record ×2 (miss ↗), MR-by-interfaces (Λ≺), TestIdentity ×3
+(←/→, @Identity verdicts), TestModificationBasics test3 (←), TestStaticValuesAssignment (←),
+TestLinkConstructorInMethodCall ×2 (←≡; one repin blocked on a 1-char reconstruct mismatch),
+TestCast accessor (≡/≺), TestInstanceOf (≺), TestIndependentOfByteArray (naming + $_ce noise),
+TestVarious illegal-links (~← vs ∈∋). Bench ~770-870ms.
+
+## UPDATE — 4th consumer (jfocus-transform) ported + derived-face reconstruction; link suite 61, no regressions
+
+The fourth linking application (loop/try-catch → simple-statement transformation,
+`~/git/jfocus-transform`) is now guarded maddi-side:
+**`maddi-modification-analyzer …/modification/TestModificationLoopTransform`** — literal
+`Loop`/`Try` inlined + the 4-level UpperTriangle modification cascade; both tests pass.
+Consumer analysis: consumes only the modification family (`← → ∈ ∋ ≡ ~ ≺ ↗ Λ` + §m); the
+`objectGraphLinks` production cut is *required* by it (nested `Object[20]` slot arrays are the
+`∩`-web worst case). See techniques doc §6b. The jfocus-transform original test is stale on
+lambda numbering (`$0..` vs `$10..`) and pinned to `../maddi-kotlin` — its link assertions
+never execute there.
+
+Engine work this brought in (all A/B'd clean):
+1. **`expandRepToMembers` element type** — pass `dv.parameterizedType()` through instead of
+   recomputing from a possibly `Object`-typed (downcast-slot) member base; was an assert crash.
+2. **`VariableTranslationMap` DV element type** — same fallback when the translated array has
+   no array dimension.
+3. **`derivedFaceKeyed`** (`SharedVariables`, gate `NODF`) — slot reconstruction across
+   collapsed construction chains: field-wise `build()` decomposition leaves the primary out of
+   every whole-object group; rehome chain-sibling slot members onto the primary's field
+   (`ldIn.variables[1] ← matrix`). Techniques doc §2.
+4. **`derivedShared`** (same gate) — the inverse map for the modification cascade: FI-call
+   modification of never-materialized DVs (`ldIn.variables[1]`) expands onto the chain-sibling
+   groups ({`matrix`, `0:ld.variables[1]`}). Consumed in `WriteLinksAndModification.go`.
+
+Regression status: link suite **61 failing, byte-identical** with `NODF=1` vs without (the
+derived faces change no existing test); analyzer suite 24 vs 25 (the only diff is the new
+cascade test passing). **TestParSeqLinkBench 768ms** (good state ~732ms). NOTE: the old
+`/tmp/cur_final.txt` snapshot proved stale (29 within-class swaps against both current runs);
+refreshed from the `NODF=1` run. Debug aids added: `SVDUMP` (per-statement group dump in
+`WriteLinksAndModification.go`), `TRACEVAR=<substr>` (mergeEdgeBi trace), `Graph.printShared`.
+
+Observed but not yet addressed: sv reps leak into printed links as DV *indices* and some `∋`
+targets (`matrix[$__sv_col]`, `∋$__sv_matrix[$__sv_col]`) — `expandRepToMembers` handles array
+bases and field scopes but not index variables; and a `∈∈`-printed nature surfaced in the same
+dump (investigate label printing for deep-element natures).
+
 ## UPDATE `66be9fbd` — TestParSeqLinkBench re-run: 2 crash fixes; SPINE COST DECISION PENDING
 
 First deep-structure bench run since the spine era. Found and fixed two production crashes

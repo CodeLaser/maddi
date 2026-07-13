@@ -106,6 +106,11 @@ public class SharedVariables {
                 // emitM is 'm' keyed onto the primary: 'm' itself when part of the primary, or the sibling-rehomed
                 // form ('p.f' -> 'create2.f') when 'm' is a proper field/element of a sibling face.
                 Variable emitM = faceKeyed(m, primary, primaryFaces);
+                boolean derivedFace = false;
+                if (emitM == null) {
+                    emitM = derivedFaceKeyed(m, primary);
+                    derivedFace = emitM != null;
+                }
                 if (emitM == null) continue;
                 // Chain through method-internal locals only when reconstructing the whole return value: there a
                 // chain of whole-object assignments (return ← ttt ← tt ← 0:t) must collapse to 'method ← 0:t'.
@@ -115,7 +120,19 @@ public class SharedVariables {
                 // preserving the collapse's dedup ('ttt ← tt', not the transitive 'ttt ← 0:t').
                 boolean deep = emitM instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
                 for (Variable t : reachable(m, fwd, deep)) {
-                    if (!emitM.equals(t)) builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_FROM, t));
+                    if (!emitM.equals(t)) {
+                        builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_FROM, t));
+                        // containment companions, ONLY for a derived slot face (a real slot vertex gets
+                        // 'slot ∈ container' from the graph and 'container ∋ value' from sub-propagation;
+                        // a derived face — td.variables[0] ← someSet, rehomed across the collapsed builder
+                        // chain — bypasses both): td.variables[0] ∈ td.variables, td.variables ∋ someSet.
+                        if (derivedFace
+                            && emitM instanceof org.e2immu.language.cst.api.variable.DependentVariable dv
+                            && dv.arrayVariable() != null && !Util.virtual(t)) {
+                            builder.add(new LinksImpl.LinkImpl(dv, LinkNatureImpl.IS_ELEMENT_OF, dv.arrayVariable()));
+                            builder.add(new LinksImpl.LinkImpl(dv.arrayVariable(), LinkNatureImpl.CONTAINS_AS_MEMBER, t));
+                        }
+                    }
                 }
                 for (Variable t : reachable(m, bwd, deep)) {
                     if (!emitM.equals(t)) builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_TO, t));
@@ -160,6 +177,65 @@ public class SharedVariables {
             }
         }
         return null;
+    }
+
+    // Fallback for members invisible to faceKeyed: a collapsed construction chain (builder pattern). The primary's
+    // FIELD 'pf' (ldIn.variables) was assigned from a source face 's' ($__rv137.variables) whose scope root
+    // ($__rv137, the build() result) is whole-object-grouped with the chain intermediates ($__c122 .. $__rv135).
+    // A member recorded on a sibling's counterpart of 's' ($__rv124.variables[1], grouped with 'matrix' by the
+    // fluent set(1, matrix)) denotes the same slot as pf's element: rehome it onto pf (ldIn.variables[1]), so the
+    // slot links (ldIn.variables[1] ← matrix) survive the collapse. Only the SOURCE direction transfers
+    // (pf ← s; assignmentSources), mirroring the memberFieldsOf projection: source knowledge flows to the
+    // recipient, never the reverse.
+    private Variable derivedFaceKeyed(Variable m, Variable primary) {
+        if (System.getenv("NODF") != null) return null;
+        for (Variable pf : memberToGroup.keySet()) {
+            if (pf.equals(primary) || !Util.isPartOf(primary, pf)) continue;
+            for (Variable s : assignmentSources(pf)) {
+                Variable root = Util.primary(s);
+                if (root.equals(s)) continue; // whole-object source: faceKeyed's sibling faces already cover it
+                for (Variable sibling : allShared(root)) {
+                    VariableTranslationMap toSibling = new VariableTranslationMap(runtime);
+                    toSibling.put(root, sibling);
+                    Variable sFace = toSibling.translateVariableRecursively(s);
+                    if (!m.equals(sFace) && Util.isPartOf(sFace, m)) {
+                        VariableTranslationMap vtm = new VariableTranslationMap(runtime);
+                        vtm.put(sFace, pf);
+                        return vtm.translateVariableRecursively(m);
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    // The inverse of derivedFaceKeyed, for modification expansion: 'key' (ldIn.variables[1], modified through a
+    // functional-interface call) is not itself a group member — the DV on the recipient never existed as a graph
+    // vertex. Its base pf (ldIn.variables) IS a member; rehome the key onto the source-chain sibling faces
+    // ($__rv124.variables[1]) and return THEIR groups' members ({matrix, 0:ld.variables[1], ...}): they denote the
+    // same runtime slot, so a modification of the key is a modification of each of them.
+    public java.util.Set<Variable> derivedShared(Variable key) {
+        if (System.getenv("NODF") != null) return java.util.Set.of();
+        if (memberToGroup.containsKey(key)) return java.util.Set.of(); // allShared covers group members
+        java.util.Set<Variable> result = new java.util.LinkedHashSet<>();
+        for (Variable pf : memberToGroup.keySet()) {
+            if (pf.equals(key) || !Util.isPartOf(pf, key)) continue;
+            for (Variable s : assignmentSources(pf)) {
+                Variable root = Util.primary(s);
+                if (root.equals(s)) continue;
+                for (Variable sibling : allShared(root)) {
+                    VariableTranslationMap toSibling = new VariableTranslationMap(runtime);
+                    toSibling.put(root, sibling);
+                    Variable sFace = toSibling.translateVariableRecursively(s);
+                    VariableTranslationMap vtm = new VariableTranslationMap(runtime);
+                    vtm.put(pf, sFace);
+                    Variable candidate = vtm.translateVariableRecursively(key);
+                    SharedVariable sv = memberToGroup.get(candidate);
+                    if (sv != null) result.addAll(sv.variables());
+                }
+            }
+        }
+        return result;
     }
 
     // a node we may transitively chain through: a pass-through intermediate ($__rv) always, or (only when 'deep',

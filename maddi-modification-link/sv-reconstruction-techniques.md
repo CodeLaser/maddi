@@ -93,6 +93,23 @@ group. At extraction, hand back directed links keyed on the member that is part 
   modification-equivalence generated in `FollowGraph`; a reconstructed intra-group edge bypasses
   that, so the fold adds it (`this.list ← 0:l` yields `0:l.§m ≡ this.list.§m`), with the same
   return/virtual guards as `FollowGraph`.
+- **Derived faces across construction chains** (`derivedFaceKeyed`, gate `NODF`): the
+  jfocus-transform shape. `ldIn = new Builder().set(0,col).set(1,matrix)….build()` decomposes
+  FIELD-wise (`ldIn.variables ← $__rv137.variables`; there is never a whole-object
+  `ldIn ← $__rv137` edge), so the primary `ldIn` is in **no** whole-object group and `faceKeyed`
+  finds nothing. But its field `ldIn.variables` is grouped with the build-result face
+  (`$__rv137.variables`), whose scope root `$__rv137` is whole-object-grouped with the entire
+  fluent chain (`$__c122 … $__rv135`). A slot member recorded on a chain sibling
+  (`$__rv124.variables[1]`, grouped with `matrix` by `set(1, matrix)`) denotes the same slot as
+  the primary's element: rehome it (`ldIn.variables[1] ← matrix`). Only the **source** direction
+  transfers (`pf ← s`, via `assignmentSources`), mirroring the memberFieldsOf rule.
+- **Derived modification expansion** (`SharedVariables.derivedShared`, consumed in
+  `WriteLinksAndModification.go`): the inverse map, for the modification cascade. A
+  functional-interface call (`Loop.run(ldIn)` resolving `X::UpperTriangleLoopBody`) marks
+  `ldIn.variables[1]` modified — a variable that never existed as a graph vertex, so
+  `allShared` can't expand it. Rehome the key through the same composition onto the chain
+  sibling faces and mark THEIR groups' members ({`matrix`, `0:ld.variables[1]`}) modified: same
+  runtime slot, same modification.
 
 ## 3. Rep expansion at extraction — `FollowGraph` + `Graph.expandRepToMembers` / `rehome`
 
@@ -170,13 +187,34 @@ Known second-order effect: pruning a builder can change the modification verdict
 ## 6b. The cost boundary — `Options.objectGraphLinks`
 
 The spine makes the coarse object-graph web (`∩ ≤ ≥`) derivable across deep recursive
-structures — quadratically (TestParSeqLinkBench: 48.7s vs ~0.7s). Linking's three
-applications (modification propagation: `≻ ≈ ∋ →` + §m; same-type/VL2O: reachability over
+structures — quadratically (TestParSeqLinkBench: 48.7s vs ~0.7s). Linking's applications
+(modification propagation: `≻ ≈ ∋ →` + §m; same-type/VL2O: reachability over
 direct links; new-object tracking: assignments) consume none of those natures — they are
 full-fidelity OUTPUT for the tests. `Options.objectGraphLinks` (TEST=true, PRODUCTION=false)
 excludes the three labels from the closure via the engine's valid-predicate; the direct spine
 edges (which modification's `≻` check does use) stay. **Run TestParSeqLinkBench after every
 engine-level change** — it found two production crashes and this cost cliff in one session.
+
+The **fourth application** confirms the boundary: jfocus-transform (loop/try-catch →
+simple-statement rewriting; `~/git/jfocus-transform`, `Loop.java`/`Try.java` in
+`codelaser-transform-support`) packs locals into `Object[] variables` slot arrays behind
+`@GetSet("variables")` accessors, with the body as a functional interface. Its correctness
+criterion — modification identical before/after transformation — consumes only
+`← → ∈ ∋ ≡ ~ ≺ ↗ Λ` + §m; the `∩` cross-slot web appears solely in commented-out assertions.
+Transformed code is wall-to-wall nested slot arrays, the worst case for the `∩` web, so the
+production cut is *required* by this consumer, not merely compatible.
+`maddi-modification-analyzer TestModificationLoopTransform` ports the UpperTriangle cascade
+(literal `Loop`/`Try` inlined) as the maddi-side guard; the jfocus-transform original
+(`codelaser-transform-loops TestModification`) is stale on lambda numbering and pinned to
+`../maddi-kotlin`.
+
+## 6c. Element types of DependentVariables under downcast slots
+
+A slot access is statically `Object`-typed (`ld.variables[1]`) while its group carries the real
+type (`float[][] matrix`). Two places recomputed a DV's element type via
+`copyWithOneFewerArrays` on the (possibly non-array) base and asserted: `expandRepToMembers`
+(now passes `dv.parameterizedType()` through) and `VariableTranslationMap` (falls back to the
+original DV's element type when the translated array has no array dimension).
 
 ## 7. Open shapes, in this vocabulary
 

@@ -40,6 +40,10 @@ public class Graph {
         return sharedVariables.allShared(variable);
     }
 
+    public Set<Variable> derivedShared(Variable variable) {
+        return sharedVariables.derivedShared(variable);
+    }
+
     public IncrementalFixpointEngine<Variable, LinkNature> engine() {
         return engine;
     }
@@ -181,6 +185,10 @@ public class Graph {
     private static final boolean NOSV = System.getenv("NOSV") != null;
 
     boolean mergeEdgeBi(Variable from, LinkNature linkNature, Variable to, String statementIndex) {
+        if (System.getenv("TRACEVAR") != null
+            && (from.toString().contains(System.getenv("TRACEVAR")) || to.toString().contains(System.getenv("TRACEVAR")))) {
+            System.out.println("TRACE mergeEdgeBi " + statementIndex + ": " + from + " " + linkNature + " " + to);
+        }
         if (from.equals(to)) {
             return engine.addVertex(from); // safety measure, is technically possible
         }
@@ -219,11 +227,14 @@ public class Graph {
             }
             if (!fromInGraph.isEmpty()) {
                 transformToSharedVariable(from, fromInGraph, sv, statementIndex);
-                if (!toInGraph.isEmpty()) {
-                    engine.removeVertices(Set.of(to));
-                }
-            } else if (!toInGraph.isEmpty()) {
-                transformToSharedVariable(to, toInGraph, sv, statementIndex);
+            }
+            // re-key the to-side as well (recomputed: the from-pass may already have consumed shared vertices).
+            // Removing just the bare 'to' vertex instead left its scope-descendants ('to.§$$s' with its edges)
+            // orphaned in the graph — the next edge on the same pair then hit the sv==null assert — and silently
+            // deleted the to-side knowledge instead of re-keying it onto the rep.
+            Set<Variable> toInGraphAfter = isKnownInGraph(to);
+            if (!toInGraphAfter.isEmpty()) {
+                transformToSharedVariable(to, toInGraphAfter, sv, statementIndex);
             }
             return true;
         }
@@ -298,10 +309,13 @@ public class Graph {
         }
         if (variable instanceof DependentVariable dv && dv.arrayVariable() != null) {
             // an array-indexed rep, e.g. '$__sv_g[0]' -> 'g[0]'; rebuild the access on the expanded array member.
+            // keep the original element type: a member may be statically Object-typed (a downcast slot such as
+            // 'ld.variables[1]' grouped with 'float[][] matrix'), where recomputing via copyWithOneFewerArrays fails.
             return expandRepToMembers(dv.arrayVariable())
                     .map(arr -> arr.equals(dv.arrayVariable())
                             ? dv
-                            : runtime.newDependentVariable(runtime.newVariableExpression(arr), dv.indexExpression()));
+                            : runtime.newDependentVariable(runtime.newVariableExpression(arr), dv.indexExpression(),
+                            dv.parameterizedType()));
         }
         return Stream.of(variable);
     }
@@ -316,6 +330,10 @@ public class Graph {
 
     public String printEquivalence(Function<Variable, String> variablePrinter) {
         return virtualModificationIdenticals.print(variablePrinter);
+    }
+
+    public String printShared(Function<Variable, String> variablePrinter) {
+        return sharedVariables.print(variablePrinter);
     }
 
 
