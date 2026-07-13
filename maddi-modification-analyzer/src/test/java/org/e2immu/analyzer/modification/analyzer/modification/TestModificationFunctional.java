@@ -212,7 +212,7 @@ public class TestModificationFunctional extends CommonTest {
             VariableData vd1 = VariableDataImpl.of(s1);
 
             VariableInfo vi1R = vd1.variableInfo("r");
-            assertEquals("r.function→Λs.r.function,r.function←Λ$_fi4,r→s.r",
+            assertEquals("r.function←Λ$_fi4,r.function→Λs.r.function,r→s.r",
                     vi1R.linkedVariables().toString());
             VariableInfo vi1S = vd1.variableInfo("s");
             assertEquals("s.r.function←Λr.function,s.r.function←Λ$_fi4,s.r.function≺s.r,s.r←r",
