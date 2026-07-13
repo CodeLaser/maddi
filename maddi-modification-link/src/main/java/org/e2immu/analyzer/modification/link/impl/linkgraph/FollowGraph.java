@@ -28,7 +28,7 @@ public record FollowGraph(Graph graph) {
 
     public Links.Builder followGraph(VirtualFieldComputer virtualFieldComputer, Variable primary) {
         Links.Builder builder = new LinksImpl.Builder(primary);
-        if (System.getenv("SBDUMP") != null && "stream1".equals(primary.simpleName())) {
+        if (System.getenv("SBDUMP") != null && System.getenv("SBDUMP").equals(primary.simpleName())) {
             System.out.println("SBDUMP closure with witnesses:");
             System.out.println(graph.printClosure());
         }
@@ -94,6 +94,40 @@ public record FollowGraph(Graph graph) {
             // FIXME still an issue occasionally
             return Util.isPartOfComparator(v1, v2);
         });
+
+        List<LinksImpl.LinkImpl> reverseReturnFacts = new ArrayList<>();
+        // Engine feature #9: composite facts TARGETING a return variable are never created
+        // (acceptForComposite), so 'return run ↖ 1:r.function' exists keyed on the return vertex only.
+        // For a non-return primary, read the return vertices' closures and emit the reverse
+        // ('1:r.function ↗ run') keyed on the primary's face. Gate NORVREV.
+        if (!(primary instanceof ReturnVariable) && System.getenv("NORVREV") == null) {
+            for (Variable v : graph.variables()) {
+                if (!(Util.primary(v) instanceof ReturnVariable)) continue;
+                List<Variable> faces = primary instanceof SharedVariable sv
+                        ? List.copyOf(sv.variables()) : List.of(primary);
+                graph.closureStream(v).forEach(entry -> {
+                    Variable to = entry.getKey();
+                    Variable emit = null;
+                    if (Util.isPartOf(primary, to)) {
+                        emit = to;
+                    } else {
+                        for (Variable e : graph.expandRepToMembers(to).filter(e -> !e.equals(to)).toList()) {
+                            for (Variable face : faces) {
+                                if (Util.isPartOf(face, e)) {
+                                    emit = face.equals(primary) ? e : graph.rehome(e, face, primary);
+                                    break;
+                                }
+                            }
+                            if (emit != null) break;
+                        }
+                    }
+                    LinkNature reversed = entry.getValue().reverse();
+                    if (emit != null && reversed.valid() && Util.acceptModificationLink(emit, v)) {
+                        reverseReturnFacts.add(new LinksImpl.LinkImpl(emit, reversed, v));
+                    }
+                });
+            }
+        }
 
         // stream.§$s⊆0:in.§$s
         Set<Edge> block = new HashSet<>();
@@ -171,6 +205,14 @@ public record FollowGraph(Graph graph) {
                         }
                     }
                 }
+            }
+        }
+        // append the reversed return-targeted facts; the main loop registered both directions of every
+        // emitted link in 'block', so a plain add-check dedups against it
+        for (LinksImpl.LinkImpl link : reverseReturnFacts) {
+            if (block.add(new Edge(link.from(), link.linkNature(), link.to()))) {
+                builder.add(link.from(), link.linkNature(), link.to());
+                block.add(new Edge(link.to(), link.linkNature().reverse(), link.from()));
             }
         }
         return builder;
