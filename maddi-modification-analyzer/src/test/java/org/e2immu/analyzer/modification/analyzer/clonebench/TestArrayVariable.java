@@ -70,7 +70,7 @@ public class TestArrayVariable extends CommonTest {
         assertSame(put0, av);
 
         VariableInfo viPut0 = vd000.variableInfo(put0);
-        assertEquals("0:array[2:index]←1:element,0:array∋1:element", viPut0.linkedVariables().toString());
+        assertEquals("0:array∋1:element,0:array[2:index]←1:element", viPut0.linkedVariables().toString());
 
         /*
         Even though Object is immutable, it is immutable HC, so it can be downcast.

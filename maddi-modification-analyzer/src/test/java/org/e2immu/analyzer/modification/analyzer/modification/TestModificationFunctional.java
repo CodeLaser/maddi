@@ -294,7 +294,7 @@ public class TestModificationFunctional extends CommonTest {
             VariableData vd1 = VariableDataImpl.of(s1);
 
             VariableInfo vi1R = vd1.variableInfo("r");
-            assertEquals("r.function→Λs.r.function,r.function←Λ$_fi4,r→Λs.r",
+            assertEquals("r.function←Λ$_fi4,r.function→Λs.r.function,r→Λs.r",
                     vi1R.linkedVariables().toString());
             VariableInfo vi1S = vd1.variableInfo("s");
             assertEquals("""
@@ -483,8 +483,8 @@ public class TestModificationFunctional extends CommonTest {
 
         MethodInfo builderBody = builder.findUniqueMethod("body", 1);
         assertEquals("""
-                [0:throwingFunction→Λthis*.bodyThrowingFunction] --> \
-                body.bodyThrowingFunction←Λ0:throwingFunction,body.bodyThrowingFunction←Λthis*.bodyThrowingFunction,body←this*\
+                [0:throwingFunction→Λthis*.bodyThrowingFunction] --> body←this*,\
+                body.bodyThrowingFunction←Λ0:throwingFunction,body.bodyThrowingFunction←Λthis*.bodyThrowingFunction\
                 """, builderBody.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
@@ -636,8 +636,8 @@ public class TestModificationFunctional extends CommonTest {
         TypeInfo builder = tryDataImpl.findSubType("Builder");
         MethodInfo build = builder.findUniqueMethod("build", 0);
         assertEquals("""
-                [] --> build.throwingFunction←Λthis.bodyThrowingFunction,\
-                build.variables.§m≡this.variables.§m,build.variables←this.variables\
+                [] --> build.throwingFunction←Λthis.bodyThrowingFunction,build.variables←this.variables,\
+                build.variables.§m≡this.variables.§m\
                 """, build.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
@@ -645,11 +645,9 @@ public class TestModificationFunctional extends CommonTest {
         // important intermediary step: we know that the lambda is present as a field of 'td'
         // moreover, modifications to td.variables[0] will propagate into this.someSet
         assertEquals("""
-                td.throwingFunction←Λ$_fi9,\
-                td.variables[0]←this.someSet,\
-                td.variables[0].§m≡this.someSet.§m,\
-                td.variables[0]∈td.variables,\
-                td.variables∋this.someSet\
+                td.throwingFunction←Λ$_fi9,td.variables∋this.someSet,td.variables[0]∈td.variables,\
+                td.variables[0]←this.someSet,td.variables.§m≡this.someSet.§m,td.variables[0].§m≡td.variables.§m,\
+                td.variables[0].§m≡this.someSet.§m\
                 """, viTd.linkedVariables().toString());
 
         MethodInfo run = X.findUniqueMethod("run", 1);
@@ -767,8 +765,8 @@ public class TestModificationFunctional extends CommonTest {
         TypeInfo builder = tryDataImpl.findSubType("Builder");
         MethodInfo build = builder.findUniqueMethod("build", 0);
         assertEquals("""
-                [] --> build.throwingFunction←Λthis.bodyThrowingFunction,\
-                build.variables.§m≡this.variables.§m,build.variables←this.variables\
+                [] --> build.throwingFunction←Λthis.bodyThrowingFunction,build.variables←this.variables,\
+                build.variables.§m≡this.variables.§m\
                 """, build.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
@@ -776,11 +774,9 @@ public class TestModificationFunctional extends CommonTest {
         // important intermediary step: we know that the lambda is present as a field of 'td'
         // moreover, modifications to td.variables[0] will propagate into this.someSet
         assertEquals("""
-                td.throwingFunction←Λ$_fi9,\
-                td.variables[0]←this.someSet,\
-                td.variables[0].§m≡this.someSet.§m,\
-                td.variables[0]∈td.variables,\
-                td.variables∋this.someSet\
+                td.throwingFunction←Λ$_fi9,td.variables∋this.someSet,td.variables[0]∈td.variables,\
+                td.variables[0]←this.someSet,td.variables.§m≡this.someSet.§m,td.variables[0].§m≡td.variables.§m,\
+                td.variables[0].§m≡this.someSet.§m\
                 """, viTd.linkedVariables().toString());
 
         MethodInfo run = X.findUniqueMethod("run", 1);
@@ -904,9 +900,8 @@ public class TestModificationFunctional extends CommonTest {
         TypeInfo builder = tryDataImpl.findSubType("Builder");
         MethodInfo build = builder.findUniqueMethod("build", 0);
         assertEquals("""
-                [] --> build.throwingFunction←Λthis.bodyThrowingFunction,\
-                build.variables.§m≡this.variables.§m,\
-                build.variables←this.variables\
+                [] --> build.throwingFunction←Λthis.bodyThrowingFunction,build.variables←this.variables,\
+                build.variables.§m≡this.variables.§m\
                 """, build.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
@@ -914,11 +909,9 @@ public class TestModificationFunctional extends CommonTest {
         // important intermediary step: we know that the lambda is present as a field of 'td'
         // moreover, modifications to td.variables[0] will propagate into this.someSet
         assertEquals("""
-                td.throwingFunction←Λ$_fi9,\
-                td.variables[0]←this.someSet,\
-                td.variables[0].§m≡this.someSet.§m,\
-                td.variables[0]∈td.variables,\
-                td.variables∋this.someSet\
+                td.throwingFunction←Λ$_fi9,td.variables∋this.someSet,td.variables[0]∈td.variables,\
+                td.variables[0]←this.someSet,td.variables.§m≡this.someSet.§m,td.variables[0].§m≡td.variables.§m,\
+                td.variables[0].§m≡this.someSet.§m\
                 """, viTd.linkedVariables().toString());
 
         MethodInfo run = X.findUniqueMethod("run", 2);

@@ -259,12 +259,12 @@ public class TestIdentity extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo vi0ii2 = vd0.variableInfo("ii2");
-        assertEquals("ii2←0:ii,ii2.§m≡0:ii.§m", vi0ii2.linkedVariables().toString());
+        assertEquals("ii2.§m≡0:ii.§m,ii2←0:ii", vi0ii2.linkedVariables().toString());
 
         MethodCall call2 = (MethodCall) method.methodBody().statements().getLast().expression();
         Value.VariableBooleanMap vbm = call2.analysis().getOrNull(LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT,
                 ValueImpl.VariableBooleanMapImpl.class);
-        assertEquals("a.b.ii.C1.method(a.b.ii.C1.II):0:ii=false, ii2=true", vbm.toString());
+        assertEquals("ii2=true", vbm.toString());
 
     }
 }
