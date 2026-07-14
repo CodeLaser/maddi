@@ -4,6 +4,27 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — §m-directional VMIFP experiment REVERTED; spelling-alias suppression; both suites clean
+
+The VMI-sibling §m inheritance mechanism (read strict-≡ siblings' closures at extraction,
+emit §m-to-§m facts keyed on the primary's face — `r.§m → 0:in.§m` for test4b) WORKED for the
+target string but was REVERTED: §m facts emitted through the per-variable builders leak into
+the modification machinery — the ⊇→~ after-modification rewrite fired, test4b's
+'newly created cannot be modified' verdict was about to flip, and bench rose ~50%. LESSON: the
+§m-directional family needs CONSUMPTION-AWARE emission (output-only, not builder-visible to
+notLinkedToModified / the rewrite). Two API notes for the next attempt:
+`VirtualModificationIdenticals.groupsOf` keys on the REAL variable (firstRealVariable), not the
+§m face; VMI ≡ facts never reach the graph closure (mergeEdgeBi routes them out), which is WHY
+the closure cannot compose them with graph §m edges.
+
+Also fixed: sibling-recipient links between two index-SPELLINGS of one slot
+(0:b[off++]/0:b[1:off]) are suppressed — the direction was context-dependent (class-run vs
+full-suite) and carried no information. TestIndependentOfByteArray is CONTEXT-SENSITIVE:
+re-pin only from full-suite XMLs. Process rule reinforced: A/B BOTH suites after every engine
+round (the alias noise slipped through link-only A/Bs).
+
+State: link 15, analyzer CloneBench-only, bench 746ms.
+
 ## UPDATE — sibling recipients; link 15; §m-DIRECTIONAL family identified
 
 `assignmentEdgeStream` now emits SIBLING-RECIPIENT summary links (gate `NOSIBR`): a summary
