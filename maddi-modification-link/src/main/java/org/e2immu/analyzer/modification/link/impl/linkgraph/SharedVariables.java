@@ -134,7 +134,11 @@ public class SharedVariables {
                 // (per-statement view) we also stay shallow, preserving the collapse's dedup ('ttt ← tt', not
                 // the transitive 'ttt ← 0:t').
                 boolean deep = Util.primary(emitM)
-                        instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+                        instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable
+                        // parameters are summary endpoints too: '0:in → v → this.f' must reach the
+                        // field for the parameter's summary (var-transparency). Gate NOPDEEP.
+                        || System.getenv("NOPDEEP") == null
+                           && Util.primary(emitM) instanceof org.e2immu.language.cst.api.info.ParameterInfo;
                 for (Variable t : reachable(m, fwd, deep)) {
                     if (!emitM.equals(t)) {
                         builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_FROM, t));
