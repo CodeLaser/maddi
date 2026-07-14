@@ -4,6 +4,20 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — record patterns + var transparency fixed; link 19
+
+Two engine changes (both suites + bench clean, 738ms):
+1. **Return-≺ exemption** in `isInvalidFieldContainment`: a ReturnVariable from-side is
+   value-level by nature — `m ≺ 0:r` from record-pattern bindings survives. Fixes both record
+   deconstruction tests (and resolves the ≡/≺ record-pattern sub-cluster's ≺ part).
+2. **Parameter-deep chaining** (gate `NOPDEEP`): parameters are summary endpoints like returns;
+   `0:in → v → this.f` bridges the dying local for the parameter's summary (var transparency).
+   The feared makeFromGet-≈ shortcut did NOT reappear (only one extra-only ripple, re-pinned).
+
+Remaining TestLanguageConstructs (3): anonymousClassCapture (m←0:x through the anonymous
+instance's 'get'; param face now shows the richer 0:x→get), labeledContinue + doWhile (array
+loop-merge shapes: near-inverse losses of m←g[0][0] / m←$_ce1 and the param ∋-ce faces).
+
 ## UPDATE — link-suite output-fidelity backlog CLEARED: 60 → 22, all genuine
 
 The 38 output-fidelity failures (ordering, naming, ∩≤≥/≈ drift, extra-only links from the
