@@ -23,8 +23,8 @@ the prep stage is already hardened and is the **template** for what follows.
   2. the prepwork **`Options.faultTolerant` + `exceptions()` collect-and-continue** (the fault-isolation pattern);
   3. the analyzer **`nolink` property tests** — assert final properties, not the link representation
      (the independent-test pattern).
-- **A fourth thread already built the surfacing half of §2.** The **`guard-mode`** branch in `~/git/maddi-aapi`
-  (guard-mode = the kotlin analyzer state + a guard stack on top; commits `00d27d97`, `6f08a5ec`) added a
+- **The surfacing half of §2 is now on the trunk.** The **guard** stack (contract verification) was merged into
+  `kotlin` on 2026-07-14 (`3214206d`, from `~/git/maddi-aapi @ guard-mode`; this thread now owns it). It added a
   **structured-finding collector threaded through the analyzer** and rendered by `ErrorReport`:
   - `Message` (`maddi-cst-api/.../analysis/Message.java`) is now a structured finding — `Severity` (WARN/ERROR),
     `source()`, `info()`, `category()` (kebab-case, e.g. `"contract-violation"`), and `causes()` (a nested
@@ -35,8 +35,8 @@ the prep stage is already hardened and is the **template** for what follows.
   - `ErrorReport` gained a third parameter enumerating analysis findings (category, `uri:line-col`, indented
     `because:` cause chains, errors-first, warnings capped at 50); both runners feed it and map ERROR findings to
     `EXIT_ANALYSER_ERROR`.
-  This is exactly the collector + surfacing §2 needs — so §2 becomes a *small* addition on that line, not a new
-  parallel channel, and must be **coordinated with the guard thread** (it touches the same files). See §2.
+  This is exactly the collector + surfacing §2 needs — so §2 becomes a *small*, trunk-ownable addition on top of
+  the merged collector, not a new parallel channel. See §2.
 
 Severity: **H** high, **M** medium, **L** low. Tags: **(K)** ownable on the kotlin trunk · **(L→sv)** route to
 `sv-integration`.
@@ -109,11 +109,11 @@ of. The two closest things fall short:
 
 ---
 
-## 2. Fault isolation at the analyzer / run boundary  (H) (K, on the guard-mode line)
+## 2. Fault isolation at the analyzer / run boundary  (H) (K — trunk, on the merged collector)
 
-**Do not build a parallel prep-style `exceptions()` channel.** The `guard-mode` branch already threads the
-right vehicle: a `List<Message>` collector through every sub-analyzer, exposed via `IteratingAnalyzer.messages()`
-and rendered by the extended `ErrorReport` (see framing). §2 is the *crash* producer for that already-built
+**Do not build a parallel prep-style `exceptions()` channel.** The merged guard collector already threads the
+right vehicle: a `List<Message>` through every sub-analyzer, exposed via `IteratingAnalyzer.messages()` and
+rendered by the extended `ErrorReport` (see framing; `3214206d`). §2 is the *crash* producer for that existing
 *findings* channel — a small catch-and-emit in the per-`Info` loop. **Pure wrapper — no analysis logic**, which is
 the one modification-subsystem change the ownership rule permits.
 
@@ -136,11 +136,11 @@ the one modification-subsystem change the ownership rule permits.
   prep to fault-tolerant (`maddi-run-main/.../RunAnalyzer.java:164`).
 - [ ] **M** Keep the default **`faultTolerant=false`** so unit tests and direct callers keep fail-fast (prep's
   choice); the survey (§1) and the production runners flip it on.
-- **Coordination is now the gating concern, not the code.** `6f08a5ec` already edits
-  `SingleIterationAnalyzerImpl`, the per-property analyzers, `IteratingAnalyzer`/`SingleIterationAnalyzer` and both
-  runners — the exact surface §2 touches. Land §2 **on / with the guard-mode line** (or after it merges to the
-  trunk), not as an independent kotlin-trunk change, or the two collide. This makes §2 a joint item with the guard
-  thread; it is no longer purely trunk-ownable — hence the "(guard-mode line)" tag.
+- **Now unblocked and trunk-ownable.** The collector, `IteratingAnalyzer.messages()`, the `ErrorReport` findings
+  surface and the ERROR→`EXIT_ANALYSER_ERROR` mapping are all merged (`3214206d`), so §2 is just the per-`Info`
+  catch-and-emit + the `faultTolerant` flag on top — no cross-branch coordination left. The one remaining external
+  seam is `LinkComputerImpl` (owned by `sv-integration`): distinguishing a `link-crash` from an `analyzer-crash`
+  reads the throwable's origin but changes nothing in link.
 
 ---
 
@@ -198,10 +198,9 @@ surfaces.
 
 ## Suggested sequencing (who does what)
 
-1. **§2 fault isolation first — on the guard-mode line.** Small, additive, and it is the enabler: production runs
-   stop dying on the first crash *and* the §1 survey can complete instead of halting at crash #1. The collector +
-   `ErrorReport` surfacing already exist on `guard-mode`; §2 adds only the per-`Info` catch-and-emit + the
-   `faultTolerant` flag. Do it with the guard thread (or after guard-mode merges), not independently — same files.
+1. **§2 fault isolation first (K, unblocked).** Small, additive, and it is the enabler: production runs stop dying
+   on the first crash *and* the §1 survey can complete instead of halting at crash #1. The collector + `ErrorReport`
+   surfacing are merged (`3214206d`); §2 adds only the per-`Info` catch-and-emit + the `faultTolerant` flag on top.
 2. **§1 survey harness (K).** Produces the ranked crash inventory — the measurement everything else is triaged
    against.
 3. **Triage the inventory:** analyzer/boundary crashes → §2/§4 on the trunk; link-internal crashes → §3/§4 notes +
@@ -216,6 +215,5 @@ surfaces.
   a parallel survey will manufacture phantom `starImportScope` NPEs — run single-fork or bucket them out.
 - `LinkGraph`'s duplicate-name assert (`:45`) is already disabled in the `PRODUCTION` preset — don't "re-enable
   for safety."
-- Coordinate the `IteratingAnalyzer.Configuration` addition with the **guard thread** — `guard-mode` already owns
-  the collector + `ErrorReport` findings surface (`~/git/maddi-aapi`, commits `00d27d97`/`6f08a5ec`); §2 rides on
-  it rather than re-inventing it, so the two must not fork the same files.
+- The `IteratingAnalyzer.Configuration` `faultTolerant` addition is now a trunk change: the guard collector +
+  `ErrorReport` findings surface are merged (`3214206d`), so §2 rides on them rather than re-inventing a channel.
