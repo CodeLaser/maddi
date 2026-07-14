@@ -919,7 +919,8 @@ public class TestStaticValuesRecord extends CommonTest {
 
             VariableInfo vi2Set = vd2.variableInfo(set);
             assertEquals("""
-                    0:set→r.s,0:set.§m≡r.s.§m,0:set.§ts∋2:t,0:set.§ts→r.s.§ts,0:set.§ts≺r\
+                    0:set→r.s,0:set→set2,0:set.§m≡r.s.§m,0:set.§m≡set2.§m,0:set.§ts∋2:t,0:set.§ts→r.s.§ts,\
+                    0:set.§ts→set2.§ts,0:set.§ts≺r\
                     """, vi2Set.linkedVariables().toString());
             // 0:set.§m≡set2.§m is redundant, but because set is a parameter, it is still present
             assertTrue(vi2Set.isModified());

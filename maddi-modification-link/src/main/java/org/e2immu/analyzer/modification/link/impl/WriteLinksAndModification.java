@@ -421,9 +421,13 @@ class WriteLinksAndModification {
         // Only a REAL field-side can make the containment invalid ('wrap ≻ 0:y' — 0:y is a value source, not a
         // part of wrap). A VIRTUAL field-side is content: with the owner≻own-content spine the closure derives
         // legitimate cross-variable content containment ('entry.§xy.§x ≺ 0:optional' — entry's content lives in
-        // optional's object graph), which is expected output.
+        // optional's object graph), which is expected output. A RETURN VARIABLE from-side is likewise value-level
+        // by nature (a return is never structurally a field of anything): 'm ≺ 0:r' from a record-pattern
+        // binding ('if (r instanceof R(X xx)) return xx;') says the returned value is a component of r.
         if (linkNature == CONTAINS_AS_FIELD) return !Util.virtual(to) && !Util.isPartOf(from, to);
-        if (linkNature == IS_FIELD_OF) return !Util.virtual(from) && !Util.isPartOf(to, from);
+        if (linkNature == IS_FIELD_OF) return !Util.virtual(from)
+                                              && !(Util.primary(from) instanceof ReturnVariable)
+                                              && !Util.isPartOf(to, from);
         return false;
     }
 
