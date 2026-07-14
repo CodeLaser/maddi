@@ -4,6 +4,23 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — §m-directional inheritance BUILT, opt-in (VMIDIR=1); context-divergence is the blocker
+
+Second iteration of the §m-directional family, consumption-aware this time:
+`Graph.vmiDirectionalFacts` (strict-≡ VMI siblings' closures rehomed onto the owner's §m face)
+consumed in `doVariableReturnRecompute` AFTER the modification decision and the ⊇→~ rewrite
+collection — output-only, no verdict influence at decision time. In CLASS runs this is exactly
+right (test4b full green, `r.§m → 0:in.§m` in place, verdicts intact). In FULL-SUITE runs
+test4b:357 shows a ⊇→~ flip + `r≥0:in.§$s` that class runs do not — the same class-vs-full
+CONTEXT DIVERGENCE seen at TestIndependentOfByteArray (directional flip). Mechanism is
+committed OPT-IN via `VMIDIR=1`; enabling by default is blocked on root-causing the context
+divergence (suspects: static state across test classes in one JVM — recursion prevention,
+annotated-API caches; forkEvery configuration).
+
+NEXT WORK ITEM (root cause, then flip the gate): reproduce the divergence minimally by running
+TestStaticValuesRecord alone vs preceded by one other class; diff SVDUMP/modifiedInThisEvaluation
+between contexts at test4b's last statement.
+
 ## UPDATE — §m-directional VMIFP experiment REVERTED; spelling-alias suppression; both suites clean
 
 The VMI-sibling §m inheritance mechanism (read strict-≡ siblings' closures at extraction,
