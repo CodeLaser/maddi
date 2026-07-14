@@ -150,10 +150,7 @@ public class TestModificationBasics extends CommonTest {
                 VariableData vd1 = VariableDataImpl.of(m.methodBody().statements().get(1));
                 VariableInfo vi1m = vd1.variableInfo("m");
                 // copy ⊆ list, so m is not an element of copy!
-                // 'm∩copy' flickers nondeterministically (∩ is unconsumed object-graph output; the flake is
-                // filed in sv-remaining-catalogue.md as a determinism work item) — compare ∩-insensitively
-                assertEquals("m∈0:list.§$s", vi1m.linkedVariables().toString()
-                        .replace("m∩copy,", "").replace(",m∩copy", ""));
+                assertEquals("m∩copy,m∈0:list.§$s", vi1m.linkedVariables().toString());
                 VariableInfo vi1list = vd1.variableInfo(pi0);
                 assertFalse(vi1list.isModified());
             }

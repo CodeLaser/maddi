@@ -86,13 +86,19 @@ public record FollowGraph(Graph graph) {
                 });
             }
         }
+        // canonical total pre-sort: the parts-first comparator below is a PARTIAL order (and intransitive
+        // across its branches), so TimSort's result depends on the input order — which comes from unordered
+        // graph.variables() and flickered run-to-run (the m∩copy determinism flake: emission order feeds the
+        // block-set redundancy suppression). A stable sort on top of a canonical order is deterministic.
+        fromList.sort(java.util.Comparator
+                .comparing((FromPair p) -> p.emitFrom().fullyQualifiedName())
+                .thenComparing(p -> p.queryFrom().fullyQualifiedName()));
         fromList.sort((p1, p2) -> {
             Variable v1 = p1.emitFrom();
             Variable v2 = p2.emitFrom();
             if (v1.equals(v2)) return 0;
             if (Util.isPartOf(v1, v2)) return 1;
             if (Util.isPartOf(v2, v1)) return -1;
-            // FIXME still an issue occasionally
             return Util.isPartOfComparator(v1, v2);
         });
 
@@ -210,8 +216,13 @@ public record FollowGraph(Graph graph) {
                 }
             }
         }
-        // append the reversed return-targeted facts; the main loop registered both directions of every
-        // emitted link in 'block', so a plain add-check dedups against it
+        // append the reversed return-targeted facts in canonical order (they were collected iterating
+        // unordered graph.variables()); the main loop registered both directions of every emitted link
+        // in 'block', so a plain add-check dedups against it
+        reverseReturnFacts.sort(java.util.Comparator
+                .comparing((LinksImpl.LinkImpl l) -> l.from().fullyQualifiedName())
+                .thenComparing(l -> l.linkNature().rank())
+                .thenComparing(l -> l.to().fullyQualifiedName()));
         for (LinksImpl.LinkImpl link : reverseReturnFacts) {
             if (block.add(new Edge(link.from(), link.linkNature(), link.to()))) {
                 builder.add(link.from(), link.linkNature(), link.to());
