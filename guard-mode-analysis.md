@@ -263,6 +263,13 @@ hardening work). ~500 files differ, mostly kotlin parsing; the guard-relevant de
   impl is flagged, a `List.copyOf` impl is not); 1/1 green, container + nolink unaffected.
   Nuance deferred: a contract of *full* `@Independent` (2) against an implementation computed `INDEPENDENT_HC` (1)
   is weaker but not "dependent"; v1 flags only decided-DEPENDENT implementations.
+- **Hierarchy monotonicity (concrete parents).** `guardOverride` covers the case the abstract→`IMPLEMENTATIONS`
+  path misses: a **concrete** method contracted `@NotModified`/`@Independent`, overridden by a subclass method
+  that modifies or becomes dependent. Walks each concrete method's `overrides()` upward, skips abstract parents
+  (handled by `guardMethod`) and external-library parents, and diffs the parent's contract against the override's
+  **genuinely computed** value (confirmed: the override is not tainted by the parent's trusted contract — a
+  modifying override of a `@NotModified` base method is detected, with the "assigns field 'n'" blame). Test
+  `TestGuardHierarchy`; 1/1 green.
 
 ### Next steps
 
