@@ -50,6 +50,15 @@ public record MessageImpl(Source source, Info info, Level level, String message,
         return new MessageImpl(sourceOf(info), info, Severity.WARN, message, GENERAL, List.of(causes));
     }
 
+    /**
+     * A cause located at a specific CST element (e.g. the statement that modifies a parameter), rather than at
+     * the enclosing {@code info}. Used by the guard's blame walk to point at the exact offending line/col.
+     */
+    public static Message cause(Source source, Info info, String message, Message... causes) {
+        Source s = source == null || source.isNoSource() ? sourceOf(info) : source;
+        return new MessageImpl(s, info, Severity.WARN, message, GENERAL, List.of(causes));
+    }
+
     // every element in the CST carries a Source (line/col); recover it so that messages are locatable
     private static Source sourceOf(Info info) {
         if (info == null) return null;

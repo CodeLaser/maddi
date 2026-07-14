@@ -108,9 +108,15 @@ public class TestGuardContainer extends CommonTest {
         assertTrue(violation.message().contains("@Container contract on a.b.X.ErrorRegistry"), violation.message());
         assertNotNull(violation.source(), "the finding must be locatable (line/col)");
 
-        // ... and the why-chain leads back to the contract: implements-link first, contract location beneath it
-        assertEquals(1, violation.causes().size());
-        Message implementsLink = violation.causes().getFirst();
+        // the why-chain now has two branches: (1) the blame — the statement that modifies the parameter...
+        assertEquals(2, violation.causes().size());
+        Message blame = violation.causes().getFirst();
+        assertTrue(blame.message().contains("message.setMsg(...)") && blame.message().contains("modifies 'message'"),
+                blame.message());
+        assertNotNull(blame.source(), "the blame must point at the modifying statement (line/col)");
+
+        // ... and (2) the contract provenance: implements-link, contract location beneath it
+        Message implementsLink = violation.causes().get(1);
         assertTrue(implementsLink.message().contains("implements a.b.X.ErrorRegistry.add"), implementsLink.message());
         assertEquals(1, implementsLink.causes().size());
         Message contractLocation = implementsLink.causes().getFirst();
@@ -162,10 +168,15 @@ public class TestGuardContainer extends CommonTest {
         assertEquals(1, violations.size(), messages.stream().map(Message::message).toList().toString());
         Message violation = violations.getFirst();
         assertTrue(violation.message().contains("parameter 'sb'"), violation.message());
-        // no implements-link needed: the violating method is in the contracted type itself
-        assertEquals(1, violation.causes().size());
-        assertTrue(violation.causes().getFirst().message().contains("@Container contracted on Y"),
-                violation.causes().getFirst().message());
+        // no implements-link needed (the violating method is in the contracted type itself), but the blame is:
+        // causes = [ blame: sb.append(...) modifies sb, contract location ]
+        assertEquals(2, violation.causes().size());
+        Message blame = violation.causes().getFirst();
+        assertTrue(blame.message().contains("sb.append(...)") && blame.message().contains("modifies 'sb'"),
+                blame.message());
+        assertNotNull(blame.source());
+        assertTrue(violation.causes().get(1).message().contains("@Container contracted on Y"),
+                violation.causes().get(1).message());
     }
 
     @Language("java")
@@ -203,8 +214,12 @@ public class TestGuardContainer extends CommonTest {
         assertTrue(violation.message().contains("a.b.Z.Cheater.size()"), violation.message());
         assertTrue(violation.message().contains("@NotModified contract on a.b.Z.HasSize.size()"),
                 violation.message());
-        assertEquals(1, violation.causes().size());
-        assertTrue(violation.causes().getFirst().message().contains("@NotModified contracted here"),
-                violation.causes().getFirst().message());
+        // causes = [ blame: assigns field 'count', contract location ]
+        assertEquals(2, violation.causes().size());
+        Message blame = violation.causes().getFirst();
+        assertTrue(blame.message().contains("assigns field 'count'"), blame.message());
+        assertNotNull(blame.source());
+        assertTrue(violation.causes().get(1).message().contains("@NotModified contracted here"),
+                violation.causes().get(1).message());
     }
 }
