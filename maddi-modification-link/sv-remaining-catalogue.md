@@ -4,6 +4,24 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — sibling recipients; link 15; §m-DIRECTIONAL family identified
+
+`assignmentEdgeStream` now emits SIBLING-RECIPIENT summary links (gate `NOSIBR`): a summary
+endpoint and another face that both received the same source's value are related —
+'method ← y' + 'this.ys[1] ← y' ⟹ 'method → this.ys[1]'. TestStaticValuesIndexing green
+(+1 extra-only re-pin in TestArrayInitializer: add[1]→add[0] between same-source slots).
+
+**New family identified — directional §m from content flow** (test4b/4c): the old engine
+generated DIRECTIONAL §m links from content-flow links, not just the ≡ companions of
+assignments: `0:in → r.§t` (param stored into virtual field) ⟹ `r.§m → 0:in.§m`;
+`method.§$s ⊆ 1:rr.§$s` ⟹ `method.§m ← 1:rr.§m`. The current fold only produces
+makeIdenticalTo ≡. Implementing means a §m-companion rule keyed on content natures
+(→-into-§field, ⊆/⊇ of §-content) with direction following the content flow. 2 tests.
+
+Remaining 15: the §m-directional pair, ce-constants on derived record faces (test5),
+varargs pair, record-pattern ≡ residue ×3, and singles (modification-area, redundant-links
+chain, map-reverse ⊆vs~, MR-swap ←vs≡, supplier ≺ ×2, Stream.generate ⊆).
+
 ## UPDATE — anonymous capture + array-loop shapes fixed; link 16, all decoded
 
 Engine: (1) `canChainThrough` (deep) chains through a FOREIGN method's return face (the SAM's
