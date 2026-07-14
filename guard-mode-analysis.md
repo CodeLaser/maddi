@@ -7,8 +7,9 @@ explanation of why** the contract is broken.
 - **Status of this document: initially based on `openjdk` @ 348b7cf9; revised on the
   `kotlin` branch @ bbfebcd7 (2026-07-13).** The "Current state" section below describes the
   openjdk branch; the "Kotlin-branch revision" section at the end records what the kotlin
-  branch changes (run-level error system) and how it alters the proposal. Work should happen
-  on `kotlin`.
+  branch changes (run-level error system) and how it alters the proposal.
+- **Implementation status (branch `guard-mode`, 2026-07-14): Phases 0, 0b, 1 and a first
+  iteration of 2/2b are implemented** — see the "Implementation log" section at the end.
 
 ## Current state (openjdk branch)
 
@@ -184,3 +185,60 @@ hardening work). ~500 files differ, mostly kotlin parsing; the guard-relevant de
     counting them.
 - Phases 1-4 unchanged.
 - Vocabulary: use "analysis hints" not "AAPI" in new code on this branch.
+
+## Implementation log (branch `guard-mode`)
+
+### Done (2026-07-14)
+
+- **Phase 0 — message model.** `Message` (cst-api) gained `category()` (machine-readable,
+  kebab-case, e.g. "contract-violation") and `causes()` (nested messages = the why-chain).
+  `MessageImpl` derives `Source` from the blamed `Info` (fixes the null-source defect),
+  offers `warn/error/cause` factories, uses the shared `Message.Severity` (LevelEnum retired).
+- **Phase 0b — collector + surfacing.** The iterating analyzer carries a synchronized message
+  list, injected into every sub-analyzer alongside `propertyChanges` (same pattern), exposed
+  as `IteratingAnalyzer.messages()` / `SingleIterationAnalyzer.messages()`.
+  `ShallowTypeAnalyzer.check`'s five consistency checks now emit structured findings
+  (categories `hierarchy-inconsistency`, `modified-in-immutable`, `property-inconsistency`;
+  offending supertypes as causes) instead of write-only LOGGER.warns, and flow into
+  `ShallowAnalyzer.Result` + the iteration collector. `ErrorReport.report` gained a third
+  parameter enumerating analysis findings (errors first, warnings capped at 50, indented
+  "because:" cause chains, uri:line-col locations). Both runners feed it; ERROR findings →
+  `EXIT_ANALYSER_ERROR`; analysis-hints compiler mode collects instead of counting.
+- **Phase 1 — contract provenance, simplified.** Insight: for source-code contracts no
+  persistence is needed — the contract side is re-derivable on demand from the CST.
+  `ContractReader` (modification-common, `defaults` package, subclass of the package-private
+  `AnnotationToProperty`) exposes `contracts(Info): Map<Property, Value>`. The guard diffs
+  that against `analysis()` (computed side) — for abstract types, where `analysis()` holds the
+  trusted contract, the relevant computed values live on the *implementations*, which is
+  where the guard looks. The InfoData/AnnotationOrigin plumbing stays untouched; it would
+  only matter for verifying loaded analysis-hints values, which stay trusted by design.
+- **Phase 2 — GuardAnalyzer, first iteration.** `GuardAnalyzerImpl` runs inside
+  `IteratingAnalyzerImpl.analyze` after the fixed point (config `guardContracts()`, default
+  true, builder-settable). Verifies:
+  - `@Container` on a type: parameters of the type's own non-private concrete methods, and of
+    every implementation (via prepwork's `IMPLEMENTATIONS` property) of its non-private
+    abstract methods, must not have a decided-FALSE `UNMODIFIED_PARAMETER`.
+  - `@NotModified` on an abstract method: no implementation with decided-FALSE
+    `NON_MODIFYING_METHOD`.
+  Violations: ERROR, category `contract-violation`, blamed on the offending parameter/method,
+  why-chain = implements-link → contract location. Only decided FALSE values are reported —
+  undecided stays silent (no findings on incomplete information). Computes into locals, never
+  writes `analysis()` (contracts stay authoritative; no monotonic-overwrite crashes).
+- **Phase 2b — tests.** `analyzer/guard/TestGuardContainer`: violation with full why-chain
+  assertion, conforming-implementation positive control, guard-disabled control, concrete
+  @Container class, @NotModified abstract method. 5/5 green; full modification-analyzer +
+  common suites unaffected.
+
+### Next steps
+
+1. **Phase 3 — deepen the why-chain**: blame walk from "parameter is modified" down to the
+   modifying statement/call (link-module evidence). The cause-chain structure is in place;
+   the walk is not.
+2. More guarded contracts: `@Immutable` on a concrete class (rule-by-rule diff: which field
+   is assignable/modified/exposed), `@Independent`, `@NotModified` on parameters,
+   `@Container(contract=true)` on parameters (dynamic checking, road-to-immutability §070).
+3. Hierarchy monotonicity as findings (override may not go @NotModified→@Modified) — today
+   only visible as overwrite crashes or silence.
+4. Surface findings in the gradle/maven plugins (currently only run-main/run-openjdk).
+5. Consider deduplication policy when both an interface contract and a subtype contract are
+   violated by the same parameter.

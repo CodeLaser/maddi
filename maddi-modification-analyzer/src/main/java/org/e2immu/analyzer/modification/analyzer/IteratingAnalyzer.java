@@ -38,6 +38,10 @@ public interface IteratingAnalyzer {
         boolean trackObjectCreations();
 
         CycleBreakingStrategy cycleBreakingStrategy();
+
+        /** When true (the default), verify user-written contracts against computed values after the fixed
+         *  point, emitting explanatory findings; see {@link GuardAnalyzer}. */
+        boolean guardContracts();
     }
 
     void analyze(List<Info> analysisOrder);
