@@ -70,6 +70,7 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
                 guardType(typeInfo);
             } else if (info instanceof MethodInfo methodInfo) {
                 guardMethod(methodInfo);
+                guardOverride(methodInfo);
             }
         }
     }
@@ -144,6 +145,38 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
                             MessageImpl.cause(methodInfo, "@Independent contracted here"),
                             impl.fullyQualifiedName() + " is dependent (it exposes or shares mutable state), "
                             + "violating the @Independent contract on " + methodInfo.fullyQualifiedName());
+                }
+            }
+        }
+    }
+
+    /**
+     * Hierarchy monotonicity: a concrete method may not weaken a contract its overridden method carries. Covers
+     * the case the {@code IMPLEMENTATIONS} path (abstract → implementations) misses — a <em>concrete</em> parent
+     * method contracted {@code @NotModified}/{@code @Independent}, overridden by a subclass method that modifies or
+     * becomes dependent. The override's own value is genuinely computed (only the contracted parent is trusted).
+     */
+    private void guardOverride(MethodInfo methodInfo) {
+        if (methodInfo.isAbstract()) return; // an override has a body
+        for (MethodInfo parent : methodInfo.overrides()) {
+            if (parent.isAbstract()) continue; // abstract parent → covered by guardMethod via IMPLEMENTATIONS
+            if (parent.typeInfo().compilationUnit().externalLibrary()) continue; // don't police library contracts
+            Map<Property, Value> contracts = contractReader.contracts(parent);
+            if (contracts.get(NON_MODIFYING_METHOD) instanceof Value.Bool nm && nm.isTrue()
+                && methodInfo.isModifying()) {
+                reportViolation(methodInfo, blameMethodModifying(methodInfo),
+                        MessageImpl.cause(parent, "@NotModified contracted here"),
+                        methodInfo.fullyQualifiedName() + " overrides " + parent.fullyQualifiedName()
+                        + " but is modifying, violating its @NotModified contract");
+            }
+            if (contracts.get(INDEPENDENT_METHOD) instanceof Value.Independent ind && ind.isAtLeastIndependentHc()) {
+                Value.Independent miInd = methodInfo.analysis().getOrNull(INDEPENDENT_METHOD,
+                        ValueImpl.IndependentImpl.class);
+                if (miInd != null && miInd.isDependent()) {
+                    reportViolation(methodInfo, null,
+                            MessageImpl.cause(parent, "@Independent contracted here"),
+                            methodInfo.fullyQualifiedName() + " overrides " + parent.fullyQualifiedName()
+                            + " but is dependent, violating its @Independent contract");
                 }
             }
         }
