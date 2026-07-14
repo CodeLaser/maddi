@@ -319,3 +319,59 @@ tests on the stdbase openjdk branch; jfocus-transform tolerates it via a bridge.
   statement-time suffix depends on correct field finality, which depends on this decode succeeding.
 - `libs.jar` (6 types) and `openjdk.jar` (167 types) decode fine, so the trigger is specific to content that
   puts a constructor into a `SetOfInfo` property — narrowing which property is the fastest route to the type.
+
+### CONFIRMATION #4 from the reporter (2026-07-14, after the field-load fix 3e529017)
+
+**The codec/inspector chain is resolved** — the decode now sails past constructors, nested types, AND fields,
+deep into **linked-variable** decoding. `transform.jar` still doesn't fully load, but the failure has moved out
+of the codec entirely into the link layer (`maddi-modification-link` / `-prepwork`):
+
+```
+java.lang.AssertionError
+    at ...prepwork.variable.impl.LinksImpl$LinkImpl.<init>(LinksImpl.java:256)
+    at ...prepwork.variable.impl.LinksImpl$Builder.add(LinksImpl.java:174)
+    at ...link.impl.MethodLinkedVariablesImpl.decodeLink(MethodLinkedVariablesImpl.java:92)
+    at ...MethodLinkedVariablesImpl.lambda$decodeLinks$0(MethodLinkedVariablesImpl.java:80)
+```
+
+`LinksImpl.java:256` is `assert Util.isVirtualModification(from) == Util.isVirtualModification(to)`: a decoded
+link connects a virtual-modification variable to a non-virtual one, which the LinkImpl invariant forbids. So a
+`from -> to` link decoded out of `transform.jar` violates that invariant.
+
+Most likely cause: the **committed `transform.jar` is stale** — encoded by an older maddi whose link/virtual-field
+representation differs from the current one — so it needs **regenerating** in jfocus-transform against current
+maddi. (jfocus-transform's own `CommonTest` bridges the same decode failure, so it is not stdbase-specific.)
+Alternatively the assert is stricter than the encoder guarantees, or the decode mislabels virtual-modification.
+
+Net: codec/inspector side is done and confirmed; the remaining blocker for the 23 stdbase transform-dependent
+tests is now a **link-layer / transform.jar-regeneration** issue, a different component from this report. The
+bridge stays until transform.jar decodes end to end.
+
+### DIAGNOSIS of #4 (link-layer §m assert) — verdict: STALE transform.jar (2026-07-14, codec-fix thread)
+
+Investigated `LinksImpl.java:256` on request. The assert is a **virtual-modification invariant**:
+`isVirtualModification(v)` = `v` is a `FieldReference` to a field whose name starts with `§m` **and** whose type is
+`java.util.concurrent.atomic.AtomicBoolean` (`prepwork/Util.java:171-178`); the `LinkImpl` ctor requires `from`
+and `to` to **agree** on it. Two observations decide it:
+
+1. **No decode mislabel.** A synthetic/virtual field decodes with its type reconstructed from the stream —
+   `LinkCodec.decodeInfo` `'V'/'G'` branch (`:320-327`) does `decodeType(...)` then
+   `VirtualFieldComputer.newFieldKeepName(runtime, name, fieldType, owner)`. So a decoded `§m` field keeps its
+   AtomicBoolean type and `isVirtualModificationField` classifies it correctly. The decode is faithful; it is not
+   fabricating the mismatch.
+2. **The encoder enforces the same assert.** Every `LinkImpl` — at analysis/encode time too — goes through this
+   ctor, so a *current* maddi (with `-ea`) **cannot emit** a `§m ↔ non-§m` link. Yet the invariant is **recent and
+   was tightened**: `d375a8ce` (2026-01-30) "additional constraint on links: refuse to mix §m and other virtuals",
+   `d59daed4` (2026-02-05, the exact assert line) "heavy restrictions on §m variables", `8fbcdf9d` "a suggestion
+   for a stable restriction, but it is too harsh".
+
+Since decode is faithful and the current encoder can't produce a violating link, a violating link in `transform.jar`
+must have been **encoded by an older maddi whose §m rules were looser** (pre-`d375a8ce`). **Verdict: stale data —
+regenerate `transform.jar` in jfocus-transform against current maddi** (high confidence). Its whole link/virtual-
+field representation predates the current §m model, so it needs re-encoding regardless.
+
+Routing / caveat for the **`sv-integration`** thread (owner of `maddi-modification-link` + the §m model): if a
+*freshly regenerated* `transform.jar` (i.e. current maddi analysing transform **source**) still trips this assert,
+then the restriction is genuinely **too harsh** (the author's own `8fbcdf9d` wording) — a real link-engine bug that
+reproduces from source, independent of any stale jar, and belongs to that thread. Nothing here is a codec/inspector
+issue: that chain is closed (Confirmation #4).
