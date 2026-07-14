@@ -116,37 +116,40 @@ Net: two fixes down, decode is much further along but `transform.jar` still abor
 `Try.TryDataImpl.Builder` fields. Bridge stays; 23 stdbase tests still blocked. Same deterministic repro. This is
 the frontier — please populate nested-type members (fields, and re-check methods) on load.
 
-### DIAGNOSIS #3 — root cause found, but the one-line fix has cross-cutting blast radius (2026-07-14, kotlin trunk)
+### FOLLOW-UP FIX #3 — load private fields + decode fields by name (2026-07-14, kotlin trunk)
 
 **Root cause of `Try.TryDataImpl.Builder has 0 fields` (and it is NOT nested-specific).**
-`ClassSymbolScanner.addMemberToType` skips **all private fields** (`if (isNotPrivate ...)`, `:552`) — exactly the
-gate the private-**constructor** fix (`49883ac1`) had to relax for constructors. So any compiled type loaded on
-demand from **bytecode** has `fields()` limited to its non-private members. A builder's fields are private, so
-`Try.TryDataImpl.Builder` loads with 0 fields, and `decodeFieldInfo`'s force-load then indexes past the end →
-"field index 1 out of range". (The nested-ness in Confirmation #3 was incidental.)
+`ClassSymbolScanner.addMemberToType` skipped **all private fields** (`if (isNotPrivate ...)`, `:552`) — the gate the
+private-**constructor** fix (`49883ac1`) had already relaxed for constructors. So a compiled type loaded from
+**bytecode** had `fields()` limited to its non-private members. A builder's fields are private, so
+`Try.TryDataImpl.Builder` loaded with 0 fields → `decodeFieldInfo` indexed past the end → "field index 1 out of
+range". The deeper asymmetry: **source analysis includes private fields; bytecode loading excluded them**, and the
+`transform.jar` analyzed-package was encoded from source (index 1 exists).
 
-The deeper asymmetry: **source analysis includes private fields; compiled (bytecode) loading excludes them.** The
-`transform.jar` analyzed-package was encoded from source (private fields present, so index 1 exists); decode goes
-through the bytecode loader (private excluded) → shorter list → mismatch.
+**Fixed as two coordinated changes (no golden-file regeneration needed):**
 
-**Why the obvious one-line fix is not landable as-is.** Relaxing the gate to load private fields (excluding only
-compiler-synthetics: `load = !isPrivate || !synthetic`) *does* fix the bytecode side — verified on the regular-JAR
-class `org.slf4j.helpers.BasicMarker`, `fields()` **0 → 6** (`name`, `referenceList` present; no `this$0`
-synthetics). **But it breaks maddi's own committed analysis-hints golden files** (`ANALYZED_RESULTS`): those were
-encoded under the *exclude-private* policy, so making the decoder include private fields shifts every field index →
-`CodecImpl.decodeFieldInfo` throws in `LoadAnalysisResults`, failing **129/130** modification-analyzer tests in
-`beforeEach`. So the change was **reverted** on the kotlin trunk pending a coordinated decision.
+1. **Codec resolves a field by NAME** (`CodecImpl.decodeFieldInfo`). The token has always carried the field name
+   *and* an index (`"b(1)"`); decode now uses the index as a **fast path** (take it iff the field there has the
+   matching name), and otherwise resolves by name — unique within a type — with a clear `DecoderException` if the
+   name is genuinely absent. This makes decode **insensitive to the loaded field-set size**, so a differing
+   private/synthetic policy no longer shifts resolution. Backward-compatible: existing files already carry the name.
+2. **Loader now loads private fields** (`ClassSymbolScanner`, gate `load = !isPrivate || !synthetic`), still
+   excluding compiler-**synthetic** fields (`this$0`, `$VALUES`, switch-maps) the source-side encoder never saw.
 
-**What the real fix requires (decision needed):**
-1. **Regenerate** all committed analyzed-package golden files under an include-private policy (maddi's
-   `ANALYZED_RESULTS` *and* the stdbase side), so encoder and decoder agree; **or**
-2. **Make the codec field-reference scheme policy-insensitive** — reference a field by a stable key
-   (name + descriptor) instead of by positional index into a loader-dependent `fields()` list — which also needs a
-   format bump + regeneration but is robust to the private/synthetic policy going forward.
+Why this is safe where the loader-only change was not: with name resolution, maddi's own `ANALYZED_RESULTS`
+(encoded under the old exclude-private policy) resolve their non-private fields **by name** and simply ignore the
+newly-loaded private ones — no index shift, no break. Verified: regular-JAR `org.slf4j.helpers.BasicMarker`
+`fields()` **0 → 6** (`name`, `referenceList`; no synthetics); **all four suites green** — java-openjdk 503,
+inspection-openjdk 14, cst-io 45, modification-analyzer 130 (was 129 *failures* with the loader-only change). Tests:
+`TestPrivateField` (loader), `TestCodecFieldByName` (stale index → name; unknown name → `DecoderException`).
 
-Same **ct.sym caveat** either way: JDK platform types carry no private members at all, so a JDK type's private
-field stays unrecoverable; `transform.jar` classes are regular JARs, so they *can* be made consistent. Net:
-`transform.jar` still blocked; the fix is a format/regeneration change, not a drop-in loader tweak.
+**ct.sym caveat** (unchanged): JDK platform types carry no private members at all, so a JDK type's private field
+stays unrecoverable; `transform.jar` classes are regular JARs, so they are now consistent.
+
+**Please re-confirm `transform.jar` on the stdbase openjdk branch** — the `Try.TryDataImpl.Builder` 0-fields error
+should be gone. Note: **method/constructor references still decode by name+index** (index is load-bearing there,
+for overload disambiguation); if a later mismatch surfaces on a *method* (e.g. private methods loaded on one side
+only), the same name+**descriptor** treatment can be extended to `decodeMethodInfo`.
 
 ### CONFIRMATION from the reporter (2026-07-13, jfocus-stdbase openjdk branch) — SUPERSEDED by #2 above
 
