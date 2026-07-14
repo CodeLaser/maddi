@@ -549,8 +549,17 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
 
         } else if (member instanceof Symbol.VarSymbol vs && vs.owner == owner) {
-            boolean isNotPrivate = (vs.flags() & Flags.PRIVATE) == 0;
-            if (isNotPrivate && (alwaysLoad || loadMode == LoadMode.COMPLETE && !varSymbolMap.containsKey(vs))
+            // load fields even when private: like constructors (see above), a type's fields are part of its shape
+            // and are referenced in analyzed-package files (@GetSet targets, linked variables). Skipping private
+            // ones left typeInfo.fields() short of what the source-side encoder saw (a nested ...Impl.Builder loaded
+            // with 0 fields). Still exclude compiler-synthetic fields (this$0, $VALUES, switch-maps): the encoder
+            // analysed source, which has none. (Field references decode by NAME now, so the exact field-set size no
+            // longer shifts resolution -- see CodecImpl.decodeFieldInfo. JDK ct.sym types carry no private members
+            // at all, so their private fields remain unrecoverable -- same caveat as private constructors.)
+            boolean isPrivate = (vs.flags() & Flags.PRIVATE) != 0;
+            boolean synthetic = (vs.flags() & Flags.SYNTHETIC) != 0;
+            boolean load = !isPrivate || !synthetic;
+            if (load && (alwaysLoad || loadMode == LoadMode.COMPLETE && !varSymbolMap.containsKey(vs))
                 && (loadMode == LoadMode.LOAD_MEMBERS || !varSymbolMap.containsKey(vs))) {
                 FieldInfo fieldInfo = addFieldToType(typeInfo, vs);
                 if (!fieldInfo.hasBeenInspected()) {

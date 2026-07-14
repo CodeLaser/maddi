@@ -187,16 +187,26 @@ public class CodecImpl implements Codec {
     private FieldInfo decodeFieldInfo(TypeAndSorted typeAndSorted, String nameIndex) {
         Matcher m = NAME_INDEX_PATTERN.matcher(nameIndex);
         if (m.matches()) {
+            String name = m.group(1);
             int index = Integer.parseInt(m.group(2));
             List<FieldInfo> sorted = reinspectIfNeeded(typeAndSorted.typeInfo(), typeAndSorted.sortedFields(),
                     index, ti -> ti.fields().stream().sorted(Comparator.comparing(FieldInfo::name)).toList());
-            if (index >= sorted.size()) {
-                throw new DecoderException("field index " + index + " out of range; "
-                                           + typeAndSorted.typeInfo() + " has " + sorted.size() + " field(s)");
+            // Fast path: the encoded index still points at the right field (its name matches). This holds whenever
+            // the field set the decoder loaded matches what the encoder saw.
+            if (index < sorted.size() && sorted.get(index).name().equals(name)) {
+                return sorted.get(index);
             }
-            FieldInfo fieldInfo = sorted.get(index);
-            assert fieldInfo.name().equals(m.group(1));
-            return fieldInfo;
+            // Index stale: the loaded field set differs from the encoder's (e.g. private fields present on one side
+            // only, source vs bytecode). Field names are unique within a type, so resolve by name -- robust to the
+            // field-set, and backward-compatible (the name has always been encoded).
+            for (FieldInfo fieldInfo : sorted) {
+                if (fieldInfo.name().equals(name)) return fieldInfo;
+            }
+            FieldInfo byName = typeAndSorted.typeInfo().getFieldByName(name, false);
+            if (byName != null) return byName;
+            throw new DecoderException("field '" + name + "' (index " + index + ") not found in "
+                                       + typeAndSorted.typeInfo() + "; has " + sorted.size() + " field(s): "
+                                       + sorted.stream().map(FieldInfo::name).toList());
         } else {
             Matcher m2 = FIELD_NAME_PATTERN.matcher(nameIndex);
             if (m2.matches()) {
