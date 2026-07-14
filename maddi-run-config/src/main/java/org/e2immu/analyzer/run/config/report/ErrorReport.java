@@ -14,6 +14,9 @@
 
 package org.e2immu.analyzer.run.config.report;
 
+import org.e2immu.language.cst.api.analysis.Message;
+import org.e2immu.language.cst.api.element.Source;
+import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +43,42 @@ public final class ErrorReport {
      * @return the number of distinct errors reported
      */
     public static int report(Summary summary, Throwable terminal) {
+        return report(summary, terminal, List.of());
+    }
+
+    /**
+     * @param summary          the parse summary (may be null); its {@link Summary#parseExceptions()} are enumerated
+     * @param terminal         the throwable that ended the run (may be null): a {@link Summary.FailFastException},
+     *                         an IO exception, or an analyzer runtime exception
+     * @param analysisMessages findings about the analyzed code, collected by the (shallow or iterating) analyzers;
+     *                         enumerated with their category, location, and cause chain
+     * @return the number of distinct errors reported
+     */
+    public static int report(Summary summary, Throwable terminal, List<Message> analysisMessages) {
         int count = 0;
+        List<Message> analysisErrors = analysisMessages.stream().filter(m -> m.level().isError()).toList();
+        if (!analysisErrors.isEmpty()) {
+            LOGGER.error("Analysis produced {} error(s):", analysisErrors.size());
+            int i = 1;
+            for (Message message : analysisErrors) {
+                LOGGER.error("  [{}] {}", i++, render(message));
+                reportCauses(message, "      ", true);
+            }
+            count += analysisErrors.size();
+        }
+        List<Message> analysisWarnings = analysisMessages.stream().filter(m -> m.level().isWarning()).toList();
+        if (!analysisWarnings.isEmpty()) {
+            LOGGER.warn("Analysis produced {} warning(s):", analysisWarnings.size());
+            int shownAnalysis = Math.min(analysisWarnings.size(), MAX_WARNINGS_SHOWN);
+            for (int i = 0; i < shownAnalysis; i++) {
+                Message message = analysisWarnings.get(i);
+                LOGGER.warn("  [{}] {}", i + 1, render(message));
+                reportCauses(message, "      ", false);
+            }
+            if (analysisWarnings.size() > shownAnalysis) {
+                LOGGER.warn("  ... and {} more", analysisWarnings.size() - shownAnalysis);
+            }
+        }
         if (summary != null && summary.haveErrors()) {
             List<Summary.ParseException> errors = summary.parseExceptions();
             LOGGER.error("Parsing/inspection produced {} error(s):", errors.size());
@@ -71,6 +109,37 @@ public final class ErrorReport {
             }
         }
         return count;
+    }
+
+    /** One line per finding: location [category] message. Same "uri:line-col" shape as Summary.ParseException. */
+    private static String render(Message message) {
+        return location(message) + " [" + message.category() + "] " + message.message();
+    }
+
+    private static String location(Message message) {
+        Info info = message.info();
+        String at;
+        if (info == null) {
+            at = "?";
+        } else {
+            at = info.compilationUnit() == null || info.compilationUnit().uri() == null
+                    ? info.fullyQualifiedName() : info.compilationUnit().uri().toString();
+        }
+        Source source = message.source();
+        if (source != null && !source.isNoSource()) at += ":" + source.compact();
+        return at;
+    }
+
+    /** The evidence trail of a finding, one indentation level per cause depth. */
+    private static void reportCauses(Message message, String indent, boolean asError) {
+        for (Message cause : message.causes()) {
+            if (asError) {
+                LOGGER.error("{}because: {}", indent, render(cause));
+            } else {
+                LOGGER.warn("{}because: {}", indent, render(cause));
+            }
+            reportCauses(cause, indent + "  ", asError);
+        }
     }
 
     /** Unwrap a {@link Summary.FailFastException} (or a directly-thrown {@link Summary.ParseException}). */

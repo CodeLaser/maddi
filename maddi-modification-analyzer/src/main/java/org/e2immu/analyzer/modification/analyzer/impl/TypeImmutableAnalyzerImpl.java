@@ -18,12 +18,14 @@ import org.e2immu.analyzer.modification.analyzer.CycleBreakingStrategy;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.TypeImmutableAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
+import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
@@ -38,8 +40,8 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
     private final AnalysisHelper analysisHelper = new AnalysisHelper();
 
     public TypeImmutableAnalyzerImpl(IteratingAnalyzer.Configuration configuration,
-                                     AtomicInteger propertiesChanged) {
-        super(configuration, propertiesChanged);
+                                     AtomicInteger propertiesChanged, List<Message> analyzerMessages) {
+        super(configuration, propertiesChanged, analyzerMessages);
     }
 
     @Override

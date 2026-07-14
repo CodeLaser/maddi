@@ -9,6 +9,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
+import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -39,8 +40,8 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
     private final AnalysisHelper analysisHelper = new AnalysisHelper();
 
     public FieldAnalyzerImpl(Runtime runtime, IteratingAnalyzer.Configuration configuration,
-                             AtomicInteger propertyChanges) {
-        super(configuration, propertyChanges);
+                             AtomicInteger propertyChanges, List<Message> analyzerMessages) {
+        super(configuration, propertyChanges, analyzerMessages);
         this.runtime = runtime;
     }
 

@@ -17,6 +17,7 @@ package org.e2immu.analyzer.modification.analyzer.impl;
 import org.e2immu.analyzer.modification.analyzer.CycleBreakingStrategy;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.SingleIterationAnalyzer;
+import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
@@ -24,28 +25,34 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements IteratingAnalyzer {
     private static final Logger LOGGER = LoggerFactory.getLogger(IteratingAnalyzerImpl.class);
 
     private final JavaInspector javaInspector;
+    private SingleIterationAnalyzer lastRun;
+    private final List<Message> guardMessages = new ArrayList<>();
 
     public IteratingAnalyzerImpl(JavaInspector javaInspector, Configuration configuration) {
-        super(configuration, null);
+        super(configuration, null, null);
         this.javaInspector = javaInspector;
     }
 
     public record ConfigurationImpl(int maxIterations,
                                     boolean stopWhenCycleDetectedAndNoImprovements,
                                     CycleBreakingStrategy cycleBreakingStrategy,
-                                    boolean trackObjectCreations) implements Configuration {
+                                    boolean trackObjectCreations,
+                                    boolean guardContracts) implements Configuration {
     }
 
     public static class ConfigurationBuilder {
         private int maxIterations = 1;
         private boolean stopWhenCycleDetectedAndNoImprovements;
         private boolean trackObjectCreations;
+        private boolean guardContracts = true;
         private CycleBreakingStrategy cycleBreakingStrategy = CycleBreakingStrategy.NONE;
 
         public ConfigurationBuilder setCycleBreakingStrategy(CycleBreakingStrategy cycleBreakingStrategy) {
@@ -68,16 +75,28 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             return this;
         }
 
+        public ConfigurationBuilder setGuardContracts(boolean guardContracts) {
+            this.guardContracts = guardContracts;
+            return this;
+        }
+
         public Configuration build() {
             return new ConfigurationImpl(maxIterations, stopWhenCycleDetectedAndNoImprovements, cycleBreakingStrategy,
-                    trackObjectCreations);
+                    trackObjectCreations, guardContracts);
         }
+    }
+
+    @Override
+    public List<Message> messages() {
+        return Stream.concat(lastRun == null ? Stream.of() : lastRun.messages().stream(),
+                guardMessages.stream()).toList();
     }
 
     @Override
     public void analyze(List<Info> analysisOrder) {
         int iterations = 0;
         SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
+        this.lastRun = singleIterationAnalyzer;
         boolean cycleBreakingActive = false;
         while (true) {
             ++iterations;
@@ -93,6 +112,10 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             boolean done = propertiesChanged == 0;
             if (iterations == configuration.maxIterations() || done) {
                 LOGGER.info("Stop iterating after {} iterations, done? {}", iterations, done);
+                if (configuration.guardContracts()) {
+                    // values are final now: verify user-written contracts, emit explanatory findings
+                    new GuardAnalyzerImpl(javaInspector.runtime(), configuration, guardMessages).go(analysisOrder);
+                }
                 return;
             }
             LOGGER.info("Run again, properties changed {}", propertiesChanged);

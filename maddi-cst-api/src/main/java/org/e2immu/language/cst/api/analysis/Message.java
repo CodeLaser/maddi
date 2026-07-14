@@ -17,6 +17,8 @@ package org.e2immu.language.cst.api.analysis;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.info.Info;
 
+import java.util.List;
+
 public interface Message {
 
     interface Level {
@@ -47,4 +49,21 @@ public interface Message {
     String message();
 
     Level level();
+
+    /**
+     * Machine-readable classification of the finding (e.g. "contract-violation", "hierarchy-inconsistency"),
+     * for filtering and test assertions. Free-form, kebab-case by convention; emitters define constants.
+     */
+    default String category() {
+        return "general";
+    }
+
+    /**
+     * The evidence trail: nested messages explaining WHY this finding holds, e.g. the implementation method
+     * that breaks a contracted property, which in turn may carry the statement that modifies a parameter.
+     * Each cause is itself a located Message; levels of causes are informational only.
+     */
+    default List<Message> causes() {
+        return List.of();
+    }
 }

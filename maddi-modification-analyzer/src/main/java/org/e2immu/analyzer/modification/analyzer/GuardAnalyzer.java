@@ -14,21 +14,17 @@
 
 package org.e2immu.analyzer.modification.analyzer;
 
-import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.info.Info;
 
 import java.util.List;
 
-public interface SingleIterationAnalyzer {
+/**
+ * The guard: verifies user-written contracts against the analyzer's computed values, after the iterating
+ * analyzer has reached its fixed point. Emits explanatory findings (ERROR level, category "contract-violation")
+ * into the analyzer's message collector, never property values into {@code analysis()}: contracts remain
+ * authoritative for downstream computation, and violating code is reported rather than re-classified.
+ */
+public interface GuardAnalyzer {
 
-    default void go(List<Info> analysisOrder, boolean activateCycleBreaking) {
-        go(analysisOrder, activateCycleBreaking, true);
-    }
-
-    void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration);
-
-    int propertiesChanged();
-
-    /** Findings (warnings/errors about the analyzed code) collected by all analyzers of this iteration. */
-    List<Message> messages();
+    void go(List<Info> analysisOrder);
 }

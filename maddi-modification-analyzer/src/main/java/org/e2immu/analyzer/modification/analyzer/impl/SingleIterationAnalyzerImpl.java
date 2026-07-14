@@ -19,6 +19,7 @@ import org.e2immu.analyzer.modification.common.defaults.ShallowTypeAnalyzer;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
+import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.Info;
@@ -30,10 +31,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
@@ -49,23 +52,31 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final TypeContainerAnalyzer typeContainerAnalyzer;
     private final AbstractMethodAnalyzer abstractMethodAnalyzer;
     private final AtomicInteger propertiesChanged;
+    private final List<Message> messages;
 
     public SingleIterationAnalyzerImpl(JavaInspector javaInspector, IteratingAnalyzer.Configuration configuration) {
         this.propertiesChanged = new AtomicInteger();
+        this.messages = Collections.synchronizedList(new ArrayList<>());
         linkComputer = new LinkComputerImpl(javaInspector, configuration.linkComputerOptions(), propertiesChanged);
         Runtime runtime = javaInspector.runtime();
-        fieldAnalyzer = new FieldAnalyzerImpl(runtime, configuration, propertiesChanged);
-        typeModIndyAnalyzer = new TypeModIndyAnalyzerImpl(configuration, propertiesChanged);
-        typeImmutableAnalyzer = new TypeImmutableAnalyzerImpl(configuration, propertiesChanged);
-        typeIndependentAnalyzer = new TypeIndependentAnalyzerImpl(configuration, propertiesChanged);
+        fieldAnalyzer = new FieldAnalyzerImpl(runtime, configuration, propertiesChanged, messages);
+        typeModIndyAnalyzer = new TypeModIndyAnalyzerImpl(configuration, propertiesChanged, messages);
+        typeImmutableAnalyzer = new TypeImmutableAnalyzerImpl(configuration, propertiesChanged, messages);
+        typeIndependentAnalyzer = new TypeIndependentAnalyzerImpl(configuration, propertiesChanged, messages);
         shallowTypeAnalyzer = new ShallowTypeAnalyzer(runtime, Element::annotations, false);
-        typeContainerAnalyzer = new TypeContainerAnalyzerImpl(configuration, propertiesChanged);
-        abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, propertiesChanged);
+        typeContainerAnalyzer = new TypeContainerAnalyzerImpl(configuration, propertiesChanged, messages);
+        abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, propertiesChanged, messages);
     }
 
     @Override
     public int propertiesChanged() {
         return propertiesChanged.get();
+    }
+
+    @Override
+    public List<Message> messages() {
+        // the iteration's own analyzers, plus the shallow analyzer used for abstract types
+        return Stream.concat(messages.stream(), shallowTypeAnalyzer.messages().stream()).toList();
     }
 
     @Override
