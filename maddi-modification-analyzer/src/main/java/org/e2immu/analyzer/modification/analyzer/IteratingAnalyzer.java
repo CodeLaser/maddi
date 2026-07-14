@@ -42,6 +42,15 @@ public interface IteratingAnalyzer {
         /** When true (the default), verify user-written contracts against computed values after the fixed
          *  point, emitting explanatory findings; see {@link GuardAnalyzer}. */
         boolean guardContracts();
+
+        /**
+         * When true, a failure (exception, assertion, stack overflow) while analyzing one {@code Info} is recorded
+         * as an ERROR finding — category {@code analyzer-crash} / {@code link-crash} — and analysis continues with
+         * the remaining {@code Info}s, instead of aborting the whole run. The offending {@code Info} is not retried
+         * in later iterations. Default false, so tests and direct callers keep their fail-fast behaviour; the
+         * production runners and the real-code survey turn it on. Mirrors {@code PrepAnalyzer.Options.faultTolerant}.
+         */
+        boolean faultTolerant();
     }
 
     void analyze(List<Info> analysisOrder);

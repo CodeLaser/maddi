@@ -26,6 +26,7 @@ import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.impl.analysis.MessageImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,10 +54,16 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final AbstractMethodAnalyzer abstractMethodAnalyzer;
     private final AtomicInteger propertiesChanged;
     private final List<Message> messages;
+    private final boolean faultTolerant;
+    private final Set<Info> failed = new HashSet<>();
+
+    public static final String ANALYZER_CRASH = "analyzer-crash";
+    public static final String LINK_CRASH = "link-crash";
 
     public SingleIterationAnalyzerImpl(JavaInspector javaInspector, IteratingAnalyzer.Configuration configuration) {
         this.propertiesChanged = new AtomicInteger();
         this.messages = Collections.synchronizedList(new ArrayList<>());
+        this.faultTolerant = configuration.faultTolerant();
         linkComputer = new LinkComputerImpl(javaInspector, configuration.linkComputerOptions(), propertiesChanged);
         Runtime runtime = javaInspector.runtime();
         fieldAnalyzer = new FieldAnalyzerImpl(runtime, configuration, propertiesChanged, messages);
@@ -92,6 +99,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
 
         List<MethodInfo> abstractMethods = new ArrayList<>();
         for (Info info : analysisOrder) {
+            if (faultTolerant && failed.contains(info)) continue; // an earlier iteration already crashed on this one
             try {
                 if (info instanceof MethodInfo methodInfo) {
                     if (firstIteration && methodInfo.isAbstract() && abstractTypes.add(info.typeInfo())) {
@@ -113,21 +121,58 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                     runTypeAnalyzers(activateCycleBreaking, typeInfo);
                     typesInOrder.add(typeInfo);
                 }
-            } catch (RuntimeException | AssertionError e) {
-                LOGGER.error("Caught exception processing {}: {}", info, e.getMessage());
-                throw e;
+            } catch (RuntimeException | AssertionError | StackOverflowError e) {
+                LOGGER.error("Caught exception processing {}: {}", info, e.toString());
+                if (!faultTolerant) throw e;
+                failed.add(info);
+                messages.add(crashFinding(info, e));
             }
         }
 
-        abstractMethodAnalyzer.go(firstIteration, abstractMethods);
+        try {
+            abstractMethodAnalyzer.go(firstIteration, abstractMethods);
+        } catch (RuntimeException | AssertionError | StackOverflowError e) {
+            LOGGER.error("Caught exception in the abstract-method analyzer: {}", e.toString());
+            if (!faultTolerant) throw e;
+            // batch step — attribute to the first abstract method so the finding is at least locatable
+            if (!abstractMethods.isEmpty()) messages.add(crashFinding(abstractMethods.getFirst(), e));
+        }
 
         /*
         run once more, because the abstract method analyzer may have resolved independence and modification values
         for abstract methods.
          */
         for (TypeInfo typeInfo : typesInOrder) {
-            runTypeAnalyzers(activateCycleBreaking, typeInfo);
+            if (faultTolerant && failed.contains(typeInfo)) continue;
+            try {
+                runTypeAnalyzers(activateCycleBreaking, typeInfo);
+            } catch (RuntimeException | AssertionError | StackOverflowError e) {
+                LOGGER.error("Caught exception (2nd type pass) on {}: {}", typeInfo, e.toString());
+                if (!faultTolerant) throw e;
+                failed.add(typeInfo);
+                messages.add(crashFinding(typeInfo, e));
+            }
         }
+    }
+
+    /**
+     * Turn an analysis/link crash on one {@code Info} into a located ERROR finding, so a single bad element is
+     * isolated (not fatal) and surfaces through the normal {@code messages()} / {@code ErrorReport} channel.
+     * The category distinguishes a failure originating in the link module from one in the analyzer proper.
+     */
+    private static Message crashFinding(Info info, Throwable t) {
+        String category = isLinkCrash(t) ? LINK_CRASH : ANALYZER_CRASH;
+        String detail = t.getClass().getSimpleName() + (t.getMessage() == null ? "" : ": " + t.getMessage());
+        return MessageImpl.error(info, category,
+                "analysis crashed on " + info.fullyQualifiedName() + " — " + detail
+                + " (isolated; this element was not fully analyzed)");
+    }
+
+    private static boolean isLinkCrash(Throwable t) {
+        for (StackTraceElement ste : t.getStackTrace()) {
+            if (ste.getClassName().startsWith("org.e2immu.analyzer.modification.link.")) return true;
+        }
+        return false;
     }
 
     private void runTypeAnalyzers(boolean activateCycleBreaking, TypeInfo typeInfo) {

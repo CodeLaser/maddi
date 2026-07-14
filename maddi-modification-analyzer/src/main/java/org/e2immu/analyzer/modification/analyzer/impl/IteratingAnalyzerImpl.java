@@ -45,7 +45,8 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                                     boolean stopWhenCycleDetectedAndNoImprovements,
                                     CycleBreakingStrategy cycleBreakingStrategy,
                                     boolean trackObjectCreations,
-                                    boolean guardContracts) implements Configuration {
+                                    boolean guardContracts,
+                                    boolean faultTolerant) implements Configuration {
     }
 
     public static class ConfigurationBuilder {
@@ -53,6 +54,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         private boolean stopWhenCycleDetectedAndNoImprovements;
         private boolean trackObjectCreations;
         private boolean guardContracts = true;
+        private boolean faultTolerant;
         private CycleBreakingStrategy cycleBreakingStrategy = CycleBreakingStrategy.NONE;
 
         public ConfigurationBuilder setCycleBreakingStrategy(CycleBreakingStrategy cycleBreakingStrategy) {
@@ -80,9 +82,14 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             return this;
         }
 
+        public ConfigurationBuilder setFaultTolerant(boolean faultTolerant) {
+            this.faultTolerant = faultTolerant;
+            return this;
+        }
+
         public Configuration build() {
             return new ConfigurationImpl(maxIterations, stopWhenCycleDetectedAndNoImprovements, cycleBreakingStrategy,
-                    trackObjectCreations, guardContracts);
+                    trackObjectCreations, guardContracts, faultTolerant);
         }
     }
 
