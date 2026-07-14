@@ -375,3 +375,24 @@ Routing / caveat for the **`sv-integration`** thread (owner of `maddi-modificati
 then the restriction is genuinely **too harsh** (the author's own `8fbcdf9d` wording) — a real link-engine bug that
 reproduces from source, independent of any stale jar, and belongs to that thread. Nothing here is a codec/inspector
 issue: that chain is closed (Confirmation #4).
+
+### RESOLUTION of #4 — regenerated + method-by-name decode (2026-07-14, verified end-to-end)
+
+Acted on the verdict: **regenerated `transform.jar`** in jfocus-transform (`TestRunAnalyzerOnSupportTypes` against
+current maddi via `includeBuild`, then `copyToJars.sh`). The generator ran clean — current maddi analysing transform
+**source** does **not** produce a `§m ↔ non-§m` link — which **confirms the stale-data verdict** (the §m restriction
+is not too harsh for this code; the old jar simply predated it).
+
+The fresh jar then exposed the **method-side** twin of the field bug (as flagged): decode hit
+`CodecImpl:353 "Method names do not agree: JFocusTransform.<clinit>() vs analyzedPackages"` — a synthetic `<clinit>`
+present in the bytecode-loaded type but not the encoder's source view shifted the sorted method list. Fixed by the
+same treatment as fields: **`decodeMethodInfo` resolves by name** when the index is stale (unique simple name → direct;
+genuine overloads with a stale index → clear `DecoderException`, since the token has no descriptor). Test
+`TestCodecMethodByName`. Backward-compatible; maddi golden suites green (cst-io 49, modification-analyzer 130).
+
+End-to-end verification against the fresh jar: **`codelaser-transform-support` (81/0/0)** and
+**`codelaser-transform-trycatch` (115/0/0)** fully green — both load this jar. **The codec/inspector decode of
+`transform.jar` is now resolved end to end.** Residual `codelaser-transform-loops` failures (12/166) are
+**not decode** (zero codec signatures): openjdk-parser-migration functional issues — `Source.withIndex(String)` NPE,
+transformed-output string diffs, "cannot find a primary type in source" — owned by the transform team, and newly
+*visible* only because decode now gets far enough to run those tests. jfocus-transform commit: `61ac06d`.
