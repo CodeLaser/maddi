@@ -129,6 +129,7 @@ public class ShallowAnalyzer {
             }
         }
         messages.addAll(shallowMethodAnalyzer.messages());
+        messages.addAll(shallowTypeAnalyzer.messages());
         return new Result(dataMap, allTypes, typeGraph, sorted, messages);
     }
 }

@@ -16,6 +16,7 @@ package org.e2immu.analyzer.modification.common.defaults;
 
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.annotation.Independent;
+import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.element.Element;
@@ -27,14 +28,15 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.info.TypeParameter;
+import org.e2immu.language.cst.impl.analysis.MessageImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer.AnnotationOrigin.*;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
@@ -48,8 +50,12 @@ import static org.e2immu.language.cst.impl.analysis.ValueImpl.NotNullImpl.NOT_NU
 
 public class ShallowTypeAnalyzer extends AnnotationToProperty {
     private static final Logger LOGGER = LoggerFactory.getLogger(ShallowTypeAnalyzer.class);
+    public static final String HIERARCHY_INCONSISTENCY = "hierarchy-inconsistency";
+    public static final String MODIFIED_IN_IMMUTABLE = "modified-in-immutable";
+    public static final String PROPERTY_INCONSISTENCY = "property-inconsistency";
+
     private final AnalysisHelper analysisHelper = new AnalysisHelper();
-    private final AtomicInteger warnings = new AtomicInteger();
+    private final List<Message> messages = new ArrayList<>();
     private final boolean onlyPublic;
 
     public ShallowTypeAnalyzer(Runtime runtime, AnnotationProvider annotationProvider, boolean onlyPublic) {
@@ -242,28 +248,31 @@ public class ShallowTypeAnalyzer extends AnnotationToProperty {
         return best.analysis().getOrDefault(CONTAINER_TYPE, FALSE).isTrue();
     }
 
+    public List<Message> messages() {
+        return List.copyOf(messages);
+    }
+
     public void check(TypeInfo typeInfo) {
         Value.Immutable immutable = typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE);
         if (immutable.isAtLeastImmutableHC()) {
             Value.Immutable least = leastOfHierarchy(typeInfo, IMMUTABLE_TYPE, MUTABLE, IMMUTABLE_HC);
             if (!least.isAtLeastImmutableHC()) {
-                LOGGER.warn("@Immutable inconsistency in hierarchy: have {} for {}, but:", immutable, typeInfo);
-                typeInfo.recursiveSuperTypeStream().filter(TypeInfo::isPublic).distinct()
-                        .forEach(ti -> {
-                            LOGGER.warn("  -- {}: {}", ti, ti.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
-                        });
-                warnings.incrementAndGet();
+                messages.add(MessageImpl.warn(typeInfo, HIERARCHY_INCONSISTENCY,
+                        "@Immutable inconsistency in hierarchy: have " + immutable + " for " + typeInfo
+                        + ", but not for all public supertypes",
+                        supertypesBelow(typeInfo, IMMUTABLE_TYPE, MUTABLE,
+                                v -> !((Value.Immutable) v).isAtLeastImmutableHC())));
             }
             for (FieldInfo fieldInfo : typeInfo.fields()) {
                 if (acceptAccess(fieldInfo) && !fieldInfo.isUnmodified()) {
-                    LOGGER.warn("Have @Modified field {} in @Immutable type {}", fieldInfo.name(), typeInfo);
-                    warnings.incrementAndGet();
+                    messages.add(MessageImpl.warn(fieldInfo, MODIFIED_IN_IMMUTABLE,
+                            "have @Modified field " + fieldInfo.name() + " in @Immutable type " + typeInfo));
                 }
             }
             for (MethodInfo methodInfo : typeInfo.methods()) {
                 if (acceptAccess(methodInfo) && !methodInfo.isNonModifying()) {
-                    LOGGER.warn("Have @Modified method {} in @Immutable type {}", methodInfo.name(), typeInfo);
-                    warnings.incrementAndGet();
+                    messages.add(MessageImpl.warn(methodInfo, MODIFIED_IN_IMMUTABLE,
+                            "have @Modified method " + methodInfo.name() + " in @Immutable type " + typeInfo));
                 }
             }
         }
@@ -271,35 +280,42 @@ public class ShallowTypeAnalyzer extends AnnotationToProperty {
         if (container.isTrue()) {
             Value least = leastOfHierarchy(typeInfo, CONTAINER_TYPE, FALSE, TRUE);
             if (least.lt(container)) {
-                LOGGER.warn("@Container inconsistency in hierarchy: true for {}, but not for all types in its hierarchy: {}",
-                        typeInfo, least);
-                typeInfo.recursiveSuperTypeStream().filter(TypeInfo::isPublic).distinct()
-                        .forEach(ti -> {
-                            LOGGER.warn("  -- {}: {}", ti, ti.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
-                        });
-                warnings.incrementAndGet();
+                messages.add(MessageImpl.warn(typeInfo, HIERARCHY_INCONSISTENCY,
+                        "@Container inconsistency in hierarchy: true for " + typeInfo
+                        + ", but not for all public supertypes",
+                        supertypesBelow(typeInfo, CONTAINER_TYPE, FALSE, v -> ((Value.Bool) v).isFalse())));
             }
         }
         Value.Independent independent = typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT);
         if (independent.isAtLeastIndependentHc()) {
             Value least = leastOfHierarchy(typeInfo, INDEPENDENT_TYPE, DEPENDENT, INDEPENDENT);
             if (least.lt(independent)) {
-                LOGGER.warn("@Independent inconsistency in hierarchy: value for {} is {}, but not for all types in its hierarchy: {}",
-                        typeInfo, independent, least);
-                typeInfo.recursiveSuperTypeStream().filter(TypeInfo::isPublic).distinct()
-                        .forEach(ti -> {
-                            LOGGER.warn("  -- {}: {}", ti, ti.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
-                        });
-                warnings.incrementAndGet();
+                messages.add(MessageImpl.warn(typeInfo, HIERARCHY_INCONSISTENCY,
+                        "@Independent inconsistency in hierarchy: have " + independent + " for " + typeInfo
+                        + ", but not for all public supertypes",
+                        supertypesBelow(typeInfo, INDEPENDENT_TYPE, DEPENDENT,
+                                v -> !((Value.Independent) v).isAtLeastIndependentHc())));
             }
         }
         if (immutable.isImmutable() && !independent.isIndependent()
             || immutable.isAtLeastImmutableHC() && !independent.isAtLeastIndependentHc()) {
-            LOGGER.warn("Inconsistency between @Independent and @Immutable for type {}: {}, {}", typeInfo,
-                    immutable, independent);
-            warnings.incrementAndGet();
+            messages.add(MessageImpl.warn(typeInfo, PROPERTY_INCONSISTENCY,
+                    "inconsistency between @Immutable (" + immutable + ") and @Independent (" + independent
+                    + ") for type " + typeInfo));
         }
     }
+
+    /** The evidence for a hierarchy inconsistency: each public supertype whose value is below the threshold. */
+    private Message[] supertypesBelow(TypeInfo typeInfo, Property property, Value defaultValue,
+                                      java.util.function.Predicate<Value> below) {
+        return typeInfo.recursiveSuperTypeStream().filter(TypeInfo::isPublic).distinct()
+                .map(ti -> Map.entry(ti, ti.analysis().getOrDefault(property, defaultValue)))
+                .filter(e -> below.test(e.getValue()))
+                .map(e -> MessageImpl.cause(e.getKey(),
+                        e.getKey().fullyQualifiedName() + " is " + e.getValue()))
+                .toArray(Message[]::new);
+    }
+
 
 
 }
