@@ -252,6 +252,18 @@ hardening work). ~500 files differ, mostly kotlin parsing; the guard-relevant de
   fabricates a blame. `TestGuardContainer` extended to assert the blame branch on all three
   violation scenarios; 5/5 green, nolink + cst-analysis suites unaffected.
 
+### Done (2026-07-14, kotlin trunk — @Independent breadth)
+
+- **@Independent on an abstract method.** `guardMethod` now also verifies `@Independent`: every implementation
+  whose computed `INDEPENDENT_METHOD` is **decided DEPENDENT** (`isDependent()`, value 0 — not delayed, not HC) is
+  reported, mirroring the `@NotModified` branch. Gate on the contract being at-least-HC-independent
+  (`isAtLeastIndependentHc()`). Shared implementation-iteration + finding emission factored into
+  `implementationsOf` / `reportViolation`. Independence violations carry the contract-provenance cause; a deep
+  "why" blame (which field/return exposes state) is deferred. Test `TestGuardIndependent` (a `List`-field-exposing
+  impl is flagged, a `List.copyOf` impl is not); 1/1 green, container + nolink unaffected.
+  Nuance deferred: a contract of *full* `@Independent` (2) against an implementation computed `INDEPENDENT_HC` (1)
+  is weaker but not "dependent"; v1 flags only decided-DEPENDENT implementations.
+
 ### Next steps
 
 1. **Deepen Phase 3 further**: indirect modification (parameter linked to a modified field;

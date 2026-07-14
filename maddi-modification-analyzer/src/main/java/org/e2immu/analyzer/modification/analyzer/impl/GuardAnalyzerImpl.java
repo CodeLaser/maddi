@@ -122,25 +122,42 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
     private void guardMethod(MethodInfo methodInfo) {
         if (!methodInfo.isAbstract()) return;
         Map<Property, Value> contracts = contractReader.contracts(methodInfo);
+        // @NotModified: no implementation may modify its receiver.
         if (contracts.get(NON_MODIFYING_METHOD) instanceof Value.Bool nonModifying && nonModifying.isTrue()) {
-            Value.SetOfMethodInfo implementations = methodInfo.analysis().getOrDefault(IMPLEMENTATIONS,
-                    ValueImpl.SetOfMethodInfoImpl.EMPTY);
-            for (MethodInfo implementation : implementations.methodInfoSet()) {
-                Value.Bool implNonModifying = implementation.analysis().getOrNull(NON_MODIFYING_METHOD,
-                        ValueImpl.BoolImpl.class);
+            for (MethodInfo impl : implementationsOf(methodInfo)) {
+                Value.Bool implNonModifying = impl.analysis().getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
                 if (implNonModifying != null && implNonModifying.isFalse()) {
-                    Message contractLocation = MessageImpl.cause(methodInfo, "@NotModified contracted here");
-                    // Phase 3 — the "why" chain: point at the self-modification inside the implementation.
-                    Message blame = blameMethodModifying(implementation);
-                    Message[] causes = blame == null ? new Message[]{contractLocation}
-                            : new Message[]{blame, contractLocation};
-                    analyzerMessages.add(MessageImpl.error(implementation, CONTRACT_VIOLATION,
-                            implementation.fullyQualifiedName()
-                            + " is modifying, violating the @NotModified contract on "
-                            + methodInfo.fullyQualifiedName(), causes));
+                    reportViolation(impl, blameMethodModifying(impl),
+                            MessageImpl.cause(methodInfo, "@NotModified contracted here"),
+                            impl.fullyQualifiedName() + " is modifying, violating the @NotModified contract on "
+                            + methodInfo.fullyQualifiedName());
                 }
             }
         }
+        // @Independent: no implementation may be dependent (expose or share mutable state).
+        if (contracts.get(INDEPENDENT_METHOD) instanceof Value.Independent contractInd
+            && contractInd.isAtLeastIndependentHc()) {
+            for (MethodInfo impl : implementationsOf(methodInfo)) {
+                Value.Independent implInd = impl.analysis().getOrNull(INDEPENDENT_METHOD, ValueImpl.IndependentImpl.class);
+                if (implInd != null && implInd.isDependent()) {
+                    reportViolation(impl, null,
+                            MessageImpl.cause(methodInfo, "@Independent contracted here"),
+                            impl.fullyQualifiedName() + " is dependent (it exposes or shares mutable state), "
+                            + "violating the @Independent contract on " + methodInfo.fullyQualifiedName());
+                }
+            }
+        }
+    }
+
+    private Iterable<MethodInfo> implementationsOf(MethodInfo abstractMethod) {
+        return abstractMethod.analysis()
+                .getOrDefault(IMPLEMENTATIONS, ValueImpl.SetOfMethodInfoImpl.EMPTY).methodInfoSet();
+    }
+
+    /** Emit a contract violation: {@code [ blame?, contract-provenance ]} as the why-chain. */
+    private void reportViolation(Info blamed, Message blame, Message contractLocation, String message) {
+        Message[] causes = blame == null ? new Message[]{contractLocation} : new Message[]{blame, contractLocation};
+        analyzerMessages.add(MessageImpl.error(blamed, CONTRACT_VIOLATION, message, causes));
     }
 
     /**
