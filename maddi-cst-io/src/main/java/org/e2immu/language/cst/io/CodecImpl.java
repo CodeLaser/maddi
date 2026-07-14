@@ -340,18 +340,28 @@ public class CodecImpl implements Codec {
     private MethodInfo decodeMethodInfo(TypeAndSorted typeAndSorted, String nameIndex) {
         Matcher m = NAME_INDEX_PATTERN.matcher(nameIndex);
         if (m.matches()) {
+            String name = m.group(1);
             int index = Integer.parseInt(m.group(2));
             List<MethodInfo> sorted = reinspectIfNeeded(typeAndSorted.typeInfo(), typeAndSorted.sortedMethods(),
                     index, ti -> ti.methods().stream()
                             .sorted(Comparator.comparing(MethodInfo::fullyQualifiedName)).toList());
-            if (index >= sorted.size()) {
-                throw new DecoderException("method index " + index + " out of range; "
-                                           + typeAndSorted.typeInfo() + " has " + sorted.size() + " method(s)");
+            // Fast path: the encoded index still points at the right method (its name matches).
+            if (index < sorted.size() && sorted.get(index).name().equals(name)) {
+                return sorted.get(index);
             }
-            MethodInfo methodInfo = sorted.get(index);
-            assert !methodInfo.isConstructor();
-            assert methodInfo.name().equals(m.group(1)) : "Method names do not agree: " + methodInfo + " vs " + m.group(1);
-            return methodInfo;
+            // Index stale: the loaded method set differs from the encoder's -- e.g. a synthetic <clinit> or private
+            // methods present on the bytecode side but not the source side. Resolve by name; a unique simple name
+            // (the common case) resolves directly. For overloads the index cannot be trusted and the token carries
+            // no descriptor, so report a clear DecoderException rather than silently pick the wrong overload.
+            List<MethodInfo> byName = sorted.stream().filter(mi -> mi.name().equals(name)).toList();
+            if (byName.size() == 1) return byName.getFirst();
+            if (byName.isEmpty()) {
+                throw new DecoderException("method '" + name + "' (index " + index + ") not found in "
+                                           + typeAndSorted.typeInfo() + "; has " + sorted.size() + " method(s)");
+            }
+            throw new DecoderException("ambiguous method '" + name + "' (" + byName.size()
+                                       + " overloads) with a stale index " + index + " in "
+                                       + typeAndSorted.typeInfo() + "; name+descriptor needed to disambiguate");
         } else throw new UnsupportedOperationException();
     }
 
