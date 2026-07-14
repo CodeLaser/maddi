@@ -4,6 +4,24 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — m∩copy DETERMINISM FLAKE ROOT-CAUSED AND FIXED (symmetric completion)
+
+The flake was an ENGINE property: the closure's two directions derive INDEPENDENTLY, so whether
+a fact's mirror exists depended on whether the insertion order enabled its own derivation path
+(`copy ∩ list` derivable in one edge order, not another; surfaced per-JVM through the salted
+iteration of JDK unordered sets feeding re-key order). Reproduced IN-JVM with a 4-edge,
+24-permutation unit test (TestEngineDeterminism.twoLevelComposition — now a permanent pin).
+
+Fix: `IncrementalFixpointEngine.completeSymmetrically` — every added composite fact immediately
+derives its mirror with the naturally-oriented witness (rev(f∘g) = rev(g)∘rev(f); the reversed
+sub-facts exist because edges and mirrors are themselves symmetric), keeping witness choice
+canonical across orders (the diamond pin still holds). `acceptForComposite` guards feature #9.
+Also: canonical total pre-sort of FollowGraph's fromList (the parts-first comparator is a
+partial, intransitive order — TimSort output depended on unordered input) and sorted
+reverseReturnFacts. Cost-neutral (bench 887-929ms). TestModificationBasics' strict assert
+restored; TestInstanceOf re-pinned (+`o.§es∩0:i` mirror). Analyzer: 123 tests, ONLY
+parser-side CloneBench failing. Link suite 60 byte-identical.
+
 ## UPDATE — ANALYZER SUITE GREEN (123 tests; only parser-side CloneBench fails)
 
 The last two string tests are done. TestIndependentOfByteArray: naming/format drift re-pinned.
