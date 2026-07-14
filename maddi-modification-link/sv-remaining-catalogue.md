@@ -4,6 +4,32 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — anonymous capture + array-loop shapes fixed; link 16, all decoded
+
+Engine: (1) `canChainThrough` (deep) chains through a FOREIGN method's return face (the SAM's
+'get' rv in an anonymous-class capture: m ← get ← 0:x). (2) `assignmentEdgeStream` aliases a
+to-side ELEMENT face onto its base's assignment SOURCES ('m ← r[0]' + for-each 'r ← g[0]' ⟹
+'m ← 0:g[0][0]'; recipient siblings excluded — reassignment risk). doWhile/labeledContinue
+re-pinned as sv PRECISION GAINS (unreachable null-merge faces gone). TestLanguageConstructs
+fully green. Bench 774ms.
+
+The remaining 16, current decoded diffs:
+1. **TestStaticValuesIndexing test2**: missing `method→this.ys*[1]` (return value stored into a
+   slot — the TO-SIDE REVERSE face family) + `ys*[0]*` star-spelling drift.
+2. **TestStaticValuesRecord test4b/4c**: missing §m directional faces (`r.§m→0:in.§m` — to-side
+   reverse again; `method.§m←1:rr.§m` — whole-return §m companion for the @NotModified-embed
+   shape; check whether the base ← reconstructs and only the companion is absent).
+3. **TestStaticValuesRecord test5**: missing ce-constant faces on derived record fields
+   (`method.i←$_ce1`, `method.list.§$s∋$_ce3/4`) — constants × derived-face interplay.
+4. **Varargs pair** (TestLinkMethodCall): the old ~∈∋ fan-out cluster + mutator '→'.
+5. **Record-pattern ≡ residue** (TestCast, TestInstanceOf, TestVariablesLinkedToObject).
+6. Singles: TestLinkModificationArea (≻ vs ←≺), TestRedundantModificationLinks (≡ chain),
+   TestMap test2Reverse0 (⊆ vs ~), TestStream MR-swap (← vs ≡), TestSupplier test7 (≺),
+   TestSupplierSpec ×2 (⊆/≺ — Stream.generate / fresh-object capture).
+
+The TO-SIDE REVERSE faces (matrix→ldIn.variables[1]) now block items 1 and 2 — that deferred
+mechanism is the highest-leverage next fix (likely 3+ tests).
+
 ## UPDATE — record patterns + var transparency fixed; link 19
 
 Two engine changes (both suites + bench clean, 738ms):
