@@ -18,24 +18,42 @@ import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.info.Info;
 
-public record MessageImpl(Source source, Info info, Level level, String message) implements Message {
+import java.util.List;
+
+public record MessageImpl(Source source, Info info, Level level, String message, String category,
+                          List<Message> causes) implements Message {
+    public static final String GENERAL = "general";
+
+    public MessageImpl {
+        causes = causes == null ? List.of() : List.copyOf(causes);
+        category = category == null ? GENERAL : category;
+    }
+
+    public MessageImpl(Source source, Info info, Level level, String message) {
+        this(source, info, level, message, GENERAL, List.of());
+    }
 
     public static Message warn(Info info, String message) {
-        return new MessageImpl(null, info, LevelEnum.WARN, message);
+        return new MessageImpl(sourceOf(info), info, Severity.WARN, message);
     }
 
-    public enum LevelEnum implements Level {
-        WARN, ERROR;
-
-        @Override
-        public boolean isWarning() {
-            return WARN == this;
-        }
-
-        @Override
-        public boolean isError() {
-            return ERROR == this;
-        }
+    public static Message warn(Info info, String category, String message, Message... causes) {
+        return new MessageImpl(sourceOf(info), info, Severity.WARN, message, category, List.of(causes));
     }
 
+    public static Message error(Info info, String category, String message, Message... causes) {
+        return new MessageImpl(sourceOf(info), info, Severity.ERROR, message, category, List.of(causes));
+    }
+
+    /** A cause carries evidence for a parent message; its severity is informational, we default to WARN. */
+    public static Message cause(Info info, String message, Message... causes) {
+        return new MessageImpl(sourceOf(info), info, Severity.WARN, message, GENERAL, List.of(causes));
+    }
+
+    // every element in the CST carries a Source (line/col); recover it so that messages are locatable
+    private static Source sourceOf(Info info) {
+        if (info == null) return null;
+        Source source = info.source();
+        return source == null || source.isNoSource() ? null : source;
+    }
 }
