@@ -17,6 +17,7 @@ package org.e2immu.analyzer.modification.analyzer.impl;
 import org.e2immu.analyzer.modification.analyzer.CycleBreakingStrategy;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.SingleIterationAnalyzer;
+import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
@@ -30,9 +31,10 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
     private static final Logger LOGGER = LoggerFactory.getLogger(IteratingAnalyzerImpl.class);
 
     private final JavaInspector javaInspector;
+    private SingleIterationAnalyzer lastRun;
 
     public IteratingAnalyzerImpl(JavaInspector javaInspector, Configuration configuration) {
-        super(configuration, null);
+        super(configuration, null, null);
         this.javaInspector = javaInspector;
     }
 
@@ -75,9 +77,15 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
     }
 
     @Override
+    public List<Message> messages() {
+        return lastRun == null ? List.of() : lastRun.messages();
+    }
+
+    @Override
     public void analyze(List<Info> analysisOrder) {
         int iterations = 0;
         SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
+        this.lastRun = singleIterationAnalyzer;
         boolean cycleBreakingActive = false;
         while (true) {
             ++iterations;

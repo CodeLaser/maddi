@@ -15,6 +15,7 @@
 package org.e2immu.analyzer.modification.analyzer;
 
 import org.e2immu.analyzer.modification.link.LinkComputer;
+import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.info.Info;
 
 import java.util.List;
@@ -40,4 +41,7 @@ public interface IteratingAnalyzer {
     }
 
     void analyze(List<Info> analysisOrder);
+
+    /** Findings (warnings/errors about the analyzed code) collected across all iterations; empty before analyze(). */
+    List<Message> messages();
 }

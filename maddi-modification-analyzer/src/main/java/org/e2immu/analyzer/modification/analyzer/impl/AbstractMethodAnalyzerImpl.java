@@ -16,6 +16,7 @@ package org.e2immu.analyzer.modification.analyzer.impl;
 
 import org.e2immu.analyzer.modification.analyzer.AbstractMethodAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
+import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -24,6 +25,7 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -36,8 +38,8 @@ import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.IN
 
 public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements AbstractMethodAnalyzer {
 
-    public AbstractMethodAnalyzerImpl(IteratingAnalyzer.Configuration configuration, AtomicInteger propertiesChanged) {
-        super(configuration, propertiesChanged);
+    public AbstractMethodAnalyzerImpl(IteratingAnalyzer.Configuration configuration, AtomicInteger propertiesChanged, List<Message> analyzerMessages) {
+        super(configuration, propertiesChanged, analyzerMessages);
     }
 
     @Override

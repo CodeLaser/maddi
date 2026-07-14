@@ -16,6 +16,7 @@ package org.e2immu.analyzer.modification.analyzer.impl;
 
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.TypeIndependentAnalyzer;
+import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -23,6 +24,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.analyzer.modification.analyzer.CycleBreakingStrategy.NO_INFORMATION_IS_NON_MODIFYING;
@@ -37,8 +39,8 @@ Phase 4.1 Primary type independent
  */
 public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements TypeIndependentAnalyzer {
 
-    public TypeIndependentAnalyzerImpl(IteratingAnalyzer.Configuration configuration, AtomicInteger propertyChanges) {
-        super(configuration, propertyChanges);
+    public TypeIndependentAnalyzerImpl(IteratingAnalyzer.Configuration configuration, AtomicInteger propertyChanges, List<Message> analyzerMessages) {
+        super(configuration, propertyChanges, analyzerMessages);
     }
 
     @Override
