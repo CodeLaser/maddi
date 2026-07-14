@@ -142,6 +142,21 @@ public class SharedVariables {
                 for (Variable t : reachable(m, fwd, deep)) {
                     if (!emitM.equals(t)) {
                         builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_FROM, t));
+                        // alias a to-side ELEMENT face onto its base's assignment sources: 'm ← r[0]' with the
+                        // for-each row 'r ← g[0]' equally holds as 'm ← 0:g[0][0]' — the local face (r) dies at
+                        // summary time, the parameter face survives. Sources only: a recipient sibling of the
+                        // base may be reassigned later and must not be aliased.
+                        if (t instanceof org.e2immu.language.cst.api.variable.DependentVariable dvT
+                            && dvT.arrayVariable() != null) {
+                            for (Variable src : assignmentSources(dvT.arrayVariable())) {
+                                VariableTranslationMap aliasTm = new VariableTranslationMap(runtime);
+                                aliasTm.put(dvT.arrayVariable(), src);
+                                Variable tAlt = aliasTm.translateVariableRecursively(t);
+                                if (!tAlt.equals(t) && !emitM.equals(tAlt)) {
+                                    builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_FROM, tAlt));
+                                }
+                            }
+                        }
                         // containment companions, ONLY for a derived slot face (a real slot vertex gets
                         // 'slot ∈ container' from the graph and 'container ∋ value' from sub-propagation;
                         // a derived face — td.variables[0] ← someSet, rehomed across the collapsed builder
@@ -279,6 +294,10 @@ public class SharedVariables {
         if (Util.lvPrimaryOrNull(v) instanceof IntermediateVariable) return true;
         if (!deep) return false;
         if (v instanceof org.e2immu.language.cst.api.variable.LocalVariable) return true;
+        // a FOREIGN method's return face in the group (the SAM's 'get' rv when an anonymous class
+        // captures a variable: m ← get ← 0:x) is a value pass-through, like a dying local; the
+        // primary's own rv is never a chain node in its own extraction (it is the emitM)
+        if (v instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable) return true;
         // the field face of a DYING LOCAL ('b.j' of builder 'b') does not survive into the summary either:
         // bridge it (justJ.j ← b.j ← 0:jp → justJ.j ← 0:jp). Plain FieldReference only (never a
         // DependentVariable — dimensions), and only on a real local (not a synthetic LinkVariable).
