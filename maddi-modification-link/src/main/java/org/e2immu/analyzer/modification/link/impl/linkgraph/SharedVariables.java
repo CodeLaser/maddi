@@ -172,6 +172,22 @@ public class SharedVariables {
                 for (Variable t : reachable(m, bwd, deep)) {
                     if (!emitM.equals(t)) builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_TO, t));
                 }
+                if (deep) {
+                    // SIBLING RECIPIENTS, one hop (gate NOSIBR): the summary endpoint and another face both
+                    // received the same source's value ('method ← y' and 'this.ys[1] ← y' ⟹
+                    // 'method → this.ys[1]': the returned value was also stored in the slot). Dying faces
+                    // among the siblings are filtered downstream as usual.
+                    if (System.getenv("NOSIBR") == null) {
+                        java.util.Set<Variable> sources = reachable(m, fwd, deep);
+                        for (Variable src : sources) {
+                            for (Variable sib : bwd.getOrDefault(src, java.util.List.of())) {
+                                if (!sib.equals(m) && !emitM.equals(sib) && !sources.contains(sib)) {
+                                    builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_TO, sib));
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         return builder.build();
