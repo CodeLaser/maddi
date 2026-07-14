@@ -4,6 +4,30 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — link-suite output-fidelity backlog CLEARED: 60 → 22, all genuine
+
+The 38 output-fidelity failures (ordering, naming, ∩≤≥/≈ drift, extra-only links from the
+richer §m/mirror output) are re-pinned to current engine output (iterative repin.py sweep +
+manual pins for TestEngine's closure print, TestWriteAnalysis2's JSON2 codec dump — the
+serialized methodLinks gained a param→field entry — and testLink3, where the [-1]-slice link
+now sorts after the whole-field ~, so the structural asserts read link(1)).
+
+The remaining 22 are ALL genuine consumed-nature losses, by cluster:
+1. **TestLanguageConstructs ×6**: do-while/labeled-continue array-element returns (←∋),
+   record deconstruction ×2 (←≺), var transparency (→), anonymous-class capture (←/→).
+2. **Record/static-values ×4**: simple builder (←∋≡), embed-in-abstract ×2 (←/→),
+   indexing-in-array (→).
+3. **Supplier/stream ×3**: Stream.generate (⊆), fresh-object capture (≺), test7 (≺).
+4. **TestLinkMethodCall ×2**: varargs fan-out (~∈∋ — the old varargs cluster), mutator
+   returning object (→).
+5. **Record-pattern ≡/≺ ×3**: TestCast, TestInstanceOf, TestVariablesLinkedToObject —
+   the binding-site containment family (≺ re-derivation declined per user decision; the
+   ≡-losses here may still be real).
+6. Singles: TestLinkModificationArea (≻ vs ←≺), TestRedundantModificationLinks (≡ chain),
+   TestMap test2Reverse0 (⊆ vs ~), TestStream MR-swap (← vs ≡).
+
+Analyzer: 123 tests, CloneBench-only. Bench ~0.9-1.2s.
+
 ## UPDATE — m∩copy DETERMINISM FLAKE ROOT-CAUSED AND FIXED (symmetric completion)
 
 The flake was an ENGINE property: the closure's two directions derive INDEPENDENTLY, so whether
