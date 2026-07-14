@@ -181,7 +181,14 @@ public class SharedVariables {
                         java.util.Set<Variable> sources = reachable(m, fwd, deep);
                         for (Variable src : sources) {
                             for (Variable sib : bwd.getOrDefault(src, java.util.List.of())) {
-                                if (!sib.equals(m) && !emitM.equals(sib) && !sources.contains(sib)) {
+                                if (!sib.equals(m) && !emitM.equals(sib) && !sources.contains(sib)
+                                    // two index-SPELLINGS of the same slot (0:b[off++] / 0:b[1:off]) are not
+                                    // sibling recipients — the pair carries no information and its direction
+                                    // is arbitrary (flipped between class-run and full-suite contexts)
+                                    && !(sib instanceof org.e2immu.language.cst.api.variable.DependentVariable dvS
+                                         && m instanceof org.e2immu.language.cst.api.variable.DependentVariable dvM
+                                         && dvS.arrayVariable() != null
+                                         && dvS.arrayVariable().equals(dvM.arrayVariable()))) {
                                     builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_TO, sib));
                                 }
                             }
