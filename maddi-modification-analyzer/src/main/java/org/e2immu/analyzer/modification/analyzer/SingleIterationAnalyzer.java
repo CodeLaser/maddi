@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.analyzer;
 
+import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.info.Info;
 
 import java.util.List;
@@ -27,4 +28,7 @@ public interface SingleIterationAnalyzer {
     void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration);
 
     int propertiesChanged();
+
+    /** Findings (warnings/errors about the analyzed code) collected by all analyzers of this iteration. */
+    List<Message> messages();
 }

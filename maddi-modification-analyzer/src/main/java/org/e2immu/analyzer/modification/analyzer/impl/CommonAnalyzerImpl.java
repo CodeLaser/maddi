@@ -15,9 +15,11 @@
 package org.e2immu.analyzer.modification.analyzer.impl;
 
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
+import org.e2immu.language.cst.api.analysis.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class CommonAnalyzerImpl {
@@ -26,10 +28,14 @@ public abstract class CommonAnalyzerImpl {
 
     protected final IteratingAnalyzer.Configuration configuration;
     protected final AtomicInteger propertyChanges;
+    // shared across all analyzers of one iteration, same injection pattern as propertyChanges; synchronized list
+    protected final List<Message> analyzerMessages;
 
-    protected CommonAnalyzerImpl(IteratingAnalyzer.Configuration configuration, AtomicInteger propertyChanges) {
+    protected CommonAnalyzerImpl(IteratingAnalyzer.Configuration configuration, AtomicInteger propertyChanges,
+                                 List<Message> analyzerMessages) {
         this.configuration = configuration;
         this.propertyChanges = propertyChanges;
+        this.analyzerMessages = analyzerMessages;
     }
 
     protected static String highlight(String content) {

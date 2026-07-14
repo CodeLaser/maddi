@@ -47,6 +47,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -60,6 +61,7 @@ public class RunAnalyzer implements Runnable {
     private int exitValue;
     private Summary summary;
     private Throwable terminalError;
+    private final List<Message> analysisMessages = new ArrayList<>();
 
     public RunAnalyzer(Configuration configuration) {
         this.configuration = configuration;
@@ -201,6 +203,10 @@ public class RunAnalyzer implements Runnable {
                 exitValue = Main.EXIT_ANALYSER_ERROR;
                 return;
             }
+            analysisMessages.addAll(analyzer.messages());
+            if (analysisMessages.stream().anyMatch(m -> m.level().isError())) {
+                exitValue = Main.EXIT_ANALYSER_ERROR;
+            }
 
             // write results
             String targetDir = configuration.generalConfiguration().analysisResultsDir();
@@ -261,6 +267,10 @@ public class RunAnalyzer implements Runnable {
                     sourceSet.sourceDirectories().getFirst());
             List<Message> messages = compiler.go(hints);
             LOGGER.info("AnalysisHints compilation of {} produced {} message(s)", sourceSet.name(), messages.size());
+            analysisMessages.addAll(messages);
+        }
+        if (analysisMessages.stream().anyMatch(m -> m.level().isError())) {
+            exitValue = Main.EXIT_ANALYSER_ERROR;
         }
         LOGGER.info("End of e2immu, analysis-hints compiler mode.");
     }
@@ -314,6 +324,6 @@ public class RunAnalyzer implements Runnable {
     }
 
     public void printSummaries() {
-        ErrorReport.report(summary, terminalError);
+        ErrorReport.report(summary, terminalError, analysisMessages);
     }
 }
