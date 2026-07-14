@@ -95,6 +95,27 @@ This is the exact capability `CodecImpl.decodeSimpleType` needs: `findType` → 
 gone (watch for any further nested-member gaps behind it, e.g. the `@GetSet: Cannot find field set/iterator in
 Loop.LoopDataImpl.Builder` warnings, which are nested-member resolution and may or may not be fatal).
 
+### CONFIRMATION #3 from the reporter (2026-07-13, after nested-type fix a6306c30)
+
+**The `Try.TryData` resolution fix works** — that `Cannot find` assertion is gone; the decode advances further.
+Next offender (again one step deeper), now a **nested type's fields**:
+
+```
+org.e2immu.language.cst.api.analysis.Codec$DecoderException:
+field index 1 out of range; io.codelaser.jfocus.transform.support.Try.TryDataImpl.Builder has 0 field(s)
+```
+
+So the (triple-nested) `Try.TryDataImpl.Builder` now **resolves** as a type, but is loaded with **0 fields** — the
+field analog of the original constructor gap, on a nested type. This lines up with the persistent non-fatal
+warnings `@GetSet: Cannot find field set / iterator in Loop.LoopDataImpl.Builder`: nested `...Impl.Builder`
+classes are registered but their fields (and by extension @GetSet targets) are not populated. Likely the
+nested-type load path (`addEnclosedTypeToType`) registers the enclosed type shell without loading its members, so
+`decodeFieldInfo`'s `reinspectIfNeeded` finds a type whose `fields()` is still empty.
+
+Net: two fixes down, decode is much further along but `transform.jar` still aborts, now at
+`Try.TryDataImpl.Builder` fields. Bridge stays; 23 stdbase tests still blocked. Same deterministic repro. This is
+the frontier — please populate nested-type members (fields, and re-check methods) on load.
+
 ### CONFIRMATION from the reporter (2026-07-13, jfocus-stdbase openjdk branch) — SUPERSEDED by #2 above
 
 Rebuilt against the fix. **`transform.jar` still does NOT decode** — but the failure is now the clear, contextual
