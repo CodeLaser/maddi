@@ -91,6 +91,37 @@ public class Graph {
         return virtualModificationIdenticals.groupsOf(variable);
     }
 
+    /*
+    §m-directional inheritance (consumption-aware; see catalogue): §m ≡ facts are routed into VMI, never the
+    graph, so the closure cannot compose 'r.§m ≡ rr.§m' with the graph edge 'rr.§m → 0:in.§m'. For the strict-≡
+    (no ☷ pass) groups of 'owner', read each sibling's closure and return the §m-to-§m facts rehomed onto
+    owner's face. The CALLER decides when these enter a builder: they must be added AFTER the modification
+    decision and the ⊇→~ rewrite collection — emitted earlier, they leak into verdicts (the reverted VMIFP
+    experiment: ⊇→~ fired, 'newly created cannot be modified' nearly flipped).
+     */
+    public java.util.List<Link> vmiDirectionalFacts(Variable owner) {
+        java.util.List<Link> result = new ArrayList<>();
+        virtualModificationIdenticals.groupsOf(owner).forEach(group -> {
+            if (!group.linkNature().pass().isEmpty()) return;
+            Variable face = group.members().stream()
+                    .filter(v -> owner.equals(Util.firstRealVariable(v)))
+                    .findFirst().orElse(null);
+            if (face == null) return;
+            for (Variable sib : group.members()) {
+                if (!sib.equals(face) && containsVariable(sib)) {
+                    closureStream(sib).forEach(entry -> {
+                        if (Util.isVirtualModification(entry.getKey())
+                            && !entry.getKey().equals(face)
+                            && !group.members().contains(entry.getKey())) {
+                            result.add(new LinksImpl.LinkImpl(face, entry.getValue(), entry.getKey()));
+                        }
+                    });
+                }
+            }
+        });
+        return result;
+    }
+
     public void removeEquivalence(Set<Variable> allToRemove2) {
         virtualModificationIdenticals.remove(allToRemove2);
     }

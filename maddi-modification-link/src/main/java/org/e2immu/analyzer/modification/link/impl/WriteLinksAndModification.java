@@ -275,6 +275,20 @@ class WriteLinksAndModification {
                 });
             }
         }
+        // §m-directional inheritance, consumption-aware (gate NOVMIDIR): added AFTER the modification
+        // decision and the ⊇→~ rewrite collection, so these facts are OUTPUT-ONLY — emitted earlier they
+        // leak into verdicts (see Graph.vmiDirectionalFacts and the catalogue's VMIFP lesson).
+        // OPT-IN (VMIDIR=1): correct at decision time, but exposes a context-sensitive ⊇→~ flip at
+        // TestStaticValuesRecord test4b:357 in full-suite runs (class runs are clean) — the class/full
+        // context divergence needs its own root-cause first (see catalogue).
+        if (System.getenv("VMIDIR") != null) {
+            for (Link l : followGraph.graph().vmiDirectionalFacts(variable)) {
+                if (!builder.contains(l.from(), l.linkNature(), l.to())
+                    && !builder.contains(l.to(), l.linkNature().reverse(), l.from())) {
+                    builder.add(l.from(), l.linkNature(), l.to());
+                }
+            }
+        }
         if (newLinkedVariables.put(variable, builder) != null) {
             throw new UnsupportedOperationException("Each real variable must be a primary");
         }
