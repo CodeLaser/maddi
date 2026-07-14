@@ -111,6 +111,15 @@ of. The two closest things fall short:
 
 ## 2. Fault isolation at the analyzer / run boundary  (H) (K — trunk, on the merged collector)
 
+> **DONE (2026-07-14).** `IteratingAnalyzer.Configuration.faultTolerant()` (default false); when on,
+> `SingleIterationAnalyzerImpl.go`'s per-`Info` loop (plus the abstract-method batch and the 2nd type pass)
+> catches `RuntimeException | AssertionError | StackOverflowError`, emits an ERROR finding
+> (`analyzer-crash` / `link-crash`, blamed on the `Info`, located) into the guard collector, records the `Info`
+> as failed so it is not retried, and continues. Both production runners flip it on; the findings surface through
+> the existing `messages()` → `ErrorReport` → `EXIT_ANALYSER_ERROR` path. Test `TestFaultIsolation` injects a
+> deterministic crash (an un-prepped method → link `assert vd != null`) and proves the good method is still
+> analyzed; default stays fail-fast. Because link runs inside the per-`Info` loop, this isolates link crashes too.
+
 **Do not build a parallel prep-style `exceptions()` channel.** The merged guard collector already threads the
 right vehicle: a `List<Message>` through every sub-analyzer, exposed via `IteratingAnalyzer.messages()` and
 rendered by the extended `ErrorReport` (see framing; `3214206d`). §2 is the *crash* producer for that existing
@@ -198,9 +207,9 @@ surfaces.
 
 ## Suggested sequencing (who does what)
 
-1. **§2 fault isolation first (K, unblocked).** Small, additive, and it is the enabler: production runs stop dying
-   on the first crash *and* the §1 survey can complete instead of halting at crash #1. The collector + `ErrorReport`
-   surfacing are merged (`3214206d`); §2 adds only the per-`Info` catch-and-emit + the `faultTolerant` flag on top.
+1. **§2 fault isolation — DONE (2026-07-14).** The enabler: production runs no longer die on the first crash
+   *and* the §1 survey can complete instead of halting at crash #1. See §2 for the shape; `TestFaultIsolation`
+   pins it. Next up is §1 (the survey harness), which now actually completes a run over a real corpus.
 2. **§1 survey harness (K).** Produces the ranked crash inventory — the measurement everything else is triaged
    against.
 3. **Triage the inventory:** analyzer/boundary crashes → §2/§4 on the trunk; link-internal crashes → §3/§4 notes +
