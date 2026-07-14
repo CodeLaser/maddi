@@ -13,6 +13,6 @@ public class TestClosureWitnessIndex {
         WitnessIndex<String, LinkNature> witnessIndex = new WitnessIndex<>(LinkNature::score);
         Closure<String, LinkNature> closure = new Closure<>(LinkNature::best);
         closure.add("a", "b", LinkNatureImpl.IS_ELEMENT_OF);
-        assertEquals("", closure.print(Object::toString, String::compareTo, witnessIndex));
+        assertEquals("a ∈ b   \n", closure.print(Object::toString, String::compareTo, witnessIndex));
     }
 }

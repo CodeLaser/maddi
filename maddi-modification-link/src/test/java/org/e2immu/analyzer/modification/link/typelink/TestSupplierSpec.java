@@ -131,7 +131,7 @@ public class TestSupplierSpec extends CommonTest {
     @DisplayName("method reference on another instance: result relates to that instance's field")
     @Test
     public void supMethodRefOther() {
-        assertEquals("[-, -] --> supMethodRefOther←1:other.field,supMethodRefOther←0:opt.§x",
+        assertEquals("[0:opt≈1:other, -] --> supMethodRefOther←1:other.field,supMethodRefOther←0:opt.§x",
                 link("supMethodRefOther"));
     }
 

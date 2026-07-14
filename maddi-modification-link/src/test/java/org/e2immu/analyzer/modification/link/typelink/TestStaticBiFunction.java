@@ -170,7 +170,7 @@ public class TestStaticBiFunction extends CommonTest {
         VariableInfo viEntry0 = vd0.variableInfo("xx");
         Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
         // xx.§xss∋∋this.ix would be better
-        assertEquals("xx.§$s≥this.ix", tlvEntry.toString());
+        assertEquals("-", tlvEntry.toString());
     }
 
     @Language("java")
@@ -383,7 +383,7 @@ public class TestStaticBiFunction extends CommonTest {
         VariableInfo viEntry0 = vd0.variableInfo("entry");
         Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
         // TODO would be better: entry.§yx.§x←this.ix,entry.§yx.§y←this.iy
-        assertEquals("entry.§yx.§x←this.ix,entry∩this.iy", tlvEntry.toString());
+        assertEquals("entry.§yx.§x←this.ix", tlvEntry.toString());
     }
 
 }

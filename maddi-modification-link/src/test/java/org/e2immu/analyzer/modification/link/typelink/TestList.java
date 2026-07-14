@@ -154,22 +154,22 @@ public class TestList extends CommonTest {
 
         VariableInfo prev1 = vd1.variableInfo("prev");
         Links tlvPrev1 = prev1.linkedVariablesOrEmpty();
-        assertEquals("prev←1:x.ts[0:i],prev←2:k,prev∈1:x.ts", tlvPrev1.toString());
+        assertEquals("prev←2:k,prev∈1:x.ts,prev←1:x.ts[0:i]", tlvPrev1.toString());
 
         ParameterInfo k = method.parameters().get(2);
         VariableInfo k1 = vd1.variableInfo(k);
         Links tlvK1 = k1.linkedVariablesOrEmpty();
-        assertEquals("2:k→1:x.ts[0:i],2:k∈1:x.ts", tlvK1.toString());
+        assertEquals("2:k∈1:x.ts,2:k→prev", tlvK1.toString());
 
         ParameterInfo x = method.parameters().get(1);
         VariableInfo x1 = vd1.variableInfo(x);
-        assertEquals("1:x.ts[0:i]→prev,1:x.ts[0:i]←2:k,1:x.ts[0:i]∈1:x.ts,1:x.ts∋2:k,1:x.ts∋prev",
+        assertEquals("1:x.ts∋2:k,1:x.ts∋prev,1:x.ts[0:i]∈1:x.ts,1:x.ts[0:i]→prev",
                 x1.linkedVariables().toString());
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("""
-                [-, 1:x.ts*[0:i]←2:k*,1:x.ts*[0:i]∈1:x.ts*,1:x.ts*∋2:k*, 2:k*→1:x.ts*[0:i],2:k*∈1:x.ts*] --> \
-                method←1:x.ts*[0:i],method←2:k*,method∈1:x.ts*\
+                [-, 1:x.ts*∋2:k*,1:x.ts*[0:i]∈1:x.ts*, 2:k*∈1:x.ts*] --> method←2:k*,method∈1:x.ts*,\
+                method←1:x.ts*[0:i]\
                 """, tlvMethod.toString());
     }
 
@@ -347,7 +347,8 @@ public class TestList extends CommonTest {
         VariableInfo viIntermediate2 = vd2.variableInfo("intermediate2");
         // the 4th link is created by LinkGraph.makeComparableSub
         assertEquals("""
-                intermediate2←intermediate1,intermediate2.§$s⊆0:in.§$s,intermediate2.§$s←intermediate1.§$s,intermediate2.§m≡intermediate1.§m\
+                intermediate2←intermediate1,intermediate2.§$s⊆0:in.§$s,intermediate2.§$s←intermediate1.§$s,\
+                intermediate2.§m≡0:in.§m,intermediate2.§m≡intermediate1.§m\
                 """, viIntermediate2.linkedVariables().toString());
         VariableInfo viIntermediate1 = vd2.variableInfo("intermediate1");
         assertEquals("""

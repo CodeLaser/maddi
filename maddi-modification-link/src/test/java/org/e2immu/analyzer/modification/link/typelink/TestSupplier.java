@@ -210,7 +210,7 @@ public class TestSupplier extends CommonTest {
         Links tlvX = viX0.linkedVariablesOrEmpty();
         assertEquals("x←1:c.alternative,x←0:optional.§x", tlvX.toString());
 
-        assertEquals("[-, -] --> method←1:c.alternative,method←0:optional.§x", mlvMethod.toString());
+        assertEquals("[0:optional≈1:c, -] --> method←1:c.alternative,method←0:optional.§x", mlvMethod.toString());
     }
 
     @Language("java")

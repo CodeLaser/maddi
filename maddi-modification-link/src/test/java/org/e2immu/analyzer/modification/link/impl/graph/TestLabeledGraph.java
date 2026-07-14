@@ -37,7 +37,7 @@ public class TestLabeledGraph {
                 .map(Object::toString).sorted().collect(Collectors.joining(", ")));
 
         graph.removeVertices(Set.of("a"));
-        assertEquals("{}", graph.successors("a").toString()); // Iterable of entries -> [..]
+        assertEquals("[]", graph.successors("a").toString()); // Iterable of entries -> [..]
 
         assertEquals("""
                 b ≺ c
