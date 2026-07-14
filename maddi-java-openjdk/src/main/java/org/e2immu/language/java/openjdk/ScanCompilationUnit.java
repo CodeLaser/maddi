@@ -1747,6 +1747,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         };
         currentExpression = runtime.newAssignmentBuilder()
                 .setAssignmentOperator(operator)
+                // the underlying binary operator (i += x  ≡  i = i <op> x); must be set exactly as the unary
+                // (i++/i--) path does, or consumers reconstructing the semantics lose the target and read i = x
+                .setBinaryOperator(runtime.assignOperatorToBinary(operator))
+                .setAssignmentOperatorIsPlus(kind == Tree.Kind.PLUS_ASSIGNMENT)
                 .setValue(value)
                 .setTarget(target)
                 .build();
