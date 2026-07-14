@@ -229,11 +229,35 @@ hardening work). ~500 files differ, mostly kotlin parsing; the guard-relevant de
   @Container class, @NotModified abstract method. 5/5 green; full modification-analyzer +
   common suites unaffected.
 
+### Done (2026-07-14, kotlin trunk — Phase 3, "why" chain)
+
+- **Phase 3(a) — blame walk.** `GuardAnalyzerImpl.blameParameterModified` / `blameMethodModifying`
+  scan the implementation's own body for the *first* site that modifies the offending
+  parameter (or the instance) and add it as the **top** cause of the violation, located at
+  that statement (line/col via `MessageImpl.cause(Source, Info, …)`, new factory). So a
+  violation's `causes()` now reads `[ blame, contract-provenance ]`, e.g.
+  "`message.setMsg(...)` modifies `message`" → "BadRegistry implements ErrorRegistry.add" →
+  "@Container contracted on ErrorRegistry". Three modification shapes are recognised:
+  (1) a modifying call with the parameter as **receiver** (`pi.m(...)`, `m` modifying);
+  (2) the parameter **passed** into a callee parameter slot the callee modifies;
+  (3) a **field/element assignment** rooted at the parameter (`pi.f = …`, `pi[i] = …`).
+  For `@NotModified` methods: a write to an instance field (`count++`) or a modifying call on
+  `this`. Key design choice: it re-derives the evidence from the CST reading only the
+  analyser's own accessors (`MethodInfo.isModifying()`, `ParameterInfo.isModified()` — the
+  same signal that decided the violation, so it agrees for **shallow/JDK** callees like
+  `StringBuilder.append` too), rather than threading the per-call `Result.modified`
+  (`Variable → Set<MethodInfo>`) map out of the link module (which discards it after linking,
+  and which `sv-integration` owns). Returns `null` — violation still reported, no deepest
+  "where" — when modification is indirect (through a field link or a cycle), so it never
+  fabricates a blame. `TestGuardContainer` extended to assert the blame branch on all three
+  violation scenarios; 5/5 green, nolink + cst-analysis suites unaffected.
+
 ### Next steps
 
-1. **Phase 3 — deepen the why-chain**: blame walk from "parameter is modified" down to the
-   modifying statement/call (link-module evidence). The cause-chain structure is in place;
-   the walk is not.
+1. **Deepen Phase 3 further**: indirect modification (parameter linked to a modified field;
+   modification one call removed), and reporting *all* modification sites rather than the
+   first. Today's walk is direct-site, first-match — enough for the common "modifies the
+   argument" story, best-effort beyond it.
 2. More guarded contracts: `@Immutable` on a concrete class (rule-by-rule diff: which field
    is assignable/modified/exposed), `@Independent`, `@NotModified` on parameters,
    `@Container(contract=true)` on parameters (dynamic checking, road-to-immutability §070).
