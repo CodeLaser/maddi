@@ -4,6 +4,23 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — ANALYZER SUITE GREEN (123 tests; only parser-side CloneBench fails)
+
+The last two string tests are done. TestIndependentOfByteArray: naming/format drift re-pinned.
+TestVarious `illegal links to constants`: the old `tmp←$_ce57` null-marker link (left over from
+`tmp = null;` BEFORE the reassignment) is correctly dropped by sv reassignment clearing — the
+marker-payload check now asserts the faithful intent (no constant-marker links remain at that
+statement). NOTE (cosmetic, worth a look): index spellings drifted from symbolic `tmp[u][v]`
+(loop variables) to `tmp[1][1]` in the sv output — suspicious constant-folding of loop indices
+in DV spelling; and the row-precise `tmp[u]~0:dcts[u]` coarsened to `tmp~0:dcts` with `∈?/∋?`
+could-be variants.
+
+Open work items, in order: (1) `m∩copy` determinism hunt (collapse/re-key layer, see previous
+entry); (2) the deferred to-side reverse faces (`matrix→ldIn.variables[1]`); (3) the DV
+index-spelling drift above; (4) the 60 link-suite string tests (output-fidelity backlog per the
+verdict-first strategy); (5) loop-carried old-value provenance; (6) the ≺-at-binding-site
+option if pattern containment is ever wanted again.
+
 ## UPDATE — ≺-family re-pinned (user decision); m∩copy DETERMINISM FLAKE filed; 2 real analyzer failures left
 
 The ≺-family ×4 (TestCast accessor, TestInstanceOf record pattern, MR-by-interfaces,
