@@ -116,6 +116,38 @@ Net: two fixes down, decode is much further along but `transform.jar` still abor
 `Try.TryDataImpl.Builder` fields. Bridge stays; 23 stdbase tests still blocked. Same deterministic repro. This is
 the frontier — please populate nested-type members (fields, and re-check methods) on load.
 
+### DIAGNOSIS #3 — root cause found, but the one-line fix has cross-cutting blast radius (2026-07-14, kotlin trunk)
+
+**Root cause of `Try.TryDataImpl.Builder has 0 fields` (and it is NOT nested-specific).**
+`ClassSymbolScanner.addMemberToType` skips **all private fields** (`if (isNotPrivate ...)`, `:552`) — exactly the
+gate the private-**constructor** fix (`49883ac1`) had to relax for constructors. So any compiled type loaded on
+demand from **bytecode** has `fields()` limited to its non-private members. A builder's fields are private, so
+`Try.TryDataImpl.Builder` loads with 0 fields, and `decodeFieldInfo`'s force-load then indexes past the end →
+"field index 1 out of range". (The nested-ness in Confirmation #3 was incidental.)
+
+The deeper asymmetry: **source analysis includes private fields; compiled (bytecode) loading excludes them.** The
+`transform.jar` analyzed-package was encoded from source (private fields present, so index 1 exists); decode goes
+through the bytecode loader (private excluded) → shorter list → mismatch.
+
+**Why the obvious one-line fix is not landable as-is.** Relaxing the gate to load private fields (excluding only
+compiler-synthetics: `load = !isPrivate || !synthetic`) *does* fix the bytecode side — verified on the regular-JAR
+class `org.slf4j.helpers.BasicMarker`, `fields()` **0 → 6** (`name`, `referenceList` present; no `this$0`
+synthetics). **But it breaks maddi's own committed analysis-hints golden files** (`ANALYZED_RESULTS`): those were
+encoded under the *exclude-private* policy, so making the decoder include private fields shifts every field index →
+`CodecImpl.decodeFieldInfo` throws in `LoadAnalysisResults`, failing **129/130** modification-analyzer tests in
+`beforeEach`. So the change was **reverted** on the kotlin trunk pending a coordinated decision.
+
+**What the real fix requires (decision needed):**
+1. **Regenerate** all committed analyzed-package golden files under an include-private policy (maddi's
+   `ANALYZED_RESULTS` *and* the stdbase side), so encoder and decoder agree; **or**
+2. **Make the codec field-reference scheme policy-insensitive** — reference a field by a stable key
+   (name + descriptor) instead of by positional index into a loader-dependent `fields()` list — which also needs a
+   format bump + regeneration but is robust to the private/synthetic policy going forward.
+
+Same **ct.sym caveat** either way: JDK platform types carry no private members at all, so a JDK type's private
+field stays unrecoverable; `transform.jar` classes are regular JARs, so they *can* be made consistent. Net:
+`transform.jar` still blocked; the fix is a format/regeneration change, not a drop-in loader tweak.
+
 ### CONFIRMATION from the reporter (2026-07-13, jfocus-stdbase openjdk branch) — SUPERSEDED by #2 above
 
 Rebuilt against the fix. **`transform.jar` still does NOT decode** — but the failure is now the clear, contextual
