@@ -310,24 +310,23 @@ public class TestForEachLambda extends CommonTest {
         Links tlvT1 = listVi.linkedVariablesOrEmpty();
 
         Link link = tlvT1.stream().findFirst().orElseThrow();
-        assertEquals("map.§$$s[-1]", link.from().toString());
-        assertEquals("Type a.b.X.II[]", link.from().parameterizedType().toString());
+        assertEquals("map.§$$s", link.from().toString());
+        assertEquals("Type java.util.Map.§$$[]", link.from().parameterizedType().toString());
 
         assertEquals("""
-                0:map.§$$s[-1]~this.map.§$$s[-2],\
-                0:map.§$$s[-2]~this.map.§$$s[-1],\
-                0:map.§$$s~this.map.§$$s\
+                0:map.§$$s~this.map.§$$s,0:map.§$$s[-1]∩this.map.§$$s[-1],0:map.§$$s[-1]~this.map.§$$s[-2],\
+                0:map.§$$s[-2]~this.map.§$$s[-1],0:map.§$$s[-2]∩this.map.§$$s[-2]\
                 """, tlvT1.toString());
         assertEquals("""
-                [0:map.§$$s[-1]~this.map*.§$$s[-2],0:map.§$$s[-2]~this.map*.§$$s[-1],0:map.§$$s~this.map*.§$$s] --> -\
+                [0:map.§$$s~this.map*.§$$s,0:map.§$$s[-1]∩this.map*.§$$s[-1],0:map.§$$s[-1]~this.map*.§$$s[-2],\
+                0:map.§$$s[-2]~this.map*.§$$s[-1],0:map.§$$s[-2]∩this.map*.§$$s[-2]] --> -\
                 """, mlv.toString());
 
         MethodInfo method2 = X.findUniqueMethod("method2", 1);
         MethodLinkedVariables mlv2 = method2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method2));
         assertEquals("""
-                [0:map.§$$s[-1]~this.map*.§$$s[-1],\
-                0:map.§$$s[-2]~this.map*.§$$s[-2],\
-                0:map.§$$s~this.map*.§$$s] --> -\
+                [0:map.§$$s~this.map*.§$$s,0:map.§$$s[-1]~this.map*.§$$s[-1],0:map.§$$s[-1]∩this.map*.§$$s[-2],\
+                0:map.§$$s[-2]∩this.map*.§$$s[-1],0:map.§$$s[-2]~this.map*.§$$s[-2]] --> -\
                 """, mlv2.toString());
     }
 
@@ -373,9 +372,8 @@ public class TestForEachLambda extends CommonTest {
         assertEquals("[0:h*∈this.map*.§$$s[-1], 1:ii*∈this.map*.§$$s[-2]] --> -", add2Mtl.toString());
 
         final String LINKS_MAP_PUT = """
-                [0:map.§$$s[-1]~this.map*.§$$s[-2],\
-                0:map.§$$s[-2]~this.map*.§$$s[-1],\
-                0:map.§$$s~this.map*.§$$s] --> -\
+                [0:map.§$$s~this.map*.§$$s,0:map.§$$s[-1]∩this.map*.§$$s[-1],0:map.§$$s[-1]~this.map*.§$$s[-2],\
+                0:map.§$$s[-2]~this.map*.§$$s[-1],0:map.§$$s[-2]∩this.map*.§$$s[-2]] --> -\
                 """;
 
         MethodInfo method = X.findUniqueMethod("method", 1);
@@ -419,9 +417,8 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
         assertEquals("""
-                [0:map.§$$s[-1]~this.map*.§$$s[-1],\
-                0:map.§$$s[-2]~this.map*.§$$s[-2],\
-                0:map.§$$s~this.map*.§$$s] --> -\
+                [0:map.§$$s~this.map*.§$$s,0:map.§$$s[-1]~this.map*.§$$s[-1],0:map.§$$s[-1]∩this.map*.§$$s[-2],\
+                0:map.§$$s[-2]∩this.map*.§$$s[-1],0:map.§$$s[-2]~this.map*.§$$s[-2]] --> -\
                 """, mlvMethod.toString());
     }
 
@@ -468,9 +465,8 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
         assertEquals("""
-                [0:map.§$$s[-1]~this.map*.§$$s[-1],\
-                0:map.§$$s[-2]~this.map*.§$$s[-2],\
-                0:map.§$$s~this.map*.§$$s] --> -\
+                [0:map.§$$s~this.map*.§$$s,0:map.§$$s[-1]~this.map*.§$$s[-1],0:map.§$$s[-1]∩this.map*.§$$s[-2],\
+                0:map.§$$s[-2]∩this.map*.§$$s[-1],0:map.§$$s[-2]~this.map*.§$$s[-2]] --> -\
                 """, mlvMethod.toString());
     }
 

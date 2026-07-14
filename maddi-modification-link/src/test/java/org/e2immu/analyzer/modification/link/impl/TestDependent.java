@@ -69,7 +69,7 @@ public class TestDependent extends CommonTest {
         VariableInfo vi13copy = vd13.variableInfo("copy");
         assertEquals("copy.§ts∋extract3,copy.§ts~0:list.§ts", vi13copy.linkedVariables().toString());
         VariableInfo vi13list = vd13.variableInfo(extract3.parameters().getFirst());
-        assertEquals("0:list.§ts∋extract3,0:list.§ts~copy.§ts", vi13list.linkedVariables().toString());
+        assertEquals("0:list≥extract3,0:list.§ts∋extract3,0:list.§ts~copy.§ts", vi13list.linkedVariables().toString());
         assertEquals("[-] --> extract3∈0:list.§ts", mlv3.toString());
 
         MethodInfo extract4 = X.findUniqueMethod("extract4", 1);
@@ -118,7 +118,7 @@ public class TestDependent extends CommonTest {
         VariableInfo viIterator0 = add0.variableInfo("iterator");
         assertEquals("iterator.§m☷0:list.§m,iterator.§ts⊆0:list.§ts", viIterator0.linkedVariables().toString());
         // make sure that list is not modified!
-        assertEquals("[-] --> method∈0:list.§ts", mlvAdd.toString());
+        assertEquals("[-] --> method≤0:list,method∈?0:list.§ts", mlvAdd.toString());
     }
 
 
@@ -154,6 +154,6 @@ public class TestDependent extends CommonTest {
         VariableInfo viIterator0 = add0.variableInfo("iterator");
         assertEquals("iterator.§m☷0:list.§m,iterator.§ts⊆0:list.§ts", viIterator0.linkedVariables().toString());
         // make sure that list is modified! we must pass the .remove() method
-        assertEquals("[-] --> method∈0:list*.§ts", mlvAdd.toString());
+        assertEquals("[-] --> method≤0:list*,method∈?0:list*.§ts", mlvAdd.toString());
     }
 }

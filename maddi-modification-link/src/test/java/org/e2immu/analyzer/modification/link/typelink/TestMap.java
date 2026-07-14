@@ -193,20 +193,18 @@ public class TestMap extends CommonTest {
 
         VariableData vd1 = VariableDataImpl.of(init.methodBody().statements().getLast());
         VariableInfo keys1 = vd1.variableInfo(keys);
-        assertEquals("0:keys.§ks∋key,0:keys.§ks~this.map.§kvs[-1]", keys1.linkedVariables().toString());
+        assertEquals("0:keys.§ks∋key,0:keys.§ks∩1:values.§vs,0:keys.§ks~this.map.§kvs[-1],0:keys.§ks∩this.map.§kvs[-2],0:keys.§ks∩value", keys1.linkedVariables().toString());
 
         VariableInfo values1 = vd1.variableInfo(values);
-        assertEquals("1:values.§vs∋value,1:values.§vs~this.map.§kvs[-2]", values1.linkedVariables().toString());
+        assertEquals("1:values.§vs∩0:keys.§ks,1:values.§vs∩key", values1.linkedVariables().toString());
 
         VariableInfo map1 = vd1.variableInfo("a.b.C.map");
         assertEquals("""
-                this.map.§kvs[-1]∋key,\
-                this.map.§kvs[-1]~0:keys.§ks,\
-                this.map.§kvs[-2]∋value,\
-                this.map.§kvs[-2]~1:values.§vs\
+                this.map.§kvs[-1]~0:keys.§ks,this.map.§kvs[-1]∋key,this.map.§kvs[-2]∩0:keys.§ks,\
+                this.map.§kvs[-2]∩key\
                 """, map1.linkedVariables().toString());
 
-        assertEquals("[0:keys.§ks~this.map*.§kvs[-1], 1:values.§vs~this.map*.§kvs[-2]] --> -",
+        assertEquals("[0:keys.§ks∩1:values.§vs,0:keys.§ks~this.map*.§kvs[-1],0:keys.§ks∩this.map*.§kvs[-2], 1:values.§vs∩0:keys.§ks] --> -",
                 mlv.toString());
     }
 
@@ -439,7 +437,7 @@ public class TestMap extends CommonTest {
         VariableInfo thisMap1 = vd1.variableInfo("a.b.C.map");
         Links thisMap1Links = thisMap1.linkedVariablesOrEmpty();
         assertEquals("""
-                this.map.§kvs∋entry,this.map.§kvs≥entry.§kv.§k,this.map.§kvs≥entry.§kv.§v,this.map.§kvs~map.§vks,this.map.§kvs∩map.§vks[-1],this.map.§kvs∩map.§vks[-2]\
+                this.map.§kvs∋entry,this.map.§kvs~map.§vks,this.map.§kvs∩map.§vks[-1],this.map.§kvs∩map.§vks[-2]\
                 """, thisMap1Links.toString());
 
         // reverse.map∩this.map.§kvs is lost due to new version of Util.isPartOf()
@@ -449,11 +447,8 @@ public class TestMap extends CommonTest {
         Links entry100Links = viEntry100.linkedVariablesOrEmpty();
         // note: the last entry is due to ExpandSlice.completeSliceInformation
         assertEquals("""
-                entry.§kv.§k∈map.§vks[-2],\
-                entry.§kv.§k≤this.map.§kvs,\
-                entry.§kv.§v∈map.§vks[-1],\
-                entry.§kv.§v≤this.map.§kvs,entry∈this.map.§kvs,\
-                entry∈map.§vks\
+                entry∈map.§vks,entry.§kv.§k∩map.§vks[-1],entry.§kv.§k∈map.§vks[-2],entry.§kv.§v∈map.§vks[-1],\
+                entry.§kv.§v∩map.§vks[-2]\
                 """, entry100Links.toString());
 
         Statement s2 = reverse.methodBody().statements().getLast();
@@ -461,9 +456,8 @@ public class TestMap extends CommonTest {
         assertFalse(vd2.isKnown("entry"));
 
         assertEquals("""
-                [] --> reverse.map.§vks[-1]∩this.map.§kvs,\
-                reverse.map.§vks[-2]∩this.map.§kvs,\
-                reverse.map.§vks~this.map.§kvs\
+                [] --> reverse.map.§vks~this.map*.§kvs,reverse.map.§vks[-1]∩this.map*.§kvs,\
+                reverse.map.§vks[-2]∩this.map*.§kvs\
                 """, mlvReverse.toString());
 
         MethodInfo staticReverse = C.findUniqueMethod("staticReverse", 1);
@@ -475,15 +469,12 @@ public class TestMap extends CommonTest {
         Links tlvR0 = r0.linkedVariablesOrEmpty();
         // Not as correct as could be
         assertEquals("""
-                r.map.§vks[-1]∩0:c.map.§kvs,\
-                r.map.§vks[-2]∩0:c.map.§kvs,\
-                r.map.§vks~0:c.map.§kvs\
+                r.map.§vks~0:c.map.§kvs,r.map.§vks[-1]∩0:c.map.§kvs,r.map.§vks[-2]∩0:c.map.§kvs\
                 """, tlvR0.toString());
 
         assertEquals("""
-                [-] --> staticReverse.map.§vks[-1]∩0:c.map.§kvs,\
-                staticReverse.map.§vks[-2]∩0:c.map.§kvs,\
-                staticReverse.map.§vks~0:c.map.§kvs\
+                [-] --> staticReverse.map.§vks~0:c.map*.§kvs,staticReverse.map.§vks[-1]∩0:c.map*.§kvs,\
+                staticReverse.map.§vks[-2]∩0:c.map*.§kvs\
                 """, tlvSReverse.toString());
     }
 

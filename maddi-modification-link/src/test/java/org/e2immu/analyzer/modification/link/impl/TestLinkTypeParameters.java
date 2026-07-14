@@ -264,59 +264,53 @@ public class TestLinkTypeParameters extends CommonTest {
 
             // r
             VariableInfo vi0R = vd0.variableInfo(reverse3.parameters().getFirst());
-            assertEquals("0:r.pair.f→reverse3.g,0:r.pair.g→reverse3.f", vi0R.linkedVariables().toString());
+            assertEquals("0:r.pair.f→reverse3.g,0:r.pair.g→reverse3.f,0:r≈reverse3", vi0R.linkedVariables().toString());
 
             // return variable
             VariableInfo vi0Rv = vd0.variableInfo(reverse3.fullyQualifiedName());
-            assertEquals("reverse3←$_v,reverse3.f←0:r.pair.g,reverse3.g←0:r.pair.f",
+            assertEquals("reverse3.f←0:r.pair.g,reverse3.g←0:r.pair.f,reverse3←$_v",
                     vi0Rv.linkedVariables().toString());
 
         }
 
         MethodInfo reverse4 = X.findUniqueMethod("reverse4", 1);
         assertEquals("""
-                [-] --> reverse4.pair.f←0:r.pair.g,reverse4.pair.f≺reverse4.pair,\
-                reverse4.pair.g←0:r.pair.f,reverse4.pair.g≺reverse4.pair\
+                [-] --> reverse4.pair.f←0:r.pair.g,reverse4.pair.g←0:r.pair.f\
                 """, lvs(reverse4));
         //"0,1,2M-4-0,1,*M:f, 0,1,2M-4-0,1,*M:g, 0,1,2M-2-0,1,*M|0-*:pair, 0M,1M,2-2-2M,2M,2:r",
         //   assertEquals("2M-4-*M:f, 2M-4-*M:g, 2M-2-*M|0-*:pair", lvs(reverse4, 0));
 
         MethodInfo reverse5 = X.findUniqueMethod("reverse5", 1);
         assertEquals("""
-                [-] --> reverse5.pair.f←0:r.pair.g,reverse5.pair.f≺reverse5.pair,\
-                reverse5.pair.g←0:r.pair.f,reverse5.pair.g≺reverse5.pair\
+                [-] --> reverse5.pair.f←0:r.pair.g,reverse5.pair.g←0:r.pair.f\
                 """, lvs(reverse5));
         //"0,1,2M-4-0,1,*M:f, 0,1,2M-4-0,1,*M:g, 0,1,2M-2-0,1,*M|0-*:pair, 0M,1M,2-2-2M,2M,2:r"
         //    assertEquals("2M-4-*M:f, 2M-4-*M:g, 2M-2-*M|0-*:pair", lvs(reverse5, 0));
 
         MethodInfo reverse6 = X.findUniqueMethod("reverse6", 1);
         assertEquals("""
-                [-] --> reverse6.pair.f←0:r.pair.g,reverse6.pair.f≺reverse6.pair,\
-                reverse6.pair.g←0:r.pair.f,reverse6.pair.g≺reverse6.pair\
+                [-] --> reverse6.pair.f←0:r.pair.g,reverse6.pair.g←0:r.pair.f\
                 """, lvs(reverse6));
         //       "1,2M-4-*,*M:f, 0,2M-4-*,*M:g, 2M-4-*M:pair, 2M-4-*M:r", lvs(reverse6));
         //    assertEquals("2M-4-*M:f, 2M-4-*M:g, 2M-2-*M|0-*:pair", lvs(reverse6, 0));
 
         MethodInfo reverse7 = X.findUniqueMethod("reverse7", 1);
         assertEquals("""
-                [-] --> reverse7.pair.f←0:r.pair.g,reverse7.pair.f≺reverse7.pair,\
-                reverse7.pair.g←0:r.pair.f,reverse7.pair.g≺reverse7.pair\
+                [-] --> reverse7.pair.f←0:r.pair.g,reverse7.pair.g←0:r.pair.f\
                 """, lvs(reverse7));
         //"0,1,2M-4-0,1,*M:f, 0,1,2M-4-0,1,*M:g, 0,1,2M-2-0,1,*M|0-*:pair, 0M,1M,2-2-2M,2M,2:r"
         //    assertEquals("2M-4-*M:f, 2M-4-*M:g, 2M-2-*M|0-*:pair", lvs(reverse7, 0));
 
         MethodInfo reverse8 = X.findUniqueMethod("reverse8", 2);
         assertEquals("""
-                [-, -] --> reverse8.pair.f←1:y,reverse8.pair.f≺reverse8.pair,\
-                reverse8.pair.g←0:x,reverse8.pair.g≺reverse8.pair\
+                [-, -] --> reverse8.pair.f←1:y,reverse8.pair.g←0:x\
                 """, lvs(reverse8));
         //        "0,1,2M-4-0,1,*M:x, 0,1,2M-4-0,1,*M:y", );
         //    assertEquals("", lvs(reverse8, 0));
 
         MethodInfo reverse9 = X.findUniqueMethod("reverse9", 2);
         assertEquals("""
-                [-, -] --> reverse9.pair.f←1:r2.pair.g,reverse9.pair.f≺reverse9.pair,\
-                reverse9.pair.g←0:r1.pair.f,reverse9.pair.g≺reverse9.pair\
+                [0:r1≈1:r2, 1:r2≈0:r1] --> reverse9.pair.f←1:r2.pair.g,reverse9.pair.g←0:r1.pair.f\
                 """, lvs(reverse9));
         //        "0,1,2M-4-0,1,*M:f, 0,1,2M-4-0,1,*M:g, 0,1,2M-4-0,1,*M:pair, 0,1,2M-4-0,1,*M:pair, 0M,1M,2-4-2M,2M,2:r1, 0M,1M,2-4-2M,2M,2:r2",
         //    assertEquals("2M-4-*M:f, 2M-2-*M|0-*:pair", lvs(reverse9, 0));
@@ -324,8 +318,7 @@ public class TestLinkTypeParameters extends CommonTest {
 
         MethodInfo reverse10 = X.findUniqueMethod("reverse10", 2);
         assertEquals("""
-                [-, -] --> reverse10.pair.f←1:r2.pair.g,reverse10.pair.f≺reverse10.pair,\
-                reverse10.pair.g←0:r1.pair.f,reverse10.pair.g≺reverse10.pair\
+                [0:r1≈1:r2, 1:r2≈0:r1] --> reverse10.pair.f←1:r2.pair.g,reverse10.pair.g←0:r1.pair.f\
                 """, lvs(reverse10));
         //        "0,1,2M-4-0,1,*M:f, 0,1,2M-4-0,1,*M:g, 0,1,2M-4-0,1,*M:pair, 0,1,2M-4-0,1,*M:pair, 0M,1M,2-4-2M,2M,2:r1, 0M,1M,2-4-2M,2M,2:r2",
         //   assertEquals("2M-4-*M:f, 2M-2-*M|0-*:pair", lvs(reverse10, 0));

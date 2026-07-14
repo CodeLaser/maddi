@@ -48,10 +48,10 @@ public class TestEngine {
                 b ∈ d   *[b ≡ a, a ∈ d]
                 c ≡ a   *[c ≡ b, b ≡ a]
                 c ≡ b   0(c ≡ b)
-                c ∈ d   *[c ≡ a, a ∈ d]
+                c ∈ d   *[c ≡ a, a ∈ d] support: b ≡ a, c ≡ b
                 d ∋ a   0(d ∋ a)
                 d ∋ b   *[d ∋ a, a ≡ b]
-                d ∋ c   *[d ∋ b, b ≡ c]
+                d ∋ c   *[d ∋ a, a ≡ c] support: a ≡ b, b ≡ c
                 """, engine.printClosure());
     }
 
