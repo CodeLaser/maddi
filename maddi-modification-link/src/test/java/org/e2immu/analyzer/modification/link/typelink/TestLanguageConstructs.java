@@ -355,8 +355,10 @@ public class TestLanguageConstructs extends CommonTest {
                     }
                 }
                 """;
-        assertEquals("[0:g[0][0]∈0:g[0],0:g[0]∋$_ce3,0:g∋∋$_ce3] -->"
-                     + " m←0:g[0][0],m←$_ce3,m∈0:g[0],m∈∈0:g", link("a.b.C", src, "m"));
+        // sv precision: the old 0:g[0]∋$_ce3 / 0:g∋∋$_ce3 merge faces (the null-comparison constant
+        // 'stored in' the array) are gone
+        assertEquals("[0:g[0][0]∈0:g[0]] -->"
+                     + " m←$_ce3,m∈∈0:g,m∈0:g[0],m←0:g[0][0]", link("a.b.C", src, "m"));
     }
 
     @DisplayName("do-while loop links the returned array element to the array")
@@ -368,7 +370,9 @@ public class TestLanguageConstructs extends CommonTest {
                     X m(X[] arr) { int i = 0; X r = null; do { r = arr[i]; i++; } while (i < arr.length); return r; }
                 }
                 """;
-        assertEquals("[0:arr∋$_ce1] --> m←0:arr[0],m←$_ce1,m∈0:arr", link("a.b.C", src, "m"));
+        // sv precision gain: 'r = null' can never reach the return (a do-while body always executes),
+        // so the old m←$_ce1 / 0:arr∋$_ce1 merge faces are gone
+        assertEquals("[-] --> m∈0:arr,m←0:arr[0]", link("a.b.C", src, "m"));
     }
 
     @DisplayName("instanceof pattern binding links the returned variable to the tested expression")
