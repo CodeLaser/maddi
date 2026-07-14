@@ -69,3 +69,22 @@ jfocus-stdbase now has a **robustness fallback** (derive the binary operator fro
 `runtime.assignOperatorToBinary(...)` when `binaryOperator()` is null), so it is correct regardless. But the CST
 should be complete at the source — other consumers will hit the same gap. Low risk: the one-line addition only
 populates a field that is currently null.
+
+## RESOLUTION (2026-07-14, kotlin trunk — maddi-java-openjdk owner)
+
+Fixed exactly as suggested. `ScanCompilationUnit.visitCompoundAssignment` (`:1748`) now sets, alongside the
+assignment operator:
+
+```java
+.setBinaryOperator(runtime.assignOperatorToBinary(operator))
+.setAssignmentOperatorIsPlus(kind == Tree.Kind.PLUS_ASSIGNMENT)
+```
+
+giving parity with the unary (`i++`/`i--`) path. Verified `runtime.assignOperatorToBinary` covers **every**
+operator the switch produces — including the three shift operators, whose `assign…OperatorInt()` accessors return
+the same `MethodInfo` fields the mapping compares against (`PredefinedImpl:585-591` ↔ `:475-477`) — so there is no
+`NYI`/crash risk for `<<=` / `>>=` / `>>>=`. Regression test `expression/TestCompoundAssignment`: for
+`{ int i=a; i+=3; return i; }`, `binaryOperator()` is now `runtime.plusOperatorInt()` (was `null`),
+`assignmentOperator()` is `+=`, `assignmentOperatorIsPlus()` is true. Green; java-openjdk suite unaffected.
+
+The stdbase fallback can stay (harmless), or be removed now that the CST is complete at the source.
