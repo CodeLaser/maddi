@@ -239,10 +239,41 @@ public final class IncrementalFixpointEngine<V, L> {
                                     improved ? "improved" : "",
                                     candidate.print(vertexPrinter));
                             queue.addLast(next);
+                            if (added) completeSymmetrically(next, fact, newFact, candidate, queue, optimize);
                         }
                     }
                 }
             }
+        }
+    }
+
+    /*
+    Facts are semantically symmetric-by-reverse (features #2/3; materializeWitnessOrphans already upgrades both
+    directions on removal). But the closure's two directions DERIVE independently, so whether the mirror of a
+    derived fact exists depended on whether the insertion order happened to enable its own derivation path — a
+    fact-level order dependence (the m∩copy flake: 'copy ∩ list' derivable in one order only). Complete the
+    mirror immediately. Its witness is the naturally-oriented reversed composition (rev(f∘g) = rev(g)∘rev(f)),
+    whose sub-facts exist because edges and mirrors are themselves symmetric — so witness choice stays canonical
+    across insertion orders (the diamond pin). acceptForComposite guards feature #9 (no composites TARGETING a
+    return variable or a someValue marker).
+     */
+    private void completeSymmetrically(Fact<V, L> next, Fact<V, L> left, Fact<V, L> right,
+                                       Witness<V, L> fallback, Deque<Fact<V, L>> queue, boolean optimize) {
+        L revLabel = reverse.apply(next.label());
+        if (!valid.test(revLabel) || !acceptForComposite.test(next.source())) return;
+        Fact<V, L> mirror = new Fact<>(next.target(), next.source(), revLabel);
+        boolean added = closure.add(mirror.source(), mirror.target(), mirror.label());
+        if (added) {
+            Fact<V, L> revRight = new Fact<>(right.target(), right.source(), reverse.apply(right.label()));
+            Fact<V, L> revLeft = new Fact<>(left.target(), left.source(), reverse.apply(left.label()));
+            Witness<V, L> leftW = witnessIndex.get(revRight);
+            Witness<V, L> rightW = witnessIndex.get(revLeft);
+            Witness<V, L> witness = leftW != null && rightW != null
+                    ? Witness.CompositeWitness.of(leftW, rightW, revRight, revLeft, !optimize)
+                    : fallback;
+            witnessIndex.putIfBetter(mirror, witness);
+            LOGGER.debug(" -- -- symmetric completion, {}", mirror.print(vertexPrinter));
+            queue.addLast(mirror);
         }
     }
 
@@ -282,6 +313,7 @@ public final class IncrementalFixpointEngine<V, L> {
                                         improved ? "improved" : "",
                                         next.print(vertexPrinter), candidate.print(vertexPrinter));
                                 queue.addLast(next);
+                                if (added) completeSymmetrically(next, newFact, fact, candidate, queue, optimize);
                             }
                         }
                     }
