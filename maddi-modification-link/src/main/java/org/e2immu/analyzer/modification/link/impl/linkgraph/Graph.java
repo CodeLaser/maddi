@@ -265,6 +265,12 @@ public class Graph {
             && (from.toString().contains(System.getenv("TRACEVAR")) || to.toString().contains(System.getenv("TRACEVAR")))) {
             System.out.println("TRACE mergeEdgeBi " + statementIndex + ": " + from + " " + linkNature + " " + to);
         }
+        // boundary filter for the Options.objectGraphLinks label cut: PRODUCTION excludes ∩/≤/≥ from the
+        // engine entirely, but some emitters produce them unconditionally (MakeGraph's slice ≤ base edge,
+        // 'mapRight.§tts[-1] ≤ mapRight.§tts') — drop them here instead of tripping the engine's assert
+        if (!engine.isValid(linkNature)) {
+            return false;
+        }
         if (from.equals(to)) {
             return engine.addVertex(from); // safety measure, is technically possible
         }

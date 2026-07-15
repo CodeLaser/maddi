@@ -164,8 +164,13 @@ public final class IncrementalFixpointEngine<V, L> {
         }
     }
 
+    public boolean isValid(L label) {
+        return valid.test(label);
+    }
+
     public int addSymmetricEdge(V from, V to, L label, String statementIndex) {
-        assert valid.test(label);
+        assert valid.test(label) : "invalid label " + label + " on edge " + from + " -> " + to
+                                   + " at statement " + statementIndex;
         L reverseLabel = reverse.apply(label);
         graph.addSymmetricEdge(from, to, label, reverseLabel);
         return incrementalUpdate(Set.of(new Fact<>(from, to, label), new Fact<>(to, from, reverseLabel)),
