@@ -310,7 +310,9 @@ public class JavaInspectorImpl implements JavaInspector {
                 .collect(Collectors.toUnmodifiableSet());
         InfoMap infoMap = runtime.newInfoMap(toRewire, rebuilt);
         Set<TypeInfo> rewired = infoMap.rewireAll();
-        rewired.forEach(compiledTypesManager::setRewiredType);
+        // every type it built, not just the primary ones: subtypes, and the anonymous/local/lambda types phase 3
+        // rewires on demand. Registering only the primary types leaves the rest answering with stale objects.
+        infoMap.rewiredTypes().forEach(compiledTypesManager::setRewiredType);
         rewired.forEach(summary::addType);
         // sourceFiles must hold the live objects: the next reloadSources reads their compilation unit's fingerprint
         sourceFiles.replaceAll((_, types) -> types.stream()

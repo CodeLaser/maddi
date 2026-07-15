@@ -103,21 +103,23 @@ public class InfoByFqn {
     }
 
     /**
-     * Point this registry at the rewired copy of a primary type and its subtypes: same FQN, same source set, new
-     * object (see {@code InfoMap}'s "BASIC RULE OF REWIRING"). Registers the type even when it was absent, so a
-     * rewired subtype that did not exist before still resolves.
+     * Point this registry at the rewired copy of one type: same FQN, same source set, new object (see {@code
+     * InfoMap}'s "BASIC RULE OF REWIRING"). Registers it even when it was absent, so a type that did not resolve
+     * before still does.
+     * <p>
+     * One type, not a type and its subtypes: the caller passes every type the rewire produced
+     * ({@code InfoMap.rewiredTypes()}), which is the only complete list — anonymous classes, local classes and
+     * lambdas are rewired too, and none of them is among a type's {@code subTypes()}.
      */
-    public void replaceType(TypeInfo primaryType) {
-        SourceSet sourceSet = primaryType.compilationUnit().sourceSet();
-        primaryType.recursiveSubTypeStream().forEach(ti -> {
-            String fqn = ti.fullyQualifiedName();
-            List<TypeInfo> multi = multiTypeByFqn.get(fqn);
-            if (multi == null) {
-                singleTypeByFqn.put(fqn, ti);
-            } else {
-                multiTypeByFqn.put(fqn, multi.stream().map(m -> sameSourceSet(m, sourceSet) ? ti : m).toList());
-            }
-        });
+    public void replaceType(TypeInfo typeInfo) {
+        String fqn = typeInfo.fullyQualifiedName();
+        List<TypeInfo> multi = multiTypeByFqn.get(fqn);
+        if (multi == null) {
+            singleTypeByFqn.put(fqn, typeInfo);
+        } else {
+            SourceSet sourceSet = typeInfo.compilationUnit().sourceSet();
+            multiTypeByFqn.put(fqn, multi.stream().map(m -> sameSourceSet(m, sourceSet) ? typeInfo : m).toList());
+        }
     }
 
     private static boolean sameSourceSet(TypeInfo typeInfo, SourceSet sourceSet) {

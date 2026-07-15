@@ -55,6 +55,19 @@ public interface InfoMap {
     Set<TypeInfo> rewireAll();
 
     /**
+     * <em>Every</em> type this map rewired, as opposed to only the primary types {@link #rewireAll()} returns: their
+     * subtypes, and the types phase 3 rewires on demand — anonymous classes ({@code ConstructorCall}), local classes
+     * ({@code LocalTypeDeclaration}) and lambdas.
+     * <p>
+     * Those last three are not among a type's {@code subTypes()} ("the types directly enclosed in this type's body"),
+     * so a caller that re-registers a rewired type by walking it misses them and keeps handing out the objects the
+     * rewire replaced. This map is the only thing that knows what it built; ask it rather than re-derive it.
+     * <p>
+     * Call after {@link #rewireAll()}: the on-demand types come into existence during phase 3.
+     */
+    Set<TypeInfo> rewiredTypes();
+
+    /**
      * Returns the rewired copy of {@code typeInfo}.
      * Does not recurse through enclosing types; throws if not registered.
      */

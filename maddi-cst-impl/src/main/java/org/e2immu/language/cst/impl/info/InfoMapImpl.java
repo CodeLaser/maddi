@@ -145,6 +145,20 @@ public class InfoMapImpl implements InfoMap {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
+    /**
+     * The type values of the inner maps of the types we rewired: that is every type the phases created, the ones
+     * {@link #typeInfoRecurseAllPhases} made on demand included. The rebuilt (seeded) primary types are excluded —
+     * they are not ours, the parse produced and registered them.
+     */
+    @Override
+    public Set<TypeInfo> rewiredTypes() {
+        return toRewire.stream()
+                .flatMap(primaryType -> setOfPrimaryTypesToRewire.get(primaryType).values().stream())
+                .filter(info -> info instanceof TypeInfo)
+                .map(info -> (TypeInfo) info)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
     @Override
     public TypeInfo typeInfoRecurseAllPhases(TypeInfo typeInfo) {
         Map<Info, Info> map = setOfPrimaryTypesToRewire.get(typeInfo.primaryType());

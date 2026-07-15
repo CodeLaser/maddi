@@ -1,6 +1,7 @@
 package org.e2immu.language.inspection.openjdk;
 
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.ParseResult;
@@ -101,26 +102,36 @@ public class TestReloadPrerequisites {
         assertSame(pr.findType("a.b.Y"), ctm.get("a.b.Y", sourceSet));
     }
 
-    @DisplayName("setRewiredType: the registry points at the new object, same FQN")
+    @DisplayName("setRewiredType: the registry points at the new objects, same FQNs")
     @Test
     public void testSetRewiredType() {
         ParseResult pr = parse();
         TypeInfo x = pr.findType("a.b.X");
+        TypeInfo innerBefore = ctmGet("a.b.X.Inner");
+        assertNotNull(innerBefore);
         CompiledTypesManager ctm = javaInspector.compiledTypesManager();
 
-        // build the rewired copy exactly as the parse will: newInfoMap over the types to rewire, then rewireAll
-        java.util.Set<TypeInfo> rewiredSet = javaInspector.runtime().newInfoMap(java.util.Set.of(x)).rewireAll();
-        assertEquals(1, rewiredSet.size());
+        // exactly as the parse does it: newInfoMap over the types to rewire, rewireAll, then register every type the
+        // map built -- setRewiredType registers the one type it is given, and the map is what knows the full list
+        InfoMap infoMap = javaInspector.runtime().newInfoMap(java.util.Set.of(x));
+        java.util.Set<TypeInfo> rewiredSet = infoMap.rewireAll();
+        assertEquals(1, rewiredSet.size(), "rewireAll returns the primary types");
         TypeInfo rewired = rewiredSet.iterator().next();
         assertNotSame(x, rewired);
         assertEquals(x.fullyQualifiedName(), rewired.fullyQualifiedName());
+        assertTrue(infoMap.rewiredTypes().size() > rewiredSet.size(),
+                "rewiredTypes() reports more than the primary types: " + infoMap.rewiredTypes());
 
-        ctm.setRewiredType(rewired);
+        infoMap.rewiredTypes().forEach(ctm::setRewiredType);
 
         assertSame(rewired, ctm.get("a.b.X", sourceSet));
         assertNotSame(x, ctm.get("a.b.X", sourceSet));
-        TypeInfo innerAfter = ctm.get("a.b.X.Inner", sourceSet);
-        assertNotNull(innerAfter, "subtypes must be rewired too");
+        TypeInfo innerAfter = ctmGet("a.b.X.Inner");
+        assertNotSame(innerBefore, innerAfter, "the subtype is rewired too, and re-registered");
         assertSame(rewired, innerAfter.compilationUnitOrEnclosingType().getRight());
+    }
+
+    private TypeInfo ctmGet(String fqn) {
+        return javaInspector.compiledTypesManager().get(fqn, sourceSet);
     }
 }
