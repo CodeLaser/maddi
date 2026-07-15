@@ -4,6 +4,37 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — cast/pattern ≡ cluster CLEARED; link 12 → 9 (commit ff35e95a)
+
+TestCast + TestInstanceOf + TestVariablesLinkedToObject green in BOTH modules. Four mechanisms:
+1. **Co-recipient identity** (`SharedVariables.assignmentEdgeStream`, gate `NOSIBEQ`): two group
+   members DIRECTLY assigned the same source hold the same object — 'ii=(II)o' + 'ii2=(II)o' ⟹
+   'ii2 ≡ ii' (+§m via the fold). Per-statement views (the deep/summary counterpart is the
+   sibling-recipient '→' rule); DIRECT records only — a transitive source does not guarantee
+   identity; same-base DV spelling pairs excluded.
+2. **Pattern-binding side-band** (`Graph.markPatternBinding`/`markPatternBindingAlias`, set in
+   `ExpressionVisitor.instanceOf`): the long-standing "distinction must be made at the binding
+   site" is now made there. `isInvalidFieldContainment` consults the side-band: deconstruction
+   components ('0:i ≻ o') and their type-pattern cast aliases ('0:i ≻ set' for 'o instanceof
+   Set set') survive; accessor-copy expansions still drop. Coarse old pins (0:i≈o, o∩0:i)
+   refined to ≻/≺ — the old test even carried a "'o ≺ 0:i' is not visible" lament, now visible.
+3. **VL2O union read** (`LinkComputerImpl.addToVariablesLinkedToObject`): the raw followGraph
+   probe was collapse-blind (lost 'ii2 ← 0:o'); the stored links deliberately suppress slot
+   aliases the probe surfaced (as leaked rep names, '$__sv_ii[j]' — the catalogue's open
+   cosmetic). Read BOTH: stored links first (authoritative), then the probe with
+   expandRepToMembers on each side ('ii[j]=false', rep-free).
+4. **§m pair semantics decision** (`VirtualFieldComputer.addModificationFieldEquivalence`):
+   worst = min(from, to) — was the documented copy-paste bug reading 'to' twice. The pair
+   denotes ONE runtime object, so a §m pair exists when EITHER static type is mutable:
+   'set.§m≡0:r.object.§m' through Object-typed slots, incl. the jfocus cascade's
+   'matrix.§m≡0:ld.variables[1].§m'. Eager emission (old was modification-coupled) — extra-only.
+
+A/B: link 9 (zero regressions), analyzer 122/122 (4 extra-only re-pins), bench green.
+
+Remaining 9: varargs pair + mutator-→ (TestLinkMethodCall ×2), and singles
+(TestLinkModificationArea ≻vs←≺, TestRedundantModificationLinks ≡ chain, TestMap ⊆vs~,
+TestStream MR-swap, TestSupplier test7 ≺, TestSupplierSpec ×2 ⊆/≺).
+
 ## UPDATE — ONE SLOT, ONE GROUP (gate NOSIBFACE); simple-builder ce-constants fixed; link 13 → 12
 
 TestStaticValuesRecord test5 root-caused: in a collapsed builder chain
