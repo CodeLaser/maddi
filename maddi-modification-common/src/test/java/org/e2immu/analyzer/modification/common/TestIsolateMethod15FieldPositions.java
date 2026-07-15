@@ -213,7 +213,7 @@ public class TestIsolateMethod15FieldPositions extends CommonIsolateMethodTest {
         String expected = """
                 import java.util.function.IntSupplier;
                 public class C_method {
-                    class C { static final int DAYS = 0;static int other() { return 0; }C() { }int instanceVal() { return 0; } }
+                    class C { static final int DAYS = 0; static int other() { return 0; }C() { }int instanceVal() { return 0; } }
                     int method(C param) {
                     int b = C.other();
                     int d = C.DAYS;
