@@ -116,7 +116,7 @@ public class TestSupplierSpec extends CommonTest {
     @DisplayName("supplier returns a fresh object capturing an argument: the argument flows into the new object's field")
     @Test
     public void supFreshCapture() {
-        assertEquals("[-, -] --> supFreshCapture.t←1:x,supFreshCapture.t≺0:opt.§x,supFreshCapture.t≺0:opt,"
+        assertEquals("[-, -] --> supFreshCapture.t≺0:opt,supFreshCapture.t←1:x,supFreshCapture.t≺0:opt.§x,"
                      + "supFreshCapture←0:opt.§x", link("supFreshCapture"));
     }
 
