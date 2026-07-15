@@ -327,6 +327,27 @@ hardening work). ~500 files differ, mostly kotlin parsing; the guard-relevant de
   primitives) tends to leave every field independent too. The gate is therefore principled + defence in depth rather
   than a fix for a demonstrated bug; the test says so explicitly.
 
+### Done (2026-07-15, kotlin trunk — blame for a dependent field, from the links)
+
+- **`blameFieldDependent` reads the field's `LINKS`**, not the CST. `FieldAnalyzerImpl` (phase 2) writes
+  `LinksImpl.LINKS` on every field and derives `INDEPENDENT_FIELD` from it in `computeIndependent`; the blame walk
+  mirrors that fold and reports the link that drags the field to DEPENDENT — to a parameter of a non-private method
+  ("the field is linked to parameter 'set' of the constructor of 'X': the caller keeps a reference to it") or to a
+  return value ("linked to the return value of method 'getSet': it is handed to the caller"). Located at the
+  parameter, resp. the method. Wired into both `guardIndependentType` and `guardImmutable`'s rule 3, which passed
+  `null` before.
+- **Why links and not a CST scan** — the first attempt matched `this.f = <parameter>` syntactically and was wrong:
+  linking computes *exact* assignments, so it sees through `this.x = Objects.requireNonNull(x)`, through a local, a
+  cast, `list.subList(..)` — every shape a syntactic match misses or misreads. `TestGuardIndependentType`
+  `testIndirectAssignmentIsBlamed` pins exactly this: the `requireNonNull` constructor still names the parameter,
+  where a CST match would have blamed nothing. It is also the analyzer's *own* reason, so blame and verdict cannot
+  drift apart.
+- **`PARAMETER_ASSIGNED_TO_FIELD` is dead** — it looked like a shortcut for this, but its only writer,
+  `TypeModIndyAnalyzerImpl.fromNonFinalFieldToParameter`, has its whole body commented out behind a FIXME (the method
+  is still called, so it is a silent no-op). `ParameterInfo.assignedToField()` is therefore always empty. A third
+  dead channel, alongside `FINAL_TYPE` and `ANALYZER_ERROR`.
+- 18 guard tests over 5 classes; analyzer + common green (187).
+
 ### Coverage today
 
 | Contract | On a type | On an abstract method | On a concrete method (override) |
@@ -336,9 +357,10 @@ hardening work). ~500 files differ, mostly kotlin parsing; the guard-relevant de
 | `@NotModified` | — | yes (implementations) | yes (`guardOverride`) |
 | `@Independent` | yes (dependent fields; explicit annotation only) | yes (decided-DEPENDENT only) | yes (decided-DEPENDENT only) |
 
-Blame coverage: `@Container`/`@NotModified` violations get a direct-site walk (receiver, argument, field assignment);
-`@Independent` violations get the `return <field>` walk; `@Immutable` violations name the rule and the member.
-Everything else reports without a "where".
+Blame coverage: `@Container`/`@NotModified` violations get a direct-site CST walk (receiver, argument, field
+assignment); a dependent **field** is blamed from its computed `LINKS` (the analyzer's own reason — parameter or
+return value named, indirection-proof); a dependent **method** gets the `return <field>` CST walk; `@Immutable`
+violations name the rule and the member. Everything else reports without a "where".
 
 Not covered: `@NotModified`/`@Independent` contracted directly **on a parameter or field**; `@Container(contract=true)`
 on a parameter (§070 dynamic checking); the `@Immutable`-strength nuance (contracted `@Immutable` (3) vs computed
@@ -358,10 +380,9 @@ defaults, above).
    carries it, which is why `TypeContainerAnalyzerImpl` needs nothing more); the *explanation* is not. Blame has to
    follow parameter → field → the method modifying the field's object graph, which is link data the CST cannot
    supply, and which `blameParameterModified` today answers with `null` (violation reported, no "where").
-2. Deepen the `@Independent` blame beyond `return <field>`: exposure through a call (`return wrap(data)`), through a
-   parameter, or from a constructor storing an argument without copying. For the last one,
-   `PARAMETER_ASSIGNED_TO_FIELD` (`Value.AssignedToField`, computed) names the fields a parameter is assigned to, and
-   would give "parameter 'ts' is assigned to field 'data'" without any link data — the cheapest next win.
+2. Deepen the `@Independent` blame for *methods* beyond `return <field>` (`blameMethodDependent`): exposure through a
+   call (`return wrap(data)`) or through a parameter. The field-level blame is done — see below — and shows the way:
+   read `METHOD_LINKS` rather than the CST.
 3. More guarded contracts: `@NotModified`/`@Independent` contracted directly on a parameter or field;
    `@Container(contract=true)` on a parameter (dynamic checking, §070). See the coverage table above.
 4. The strength nuances: contracted `@Immutable` (3) vs computed `IMMUTABLE_HC` (2), and contracted `@Independent`

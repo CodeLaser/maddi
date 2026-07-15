@@ -18,6 +18,10 @@ import org.e2immu.analyzer.modification.analyzer.GuardAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.common.defaults.ContractReader;
+import org.e2immu.analyzer.modification.prepwork.variable.Link;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
@@ -133,7 +137,7 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
             Value.Independent independent = fieldInfo.analysis().getOrNull(INDEPENDENT_FIELD,
                     ValueImpl.IndependentImpl.class);
             if (independent != null && independent.isDependent()) {
-                reportViolation(fieldInfo, null, contractLocation,
+                reportViolation(fieldInfo, blameFieldDependent(fieldInfo), contractLocation,
                         "field '" + fieldInfo.name() + "' of " + contractHolder.fullyQualifiedName()
                         + " is dependent: external modifications can reach the accessible content of the type,"
                         + " violating the @Independent contract on " + contractHolder.fullyQualifiedName());
@@ -219,7 +223,7 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
         Value.Independent independent = fieldInfo.analysis().getOrNull(INDEPENDENT_FIELD,
                 ValueImpl.IndependentImpl.class);
         if (independent != null && independent.isDependent()) {
-            reportViolation(fieldInfo, null, contractLocation,
+            reportViolation(fieldInfo, blameFieldDependent(fieldInfo), contractLocation,
                     prefix + " is dependent: it is exposed to, or shared with, the outside world, violating rule 3"
                     + " (no parameter or return value dependent on the fields)" + suffix);
         }
@@ -382,6 +386,63 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
             return true;
         });
         return found.get();
+    }
+
+    /**
+     * Blame walk for a dependent field: <em>why</em> can the outside world reach this field's object graph? The
+     * answer is already computed — it is the field's {@code LINKS} (written by {@code FieldAnalyzerImpl}, phase 2),
+     * from which that same analyzer derives {@code INDEPENDENT_FIELD}. This mirrors its {@code computeIndependent}
+     * loop and reports the link that drags the field down to DEPENDENT: a link to a parameter of a non-private
+     * method (the caller kept a reference to what it passed in), or to a return value of one (the field is handed
+     * out).
+     * <p>
+     * Reading the links rather than scanning the CST for {@code this.f = p} is what makes this correct: linking
+     * computes <em>exact</em> assignments, so it sees through {@code this.x = Objects.requireNonNull(x)}, through a
+     * local variable, through {@code list.subList(..)} — every shape a syntactic match would miss or misread.
+     * <p>
+     * {@code null} when the links are undecided, or when no single link explains it.
+     */
+    private Message blameFieldDependent(FieldInfo fieldInfo) {
+        Links links = fieldInfo.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class);
+        if (links == null) return null;
+        TypeInfo owner = fieldInfo.owner();
+        Value.Independent independentOfType = analysisHelper.typeIndependentFromImmutableOrNull(owner,
+                fieldInfo.type());
+        if (independentOfType == null) return null;
+        for (Link link : links) {
+            Value.Independent toIndependent = independenceOfLink(link, links, independentOfType);
+            if (toIndependent == null || !toIndependent.isDependent()) continue;
+            if (link.to() instanceof ParameterInfo pi && !pi.methodInfo().access().isPrivate()
+                && owner.inHierarchyOf(pi.typeInfo())) {
+                return MessageImpl.cause(pi, "the field is linked to parameter '" + pi.simpleName() + "' of "
+                                             + describe(pi.methodInfo()) + ": the caller keeps a reference to it");
+            }
+            if (link.to() instanceof ReturnVariable rv && !rv.methodInfo().access().isPrivate()
+                && owner.inHierarchyOf(rv.methodInfo().typeInfo())) {
+                return MessageImpl.cause(rv.methodInfo(), "the field is linked to the return value of "
+                                                          + describe(rv.methodInfo())
+                                                          + ": it is handed to the caller");
+            }
+        }
+        return null;
+    }
+
+    /** A constructor's {@code name()} is {@code <init>}; name it after its type instead. */
+    private static String describe(MethodInfo methodInfo) {
+        return methodInfo.isConstructor()
+                ? "the constructor of '" + methodInfo.typeInfo().simpleName() + "'"
+                : "method '" + methodInfo.name() + "'";
+    }
+
+    /** The independence a single link contributes, exactly as {@code FieldAnalyzerImpl.computeIndependent} folds it. */
+    private Value.Independent independenceOfLink(Link link, Links links, Value.Independent independentOfType) {
+        if (link.from().equals(links.primary()) && link.linkNature().isIdenticalToOrAssignedFromTo()) {
+            return independentOfType;
+        }
+        if (!link.linkNature().isDecoration()) {
+            return analysisHelper.typeIndependentFromImmutableOrNull(link.to().parameterizedType());
+        }
+        return null;
     }
 
     /**
