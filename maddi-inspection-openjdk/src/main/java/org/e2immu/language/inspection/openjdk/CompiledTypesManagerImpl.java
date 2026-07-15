@@ -56,7 +56,10 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     public void invalidate(TypeInfo typeInfo) {
         assert !typeInfo.compilationUnit().externalLibrary() : "Cannot invalidate a library type: " + typeInfo;
         assert typeInfo.isPrimaryType() : "Can only invalidate a primary type: " + typeInfo;
-        typeInfo.recursiveSubTypeStream().forEach(ti -> typesLoaded.remove(ti.fullyQualifiedName()));
+        // ask each type what it belongs to, rather than walk down: primaryType() climbs enclosing types AND enclosing
+        // methods, so it also claims the anonymous types a compilation unit registers (a.b.C.$0), which
+        // recursiveSubTypeStream() does not list. One left behind makes the re-scan throw "Duplicating type".
+        typesLoaded.values().removeIf(ti -> typeInfo.equals(ti.primaryType()));
         infoByFqn.removeType(typeInfo);
     }
 
