@@ -165,33 +165,45 @@ mutable (it has a modifying method `setMessage`). The technical aspect of storin
 retrieving the reference to the object, which is not normally available, prevents us from doing this here.
 
 To conclude this section, note that the definition of `@Container` carefully words
-_... modifies its arguments_. This is almost equivalent
-to ensuring that all non-private methods have all their parameters marked as {nm}. However, under those
-conditions, it is still possible to change the object graph of the arguments, as the following example shows:
+_... modifies its arguments_.
+Recall that a parameter is modified when the argument's _entire object graph_ is modified, at any point during the
+object's life-cycle -- not merely when the method that receives it contains a modifying statement.
+It is not because a method does not _visibly_ modify its argument, that no modification can exist:
 
-.Example {counter:example}, an instance where {nm} on the parameters is not enough to ensure {container}
+.Example {counter:example}, a modification to an argument, occurring outside the method that received it
 [source,java]
 ----
 class ErrorRegistry {
+    @Modified
     private final List<ErrorMessage> messages = new ArrayList<>();
 
     @Modified
-    public void add(@NotModified ErrorMessage message) {
+    public void add(@Modified ErrorMessage message) { // <1>
         messages.add(message);
     }
 
     @Modified
     public void changeFirst() {
         if(!messages.isEmpty()) {
-            messages.get(0).setMessage("changed!");
+            messages.get(0).setMessage("changed!"); // <2>
         }
     }
 }
 ----
 
-Here, objects passed on to the `ErrorRegistry` are not modified by the `add` method, but they may be modified later
-by a call to the `changeFirst` method, violating the idea that _all objects passed to the container are safe
-from modification_.
-The analyzer will need to guard against this; and its tool to this end is _linking_.
+<1> Not a single statement of `add` modifies `message`; it only stores it.
+<2> Yet here, an object which arrived via `message` is modified.
+
+The `add` method stores its argument, which links it to the field `messages`.
+The `changeFirst` method modifies the object graph of that field, so an object that entered the type through
+`message` can be modified after `add` has returned.
+The modification therefore travels, exactly as it does in <<linking-dependence>>: from the method `changeFirst`, to
+the field `messages`, and finally to the parameter `message` of `add`, which is marked {modified} as a result.
+`ErrorRegistry` is not a container, and objects passed to it are not safe from modification.
+
+It is _linking_ that allows the analyzer to make this journey, and it is the subject of the next section.
+Because modification of parameters is computed this way, the definition above is equivalent to the more practical
+rule that all parameters of all non-private methods and constructors must be {nm} -- which is precisely what the
+analyzer checks.
 
 // ensure a newline at the end
