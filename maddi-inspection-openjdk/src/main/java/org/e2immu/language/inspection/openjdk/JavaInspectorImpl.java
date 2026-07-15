@@ -58,7 +58,9 @@ public class JavaInspectorImpl implements JavaInspector {
     private static final TimedLogger TIMED_LOGGER = new TimedLogger(LOGGER, 1000L);
 
     private Runtime runtime;
-    private Map<SourceFile, List<TypeInfo>> sourceFiles;
+    // which primary types came out of which source file, keyed by (uri, source set) -- SourceFile's equality ignores
+    // path and fingerprint. Filled after every scan; this is the map reloadSources diffs the source tree against.
+    private final Map<SourceFile, List<TypeInfo>> sourceFiles = new HashMap<>();
     private CompiledTypesManager compiledTypesManager;
     private InputConfiguration inputConfiguration; // kept for tests
     private final boolean computeFingerPrints;
@@ -181,7 +183,7 @@ public class JavaInspectorImpl implements JavaInspector {
     @Override
     public List<InitializationProblem> initialize(InputConfiguration inputConfiguration) throws IOException {
         this.inputConfiguration = inputConfiguration;
-        CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(inputConfiguration.javaBase());
+        CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(inputConfiguration.javaBase(), infoByFqn);
         ctm.setLazyLoader(this::loadCompiledTypeOrNull); // on-demand bytecode load for getOrLoad misses
         compiledTypesManager = ctm;
         runtime = new RuntimeWithCompiledTypesManager(ctm);
@@ -323,7 +325,8 @@ public class JavaInspectorImpl implements JavaInspector {
         // shipped index instead of javac's synthetic arg0, arg1, ...
         ParameterNameIndex pni = parameterNames ? parameterNameIndex() : null;
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
-                javacTask, sourceSet, infoByFqn, true, diagnostics, preload, pni, jdkInternals);
+                javacTask, sourceSet, infoByFqn, true, diagnostics, preload, pni, jdkInternals,
+                computeFingerPrints);
         ScanCompilationUnits.Result scanned = scanCompilationUnits.scan();
         this.lastScanUnits = scanCompilationUnits; // keep the live task for on-demand getOrLoad
 
@@ -334,6 +337,7 @@ public class JavaInspectorImpl implements JavaInspector {
             summary.addType(typeInfo);
             assert typeInfo.hasBeenInspected();
         }
+        recordSourceFiles(sourceSet, scanned.primaryTypes());
         if (!scanned.modules().isEmpty()) {
             summary.putSourceSetToModuleInfo(sourceSet, scanned.modules().getFirst());
         }
@@ -403,6 +407,38 @@ public class JavaInspectorImpl implements JavaInspector {
             if (type.isInstance(c)) return true;
         }
         return false;
+    }
+
+    /**
+     * Record which primary types a scan produced per source file. {@code reloadSources} needs this: it re-lists the
+     * source tree and, for each file it already knows, compares the fingerprint of the types held here against a
+     * freshly computed one.
+     * <p>
+     * Several top-level types can share one compilation unit (see {@code TestCompilationUnitIdentity}), hence the
+     * grouping by URI. A re-parse overwrites the entry: {@link SourceFile} hashes on (uri, source set) only, so the
+     * key stays stable even though the fingerprint changed.
+     */
+    private void recordSourceFiles(SourceSet sourceSet, List<TypeInfo> primaryTypes) {
+        Map<URI, List<TypeInfo>> byUri = new LinkedHashMap<>();
+        for (TypeInfo typeInfo : primaryTypes) {
+            byUri.computeIfAbsent(typeInfo.compilationUnit().uri(), _ -> new ArrayList<>()).add(typeInfo);
+        }
+        byUri.forEach((uri, types) -> {
+            TypeInfo first = types.getFirst();
+            SourceFile sourceFile = new SourceFile(pathOf(first), uri, sourceSet,
+                    first.compilationUnit().fingerPrintOrNull());
+            sourceFiles.put(sourceFile, List.copyOf(types));
+        });
+    }
+
+    /**
+     * A source file's path, as {@link SourceFile} wants it: package directories plus file name, never absolute (it
+     * asserts that for .java). Derived from the primary type's FQN rather than from the URI, so that in-memory
+     * (mem:) and file: sources look the same. Purely descriptive — SourceFile's equality ignores it. When a file
+     * holds several top-level types, the first one names it, which need not be the public one; nothing reads it back.
+     */
+    private static String pathOf(TypeInfo primaryType) {
+        return primaryType.fullyQualifiedName().replace('.', '/') + ".java";
     }
 
     // "we're working with JDK internals": open javac up to the JDK's non-exported packages, replacing the old

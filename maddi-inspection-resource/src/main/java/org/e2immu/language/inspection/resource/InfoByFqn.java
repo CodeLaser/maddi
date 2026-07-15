@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -61,6 +62,65 @@ public class InfoByFqn {
         multiTypeByFqn.values().forEach(list -> list.removeIf(InfoByFqn::isSourceType));
         multiTypeByFqn.values().removeIf(List::isEmpty);
         classScannerSetupDone.removeIf(InfoByFqn::isSourceType);
+    }
+
+    /**
+     * Forget one source primary type and all its subtypes, so that a re-parse of its compilation unit builds fresh
+     * {@code TypeInfo} objects rather than finding (and reusing) the stale ones. The counterpart of
+     * {@link #removeAllSources()} for a single type; see {@code JavaInspector.InvalidationState#INVALID}.
+     * <p>
+     * Matched on (FQN, source set), not on FQN alone: the same FQN may legitimately exist in another source set, and
+     * that type is not the one being invalidated. The {@code classScannerSetupDone} guard is dropped along with the
+     * type, exactly as {@code removeAllSources} does — the entries are identity-keyed on objects nobody will use again.
+     */
+    public void removeType(TypeInfo primaryType) {
+        Set<String> fqns = fqnsOf(primaryType);
+        SourceSet sourceSet = primaryType.compilationUnit().sourceSet();
+        singleTypeByFqn.entrySet().removeIf(e -> fqns.contains(e.getKey()) && sameSourceSet(e.getValue(), sourceSet));
+        for (String fqn : fqns) {
+            List<TypeInfo> multi = multiTypeByFqn.get(fqn);
+            if (multi != null) {
+                // rebuild: the lists in this map are immutable (List.of/Stream.toList), so removeIf would throw
+                List<TypeInfo> remaining = multi.stream().filter(ti -> !sameSourceSet(ti, sourceSet)).toList();
+                if (remaining.isEmpty()) multiTypeByFqn.remove(fqn);
+                else if (remaining.size() == 1) {
+                    multiTypeByFqn.remove(fqn);
+                    singleTypeByFqn.put(fqn, remaining.getFirst());
+                } else multiTypeByFqn.put(fqn, remaining);
+            }
+        }
+        classScannerSetupDone.removeIf(ti -> fqns.contains(ti.fullyQualifiedName())
+                                             && sameSourceSet(ti, sourceSet));
+        loadedForThisSourceSet.removeIf(ti -> fqns.contains(ti.fullyQualifiedName())
+                                              && sameSourceSet(ti, sourceSet));
+    }
+
+    /**
+     * Point this registry at the rewired copy of a primary type and its subtypes: same FQN, same source set, new
+     * object (see {@code InfoMap}'s "BASIC RULE OF REWIRING"). Registers the type even when it was absent, so a
+     * rewired subtype that did not exist before still resolves.
+     */
+    public void replaceType(TypeInfo primaryType) {
+        SourceSet sourceSet = primaryType.compilationUnit().sourceSet();
+        primaryType.recursiveSubTypeStream().forEach(ti -> {
+            String fqn = ti.fullyQualifiedName();
+            List<TypeInfo> multi = multiTypeByFqn.get(fqn);
+            if (multi == null) {
+                singleTypeByFqn.put(fqn, ti);
+            } else {
+                multiTypeByFqn.put(fqn, multi.stream().map(m -> sameSourceSet(m, sourceSet) ? ti : m).toList());
+            }
+        });
+    }
+
+    private static Set<String> fqnsOf(TypeInfo primaryType) {
+        return primaryType.recursiveSubTypeStream().map(TypeInfo::fullyQualifiedName)
+                .collect(Collectors.toSet());
+    }
+
+    private static boolean sameSourceSet(TypeInfo typeInfo, SourceSet sourceSet) {
+        SourceSet ss = typeInfo.compilationUnit().sourceSet();
+        return ss == null ? sourceSet == null : ss.equals(sourceSet);
     }
 
     private static boolean isSourceType(TypeInfo ti) {
