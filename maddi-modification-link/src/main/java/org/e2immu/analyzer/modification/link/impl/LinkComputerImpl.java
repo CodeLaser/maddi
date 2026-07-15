@@ -316,6 +316,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                                   || !vd.isKnown(returnVariable.fullyQualifiedName())
                     ? LinksImpl.EMPTY
                     : emptyIfOnlySomeValue(vd.variableInfo(returnVariable).linkedVariables());
+            if (System.getenv("BTRACE") != null && methodInfo.name().contains(System.getenv("BTRACE"))) {
+                System.out.println("BTRACE go() raw=" + (vd == null || returnVariable == null
+                                                         || !vd.isKnown(returnVariable.fullyQualifiedName())
+                        ? "?" : vd.variableInfo(returnVariable).linkedVariables())
+                                   + " ofReturnValue=" + ofReturnValue);
+            }
             Set<ParameterInfo> paramsInOfReturnValue = ofReturnValue.stream()
                     .flatMap(Link::parameterStream)
                     .collect(Collectors.toUnmodifiableSet());

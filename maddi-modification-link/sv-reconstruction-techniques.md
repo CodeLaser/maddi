@@ -359,7 +359,7 @@ original DV's element type when the translated array has no array dimension).
   isolation (`test7`, `test3`, `generic factory`).
 - **Trust only full-suite A/B** for attribution; env gates exist for every major mechanism
   (`NOSPINE NOMAT NOBOTH NOMIRROR NOPASSFIX NODESC NORL NOSV NODF NODFP NORVREV NORSRC NOACM
-  NOPDEEP NOSIBR NOVMIDIR NOFLIPSAME NORVM NOSIBFACE NOSIBEQ NOFLIPOWN NORVEQ`). Debug aids: `SVDUMP` (per-statement group dump), `SBDUMP=<simpleName>`
+  NOPDEEP NOSIBR NOVMIDIR NOFLIPSAME NORVM NOSIBFACE NOSIBEQ NOFLIPOWN NORVEQ NORVSP`). Debug aids: `SVDUMP` (per-statement group dump), `SBDUMP=<simpleName>`
   (closure with witnesses for a primary), `TRACEVAR=<substr>` (mergeEdgeBi + re-key trace),
   `RVTRACE` (return-variable builders b1/b2/b at write-out).
 - **Beware stale XMLs**: a silently failing gradle run leaves the previous run's test results in

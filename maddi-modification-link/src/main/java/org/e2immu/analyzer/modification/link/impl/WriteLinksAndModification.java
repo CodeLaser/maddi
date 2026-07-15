@@ -369,6 +369,10 @@ class WriteLinksAndModification {
                 if (!present) builder.add(l.from(), l.linkNature(), l.to());
             }
         }
+        if (System.getenv("BTRACE") != null && variable.toString().contains(System.getenv("BTRACE"))) {
+            System.out.println("BTRACE stmt " + statement.source().index() + " var=" + variable
+                               + " builder=" + builder.linkSet());
+        }
         if (newLinkedVariables.put(variable, builder) != null) {
             throw new UnsupportedOperationException("Each real variable must be a primary");
         }

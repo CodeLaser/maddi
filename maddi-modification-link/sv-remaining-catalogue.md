@@ -4,6 +4,29 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — mutator-returning-object FIXED (gate NORVSP); link 6 → 5
+
+The highest-consumer-value remaining test (all three linking goals). This session's earlier
+mechanisms had already recovered the SUMMARY ('writeReturn←0:box*' + both .t links); the last
+diff was x's param face ('1:x*→0:box*.t' vs '-'). Root: the slot group
+{writeReturn.t, box.t, 1:x} reconstructs x's flow in the RETURN spelling ('x → writeReturn.t')
+— the (box.t ← x) record was swallowed by isAssignedFrom's 'already in the same group' branch
+— and filteredPi then strips return-links from params mentioned in the return value: the fact
+existed but only in a spelling the summary must not print. Fix in assignmentEdgeStream: a
+recipient that is a RETURN'S FIELD FACE also emits the slot's non-return sibling spellings
+('x → 0:box.t'). FIELD FACES only — for the WHOLE return, group siblings are multi-source
+could-be aliases (first attempt fired on switch arms yielding list1/list2/list3 and fabricated
+'0:list3→this.list1'; the field-face guard kills that).
+
+Also: fresh-object capture re-pinned earlier (order-only after the session's recoveries;
+its content was fully back). Debug aid added: BTRACE=<substr> (final per-variable builder at
+write-out + go()'s raw/filtered ofReturnValue).
+
+A/B: link 5 (writeReturn green, zero regressions), analyzer 122/122, deep-structure bench
+green, parseq bench 1652ms (baseline). Remaining 5: varargs fan-out (TestLinkMethodCall),
+TestLinkModificationArea ≻, TestStream MR-swap (type-name drift), TestSupplier test7 ≺,
+TestSupplierSpec Stream.generate ⊆.
+
 ## UPDATE — parseq bench RESTORED; production label-cut violation fixed; NEW BASELINE ~1.7s
 
 The recaptured log (/tmp/jfocus-test-debug.log — **compileTestJava**, not compileJava:
