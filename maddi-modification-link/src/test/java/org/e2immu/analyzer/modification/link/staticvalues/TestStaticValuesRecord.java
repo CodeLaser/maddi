@@ -736,7 +736,7 @@ public class TestStaticValuesRecord extends CommonTest {
         {
             VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
             VariableInfo bVi1 = vd1.variableInfo("b");
-            assertEquals("b.function←Λ$_fi2,b.variables∋$__sv_variables[0],b.variables[0]∈b.variables,b.variables[0]←0:s",
+            assertEquals("b.function←Λ$_fi2,b.variables[0]∈b.variables,b.variables[0]←0:s",
                     bVi1.linkedVariables().toString());
         }
         {
@@ -744,7 +744,7 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableData vd2 = VariableDataImpl.of(rLvc);
             VariableInfo rVi2 = vd2.variableInfo("r");
             assertEquals("""
-                    r.function←Λ$_fi2,r.function←Λb.function,r.function→Λb.function,r.variables∋$__sv_variables[0],r.variables~b.variables,r.variables←b.variables,r.variables∋b.variables[0],r.variables∋0:s,r.variables[0]∈b.variables,r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables[0]←0:s,r.variables.§m≡b.variables.§m,r.variables.§m≡b.variables[0].§m,r.variables.§m≡0:s.§m,r≈b\
+                    r.function←Λ$_fi2,r.function←Λb.function,r.function→Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables∋b.variables[0],r.variables[0]∈b.variables,r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables.§m≡b.variables.§m,r.variables.§m≡0:s.§m,r≈b\
                     """, rVi2.linkedVariables().toString());
         }
         // example of the use of VariableTranslationAllowHierarchy

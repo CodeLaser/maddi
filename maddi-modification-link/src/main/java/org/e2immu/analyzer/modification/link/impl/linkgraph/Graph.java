@@ -218,9 +218,8 @@ public class Graph {
 
     public Stream<Link> virtualModificationEdgeStream(Variable primary) {
         Set<Variable> variables = virtualModificationIdenticals.variablesPartOf(primary);
-        Map<Variable, VirtualModificationIdenticals.Group> groups = variables.stream()
-                .collect(Collectors.toUnmodifiableMap(v -> v, virtualModificationIdenticals::members));
-        Stream<Link> own = groups.entrySet().stream().flatMap(e -> e.getValue().expand(e.getKey()));
+        Stream<Link> own = variables.stream()
+                .flatMap(v -> virtualModificationIdenticals.groupsOfMember(v).flatMap(g -> g.expand(v)));
         // §m knowledge of an assignment SOURCE transfers to the recipient: 'return zs' collapses {return, zs}, and
         // zs.§m ≡ 0:in.§m (subList returns a view) must surface as return.§m ≡ 0:in.§m on the return's summary.
         // The VMI members are keyed on the source (primary(zs.§m) = zs), so variablesPartOf(primary) misses them;
@@ -230,7 +229,8 @@ public class Graph {
         for (Variable face : sharedVariables.assignmentSources(primary)) {
             for (Variable v : virtualModificationIdenticals.variablesPartOf(face)) {
                 Variable rehomed = rehome(v, face, primary);
-                virtualModificationIdenticals.members(v).expand(rehomed).forEach(inherited::add);
+                virtualModificationIdenticals.groupsOfMember(v)
+                        .flatMap(g -> g.expand(rehomed)).forEach(inherited::add);
             }
         }
         return Stream.concat(own, inherited.stream());
@@ -476,8 +476,10 @@ public class Graph {
     public Set<Variable> replaceReturnAffected(Variable from, Variable to,
                                                LinkNature currentLinkNature,
                                                LinkNature newLinkNature,
-                                               String skipStatementIndex) {
-        return engine.replaceReturnAffected(from, to, currentLinkNature, newLinkNature, skipStatementIndex);
+                                               String skipStatementIndex,
+                                               Predicate<Fact<Variable, LinkNature>> acceptRaw) {
+        return engine.replaceReturnAffected(from, to, currentLinkNature, newLinkNature, skipStatementIndex,
+                acceptRaw);
     }
 
     public int size() {

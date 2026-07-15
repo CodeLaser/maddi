@@ -4,6 +4,33 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — TestMap ⊆→~ root-caused: per-EDGE pass semantics in VMI; link 9 → 8
+
+TestMap test2Reverse0's coarsening had TWO stacked root causes:
+1. **VMI discarded the ☷ pass set on group join/merge** (`VirtualModificationIdenticals.add`
+   kept the group's original nature): the iterator's pass-marked ≡ ('identical except via
+   remove()') folded into the STRICT entrySet-view group {this.map.§m, entries.§m}, so next()
+   counted as a strict modification of the map and the entries — firing the ⊇→~ flip on two
+   UNMODIFIED variables. Fix: pass semantics are per-EDGE; a member now sits in SEVERAL groups,
+   one per pass set (`memberToGroup: Variable → Set<Integer>`), matched on `pass()` at
+   add/merge. VERDICT IMPROVEMENT exposed: the old engine marked 'this.map*' modified by mere
+   ITERATION in the direct-iterator variant (reverse) but not in the local-variable variant
+   (reverse0) — both now consistently unmodified (re-pinned here + TestWriteAnalysis2's codec
+   dump; analyzer suite confirms no verdict damage).
+2. **Ownership-restricted flip descent** (gate `NOFLIPOWN`): replaceReturnAffected descended a
+   modified variable's DERIVED ⊆ to raw edges owned by OTHER, unmodified variables — a
+   composite entailed by intact raw edges is not invalidated (logic: the closure fact follows
+   from its support). Raw rewrite now requires the flip owner to touch the edge (primary match,
+   or membership via expandRepToMembers). TestDependent/TestList2/TestConstructor (the flip's
+   legitimate cases) unaffected.
+
+Also: `iterateOverShared` gained the DependentVariable branch mirroring `expandRepToMembers` —
+the '$__sv_map.§vks[-1]' rep leak in printed links (catalogue's open cosmetic) is fixed; a
+TestStaticValuesRecord pin that had LEAKED '$__sv_variables[0]' baked in now dedups cleanly.
+Debug aid added: `FLIPTRACE=1` prints flip owner + builder at collection time.
+
+A/B: link 8 (zero regressions), analyzer 122/122, bench green.
+
 ## UPDATE — cast/pattern ≡ cluster CLEARED; link 12 → 9 (commit ff35e95a)
 
 TestCast + TestInstanceOf + TestVariablesLinkedToObject green in BOTH modules. Four mechanisms:

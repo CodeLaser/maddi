@@ -268,8 +268,7 @@ public class TestWriteAnalysis2 extends CommonTest {
 
     private void testLink3(MethodLinkedVariables mlv) {
         String expected = """
-                [] --> reverse.map.§vks~this.map*.§kvs,\
-                reverse.map.§vks[-1]∩this.map*.§kvs,reverse.map.§vks[-2]∩this.map*.§kvs\
+                [] --> reverse.map.§vks~this.map.§kvs,reverse.map.§vks[-1]∩this.map.§kvs,reverse.map.§vks[-2]∩this.map.§kvs\
                 """;
         assertEquals(expected, mlv.toString());
 
