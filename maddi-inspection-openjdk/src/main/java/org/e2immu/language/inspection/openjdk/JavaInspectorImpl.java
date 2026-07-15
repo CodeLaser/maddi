@@ -2,6 +2,7 @@ package org.e2immu.language.inspection.openjdk;
 
 import com.sun.source.util.JavacTask;
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.element.FingerPrint;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.ImportComputer;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -17,6 +18,7 @@ import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import org.e2immu.language.inspection.api.resource.MD5FingerPrint;
 import org.e2immu.language.inspection.api.resource.ParameterNameIndex;
 import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.e2immu.language.inspection.resource.InfoByFqn;
@@ -92,6 +94,8 @@ public class JavaInspectorImpl implements JavaInspector {
 
     public static final String JAR_WITH_PATH_PREFIX = "jar-on-classpath:";
     public static final String E2IMMU_SUPPORT = JAR_WITH_PATH_PREFIX + "org/e2immu/annotation";
+    // how reloadSources' in-memory sources are keyed, as in the in-house inspector: "test-protocol:a.b.X"
+    public static final String TEST_PROTOCOL_PREFIX = TEST_PROTOCOL + ":";
     public static final ParseOptions FAIL_FAST = new ParseOptions.Builder().setFailFast(true).build();
     public static final ParseOptions DETAILED_SOURCES = new ParseOptions.Builder().setDetailedSources(true).build();
 
@@ -607,11 +611,15 @@ public class JavaInspectorImpl implements JavaInspector {
     Note: code is pretty slow but not expected to be used in large set-ups.
      */
     private static boolean accept(SourceSet sourceSet, JavaFileObject jfo) {
+        return accept(sourceSet, jfo.toUri());
+    }
+
+    private static boolean accept(SourceSet sourceSet, URI uri) {
         Set<String> restrict = sourceSet.restrictToPackages();
         if (restrict == null || restrict.isEmpty()) return true;
-        String fqn = inferFullyQualifiedName(sourceSet, jfo);
+        String fqn = inferFullyQualifiedName(sourceSet, uri);
         if (fqn == null) {
-            LOGGER.warn("Cannot infer package of {}; keeping it despite the package restriction", jfo.toUri());
+            LOGGER.warn("Cannot infer package of {}; keeping it despite the package restriction", uri);
             return true;
         }
         int lastDot = fqn.lastIndexOf('.');
@@ -626,8 +634,7 @@ public class JavaInspectorImpl implements JavaInspector {
     sources encode it as the file path below one of the source directories. Returns null when it cannot
     be determined.
      */
-    private static String inferFullyQualifiedName(SourceSet sourceSet, JavaFileObject jfo) {
-        URI uri = jfo.toUri();
+    private static String inferFullyQualifiedName(SourceSet sourceSet, URI uri) {
         if ("mem".equals(uri.getScheme())) {
             String path = uri.getPath(); // /<sourceSet>/a/b/C.java
             String prefix = "/" + sourceSet.name() + "/";
@@ -671,9 +678,122 @@ public class JavaInspectorImpl implements JavaInspector {
         return sourceFiles.keySet();
     }
 
+    /*
+    Strategy (the same as the in-house inspector's): re-list the source tree and compare each file's fingerprint
+    against the one held by the types we built from it last time.
+    - new files: add to sourceFiles with no types; nothing to report, the code compiles.
+    - removed files: drop from sourceFiles; nothing to report either.
+    - changed files: report their types, so the caller's Invalidated can return INVALID for them and compute the
+      dependents that need rewiring (see RunRewireTests).
+    Nothing is invalidated or re-parsed here: this only answers "what changed?".
+     */
     @Override
-    public ReloadResult reloadSources(InputConfiguration inputConfiguration, Map<String, String> sourcesByTestProtocolURIString) {
-        return null;
+    public ReloadResult reloadSources(InputConfiguration inputConfiguration,
+                                      Map<String, String> sourcesByTestProtocolURIString) throws IOException {
+        if (!computeFingerPrints) {
+            throw new UnsupportedOperationException("The reloadSources method requires fingerprints to be computed");
+        }
+        List<InitializationProblem> problems = new ArrayList<>();
+        Set<TypeInfo> changed = new HashSet<>();
+        Set<SourceFile> removed = new HashSet<>(this.sourceFiles.keySet());
+        int newSourceFiles = 0;
+        int changedSourceFiles = 0;
+
+        List<SourceFile> current = listSourceFiles(inputConfiguration, sourcesByTestProtocolURIString, problems);
+        for (SourceFile sourceFile : current) {
+            List<TypeInfo> types = this.sourceFiles.get(sourceFile);
+            if (types == null) {
+                this.sourceFiles.put(sourceFile, List.of()); // NEW
+                ++newSourceFiles;
+                continue;
+            }
+            removed.remove(sourceFile);
+            if (types.isEmpty()) continue; // known, but nothing was parsed from it
+            FingerPrint currentFingerPrint = types.getFirst().compilationUnit().fingerPrintOrNull();
+            String sourceCode = loadSource(sourceFile, sourcesByTestProtocolURIString, problems);
+            FingerPrint newFingerPrint = sourceCode == null
+                    ? MD5FingerPrint.NO_FINGERPRINT : MD5FingerPrint.compute(sourceCode);
+            // a missing 'current' fingerprint means the file was parsed without them; treat as changed rather than
+            // silently keeping a type we cannot vouch for
+            if (currentFingerPrint == null || !currentFingerPrint.equals(newFingerPrint)) {
+                changed.addAll(types); // CHANGE
+                ++changedSourceFiles;
+            } // else: UNCHANGED
+        }
+        this.sourceFiles.keySet().removeAll(removed);
+        LOGGER.info("Reloaded sources: {} source file(s) removed, {} new, {} of {} remaining changed",
+                removed.size(), newSourceFiles, changedSourceFiles, current.size());
+        return new ReloadResult(List.copyOf(problems), Set.copyOf(changed));
+    }
+
+    /**
+     * The source files as they are on disk (or in memory) right now, independent of what was parsed before.
+     * <p>
+     * Mirrors {@code createTask}'s either/or: when in-memory sources are supplied they are the whole source tree and
+     * no directory is walked; otherwise every source set's directories are walked, resolved against the working
+     * directory. Both apply the source set's package restriction, exactly as {@code accept} does for the compilation
+     * units themselves, so a file javac never sees cannot show up as new here.
+     */
+    private List<SourceFile> listSourceFiles(InputConfiguration inputConfiguration,
+                                             Map<String, String> sourcesByTestProtocolURIString,
+                                             List<InitializationProblem> problems) {
+        List<SourceFile> result = new ArrayList<>();
+        for (SourceSet sourceSet : inputConfiguration.sourceSets()) {
+            if (!sourcesByTestProtocolURIString.isEmpty()) {
+                for (String key : sourcesByTestProtocolURIString.keySet()) {
+                    String fqn = key.startsWith(TEST_PROTOCOL_PREFIX) ? key.substring(TEST_PROTOCOL_PREFIX.length())
+                            : key;
+                    URI uri = inMemoryUri(sourceSet, fqn);
+                    if (accept(sourceSet, uri)) {
+                        result.add(new SourceFile(fqn.replace('.', '/') + ".java", uri, sourceSet, null));
+                    }
+                }
+            } else {
+                for (Path dir : sourceSet.sourceDirectories()) {
+                    Path resolved = inputConfiguration.workingDirectory() == null || dir.isAbsolute()
+                            ? dir : inputConfiguration.workingDirectory().resolve(dir);
+                    if (!Files.isDirectory(resolved)) continue;
+                    try (Stream<Path> walk = Files.walk(resolved)) {
+                        walk.filter(p -> p.toString().endsWith(".java")).sorted().forEach(p -> {
+                            URI uri = p.toUri();
+                            if (accept(sourceSet, uri)) {
+                                String fqn = inferFullyQualifiedName(sourceSet, uri);
+                                String path = fqn == null ? p.getFileName().toString()
+                                        : fqn.replace('.', '/') + ".java";
+                                result.add(new SourceFile(path, uri, sourceSet, null));
+                            }
+                        });
+                    } catch (IOException ioe) {
+                        LOGGER.error("Cannot walk source directory {}", resolved, ioe);
+                        problems.add(new InitializationProblem("Cannot walk source directory " + resolved, ioe));
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    /** The URI {@link InMemoryJavaFileObject} gives an in-memory source, so the keys match what a scan recorded. */
+    private static URI inMemoryUri(SourceSet sourceSet, String fqn) {
+        return URI.create("mem:///" + sourceSet.name() + "/" + fqn.replace('.', '/') + ".java");
+    }
+
+    /** The current text of a source file: from the supplied map for in-memory sources, from disk otherwise. */
+    private String loadSource(SourceFile sourceFile,
+                              Map<String, String> sourcesByTestProtocolURIString,
+                              List<InitializationProblem> problems) {
+        URI uri = sourceFile.uri();
+        if ("mem".equals(uri.getScheme())) {
+            String fqn = inferFullyQualifiedName(sourceFile.sourceSet(), uri);
+            return fqn == null ? null : sourcesByTestProtocolURIString.get(TEST_PROTOCOL_PREFIX + fqn);
+        }
+        try {
+            return Files.readString(Path.of(uri), sourceFile.sourceSet().sourceEncoding());
+        } catch (IOException | RuntimeException e) {
+            LOGGER.error("Cannot read source file {}", uri, e);
+            problems.add(new InitializationProblem("Cannot read source file " + uri, e));
+            return null;
+        }
     }
 
     @Override
