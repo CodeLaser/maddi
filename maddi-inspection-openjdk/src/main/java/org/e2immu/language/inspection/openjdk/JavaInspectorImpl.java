@@ -5,6 +5,7 @@ import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.FingerPrint;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.ImportComputer;
+import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.Formatter;
 import org.e2immu.language.cst.api.output.OutputBuilder;
@@ -54,6 +55,8 @@ import java.util.TreeSet;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import java.util.zip.GZIPInputStream;
+
+import static org.e2immu.language.inspection.api.integration.JavaInspector.InvalidationState.*;
 
 public class JavaInspectorImpl implements JavaInspector {
     private static final Logger LOGGER = LoggerFactory.getLogger(JavaInspectorImpl.class);
@@ -216,19 +219,127 @@ public class JavaInspectorImpl implements JavaInspector {
                 LOGGER.warn("Suggestion: add InputConfigurationImpl.TEST_PROTOCOL_SOURCE_SET");
             }
         }
-        for (SourceSet sourceSet : linearization) {
-            try {
-                singleSourceSet(summary, sourcesByFqn, infoByFqn, sourceSet, !parseOptions.failFast(),
-                        parseOptions.ignoreModule(), parseOptions.parameterNames() || parameterNames);
-            } catch (IOException ioe) {
-                // register the failure in the Summary (preserving the cause) instead of dropping it and aborting
-                // with a cause-less UnsupportedOperationException; harmonizes with the in-house inspector
-                LOGGER.error("Cannot set up/parse source set {}", sourceSet.name(), ioe);
-                summary.addParseException(new Summary.ParseException(sourceSet.uri(), sourceSet.name(),
-                        "Cannot set up/parse source set: " + ioe.getMessage(), ioe));
+        // Only go incremental when the caller actually asked. ParseOptions.invalidated() is never null -- the Builder
+        // defaults it -- so the default is recognised by identity. It matters: onlyPreload() parses a warmup type,
+        // which records its source set, and a subsequent full parse would then find it "known and unchanged" and
+        // scan nothing at all.
+        if (parseOptions.invalidated() == NOT_INVALIDATED) {
+            for (SourceSet sourceSet : linearization) {
+                scanSourceSet(summary, sourcesByFqn, sourceSet, parseOptions);
             }
+        } else {
+            reparse(summary, sourcesByFqn, parseOptions, linearization, parseOptions.invalidated());
         }
         return summary;
+    }
+
+    private void scanSourceSet(Summary summary,
+                               Map<String, String> sourcesByFqn,
+                               SourceSet sourceSet,
+                               ParseOptions parseOptions) {
+        try {
+            singleSourceSet(summary, sourcesByFqn, infoByFqn, sourceSet, !parseOptions.failFast(),
+                    parseOptions.ignoreModule(), parseOptions.parameterNames() || parameterNames);
+        } catch (IOException ioe) {
+            // register the failure in the Summary (preserving the cause) instead of dropping it and aborting
+            // with a cause-less UnsupportedOperationException; harmonizes with the in-house inspector
+            LOGGER.error("Cannot set up/parse source set {}", sourceSet.name(), ioe);
+            summary.addParseException(new Summary.ParseException(sourceSet.uri(), sourceSet.name(),
+                    "Cannot set up/parse source set: " + ioe.getMessage(), ioe));
+        }
+    }
+
+    /** What a re-parse does with one source set. The source set is the unit of work; see {@link #reparse}. */
+    private enum SourceSetAction {
+        RESCAN,  // javac + CST over the whole set: every type in it comes back as a new object
+        REWIRE,  // not re-scanned; its types are copied so they point at the new objects they depend on
+        KEEP     // untouched: the very same objects
+    }
+
+    /**
+     * Re-parse against an {@link Invalidated}, rebuilding only what a change reaches. The CST is effectively
+     * immutable, so a changed type cannot be patched in place: it, and everything downstream of it, must be rebuilt.
+     * Everything upstream stays as it is.
+     * <p>
+     * <b>The source set is the unit of work</b>, because that is javac's unit: a source set holding any INVALID type
+     * is re-scanned in full, so its <em>unchanged</em> types are rebuilt too — this is coarser than the in-house
+     * inspector, which re-parses per source file. Source sets that only depend on a re-scanned one are not
+     * re-scanned; their types are rewired, which copies them onto the new objects while keeping their compilation
+     * units (hence their fingerprints). Untouched source sets are kept as they are.
+     * <p>
+     * The linearization guarantees that a source set is handled after everything it depends on, so by the time a set
+     * is rewired, the objects it must point at already exist.
+     */
+    private void reparse(Summary summary,
+                         Map<String, String> sourcesByFqn,
+                         ParseOptions parseOptions,
+                         List<SourceSet> linearization,
+                         Invalidated invalidated) {
+        // snapshot: a RESCAN re-records sourceFiles for its own set as it goes
+        Map<SourceSet, List<TypeInfo>> typesBySourceSet = typesBySourceSet();
+        Set<TypeInfo> toRewire = new LinkedHashSet<>();
+        Set<SourceSet> rescanned = new LinkedHashSet<>();
+
+        for (SourceSet sourceSet : linearization) {
+            List<TypeInfo> types = typesBySourceSet.getOrDefault(sourceSet, List.of());
+            SourceSetAction action = actionFor(types, invalidated);
+            LOGGER.info("Re-parse: source set {} -> {} ({} primary type(s))", sourceSet.name(), action, types.size());
+            switch (action) {
+                case RESCAN -> {
+                    types.forEach(compiledTypesManager::invalidate);
+                    scanSourceSet(summary, sourcesByFqn, sourceSet, parseOptions);
+                    rescanned.add(sourceSet);
+                }
+                case REWIRE -> {
+                    summary.ensureSourceSet(sourceSet); // not scanned, but it is part of the result
+                    toRewire.addAll(types);
+                }
+                case KEEP -> {
+                    summary.ensureSourceSet(sourceSet);
+                    types.forEach(summary::addType);
+                }
+            }
+        }
+        if (toRewire.isEmpty()) return;
+
+        // the types the re-scan just produced. Without them the rewired copies would keep pointing at the objects
+        // they replaced -- the very thing REWIRE exists to prevent (see InfoMap).
+        Map<SourceSet, List<TypeInfo>> afterRescan = typesBySourceSet();
+        Set<TypeInfo> rebuilt = rescanned.stream()
+                .flatMap(sourceSet -> afterRescan.getOrDefault(sourceSet, List.of()).stream())
+                .collect(Collectors.toUnmodifiableSet());
+        InfoMap infoMap = runtime.newInfoMap(toRewire, rebuilt);
+        Set<TypeInfo> rewired = infoMap.rewireAll();
+        rewired.forEach(compiledTypesManager::setRewiredType);
+        rewired.forEach(summary::addType);
+        // sourceFiles must hold the live objects: the next reloadSources reads their compilation unit's fingerprint
+        sourceFiles.replaceAll((_, types) -> types.stream()
+                .map(ti -> toRewire.contains(ti) ? infoMap.typeInfo(ti) : ti).toList());
+        LOGGER.info("Re-parse: rewired {} primary type(s)", rewired.size());
+    }
+
+    /**
+     * A source set holding a type that changed (or vanished) must be re-scanned: javac cannot rebuild one file of it
+     * in isolation. Otherwise, if anything in it must be rewired, the whole set is rewired; if not, it is kept.
+     * A source set we have no types for has never been parsed (or is new), so it is scanned.
+     */
+    private SourceSetAction actionFor(List<TypeInfo> types, Invalidated invalidated) {
+        if (types.isEmpty()) return SourceSetAction.RESCAN;
+        boolean rewire = false;
+        for (TypeInfo typeInfo : types) {
+            InvalidationState state = invalidated.apply(typeInfo);
+            if (state == INVALID || state == REMOVED) return SourceSetAction.RESCAN;
+            if (state == REWIRE) rewire = true;
+        }
+        return rewire ? SourceSetAction.REWIRE : SourceSetAction.KEEP;
+    }
+
+    /** The primary types we last parsed, per source set; from {@link #sourceFiles}. */
+    private Map<SourceSet, List<TypeInfo>> typesBySourceSet() {
+        Map<SourceSet, List<TypeInfo>> map = new LinkedHashMap<>();
+        sourceFiles.forEach((sourceFile, types) ->
+                map.computeIfAbsent(sourceFile.sourceSet(), _ -> new ArrayList<>()).addAll(types));
+        return map;
     }
 
     @Override

@@ -54,10 +54,10 @@ public class TestJavaInspector6MultiProject {
                 .setModule(true)
                 .build();
 
-        Path maddiUtilJar = Path.of("../maddi-util/build/libs/maddi-util.jar").toRealPath();
+        Path maddiUtilJar = Path.of("../maddi-util/build/libs/maddi-util-0.8.2.jar").toRealPath();
         Path maddUtilSrc = Path.of("../maddi-util/src/main/java");
         SourceSet maddiUtil = new SourceSetImpl.Builder()
-                .setName("maddi-util.jar")
+                .setName("maddi-util-0.8.2.jar")
                 .setSourceDirectories(List.of(maddUtilSrc))
                 .setUri(maddiUtilJar.toUri())
                 .setLibrary(true)
@@ -73,10 +73,10 @@ public class TestJavaInspector6MultiProject {
                 .setModule(true)
                 .build();
 
-        Path cstApiJar = Path.of("../maddi-cst-api/build/libs/maddi-cst-api.jar").toRealPath();
+        Path cstApiJar = Path.of("../maddi-cst-api/build/libs/maddi-cst-api-0.8.2.jar").toRealPath();
         Path cstApiPath = Path.of("../maddi-cst-api/src/main/java");
         cstApi = new SourceSetImpl.Builder()
-                .setName("maddi-cst-api.jar")
+                .setName("maddi-cst-api-0.8.2.jar")
                 .setSourceDirectories(List.of(cstApiPath))
                 .setUri(cstApiJar.toUri())
                 .setLibrary(true)
@@ -92,20 +92,20 @@ public class TestJavaInspector6MultiProject {
                 .setModule(true)
                 .build();
 
-        Path cstAnalysisJar = Path.of("../maddi-cst-analysis/build/libs/maddi-cst-analysis.jar").toRealPath();
+        Path cstAnalysisJar = Path.of("../maddi-cst-analysis/build/libs/maddi-cst-analysis-0.8.2.jar").toRealPath();
         Path cstAnalysisPath = Path.of("../maddi-cst-analysis/src/main/java");
         cstAnalysis = new SourceSetImpl.Builder()
-                .setName("maddi-cst-analysis.jar")
+                .setName("maddi-cst-analysis-0.8.2.jar")
                 .setSourceDirectories(List.of(cstAnalysisPath))
                 .setUri(cstAnalysisJar.toUri())
                 .setModule(true)
                 .setDependencies(List.of(cstApi, maddiSupport, orgSlf4jApi))
                 .build();
 
-        Path cstImplJar = Path.of("../maddi-cst-impl/build/libs/maddi-cst-impl.jar").toRealPath();
+        Path cstImplJar = Path.of("../maddi-cst-impl/build/libs/maddi-cst-impl-0.8.2.jar").toRealPath();
         Path cstImplPath = Path.of("../maddi-cst-impl/src/main/java");
         SourceSet cstImpl = new SourceSetImpl.Builder()
-                .setName("maddi-cst-impl.jar")
+                .setName("maddi-cst-impl-0.8.2.jar")
                 .setSourceDirectories(List.of(cstImplPath))
                 .setUri(cstImplJar.toUri())
                 .setModule(true)
@@ -123,10 +123,10 @@ public class TestJavaInspector6MultiProject {
                         annotations, junitJupiter))
                 .build();
 
-        Path cstIoJar = Path.of("../maddi-cst-io/build/libs/maddi-cst-io.jar").toRealPath();
+        Path cstIoJar = Path.of("../maddi-cst-io/build/libs/maddi-cst-io-0.8.2.jar").toRealPath();
         Path cstIoPath = Path.of("../maddi-cst-io/src/main/java");
         SourceSet cstIo = new SourceSetImpl.Builder()
-                .setName("maddi-cst-io.jar")
+                .setName("maddi-cst-io-0.8.2.jar")
                 .setSourceDirectories(List.of(cstIoPath))
                 .setUri(cstImplJar.toUri())
                 .setModule(true)

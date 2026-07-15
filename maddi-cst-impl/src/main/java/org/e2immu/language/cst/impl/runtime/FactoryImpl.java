@@ -709,6 +709,11 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     }
 
     @Override
+    public InfoMap newInfoMap(Set<TypeInfo> primaryTypes, Set<TypeInfo> rebuiltPrimaryTypes) {
+        return new InfoMapImpl(primaryTypes, rebuiltPrimaryTypes);
+    }
+
+    @Override
     public InlineConditional newInlineConditional(Expression condition, Expression ifTrue, Expression ifFalse) {
         return new InlineConditionalImpl(List.of(), null, condition, ifTrue, ifFalse,
                 commonType(ifTrue.parameterizedType(), ifFalse.parameterizedType()));

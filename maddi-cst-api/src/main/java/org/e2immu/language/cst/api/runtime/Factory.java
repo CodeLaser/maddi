@@ -284,6 +284,14 @@ public interface Factory {
 
     InfoMap newInfoMap(Set<TypeInfo> primaryTypes);
 
+    /**
+     * @param primaryTypes        the primary types to rewire (copy, remapping their references)
+     * @param rebuiltPrimaryTypes primary types already rebuilt from source, which the rewired ones reach. Without
+     *                            them the rewired copies keep pointing at the objects that were replaced; see
+     *                            {@code InfoMap}.
+     */
+    InfoMap newInfoMap(Set<TypeInfo> primaryTypes, Set<TypeInfo> rebuiltPrimaryTypes);
+
     InlineConditional newInlineConditional(Expression condition, Expression ifTrue, Expression ifFalse);
 
     InlineConditional.Builder newInlineConditionalBuilder();

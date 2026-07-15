@@ -32,10 +32,52 @@ As a consequence, it doesn't really matter which object is used as the key.
  */
 public class InfoMapImpl implements InfoMap {
     private final Map<TypeInfo, Map<Info, Info>> setOfPrimaryTypesToRewire;
+    private final Set<TypeInfo> toRewire;
 
     public InfoMapImpl(Set<TypeInfo> setOfPrimaryTypesToRewire) {
-        this.setOfPrimaryTypesToRewire = setOfPrimaryTypesToRewire.stream()
-                .collect(Collectors.toUnmodifiableMap(primary -> primary, _ -> new HashMap<>()));
+        this(setOfPrimaryTypesToRewire, Set.of());
+    }
+
+    /**
+     * @param setOfPrimaryTypesToRewire the primary types to copy: they are unchanged, but they reach types that were
+     *                                  re-parsed, so their copies must be pointed at the new objects.
+     * @param rebuiltPrimaryTypes       primary types that have <em>already</em> been rebuilt from source (the
+     *                                  invalidated ones). They are not rewired — they are new objects already — but
+     *                                  they must be in this map, or {@link #typeInfo(TypeInfo)} would hand a rewired
+     *                                  type the stale object it used to reach: it returns its argument unchanged for
+     *                                  any type whose primary type is not a key here. Seeding each of them under
+     *                                  itself is enough, precisely because of the BASIC RULE above — a lookup of the
+     *                                  old object finds the new one, equality being fqn + source set.
+     */
+    public InfoMapImpl(Set<TypeInfo> setOfPrimaryTypesToRewire, Set<TypeInfo> rebuiltPrimaryTypes) {
+        Map<TypeInfo, Map<Info, Info>> map = new HashMap<>();
+        for (TypeInfo primaryType : setOfPrimaryTypesToRewire) {
+            map.put(primaryType, new HashMap<>()); // filled by the rewire phases
+        }
+        for (TypeInfo rebuilt : rebuiltPrimaryTypes) {
+            Map<Info, Info> seeded = new HashMap<>();
+            seed(seeded, rebuilt);
+            map.put(rebuilt, seeded);
+        }
+        this.setOfPrimaryTypesToRewire = Map.copyOf(map);
+        this.toRewire = Set.copyOf(setOfPrimaryTypesToRewire);
+    }
+
+    /** Map every Info of an already-rebuilt type onto itself; the old objects resolve to these by equality. */
+    private static void seed(Map<Info, Info> map, TypeInfo typeInfo) {
+        map.put(typeInfo, typeInfo);
+        for (MethodInfo methodInfo : typeInfo.constructorsAndMethods()) {
+            map.put(methodInfo, methodInfo);
+            for (ParameterInfo parameterInfo : methodInfo.parameters()) {
+                map.put(parameterInfo, parameterInfo);
+            }
+        }
+        for (FieldInfo fieldInfo : typeInfo.fields()) {
+            map.put(fieldInfo, fieldInfo);
+        }
+        for (TypeInfo subType : typeInfo.subTypes()) {
+            seed(map, subType);
+        }
     }
 
     @Override
@@ -84,21 +126,22 @@ public class InfoMapImpl implements InfoMap {
         return (TypeInfo) map.get(typeInfo);
     }
 
+    /** Only the types to rewire go through the phases: the rebuilt ones are new objects already, and are seeded. */
     public Set<TypeInfo> rewireAll() {
-        for (TypeInfo primaryType : setOfPrimaryTypesToRewire.keySet()) {
+        for (TypeInfo primaryType : toRewire) {
             primaryType.rewirePhase0(this, null);
         }
-        for (TypeInfo primaryType : setOfPrimaryTypesToRewire.keySet()) {
+        for (TypeInfo primaryType : toRewire) {
             primaryType.rewirePhase1(this);
         }
-        for (TypeInfo primaryType : setOfPrimaryTypesToRewire.keySet()) {
+        for (TypeInfo primaryType : toRewire) {
             primaryType.rewirePhase2(this);
         }
-        for (TypeInfo primaryType : setOfPrimaryTypesToRewire.keySet()) {
+        for (TypeInfo primaryType : toRewire) {
             primaryType.rewirePhase3(this);
         }
-        return setOfPrimaryTypesToRewire.entrySet().stream()
-                .map(e -> (TypeInfo) e.getValue().get(e.getKey()))
+        return toRewire.stream()
+                .map(primaryType -> (TypeInfo) setOfPrimaryTypesToRewire.get(primaryType).get(primaryType))
                 .collect(Collectors.toUnmodifiableSet());
     }
 

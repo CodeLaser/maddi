@@ -176,6 +176,7 @@ public class TestInvalidate extends CommonTest2 {
                 PROCESSOR_FQN, PROCESSOR);
         ParseResult pr1 = init(sourcesByFqn);
         assertEquals(3, pr1.primaryTypes().size());
+        TypeInfo iSource1 = pr1.findType(ISOURCE_FQN);
         Map<String, String> sourcesByURIString = sourcesByURIString(sourcesByFqn);
 
         // unchanged: Processor
@@ -189,6 +190,18 @@ public class TestInvalidate extends CommonTest2 {
                 .build();
         ParseResult pr2 = javaInspector.parse(sourcesByURIString, po2).parseResult();
         assertEquals(3, pr2.primaryTypes().size());
+
+        // What REWIRE is for: "the type isn't changed at all, but it accesses invalidated (and hence re-parsed, NEW)
+        // type info objects". Source implements ISource, which was re-parsed, so the rewired Source must implement
+        // the NEW ISource. It used to implement the stale one: the InfoMap was built from the REWIRE set alone, so
+        // ISource was not a key and typeInfo() handed back the argument unchanged.
+        TypeInfo iSource2 = pr2.findType(ISOURCE_FQN);
+        TypeInfo source2 = pr2.findType("a.b.Source");
+        assertNotSame(iSource1, iSource2, "ISource is INVALID: it must have been re-parsed");
+        TypeInfo implementedByRewired = source2.interfacesImplemented().getFirst().typeInfo();
+        assertSame(iSource2, implementedByRewired,
+                "the rewired Source must implement the re-parsed ISource, not the stale one");
+        assertNotSame(iSource1, implementedByRewired);
         for (TypeInfo pt1 : pr1.primaryTypes()) {
             TypeInfo pt2 = pr2.findType(pt1.fullyQualifiedName());
             if (PROCESSOR_FQN.equals(pt1.fullyQualifiedName())) {

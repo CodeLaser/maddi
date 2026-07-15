@@ -582,7 +582,10 @@ public class JavaInspectorImpl implements JavaInspector {
 
         // PHASE 3: actual parsing of types, methods, fields
         count.set(0);
-        InfoMap infoMap = invalidated == null ? null : runtime.newInfoMap(typesToRewire.keySet());
+        // the primary types this run rebuilds from source (the invalidated ones). The InfoMap is seeded with them,
+        // so that a rewired type reaches the NEW object rather than the one it replaced -- which is what REWIRE
+        // means. It is built once they exist, i.e. after this phase.
+        Set<TypeInfo> reparsedPrimaryTypes = ConcurrentHashMap.newKeySet();
         Stream<SourceFileCompilationUnit> stream3;
         if (parseOptions.parallel()) {
             stream3 = list.parallelStream();
@@ -609,6 +612,7 @@ public class JavaInspectorImpl implements JavaInspector {
                     }
                 }
                 sfCu.parsedCu.setTypes(List.copyOf(typeInfoList));
+                reparsedPrimaryTypes.addAll(typeInfoList);
                 count.incrementAndGet();
                 TIMED_LOGGER.info("Phase 3: parsing type/method/field declarations, done {}", count);
                 if (delayedCU == null) {
@@ -662,7 +666,10 @@ public class JavaInspectorImpl implements JavaInspector {
 
         resolveModuleInfo(summary);
 
-        if (infoMap != null) {
+        if (invalidated != null) {
+            // seeded with what was just re-parsed: without them the rewired copies keep pointing at the objects they
+            // replaced, and REWIRE ("accesses invalidated, and hence re-parsed, new type info objects") is a no-op
+            InfoMap infoMap = runtime.newInfoMap(typesToRewire.keySet(), Set.copyOf(reparsedPrimaryTypes));
             Set<TypeInfo> rewired = infoMap.rewireAll();
             rewired.forEach(compiledTypesManager::setRewiredType);
             rewired.forEach(summary::addType);

@@ -73,6 +73,14 @@ public interface JavaInspector {
 
     Invalidated INVALIDATED_ALL = t -> InvalidationState.INVALID;
 
+    /**
+     * The {@link ParseOptions.Builder} default: the caller did not ask for incremental parsing. Distinguished from a
+     * user-supplied "everything is unchanged" <em>by identity</em>, because the two mean different things to a parse
+     * that already holds types: the caller who never asked for incremental behaviour wants a full scan, whereas the
+     * caller who deliberately says UNCHANGED wants exactly what it says — keep them.
+     */
+    Invalidated NOT_INVALIDATED = t -> InvalidationState.UNCHANGED;
+
     record ParseOptions(boolean failFast,
                         boolean detailedSources,
                         Invalidated invalidated,
@@ -83,7 +91,7 @@ public interface JavaInspector {
         public static class Builder {
             boolean failFast;
             boolean detailedSources;
-            Invalidated invalidated = _ -> InvalidationState.UNCHANGED;
+            Invalidated invalidated = NOT_INVALIDATED;
             boolean parallel;
             boolean lombok;
             boolean ignoreModule;
