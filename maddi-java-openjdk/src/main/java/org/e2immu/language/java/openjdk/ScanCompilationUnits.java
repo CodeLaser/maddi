@@ -13,6 +13,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.element.FingerPrint;
 import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -20,6 +21,7 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import org.e2immu.language.inspection.api.resource.MD5FingerPrint;
 import org.e2immu.language.inspection.resource.InfoByFqn;
 import org.e2immu.util.internal.graph.util.TimedLogger;
 import org.jetbrains.annotations.NotNull;
@@ -57,6 +59,7 @@ public class ScanCompilationUnits {
     private final boolean detailedSources;
     private final ResolveJavaDoc resolveJavaDoc;
     private final List<String> packagesToPreload;
+    private final boolean computeFingerPrints;
 
     public record Result(List<TypeInfo> primaryTypes, List<ModuleInfo> modules, List<TypeInfo> preloads,
                          List<CompilationUnitFailure> failures) {
@@ -81,13 +84,15 @@ public class ScanCompilationUnits {
                                 MaddiDiagnosticCollector diagnosticCollector,
                                 List<String> packagesToPreload,
                                 org.e2immu.language.inspection.api.resource.ParameterNameIndex parameterNameIndex,
-                                boolean jdkInternals) {
+                                boolean jdkInternals,
+                                boolean computeFingerPrints) {
         this.runtime = runtime;
         this.diagnosticCollector = diagnosticCollector;
         this.task = task;
         this.sourceSet = sourceSet;
         this.detailedSources = detailedSources;
         this.packagesToPreload = packagesToPreload;
+        this.computeFingerPrints = computeFingerPrints;
 
         trees = Trees.instance(task);
         sourcePositions = trees.getSourcePositions();
@@ -255,6 +260,25 @@ public class ScanCompilationUnits {
                 List.copyOf(failures));
     }
 
+    /**
+     * The MD5 of a unit's source text, so that a later run can tell whether the file changed (see
+     * {@code JavaInspector.reloadSources}). Computed over exactly what javac read, which is what the in-house
+     * inspector fingerprints too, so the two agree on a given file.
+     * <p>
+     * Called from the serial phase-1 loop only: javac's file manager is not thread-safe.
+     * {@link MD5FingerPrint#NO_FINGERPRINT} when the content cannot be read — reloadSources then treats the file as
+     * changed, which is the safe direction (re-parse rather than silently keep a stale type).
+     */
+    private FingerPrint fingerPrintOf(CompilationUnitTree unit) {
+        try {
+            CharSequence content = unit.getSourceFile().getCharContent(false);
+            return content == null ? MD5FingerPrint.NO_FINGERPRINT : MD5FingerPrint.compute(content.toString());
+        } catch (IOException | RuntimeException e) {
+            LOGGER.warn("Cannot compute fingerprint of {}: {}", unit.getSourceFile().toUri(), e.toString());
+            return MD5FingerPrint.NO_FINGERPRINT;
+        }
+    }
+
     /** Record a dropped compilation unit; an {@link UnresolvedSymbolException} cause is tolerable (→ warning). */
     private static void recordFailure(List<CompilationUnitFailure> failures, CompilationUnitTree unit, Throwable e) {
         addFailure(failures, unit.getSourceFile() == null ? null : unit.getSourceFile().toUri(), e);
@@ -292,6 +316,9 @@ public class ScanCompilationUnits {
                 .setPackageName(packageName)
                 .setURI(unit.getSourceFile().toUri())
                 .setSourceSet(sourceSet);
+        if (computeFingerPrints) {
+            compilationUnitBuilder.setFingerPrint(fingerPrintOf(unit));
+        }
 
         LineMap lineMap = unit.getLineMap();
         DocTrees docTrees = DocTrees.instance(task);
