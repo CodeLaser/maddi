@@ -16,6 +16,7 @@ package org.e2immu.analyzer.modification.analyzer.impl;
 
 import org.e2immu.analyzer.modification.analyzer.GuardAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
+import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.common.defaults.ContractReader;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.analysis.Property;
@@ -25,14 +26,17 @@ import org.e2immu.language.cst.api.expression.Assignment;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.expression.VariableExpression;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.annotation.Independent;
 import org.e2immu.language.cst.impl.analysis.MessageImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
@@ -43,20 +47,27 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 
 /**
- * First iteration of the guard: verifies the two contracts most central to the container story.
+ * Verifies user-written contracts against the analyzer's computed values.
  * <ul>
  *   <li>{@code @Container} on a type: no non-private method of the type, nor any implementation of its
  *       abstract methods, may modify a parameter. The contract binds implementations only through the
  *       methods they inherit from the contracted type (a subtype may add modifying methods of its own).</li>
- *   <li>{@code @NotModified} on an abstract method: no implementation may be modifying.</li>
+ *   <li>{@code @Immutable} on a type: the four rules of immutability, checked one by one per field, so that a
+ *       violation names the rule and the member that breaks it.</li>
+ *   <li>{@code @NotModified} / {@code @Independent} on an abstract method: no implementation may be modifying,
+ *       resp. dependent.</li>
+ *   <li>{@code @NotModified} / {@code @Independent} on a concrete method: no override may weaken it.</li>
  * </ul>
- * A violation is only reported on a decided FALSE — an undecided value (cycle, external code) stays silent,
- * so the guard never reports on incomplete information.
+ * A violation is only reported on a decided value — an undecided one (cycle, external code, delayed) stays silent,
+ * so the guard never reports on incomplete information. Where a contracted property is trusted rather than computed
+ * (the analyzers early-return on a good-enough value), the guard reads the computed values one level down: the
+ * implementations of an abstract method, the parameters and fields of a contracted type.
  */
 public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyzer {
     public static final String CONTRACT_VIOLATION = "contract-violation";
 
     private final ContractReader contractReader;
+    private final AnalysisHelper analysisHelper = new AnalysisHelper();
 
     public GuardAnalyzerImpl(Runtime runtime, IteratingAnalyzer.Configuration configuration, List<Message> messages) {
         super(configuration, null, messages);
@@ -80,6 +91,144 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
         if (contracts.get(CONTAINER_TYPE) instanceof Value.Bool container && container.isTrue()) {
             guardContainer(typeInfo);
         }
+        if (contracts.get(IMMUTABLE_TYPE) instanceof Value.Immutable immutable && immutable.isAtLeastImmutableHC()) {
+            if (!isEventual(typeInfo)) guardImmutable(typeInfo);
+        } else if (hasExplicitIndependentAnnotation(typeInfo)
+                   && contracts.get(INDEPENDENT_TYPE) instanceof Value.Independent ind
+                   && ind.isAtLeastIndependentHc()) {
+            // only in the absence of an @Immutable contract: that one covers independence as its rule 3, and
+            // reporting the same field twice is noise.
+            guardIndependentType(typeInfo);
+        }
+    }
+
+    /**
+     * Did the user actually write {@code @Independent} on this type? The contract map cannot answer that:
+     * {@code AnnotationToProperty} synthesizes {@code INDEPENDENT_TYPE} for <em>every</em> type that has no
+     * {@code @Independent} annotation (via {@code simpleComputeIndependent}), and that fallback returns INDEPENDENT
+     * for an unannotated type whose non-private methods only speak primitives. Keying the guard off the map would
+     * therefore report violations against a contract nobody wrote. {@code IMMUTABLE_TYPE} and {@code CONTAINER_TYPE}
+     * need no such check: only a real annotation ever sets them.
+     */
+    private boolean hasExplicitIndependentAnnotation(TypeInfo typeInfo) {
+        return typeInfo.annotations().stream()
+                .anyMatch(ae -> Independent.class.getCanonicalName().equals(ae.typeInfo().fullyQualifiedName()));
+    }
+
+    /**
+     * {@code @Independent} on a type (§080): external modifications must not be able to impact the accessible content.
+     * A field whose computed independence is decided DEPENDENT is exactly that accessible content escaping, so it is
+     * reported and named.
+     * <p>
+     * Fields only, deliberately. The abstract methods of the type, and their parameters, also carry independence
+     * values, but for an abstract method those may come from {@code ShallowMethodAnalyzer}'s <em>defaults</em>
+     * (`DEPENDENT_DEFAULT` when the return type is mutable and the type is not immutable) rather than from a
+     * computation — the same "a default is not a decision" trap as {@code isPropertyFinal()}. Blaming on those would
+     * report on incomplete information.
+     */
+    private void guardIndependentType(TypeInfo contractHolder) {
+        Message contractLocation = MessageImpl.cause(contractHolder,
+                "@Independent contracted on " + contractHolder.simpleName());
+        for (FieldInfo fieldInfo : contractHolder.fields()) {
+            Value.Independent independent = fieldInfo.analysis().getOrNull(INDEPENDENT_FIELD,
+                    ValueImpl.IndependentImpl.class);
+            if (independent != null && independent.isDependent()) {
+                reportViolation(fieldInfo, null, contractLocation,
+                        "field '" + fieldInfo.name() + "' of " + contractHolder.fullyQualifiedName()
+                        + " is dependent: external modifications can reach the accessible content of the type,"
+                        + " violating the @Independent contract on " + contractHolder.fullyQualifiedName());
+            }
+        }
+    }
+
+    /**
+     * Eventual immutability ({@code after="..."}) is contracted, but not implemented in the analyzer (road to
+     * immutability, §060): the fields carrying the state transition are assignable, and the modifying methods that
+     * effect it are modifying, by design. The immutability rules only hold after the mark, which the analyzer cannot
+     * see, so guarding such a type would report its own design as a violation.
+     */
+    private boolean isEventual(TypeInfo typeInfo) {
+        return typeInfo.annotations().stream().anyMatch(ae -> !ae.extractString("after", "").isBlank());
+    }
+
+    /**
+     * {@code @Immutable} (or {@code @ImmutableContainer}) on a type: verify the rules of immutability one by one, so
+     * the finding can name the rule and the member that breaks it. Mirrors {@code TypeImmutableAnalyzerImpl}, but
+     * reads the <em>per-member</em> computed values rather than the type's own {@code IMMUTABLE_TYPE}: a contracted
+     * type carries the trusted contract there (the analyzer early-returns rather than computing), exactly as
+     * {@code guardContainer} reads parameters rather than {@code CONTAINER_TYPE}.
+     * <p>
+     * At most one finding per field: the rules are ordered, and a field that fails rule 0 usually fails others too.
+     */
+    private void guardImmutable(TypeInfo contractHolder) {
+        Message contractLocation = MessageImpl.cause(contractHolder,
+                "@Immutable contracted on " + contractHolder.simpleName());
+        for (FieldInfo fieldInfo : contractHolder.fields()) {
+            guardImmutableField(contractHolder, fieldInfo, contractLocation);
+        }
+        // rule 1 for abstract methods: they have no body, so no field of theirs can betray them (variant of rule 1,
+        // §050). Concrete modifying methods need no separate check: to modify, they must assign or modify a field,
+        // which rule 0 or rule 1 catches on that field.
+        for (MethodInfo methodInfo : contractHolder.methods()) {
+            if (methodInfo.isAbstract()) {
+                Value.Bool nonModifying = methodInfo.analysis().getOrNull(NON_MODIFYING_METHOD,
+                        ValueImpl.BoolImpl.class);
+                if (nonModifying != null && nonModifying.isFalse()) {
+                    reportViolation(methodInfo, null, contractLocation,
+                            "abstract method " + methodInfo.fullyQualifiedName() + " is modifying, violating rule 1"
+                            + " (all fields @NotModified) of the @Immutable contract on "
+                            + contractHolder.fullyQualifiedName());
+                }
+            }
+        }
+    }
+
+    private void guardImmutableField(TypeInfo contractHolder, FieldInfo fieldInfo, Message contractLocation) {
+        String prefix = "field '" + fieldInfo.name() + "' of " + contractHolder.fullyQualifiedName();
+        String suffix = " of the @Immutable contract on " + contractHolder.fullyQualifiedName();
+
+        // rule 0: all fields effectively final. Not isPropertyFinal(): that reads FINAL_FIELD with getOrDefault, so an
+        // undecided field would read as "not final" and we would blame on incomplete information.
+        if (!fieldInfo.isFinal()) {
+            Value.Bool finalField = fieldInfo.analysis().getOrNull(FINAL_FIELD, ValueImpl.BoolImpl.class);
+            if (finalField != null && finalField.isFalse()) {
+                reportViolation(fieldInfo, null, contractLocation,
+                        prefix + " is assignable after construction, violating rule 0 (all fields effectively final)"
+                        + suffix);
+                return;
+            }
+        }
+        // rule 1: all fields @NotModified
+        Value.Bool unmodified = fieldInfo.analysis().getOrNull(UNMODIFIED_FIELD, ValueImpl.BoolImpl.class);
+        if (unmodified != null && unmodified.isFalse()) {
+            reportViolation(fieldInfo, null, contractLocation,
+                    prefix + " is modified, violating rule 1 (all fields @NotModified)" + suffix);
+            return;
+        }
+        // rule 2: all fields private, or of immutable type
+        if (!fieldInfo.access().isPrivate() && isNotSelf(fieldInfo)) {
+            Value.Immutable fieldTypeImmutable = analysisHelper.typeImmutableNullIfUndecided(fieldInfo.type());
+            if (fieldTypeImmutable != null && !fieldTypeImmutable.isAtLeastImmutableHC()) {
+                reportViolation(fieldInfo, null, contractLocation,
+                        prefix + " is not private, and its type " + fieldInfo.type().detailedString()
+                        + " is not immutable, violating rule 2 (fields private, or of immutable type)" + suffix);
+                return;
+            }
+        }
+        // rule 3: nothing dependent on the accessible part of the fields
+        Value.Independent independent = fieldInfo.analysis().getOrNull(INDEPENDENT_FIELD,
+                ValueImpl.IndependentImpl.class);
+        if (independent != null && independent.isDependent()) {
+            reportViolation(fieldInfo, null, contractLocation,
+                    prefix + " is dependent: it is exposed to, or shared with, the outside world, violating rule 3"
+                    + " (no parameter or return value dependent on the fields)" + suffix);
+        }
+    }
+
+    /** A field of the type it is declared in does not have to be immutable for rule 2 (cf. TypeImmutableAnalyzerImpl). */
+    private static boolean isNotSelf(FieldInfo fieldInfo) {
+        TypeInfo bestType = fieldInfo.type().bestTypeInfo();
+        return bestType == null || !bestType.equals(fieldInfo.owner());
     }
 
     private void guardContainer(TypeInfo contractHolder) {
@@ -141,7 +290,7 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
             for (MethodInfo impl : implementationsOf(methodInfo)) {
                 Value.Independent implInd = impl.analysis().getOrNull(INDEPENDENT_METHOD, ValueImpl.IndependentImpl.class);
                 if (implInd != null && implInd.isDependent()) {
-                    reportViolation(impl, null,
+                    reportViolation(impl, blameMethodDependent(impl),
                             MessageImpl.cause(methodInfo, "@Independent contracted here"),
                             impl.fullyQualifiedName() + " is dependent (it exposes or shares mutable state), "
                             + "violating the @Independent contract on " + methodInfo.fullyQualifiedName());
@@ -173,7 +322,7 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
                 Value.Independent miInd = methodInfo.analysis().getOrNull(INDEPENDENT_METHOD,
                         ValueImpl.IndependentImpl.class);
                 if (miInd != null && miInd.isDependent()) {
-                    reportViolation(methodInfo, null,
+                    reportViolation(methodInfo, blameMethodDependent(methodInfo),
                             MessageImpl.cause(parent, "@Independent contracted here"),
                             methodInfo.fullyQualifiedName() + " overrides " + parent.fullyQualifiedName()
                             + " but is dependent, violating its @Independent contract");
@@ -228,6 +377,31 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
                 // (3) pi.field = ... or pi[i] = ...
                 found.set(MessageImpl.cause(e.source(), target,
                         "a field or element of '" + pi.simpleName() + "' is assigned"));
+                return false;
+            }
+            return true;
+        });
+        return found.get();
+    }
+
+    /**
+     * Blame walk for a dependent method: the first {@code return} of a field of the instance — the classic exposure
+     * ({@code return data;} where {@code data} is a mutable field), which is what makes the return value linked to
+     * the accessible content of the type. Located cause; {@code null} when the exposure is indirect (through a call,
+     * a wrapper, or a parameter), in which case the violation is still reported, just without the deepest "where":
+     * naming the exposed field in general needs the link module's data, which is discarded after linking.
+     */
+    private Message blameMethodDependent(MethodInfo impl) {
+        if (impl.methodBody().isEmpty()) return null;
+        AtomicReference<Message> found = new AtomicReference<>();
+        impl.methodBody().visit(e -> {
+            if (found.get() != null) return false;
+            if (e instanceof ReturnStatement rs
+                && rs.expression() instanceof VariableExpression ve
+                && ve.variable() instanceof FieldReference fr
+                && fr.scopeIsRecursivelyThis()) {
+                found.set(MessageImpl.cause(e.source(), impl,
+                        "returns the field '" + fr.fieldInfo().name() + "' itself, exposing it"));
                 return false;
             }
             return true;
