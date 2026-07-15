@@ -271,17 +271,104 @@ hardening work). ~500 files differ, mostly kotlin parsing; the guard-relevant de
   modifying override of a `@NotModified` base method is detected, with the "assigns field 'n'" blame). Test
   `TestGuardHierarchy`; 1/1 green.
 
+### Done (2026-07-15, kotlin trunk — @Immutable on a type)
+
+- **`guardImmutable`.** `@Immutable`/`@ImmutableContainer` on a type is now verified **rule by rule**, so a finding
+  names both the rule and the member that breaks it, blamed on that member with the contract location as cause:
+  rule 0 (field assignable after construction), rule 1 (field modified; plus the §050 variant for *abstract* methods
+  that are modifying), rule 2 (non-private field of non-immutable type), rule 3 (field dependent — exposed or shared).
+  At most one finding per field: the rules are ordered and a field failing rule 0 usually fails others too. Concrete
+  modifying methods need no check of their own — to modify, they must assign or modify a field, which rule 0/1 catches
+  there. Mirrors `TypeImmutableAnalyzerImpl`, but reads **per-member** computed values, never the type's own
+  `IMMUTABLE_TYPE`: a contracted type carries the trusted contract there (the analyzer early-returns), exactly as
+  `guardContainer` reads parameters rather than `CONTAINER_TYPE`. Test `TestGuardImmutable`, 7/7 green (one per rule,
+  a conforming positive control, an eventual-immutability control, a guard-disabled control); full
+  modification-analyzer + common suites green (183 tests).
+- **Two false-positive traps found and avoided**, both worth knowing about:
+  1. **`FieldInfo.isPropertyFinal()` reads `FINAL_FIELD` with `getOrDefault(…, FALSE)`**, so an *undecided* field
+     reads as "not final". `TypeImmutableAnalyzerImpl` may use it (a wrong guess only delays a fixed point), but a
+     guard may not — it would blame on incomplete information. `guardImmutable` uses `isFinal()` (the modifier) plus
+     a `getOrNull(FINAL_FIELD)` decided-FALSE instead.
+  2. **`ContractReader.contracts(TypeInfo)` always contains `INDEPENDENT_TYPE`**, annotated or not:
+     `AnnotationToProperty` calls `simpleComputeIndependent(typeInfo, immutable)` whenever no `@Independent`
+     annotation is present, which returns DEPENDENT — or even INDEPENDENT for an unannotated type whose non-private
+     methods only speak primitives. So its presence is *no evidence the user wrote anything*, and a type-level
+     `@Independent` guard keyed off it would fire on unannotated code. Hence there is deliberately no such guard;
+     rule 3 is covered per field/parameter inside `guardImmutable`. (`IMMUTABLE_TYPE` and `CONTAINER_TYPE` are safe:
+     they are only ever set from a real annotation.)
+- **Eventual immutability is skipped.** A type with `after="…"` on any annotation is not guarded: the fields carrying
+  the state transition are assignable and the marker methods modifying *by design*, so the rules only hold after the
+  mark — which the analyzer cannot see (§060: contracted eventual immutability is unimplemented). Without this gate,
+  `SimpleImmutableSet1` reports its own design as a rule-0 violation.
+
+### Done (2026-07-15, kotlin trunk — @Independent completed)
+
+- **`@Independent` on a type.** `guardIndependentType` reports every field whose computed `INDEPENDENT_FIELD` is
+  decided DEPENDENT — the accessible content escaping, which is exactly what §080's definition forbids. Runs **only
+  in the absence of an `@Immutable` contract** (that one already covers independence as its rule 3; reporting the
+  same field twice is noise), and **only on an explicitly written `@Independent` annotation**, checked against
+  `typeInfo.annotations()` rather than the contract map — see the note on trap 2 below, which is now confirmed.
+  Fields only, deliberately: abstract methods and their parameters also carry independence values, but for an
+  abstract method those may come from `ShallowMethodAnalyzer`'s `DEPENDENT_DEFAULT` rather than a computation — the
+  same "a default is not a decision" trap as `isPropertyFinal()`.
+- **Blame for `@Independent` violations.** `blameMethodDependent` finds the first `return <field-of-this>` — the
+  classic exposure (`return data;`) that links the return value to the accessible content — and adds it as the top
+  cause, located at that return statement. Both `guardMethod` and `guardOverride` now pass it instead of `null`, so
+  an independence why-chain reads `[ "returns the field 'list' itself, exposing it", "@Independent contracted here" ]`.
+  Returns `null` when the exposure is indirect (through a call, a wrapper, a parameter): naming the exposed field in
+  general needs link data, so the violation is still reported, just without the deepest "where".
+- Tests: `TestGuardIndependentType` (dependent field reported; `GetterSetter` and a copying constructor stay silent;
+  unannotated types not considered), `TestGuardIndependent` extended to assert the blame branch. 17 guard tests over
+  5 classes; modification-analyzer + common green (186 tests).
+- **Trap 2 confirmed, with a caveat.** Instrumenting the branch with the gate removed shows `a.b.X` and
+  `a.b.X.OnlyPrimitives` — neither carrying any annotation — entering `guardIndependentType` with a synthesized
+  `contract=@Independent`. So the premise is real. What could **not** be constructed is an unannotated type
+  producing a false *finding*: the same condition that synthesizes INDEPENDENT (a non-private API speaking only
+  primitives) tends to leave every field independent too. The gate is therefore principled + defence in depth rather
+  than a fix for a demonstrated bug; the test says so explicitly.
+
+### Coverage today
+
+| Contract | On a type | On an abstract method | On a concrete method (override) |
+|---|---|---|---|
+| `@Container` | yes (own + inherited method parameters) | — | — |
+| `@Immutable` | yes (rules 0-3, per member) | — | — |
+| `@NotModified` | — | yes (implementations) | yes (`guardOverride`) |
+| `@Independent` | yes (dependent fields; explicit annotation only) | yes (decided-DEPENDENT only) | yes (decided-DEPENDENT only) |
+
+Blame coverage: `@Container`/`@NotModified` violations get a direct-site walk (receiver, argument, field assignment);
+`@Independent` violations get the `return <field>` walk; `@Immutable` violations name the rule and the member.
+Everything else reports without a "where".
+
+Not covered: `@NotModified`/`@Independent` contracted directly **on a parameter or field**; `@Container(contract=true)`
+on a parameter (§070 dynamic checking); the `@Immutable`-strength nuance (contracted `@Immutable` (3) vs computed
+`IMMUTABLE_HC` (2)), mirroring the same deferred nuance for `@Independent` (2 vs 1) — v1 flags only the unambiguous
+"not immutable at all" / "decided dependent" cases. Independence of *abstract* members is not guarded (shallow
+defaults, above).
+
 ### Next steps
 
 1. **Deepen Phase 3 further**: indirect modification (parameter linked to a modified field;
    modification one call removed), and reporting *all* modification sites rather than the
    first. Today's walk is direct-site, first-match — enough for the common "modifies the
    argument" story, best-effort beyond it.
-2. More guarded contracts: `@Immutable` on a concrete class (rule-by-rule diff: which field
-   is assignable/modified/exposed), `@Independent`, `@NotModified` on parameters,
-   `@Container(contract=true)` on parameters (dynamic checking, road-to-immutability §070).
-3. Hierarchy monotonicity as findings (override may not go @NotModified→@Modified) — today
-   only visible as overwrite crashes or silence.
-4. Surface findings in the gradle/maven plugins (currently only run-main/run-openjdk).
-5. Consider deduplication policy when both an interface contract and a subtype contract are
+   **This needs the link module.** The canonical shape is §040's `ErrorRegistry`: `add(@Modified ErrorMessage
+   message)` violates a `@Container` contract, yet *nothing in `add`'s body modifies anything* — the modification is
+   in `changeFirst`, reached through the field. Detection is local (the parameter's `UNMODIFIED_PARAMETER` already
+   carries it, which is why `TypeContainerAnalyzerImpl` needs nothing more); the *explanation* is not. Blame has to
+   follow parameter → field → the method modifying the field's object graph, which is link data the CST cannot
+   supply, and which `blameParameterModified` today answers with `null` (violation reported, no "where").
+2. Deepen the `@Independent` blame beyond `return <field>`: exposure through a call (`return wrap(data)`), through a
+   parameter, or from a constructor storing an argument without copying. For the last one,
+   `PARAMETER_ASSIGNED_TO_FIELD` (`Value.AssignedToField`, computed) names the fields a parameter is assigned to, and
+   would give "parameter 'ts' is assigned to field 'data'" without any link data — the cheapest next win.
+3. More guarded contracts: `@NotModified`/`@Independent` contracted directly on a parameter or field;
+   `@Container(contract=true)` on a parameter (dynamic checking, §070). See the coverage table above.
+4. The strength nuances: contracted `@Immutable` (3) vs computed `IMMUTABLE_HC` (2), and contracted `@Independent`
+   (2) vs computed `INDEPENDENT_HC` (1). Both are genuine weakenings that v1 accepts silently. Note the trap for the
+   first: `@Immutable` without `hc` on an *abstract or extensible* type must be read as `IMMUTABLE_HC` — the
+   appendix says `hc=true` is implicitly present there — so a naive 3-vs-2 diff would fire on every
+   `@ImmutableContainer interface`.
+5. Surface findings in the gradle/maven plugins (currently only run-main/run-openjdk).
+6. Consider deduplication policy when both an interface contract and a subtype contract are
    violated by the same parameter.

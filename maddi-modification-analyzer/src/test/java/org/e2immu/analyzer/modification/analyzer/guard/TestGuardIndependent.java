@@ -83,9 +83,15 @@ public class TestGuardIndependent extends CommonTest {
                 violation.message());
         assertNotNull(violation.source());
 
-        // the why-chain leads back to the contract location
-        assertEquals(1, violation.causes().size());
-        Message contractLocation = violation.causes().getFirst();
+        // the why-chain: [ blame, contract location ] — the blame names the exposed field and is located at the
+        // return statement that exposes it
+        assertEquals(2, violation.causes().size(), violation.causes().stream().map(Message::message).toList()
+                .toString());
+        Message blame = violation.causes().getFirst();
+        assertTrue(blame.message().contains("returns the field 'list' itself, exposing it"), blame.message());
+        assertNotNull(blame.source(), "the blame must be located at the offending return statement");
+
+        Message contractLocation = violation.causes().get(1);
         assertTrue(contractLocation.message().contains("@Independent contracted here"), contractLocation.message());
         assertEquals("a.b.X.Source.items()", contractLocation.info().fullyQualifiedName());
 
