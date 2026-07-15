@@ -346,32 +346,10 @@ normal methods: does a modification to the return value imply any modification i
     private Independent worstLinkToFields(Links links) {
         boolean immutableHc = false;
         for (Link link : links) {
-            Variable primaryTo = Util.firstRealVariable(link.to());
-            if (primaryTo instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
-                ParameterizedType type;
-                if (primaryTo == link.to() && (
-                        link.linkNature().equals(LinkNatureImpl.IS_ASSIGNED_TO)
-                        || link.linkNature().equals(LinkNatureImpl.IS_ASSIGNED_FROM))) {
-                    // this.set ← 0:set, TestFieldAnalyzer,1,2;
-                    type = primaryTo.parameterizedType();
-                } else if (link.linkNature().equals(LinkNatureImpl.SHARES_ELEMENTS)
-                           || link.linkNature().equals(LinkNatureImpl.IS_SUPERSET_OF)) {
-                    // 0:set.§cs⊇this.set.§cs, TestFieldAnalyzer,3
-                    type = link.to().parameterizedType().copyWithoutArrays();
-                } else if (link.linkNature().equals(LinkNatureImpl.CONTAINS_AS_MEMBER)) {
-                    // 0:element ∋ this.set.§cs
-                    type = link.to().parameterizedType();
-                } else if (link.linkNature().equals(LinkNatureImpl.IS_ELEMENT_OF)) {
-                    //getFile∈this._mruFileList.§es
-                    type = link.from().parameterizedType();
-                } else {
-                    type = null;
-                }
-                if (type != null) {
-                    Immutable fieldImmutable = analysisHelper.typeImmutable(type);
-                    if (fieldImmutable.isMutable()) return DEPENDENT;
-                    if (fieldImmutable.isImmutableHC()) immutableHc = true;
-                }
+            Immutable fieldImmutable = LinkToField.immutableOfLinkedField(link, analysisHelper);
+            if (fieldImmutable != null) {
+                if (fieldImmutable.isMutable()) return DEPENDENT;
+                if (fieldImmutable.isImmutableHC()) immutableHc = true;
             }
         }
         return immutableHc ? INDEPENDENT_HC : INDEPENDENT;

@@ -18,8 +18,10 @@ import org.e2immu.analyzer.modification.analyzer.GuardAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.common.defaults.ContractReader;
+import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Message;
@@ -48,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 
 /**
@@ -446,28 +449,24 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
     }
 
     /**
-     * Blame walk for a dependent method: the first {@code return} of a field of the instance — the classic exposure
-     * ({@code return data;} where {@code data} is a mutable field), which is what makes the return value linked to
-     * the accessible content of the type. Located cause; {@code null} when the exposure is indirect (through a call,
-     * a wrapper, or a parameter), in which case the violation is still reported, just without the deepest "where":
-     * naming the exposed field in general needs the link module's data, which is discarded after linking.
+     * Blame walk for a dependent method: which field does the return value expose? Read from the method's computed
+     * {@code METHOD_LINKS} — {@code TypeModIndyAnalyzerImpl.doIndependentMethod} decides independence as
+     * {@code worstLinkToFields(mlv.ofReturnValue())}, so the link that makes that fold return DEPENDENT is, exactly,
+     * the reason. {@code LinkToField} holds the shared definition of "reaches a mutable field of the instance".
+     * <p>
+     * Reading the links rather than scanning for {@code return <field>} matters for the same reason it does on
+     * fields: linking follows the object, not the syntax, so {@code return wrap(data)}, a return through a local, or
+     * a field handed out via a builder are all named — none of which a syntactic match would see.
+     * <p>
+     * {@code null} when the links are undecided or nothing in them points at a mutable field of this.
      */
     private Message blameMethodDependent(MethodInfo impl) {
-        if (impl.methodBody().isEmpty()) return null;
-        AtomicReference<Message> found = new AtomicReference<>();
-        impl.methodBody().visit(e -> {
-            if (found.get() != null) return false;
-            if (e instanceof ReturnStatement rs
-                && rs.expression() instanceof VariableExpression ve
-                && ve.variable() instanceof FieldReference fr
-                && fr.scopeIsRecursivelyThis()) {
-                found.set(MessageImpl.cause(e.source(), impl,
-                        "returns the field '" + fr.fieldInfo().name() + "' itself, exposing it"));
-                return false;
-            }
-            return true;
-        });
-        return found.get();
+        MethodLinkedVariables mlv = impl.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        if (mlv == null) return null;
+        FieldReference fr = LinkToField.firstDependentLinkToField(mlv.ofReturnValue(), analysisHelper);
+        if (fr == null) return null;
+        return MessageImpl.cause(impl, "its return value is linked to the field '" + fr.fieldInfo().name()
+                                       + "', which is mutable: the caller can reach the type's own state through it");
     }
 
     /**
