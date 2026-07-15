@@ -348,6 +348,22 @@ hardening work). ~500 files differ, mostly kotlin parsing; the guard-relevant de
   dead channel, alongside `FINAL_TYPE` and `ANALYZER_ERROR`.
 - 18 guard tests over 5 classes; analyzer + common green (187).
 
+### Done (2026-07-15, kotlin trunk — method blame from METHOD_LINKS too)
+
+- **`blameMethodDependent` reads `METHOD_LINKS`**, replacing its CST `return <field>` scan.
+  `TypeModIndyAnalyzerImpl.doIndependentMethod` decides independence as `worstLinkToFields(mlv.ofReturnValue())`, so
+  the link making that fold return DEPENDENT *is* the reason: "its return value is linked to the field 'list', which
+  is mutable: the caller can reach the type's own state through it".
+- **The rule now has one definition, not two.** `worstLinkToFields`' ~20-line link-nature switch (which type a link
+  exposes, per `IS_ASSIGNED_TO` / `SHARES_ELEMENTS` / `CONTAINS_AS_MEMBER` / `IS_ELEMENT_OF`) moved to a new
+  package-private `LinkToField`: `immutableOfLinkedField(link, helper)` for the analyzer's fold, and
+  `firstDependentLinkToField(links, helper)` for the guard's blame. Duplicating that switch would have drifted, and a
+  guard whose notion of "links to a mutable field" differs from the analyzer's would eventually blame something other
+  than the cause. Behaviour-preserving extraction, verified by the link module's own 383 tests.
+- `TestGuardIndependent` gained `IndirectSource` (`return wrap(list)`): no bare `return <field>` exists, so the old
+  CST scan would have reported the violation with no "where"; the links still name the field. 18 guard tests;
+  analyzer 141 + common 46 + link 383 = 570 green.
+
 ### Coverage today
 
 | Contract | On a type | On an abstract method | On a concrete method (override) |
@@ -357,10 +373,12 @@ hardening work). ~500 files differ, mostly kotlin parsing; the guard-relevant de
 | `@NotModified` | — | yes (implementations) | yes (`guardOverride`) |
 | `@Independent` | yes (dependent fields; explicit annotation only) | yes (decided-DEPENDENT only) | yes (decided-DEPENDENT only) |
 
-Blame coverage: `@Container`/`@NotModified` violations get a direct-site CST walk (receiver, argument, field
-assignment); a dependent **field** is blamed from its computed `LINKS` (the analyzer's own reason — parameter or
-return value named, indirection-proof); a dependent **method** gets the `return <field>` CST walk; `@Immutable`
-violations name the rule and the member. Everything else reports without a "where".
+Blame coverage: independence violations are blamed **from the links** — a dependent field from its `LINKS` (naming
+the parameter or return value it escapes through), a dependent method from its `METHOD_LINKS` (naming the mutable
+field its return value reaches). Both are the analyzer's own reason, so they cannot drift from the verdict, and both
+see through indirection. `@Container`/`@NotModified` violations still get a direct-site CST walk (receiver, argument,
+field assignment), because the per-call modification data is discarded after linking. `@Immutable` violations name the
+rule and the member. Everything else reports without a "where".
 
 Not covered: `@NotModified`/`@Independent` contracted directly **on a parameter or field**; `@Container(contract=true)`
 on a parameter (§070 dynamic checking); the `@Immutable`-strength nuance (contracted `@Immutable` (3) vs computed
@@ -380,9 +398,8 @@ defaults, above).
    carries it, which is why `TypeContainerAnalyzerImpl` needs nothing more); the *explanation* is not. Blame has to
    follow parameter → field → the method modifying the field's object graph, which is link data the CST cannot
    supply, and which `blameParameterModified` today answers with `null` (violation reported, no "where").
-2. Deepen the `@Independent` blame for *methods* beyond `return <field>` (`blameMethodDependent`): exposure through a
-   call (`return wrap(data)`) or through a parameter. The field-level blame is done — see below — and shows the way:
-   read `METHOD_LINKS` rather than the CST.
+2. Blame for a dependent method now reads `METHOD_LINKS` (done, below). What remains: exposure via a *parameter*
+   rather than the return value (`mlv.ofParameters()`), and reporting all exposing links rather than the first.
 3. More guarded contracts: `@NotModified`/`@Independent` contracted directly on a parameter or field;
    `@Container(contract=true)` on a parameter (dynamic checking, §070). See the coverage table above.
 4. The strength nuances: contracted `@Immutable` (3) vs computed `IMMUTABLE_HC` (2), and contracted `@Independent`

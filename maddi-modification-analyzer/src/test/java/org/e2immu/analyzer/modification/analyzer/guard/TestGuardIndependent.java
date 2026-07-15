@@ -54,6 +54,18 @@ public class TestGuardIndependent extends CommonTest {
                         return List.copyOf(list); // returns an immutable copy: independent
                     }
                 }
+
+                // the field still escapes, but never as a bare 'return list': no syntactic match to find
+                static class IndirectSource implements Source {
+                    private final List<String> list = new ArrayList<>();
+
+                    private List<String> wrap(List<String> in) { return in; }
+
+                    @Override
+                    public List<String> items() {
+                        return wrap(list);
+                    }
+                }
             }
             """;
 
@@ -67,36 +79,53 @@ public class TestGuardIndependent extends CommonTest {
         return analyzer.messages();
     }
 
-    @DisplayName("a dependent implementation of an @Independent abstract method is reported; the copy is not")
+    @DisplayName("dependent implementations of an @Independent abstract method are reported; the copy is not")
     @Test
     public void testViolation() throws IOException {
         List<Message> messages = analyzeWithGuard("a.b.X", INDEPENDENT_CONTRACT);
         List<Message> violations = messages.stream()
                 .filter(m -> GuardAnalyzerImpl.CONTRACT_VIOLATION.equals(m.category())).toList();
-        assertEquals(1, violations.size(), "expected exactly one violation (BadSource only), have: "
+        assertEquals(2, violations.size(), "expected BadSource and IndirectSource, have: "
                                            + violations.stream().map(Message::message).toList());
-        Message violation = violations.getFirst();
+
+        Message violation = byInfo(violations, "a.b.X.BadSource.items()");
         assertTrue(violation.level().isError());
-        assertEquals("a.b.X.BadSource.items()", violation.info().fullyQualifiedName());
         assertTrue(violation.message().contains("dependent"), violation.message());
         assertTrue(violation.message().contains("@Independent contract on a.b.X.Source.items()"),
                 violation.message());
         assertNotNull(violation.source());
 
-        // the why-chain: [ blame, contract location ] — the blame names the exposed field and is located at the
-        // return statement that exposes it
+        // the why-chain: [ blame, contract location ]. The blame comes from the method's computed METHOD_LINKS —
+        // the same links doIndependentMethod folded into the DEPENDENT verdict — and names the exposed field.
         assertEquals(2, violation.causes().size(), violation.causes().stream().map(Message::message).toList()
                 .toString());
         Message blame = violation.causes().getFirst();
-        assertTrue(blame.message().contains("returns the field 'list' itself, exposing it"), blame.message());
-        assertNotNull(blame.source(), "the blame must be located at the offending return statement");
+        assertTrue(blame.message().contains("its return value is linked to the field 'list', which is mutable"),
+                blame.message());
+        assertNotNull(blame.source());
 
         Message contractLocation = violation.causes().get(1);
         assertTrue(contractLocation.message().contains("@Independent contracted here"), contractLocation.message());
         assertEquals("a.b.X.Source.items()", contractLocation.info().fullyQualifiedName());
 
+        // 'return wrap(list)' has no bare 'return <field>' to find: a CST scan would report this violation with no
+        // "where" at all. The links follow the object, so the field is still named.
+        Message indirect = byInfo(violations, "a.b.X.IndirectSource.items()");
+        assertEquals(2, indirect.causes().size(), indirect.causes().stream().map(Message::message).toList()
+                .toString());
+        assertTrue(indirect.causes().getFirst().message()
+                        .contains("its return value is linked to the field 'list', which is mutable"),
+                indirect.causes().getFirst().message());
+
         // the conforming copy-returning implementation must stay silent
         assertTrue(messages.stream().noneMatch(m -> m.message().contains("GoodSource")),
                 messages.stream().map(Message::message).toList().toString());
+    }
+
+    private Message byInfo(List<Message> violations, String fqn) {
+        return violations.stream().filter(m -> fqn.equals(m.info().fullyQualifiedName())).findFirst()
+                .orElseThrow(() -> new AssertionError("no violation on " + fqn + ", have: "
+                                                      + violations.stream().map(m -> m.info().fullyQualifiedName())
+                                                              .toList()));
     }
 }

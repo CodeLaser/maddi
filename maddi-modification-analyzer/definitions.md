@@ -432,11 +432,15 @@ Consequences of the above that shape `GuardAnalyzerImpl`:
    methods modifying by design; the rules hold only after the mark, which the analyzer cannot see (§060). A guard
    must skip these types or it reports their design as a violation.
 9. **Blame from links, not from syntax, wherever links exist.** Linking computes *exact* assignments, so
-   `this.x = Objects.requireNonNull(x)`, an assignment through a local, a cast, or `list.subList(..)` all link the
-   same way — while a CST scan for `this.f = <parameter>` sees only the literal shape and silently blames nothing on
-   the rest. Reading the same value the analyzer decided from (a field's `LINKS` → `INDEPENDENT_FIELD`) also keeps
-   blame and verdict from drifting apart. Prefer the CST only where no computed link data survives: the modification
-   walks re-derive from the CST precisely because the per-call `Result.modified` map is discarded after linking.
+   `this.x = Objects.requireNonNull(x)`, an assignment through a local, a cast, `return wrap(data)` or
+   `list.subList(..)` all link the same way — while a CST scan for `this.f = <parameter>` or `return <field>` sees
+   only the literal shape and silently blames nothing on the rest. Read the same value the analyzer decided from, and
+   blame cannot drift from verdict: a field's `LINKS` → `INDEPENDENT_FIELD` (`FieldAnalyzerImpl.computeIndependent`),
+   a method's `METHOD_LINKS` → `INDEPENDENT_METHOD` (`TypeModIndyAnalyzerImpl.doIndependentMethod` →
+   `worstLinkToFields`). The shared rule for "which link reaches a mutable field of the instance" lives in
+   `LinkToField`, used by both the analyzer's fold and the guard's blame. Prefer the CST only where no computed link
+   data survives: the modification walks re-derive from it precisely because the per-call `Result.modified` map is
+   discarded after linking.
 10. **The hidden-content limit bounds what blame can say** (§080): the analyzer does not distinguish a modification of
     hidden content from one of accessible content once it has propagated to a parameter. Blame walks can therefore
     report *that* a modification propagated but not always *which part* was modified.
