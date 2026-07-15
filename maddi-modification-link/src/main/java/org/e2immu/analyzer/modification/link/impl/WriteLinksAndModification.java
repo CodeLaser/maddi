@@ -340,6 +340,35 @@ class WriteLinksAndModification {
                 }
             }
         }
+        // Return-face §m rehoming (gate NORVEQ), output-only like the block above: an §m-≡ to a variable that
+        // whole-object-shares with a RETURN ('l1.§m ≡ l3.§m', group {method, l3}) also holds against the
+        // return's face ('l1.§m ≡ method.§m' — the view chain's §m reaches the summary endpoint). Inherently
+        // statement-scoped: the return group only exists from the return statement on, and views are written
+        // forward — the leak-to-earlier-views that killed the naive graph-side rehoming cannot occur here.
+        if (System.getenv("NORVEQ") == null && !(variable instanceof ReturnVariable) && virtualFieldComputer != null) {
+            List<Link> toAddRv = new ArrayList<>();
+            for (Link l : builder.linkSet()) {
+                if (l.linkNature().isIdenticalTo()
+                    && l.from() instanceof FieldReference frF && Util.isVirtualModificationField(frF.fieldInfo())
+                    && l.to() instanceof FieldReference frT && Util.isVirtualModificationField(frT.fieldInfo())) {
+                    Variable realTo = Util.firstRealVariable(l.to());
+                    for (Variable sib : followGraph.graph().allShared(realTo)) {
+                        if (sib instanceof ReturnVariable rv) {
+                            VirtualFieldComputer.M2 m2 = virtualFieldComputer
+                                    .addModificationFieldEquivalence(Util.firstRealVariable(l.from()), rv);
+                            if (m2 != null) toAddRv.add(new LinksImpl.LinkImpl(m2.m1(),
+                                    LinkNatureImpl.makeIdenticalTo(null), m2.m2()));
+                        }
+                    }
+                }
+            }
+            for (Link l : toAddRv) {
+                boolean present = builder.linkSet().stream().anyMatch(x ->
+                        x.from().equals(l.from()) && x.to().equals(l.to())
+                        || x.from().equals(l.to()) && x.to().equals(l.from()));
+                if (!present) builder.add(l.from(), l.linkNature(), l.to());
+            }
+        }
         if (newLinkedVariables.put(variable, builder) != null) {
             throw new UnsupportedOperationException("Each real variable must be a primary");
         }
