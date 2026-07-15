@@ -1,6 +1,7 @@
 package org.e2immu.language.inspection.openjdk;
 
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -70,8 +71,15 @@ public class TestInvalidate {
     private static final String USER = """
             package c.d;
             import a.b.Base;
+            import java.util.function.Supplier;
             public class User {
                 public String use(Base base) { return base.name(); }
+                public Supplier<String> supplier(Base base) {
+                    return new Supplier<String>() {
+                        @Override
+                        public String get() { return base.name(); }
+                    };
+                }
             }
             """;
 
@@ -251,6 +259,53 @@ public class TestInvalidate {
         return typeInfo.constructorAndMethodStream().anyMatch(mi ->
                 mi.parameters().stream().anyMatch(pi -> pi.parameterizedType().typeInfo() == target)
                 || mi.returnType() != null && mi.returnType().typeInfo() == target);
+    }
+
+
+    /**
+     * The single-instance invariant, across a rewire: one {@code TypeInfo} per (FQN, source set), the one the
+     * registries hand out. It does not hold for the types phase 3 rewires <em>on demand</em>.
+     * <p>
+     * Rewiring {@code User} produces a new {@code c.d.User.$0} — {@code ConstructorCallImpl.rewire} calls
+     * {@code InfoMap.typeInfoRecurseAllPhases} on the anonymous class — but nothing re-registers it: both
+     * {@code CompiledTypesManagerImpl.setRewiredType} and {@code InfoByFqn.replaceType} enumerate the rewired type
+     * through {@code recursiveSubTypeStream()}, which lists only the DECLARED subtypes ({@code user.subTypes()} is
+     * empty here). So the registries keep answering with the object that was replaced, while the live CST holds
+     * another. The same goes for local classes ({@code LocalTypeDeclarationImpl}) and lambdas ({@code LambdaImpl}),
+     * which are rewired the same way.
+     * <p>
+     * The fix needs the InfoMap: it alone knows what it rewired (its inner maps hold old -> new for every type,
+     * including the on-demand ones). Left for a decision — the same enumeration is used by both inspectors, and the
+     * in-house one's trie-based setRewiredType has its own view of what may be re-registered.
+     */
+    @org.junit.jupiter.api.Disabled("known gap: rewiring does not re-register anonymous/local/lambda types, so the "
+                                    + "registry keeps handing out the object the rewire replaced. See the javadoc.")
+    @DisplayName("a rewired anonymous type replaces the old one in the registry")
+    @Test
+    public void testRewiredAnonymousTypeIsRegistered() {
+        parseAll();
+        ParseResult pr2 = reparse(ti -> switch (ti.simpleName()) {
+            case "Base" -> INVALID;
+            case "Helper" -> UNCHANGED;
+            default -> REWIRE;
+        });
+        TypeInfo anonymousInBody = anonymousClassIn(pr2.findType(USER_FQN), "supplier");
+        assertNotNull(anonymousInBody);
+        assertEquals("c.d.User.$0", anonymousInBody.fullyQualifiedName());
+        assertSame(anonymousInBody, javaInspector.compiledTypesManager().get("c.d.User.$0", dependent),
+                "the registry must hand out the anonymous type that the rewired body actually holds");
+    }
+
+    /** The anonymous class created inside {@code typeInfo}'s method {@code methodName}, or null. */
+    private static TypeInfo anonymousClassIn(TypeInfo typeInfo, String methodName) {
+        java.util.concurrent.atomic.AtomicReference<TypeInfo> found = new java.util.concurrent.atomic.AtomicReference<>();
+        typeInfo.findUniqueMethod(methodName, 1).methodBody().visit(e -> {
+            if (found.get() == null && e instanceof ConstructorCall cc && cc.anonymousClass() != null) {
+                found.set(cc.anonymousClass());
+            }
+            return found.get() == null;
+        });
+        return found.get();
     }
 
     /** The type of the single parameter of {@code User.use(Base)}. */
