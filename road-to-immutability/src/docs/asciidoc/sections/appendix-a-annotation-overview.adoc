@@ -2,8 +2,9 @@
 
 When annotating abstract types and methods, or types in the Annotated APIs, observe the following rules.
 
-A method is {nm} unless otherwise specified, its parameters are assumed to be {modified}, unless they are of
+A method is {modified} unless otherwise specified, its parameters are assumed to be {modified}, unless they are of
 immutable type.
+Modification is the default; the analyzer must _prove_ non-modification (see <<modification>>).
 
 Due to the large amount of circular type dependencies in the JDK, combined with the current limitations of the analyzer,
 the implementation of the Annotated API analyzer requires contracted annotations about independence,
