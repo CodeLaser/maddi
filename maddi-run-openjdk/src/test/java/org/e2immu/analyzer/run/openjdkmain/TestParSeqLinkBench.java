@@ -28,7 +28,8 @@ import java.util.Set;
  times PrepAnalyzer + LinkComputer on the parseq package. Skipped unless the log is present.
 
  To (re)capture the log:
-   cd ~/git/jfocus-stdbase && ./gradlew :codelaser-stdbase-util:compileJava --rerun-tasks --debug --console=plain \\
+   cd ~/git/jfocus-stdbase && ./gradlew :codelaser-stdbase-util:compileTestJava --rerun-tasks --debug --console=plain \\
+   (compileTestJava, not compileJava: TestParSeqElement lives in the TEST tree and the bench asserts its presence)
        > /tmp/jfocus-debug.log 2>&1
  Override the path with -Djfocus.log=/path/to/log
  */

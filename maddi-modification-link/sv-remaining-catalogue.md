@@ -4,6 +4,24 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — parseq bench RESTORED; production label-cut violation fixed; NEW BASELINE ~1.7s
+
+The recaptured log (/tmp/jfocus-test-debug.log — **compileTestJava**, not compileJava:
+TestParSeqElement lives in the TEST tree; class comment corrected) exposed a CRASH present at
+least since f0e249e0: `MakeGraph` unconditionally emits the slice edge
+'mapRight.§tts[-1] ≤ mapRight.§tts' (TestConsumers,2), and PRODUCTION
+(Options.objectGraphLinks=false) excludes ≤ from the engine — assert in addSymmetricEdge.
+Every recent "bench 746ms" record was made while the log was ABSENT (bench skipped via
+assumeTrue, BUILD SUCCESSFUL misread as green) — the same stale-green trap as the phantom
+context divergence. Fix: boundary filter in `Graph.mergeEdgeBi` (labels the engine's
+valid-predicate rejects are dropped, not asserted); engine assert kept for closure internals.
+
+**New baseline (current jfocus-stdbase @ cee706a, test log): LINK(production parseq types)
+≈ 1.65–1.77s** (parse ~3.2s, prep ~0.4s). Not comparable to the old 746ms (input set unknown,
+old log lost; the crash proves those numbers predate today's input). Session mechanisms are
+NOT the cost: all-gates-off measured SLOWER (2.08s). Suites byte-identical under the filter
+(link 7, analyzer 122/122, deep-structure bench green).
+
 ## UPDATE — return-face §m rehoming (gate NORVEQ); link 8 → 7
 
 The old dead-end ('l1.§m≡method.§m on a LOCAL's summary — naive graph-side rehoming leaks
