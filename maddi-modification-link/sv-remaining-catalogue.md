@@ -4,7 +4,58 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
-## UPDATE — §m-directional inheritance BUILT, opt-in (VMIDIR=1); context-divergence is the blocker
+## UPDATE — 'context divergence' DEBUNKED; ⊇→~ re-flip root-caused; VMIDIR default-on; link 15 → 13
+
+The class-vs-full-suite context divergence **does not exist**. At `7de1d9a6` itself, isolated
+single-test AND class runs show the test4b:357 '⊇→~ flip + r≥0:in.§$s' — identically, 3/3
+stable. The previous session's 'clean class run' was a stale-result artifact: **gradle does
+not treat env vars as test-task inputs, so toggling a gate (VMIDIR=1) without `--rerun`
+re-reports the previous run's results**. PROCESS RULE: always pass `--rerun` when toggling
+env gates.
+
+The flip itself was real and PRE-EXISTED VMIDIR (visible with the gate off). Root cause: the
+⊇→~ rewrite (`replaceReturnAffected` + recompute) permanently rewrites the PERSISTENT graph,
+and it fired again at every later statement via `previouslyModified` — destroying containment
+that the modification did not invalidate. In the old engine the re-flip was harmless: its
+per-statement graph rebuild re-derived the ⊆/⊇ through unflipped sibling builders
+(self-healing); in the sv engine the single graph makes it destructive AND unnecessary (the
+rewrite at the modification statement already persists). Two-part fix (gate `NOFLIPSAME=1`
+restores old behavior):
+1. the flip collection fires only when the modification occurs in THIS evaluation
+   (`modifiedInEval`), not on `previouslyModified` carry-over;
+2. `replaceReturnAffected` skips raw edges inserted at the current statement — a ⊇
+   established BY the modifying call itself (`1:rr.§$s ⊇ 0:in.§$s` from `rr.embed(in)`) is
+   post-state, not invalidated knowledge.
+A/B: link suite byte-identical (15), analyzer 122/122, deep-structure bench green. In test4b,
+`method.§$s⊆1:rr*.§$s` now SURVIVES into the summary where the old engine had coarsened it —
+re-pinned as a precision gain.
+
+With the blocker gone, **VMIDIR is default-on** (disable: `NOVMIDIR=1`); test4b's vd0/vd1
+match the old engine's §m-directional facts (order-only re-pin).
+
+**Whole-return §m companions** (gate `NORVM`, `WriteLinksAndModification
+.returnSideModificationCompanions`) — the second half of the §m-directional family:
+1. `method.§X ⊆ S.§Y` (return content from S's content) ⟹ `method.§m ← S.§m` (test4c);
+2. double-∩ `method ∩ Y.§X` AND `method.§X' ∩ Y` (the returned value and Y may be the same
+   object cluster) ⟹ `method.§m ≡ Y.§m` (test4b).
+Emitted on the assembled return builder AFTER handleReturnVariable — consumption-aware
+(returns never enter this method's own modification branch); an existing §m link between the
+same pair subsumes the companion. Fallout: ~19 extra-only `X.§m←Y.§m` facts on
+stream/collector summaries (semantically true — the result's elements ARE the source's;
+the old engine never derived them), re-pinned per the strengthened-modification precedent.
+Analyzer suite confirms no verdict impact.
+
+**test4b + test4c GREEN.** State: link 13, analyzer 122/122, deep-structure bench green.
+(parseq bench not run: /tmp/jfocus-test-debug.log absent — recapture per TestParSeqLinkBench
+class comment before the next engine-level round.)
+
+Remaining 13: simple-builder ce-constants (TestStaticValuesRecord), varargs pair
+(TestLinkMethodCall ×2), record-pattern ≡ residue ×3 (TestCast, TestInstanceOf,
+TestVariablesLinkedToObject), and singles (TestLinkModificationArea ≻vs←≺,
+TestRedundantModificationLinks ≡ chain, TestMap ⊆vs~, TestStream MR-swap, TestSupplier test7 ≺,
+TestSupplierSpec ×2).
+
+## (superseded) UPDATE — §m-directional inheritance BUILT, opt-in (VMIDIR=1); context-divergence is the blocker
 
 Second iteration of the §m-directional family, consumption-aware this time:
 `Graph.vmiDirectionalFacts` (strict-≡ VMI siblings' closures rehomed onto the owner's §m face)

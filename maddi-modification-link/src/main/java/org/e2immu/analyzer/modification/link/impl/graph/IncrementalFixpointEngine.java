@@ -368,23 +368,29 @@ public final class IncrementalFixpointEngine<V, L> {
         return l1.equals(best.apply(l1, l2));
     }
 
-    public Set<V> replaceReturnAffected(V from, V to, L currentLabel, L newLabel) {
-        return replaceReturnAffected(new Fact<>(from, to, currentLabel), newLabel, reverse.apply(newLabel), new HashSet<>());
+    public Set<V> replaceReturnAffected(V from, V to, L currentLabel, L newLabel, String skipStatementIndex) {
+        return replaceReturnAffected(new Fact<>(from, to, currentLabel), newLabel, reverse.apply(newLabel),
+                skipStatementIndex, new HashSet<>());
     }
 
-    private Set<V> replaceReturnAffected(Fact<V, L> fact, L newLabel, L reverseNewLabel, Set<Fact<V, L>> visited) {
+    private Set<V> replaceReturnAffected(Fact<V, L> fact, L newLabel, L reverseNewLabel, String skipStatementIndex,
+                                         Set<Fact<V, L>> visited) {
         // the witness DAG is meant to be acyclic, but on deeply self-referential structures it can contain a cycle
         // (io.codelaser...parseq); guard against re-entering a fact to avoid unbounded recursion. Fact equality is
         // on source+target, and graph.replace is idempotent, so skipping an already-visited fact is safe.
         if (!visited.add(fact)) return Set.of();
         Witness<V, L> witness = witnessIndex.get(fact);
-        if (witness instanceof Witness.DirectWitness<V, L>) {
+        if (witness instanceof Witness.DirectWitness<V, L> dw) {
+            // a raw edge inserted at skipStatementIndex is the POST-STATE of the very evaluation whose
+            // modification triggered this replacement ('1:rr.§$s ⊇ 0:in.§$s' established by the modifying
+            // 'rr.embed(in)' itself) — not invalidated knowledge; leave it in place
+            if (skipStatementIndex != null && skipStatementIndex.equals(dw.statementIndex())) return Set.of();
             return graph.replace(fact.source(), fact.target(), newLabel, reverseNewLabel)
                     ? Set.of(fact.source(), fact.target()) : Set.of();
         }
         if (witness instanceof Witness.CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right, _, _)) {
-            Set<V> set1 = left.label().equals(fact.label()) ? replaceReturnAffected(left, newLabel, reverseNewLabel, visited) : Set.of();
-            Set<V> set2 = right.label().equals(fact.label()) ? replaceReturnAffected(right, newLabel, reverseNewLabel, visited) : Set.of();
+            Set<V> set1 = left.label().equals(fact.label()) ? replaceReturnAffected(left, newLabel, reverseNewLabel, skipStatementIndex, visited) : Set.of();
+            Set<V> set2 = right.label().equals(fact.label()) ? replaceReturnAffected(right, newLabel, reverseNewLabel, skipStatementIndex, visited) : Set.of();
             return Stream.concat(Stream.concat(Stream.of(fact.source(), fact.target()), set1.stream()), set2.stream())
                     .collect(Collectors.toUnmodifiableSet());
         }

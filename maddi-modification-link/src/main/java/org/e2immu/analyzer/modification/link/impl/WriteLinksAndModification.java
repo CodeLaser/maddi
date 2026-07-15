@@ -91,10 +91,15 @@ class WriteLinksAndModification {
          of the problem, with assignment order.
          */
         if (!toRemove.isEmpty()) {
+            // gate NOFLIPSAME: raw edges inserted at THIS statement are the post-state of the modifying call
+            // itself and survive the ⊇→~ rewrite (see replaceReturnAffected); NOFLIPSAME=1 restores the
+            // unconditional rewrite
+            String skipStatementIndex = System.getenv("NOFLIPSAME") == null ? statement.source().index() : null;
             Set<Variable> affected = new HashSet<>();
             for (Link link : toRemove) {
                 Set<Variable> set = followGraph.graph()
-                        .replaceReturnAffected(link.from(), link.to(), link.linkNature(), SHARES_ELEMENTS);
+                        .replaceReturnAffected(link.from(), link.to(), link.linkNature(), SHARES_ELEMENTS,
+                                skipStatementIndex);
                 affected.add(link.from());
                 affected.add(link.to());
                 updateNewLinks(newLinkedVariables, link);
@@ -236,6 +241,7 @@ class WriteLinksAndModification {
             suppressRedundantScopeUps(builder);
             // return variables will always be complete
             handleReturnVariable(rv, builder);
+            returnSideModificationCompanions(rv, builder);
         } else {
             // cross-variable transitive-redundancy suppression, ported from the pre-sv engine: keep the nearest
             // hop, drop the origin ('stream1.§xs⊆stream.§xs' stays, the transitive 'stream1.§xs⊆0:in.§xs' goes,
@@ -246,16 +252,22 @@ class WriteLinksAndModification {
                 && (!lastStatement || !(variable instanceof org.e2immu.language.cst.api.info.ParameterInfo))) {
                 redundantLinks.redundantLinks(builder);
             }
+            // 'modified by THIS statement's evaluation' — directly, or through a link to something modified now.
+            // For previouslyModified variables only the direct check runs: the notLinked* probes (and
+            // notLinkedToModified's completion side effect) stay short-circuited exactly as before.
+            boolean modifiedInEval =
+                    !modifiedInThisEvaluation.isEmpty()
+                    && !assignedInThisStatement(statement, vi)
+                    && (modifiedInThisEvaluation.containsKey(variable)
+                        || !previouslyModified.contains(variable)
+                           // all the §m links
+                           && (!notLinkedToModifiedVirtualModification(variable, toFollow, modifiedInThisEvaluation)
+                               // and other links such as ≺ IS_FIELD_OF
+                               || !notLinkedToModified(builder, modifiedInThisEvaluation)));
             boolean unmodified =
                     variable.isIgnoreModifications()
                     ||
-                    !previouslyModified.contains(variable)
-                    && (assignedInThisStatement(statement, vi)
-                        || !modifiedInThisEvaluation.containsKey(variable)
-                           // all the §m links
-                           && notLinkedToModifiedVirtualModification(variable, toFollow, modifiedInThisEvaluation)
-                           // and other links such as ≺ IS_FIELD_OF
-                           && notLinkedToModified(builder, modifiedInThisEvaluation));
+                    !previouslyModified.contains(variable) && !modifiedInEval;
             builder.removeIf(WriteLinksAndModification::notInLinkedVariables);
 
             if (variable instanceof This) {
@@ -265,7 +277,12 @@ class WriteLinksAndModification {
             Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
             vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
 
-            if (!unmodified) {
+            // The ⊇→~ rewrite runs at the statement where the modification OCCURS. With the persistent graph the
+            // rewrite survives into later statements by itself; re-flipping on previouslyModified (the old
+            // engine's behavior, needed there because its per-statement graph rebuild resurrected ⊆/⊇) would
+            // permanently destroy containment knowledge that this evaluation did not invalidate.
+            // Gate NOFLIPSAME=1 restores the old re-flip.
+            if (!unmodified && (modifiedInEval || System.getenv("NOFLIPSAME") != null)) {
                 // ⊆, ⊇ become ~ after a modification
                 builder.linkSet().forEach(link -> {
                     if (link.linkNature() == IS_SUBSET_OF || link.linkNature() == IS_SUPERSET_OF) {
@@ -278,10 +295,11 @@ class WriteLinksAndModification {
         // §m-directional inheritance, consumption-aware (gate NOVMIDIR): added AFTER the modification
         // decision and the ⊇→~ rewrite collection, so these facts are OUTPUT-ONLY — emitted earlier they
         // leak into verdicts (see Graph.vmiDirectionalFacts and the catalogue's VMIFP lesson).
-        // OPT-IN (VMIDIR=1): correct at decision time, but exposes a context-sensitive ⊇→~ flip at
-        // TestStaticValuesRecord test4b:357 in full-suite runs (class runs are clean) — the class/full
-        // context divergence needs its own root-cause first (see catalogue).
-        if (System.getenv("VMIDIR") != null) {
+        // Default ON. The 'context divergence' that had kept this opt-in was a measurement artifact: the
+        // ⊇→~ flip at TestStaticValuesRecord test4b:357 was the previouslyModified re-flip destroying
+        // same-statement containment in the persistent graph (fixed above, gate NOFLIPSAME), present in
+        // every run context — not a class-vs-full-suite difference.
+        if (System.getenv("NOVMIDIR") == null) {
             for (Link l : followGraph.graph().vmiDirectionalFacts(variable)) {
                 if (!builder.contains(l.from(), l.linkNature(), l.to())
                     && !builder.contains(l.to(), l.linkNature().reverse(), l.from())) {
@@ -406,6 +424,64 @@ class WriteLinksAndModification {
             newLinks.addFirst(new LinksImpl.LinkImpl(rv, IS_ASSIGNED_FROM, marker));
         }
         builder.replaceAll(newLinks);
+    }
+
+    /*
+    Whole-return §m companions from content-flow links (gate NORVM; the second half of the §m-directional
+    family, see catalogue): the old engine's summaries carried directional §m links on the return that the
+    reconstructed fold does not produce, because whole-return endpoints are excluded from the assignment-§m
+    companions (FollowGraph's convention). Two shapes, both consumption-aware (the return builder never feeds
+    this method's own modification verdicts — returns skip the unmodified branch entirely):
+    1. 'method.§X ⊆ S.§Y' (the return's content comes from S's content) ⟹ 'method.§m ← S.§m': modifying S's
+       content reaches the returned value. TestStaticValuesRecord test4c: 'method.§$s ⊆ 1:rr.§$s' gives
+       'method.§m ← 1:rr.§m'.
+    2. double-∩ 'method ∩ Y.§X' AND 'method.§X' ∩ Y': the returned value and Y may be the same object cluster
+       (each sits in the other's content web) ⟹ 'method.§m ≡ Y.§m'. TestStaticValuesRecord test4b:
+       'method ∩ 0:in.§$s' + 'method.§$s ∩ 0:in' give 'method.§m ≡ 0:in.§m'.
+     */
+    private void returnSideModificationCompanions(ReturnVariable rv, Links.Builder builder) {
+        if (virtualFieldComputer == null || System.getenv("NORVM") != null) return;
+        List<Link> links = new ArrayList<>(builder.linkSet());
+        List<Link> toAdd = new ArrayList<>();
+        for (Link link : links) {
+            Variable from = link.from(), to = link.to();
+            if (link.linkNature() == IS_SUBSET_OF
+                && Util.virtual(from) && rv.equals(Util.firstRealVariable(from))
+                && Util.virtual(to) && to instanceof FieldReference frTo
+                && !Util.isVirtualModificationField(frTo.fieldInfo())
+                && !(from instanceof FieldReference frFrom && Util.isVirtualModificationField(frFrom.fieldInfo()))) {
+                Variable realTo = Util.firstRealVariable(to);
+                if (!rv.equals(realTo) && LinkVariable.acceptForLinkedVariables(realTo)
+                    && !(realTo instanceof MarkerVariable)) {
+                    VirtualFieldComputer.M2 m2 = virtualFieldComputer.addModificationFieldEquivalence(rv, realTo);
+                    if (m2 != null) toAdd.add(new LinksImpl.LinkImpl(m2.m1(), IS_ASSIGNED_FROM, m2.m2()));
+                }
+            }
+            if (link.linkNature() == OBJECT_GRAPH_OVERLAPS
+                && rv.equals(from) && Util.virtual(to)) {
+                Variable realTo = Util.firstRealVariable(to);
+                if (!rv.equals(realTo) && LinkVariable.acceptForLinkedVariables(realTo)
+                    && !(realTo instanceof MarkerVariable)
+                    // the mirror direction: some content face of the return overlaps Y itself
+                    && links.stream().anyMatch(l2 -> l2.linkNature() == OBJECT_GRAPH_OVERLAPS
+                                                     && realTo.equals(l2.to())
+                                                     && Util.virtual(l2.from())
+                                                     && rv.equals(Util.firstRealVariable(l2.from())))) {
+                    VirtualFieldComputer.M2 m2 = virtualFieldComputer.addModificationFieldEquivalence(rv, realTo);
+                    LinkNature id = LinkNatureImpl.makeIdenticalTo(null);
+                    if (m2 != null) toAdd.add(new LinksImpl.LinkImpl(m2.m1(), id, m2.m2()));
+                }
+            }
+        }
+        for (Link l : toAdd) {
+            // any existing §m link between the same pair subsumes the companion (an assignment's ≡ makes ← redundant)
+            boolean present = builder.linkSet().stream().anyMatch(x ->
+                    x.from().equals(l.from()) && x.to().equals(l.to())
+                    || x.from().equals(l.to()) && x.to().equals(l.from()));
+            if (!present) {
+                builder.add(l.from(), l.linkNature(), l.to());
+            }
+        }
     }
 
     // mirrors the internal-reference filter in FollowGraph.followGraph: a link between two variables sharing the

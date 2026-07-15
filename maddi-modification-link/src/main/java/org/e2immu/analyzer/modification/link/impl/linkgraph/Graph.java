@@ -446,8 +446,9 @@ public class Graph {
 
     public Set<Variable> replaceReturnAffected(Variable from, Variable to,
                                                LinkNature currentLinkNature,
-                                               LinkNature newLinkNature) {
-        return engine.replaceReturnAffected(from, to, currentLinkNature, newLinkNature);
+                                               LinkNature newLinkNature,
+                                               String skipStatementIndex) {
+        return engine.replaceReturnAffected(from, to, currentLinkNature, newLinkNature, skipStatementIndex);
     }
 
     public int size() {
