@@ -221,7 +221,28 @@ public class SharedVariables {
                     }
                 }
                 for (Variable t : reachable(m, bwd, deep)) {
-                    if (!emitM.equals(t)) builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_TO, t));
+                    if (!emitM.equals(t)) {
+                        builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_TO, t));
+                        // RETURN-SPELLING SIBLINGS (gate NORVSP): when the recipient is a RETURN's FIELD FACE
+                        // ('x → writeReturn.t' for a fluent mutator), the same slot's non-return spellings hold
+                        // the same fact ('x → 0:box.t' — slot group {writeReturn.t, box.t, x}). The return
+                        // spelling alone is useless on a parameter's summary face: filteredPi strips return-links
+                        // from params mentioned in the return value; the old engine printed the box spelling.
+                        // FIELD FACES only — for the WHOLE return, group siblings are multi-source could-be
+                        // aliases (switch arms yielding list1/list2/list3: no flow between co-sources).
+                        if (System.getenv("NORVSP") == null
+                            && t instanceof FieldReference
+                            && Util.primary(t) instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable) {
+                            for (Variable sib : allShared(t)) {
+                                if (!sib.equals(t) && !sib.equals(m) && !emitM.equals(sib)
+                                    && !(Util.primary(sib) instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable)
+                                    && !(Util.firstRealVariable(sib) instanceof IntermediateVariable)
+                                    && sib instanceof FieldReference) {
+                                    builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_TO, sib));
+                                }
+                            }
+                        }
+                    }
                 }
                 if (deep) {
                     // SIBLING RECIPIENTS, one hop (gate NOSIBR): the summary endpoint and another face both
