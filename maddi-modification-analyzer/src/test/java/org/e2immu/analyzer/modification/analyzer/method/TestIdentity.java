@@ -264,7 +264,7 @@ public class TestIdentity extends CommonTest {
         MethodCall call2 = (MethodCall) method.methodBody().statements().getLast().expression();
         Value.VariableBooleanMap vbm = call2.analysis().getOrNull(LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT,
                 ValueImpl.VariableBooleanMapImpl.class);
-        assertEquals("ii2=true", vbm.toString());
+        assertEquals("a.b.ii.C1.method(a.b.ii.C1.II):0:ii=false, ii2=true", vbm.toString());
 
     }
 }

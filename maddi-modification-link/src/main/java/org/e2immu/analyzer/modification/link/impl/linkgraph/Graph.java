@@ -52,6 +52,35 @@ public class Graph {
     // reduced intermediate never entered the graph; handleReturnVariable adds the '← $_v' marker for them
     private final Set<Variable> freshObjectReturns = new HashSet<>();
 
+    // side-band, like freshObjectReturns: record-pattern bindings ('i instanceof R(Object o)' ⟹ o is a
+    // genuine component of i). The containment filter (isInvalidFieldContainment) cannot distinguish a
+    // pattern binding from an accessor-copy expansion — the distinction is made HERE, at the binding site.
+    private final Map<Variable, Set<Variable>> patternBindings = new HashMap<>();
+
+    public void markPatternBinding(Variable container, Variable binding) {
+        patternBindings.computeIfAbsent(container, _ -> new HashSet<>()).add(binding);
+    }
+
+    // 'part' (or any of its whole-object group aliases — the cast 'set' of a bound 'o') is a marked
+    // pattern binding of 'container'
+    public boolean isPatternBindingOrAlias(Variable container, Variable part) {
+        Set<Variable> bindings = patternBindings.get(container);
+        if (bindings == null) return false;
+        if (bindings.contains(part)) return true;
+        for (Variable alias : sharedVariables.allShared(part)) {
+            if (bindings.contains(alias)) return true;
+        }
+        return false;
+    }
+
+    // a type-pattern alias of an existing binding ('o instanceof Set set' where o is a bound component of i):
+    // the alias is the same object, so it is a component of every container o is bound in
+    public void markPatternBindingAlias(Variable original, Variable alias) {
+        for (Set<Variable> bindings : patternBindings.values()) {
+            if (bindings.contains(original)) bindings.add(alias);
+        }
+    }
+
     public void markFreshObjectReturn(Variable returnVariable) {
         freshObjectReturns.add(returnVariable);
     }

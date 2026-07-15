@@ -96,14 +96,14 @@ public class TestCast extends CommonTest {
             Statement s0 = setAdd.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             VariableInfo vi0Set = vd0.variableInfo("set");
-            assertEquals("set←0:r.object", vi0Set.linkedVariables().toString());
+            assertEquals("set.§m≡0:r.object.§m,set←0:r.object", vi0Set.linkedVariables().toString());
             assertFalse(vi0Set.isModified());
         }
         {
             Statement s1 = setAdd.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
             VariableInfo vi1Set = vd1.variableInfo("set");
-            assertEquals("set.§$s←0:r.object.§$s,set.§$s∋1:s,set.§m≡0:r.object.§m,set←0:r.object",
+            assertEquals("set.§$s≺0:r,set.§$s∋1:s,set.§$s←0:r.object.§$s,set.§m≡0:r.object.§m,set←0:r.object",
                     vi1Set.linkedVariables().toString());
             assertTrue(vi1Set.isModified());
             VariableInfo vi1R = vd1.variableInfo(r);
@@ -111,6 +111,6 @@ public class TestCast extends CommonTest {
         }
         assertTrue(r.isModified());
         // old version of Util.isPartOf():[0:r.object≥1:s,0:r.object.§$s∋1:s, 1:s∈0:r.object.§$s] --> -
-        assertEquals("[0:r.object*.§$s∋1:s, 1:s∈0:r.object*.§$s] --> -", mlv.toString());
+        assertEquals("[0:r.object*.§$s∋1:s, 1:s≤0:r*,1:s∈0:r.object*.§$s] --> -", mlv.toString());
     }
 }

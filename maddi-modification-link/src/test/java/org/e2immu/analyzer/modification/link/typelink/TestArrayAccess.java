@@ -151,6 +151,6 @@ public class TestArrayAccess extends CommonTest {
         MethodCall mc2 = (MethodCall) callMc2.expression();
         Value.VariableBooleanMap tlvMc = mc2.analysis().getOrNull(LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT,
                 ValueImpl.VariableBooleanMapImpl.class);
-        assertEquals("$__sv_ii[j]=false, ii=true", tlvMc.toString()); // NOT: ii=false, ii[3]=true
+        assertEquals("ii=true, ii[j]=false", tlvMc.toString()); // NOT: ii=false, ii[3]=true
     }
 }

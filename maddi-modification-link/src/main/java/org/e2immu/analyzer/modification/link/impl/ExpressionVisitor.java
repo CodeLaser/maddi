@@ -191,11 +191,19 @@ public record ExpressionVisitor(Runtime runtime,
                     LocalVariable lv = instanceOf.patternVariable().localVariable();
                     if (!lv.isUnnamed()) {
                         linksBuilder.add(LinkNatureImpl.IS_ASSIGNED_TO, lv);
+                        // 'o instanceof Set set' where o is itself a bound deconstruction component: the cast
+                        // alias is the same object, hence a component of o's containers too
+                        sourceMethodComputer.followGraph.graph().markPatternBindingAlias(ve.variable(), lv);
                         return r.moveLinksToExtra().with(linksBuilder.build());
                     }
                 } else if (instanceOf.patternVariable().recordType() != null) {
                     // a instanceof Point(Coord x, Coord y) -> x is field of a, y is field of a
                     recursivelyAddToBuilder(linksBuilder, instanceOf.patternVariable());
+                    // side-band mark: these ≻ links are GENUINE containment (deconstruction components), which
+                    // isInvalidFieldContainment must not drop as it does accessor-copy expansions
+                    for (Link link : linksBuilder.linkSet()) {
+                        sourceMethodComputer.followGraph.graph().markPatternBinding(link.from(), link.to());
+                    }
                     return r.moveLinksToExtra().with(linksBuilder.build());
                 }
             }

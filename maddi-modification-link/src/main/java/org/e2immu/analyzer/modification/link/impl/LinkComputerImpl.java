@@ -702,22 +702,45 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             if (primary != null && vd.isKnown(primary.fullyQualifiedName())) {
                 variablesLinkedToObject.put(primary, true);
                 VariableInfo viPrimary = vd.variableInfo(primary);
-                Links links = followGraph.followGraph(virtualFieldComputer, viPrimary.variable()).build();
-                for (Link link : links) {
-                    if (!link.linkNature().isIdenticalTo()) {
-                        for (Variable v : Util.goUp(link.from())) {
+                // two sources, both needed:
+                // 1. the stored, fully reconstructed links — a raw followGraph(variable) probe misses everything
+                //    of a COLLAPSED variable (no translateForward, no shared-variable reconstruction; the VL2O
+                //    map lost 'ii2 ← 0:o');
+                // 2. the graph probe — collapsed groups hold facts the printed links deliberately suppress
+                //    (the slot alias 'ii[j]' behind "NOT: ii[j]∈ii"), with rep names EXPANDED to their real
+                //    members instead of leaking ('$__sv_ii[j]'). putIfAbsent: the stored pass is authoritative.
+                addVL2O(viPrimary.linkedVariablesOrEmpty(), null, variablesLinkedToObject);
+                Links probe = followGraph.followGraph(virtualFieldComputer, viPrimary.variable()).build();
+                addVL2O(probe, followGraph.graph(), variablesLinkedToObject);
+            }
+        }
+
+        private void addVL2O(Links links, Graph expandWith, Map<Variable, Boolean> variablesLinkedToObject) {
+            for (Link link : links) {
+                if (!link.linkNature().isIdenticalTo()) {
+                    for (Variable side : expand(link.from(), expandWith)) {
+                        for (Variable v : Util.goUp(side)) {
                             if (acceptForVL2O(v)) {
-                                variablesLinkedToObject.put(v, true);
+                                if (expandWith == null) variablesLinkedToObject.put(v, true);
+                                else variablesLinkedToObject.putIfAbsent(v, true);
                             }
                         }
-                        for (Variable v : Util.goUp(link.to())) {
+                    }
+                    for (Variable side : expand(link.to(), expandWith)) {
+                        for (Variable v : Util.goUp(side)) {
                             if (acceptForVL2O(v)) {
-                                variablesLinkedToObject.put(v, false);
+                                if (expandWith == null) variablesLinkedToObject.put(v, false);
+                                else variablesLinkedToObject.putIfAbsent(v, false);
                             }
                         }
                     }
                 }
             }
+        }
+
+        private List<Variable> expand(Variable v, Graph expandWith) {
+            if (expandWith == null) return List.of(v);
+            return expandWith.expandRepToMembers(v).toList();
         }
 
         private static boolean acceptForVL2O(Variable v) {
