@@ -251,7 +251,7 @@ class SetBasedContainer1<T> {
     @NotModified
     private final Set<T> data;
 
-    @Dependent
+    @Independent(absent=true)
     public SetBasedContainer1(Set<T> ts) {
         this.data = ts; // <1>
     }
@@ -948,11 +948,11 @@ the field `k` is arguably the most important field, and its value is not taken i
 
 When it is clear a method returns an immutable set, but the formal type is `java.util.Set`, the {immutable} annotation can 'travel':
 
-.Example {counter:example}, revisiting `SetBasedContainer6`
+.Example {counter:example}, revisiting `SetBasedContainer4`
 [source,java]
 ----
 @ImmutableContainer(hc=true)
-class SetBasedContainer6<T> {
+class SetBasedContainer4<T> {
 
     @ImmutableContainer(hc=true)
     public final Set<T> data;
