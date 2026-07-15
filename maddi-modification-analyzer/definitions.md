@@ -359,10 +359,20 @@ to `IMMUTABLE_* = FINAL_FIELDS`; and when no independence annotation is present 
 `simpleComputeIndependent(typeInfo, immutable)` derives it from the immutability value.
 
 There is **no type-level property for final fields**: `@FinalFields` on a type lands in `IMMUTABLE_TYPE` as the
-`FINAL_FIELDS` level. `FINAL_TYPE` ("finalType") exists in `PropertyImpl` but is declared only — never written, never
-read, registered in `PropertyProviderImpl` and nowhere else. `ANALYZER_ERROR` is dead in the other direction: read by
-`DecoratorImpl.comments()` (`DecoratorImpl.java:108`) to render comments into analysis-hints output, but never written
-by anyone (`guard-mode-analysis.md`).
+`FINAL_FIELDS` level.
+
+Three **dead channels**, each dead in a different way — check before building on any property:
+
+- `FINAL_TYPE` ("finalType"): declared in `PropertyImpl`, registered in `PropertyProviderImpl`, and never written or
+  read anywhere.
+- `ANALYZER_ERROR`: *read* by `DecoratorImpl.comments()` (`DecoratorImpl.java:108`) to render comments into
+  analysis-hints output, but never written by anyone.
+- `PARAMETER_ASSIGNED_TO_FIELD` (`Value.AssignedToField`): its only writer,
+  `TypeModIndyAnalyzerImpl.fromNonFinalFieldToParameter`, has its entire body commented out behind a FIXME. The
+  method is still called, so it is a silent no-op, and `ParameterInfo.assignedToField()` always returns EMPTY.
+
+Where a parameter's link to a field is needed, the live source is the field's `LinksImpl.LINKS` (written by
+`FieldAnalyzerImpl`, phase 2), which is also what `INDEPENDENT_FIELD` is derived from.
 
 Other properties relevant to the guard: `IMPLEMENTATIONS` (`Value.SetOfMethodInfo`, written by prepwork) is the
 abstract-method → implementations edge the guard traverses.
@@ -421,10 +431,16 @@ Consequences of the above that shape `GuardAnalyzerImpl`:
 8. **Eventual contracts (`after="…"`) cannot be guarded.** The transition fields are assignable and the marker
    methods modifying by design; the rules hold only after the mark, which the analyzer cannot see (§060). A guard
    must skip these types or it reports their design as a violation.
-9. **The hidden-content limit bounds what blame can say** (§080): the analyzer does not distinguish a modification of
-   hidden content from one of accessible content once it has propagated to a parameter. Blame walks can therefore
-   report *that* a modification propagated but not always *which part* was modified.
-10. **Analysis-hints values are trusted, not verified** — they are contracts about code the analyzer cannot see.
+9. **Blame from links, not from syntax, wherever links exist.** Linking computes *exact* assignments, so
+   `this.x = Objects.requireNonNull(x)`, an assignment through a local, a cast, or `list.subList(..)` all link the
+   same way — while a CST scan for `this.f = <parameter>` sees only the literal shape and silently blames nothing on
+   the rest. Reading the same value the analyzer decided from (a field's `LINKS` → `INDEPENDENT_FIELD`) also keeps
+   blame and verdict from drifting apart. Prefer the CST only where no computed link data survives: the modification
+   walks re-derive from the CST precisely because the per-call `Result.modified` map is discarded after linking.
+10. **The hidden-content limit bounds what blame can say** (§080): the analyzer does not distinguish a modification of
+    hidden content from one of accessible content once it has propagated to a parameter. Blame walks can therefore
+    report *that* a modification propagated but not always *which part* was modified.
+11. **Analysis-hints values are trusted, not verified** — they are contracts about code the analyzer cannot see.
     Only source-code contracts are guard material.
 
 ## Known gaps

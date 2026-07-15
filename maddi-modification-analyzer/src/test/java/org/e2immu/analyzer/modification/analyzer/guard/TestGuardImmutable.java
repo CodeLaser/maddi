@@ -148,7 +148,7 @@ public class TestGuardImmutable extends CommonTest {
             }
             """;
 
-    @DisplayName("rule 3: a field exposed through a getter is reported")
+    @DisplayName("rule 3: a field exposed through a getter is reported, blaming the getter")
     @Test
     public void testRule3() throws IOException {
         List<Message> violations = violations(analyzeWithGuard("a.b.X", RULE_3));
@@ -157,6 +157,12 @@ public class TestGuardImmutable extends CommonTest {
         assertEquals("a.b.X.ExposesViaGetter.data", v.info().fullyQualifiedName());
         assertTrue(v.message().contains("rule 3"), v.message());
         assertTrue(v.message().contains("dependent"), v.message());
+
+        // the constructor copies, so the only link out is the getter's return value
+        assertEquals(2, v.causes().size(), v.causes().stream().map(Message::message).toList().toString());
+        Message blame = v.causes().getFirst();
+        assertTrue(blame.message().contains("linked to the return value of method 'getSet'"), blame.message());
+        assertNotNull(blame.source());
     }
 
     @Language("java")

@@ -65,9 +65,52 @@ public class TestGuardIndependentType extends CommonTest {
         assertEquals("a.b.X.HoldsSomeoneElsesSet.set", v.info().fullyQualifiedName());
         assertTrue(v.message().contains("is dependent"), v.message());
         assertTrue(v.message().contains("@Independent contract on a.b.X.HoldsSomeoneElsesSet"), v.message());
-        assertEquals(1, v.causes().size());
-        assertTrue(v.causes().getFirst().message().contains("@Independent contracted on HoldsSomeoneElsesSet"),
-                v.causes().getFirst().message());
+
+        // the why-chain: [ blame, contract location ]. The blame comes from the field's computed LINKS, the same
+        // data FieldAnalyzerImpl used to decide the field is dependent: it is linked to the constructor parameter.
+        assertEquals(2, v.causes().size(), v.causes().stream().map(Message::message).toList().toString());
+        Message blame = v.causes().getFirst();
+        assertTrue(blame.message().contains("linked to parameter 'set' of the constructor of 'HoldsSomeoneElsesSet'"),
+                blame.message());
+        assertTrue(blame.message().contains("the caller keeps a reference to it"), blame.message());
+        assertNotNull(blame.source(), "the blame must be located at the parameter");
+        assertTrue(v.causes().get(1).message().contains("@Independent contracted on HoldsSomeoneElsesSet"),
+                v.causes().get(1).message());
+    }
+
+    @Language("java")
+    private static final String INDIRECT_ASSIGNMENT = """
+            package a.b;
+            import org.e2immu.annotation.Independent;
+            import java.util.Objects;
+            import java.util.Set;
+
+            public class X {
+                @Independent
+                static class ViaRequireNonNull<T> {
+                    private final Set<T> set;
+
+                    // the argument still arrives in the field, but not by a syntactic 'this.set = set'
+                    public ViaRequireNonNull(Set<T> set) { this.set = Objects.requireNonNull(set); }
+
+                    public int size() { return set.size(); }
+                }
+            }
+            """;
+
+    @DisplayName("the blame follows links, not syntax: this.set = Objects.requireNonNull(set) is still blamed")
+    @Test
+    public void testIndirectAssignmentIsBlamed() throws IOException {
+        List<Message> violations = violations(analyzeWithGuard("a.b.X", INDIRECT_ASSIGNMENT));
+        assertFalse(violations.isEmpty(), "expected a violation: the field still holds the caller's set");
+        Message v = violations.getFirst();
+        assertEquals("a.b.X.ViaRequireNonNull.set", v.info().fullyQualifiedName());
+        // a CST scan for 'this.f = <parameter>' would find nothing here (the RHS is a MethodCall) and blame nothing;
+        // the link engine computes the exact assignment, so the parameter is still named.
+        assertEquals(2, v.causes().size(), v.causes().stream().map(Message::message).toList().toString());
+        Message blame = v.causes().getFirst();
+        assertTrue(blame.message().contains("linked to parameter 'set' of the constructor of 'ViaRequireNonNull'"),
+                blame.message());
     }
 
     @Language("java")
