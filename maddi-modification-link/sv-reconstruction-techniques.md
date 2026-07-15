@@ -196,6 +196,29 @@ what they were built for**:
   once the finer link (`copy.f ← 0:pair.f`) exists — but the finer links arrive from a
   *different* builder (the reconstruct), which FollowGraph's own redundancy block never sees.
   Re-applies the `redundantFromUp/ToUp/Up` rule across the fully assembled return builder.
+- `returnSideModificationCompanions` (returns only, gate `NORVM`): whole-return §m companions
+  from content-flow links, run AFTER `handleReturnVariable` on the assembled builder
+  (consumption-aware: returns never enter this method's own modification branch, so these are
+  output/summary-only). Two shapes: `method.§X ⊆ S.§Y` ⟹ `method.§m ← S.§m` (content from S's
+  content: S-modifications reach the returned value); double-∩ `method ∩ Y.§X` AND
+  `method.§X' ∩ Y` ⟹ `method.§m ≡ Y.§m` (each sits in the other's content web — they may be
+  the same object cluster). Any existing §m link between the pair subsumes the companion (an
+  assignment's ≡ beats the derived ←). Emits semantically-true extras on stream/collector
+  summaries the old engine never derived — re-pinned, analyzer-suite-verified.
+
+### 4b. The ⊇→~ rewrite fires ONCE, at the modification statement (gate `NOFLIPSAME`)
+
+The old engine re-flipped ⊆/⊇→~ at every statement for `previouslyModified` variables; harmless
+there because its per-statement graph rebuild re-derived the containment through unflipped
+sibling builders (self-healing). In the sv engine the rewrite mutates the ONE persistent graph
+(`replaceReturnAffected` descends the witness DAG to raw edges) — re-flipping permanently
+destroys containment the modification never invalidated (test4b: `1:rr.§$s ⊇ 0:in.§$s`,
+established BY `rr.embed(in)` itself, died at the next statement). Two rules:
+1. collect flips only for `modifiedInEval` (modification in THIS statement's evaluation, direct
+   or linked), never for `previouslyModified` carry-over — the persistent graph already
+   remembers the earlier rewrite;
+2. `replaceReturnAffected` skips raw edges whose `DirectWitness.statementIndex` equals the
+   current statement — same-statement edges are the modifying call's POST-STATE.
 
 ## 5. Cross-variable transitive redundancy — `linkgraph/RedundantLinks`
 
@@ -320,11 +343,15 @@ original DV's element type when the translated array has no array dimension).
   isolation (`test7`, `test3`, `generic factory`).
 - **Trust only full-suite A/B** for attribution; env gates exist for every major mechanism
   (`NOSPINE NOMAT NOBOTH NOMIRROR NOPASSFIX NODESC NORL NOSV NODF NODFP NORVREV NORSRC NOACM
-  NOPDEEP NOSIBR`). Debug aids: `SVDUMP` (per-statement group dump), `SBDUMP=<simpleName>`
+  NOPDEEP NOSIBR NOVMIDIR NOFLIPSAME NORVM`). Debug aids: `SVDUMP` (per-statement group dump), `SBDUMP=<simpleName>`
   (closure with witnesses for a primary), `TRACEVAR=<substr>` (mergeEdgeBi + re-key trace),
   `RVTRACE` (return-variable builders b1/b2/b at write-out).
 - **Beware stale XMLs**: a silently failing gradle run leaves the previous run's test results in
   place; check timestamps when a result contradicts expectations.
+- **Always `--rerun` when toggling env gates**: gradle does not treat env vars as test-task
+  inputs — without `--rerun`, a `VMIDIR=1` run happily re-reports the previous run's results.
+  This manufactured the phantom 'class-vs-full-suite context divergence' (a gate-on run looked
+  green because it never ran).
 - **Order-only diffs are re-baselineable** (multiset-identical link sets); everything else needs
   a root cause first. The ordering artifact stems from §m/reconstructed links being appended
   after their rank-sorted position.

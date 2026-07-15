@@ -346,7 +346,7 @@ public class TestStaticValuesRecord extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(rLvc);
         VariableInfo rVi0 = vd0.variableInfo(r);
         assertEquals("""
-                r.§$s←1:rr.§$s,r.§$s⊇0:in.§$s,r.§m≡1:rr.§m\
+                r.§$s←1:rr.§$s,r.§$s⊇0:in.§$s,r.§m≡1:rr.§m,r.§m→0:in.§m\
                 """, rVi0.linkedVariables().toString());
         assertFalse(rVi0.isModified());
         VariableInfo rrVi0 = vd0.variableInfo(rr);
@@ -355,15 +355,17 @@ public class TestStaticValuesRecord extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().getLast());
         VariableInfo rVi1 = vd1.variableInfo(r);
         assertEquals("""
-                r.§$s←1:rr.§$s,r.§$s⊇method.§$s,r.§$s⊇0:in.§$s,r.§m→method.§m,r.§m→0:in.§m,r.§m≡1:rr.§m\
+                r.§$s←1:rr.§$s,r.§$s⊇method.§$s,r.§$s⊇0:in.§$s,r.§m≡1:rr.§m,r.§m→method.§m,r.§m→0:in.§m\
                 """, rVi1.linkedVariables().toString());
         assertFalse(rVi1.isModified()); // cannot be modified, because it is newly created
         VariableInfo rrVi1 = vd1.variableInfo(rr);
         assertTrue(rrVi1.isModified());
 
+        // vs the old engine: + method.§$s⊆1:rr*.§$s (the old re-flip on previouslyModified destroyed this
+        // same-statement containment; sv keeps it — precision gain) and + method.§$s∩0:in (face variant)
         assertEquals("""
                 [0:in.§$s⊆1:rr*.§$s,0:in.§m←1:rr*.§m, 1:rr*.§$s⊇0:in.§$s,1:rr*.§m→0:in.§m] --> \
-                method.§m←1:rr*.§m,method.§m≡0:in.§m,method∩0:in.§$s\
+                method∩0:in.§$s,method.§$s⊆1:rr*.§$s,method.§$s∩0:in,method.§m←1:rr*.§m,method.§m≡0:in.§m\
                 """, mlv.toString());
     }
 
