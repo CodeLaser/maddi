@@ -4,6 +4,42 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — ONE SLOT, ONE GROUP (gate NOSIBFACE); simple-builder ce-constants fixed; link 13 → 12
+
+TestStaticValuesRecord test5 root-caused: in a collapsed builder chain
+({$__c0, $__rv2, $__rv6, b} whole-object-grouped), the setter calls group a slot under one
+spelling ($__sv_j: {$__c0.j, $__rv2.j}, carrying '← $_ce1') while build()'s summary spells the
+SAME slot through another sibling ('b.j') — the plain memberToGroup lookup misses, a PARALLEL
+disconnected group forms ({b.j, r.i}), and the slot's knowledge (ce-constants, Λ$_fi markers)
+never reaches the reader. Same disease as the ThrowingFunction rep-vs-face disconnection,
+one level down.
+
+Fix in `SharedVariables` (gate `NOSIBFACE=1` disables): `groupOfWithSiblingSpelling` — when a
+field face has no direct group, try the same field spelled through each whole-object group
+sibling of its scope; on a hit the face JOINS that group. TWO traps found en route:
+1. the join can make sv1==sv2 in `isAssignedFrom`, whose 'already in the same group' branch
+   recorded NO assignment — reachable() then broke at the joined spelling and the summary lost
+   its true sources (method.set←0:in vanished; with only ce-links left, emptyIfOnlySomeValue
+   zeroed the whole summary). The join case now records the assignment and returns the group
+   (so mergeEdgeBi re-keys both sides' vertices; the sv==null path asserts none exist).
+2. (observation) Λ$_fi numbering is a per-run counter — pins containing $_fi are stable across
+   class/full contexts but shift when earlier parses are added to the same test.
+
+Fallout, all precision GAINS, re-pinned: r.i←$_ce1 at statement level; r.function←Λ$_fi on the
+indexed-objects builders; method←Λ$_fi15 / method2←Λ$_fi8 where the old engine had EMPTY
+summaries (the returned r.function IS the stored String::length — a real recovered fact).
+TestStaticValuesRecord 12/12 green.
+
+A/B: link suite 13 → 12 with ZERO regressions outside the class; analyzer 122/122;
+deep-structure bench green. Cleanup candidate: derivedFaceKeyed/derivedFromPairs (NODF/NODFP)
+special-case the same disconnection at extraction time — with NOSIBFACE fixing it at
+group-formation, they may be partially redundant (do a gate-off A/B before touching).
+
+Remaining 12: varargs pair (TestLinkMethodCall ×2), record-pattern ≡ residue ×3 (TestCast,
+TestInstanceOf, TestVariablesLinkedToObject), and singles (TestLinkModificationArea ≻vs←≺,
+TestRedundantModificationLinks ≡ chain, TestMap ⊆vs~, TestStream MR-swap, TestSupplier test7 ≺,
+TestSupplierSpec ×2).
+
 ## UPDATE — 'context divergence' DEBUNKED; ⊇→~ re-flip root-caused; VMIDIR default-on; link 15 → 13
 
 The class-vs-full-suite context divergence **does not exist**. At `7de1d9a6` itself, isolated

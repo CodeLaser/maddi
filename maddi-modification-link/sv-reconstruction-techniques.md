@@ -206,6 +206,22 @@ what they were built for**:
   assignment's ≡ beats the derived ←). Emits semantically-true extras on stream/collector
   summaries the old engine never derived — re-pinned, analyzer-suite-verified.
 
+### 2b. One slot, one group — sibling-spelling group resolution (gate `NOSIBFACE`)
+
+`SharedVariables.groupOfWithSiblingSpelling`: a field face with no direct group, whose scope
+belongs to a whole-object group, is looked up under each sibling spelling ('b.j' →
+'$__c0.j'/'$__rv2.j' for the chain group {$__c0, $__rv2, $__rv6, b}); on a hit the face JOINS
+the found group. Prevents the builder-chain two-groups-per-slot disease (the setter statement
+groups the slot under construction-time spellings; build()'s summary respells it through the
+chain-tail local — a disconnected parallel group strands the slot's ce-constants/Λ$_fi
+knowledge). Two invariants of the join: the triggering assignment IS recorded even though both
+sides now resolve to one group (reachable() walks the records; without it the chain to the
+group's true sources breaks at the joined spelling), and the group is RETURNED so mergeEdgeBi
+re-keys both sides' graph vertices (the 'same group' null path asserts no vertices remain).
+Overlap note: derivedFaceKeyed/derivedFromPairs (§2/§3, NODF/NODFP) special-case the same
+disconnection at extraction time; candidates for simplification now that the group layer fixes
+it at formation (A/B with the gates before touching).
+
 ### 4b. The ⊇→~ rewrite fires ONCE, at the modification statement (gate `NOFLIPSAME`)
 
 The old engine re-flipped ⊆/⊇→~ at every statement for `previouslyModified` variables; harmless
@@ -343,7 +359,7 @@ original DV's element type when the translated array has no array dimension).
   isolation (`test7`, `test3`, `generic factory`).
 - **Trust only full-suite A/B** for attribution; env gates exist for every major mechanism
   (`NOSPINE NOMAT NOBOTH NOMIRROR NOPASSFIX NODESC NORL NOSV NODF NODFP NORVREV NORSRC NOACM
-  NOPDEEP NOSIBR NOVMIDIR NOFLIPSAME NORVM`). Debug aids: `SVDUMP` (per-statement group dump), `SBDUMP=<simpleName>`
+  NOPDEEP NOSIBR NOVMIDIR NOFLIPSAME NORVM NOSIBFACE`). Debug aids: `SVDUMP` (per-statement group dump), `SBDUMP=<simpleName>`
   (closure with witnesses for a primary), `TRACEVAR=<substr>` (mergeEdgeBi + re-key trace),
   `RVTRACE` (return-variable builders b1/b2/b at write-out).
 - **Beware stale XMLs**: a silently failing gradle run leaves the previous run's test results in
