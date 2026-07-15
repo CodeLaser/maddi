@@ -17,6 +17,7 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -75,9 +76,12 @@ class WriteLinksAndModification {
         }
 
         RedundantLinks redundantLinks = new RedundantLinks();
+        Map<Link, Variable> flipOwner = new HashMap<>();
         for (VariableInfo vi : vd.variableInfoIterable(Stage.EVALUATION)) {
-            toRemove.addAll(doVariableReturnRecompute(statement, lastStatement, vi, unmarkedModifications,
-                    previouslyModified, expandedModifiedDuringEvaluation, newLinkedVariables, redundantLinks));
+            List<Link> tr = doVariableReturnRecompute(statement, lastStatement, vi, unmarkedModifications,
+                    previouslyModified, expandedModifiedDuringEvaluation, newLinkedVariables, redundantLinks);
+            for (Link l : tr) flipOwner.putIfAbsent(l, vi.variable());
+            toRemove.addAll(tr);
         }
         /*
          toRemove now contains links that should change from ⊆, ⊇ to ~, see e.g. TestConstructor,1; TestDependent,1
@@ -97,9 +101,18 @@ class WriteLinksAndModification {
             String skipStatementIndex = System.getenv("NOFLIPSAME") == null ? statement.source().index() : null;
             Set<Variable> affected = new HashSet<>();
             for (Link link : toRemove) {
+                // gate NOFLIPOWN: a composite ⊆/⊇ entailed by intact raw edges is not invalidated by the
+                // modification — only raw edges the MODIFIED variable itself owns are stale. Without this, the
+                // iterator's modification (next()) flipped the raw 'entries.§kvs ⊆ this.map.§kvs' (both
+                // unmodified) because the iterator's derived ⊆ descended to it (TestMap test2Reverse0).
+                Variable owner = flipOwner.get(link);
+                java.util.function.Predicate<Fact<Variable, LinkNature>> acceptRaw =
+                        owner == null || System.getenv("NOFLIPOWN") != null
+                                ? _ -> true
+                                : fact -> ownsFact(owner, fact);
                 Set<Variable> set = followGraph.graph()
                         .replaceReturnAffected(link.from(), link.to(), link.linkNature(), SHARES_ELEMENTS,
-                                skipStatementIndex);
+                                skipStatementIndex, acceptRaw);
                 affected.add(link.from());
                 affected.add(link.to());
                 updateNewLinks(newLinkedVariables, link);
@@ -120,6 +133,22 @@ class WriteLinksAndModification {
     //  should be removed
     private boolean acceptRemoval(Fact<Variable, LinkNature> fact) {
         return fact.label() == IS_SUBSET_OF || fact.label() == IS_SUPERSET_OF;
+    }
+
+    // the raw fact touches the flip owner: one endpoint's primary is the owner itself, or a shared-variable
+    // rep whose members include a face of the owner
+    private boolean ownsFact(Variable owner, Fact<Variable, LinkNature> fact) {
+        return touches(owner, fact.source()) || touches(owner, fact.target());
+    }
+
+    private boolean touches(Variable owner, Variable v) {
+        Variable p = Util.primary(v);
+        if (owner.equals(p)) return true;
+        if (p != null) {
+            return followGraph.graph().expandRepToMembers(p)
+                    .anyMatch(m -> owner.equals(Util.primary(m)));
+        }
+        return false;
     }
 
     private void updateNewLinks(Map<Variable, Links.Builder> newLinkedVariables, Link toUpdate) {
@@ -286,6 +315,10 @@ class WriteLinksAndModification {
                 // ⊆, ⊇ become ~ after a modification
                 builder.linkSet().forEach(link -> {
                     if (link.linkNature() == IS_SUBSET_OF || link.linkNature() == IS_SUPERSET_OF) {
+                        if (System.getenv("FLIPTRACE") != null) {
+                            System.out.println("FLIPTRACE owner=" + variable + " link=" + link
+                                               + " builder=" + builder.linkSet());
+                        }
                         toRemove.add(link);
                         toRemove.add(new LinksImpl.LinkImpl(link.to(), link.linkNature().reverse(), link.from()));
                     }
@@ -543,6 +576,16 @@ class WriteLinksAndModification {
                             ? fr
                             : runtime.newFieldReference(fr.fieldInfo(),
                             runtime.newVariableExpression(scope), fr.parameterizedType()));
+        }
+        if (variable instanceof DependentVariable dv && dv.arrayVariable() != null) {
+            // a rep in the array base ('$__sv_map.§vks[-1]' — the [-1]-slice face of a collapsed group) leaked
+            // as-is into printed links; rebuild the access on the expanded base, keeping the original element
+            // type (mirrors Graph.expandRepToMembers' DV branch)
+            return iterateOverShared(dv.arrayVariable())
+                    .map(arr -> arr == dv.arrayVariable()
+                            ? dv
+                            : runtime.newDependentVariable(runtime.newVariableExpression(arr),
+                            dv.indexExpression(), dv.parameterizedType()));
         }
         return Stream.of(variable);
     }

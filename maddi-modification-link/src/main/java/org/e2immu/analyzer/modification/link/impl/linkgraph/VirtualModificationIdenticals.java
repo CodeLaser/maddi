@@ -33,7 +33,11 @@ public class VirtualModificationIdenticals {
 
     private final AtomicInteger groupIdProvider = new AtomicInteger();
     private final Map<Integer, Group> groups = new HashMap<>();
-    private final Map<Variable, Integer> memberToGroup = new HashMap<>();
+    // a member can sit in SEVERAL groups, one per ≡-nature: the ☷ pass set is a property of the EDGE
+    // ('identical except via remove()' between an iterator and its collection), and folding a pass-marked
+    // pair into a strict group discarded the pass — iterating a collection (next()) then counted as a strict
+    // modification of everything §m-equivalent to it (the TestMap reverse0 ⊆→~ flip).
+    private final Map<Variable, Set<Integer>> memberToGroup = new HashMap<>();
 
     public String print(Function<Variable, String> variablePrinter) {
         return groups.entrySet().stream()
@@ -65,12 +69,10 @@ public class VirtualModificationIdenticals {
         return map.entrySet();
     }
 
-    public Group members(Variable variable) {
-        Integer groupId = memberToGroup.get(variable);
-        if (groupId == null) return EMPTY;
-        Group group = groups.get(groupId);
-        assert group != null && !group.members.isEmpty();
-        return group;
+    // all groups the member sits in (one per ≡-nature)
+    public Stream<Group> groupsOfMember(Variable variable) {
+        return memberToGroup.getOrDefault(variable, Set.of()).stream()
+                .map(g -> groups.getOrDefault(g, EMPTY));
     }
 
     public Set<Variable> variablesPartOf(Variable primary) {
@@ -78,28 +80,41 @@ public class VirtualModificationIdenticals {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
+    // pass semantics are per-EDGE: a strict ≡ and a pass-marked ☷ between the same members live in
+    // DIFFERENT groups (matched on the pass set), never merged
+    private static boolean sameNature(LinkNature a, LinkNature b) {
+        return a.pass().equals(b.pass());
+    }
+
+    private Integer groupWithNature(Variable v, LinkNature linkNature) {
+        for (Integer g : memberToGroup.getOrDefault(v, Set.of())) {
+            Group group = groups.get(g);
+            if (group != null && sameNature(group.linkNature, linkNature)) return g;
+        }
+        return null;
+    }
 
     public boolean add(Variable v1, LinkNature linkNature, Variable v2) {
-        Integer g1 = memberToGroup.get(v1);
-        Integer g2 = memberToGroup.get(v2);
+        Integer g1 = groupWithNature(v1, linkNature);
+        Integer g2 = groupWithNature(v2, linkNature);
         if (g1 == null && g2 == null) {
             int newGroupId = groupIdProvider.incrementAndGet();
             Set<Variable> set = new LinkedHashSet<>();
             set.add(v1);
             set.add(v2);
             groups.put(newGroupId, new Group(linkNature, set));
-            memberToGroup.put(v1, newGroupId);
-            memberToGroup.put(v2, newGroupId);
+            join(v1, newGroupId);
+            join(v2, newGroupId);
             return true;
         }
         if (g1 == null) {
             groups.get(g2).members.add(v1);
-            memberToGroup.put(v1, g2);
+            join(v1, g2);
             return true;
         }
         if (g2 == null) {
             groups.get(g1).members.add(v2);
-            memberToGroup.put(v2, g1);
+            join(v2, g1);
             return true;
         }
         int g1i = g1;
@@ -107,12 +122,20 @@ public class VirtualModificationIdenticals {
         if (g1i == g2i) {
             return false;
         }
-        // merge g2 into g1
+        // merge g2 into g1 (same nature by construction)
         Group group2 = groups.get(g2);
         groups.get(g1).members.addAll(group2.members);
         groups.remove(g2);
-        group2.members.forEach(v -> memberToGroup.put(v, g1));
+        for (Variable v : group2.members) {
+            Set<Integer> set = memberToGroup.get(v);
+            if (set != null) set.remove(g2i);
+            join(v, g1i);
+        }
         return true;
+    }
+
+    private void join(Variable v, int groupId) {
+        memberToGroup.computeIfAbsent(v, _ -> new LinkedHashSet<>()).add(groupId);
     }
 
     public Stream<Variable> variables() {
@@ -123,7 +146,7 @@ public class VirtualModificationIdenticals {
     public Stream<Variable> equivalentStream(Variable variable) {
         Set<Integer> groups = memberToGroup.entrySet().stream()
                 .filter(e -> variable.equals(Util.firstRealVariable(e.getKey())))
-                .map(Map.Entry::getValue)
+                .flatMap(e -> e.getValue().stream())
                 .collect(Collectors.toUnmodifiableSet());
         return groups.stream().flatMap(g -> this.groups.getOrDefault(g, EMPTY).members.stream())
                 .map(Util::firstRealVariable);
@@ -135,7 +158,7 @@ public class VirtualModificationIdenticals {
     public Stream<Group> groupsOf(Variable variable) {
         return memberToGroup.entrySet().stream()
                 .filter(e -> variable.equals(Util.firstRealVariable(e.getKey())))
-                .map(Map.Entry::getValue)
+                .flatMap(e -> e.getValue().stream())
                 .distinct()
                 .map(g -> groups.getOrDefault(g, EMPTY));
     }

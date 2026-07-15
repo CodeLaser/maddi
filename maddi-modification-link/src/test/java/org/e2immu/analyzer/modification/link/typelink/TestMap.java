@@ -300,16 +300,15 @@ public class TestMap extends CommonTest {
 
         VariableInfo map200 = vd200.variableInfo("map");
         assertEquals("""
-                map.§vks[-1]∋entry.§kv.§v,map.§vks[-1]∩this.map.§kvs,map.§vks[-1]∩entries.§kvs,\
-                map.§vks[-2]∋entry.§kv.§k,map.§vks[-2]∩this.map.§kvs,map.§vks[-2]∩entries.§kvs,\
-                map.§vks∋entry,map.§vks~this.map.§kvs,map.§vks~entries.§kvs\
+                map.§vks∋entry,map.§vks~this.map.§kvs,map.§vks~entries.§kvs,\
+                map.§vks[-1]∩entry.§kv.§k,map.§vks[-1]∋entry.§kv.§v,map.§vks[-1]∩this.map.§kvs,map.§vks[-1]∩entries.§kvs,\
+                map.§vks[-2]∋entry.§kv.§k,map.§vks[-2]∩entry.§kv.§v,map.§vks[-2]∩this.map.§kvs,map.§vks[-2]∩entries.§kvs\
                 """, map200.linkedVariables().toString());
         assertTrue(map200.isModified());
 
         VariableInfo entries200 = vd200.variableInfo("entries");
         assertEquals("""
-                entries.§kvs∋entry,entries.§kvs~map.§vks,entries.§kvs≥entry.§kv.§k,entries.§kvs≥entry.§kv.§v,\
-                entries.§kvs∩map.§vks[-1],entries.§kvs∩map.§vks[-2],entries.§m≡this.map.§m\
+                entries.§kvs∋entry,entries.§kvs~map.§vks,entries.§kvs∩map.§vks[-1],entries.§kvs∩map.§vks[-2],entries.§m≡this.map.§m\
                 """, entries200.linkedVariables().toString());
         assertFalse(entries200.isModified());
 
@@ -326,9 +325,7 @@ public class TestMap extends CommonTest {
 
         VariableInfo entry200 = vd200.variableInfo("entry");
         assertEquals("""
-                entry.§kv.§k∈map.§vks[-2],entry.§kv.§k≤this.map.§kvs,entry.§kv.§k≤entries.§kvs,\
-                entry.§kv.§v∈map.§vks[-1],entry.§kv.§v≤this.map.§kvs,entry.§kv.§v≤entries.§kvs,\
-                entry∈this.map.§kvs,entry∈map.§vks,entry∈entries.§kvs\
+                entry∈map.§vks,entry.§kv.§k∩map.§vks[-1],entry.§kv.§k∈map.§vks[-2],entry.§kv.§v∈map.§vks[-1],entry.§kv.§v∩map.§vks[-2]\
                 """, entry200.linkedVariables().toString());
         assertFalse(entry200.isModified());
 
@@ -339,18 +336,15 @@ public class TestMap extends CommonTest {
 
         VariableInfo map2 = vd2.variableInfo("map");
         assertEquals("""
-                map.§vks[-1]∋entry.§kv.§v,map.§vks[-1]∩this.map.§kvs,map.§vks[-1]∩entries.§kvs,\
-                map.§vks[-2]∋entry.§kv.§k,map.§vks[-2]∩this.map.§kvs,map.§vks[-2]∩entries.§kvs,\
-                map.§vks∋entry,map.§vks~this.map.§kvs,map.§vks~entries.§kvs\
+                map.§vks∋entry,map.§vks~this.map.§kvs,map.§vks~entries.§kvs,\
+                map.§vks[-1]∩entry.§kv.§k,map.§vks[-1]∋entry.§kv.§v,map.§vks[-1]∩this.map.§kvs,map.§vks[-1]∩entries.§kvs,\
+                map.§vks[-2]∋entry.§kv.§k,map.§vks[-2]∩entry.§kv.§v,map.§vks[-2]∩this.map.§kvs,map.§vks[-2]∩entries.§kvs\
                 """, map2.linkedVariables().toString());
         assertTrue(map2.isModified());
 
         VariableInfo entries2 = vd2.variableInfo("entries");
         assertEquals("""
-                entries.§kvs∋entry,entries.§kvs⊆this.map.§kvs,\
-                entries.§m≡this.map.§m,\
-                entries.§kvs~map.§vks,entries.§kvs≥entry.§kv.§k,entries.§kvs≥entry.§kv.§v,entries.§kvs∩map.§vks[-1],\
-                entries.§kvs∩map.§vks[-2]\
+                entries.§kvs∋entry,entries.§kvs⊆this.map.§kvs,entries.§m≡this.map.§m,entries.§kvs~map.§vks,entries.§kvs∩map.§vks[-1],entries.§kvs∩map.§vks[-2]\
                 """, entries2.linkedVariables().toString());
         assertFalse(entries2.isModified());
 
@@ -379,44 +373,24 @@ public class TestMap extends CommonTest {
                 """, vd3.knownVariableNames().toString());
         VariableInfo viMap = vd3.variableInfo("map");
         assertEquals("""
-                map.§m≡reverse0.map.§m,map.\
-                §vks[-1]→reverse0.map.§vks[-1],\
-                map.§vks[-1]≤reverse0.map,\
-                map.§vks[-1]≤reverse0.map.§vks,\
-                map.§vks[-1]∩this.map.§kvs,\
-                map.§vks[-1]∩reverse0.map.§vks[-2],\
-                map.§vks[-1]∩entries.§kvs,\
-                map.§vks[-2]→reverse0.map.§vks[-2],\
-                map.§vks[-2]≤reverse0.map,\
-                map.§vks[-2]≤reverse0.map.§vks,\
-                map.§vks[-2]∩this.map.§kvs,\
-                map.§vks[-2]∩reverse0.map.§vks[-1],\
-                map.§vks[-2]∩entries.§kvs,\
-                map.§vks~this.map.§kvs,\
-                map.§vks~reverse0.map.§vks,\
-                map.§vks~entries.§kvs,\
-                map.§vks≥reverse0.map.§vks[-1],\
-                map.§vks≥reverse0.map.§vks[-2],\
-                map→reverse0.map\
+                map.§m≡reverse0.map.§m,map.§vks≺reverse0,map.§vks∋entry,map.§vks~this.map.§kvs,map.§vks→reverse0.map.§vks,map.§vks~entries.§kvs,map.§vks[-1]≤reverse0,map.§vks[-1]∩entry.§kv.§k,map.§vks[-1]∋entry.§kv.§v,map.§vks[-1]∩this.map.§kvs,map.§vks[-1]→reverse0.map.§vks[-1],map.§vks[-1]∩entries.§kvs,map.§vks[-2]≤reverse0,map.§vks[-2]∋entry.§kv.§k,map.§vks[-2]∩entry.§kv.§v,map.§vks[-2]∩this.map.§kvs,map.§vks[-2]→reverse0.map.§vks[-2],map.§vks[-2]∩entries.§kvs,map→reverse0.map\
                 """, viMap.linkedVariables().toString());
 
         VariableInfo viEntries = vd3.variableInfo("entries");
         assertEquals("""
-                entries.§kvs~map.§vks,entries.§kvs∩map.§vks[-1],entries.§kvs∩map.§vks[-2],entries.§m≡this.map.§m\
+                entries.§kvs∋?entry,entries.§kvs~reverse0.map.§vks,entries.§kvs∩reverse0.map.§vks[-1],entries.§kvs∩reverse0.map.§vks[-2],entries.§kvs~map.§vks,entries.§kvs∩map.§vks[-1],entries.§kvs∩map.§vks[-2],entries.§m≡this.map.§m\
                 """, viEntries.linkedVariables().toString());
 
         VariableInfo viThisMap = vd3.variableInfo("a.b.C.map");
         assertEquals("""
-                this.map.§kvs~map.§vks,this.map.§kvs∩map.§vks[-1],this.map.§kvs∩map.§vks[-2],this.map.§m≡entries.§m\
+                this.map.§kvs∋?entry,this.map.§kvs~map.§vks,this.map.§kvs∩map.§vks[-1],this.map.§kvs∩map.§vks[-2],this.map.§m≡entries.§m\
                 """, viThisMap.linkedVariables().toString());
 
         // NOTE: map.§vks∋entry,map.§vks~this.map.§kvs,map.§vks~entries.§kvs has been generated by
         // Expand.completeSliceInformation().
         assertEquals("", mlvReverse0.sortedModifiedString());
         assertEquals("""
-                [] --> reverse0.map.§vks[-1]∩this.map.§kvs,\
-                reverse0.map.§vks[-2]∩this.map.§kvs,\
-                reverse0.map.§vks~this.map.§kvs\
+                [] --> reverse0.map.§vks~this.map.§kvs,reverse0.map.§vks[-1]∩this.map.§kvs,reverse0.map.§vks[-2]∩this.map.§kvs\
                 """, mlvReverse0.toString());
         // reverse0.map.§vks~this.map.§kvs is there thanks to Expand.completeSliceInformation().
         // reverse0.map∩this.map.§kvs is lost due to new version of Util.isPartOf()
@@ -456,8 +430,7 @@ public class TestMap extends CommonTest {
         assertFalse(vd2.isKnown("entry"));
 
         assertEquals("""
-                [] --> reverse.map.§vks~this.map*.§kvs,reverse.map.§vks[-1]∩this.map*.§kvs,\
-                reverse.map.§vks[-2]∩this.map*.§kvs\
+                [] --> reverse.map.§vks~this.map.§kvs,reverse.map.§vks[-1]∩this.map.§kvs,reverse.map.§vks[-2]∩this.map.§kvs\
                 """, mlvReverse.toString());
 
         MethodInfo staticReverse = C.findUniqueMethod("staticReverse", 1);
@@ -473,8 +446,7 @@ public class TestMap extends CommonTest {
                 """, tlvR0.toString());
 
         assertEquals("""
-                [-] --> staticReverse.map.§vks~0:c.map*.§kvs,staticReverse.map.§vks[-1]∩0:c.map*.§kvs,\
-                staticReverse.map.§vks[-2]∩0:c.map*.§kvs\
+                [-] --> staticReverse.map.§vks~0:c.map.§kvs,staticReverse.map.§vks[-1]∩0:c.map.§kvs,staticReverse.map.§vks[-2]∩0:c.map.§kvs\
                 """, tlvSReverse.toString());
     }
 
