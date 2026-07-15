@@ -64,13 +64,14 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     }
 
     /**
-     * Point both registries at the rewired copy of a primary type and its subtypes: same FQN and source set, new
-     * object ({@code InvalidationState.REWIRE}). Called after {@code InfoMap.rewireAll()}.
+     * Point both registries at one rewired type: same FQN and source set, new object
+     * ({@code InvalidationState.REWIRE}). Registers exactly the type given — the caller feeds it every type the
+     * rewire produced ({@code InfoMap.rewiredTypes()}), primary types, subtypes and the anonymous/local/lambda types
+     * alike. Walking the type here instead would miss the last group: they are not among its {@code subTypes()}.
      */
     @Override
     public void setRewiredType(TypeInfo typeInfo) {
-        assert typeInfo.isPrimaryType() : "Can only rewire a primary type: " + typeInfo;
-        typeInfo.recursiveSubTypeStream().forEach(ti -> typesLoaded.put(ti.fullyQualifiedName(), ti));
+        typesLoaded.put(typeInfo.fullyQualifiedName(), typeInfo);
         infoByFqn.replaceType(typeInfo);
     }
 

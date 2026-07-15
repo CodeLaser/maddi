@@ -14,6 +14,7 @@
 
 package org.e2immu.language.inspection.integration.java.invalidate;
 
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.ParseResult;
@@ -94,6 +95,39 @@ public class TestInvalidate extends CommonTest2 {
 
         // this test is the precursor to test4, where Processor stays unchanged, ISource is invalidated,
         // and Source is rewired.
+    }
+
+    /**
+     * A rewired type's <em>subtypes</em> must be re-registered too: {@code Processor} holds the nested record
+     * {@code ProcessResult}, and rewiring Processor builds a new one.
+     * <p>
+     * It used to keep the old one: {@code setRewiredType} was called with the primary types only, and updated the
+     * single trie entry for the FQN it was given — so the trie went on answering for {@code ProcessResult} with the
+     * object the rewire had replaced. Both inspectors now register every type {@code InfoMap.rewiredTypes()} reports.
+     */
+    @Test
+    public void testSubTypesAreReRegistered() throws IOException {
+        Map<String, String> sourcesByFqn = Map.of(ISOURCE_FQN, ISOURCE, "a.b.Source", SOURCE,
+                PROCESSOR_FQN, PROCESSOR);
+        ParseResult pr1 = init(sourcesByFqn);
+        TypeInfo processor1 = pr1.findType(PROCESSOR_FQN);
+        TypeInfo nested1 = processor1.subTypes().getFirst();
+        assertEquals("a.b.util.Processor.ProcessResult", nested1.fullyQualifiedName());
+        SourceSet sourceSet = processor1.compilationUnit().sourceSet();
+        assertSame(nested1, javaInspector.compiledTypesManager().get(nested1.fullyQualifiedName(), sourceSet));
+
+        JavaInspector.ParseOptions po = new JavaInspector.ParseOptions.Builder()
+                .setInvalidated(t -> switch (t.simpleName()) {
+                    case "ISource" -> INVALID;
+                    case "Processor", "Source" -> REWIRE;
+                    default -> throw new UnsupportedOperationException(t.fullyQualifiedName());
+                }).build();
+        ParseResult pr2 = javaInspector.parse(sourcesByURIString(sourcesByFqn), po).parseResult();
+
+        TypeInfo nested2 = pr2.findType(PROCESSOR_FQN).subTypes().getFirst();
+        assertNotSame(nested1, nested2, "the rewire builds a new nested type");
+        assertSame(nested2, javaInspector.compiledTypesManager().get(nested1.fullyQualifiedName(), sourceSet),
+                "the registry must hand out the nested type the rewired Processor actually holds");
     }
 
     @Test

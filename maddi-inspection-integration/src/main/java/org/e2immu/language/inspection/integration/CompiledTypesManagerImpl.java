@@ -179,12 +179,19 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         ((TypeDataImpl) typeData).setTypeInfo(typeInfo);
     }
 
+    /**
+     * Point the trie at the rewired copy of one type. The caller passes every type the rewire produced
+     * ({@code InfoMap.rewiredTypes()}) — primary types, subtypes, and the anonymous/local/lambda types phase 3
+     * rewires on demand — so this updates exactly the type given. It used to be called with primary types only, and
+     * updated only their entry, which left the trie answering for a subtype with the object the rewire had replaced.
+     */
     @Override
     public void setRewiredType(TypeInfo typeInfo) {
         String fullyQualifiedName = typeInfo.fullyQualifiedName();
         String[] parts = fullyQualifiedName.split("\\.");
         SourceSet sourceSet = typeInfo.compilationUnit().sourceSet();
-        TypeData typeData = typeTrie.get(parts).stream()
+        List<TypeData> typeDataList = typeTrie.get(parts);
+        TypeData typeData = typeDataList == null ? null : typeDataList.stream()
                 .filter(td -> td.sourceFile().sourceSet().equals(sourceSet))
                 .findFirst().orElse(null);
         if (typeData != null) {
@@ -192,10 +199,10 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
             if (mapSingleTypeForFQN.containsKey(fullyQualifiedName)) {
                 mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
             }
-        } else {
-            // FIXME when a type moves to a different source set...?
-            throw new UnsupportedOperationException("New types must be 'registered' with addType/a SourceFile object");
         }
+        // else: the trie never held it. Rewiring copies types that exist, it does not declare new ones, so this is
+        // not the "new type" the old guard here was watching for -- it is one of the kinds the trie is not fed:
+        // anonymous classes, local classes, lambdas. Nothing registered, nothing to re-point.
     }
 
     @Override
