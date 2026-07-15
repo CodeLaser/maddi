@@ -8,6 +8,7 @@ import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.Collection;
@@ -40,14 +41,27 @@ public class SharedVariables {
     }
 
     public SharedVariable isAssignedFrom(Variable from, Variable to, String statementIndex) {
-        SharedVariable sv1 = memberToGroup.get(from);
-        SharedVariable sv2 = memberToGroup.get(to);
+        joinedBySpelling = false;
+        SharedVariable sv1 = groupOfWithSiblingSpelling(from);
+        boolean joined1 = joinedBySpelling;
+        joinedBySpelling = false;
+        SharedVariable sv2 = groupOfWithSiblingSpelling(to);
+        boolean joined2 = joinedBySpelling;
         if (sv1 == null && sv2 == null) {
             SharedVariable sv = create(from, to);
             sv.addAssignment(from, to, statementIndex);
             return sv;
         }
         if (sv1 == sv2) {
+            if (joined1 || joined2) {
+                // one side entered the group as a sibling spelling of a member ('b.stringSet' joining
+                // {$__rv6.stringSet, 0:in} because b ≡ $__rv6): the assignment hop must still be recorded —
+                // reachable() walks these records, and without it the chain to the group's true sources
+                // (0:in) breaks at the joined spelling. Returning the group also re-keys both sides' graph
+                // vertices onto the rep (the sv==null path asserts there are none).
+                sv1.addAssignment(from, to, statementIndex);
+                return sv1;
+            }
             return null; // already in the same group
         }
         if (sv1 == null) {
@@ -64,6 +78,43 @@ public class SharedVariables {
         // (Graph.mergeEdgeBi does, via lastMergedAway)
         merge(sv1, sv2, from, to, statementIndex);
         return sv1;
+    }
+
+    /*
+    One runtime slot must be ONE group (gate NOSIBFACE). In a collapsed builder chain
+    ({$__c0, $__rv2, $__rv6, b} whole-object-grouped), the setter calls group the slot under one spelling
+    ($__sv_j: {$__c0.j, $__rv2.j}, carrying '← $_ce1') while a later build()/read spells the same slot through
+    another sibling ('b.j'). A plain memberToGroup lookup misses, and a PARALLEL, disconnected group forms
+    ({b.j, r.i}) — the slot's knowledge never reaches the reader (the builder-chain ce-constants loss;
+    same disease as the ThrowingFunction rep-vs-face disconnection). Resolution: when a field face has no
+    direct group, try the same field spelled through each whole-object group sibling of its scope; on a hit,
+    the face JOINS that group (one slot, one group) and the hit is returned.
+     */
+    // set by groupOfWithSiblingSpelling when the lookup joined the variable into a group via a sibling
+    // spelling (consumed per-lookup by isAssignedFrom, cf. the lastMergedAway pattern)
+    private boolean joinedBySpelling;
+
+    private SharedVariable groupOfWithSiblingSpelling(Variable v) {
+        SharedVariable direct = memberToGroup.get(v);
+        if (direct != null || System.getenv("NOSIBFACE") != null) return direct;
+        if (v instanceof FieldReference fr && fr.scopeVariable() != null) {
+            SharedVariable scopeGroup = memberToGroup.get(fr.scopeVariable());
+            if (scopeGroup != null) {
+                for (Variable sib : scopeGroup.variables()) {
+                    if (sib.equals(fr.scopeVariable())) continue;
+                    VariableTranslationMap vtm = new VariableTranslationMap(runtime);
+                    vtm.put(fr.scopeVariable(), sib);
+                    Variable spelled = vtm.translateVariableRecursively(v);
+                    SharedVariable g = memberToGroup.get(spelled);
+                    if (g != null) {
+                        add(g, v);
+                        joinedBySpelling = true;
+                        return g;
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     // the group representative that was discarded by the most recent isAssignedFrom-triggered merge; the caller
