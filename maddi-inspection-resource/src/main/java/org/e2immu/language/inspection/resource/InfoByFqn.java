@@ -20,7 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 /**
@@ -65,34 +65,41 @@ public class InfoByFqn {
     }
 
     /**
-     * Forget one source primary type and all its subtypes, so that a re-parse of its compilation unit builds fresh
-     * {@code TypeInfo} objects rather than finding (and reusing) the stale ones. The counterpart of
+     * Forget one source primary type and everything registered under it, so that a re-parse of its compilation unit
+     * builds fresh {@code TypeInfo} objects rather than finding (and reusing) the stale ones. The counterpart of
      * {@link #removeAllSources()} for a single type; see {@code JavaInspector.InvalidationState#INVALID}.
      * <p>
-     * Matched on (FQN, source set), not on FQN alone: the same FQN may legitimately exist in another source set, and
-     * that type is not the one being invalidated. The {@code classScannerSetupDone} guard is dropped along with the
+     * "Under it" is decided by {@link #belongsTo}. The {@code classScannerSetupDone} guard is dropped along with the
      * type, exactly as {@code removeAllSources} does — the entries are identity-keyed on objects nobody will use again.
      */
     public void removeType(TypeInfo primaryType) {
-        Set<String> fqns = fqnsOf(primaryType);
-        SourceSet sourceSet = primaryType.compilationUnit().sourceSet();
-        singleTypeByFqn.entrySet().removeIf(e -> fqns.contains(e.getKey()) && sameSourceSet(e.getValue(), sourceSet));
-        for (String fqn : fqns) {
-            List<TypeInfo> multi = multiTypeByFqn.get(fqn);
-            if (multi != null) {
-                // rebuild: the lists in this map are immutable (List.of/Stream.toList), so removeIf would throw
-                List<TypeInfo> remaining = multi.stream().filter(ti -> !sameSourceSet(ti, sourceSet)).toList();
-                if (remaining.isEmpty()) multiTypeByFqn.remove(fqn);
-                else if (remaining.size() == 1) {
-                    multiTypeByFqn.remove(fqn);
-                    singleTypeByFqn.put(fqn, remaining.getFirst());
-                } else multiTypeByFqn.put(fqn, remaining);
-            }
+        Predicate<TypeInfo> belongsToIt = belongsTo(primaryType);
+        singleTypeByFqn.values().removeIf(belongsToIt);
+        for (String fqn : List.copyOf(multiTypeByFqn.keySet())) {
+            // rebuild: the lists in this map are immutable (List.of/Stream.toList), so removeIf would throw
+            List<TypeInfo> remaining = multiTypeByFqn.get(fqn).stream().filter(ti -> !belongsToIt.test(ti)).toList();
+            if (remaining.size() == multiTypeByFqn.get(fqn).size()) continue; // nothing of ours in there
+            if (remaining.isEmpty()) multiTypeByFqn.remove(fqn);
+            else if (remaining.size() == 1) {
+                multiTypeByFqn.remove(fqn);
+                singleTypeByFqn.put(fqn, remaining.getFirst());
+            } else multiTypeByFqn.put(fqn, remaining);
         }
-        classScannerSetupDone.removeIf(ti -> fqns.contains(ti.fullyQualifiedName())
-                                             && sameSourceSet(ti, sourceSet));
-        loadedForThisSourceSet.removeIf(ti -> fqns.contains(ti.fullyQualifiedName())
-                                              && sameSourceSet(ti, sourceSet));
+        classScannerSetupDone.removeIf(belongsToIt);
+        loadedForThisSourceSet.removeIf(belongsToIt);
+    }
+
+    /**
+     * Does this type belong to the given primary type? Asked of the type itself via {@link TypeInfo#primaryType()},
+     * which walks up through enclosing types <em>and enclosing methods</em> — so it also claims the anonymous types a
+     * compilation unit registers ({@code a.b.C.$0}), which {@code recursiveSubTypeStream()} does not list and which,
+     * left behind, make the re-scan of a source set throw "Duplicating type".
+     * <p>
+     * No separate source-set test: {@code TypeInfo} equality is fqn + source set, so comparing primary types already
+     * spares a same-named type in another source set.
+     */
+    private static Predicate<TypeInfo> belongsTo(TypeInfo primaryType) {
+        return typeInfo -> primaryType.equals(typeInfo.primaryType());
     }
 
     /**
@@ -111,11 +118,6 @@ public class InfoByFqn {
                 multiTypeByFqn.put(fqn, multi.stream().map(m -> sameSourceSet(m, sourceSet) ? ti : m).toList());
             }
         });
-    }
-
-    private static Set<String> fqnsOf(TypeInfo primaryType) {
-        return primaryType.recursiveSubTypeStream().map(TypeInfo::fullyQualifiedName)
-                .collect(Collectors.toSet());
     }
 
     private static boolean sameSourceSet(TypeInfo typeInfo, SourceSet sourceSet) {
