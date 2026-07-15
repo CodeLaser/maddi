@@ -499,9 +499,7 @@ public class TestStaticValuesRecord extends CommonTest {
         // vs the old engine: all facts retained, plus the finer r.i←$_ce1 and cross-spelling spine/containment
         // extras from the one-slot-one-group merge (gate NOSIBFACE)
         assertEquals("""
-                        r.i←$_ce1,r.i←b.j,r.list←b.intList,r.list≻b.intList.§$s,r.set←b.stringSet,\
-                        r.list.§$s∋$_ce3,r.list.§$s∋$_ce4,r.list.§$s≺b.intList,r.list.§$s≺b,r.list.§$s←b.intList.§$s,\
-                        r.list.§m≡b.intList.§m,r.set.§m≡b.stringSet.§m,r.set.§m≡0:in.§m,r≈b,r≻b.intList.§$s\
+                        r.i←$_ce1,r.i←b.j,r.list←b.intList,r.list≻b.intList.§$s,r.set≡b.stringSet,r.set←b.stringSet,r.list.§$s∋$_ce3,r.list.§$s∋$_ce4,r.list.§$s≺b.intList,r.list.§$s≺b,r.list.§$s←b.intList.§$s,r.list.§m≡b.intList.§m,r.set.§m≡b.stringSet.§m,r.set.§m≡0:in.§m,r≈b,r≻b.intList.§$s\
                         """,
                 rVi1.linkedVariables().toString());
 
@@ -613,9 +611,7 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableInfo rVi1 = vd1.variableInfo(r);
             // code of ExpressionAnalyzer.checkCaseForBuilder
             assertEquals("""
-                    r.function←Λ$_fi2,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables→b.variables,\
-                    r.variables∋b.variables[0],r.variables[0]←b.variables[0],r.variables[0]∈r.variables,\
-                    r.variables.§m≡b.variables.§m,r.variables[0].§m≡r.variables.§m,r≈b\
+                    r.function←Λ$_fi2,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables→b.variables,r.variables∋b.variables[0],r.variables[0]≡b.variables[0],r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables.§m≡b.variables.§m,r.variables[0].§m≡r.variables.§m,r≈b\
                     """, rVi1.linkedVariables().toString());
         }
         assertEquals("[-] --> method3∋0:in*,method3[0]←0:in*", mlvMethod3.toString());
@@ -653,7 +649,7 @@ public class TestStaticValuesRecord extends CommonTest {
             Statement s1 = method4.methodBody().statements().get(1);
             VariableInfo vi1r = VariableDataImpl.of(s1).variableInfo("r");
             assertEquals("""
-                    r.function←Λ$_fi22,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables→b.variables,r.variables∋b.variables[1],r.variables[1]←b.variables[1],r.variables[1]∈r.variables,r.variables.§m≡b.variables.§m,r.variables[1].§m≡r.variables.§m,r≈b\
+                    r.function←Λ$_fi22,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables→b.variables,r.variables∋b.variables[1],r.variables[1]≡b.variables[1],r.variables[1]←b.variables[1],r.variables[1]∈r.variables,r.variables.§m≡b.variables.§m,r.variables[1].§m≡r.variables.§m,r≈b\
                     """, vi1r.linkedVariables().toString());
         }
         assertEquals("[-] --> -", mlvMethod4.toString());
@@ -748,10 +744,7 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableData vd2 = VariableDataImpl.of(rLvc);
             VariableInfo rVi2 = vd2.variableInfo("r");
             assertEquals("""
-                    r.function←Λ$_fi2,r.function←Λb.function,r.function→Λb.function,r.variables∋$__sv_variables[0],\
-                    r.variables~b.variables,r.variables←b.variables,r.variables∋b.variables[0],r.variables∋0:s,\
-                    r.variables[0]∈b.variables,r.variables[0]←b.variables[0],r.variables[0]∈r.variables,\
-                    r.variables[0]←0:s,r.variables.§m≡b.variables.§m,r≈b\
+                    r.function←Λ$_fi2,r.function←Λb.function,r.function→Λb.function,r.variables∋$__sv_variables[0],r.variables~b.variables,r.variables←b.variables,r.variables∋b.variables[0],r.variables∋0:s,r.variables[0]∈b.variables,r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables[0]←0:s,r.variables.§m≡b.variables.§m,r.variables.§m≡b.variables[0].§m,r.variables.§m≡0:s.§m,r≈b\
                     """, rVi2.linkedVariables().toString());
         }
         // example of the use of VariableTranslationAllowHierarchy
@@ -779,9 +772,7 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableData v1 = VariableDataImpl.of(method2.methodBody().statements().get(1));
             VariableInfo vi2Rv = v1.variableInfo("r");
             assertEquals("""
-                    r.function←Λ$_fi8,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables→b.variables,\
-                    r.variables∋b.variables[0],r.variables[0]←b.variables[0],r.variables[0]∈r.variables,\
-                    r.variables.§m≡b.variables.§m,r.variables[0].§m≡r.variables.§m,r≈b\
+                    r.function←Λ$_fi8,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables→b.variables,r.variables∋b.variables[0],r.variables[0]≡b.variables[0],r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables.§m≡b.variables.§m,r.variables[0].§m≡r.variables.§m,r≈b\
                     """, vi2Rv.linkedVariables().toString());
         }
         {

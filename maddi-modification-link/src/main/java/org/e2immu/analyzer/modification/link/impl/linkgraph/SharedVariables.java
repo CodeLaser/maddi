@@ -245,6 +245,25 @@ public class SharedVariables {
                             }
                         }
                     }
+                } else if (System.getenv("NOSIBEQ") == null) {
+                    // CO-RECIPIENT IDENTITY (gate NOSIBEQ), per-statement views: two members DIRECTLY assigned
+                    // the same source's value hold the same object — 'ii = (II)o' + 'ii2 = (II)o' ⟹ 'ii2 ≡ ii'
+                    // (the §m companion follows in the fold). Direct records only (no chaining: a transitive
+                    // source does not guarantee identity); reassignment of the source evicts it from the group,
+                    // so both records still see the same value. Same-base DependentVariable pairs excluded
+                    // (spelling aliases, cf. the sibling-recipient rule above).
+                    for (Variable src : fwd.getOrDefault(m, java.util.List.of())) {
+                        for (Variable sib : bwd.getOrDefault(src, java.util.List.of())) {
+                            if (!sib.equals(m) && !emitM.equals(sib)
+                                && !(sib instanceof org.e2immu.language.cst.api.variable.DependentVariable dvS
+                                     && m instanceof org.e2immu.language.cst.api.variable.DependentVariable dvM
+                                     && dvS.arrayVariable() != null
+                                     && dvS.arrayVariable().equals(dvM.arrayVariable()))) {
+                                builder.add(new LinksImpl.LinkImpl(emitM,
+                                        LinkNatureImpl.makeIdenticalTo(null), sib));
+                            }
+                        }
+                    }
                 }
             }
         }

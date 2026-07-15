@@ -861,7 +861,7 @@ public class TestModificationLoopTransform extends CommonTest {
             Statement s1 = UpperTriangleLoopBody1.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
             VariableInfo vi1M = vd1.variableInfo("matrix");
-            assertEquals("matrix∈0:ld.variables,matrix←0:ld.variables[1]", vi1M.linkedVariables().toString());
+            assertEquals("matrix.§m≡0:ld.variables[1].§m,matrix∈0:ld.variables,matrix←0:ld.variables[1]", vi1M.linkedVariables().toString());
         }
         IfElseStatement s700 = (IfElseStatement) UpperTriangleLoopBody1.methodBody().statements().get(7)
                 .block().statements().getFirst();

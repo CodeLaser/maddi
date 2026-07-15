@@ -450,10 +450,12 @@ public class VirtualFieldComputer {
         if (Util.needsVirtual(from.parameterizedType()) && Util.needsVirtual(to.parameterizedType())) {
             // FIXME what when one needs virtual, and the other does not? is technically possible;
             Value.Immutable immutableTo = new AnalysisHelper().typeImmutable(to.parameterizedType());
-            // NOTE: this reads 'to' (not 'from') deliberately-for-now. It looks like a copy-paste bug (see
-            // virtual-fields.md #2), but changing it to from.parameterizedType() alters modification-link output
-            // and breaks TestCast/TestInstanceOf/TestList. Needs a semantics decision before it can be "fixed".
-            Value.Immutable immutableFrom = new AnalysisHelper().typeImmutable(to.parameterizedType());
+            // semantics decision taken (was a long-standing copy-paste bug reading 'to' twice): the pair
+            // denotes ONE runtime object (assignment/cast), so a §m pair exists when EITHER static type is
+            // mutable — 'set ← 0:r.object' (to-side Object = immutable-HC) still carries set.§m≡0:r.object.§m.
+            // Affected pins re-baselined (the old engine emitted these only modification-coupled, at the
+            // modifying statement; eager emission is finer, verdict-neutral).
+            Value.Immutable immutableFrom = new AnalysisHelper().typeImmutable(from.parameterizedType());
             Value.Immutable worst = immutableFrom.min(immutableTo);
             if (worst.isMutable()) {
                 FieldInfo f1 = newMField(VariableTranslationMap.owner(runtime, from.parameterizedType()));
