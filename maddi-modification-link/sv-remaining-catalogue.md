@@ -4,6 +4,21 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — return-face §m rehoming (gate NORVEQ); link 8 → 7
+
+The old dead-end ('l1.§m≡method.§m on a LOCAL's summary — naive graph-side rehoming leaks
+later-statement knowledge into earlier views') falls to the consumption-aware pattern: in
+`doVariableReturnRecompute`, OUTPUT-ONLY after the modification decision, a builder link
+'X.§m ≡ Y.§m' where Y whole-object-shares with a ReturnVariable also emits 'X.§m ≡ method.§m'.
+Statement-scoping is free: the return group exists only from the return statement on, and
+views are written forward (verified: the duplicate pin at vd1 stays clean while vd3 gains the
+facts). TestRedundantModificationLinks green. A/B: link 7, analyzer 122/122, bench green.
+
+Remaining 7 — the long-tail hard singles, all previously multi-attempt: varargs ~∈∋ fan-out +
+mutator-→ (TestLinkMethodCall ×2), TestLinkModificationArea (≻ vs ←≺), TestStream MR-swap
+(← vs ≡), TestSupplier test7 (≺; fails in isolation even at old baseline), TestSupplierSpec ×2
+(Stream.generate ⊆ / fresh-object capture ≺).
+
 ## UPDATE — TestMap ⊆→~ root-caused: per-EDGE pass semantics in VMI; link 9 → 8
 
 TestMap test2Reverse0's coarsening had TWO stacked root causes:
