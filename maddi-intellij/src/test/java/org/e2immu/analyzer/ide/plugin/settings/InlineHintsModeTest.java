@@ -14,7 +14,7 @@
 
 package org.e2immu.analyzer.ide.plugin.settings;
 
-import org.e2immu.analyzer.ide.plugin.model.AnalysisModel;
+import org.e2immu.analyzer.ide.client.AnalysisModel;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;

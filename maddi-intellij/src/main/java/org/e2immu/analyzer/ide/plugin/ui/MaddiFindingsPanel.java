@@ -24,7 +24,7 @@ import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.treeStructure.Tree;
 import org.e2immu.analyzer.ide.plugin.analysis.MaddiAnalysisService;
 import org.e2immu.analyzer.ide.plugin.analysis.MaddiResultListener;
-import org.e2immu.analyzer.ide.plugin.model.AnalysisModel;
+import org.e2immu.analyzer.ide.client.AnalysisModel;
 
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
