@@ -66,20 +66,38 @@ public class RunRewireTests {
             TypeInfo typeToRewire = list.get(random.nextInt(list.size()));
             Path path = Path.of(typeToRewire.compilationUnit().uri().getSchemeSpecificPart());
             Path absolutePath = path.toAbsolutePath();
-            LOGGER.info("Modifying {}", absolutePath);
             boolean stop = false;
             try {
                 String content = Files.readString(path);
+                boolean restored = false;
                 try {
+                    LOGGER.info("Modifying {}", absolutePath);
                     String updatedContent = "// some comment\n\n" + content;
                     // this will trigger a change of fingerprint
                     stop |= write(path, updatedContent);
                     if (!stop) {
                         infoGraph = reloadSources(typeToRewire, infoGraph);
+                        LOGGER.info("Restoring {}", absolutePath);
+                        stop |= write(path, content);
+                        restored = true;
+                        /*
+                        The analyzer must follow the file BACK, or its fingerprints stop describing the disk: after
+                        the re-parse above it holds the fingerprint of the EDITED file, which is what the next
+                        reloadSources compares against. Two things go wrong if we leave it there. The file stays
+                        "changed" for ever, so every later iteration invalidates it along with the one it meant to
+                        pick. And when this file is picked again, the very same edit produces the very same content
+                        and hence the very same fingerprint the analyzer already holds -- so it is told, correctly,
+                        that nothing changed, and the assertion in reloadSources fires.
+                        Reverting is a rewire in its own right, so this is a second exercise, not overhead.
+                         */
+                        if (!stop) infoGraph = reloadSources(typeToRewire, infoGraph);
                     }
                 } finally {
-                    LOGGER.info("Restoring {}", absolutePath);
-                    stop |= write(path, content);
+                    if (!restored) {
+                        // whatever went wrong, never leave the file edited
+                        LOGGER.info("Restoring {}", absolutePath);
+                        stop |= write(path, content);
+                    }
                 }
             } catch (IOException ioe) {
                 LOGGER.error("Could not read {}", absolutePath, ioe);
