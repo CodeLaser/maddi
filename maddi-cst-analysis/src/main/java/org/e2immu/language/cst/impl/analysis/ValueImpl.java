@@ -114,6 +114,11 @@ public abstract class ValueImpl implements Value {
         public boolean overwriteAllowed(Value newValue) {
             return value < ((BoolImpl) newValue).value;
         }
+
+        @Override
+        public Value rewire(InfoMap infoMap) {
+            return this; // an int
+        }
     }
 
     static {
@@ -138,6 +143,11 @@ public abstract class ValueImpl implements Value {
         public boolean isEmpty() {
             return message.isEmpty();
         }
+
+        @Override
+        public Value rewire(InfoMap infoMap) {
+            return this; // a string
+        }
     }
 
     public record ScopeImpl(String scope) implements Value.Scope {
@@ -157,6 +167,11 @@ public abstract class ValueImpl implements Value {
         @Override
         public boolean isEmpty() {
             return scope.isEmpty();
+        }
+
+        @Override
+        public Value rewire(InfoMap infoMap) {
+            return this; // a string
         }
     }
 
@@ -182,6 +197,15 @@ public abstract class ValueImpl implements Value {
         public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
             throw new UnsupportedOperationException();
         }
+
+        /*
+        Holds ParameterInfo objects, so it cannot simply be carried; a rewire would have to map the whole ParSeq.
+        Not implemented rather than silently wrong: see the note on Value.rewire.
+         */
+        @Override
+        public Value rewire(InfoMap infoMap) {
+            throw new UnsupportedOperationException("NYI");
+        }
     }
 
     public record CommutableDataImpl(String seq, String par, String multi) implements CommutableData {
@@ -202,6 +226,11 @@ public abstract class ValueImpl implements Value {
         @Override
         public boolean isDefault() {
             return NONE.equals(this);
+        }
+
+        @Override
+        public Value rewire(InfoMap infoMap) {
+            return this; // three strings
         }
     }
 
@@ -326,6 +355,11 @@ public abstract class ValueImpl implements Value {
         @Override
         public boolean overwriteAllowed(Value newValue) {
             return value < ((ImmutableImpl) newValue).value;
+        }
+
+        @Override
+        public Value rewire(InfoMap infoMap) {
+            return this; // an int
         }
     }
 
@@ -539,6 +573,16 @@ public abstract class ValueImpl implements Value {
         @Override
         public boolean overwriteAllowed(Value newValue) {
             return value < ((IndependentImpl) newValue).value;
+        }
+
+        /*
+        Not a plain lattice level, despite the name: dependentExceptions holds MethodInfo. Only the DEPENDENT /
+        INDEPENDENT_HC / INDEPENDENT singletons are guaranteed to have it empty; anything built through the public
+        constructor carries real methods. Not implemented rather than silently wrong: see the note on Value.rewire.
+         */
+        @Override
+        public Value rewire(InfoMap infoMap) {
+            throw new UnsupportedOperationException("NYI");
         }
     }
 
@@ -832,6 +876,11 @@ public abstract class ValueImpl implements Value {
                     .collect(Collectors.toUnmodifiableSet());
             return codec.encodeSet(context, set);
         }
+
+        @Override
+        public Value rewire(InfoMap infoMap) {
+            return this; // statement indices, i.e. strings
+        }
     }
 
     static {
@@ -929,6 +978,11 @@ public abstract class ValueImpl implements Value {
             int v = ((NotNullImpl) other).value;
             return value >= v ? this : other;
         }
+
+        @Override
+        public Value rewire(InfoMap infoMap) {
+            return this; // an int
+        }
     }
 
     static {
@@ -956,6 +1010,11 @@ public abstract class ValueImpl implements Value {
             Set<String> set = encodedValues.stream().map(e -> codec.decodeString(context, e))
                     .collect(Collectors.toUnmodifiableSet());
             return new SetOfStringsImpl(set);
+        }
+
+        @Override
+        public Value rewire(InfoMap infoMap) {
+            return this; // strings
         }
     }
 

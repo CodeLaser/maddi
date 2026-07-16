@@ -9,6 +9,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
@@ -156,5 +157,15 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
         return variables.stream()
                 .filter(v -> !(v instanceof IntermediateVariable) && !(v instanceof MarkerVariable))
                 .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /*
+    Holds Links (for the return value and per parameter) and a set of modified Variables. Like LinksImpl, this is
+    derived across types, so a REWIRE type's method links are stale by construction and should be recomputed rather
+    than carried; hence not implemented. See rewiring.md.
+     */
+    @Override
+    public Value rewire(InfoMap infoMap) {
+        throw new UnsupportedOperationException("NYI");
     }
 }
