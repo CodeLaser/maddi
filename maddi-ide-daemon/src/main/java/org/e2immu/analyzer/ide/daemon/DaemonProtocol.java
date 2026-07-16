@@ -93,12 +93,24 @@ public final class DaemonProtocol {
                           List<Finding> causes) {
     }
 
+    /**
+     * One rendered annotation with the metadata the inline-hints filter needs.
+     * polarity ∈ POSITIVE (proven-stronger: @NotModified/@Immutable/@Container/@Independent/@NotNull/@Final),
+     * NEGATIVE (baseline: @Modified/@Mutable/@Dependent/@Nullable), NEUTRAL (@GetSet/@Identity/@Fluent/…).
+     * contextDefault = the value is implied by the enclosing declaration (a container's @NotModified params,
+     * a plain method's @Modified, …), so it can be hidden as clutter; surprising values (a @Modified param in a
+     * @Container) are NOT context defaults.
+     */
+    public record Annotation(String text, String polarity, boolean contextDefault) {
+    }
+
     /** Computed analysis for one declaration. kind ∈ TYPE|METHOD|FIELD|PARAMETER. */
     public record ElementAnnotation(String uri,
                                     Integer beginLine, Integer beginCol, Integer endLine, Integer endCol,
                                     String kind,
                                     String fqn,
                                     List<String> displayAnnotations,
+                                    List<Annotation> annotations,
                                     Map<String, String> properties) {
     }
 

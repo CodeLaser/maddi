@@ -51,11 +51,16 @@ public final class AnalysisModel {
                           List<Finding> causes) {
     }
 
+    /** One rendered annotation with polarity (POSITIVE/NEGATIVE/NEUTRAL) and context-default-ness. */
+    public record Annotation(String text, String polarity, boolean contextDefault) {
+    }
+
     public record ElementAnnotation(String uri,
                                     Integer beginLine, Integer beginCol, Integer endLine, Integer endCol,
                                     String kind,
                                     String fqn,
                                     List<String> displayAnnotations,
+                                    List<Annotation> annotations,
                                     Map<String, String> properties) {
     }
 

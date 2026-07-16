@@ -17,6 +17,7 @@ package org.e2immu.analyzer.ide.plugin.settings;
 import com.intellij.openapi.fileChooser.FileChooserDescriptor;
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
 import com.intellij.openapi.options.Configurable;
+import com.intellij.openapi.ui.ComboBox;
 import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.ui.JBIntSpinner;
 import com.intellij.ui.components.JBCheckBox;
@@ -35,7 +36,7 @@ public class MaddiConfigurable implements Configurable {
     private JBIntSpinner xmxSpinner;
     private JBCheckBox autoAnalyzeOnBuild;
     private JBCheckBox showGuardFindings;
-    private JBCheckBox showInlayHints;
+    private ComboBox<InlineHintsMode> inlineHintsMode;
     private JBCheckBox showGutterIcons;
 
     @Override
@@ -57,7 +58,7 @@ public class MaddiConfigurable implements Configurable {
         xmxSpinner = new JBIntSpinner(4096, 512, 131072, 512);
         autoAnalyzeOnBuild = new JBCheckBox("Re-analyze automatically after each successful build");
         showGuardFindings = new JBCheckBox("Mark guard contract violations");
-        showInlayHints = new JBCheckBox("Show computed annotations as inline hints");
+        inlineHintsMode = new ComboBox<>(InlineHintsMode.values());
         showGutterIcons = new JBCheckBox("Show gutter icons on analyzed declarations");
 
         JPanel panel = FormBuilder.createFormBuilder()
@@ -67,7 +68,8 @@ public class MaddiConfigurable implements Configurable {
                 .addLabeledComponent("Daemon max heap (MB):", xmxSpinner, 1, false)
                 .addComponent(autoAnalyzeOnBuild)
                 .addComponent(showGuardFindings)
-                .addComponent(showInlayHints)
+                .addLabeledComponent("Inline hints:", inlineHintsMode, 1, false)
+                .addTooltip("Which computed annotations appear inline. The gutter always shows the full set.")
                 .addComponent(showGutterIcons)
                 .addComponentFillVertically(new JPanel(), 0)
                 .getPanel();
@@ -83,7 +85,7 @@ public class MaddiConfigurable implements Configurable {
                 || xmxSpinner.getNumber() != s.daemonXmxMb
                 || autoAnalyzeOnBuild.isSelected() != s.autoAnalyzeOnBuild
                 || showGuardFindings.isSelected() != s.showGuardFindings
-                || showInlayHints.isSelected() != s.showInlayHints
+                || inlineHintsMode.getSelectedItem() != s.inlineHintsMode
                 || showGutterIcons.isSelected() != s.showGutterIcons;
     }
 
@@ -95,7 +97,7 @@ public class MaddiConfigurable implements Configurable {
         s.daemonXmxMb = xmxSpinner.getNumber();
         s.autoAnalyzeOnBuild = autoAnalyzeOnBuild.isSelected();
         s.showGuardFindings = showGuardFindings.isSelected();
-        s.showInlayHints = showInlayHints.isSelected();
+        s.inlineHintsMode = (InlineHintsMode) inlineHintsMode.getSelectedItem();
         s.showGutterIcons = showGutterIcons.isSelected();
     }
 
@@ -107,7 +109,7 @@ public class MaddiConfigurable implements Configurable {
         xmxSpinner.setNumber(s.daemonXmxMb);
         autoAnalyzeOnBuild.setSelected(s.autoAnalyzeOnBuild);
         showGuardFindings.setSelected(s.showGuardFindings);
-        showInlayHints.setSelected(s.showInlayHints);
+        inlineHintsMode.setSelectedItem(s.inlineHintsMode);
         showGutterIcons.setSelected(s.showGutterIcons);
     }
 

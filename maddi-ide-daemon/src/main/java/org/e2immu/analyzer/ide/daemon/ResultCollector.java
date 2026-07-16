@@ -14,21 +14,14 @@
 
 package org.e2immu.analyzer.ide.daemon;
 
-import org.e2immu.analyzer.modification.prepwork.io.DecoratorImpl;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.parser.Summary;
 
@@ -44,19 +37,17 @@ import java.util.Map;
  * on each CST {@code Info} (element annotations) — into the plain-JSON {@link DaemonProtocol.Result}
  * shape. No maddi types leak: everything becomes strings/ints.
  * <p>
- * Findings follow {@code ErrorReport.location(Message)}; element annotations reuse
- * {@link DecoratorImpl} (the same property→{@code @…} recipe the AAPI writers use).
+ * Findings follow {@code ErrorReport.location(Message)}; element annotations come from
+ * {@link AnnotationTagger} (the full, polarity/context-tagged set).
  */
 public class ResultCollector {
     /** Defensive bound on the recursive why-chain depth. */
     private static final int MAX_CAUSE_DEPTH = 12;
 
-    private final DecoratorImpl decorator;
-    private final Qualification simpleNames;
+    private final AnnotationTagger tagger;
 
     public ResultCollector(Runtime runtime, SourceSet sourceSetOfRequest) {
-        this.decorator = new DecoratorImpl(runtime, sourceSetOfRequest);
-        this.simpleNames = runtime.qualificationSimpleNames();
+        this.tagger = new AnnotationTagger(runtime, sourceSetOfRequest);
     }
 
     // ---- findings ----
@@ -133,13 +124,8 @@ public class ResultCollector {
         String uri = uriOf(info);
         if (uri == null) return;
 
-        List<String> displayAnnotations = new ArrayList<>();
-        for (AnnotationExpression ae : decorator.annotations(info)) {
-            displayAnnotations.add(ae.print(simpleNames).toString());
-        }
-        // maddi's decorator only emits the non-default @NotModified; make the modified case explicit so a
-        // modified parameter/field is visibly annotated (@Modified is otherwise silent, being the default).
-        if (isDecidedModified(info)) displayAnnotations.add(0, "@Modified");
+        List<DaemonProtocol.Annotation> annotations = tagger.tag(info);
+        List<String> displayAnnotations = annotations.stream().map(DaemonProtocol.Annotation::text).toList();
 
         Map<String, String> properties = new LinkedHashMap<>();
         info.analysis().propertyValueStream().forEach(pv ->
@@ -150,17 +136,7 @@ public class ResultCollector {
 
         out.add(new DaemonProtocol.ElementAnnotation(
                 uri, source.beginLine(), source.beginPos(), source.endLine(), source.endPos(),
-                kindOf(info), info.fullyQualifiedName(), displayAnnotations, properties));
-    }
-
-    /** A parameter/field whose "unmodified" property is a decided FALSE — i.e. it is modified. */
-    private static boolean isDecidedModified(Info info) {
-        Property property;
-        if (info instanceof ParameterInfo) property = PropertyImpl.UNMODIFIED_PARAMETER;
-        else if (info instanceof FieldInfo) property = PropertyImpl.UNMODIFIED_FIELD;
-        else return false;
-        Value.Bool unmodified = info.analysis().getOrNull(property, ValueImpl.BoolImpl.class);
-        return unmodified != null && unmodified.isFalse();
+                kindOf(info), info.fullyQualifiedName(), displayAnnotations, annotations, properties));
     }
 
     private static String kindOf(Info info) {

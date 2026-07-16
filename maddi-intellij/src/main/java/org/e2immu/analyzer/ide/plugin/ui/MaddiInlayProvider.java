@@ -33,6 +33,7 @@ import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiParameter;
 import org.e2immu.analyzer.ide.plugin.analysis.MaddiAnalysisService;
 import org.e2immu.analyzer.ide.plugin.model.AnalysisModel;
+import org.e2immu.analyzer.ide.plugin.settings.InlineHintsMode;
 import org.e2immu.analyzer.ide.plugin.settings.MaddiSettings;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -48,7 +49,8 @@ public class MaddiInlayProvider implements InlayHintsProvider {
 
     @Override
     public @Nullable InlayHintsCollector createCollector(@NotNull PsiFile file, @NotNull Editor editor) {
-        if (!MaddiSettings.getInstance().getState().showInlayHints) return null;
+        InlineHintsMode mode = MaddiSettings.getInstance().getState().inlineHintsMode;
+        if (mode == InlineHintsMode.NONE) return null;
         VirtualFile vf = file.getVirtualFile();
         if (vf == null) return null;
         List<AnalysisModel.ElementAnnotation> annotations =
@@ -56,16 +58,18 @@ public class MaddiInlayProvider implements InlayHintsProvider {
         if (annotations.isEmpty()) return null;
         Document doc = file.getViewProvider().getDocument();
         if (doc == null) return null;
-        return new Collector(annotations, doc);
+        return new Collector(annotations, doc, mode);
     }
 
     private static final class Collector implements SharedBypassCollector {
         private final List<AnalysisModel.ElementAnnotation> annotations;
         private final Document doc;
+        private final InlineHintsMode mode;
 
-        Collector(List<AnalysisModel.ElementAnnotation> annotations, Document doc) {
+        Collector(List<AnalysisModel.ElementAnnotation> annotations, Document doc, InlineHintsMode mode) {
             this.annotations = annotations;
             this.doc = doc;
+            this.mode = mode;
         }
 
         @Override
@@ -79,7 +83,7 @@ public class MaddiInlayProvider implements InlayHintsProvider {
             AnalysisModel.ElementAnnotation match = null;
             int bestLength = Integer.MAX_VALUE;
             for (AnalysisModel.ElementAnnotation a : annotations) {
-                if (!kind.equals(a.kind()) || a.displayAnnotations().isEmpty()) continue;
+                if (!kind.equals(a.kind()) || a.annotations().isEmpty()) continue;
                 TextRange r = MaddiPositions.range(doc, a.beginLine(), a.beginCol(), a.endLine(), a.endCol());
                 if (r != null && r.contains(idOffset) && r.getLength() < bestLength) {
                     match = a;
@@ -87,7 +91,11 @@ public class MaddiInlayProvider implements InlayHintsProvider {
                 }
             }
             if (match == null) return;
-            String text = String.join(" ", match.displayAnnotations());
+            String text = match.annotations().stream()
+                    .filter(mode::shows)
+                    .map(AnalysisModel.Annotation::text)
+                    .collect(java.util.stream.Collectors.joining(" "));
+            if (text.isEmpty()) return; // everything filtered out under the current mode
             int anchor = element.getTextRange().getEndOffset();
             sink.addPresentation(
                     new InlineInlayPosition(anchor, true, 0),
