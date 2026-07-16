@@ -59,6 +59,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final Set<Info> failed = new HashSet<>();
     // worklist support: elements whose analysis changed in the most recent go() (see SingleIterationAnalyzer)
     private final Set<Info> changedInfos = Collections.synchronizedSet(new HashSet<>());
+    private final Set<Info> summaryChangedInfos = Collections.synchronizedSet(new HashSet<>());
 
     public static final String ANALYZER_CRASH = "analyzer-crash";
     public static final String LINK_CRASH = "link-crash";
@@ -91,6 +92,11 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     }
 
     @Override
+    public Set<Info> summaryChangedInfos() {
+        return Set.copyOf(summaryChangedInfos);
+    }
+
+    @Override
     public List<Message> messages() {
         // the iteration's own analyzers, plus the shallow analyzer used for abstract types
         return Stream.concat(messages.stream(), shallowTypeAnalyzer.messages().stream()).toList();
@@ -105,6 +111,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     public void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration) {
         linkComputer.reset();
         changedInfos.clear();
+        summaryChangedInfos.clear();
         TolerantWrite.resetChangedTargets();
         Set<TypeInfo> abstractTypes = new HashSet<>();
         List<TypeInfo> typesInOrder = new ArrayList<>(analysisOrder.size());
@@ -179,8 +186,12 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         // processed (the link computer's on-demand recursion writing a callee's METHOD_LINKS)
         for (Object target : TolerantWrite.changedTargets()) {
             // ParameterInfo extends Info but is not an analysis-order element: attribute to its method
-            if (target instanceof org.e2immu.language.cst.api.info.ParameterInfo pi) changedInfos.add(pi.methodInfo());
-            else if (target instanceof Info i) changedInfos.add(i);
+            Info info = target instanceof org.e2immu.language.cst.api.info.ParameterInfo pi ? pi.methodInfo()
+                    : target instanceof Info i ? i : null;
+            if (info != null) {
+                changedInfos.add(info);
+                summaryChangedInfos.add(info); // targets carry only summary-level properties (see TolerantWrite)
+            }
         }
     }
 

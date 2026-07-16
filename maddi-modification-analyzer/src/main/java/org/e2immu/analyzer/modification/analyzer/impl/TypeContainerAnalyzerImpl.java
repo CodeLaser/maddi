@@ -47,7 +47,7 @@ public class TypeContainerAnalyzerImpl extends CommonAnalyzerImpl implements Typ
                 .flatMap(mi -> mi.parameters().stream())
                 .allMatch(ParameterInfo::isUnmodified);
         if (TolerantWrite.setAllowControlledOverwrite(typeInfo.analysis(), PropertyImpl.CONTAINER_TYPE,
-                ValueImpl.BoolImpl.from(isContainer))) {
+                ValueImpl.BoolImpl.from(isContainer), typeInfo)) {
             DECIDE.debug("TC: Decide container of type {} = {}", typeInfo, isContainer);
             propertyChanges.incrementAndGet();
         }

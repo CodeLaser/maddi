@@ -186,6 +186,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             // plateau: the change count no longer meaningfully decreases (an oscillation floor); further full
             // re-analyses only pay for the same flips again. Opt-in via stopWhenCycleDetectedAndNoImprovements.
             boolean plateau = configuration.stopWhenCycleDetectedAndNoImprovements()
+                              && System.getenv("NOPLATEAU") == null
                               && iterations >= 3 && propertiesChanged >= 0.95 * previousPropertiesChanged;
             if (iterations == configuration.maxIterations() || done || plateau) {
                 LOGGER.info("Stop iterating after {} iterations, done? {}{}", iterations, done,
@@ -199,8 +200,11 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             }
             previousPropertiesChanged = propertiesChanged;
             if (dependersOf != null) {
-                java.util.Set<Info> changed = singleIterationAnalyzer.changedInfos();
-                java.util.Set<Info> next = new java.util.HashSet<>(changed);
+                // v2: only SUMMARY changes propagate — dependents cannot observe element-internal changes.
+                // The changed element itself is not re-run either: without input changes its recomputation
+                // is deterministic (it gets dirtied again the moment one of its dependencies' summaries moves).
+                java.util.Set<Info> changed = singleIterationAnalyzer.summaryChangedInfos();
+                java.util.Set<Info> next = new java.util.HashSet<>();
                 for (Info c : changed) {
                     java.util.Set<Info> deps = dependersOf.get(c);
                     if (deps != null) next.addAll(deps);

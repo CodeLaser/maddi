@@ -44,6 +44,12 @@ public final class TolerantWrite {
         CHANGES.computeIfAbsent(key, _ -> new java.util.concurrent.atomic.LongAdder()).increment();
     }
 
+    // element-INTERNAL (statement-level) properties: their changes are invisible to dependents and must not
+    // propagate through the worklist (a ParameterInfo context can reach here via UNMODIFIED_VARIABLE)
+    private static final java.util.Set<String> INTERNAL_PROPERTIES =
+            java.util.Set.of("unmodifiedVariable", "downcastVariable", "variablesLinkedToObject",
+                    "linkedVariablesArguments");
+
     // worklist support: the targets (Info / ParameterInfo contexts) of value-CHANGING writes this iteration.
     // Captures writes that land on an element OTHER than the one currently being processed (the link computer's
     // on-demand recursion writing a callee's METHOD_LINKS) — counter-delta attribution alone misses those.
@@ -88,7 +94,7 @@ public final class TolerantWrite {
                     if (downgraded) {
                         CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder())
                                 .increment();
-                        if (context != null && !(context instanceof String)) {
+                        if (context != null && !(context instanceof String) && !INTERNAL_PROPERTIES.contains(property.key())) {
                             CHANGED_TARGETS.add(context);
                         }
                     }
@@ -101,7 +107,7 @@ public final class TolerantWrite {
         boolean changed = analysis.setAllowControlledOverwrite(property, value);
         if (changed) {
             CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder()).increment();
-            if (context != null && !(context instanceof String)) {
+            if (context != null && !(context instanceof String) && !INTERNAL_PROPERTIES.contains(property.key())) {
                 CHANGED_TARGETS.add(context);
             }
         }
