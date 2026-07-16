@@ -22,7 +22,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.testFramework.LoggedErrorProcessor;
 import com.intellij.testFramework.PsiTestUtil;
 import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase;
-import org.e2immu.analyzer.ide.plugin.model.AnalysisModel;
+import org.e2immu.analyzer.ide.client.AnalysisModel;
 
 import java.util.LinkedHashMap;
 import java.util.List;

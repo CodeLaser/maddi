@@ -32,8 +32,8 @@ import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
-import org.e2immu.analyzer.ide.plugin.daemon.MaddiDaemonProcess;
-import org.e2immu.analyzer.ide.plugin.model.AnalysisModel;
+import org.e2immu.analyzer.ide.client.MaddiDaemonProcess;
+import org.e2immu.analyzer.ide.client.AnalysisModel;
 import org.e2immu.analyzer.ide.plugin.settings.MaddiSettings;
 
 import java.net.URI;

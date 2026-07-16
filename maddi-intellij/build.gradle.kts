@@ -43,6 +43,9 @@ dependencies {
         testFramework(TestFrameworkType.Platform)
         testFramework(TestFrameworkType.Plugin.Java)
     }
+    // IDE-agnostic daemon client (DTOs, socket client, launcher). Brings Jackson transitively; the plugin
+    // only uses it internally (never across the platform boundary), so bundling our own copy is safe.
+    implementation(project(":maddi-ide-client"))
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

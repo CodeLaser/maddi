@@ -28,7 +28,7 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiIdentifier;
 import com.intellij.psi.PsiMethod;
 import org.e2immu.analyzer.ide.plugin.analysis.MaddiAnalysisService;
-import org.e2immu.analyzer.ide.plugin.model.AnalysisModel;
+import org.e2immu.analyzer.ide.client.AnalysisModel;
 import org.e2immu.analyzer.ide.plugin.settings.MaddiSettings;
 import org.jetbrains.annotations.Nullable;
 

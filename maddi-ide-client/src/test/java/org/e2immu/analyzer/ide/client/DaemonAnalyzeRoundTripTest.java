@@ -12,10 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.plugin.daemon;
+package org.e2immu.analyzer.ide.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import org.e2immu.analyzer.ide.plugin.model.AnalysisModel;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

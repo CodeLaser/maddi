@@ -18,7 +18,7 @@ import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase;
 import com.intellij.testFramework.utils.inlays.declarative.DeclarativeInlayHintsProviderTestCase;
 import org.e2immu.analyzer.ide.plugin.analysis.MaddiAnalysisService;
-import org.e2immu.analyzer.ide.plugin.model.AnalysisModel;
+import org.e2immu.analyzer.ide.client.AnalysisModel;
 import org.e2immu.analyzer.ide.plugin.settings.InlineHintsMode;
 import org.e2immu.analyzer.ide.plugin.settings.MaddiSettings;
 import org.jetbrains.annotations.NotNull;

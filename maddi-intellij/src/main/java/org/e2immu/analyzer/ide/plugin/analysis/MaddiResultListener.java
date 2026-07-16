@@ -15,7 +15,7 @@
 package org.e2immu.analyzer.ide.plugin.analysis;
 
 import com.intellij.util.messages.Topic;
-import org.e2immu.analyzer.ide.plugin.model.AnalysisModel;
+import org.e2immu.analyzer.ide.client.AnalysisModel;
 import org.jetbrains.annotations.NotNull;
 
 /** Fired on the project message bus whenever a fresh analysis result is available (tool window etc. subscribe). */
