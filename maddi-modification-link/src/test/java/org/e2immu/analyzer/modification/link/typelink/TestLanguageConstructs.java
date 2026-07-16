@@ -141,7 +141,7 @@ public class TestLanguageConstructs extends CommonTest {
                     }
                 }
                 """;
-        assertEquals("[0:g[0][0]∈0:g[0]] --> m←0:g[0][0],m∈0:g[0],m∈∈0:g", link("a.b.C", src, "m"));
+        assertEquals("[0:g[0][0]∈0:g[0]] --> m∈∈0:g,m∈0:g[0],m←0:g[0][0]", link("a.b.C", src, "m"));
     }
 
     @DisplayName("for-each links the loop variable to the elements, for both a collection and an array")
@@ -161,7 +161,7 @@ public class TestLanguageConstructs extends CommonTest {
                 """;
         // for-each over an ARRAY: the loop variable is an element of the array (arr[i]); the returned value is
         // therefore linked to the array parameter, mirroring the collection case.
-        assertEquals("[0:arr∋$_ce1] --> m←0:arr[0],m←$_ce1,m∈0:arr", link("a.b.Arr", arr, "m"));
+        assertEquals("[0:arr∋$_ce1] --> m←$_ce1,m∈0:arr,m←0:arr[0]", link("a.b.Arr", arr, "m"));
     }
 
     @DisplayName("wildcard ? extends X: get() links the result to the list's hidden content")
@@ -242,7 +242,7 @@ public class TestLanguageConstructs extends CommonTest {
                 package a.b;
                 public class C<X> { X m(X... xs) { return xs[0]; } }
                 """;
-        assertEquals("[-] --> m←0:xs[0],m∈0:xs", link("a.b.C", src, "m"));
+        assertEquals("[-] --> m∈0:xs,m←0:xs[0]", link("a.b.C", src, "m"));
     }
 
     @DisplayName("anonymous class captures a parameter: the instance links to the captured variable")
@@ -339,7 +339,7 @@ public class TestLanguageConstructs extends CommonTest {
                 public class C<X> { void m(X[] arr, X x) { arr[0] = x; } }
                 """;
         MethodLinkedVariables mlv = compute("a.b.C", src, "m");
-        assertEquals("[0:arr*[0]←1:x,0:arr*∋1:x, 1:x→0:arr*[0],1:x∈0:arr*] --> -", mlv.toString());
+        assertEquals("[0:arr*∋1:x,0:arr*[0]←1:x, 1:x∈0:arr*,1:x→0:arr*[0]] --> -", mlv.toString());
         assertEquals("a.b.C.m(Object[],Object):0:arr", mlv.sortedModifiedString());
     }
 
@@ -355,8 +355,10 @@ public class TestLanguageConstructs extends CommonTest {
                     }
                 }
                 """;
-        assertEquals("[0:g[0][0]∈0:g[0],0:g[0]∋$_ce3,0:g∋∋$_ce3] -->"
-                     + " m←0:g[0][0],m←$_ce3,m∈0:g[0],m∈∈0:g", link("a.b.C", src, "m"));
+        // sv precision: the old 0:g[0]∋$_ce3 / 0:g∋∋$_ce3 merge faces (the null-comparison constant
+        // 'stored in' the array) are gone
+        assertEquals("[0:g[0][0]∈0:g[0]] -->"
+                     + " m←$_ce3,m∈∈0:g,m∈0:g[0],m←0:g[0][0]", link("a.b.C", src, "m"));
     }
 
     @DisplayName("do-while loop links the returned array element to the array")
@@ -368,7 +370,9 @@ public class TestLanguageConstructs extends CommonTest {
                     X m(X[] arr) { int i = 0; X r = null; do { r = arr[i]; i++; } while (i < arr.length); return r; }
                 }
                 """;
-        assertEquals("[0:arr∋$_ce1] --> m←0:arr[0],m←$_ce1,m∈0:arr", link("a.b.C", src, "m"));
+        // sv precision gain: 'r = null' can never reach the return (a do-while body always executes),
+        // so the old m←$_ce1 / 0:arr∋$_ce1 merge faces are gone
+        assertEquals("[-] --> m∈0:arr,m←0:arr[0]", link("a.b.C", src, "m"));
     }
 
     @DisplayName("instanceof pattern binding links the returned variable to the tested expression")

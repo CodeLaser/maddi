@@ -36,6 +36,10 @@ public class VariableTranslationMap implements TranslationMap {
         return this.map.isEmpty();
     }
 
+    public boolean remove(Variable variable) {
+        return this.map.remove(variable) != null;
+    }
+
     @Override
     public Variable translateVariable(Variable variable) {
         return this.map.getOrDefault(variable, variable);
@@ -111,7 +115,12 @@ public class VariableTranslationMap implements TranslationMap {
                     // slice... we must guard its type
                     return SliceFactory.create(runtime, base, ic.constant());
                 }
-                return runtime.newDependentVariable(translatedArray, translatedIndex, null);
+                // when the translated array is not statically an array (a downcast slot such as Object-typed
+                // 'ld.variables[1]' standing in for 'float[][] matrix'), the element type cannot be recomputed
+                // from it; keep the original dependent variable's element type instead
+                ParameterizedType elementType = translatedArray.parameterizedType().arrays() > 0
+                        ? null : dv.parameterizedType();
+                return runtime.newDependentVariable(translatedArray, translatedIndex, elementType);
             }
         } else if (variable instanceof This thisVar) {
             ParameterizedType thisVarPt = thisVar.parameterizedType();

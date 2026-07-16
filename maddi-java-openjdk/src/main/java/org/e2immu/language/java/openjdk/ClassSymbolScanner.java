@@ -186,6 +186,30 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
     }
 
+    // A method-owned anonymous class whose declaration is not (yet) known: create a minimal stub so a reference
+    // to it (e.g. a member reference whose inferred type is the anonymous, resolved before the anonymous's own
+    // 'new(){}' node is scanned) resolves. If the declaration is already known, reuse it. The stub is deliberately
+    // NOT registered: the source scan of the declaration (ScanCompilationUnit.visitNewClass) owns the definitive
+    // registration, and registering here would collide with it ('Duplicating type').
+    private TypeInfo anonymousTypeStub(Symbol.ClassSymbol cs) {
+        TypeInfo existing = getType(cs.toString());
+        if (existing == null) existing = getType(cs.flatName().toString());
+        if (existing != null) return existing;
+        String flat = cs.flatName().toString();
+        String packageName = cs.packge().toString();
+        CompilationUnit cu;
+        if (cs.classfile != null) {
+            URI uri = cs.classfile.toUri();
+            cu = runtime.newCompilationUnitBuilder().setPackageName(packageName)
+                    .setSourceSet(ensureSourceSet(cs, uri)).setURI(uri).build();
+        } else {
+            cu = runtime.newCompilationUnitStub(packageName);
+        }
+        TypeInfo stub = runtime.newTypeInfo(cu, flat.substring(flat.lastIndexOf('.') + 1));
+        stub.builder().setTypeNature(runtime.typeNatureClass()).setParentClass(runtime.objectParameterizedType());
+        return stub;
+    }
+
     TypeInfo lazilyLoadPrimaryTypeFromClassFile(Symbol.ClassSymbol cs) {
         String simpleName = cs.name.toString();
         assert cs.owner instanceof Symbol.PackageSymbol;
@@ -531,6 +555,24 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             return ps.modle;
         }
         return null;
+    }
+
+    /**
+     * Whether {@code cs}'s JDK module is one of the configured class-path parts.
+     * <p>
+     * javac resolves against the whole platform, not against our {@link InputConfiguration}: ask it for
+     * {@code javax.swing.text.JTextComponent} with only {@code java.base} configured and it will happily hand one
+     * over. So a caller that must honour the configured class path has to ask this. Only the <em>lazy, on-demand</em>
+     * load does ({@link ScanCompilationUnits#loadCompiledTypeOrNull}); the scan proper does not, because a type it
+     * meets is one the sources genuinely reference.
+     * <p>
+     * True for anything not borne by a named module (a jar or directory on the class path): those are keyed by jar
+     * name or directory prefix in {@link #ensureSourceSet}, not by module.
+     */
+    boolean moduleOnClassPath(Symbol.ClassSymbol cs) {
+        Symbol.ModuleSymbol module = findModule(cs);
+        if (module == null || module.isUnnamed()) return true;
+        return getSourceSet(module.name.toString()) != null;
     }
 
     private void addMemberToType(TypeInfo typeInfo, Symbol.ClassSymbol owner, Element member, LoadMode loadMode) {
@@ -1095,8 +1137,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         Symbol.ClassSymbol topCs;
         if (known == null) {
             // on-demand loading; should be replaced by import handling?
-            if (cs.owner instanceof Symbol.MethodSymbol) {
+            if (cs.owner instanceof Symbol.MethodSymbol && !cs.getSimpleName().toString().isBlank()) {
+                // a named local class of a method being scanned: registered on the element stack by its simple name.
                 typeInfo = (TypeInfo) elementStack.find(cs.getSimpleName().toString());
+            } else if (cs.owner instanceof Symbol.MethodSymbol) {
+                // an anonymous class (blank simple name) whose declaration has not (yet) been scanned: e.g. a
+                // cross-source-set forward reference to an anonymous type declared in a dependency method body
+                // (io.codelaser...parseq references CastData$Builder$1). It has no element-stack entry; resolve it
+                // to a lightweight stub so the reference resolves without asserting.
+                typeInfo = anonymousTypeStub(cs);
             } else {
                 typeInfo = lazilyLoadTypeFromClassFile(cs);
             }

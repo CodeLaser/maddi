@@ -50,7 +50,14 @@ dependencies {
 
 tasks.withType<Test> {
     maxHeapSize = "2G"
-    maxParallelForks = 4
+    maxParallelForks = (findProperty("testForks") as String?)?.toInt() ?: 4
+    // forkEvery=0 (gradle default): one JVM per fork runs all its classes. The test suite is deterministic in this
+    // mode — verified by three identical parallel runs plus serial==monolith==isolated (0 flips). An earlier
+    // forkEvery=1 (fresh JVM per class) was added on the belief the suite was order-unstable; that was a
+    // measurement artifact (inconsistent HTML-entity decoding when diffing two runs), and forkEvery=1 only cost
+    // ~20% wall time (261s vs 216s). Keep it configurable in case the known intermittent javac SharedNameTable
+    // issue (see -XDuseUnsharedTable below) ever needs a per-class reset: -PforkEvery=1.
+    forkEvery = (findProperty("forkEvery") as String?)?.toLong() ?: 0L
 
     jvmArgs(
         "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",

@@ -79,7 +79,7 @@ public class TestStream extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
         VariableInfo viStream21 = vd1.variableInfo("stream2");
         Links lvStream21 = viStream21.linkedVariablesOrEmpty();
-        assertEquals("stream2.§xs←stream1.§xs,stream2.§xs⊆0:list.§xs", lvStream21.toString());
+        assertEquals("stream2.§xs⊆0:list.§xs,stream2.§xs←stream1.§xs", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
@@ -87,11 +87,11 @@ public class TestStream extends CommonTest {
         assertEquals("result.§xs⊆stream1.§xs", lvResult.toString());
         // result.§xs⊆0:list.§xs, result.§xs⊆stream2.§xs dropped
 
-        assertEquals("[-] --> method1.§xs⊆0:list.§xs", mlv1.toString());
+        assertEquals("[-] --> method1.§m←0:list.§m,method1.§xs⊆0:list.§xs", mlv1.toString());
 
         MethodInfo method2 = C.findUniqueMethod("method2", 1);
         MethodLinkedVariables mlv2 = method2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method2));
-        assertEquals("[-] --> method2.§xs⊆0:list.§xs", mlv2.toString());
+        assertEquals("[-] --> method2.§m←0:list.§m,method2.§xs⊆0:list.§xs", mlv2.toString());
 
         MethodInfo method3 = C.findUniqueMethod("method3", 1);
         {
@@ -110,11 +110,11 @@ public class TestStream extends CommonTest {
         Links lvRes = viRes.linkedVariablesOrEmpty();
         assertEquals("res.§xs⊆0:list.§xs", lvRes.toString());
 
-        assertEquals("[-] --> method3.§xs⊆0:list.§xs", mlv3.toString());
+        assertEquals("[-] --> method3.§m←0:list.§m,method3.§xs⊆0:list.§xs", mlv3.toString());
 
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
-        assertEquals("[-] --> method.§xs⊆0:list.§xs", mlv.toString());
+        assertEquals("[-] --> method.§m←0:list.§m,method.§xs⊆0:list.§xs", mlv.toString());
 
         int propertiesChanged = tlc.propertiesChanged();
         assertEquals(16, propertiesChanged);
@@ -204,7 +204,7 @@ public class TestStream extends CommonTest {
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
         Links lvResult = viResult.linkedVariablesOrEmpty();
-        assertEquals("result.§xs⊆stream2.§xs,result.§xs≤0:list.§xss,result.§xs≤stream1.§xss",
+        assertEquals("result.§xs≤0:list.§xss,result.§xs⊆stream2.§xs,result.§xs≤stream1.§xss",
                 lvResult.toString());
 
         assertEquals("[-] --> method1.§xs≤0:list.§xss", mlv1.toString());
@@ -271,7 +271,7 @@ public class TestStream extends CommonTest {
         VariableInfo viStream21 = vd1.variableInfo("stream2");
         Links lvStream21 = viStream21.linkedVariablesOrEmpty();
         // wrapping in R is invisible
-        assertEquals("stream2.§xs←stream1.§xs,stream2.§xs⊆0:list.§xs", lvStream21.toString());
+        assertEquals("stream2.§xs⊆0:list.§xs,stream2.§xs←stream1.§xs", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
@@ -279,11 +279,11 @@ public class TestStream extends CommonTest {
         assertEquals("result.§xs⊆stream1.§xs", lvResult.toString());
         // result.§xs⊆0:list.§xs, result.§xs⊆stream2.§xs dropped
 
-        assertEquals("[-] --> method1.§xs⊆0:list.§xs", mlv1.toString());
+        assertEquals("[-] --> method1.§m←0:list.§m,method1.§xs⊆0:list.§xs", mlv1.toString());
 
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
-        assertEquals("[-] --> method.§xs⊆0:list.§xs", mlv.toString());
+        assertEquals("[-] --> method.§m←0:list.§m,method.§xs⊆0:list.§xs", mlv.toString());
     }
 
 
@@ -337,7 +337,7 @@ public class TestStream extends CommonTest {
 
         Links lvStream21 = viStream21.linkedVariablesOrEmpty();
         // wrapping in another list is visible!
-        assertEquals("stream2.§xss≥stream1.§xs,stream2.§xss∩0:list.§xs", lvStream21.toString());
+        assertEquals("stream2.§xss∩0:list.§xs,stream2.§xss≥stream1.§xs", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
@@ -348,7 +348,7 @@ public class TestStream extends CommonTest {
         VariableInfo viStream22 = vd2.variableInfo("stream2");
         Links lvStream22 = viStream22.linkedVariablesOrEmpty();
         // wrapping in another list is visible!
-        assertEquals("stream2.§xss≥stream1.§xs,stream2.§xss∩0:list.§xs", lvStream22.toString());
+        assertEquals("stream2.§xss∩0:list.§xs,stream2.§xss≥stream1.§xs", lvStream22.toString());
         // stream2.§xss⊇result.§xss dropped
 
         assertEquals("[-] --> method1.§xss∩0:list.§xs", mlv1.toString());
@@ -436,13 +436,13 @@ public class TestStream extends CommonTest {
         VariableInfo viStream2 = vd2.variableInfo("stream2");
         Links tlvStream2 = viStream2.linkedVariablesOrEmpty();
         assertEquals("""
-                stream2.§yxs[-1]←stream1.§xys[-2],stream2.§yxs[-1]≤entries.§xys,stream2.§yxs[-2]←stream1.§xys[-1],\
-                stream2.§yxs[-2]≤entries.§xys,stream2.§yxs~entries.§xys,stream2.§yxs≥stream1.§xys[-1],\
-                stream2.§yxs≥stream1.§xys[-2]\
+                stream2.§yxs~entries.§xys,stream2.§yxs≥stream1.§xys[-1],stream2.§yxs≥stream1.§xys[-2],stream2.§yxs[-1]≤entries.§xys,stream2.§yxs[-1]≡stream1.§xys[-2],stream2.§yxs[-2]≤entries.§xys,stream2.§yxs[-2]≡stream1.§xys[-1]\
                 """, tlvStream2.toString()); // stream2.§yxs~0:map.§xys, stream2.§yxs~stream1.§xys  dropped
 
-        assertEquals("Type param Y[]", tlvStream2.link(0).from().parameterizedType().toString());
-        assertEquals("Type param Y[]", tlvStream2.link(0).to().parameterizedType().toString());
+        // link(0) is now the whole-face 'stream2.§yxs~entries.§xys' (index drift after the string re-pin;
+        // the old link(0) was a Y[] slice link) — the virtual entry-content types are the correct ones here
+        assertEquals("Type java.util.Map.Entry.§YX[]", tlvStream2.link(0).from().parameterizedType().toString());
+        assertEquals("Type java.util.Map.Entry.§XY[]", tlvStream2.link(0).to().parameterizedType().toString());
        // assertEquals("Type param X[]", tlvStream2.link(1).from().parameterizedType().toString());
        // assertEquals("Type param X[]", tlvStream2.link(1).to().parameterizedType().toString());
 
@@ -456,7 +456,7 @@ public class TestStream extends CommonTest {
                 """, tlvMcReverse2.toString());
 
         MethodLinkedVariables mlvReverse = reverse.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> reverse.§yxs[-1]≤0:map.§xys,reverse.§yxs[-2]≤0:map.§xys,reverse.§yxs~0:map.§xys",
+        assertEquals("[-] --> reverse.§yxs~0:map.§xys,reverse.§yxs[-1]≤0:map.§xys,reverse.§yxs[-2]≤0:map.§xys",
                 mlvReverse.toString());
     }
 }

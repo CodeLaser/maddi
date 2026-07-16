@@ -32,6 +32,11 @@ _maddi_ can be built both with Gradle and Bazel:
 
 Run `gradle test`
 
+> Running tests (or any tool) on top of the openjdk parser? Read
+> [`maddi-inspection-openjdk/parsing-stability.md`](maddi-inspection-openjdk/parsing-stability.md)
+> — the authoritative guide to stable, deterministic runs (the `tree.starImportScope is null`
+> flake, the built-in `-XDuseUnsharedTable=true` fix, and why parallel test forks are safe).
+
 ### Building with Bazel
 
 Build all sub-projects with `bazel build //...`.

@@ -87,6 +87,9 @@ tasks.withType<JavaCompile> {
 
 tasks.test {
     useJUnitPlatform()
+    // -PnoAssertions disables JVM -ea; the linking engine's debug sanity assertions (consistencyCheck,
+    // checkDuplicateNames) are not production behaviour, so turn them off to benchmark production-like linking.
+    enableAssertions = !project.hasProperty("noAssertions")
     jvmArgs(
         "-Xmx6G",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",

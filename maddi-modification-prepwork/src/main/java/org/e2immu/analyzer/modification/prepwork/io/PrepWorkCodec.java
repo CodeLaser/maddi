@@ -41,7 +41,10 @@ public class PrepWorkCodec {
     private final SourceSet sourceSetOfRequest;
 
     public PrepWorkCodec(Runtime runtime, SourceSet sourceSetOfRequest) {
-        this.typeProvider = fqn -> runtime.getFullyQualified(fqn, true, sourceSetOfRequest);
+        // complain=false: a type whose module is not on the classpath resolves to null (getOrLoad returns null
+        // without loading). LoadAnalysisResults uses that null to SKIP the analysis hints for that type, so hints
+        // are loaded only for the modules actually present on the classpath (e.g. no java.desktop -> no swing hints).
+        this.typeProvider = fqn -> runtime.getFullyQualified(fqn, false, sourceSetOfRequest);
         decoderProvider = new D();
         this.propertyProvider = new P();
         this.runtime = runtime;

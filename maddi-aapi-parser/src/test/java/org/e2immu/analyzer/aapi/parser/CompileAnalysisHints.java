@@ -55,7 +55,9 @@ public class CompileAnalysisHints {
 
     /** Compile every configured library; reused by {@link TestAnalysisHintsCompiler}. */
     public static void compileAll() throws IOException {
-        AnalysisHintsCompiler compiler = new AnalysisHintsCompiler(javaInspectorFactory());
+        // the archive covers java.desktop (swing/awt) and java.net.http, which the lean default omits
+        AnalysisHintsCompiler compiler = new AnalysisHintsCompiler(
+                javaInspectorFactory("java.desktop", "java.net.http"));
         for (String library : LIBRARIES) {
             compile(compiler, library);
         }

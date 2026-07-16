@@ -67,4 +67,39 @@ public class TestParameterInfoSource extends CommonTest {
         assertEquals("-@13:20-13:30", m.source().detailedSources().detail(m.simpleName()).toString()); // 'processItem'
     }
 
+    @Language("java")
+    private static final String CLASS_B = """
+            package a;
+            import java.util.List;
+            import java.util.stream.Collectors;
+
+            class B {
+                public List<String> transform(List<B> items) {
+                    return items.stream()
+                               .map(this::processItem)
+                               .collect(Collectors.toList());
+                }
+
+                private String processItem(B item) {
+                    return item.toString();
+                }
+            }
+            """;
+
+    @DisplayName("The parameter TYPE detail, keyed by pi.parameterizedType(), must resolve for a method created from "
+                + "its symbol (method reference) before its declaration -- otherwise detail(pi.parameterizedType()) "
+                + "misses non-deterministically (scan-order dependent) and callers NPE on a null Source")
+    @Test
+    public void test2() {
+        TypeInfo B = scan("a.B", CLASS_B);
+        MethodInfo m = B.findUniqueMethod("processItem", 1);
+        ParameterInfo pi = m.parameters().getFirst();
+        assertNotNull(pi.source());
+        assertEquals(B, pi.parameterizedType().typeInfo());
+        // the type detail must be keyed by the parameter's OWN type instance (identity-keyed DetailedSources), not
+        // only by the tree-built instance created during scanning: 'B' on line 12, 'private String processItem(B item)'
+        assertNotNull(pi.source().detailedSources().detail(pi.parameterizedType()));
+        assertEquals("-@12:32-12:32", pi.source().detailedSources().detail(pi.parameterizedType()).toString());
+    }
+
 }

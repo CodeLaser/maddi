@@ -44,7 +44,7 @@ public class TestSwitchExpression extends CommonTest {
         MethodInfo method = X.findUniqueMethod("method", 1);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         MethodLinkedVariables mlv = tlc.doMethod(method);
-        assertEquals("[-] --> method←$_ce3,method←this.list1,method←this.list2,method←0:list3", mlv.toString());
+        assertEquals("[-] --> method←$_ce3,method←this.list1*,method←this.list2*,method←0:list3*", mlv.toString());
     }
 
     @Language("java")
@@ -81,9 +81,9 @@ public class TestSwitchExpression extends CommonTest {
         MethodInfo method = X.findUniqueMethod("method", 2);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         MethodLinkedVariables mlv = tlc.doMethod(method);
-        assertEquals("this, this.ints", mlv.sortedModifiedString());
+        assertEquals("a.b.X.method(java.util.List,Object):0:list3, this, this.ints, this.list1, this.list2", mlv.sortedModifiedString());
         assertEquals("""
-                [-, 1:t∈this.ints*.§ts] --> method←$_ce5,method←this*.list1,method←this*.list2,method←0:list3\
+                [-, 1:t∈this.ints*.§ts] --> method←$_ce5,method←this.list1*,method←this.list2*,method←0:list3*\
                 """, mlv.toString());
     }
 
@@ -121,9 +121,9 @@ public class TestSwitchExpression extends CommonTest {
         MethodInfo method = X.findUniqueMethod("method", 2);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         MethodLinkedVariables mlv = tlc.doMethod(method);
-        assertEquals("this, this.ints", mlv.sortedModifiedString());
+        assertEquals("a.b.X.method(java.util.List,Object):0:list3, this, this.ints, this.list1, this.list2", mlv.sortedModifiedString());
         assertEquals("""
-                [-, 1:t∈this.ints*.§ts] --> method←$_ce3,method←this*.list1,method←this*.list2,method←0:list3\
+                [-, 1:t∈this.ints*.§ts] --> method←$_ce3,method←this.list1*,method←this.list2*,method←0:list3*\
                 """, mlv.toString());
     }
 

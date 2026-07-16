@@ -127,7 +127,7 @@ public class TestStreamMapSpec extends CommonTest {
         assertEquals("[-] --> identity←0:y", mlv("identity"));           // Y -> Y            : return is the argument
         assertEquals("[-] --> wrap.v←0:y", mlv("wrap"));                 // Y -> R<Y>         : field holds the argument
         assertEquals("[-] --> wrapList.§$s≥0:y", mlv("wrapList"));       // Y -> List<R<Y>>   : content contains the argument
-        assertEquals("[-] --> first←0:ys[0],first∈0:ys", mlv("first"));  // Y[] -> Y          : an element of the array
+        assertEquals("[-] --> first∈0:ys,first←0:ys[0]", mlv("first"));  // Y[] -> Y          : an element of the array
         assertEquals("[-] --> firstOf∈0:l.§ys", mlv("firstOf"));         // List<Y> -> Y      : an element of the collection
         assertEquals("[-] --> -", mlv("toStr"));                         // Y -> String       : unrelated (fresh)
         assertEquals("[-] --> -", mlv("constString"));                   // Y -> String       : constant, unrelated
@@ -144,14 +144,14 @@ public class TestStreamMapSpec extends CommonTest {
     @DisplayName("identity (Y->Y): result shares elements with the source (⊆)")
     @Test
     public void identity() {
-        assertEquals("[-] --> mapIdentityMR.§xs⊆0:list.§xs", mlv("mapIdentityMR"));
-        assertEquals("[-] --> mapIdentityLambda.§xs⊆0:list.§xs", mlv("mapIdentityLambda"));
+        assertEquals("[-] --> mapIdentityMR.§m←0:list.§m,mapIdentityMR.§xs⊆0:list.§xs", mlv("mapIdentityMR"));
+        assertEquals("[-] --> mapIdentityLambda.§m←0:list.§m,mapIdentityLambda.§xs⊆0:list.§xs", mlv("mapIdentityLambda"));
     }
 
     @DisplayName("transparent wrap (Y->R<Y>, same dimension): the wrapping is invisible, still ⊆")
     @Test
     public void transparentWrap() {
-        assertEquals("[-] --> mapWrap.§xs⊆0:list.§xs", mlv("mapWrap"));
+        assertEquals("[-] --> mapWrap.§m←0:list.§m,mapWrap.§xs⊆0:list.§xs", mlv("mapWrap"));
     }
 
     @DisplayName("dimension-adding wrap (Y->List<R<Y>>): a level is added, only object graphs overlap (∩)")
@@ -189,20 +189,20 @@ public class TestStreamMapSpec extends CommonTest {
     @DisplayName("record-component accessor (P<X> -> X): result shares elements with the source")
     @Test
     public void accessor() {
-        assertEquals("[-] --> mapAccessorMR.§xs⊆0:list.§xs", mlv("mapAccessorMR"));
-        assertEquals("[-] --> mapAccessorLambda.§xs⊆0:list.§xs", mlv("mapAccessorLambda"));
+        assertEquals("[-] --> mapAccessorMR.§m←0:list.§m,mapAccessorMR.§xs⊆0:list.§xs", mlv("mapAccessorMR"));
+        assertEquals("[-] --> mapAccessorLambda.§m←0:list.§m,mapAccessorLambda.§xs⊆0:list.§xs", mlv("mapAccessorLambda"));
     }
 
     @DisplayName("array-typed source, identity (X[]->X[]): elements (arrays) shared, one dimension up")
     @Test
     public void arrayTypedSourceIdentity() {
-        assertEquals("[-] --> mapArrayIdentity.§xss⊆0:list.§xss", mlv("mapArrayIdentity"));
+        assertEquals("[-] --> mapArrayIdentity.§m←0:list.§m,mapArrayIdentity.§xss⊆0:list.§xss", mlv("mapArrayIdentity"));
     }
 
     @DisplayName("chained map.map (identity then wrap): the whole chain is transparent, still ⊆")
     @Test
     public void chainedMap() {
-        assertEquals("[-] --> mapChained.§xs⊆0:list.§xs", mlv("mapChained"));
+        assertEquals("[-] --> mapChained.§m←0:list.§m,mapChained.§xs⊆0:list.§xs", mlv("mapChained"));
     }
 
     @DisplayName("Optional.map (single element): the wrapped content links from the source's content")
@@ -214,14 +214,14 @@ public class TestStreamMapSpec extends CommonTest {
     @DisplayName("static method reference (own): behaves like the instance-method / lambda equivalents")
     @Test
     public void staticMethodReference() {
-        assertEquals("[-] --> mapStaticIdentity.§xs⊆0:list.§xs", mlv("mapStaticIdentity"));
-        assertEquals("[-] --> mapStaticWrap.§xs⊆0:list.§xs", mlv("mapStaticWrap"));
+        assertEquals("[-] --> mapStaticIdentity.§m←0:list.§m,mapStaticIdentity.§xs⊆0:list.§xs", mlv("mapStaticIdentity"));
+        assertEquals("[-] --> mapStaticWrap.§m←0:list.§m,mapStaticWrap.§xs⊆0:list.§xs", mlv("mapStaticWrap"));
     }
 
     @DisplayName("constructor via lambda (x -> new R<>(x)): the wrapping is transparent, ⊆")
     @Test
     public void constructorViaLambda() {
-        assertEquals("[-] --> mapCtorLambda.§xs⊆0:list.§xs", mlv("mapCtorLambda"));
+        assertEquals("[-] --> mapCtorLambda.§m←0:list.§m,mapCtorLambda.§xs⊆0:list.§xs", mlv("mapCtorLambda"));
     }
 
     @DisplayName("unbound instance method reference (List::getFirst) is lifted like the equivalent lambda")
@@ -237,7 +237,7 @@ public class TestStreamMapSpec extends CommonTest {
     public void constructorReference() {
         // the SAM's return value is the new object; the constructor's 'param → this.field' relationship is
         // re-homed onto that return value, so R::new behaves like this::wrap / x -> new R<>(x)
-        assertEquals("[-] --> mapCtorRef.§xs⊆0:list.§xs", mlv("mapCtorRef"));
+        assertEquals("[-] --> mapCtorRef.§m←0:list.§m,mapCtorRef.§xs⊆0:list.§xs", mlv("mapCtorRef"));
     }
 
     @DisplayName("a JDK static method reference (String::valueOf) returns a fresh, unrelated value: no link")

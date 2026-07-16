@@ -330,8 +330,9 @@ System.out.println(mlv + "  MOD[" + mlv.sortedModifiedString() + "]");
 **Baseline** (as of this writing): the full link suite is green except two long-standing failures —
 `TestList.shallow (multiplicity 1 instead of 2)` and `TestShallowFunctional.find (return type)`. Treat any *third*
 failure as a regression. Watch for a flaky `IllegalStateException: tree.starImportScope is null` — that is the openjdk
-parser's javac concurrency issue, mitigated by `-XDuseUnsharedTable=true` (see the memory of the same name); it is not
-a linking bug.
+parser's javac concurrency issue, mitigated by `-XDuseUnsharedTable=true`; it is not a linking bug. For the full
+story (root cause, the built-in fix, and why parallel forks are safe) see the authoritative
+[`maddi-inspection-openjdk/parsing-stability.md`](../maddi-inspection-openjdk/parsing-stability.md).
 
 ---
 

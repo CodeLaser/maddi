@@ -16,8 +16,12 @@ public class TranslateConstants implements TranslationMap {
         this.runtime = runtime;
     }
 
-    public void put(Variable v, Expression e) {
-        map.put(v, e);
+    public Expression put(Variable v, Expression e) {
+        return map.put(v, e);
+    }
+
+    public void remove(Variable v) {
+        map.remove(v);
     }
 
     public Expression get(Variable v) {

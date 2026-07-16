@@ -160,13 +160,14 @@ public class TestWriteAnalysis2 extends CommonTest {
               {"name": "Fi(0)", "data":{"finalField":1}},
               {"name": "Flist(1)", "data":{"finalField":1}},
               {"name": "Fset(2)", "data":{"finalField":1}},
-              {"name": "C<init>(0)", "data":{"methodLinks":[[],[[["P",["Ta.b.X","SR(0)","C<init>(0)","Pset(0)"]],[["F",["Tjava.util.Set","V§m","Tjava.util.concurrent.atomic.AtomicBoolean"],["variableExpression","0-0:0-0",["P",["Ta.b.X","SR(0)","C<init>(0)","Pset(0)"]]]],"≡",["F",["Tjava.util.Set","V§m","Tjava.util.concurrent.atomic.AtomicBoolean"],["variableExpression","0-0:0-0",["F",["Ta.b.X","SR(0)","Fset(2)"]]]]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Pset(0)"]],"→",["F",["Ta.b.X","SR(0)","Fset(2)"]]]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Pi(1)"]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Pi(1)"]],"→",["F",["Ta.b.X","SR(0)","Fi(0)"]]]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Plist(2)"]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Plist(2)"]],"→",["F",["Ta.b.X","SR(0)","Flist(1)"]]],[["F",["Tjava.util.List","V§m","Tjava.util.concurrent.atomic.AtomicBoolean"],["variableExpression","0-0:0-0",["P",["Ta.b.X","SR(0)","C<init>(0)","Plist(2)"]]]],"≡",["F",["Tjava.util.List","V§m","Tjava.util.concurrent.atomic.AtomicBoolean"],["variableExpression","0-0:0-0",["F",["Ta.b.X","SR(0)","Flist(1)"]]]]]]],["T",["Ta.b.X","SR(0)"]]]}},
+              {"name": "C<init>(0)", "data":{"methodLinks":[[],[[["P",["Ta.b.X","SR(0)","C<init>(0)","Pset(0)"]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Pset(0)"]],"→",["F",["Ta.b.X","SR(0)","Fset(2)"]]],[["F",["Tjava.util.Set","V§m","Tjava.util.concurrent.atomic.AtomicBoolean"],["variableExpression","0-0:0-0",["P",["Ta.b.X","SR(0)","C<init>(0)","Pset(0)"]]]],"≡",["F",["Tjava.util.Set","V§m","Tjava.util.concurrent.atomic.AtomicBoolean"],["variableExpression","0-0:0-0",["F",["Ta.b.X","SR(0)","Fset(2)"]]]]]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Pi(1)"]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Pi(1)"]],"→",["F",["Ta.b.X","SR(0)","Fi(0)"]]]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Plist(2)"]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Plist(2)"]],"→",["F",["Ta.b.X","SR(0)","Flist(1)"]]],[["F",["Tjava.util.List","V§m","Tjava.util.concurrent.atomic.AtomicBoolean"],["variableExpression","0-0:0-0",["P",["Ta.b.X","SR(0)","C<init>(0)","Plist(2)"]]]],"≡",["F",["Tjava.util.List","V§m","Tjava.util.concurrent.atomic.AtomicBoolean"],["variableExpression","0-0:0-0",["F",["Ta.b.X","SR(0)","Flist(1)"]]]]]]],["T",["Ta.b.X","SR(0)"]]]}},
               {"name": "Mi(2)", "data":{"getSetField":["Fi(0)",false,false]}},
               {"name": "Mlist(3)", "data":{"getSetField":["Flist(1)",false,false]}},
               {"name": "Mset(4)", "data":{"getSetField":["Fset(2)",false,false]}}]},
              {"name": "Mmethod(0)", "data":{"methodLinks":[[],[],["F",["Ta.b.X","SR(0)","Fset(2)"],["variableExpression","10-9:10-9",["P",["Ta.b.X","MsetAdd(1)","Pr(0)"]]]],["P",["Ta.b.X","MsetAdd(1)","Pr(0)"]]],"nonModifyingMethod":1}},
              {"name": "MsetAdd(1)", "data":{"methodLinks":[[],[[["P",["Ta.b.X","MsetAdd(1)","Pr(0)"]],[["F",["Ta.b.X","SR(0)","Fi(0)"],["variableExpression","10-19:10-19",["P",["Ta.b.X","MsetAdd(1)","Pr(0)"]]]],"∈",["F",["Tjava.util.Set","V§$s",["Tjava.lang.Integer",1,[]]],["variableExpression","0-0:0-0",["F",["Ta.b.X","SR(0)","Fset(2)"],["variableExpression","10-9:10-9",["P",["Ta.b.X","MsetAdd(1)","Pr(0)"]]]]]]]]],["F",["Ta.b.X","SR(0)","Fset(2)"],["variableExpression","10-9:10-9",["P",["Ta.b.X","MsetAdd(1)","Pr(0)"]]]],["P",["Ta.b.X","MsetAdd(1)","Pr(0)"]]],"nonModifyingMethod":1}}]}
             ]
+            \
             """;
 
     @DisplayName("analyzer info")
@@ -267,12 +268,12 @@ public class TestWriteAnalysis2 extends CommonTest {
 
     private void testLink3(MethodLinkedVariables mlv) {
         String expected = """
-                [] --> reverse.map.§vks[-1]∩this.map.§kvs,\
-                reverse.map.§vks[-2]∩this.map.§kvs,reverse.map.§vks~this.map.§kvs\
+                [] --> reverse.map.§vks~this.map.§kvs,reverse.map.§vks[-1]∩this.map.§kvs,reverse.map.§vks[-2]∩this.map.§kvs\
                 """;
         assertEquals(expected, mlv.toString());
 
-        DependentVariable vksSlice = (DependentVariable) mlv.ofReturnValue().link(0).from();
+        // the slice link now sorts after the whole-field ~ link: take link(1)
+        DependentVariable vksSlice = (DependentVariable) mlv.ofReturnValue().link(1).from();
         assertEquals("Type param V[]", vksSlice.parameterizedType().toString());
         FieldReference vks = (FieldReference) vksSlice.arrayVariable();
         assertEquals("§vks", vks.fieldInfo().name());
@@ -335,7 +336,7 @@ public class TestWriteAnalysis2 extends CommonTest {
 
     private void testLink4(MethodLinkedVariables mlvOne) {
         assertEquals("""
-                [-, -] --> oneInstance.§ksvs.§ks∋0:x,oneInstance.§ksvs.§vs∋1:y\
+                [0:x∩1:y, 1:y∩0:x] --> oneInstance.§ksvs.§ks∋0:x,oneInstance.§ksvs.§ks∩1:y,oneInstance.§ksvs.§vs∩0:x,oneInstance.§ksvs.§vs∋1:y\
                 """, mlvOne.toString());
 
         FieldReference ks = (FieldReference) mlvOne.ofReturnValue().link(0).from();

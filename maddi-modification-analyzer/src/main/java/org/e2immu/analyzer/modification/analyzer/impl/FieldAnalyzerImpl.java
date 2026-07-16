@@ -187,6 +187,46 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                     }
                 }
             }
+            Value.Bool viaInheritedDefault = modifiableThroughInheritedDefaultMethod(fieldInfo);
+            if (viaInheritedDefault == null) undecided = true;
+            else if (viaInheritedDefault.isFalse()) return FALSE;
+            return undecided ? null : TRUE;
+        }
+
+        /*
+        A modifying 'default' method inherited (not overridden) from an interface can reach this field through an
+        abstract accessor that the owner overrides to return it: interface Buffer { List<String> items();
+        default void add(String s) { items().add(s); } } — the default method is analyzed once, in the interface's
+        context, where the accessor backs no field, so its summary records only 'modifies this'; the field-level
+        detail is not recoverable there. Sound over-approximation on the owner's side: when the owner inherits a
+        modifying default method it does not override, every field backed by an accessor overriding an interface
+        accessor is modifiable through it. (notes/default-method-modification-not-propagated-to-impl-field.md)
+
+        Returns FALSE = modifiable through such a method, TRUE = no such method, null = a candidate default
+        method's modification status is not yet decided.
+         */
+        private Value.Bool modifiableThroughInheritedDefaultMethod(FieldInfo fieldInfo) {
+            TypeInfo owner = fieldInfo.owner();
+            boolean accessorOverridesInterface = owner.methodStream().anyMatch(accessor -> {
+                Value.FieldValue afv = accessor.analysis().getOrDefault(PropertyImpl.GET_SET_FIELD,
+                        ValueImpl.GetSetValueImpl.EMPTY);
+                return afv.field() == fieldInfo && !afv.setter()
+                       && accessor.overrides().stream().anyMatch(o -> o.isAbstract() && o.typeInfo().isInterface());
+            });
+            if (!accessorOverridesInterface) return TRUE;
+            boolean undecided = false;
+            for (TypeInfo superType : owner.superTypesExcludingJavaLangObject()) {
+                if (!superType.isInterface()) continue;
+                for (MethodInfo d : superType.methods()) {
+                    if (d.isAbstract() || d.isStatic() || d.access().isPrivate()) continue;
+                    boolean overriddenByOwner = owner.methodStream().anyMatch(m -> m.overrides().contains(d));
+                    if (overriddenByOwner) continue; // the owner's own version is analyzed with the field visible
+                    Value.Bool nonModifying = d.analysis().getOrNull(PropertyImpl.NON_MODIFYING_METHOD,
+                            ValueImpl.BoolImpl.class);
+                    if (nonModifying == null) undecided = true;
+                    else if (nonModifying.isFalse()) return FALSE;
+                }
+            }
             return undecided ? null : TRUE;
         }
 

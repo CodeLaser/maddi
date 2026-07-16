@@ -265,7 +265,12 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             ofReturnValue.add(IS_ASSIGNED_FROM, methodInfo.parameters().getFirst());
         }
 
-        return new MethodLinkedVariablesImpl(ofReturnValue.build(), ofParameters, Set.copyOf(modified));
+        MethodLinkedVariables shallowResult = new MethodLinkedVariablesImpl(ofReturnValue.build(), ofParameters,
+                Set.copyOf(modified));
+        if (System.getenv("BTRACE") != null && methodInfo.fullyQualifiedName().contains(System.getenv("BTRACE"))) {
+            System.out.println("BTRACE shallow " + methodInfo.fullyQualifiedName() + " mlv=" + shallowResult);
+        }
+        return shallowResult;
     }
 
     private TypeParameter formalToConcrete(TypeParameter formal, ParameterizedType parameterizedType) {

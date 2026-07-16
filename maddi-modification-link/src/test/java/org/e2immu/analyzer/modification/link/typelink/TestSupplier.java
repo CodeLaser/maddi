@@ -64,9 +64,9 @@ public class TestSupplier extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
         Links tlvX = viX0.linkedVariablesOrEmpty();
-        assertEquals("x←0:optional.§x,x←1:alternative", tlvX.toString());
+        assertEquals("x←1:alternative,x←0:optional.§x", tlvX.toString());
 
-        assertEquals("[-, -] --> method←0:optional.§x,method←1:alternative", mlvMethod.toString());
+        assertEquals("[-, -] --> method←1:alternative,method←0:optional.§x", mlvMethod.toString());
     }
 
     @Test
@@ -87,7 +87,7 @@ public class TestSupplier extends CommonTest {
         FunctionalInterfaceVariable fi0 = (FunctionalInterfaceVariable) viLambda0.linkedVariables()
                 .stream().findFirst().orElseThrow().to();
         assertEquals("Result{links=get←1:alternative, evaluated=lambda}", fi0.result().toString());
-        assertEquals("[-, -] --> method2←0:optional.§x,method2←1:alternative", mlvMethod.toString());
+        assertEquals("[-, -] --> method2←1:alternative,method2←0:optional.§x", mlvMethod.toString());
     }
 
     @Language("java")
@@ -125,9 +125,9 @@ public class TestSupplier extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
         Links tlvX = viX0.linkedVariablesOrEmpty();
-        assertEquals("x←0:optional.§x,x←this.alternative", tlvX.toString());
+        assertEquals("x←this.alternative,x←0:optional.§x", tlvX.toString());
 
-        assertEquals("[-] --> method←0:optional.§x,method←this.alternative", mlv.toString());
+        assertEquals("[-] --> method←this.alternative,method←0:optional.§x", mlv.toString());
     }
 
 
@@ -210,7 +210,7 @@ public class TestSupplier extends CommonTest {
         Links tlvX = viX0.linkedVariablesOrEmpty();
         assertEquals("x←1:c.alternative,x←0:optional.§x", tlvX.toString());
 
-        assertEquals("[-, -] --> method←1:c.alternative,method←0:optional.§x", mlvMethod.toString());
+        assertEquals("[0:optional≈1:c, -] --> method←1:c.alternative,method←0:optional.§x", mlvMethod.toString());
     }
 
     @Language("java")
@@ -328,25 +328,18 @@ public class TestSupplier extends CommonTest {
             VariableInfo viEntry = vd1.variableInfo("entry");
             Links lvEntry = viEntry.linkedVariablesOrEmpty();
             assertEquals("""
-                    entry.§xy.§x←1:altX,entry.§xy.§x≺0:optional.§xy,entry.§xy.§x≺0:optional,entry.§xy.§y←2:altY,\
-                    entry.§xy.§y≺0:optional.§xy,entry.§xy.§y≺0:optional,entry.§xy≺0:optional,entry←0:optional.§xy\
+                    entry←0:optional.§xy,entry.§xy.§x≺0:optional,entry.§xy.§x←1:altX,entry.§xy.§x≺0:optional.§xy,entry.§xy.§y≺0:optional,entry.§xy.§y←2:altY,entry.§xy.§y≺0:optional.§xy,entry.§xy≺0:optional,entry.§xy≺0:optional.§xy\
                     """, lvEntry.toString());
 
             assertEquals("""
-                    [-, -, -] --> method2.§xy.§x←1:altX,method2.§xy.§x≺0:optional.§xy,method2.§xy.§x≺0:optional,\
-                    method2.§xy.§y←2:altY,method2.§xy.§y≺0:optional.§xy,method2.§xy.§y≺0:optional,method2←0:optional.§xy\
+                    [-, -, -] --> method2←0:optional.§xy,method2.§xy.§x←1:altX,method2.§xy.§y←2:altY\
                     """, mlv2.toString());
         }
         {
             MethodInfo method = C.findUniqueMethod("method", 3);
             MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
             assertEquals("""
-                    [-, -, -] --> method.§xy.§x←1:altX,method.§xy.§x≺0:optional.§xy,\
-                    method.§xy.§x≺0:optional,\
-                    method.§xy.§y←2:altY,\
-                    method.§xy.§y≺0:optional.§xy,\
-                    method.§xy.§y≺0:optional,\
-                    method←0:optional.§xy\
+                    [-, -, -] --> method←0:optional.§xy,method.§xy.§x←1:altX,method.§xy.§y←2:altY\
                     """, mlv.toString());
         }
     }
