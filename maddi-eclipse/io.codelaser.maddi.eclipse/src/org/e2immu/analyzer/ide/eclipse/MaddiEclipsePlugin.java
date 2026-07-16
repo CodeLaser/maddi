@@ -16,16 +16,17 @@ package org.e2immu.analyzer.ide.eclipse;
 
 import org.e2immu.analyzer.ide.client.MaddiDaemonProcess;
 import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.Plugin;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.BundleContext;
 
 /**
  * Bundle activator. Owns the one long-lived maddi daemon process for the workspace (the same
  * {@link MaddiDaemonProcess} the IntelliJ front-end uses, from the shared {@code maddi-ide-client} jar),
- * and closes it on shutdown.
+ * and closes it on shutdown. Extends {@link AbstractUIPlugin} for a preference store (see
+ * {@link MaddiPreferences}).
  */
-public class MaddiEclipsePlugin extends Plugin {
+public class MaddiEclipsePlugin extends AbstractUIPlugin {
 
     public static final String PLUGIN_ID = "io.codelaser.maddi.eclipse";
 

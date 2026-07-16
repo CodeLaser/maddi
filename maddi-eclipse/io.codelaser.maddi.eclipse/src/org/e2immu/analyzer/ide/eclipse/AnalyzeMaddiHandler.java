@@ -30,17 +30,18 @@ import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.ui.IWorkbenchPage;
+import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.handlers.HandlerUtil;
 
 import java.nio.file.Path;
 
 /**
  * Right-click a Java project → "Analyze with maddi": build the config from JDT, run the whole-project
- * analysis on the shared daemon off the UI thread, and surface guard findings as markers. The full
- * request/response is exactly the round-trip the IntelliJ front-end performs, over the same client.
- * <p>
- * The maddi JDK (25+) and the daemon distribution directory are read (for now) from system properties or
- * environment; a preference page is a later step.
+ * analysis on the shared daemon off the UI thread, surface guard findings as markers, publish the result to
+ * {@link MaddiResults}, and reveal the findings view. The full request/response is exactly the round-trip
+ * the IntelliJ front-end performs, over the same client. Daemon settings come from {@link MaddiPreferences}.
  */
 public class AnalyzeMaddiHandler extends AbstractHandler {
 
@@ -65,15 +66,16 @@ public class AnalyzeMaddiHandler extends AbstractHandler {
     }
 
     private void analyze(IJavaProject javaProject) throws Exception {
-        String jdkHome = setting("maddi.jdk.home", "MADDI_JDK_HOME");
-        String install = setting("maddi.daemon.install", "MADDI_DAEMON_INSTALL");
+        String jdkHome = MaddiPreferences.jdkHome();
+        String install = MaddiPreferences.daemonInstall();
         if (jdkHome == null || install == null) {
-            MaddiEclipsePlugin.info("Set maddi.jdk.home (JDK 25+) and maddi.daemon.install (daemon dir) first.");
+            MaddiEclipsePlugin.info("Set the maddi JDK (25+) and daemon install directory in "
+                    + "Window → Preferences → maddi.");
             return;
         }
 
         MaddiDaemonProcess daemon = MaddiEclipsePlugin.get().daemon();
-        daemon.ensureStarted(Path.of(install), Path.of(jdkHome), 4096, null);
+        daemon.ensureStarted(Path.of(install), Path.of(jdkHome), MaddiPreferences.daemonXmxMb(), null);
 
         AnalysisModel.AnalyzeConfig config = new MaddiEclipseConfigBuilder().build(javaProject, jdkHome);
         JsonNode node = daemon.analyze("req-" + System.nanoTime(), config, status -> { });
@@ -82,17 +84,25 @@ public class AnalyzeMaddiHandler extends AbstractHandler {
             return;
         }
         AnalysisModel.Result result = daemon.client().objectMapper().treeToValue(node, AnalysisModel.Result.class);
+
         ResourcesPlugin.getWorkspace().run(
                 m -> MaddiMarkers.apply(ResourcesPlugin.getWorkspace().getRoot(), result.findings()),
                 null);
+        MaddiResults.get().update(result);
+        revealFindingsView();
         MaddiEclipsePlugin.log(IStatus.INFO,
                 "maddi: " + result.findings().size() + " finding(s), " + result.hintsLoaded() + " hints", null);
     }
 
-    private static String setting(String systemProperty, String envVar) {
-        String v = System.getProperty(systemProperty);
-        if (v == null || v.isBlank()) v = System.getenv(envVar);
-        return v == null || v.isBlank() ? null : v.trim();
+    private static void revealFindingsView() {
+        Display.getDefault().asyncExec(() -> {
+            try {
+                IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+                if (page != null) page.showView(MaddiFindingsView.ID);
+            } catch (Exception e) {
+                MaddiEclipsePlugin.error("could not open the maddi findings view", e);
+            }
+        });
     }
 
     private static IProject projectOf(ISelection selection) {
