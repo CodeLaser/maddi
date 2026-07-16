@@ -64,6 +64,9 @@ public final class DaemonLauncher {
     public Handle launch(Path installDir, Path jdkHome, List<String> jvmArgs, long startTimeoutMillis, Path logFile)
             throws IOException, InterruptedException {
         Path launcher = launcherScript(installDir);
+        // A bundle that ships the daemon via a copy step (e.g. the Eclipse plugin) may lose the executable
+        // bit; restore it. No-op on Windows and when already executable.
+        launcher.toFile().setExecutable(true, false);
         List<String> command = new ArrayList<>();
         command.add(launcher.toAbsolutePath().toString());
         command.add("--port");

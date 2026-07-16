@@ -73,6 +73,32 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!-- Bundle the daemon distribution (Gradle installDist output) under daemon/ so the plugin is
+                 self-contained. Run ./gradlew :maddi-ide-daemon:installDist first; the bundle declares
+                 Eclipse-BundleShape: dir so it installs unpacked and the launcher runs from disk. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <id>bundle-daemon</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.basedir}/daemon</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${project.basedir}/../../maddi-ide-daemon/build/install/maddi-ide-daemon</directory>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>
