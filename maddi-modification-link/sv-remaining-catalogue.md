@@ -4,6 +4,22 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — Stream.generate FIXED (gate NORVSUB); link 4 → 3
+
+The whole chain was already correct: Stream.generate's shallow summary carries
+'generate.§ts ⊆ Λ0:s' (the type-parameter Supplier rule), the call site translates it to
+'$__rv.§xs ⊆ 0:alt' via LinkFunctionalInterface's supplier branch — and then
+`Graph.invalidEdge` DROPPED it: real↔virtual edges allowed only ∈ ∋ ← → (the historic
+Supplier/Optional fix). One nature further: ⊆/⊇ between a virtual content face and a real
+value is legitimate ('all the stream's content IS repetitions of alt'); now allowed
+(gate NORVSUB). Cost-neutral: parseq bench 1641ms, both suites zero regressions.
+
+Debug aids added: LFITRACE=1 (LinkFunctionalInterface inputs), BTRACE now also prints
+shallow summaries (ShallowMethodLinkComputer) and go()'s assembled mlv.
+
+Remaining 3: TestLinkModificationArea ≻ (area precision), TestStream MR-swap (HC type-name
+drift), TestSupplier test7 ≺ (context-sensitive even at old baseline).
+
 ## UPDATE — varargs fan-out FIXED (gate NOVARTO); TimSort contract crash fixed; link 5 → 4
 
 The varargs residue was NOT the closure-algebra ∩ problem (that died with the spine): it was a
