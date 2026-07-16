@@ -87,7 +87,8 @@ public interface JavaInspector {
                         boolean parallel,
                         boolean lombok,
                         boolean ignoreModule,
-                        boolean parameterNames) {
+                        boolean parameterNames,
+                        boolean syntheticListField) {
         public static class Builder {
             boolean failFast;
             boolean detailedSources;
@@ -96,6 +97,10 @@ public interface JavaInspector {
             boolean lombok;
             boolean ignoreModule;
             boolean parameterNames;
+            // default on: java.util.List.get/set get a synthetic '_synthetic_list' element field so list-element
+            // access is standardized as array access (see CreateSyntheticFieldsForGetSet). Turn off to keep the
+            // leaner model without the synthetic field.
+            boolean syntheticListField = true;
 
             public Builder setParameterNames(boolean parameterNames) {
                 this.parameterNames = parameterNames;
@@ -132,9 +137,14 @@ public interface JavaInspector {
                 return this;
             }
 
+            public Builder setSyntheticListField(boolean syntheticListField) {
+                this.syntheticListField = syntheticListField;
+                return this;
+            }
+
             public ParseOptions build() {
                 return new ParseOptions(failFast, detailedSources, invalidated, parallel, lombok, ignoreModule,
-                        parameterNames);
+                        parameterNames, syntheticListField);
             }
         }
     }

@@ -90,3 +90,37 @@ is the one test because that shape is otherwise rare in the corpus. Re-baselinin
 this is resolved: it also needs two clean, unrelated re-baselines once it parses again — the `GetSetValueImpl`
 `toString` now carries `, list=true`/`, list=false`, and an indexed getter argument prints as `get(pos)` rather
 than `this.get(pos)`.
+
+## RESOLUTION (2026-07-16, kotlin trunk — GetSet analysis owner)
+
+Root cause confirmed: a refactor (`a54eb89c`, "removed … the concept of synthetic list variables") dropped the
+hard-coded `java.util.List.get(int)`/`set(int,Object)` watcher from `GetSetUtil` (now
+`CreateSyntheticFieldsForGetSet`). That watcher was the only thing that created `_synthetic_list` on the real
+`java.util.List` at inspection time, because the JDK bytecode/openjdk sources carry no physical `@GetSet` (it
+lives only in the AAPI archive). Without it, `List.get`'s `GET_SET_FIELD` was empty and `RuntimeImpl.getSetVariable`
+NPE'd resolving a user's indexed list-getter (field type `List<T>`, `arrays()==0`), which needs
+`java.util.List._synthetic_list` to build the element reference.
+
+Fix: restored the watcher in `CreateSyntheticFieldsForGetSet.createSyntheticFields`, keyed on the exact interface
+FQNs (`LIST_GET`/`LIST_SET`), run pre-commit in every inspection backend (bytecode/openjdk/parser). Matched the
+exact `java.util.List` FQN, NOT `isList()` (override-inclusive), so the field lives once on the interface and is
+NOT duplicated onto `ArrayList`/`Vector` — a variable typed `List` standardizes, one typed `ArrayList` does not,
+which is the pre-existing intent (see prepwork `TestGetSet.test5b`, "NO synthetics for ArrayList!!!").
+
+Gate: the behaviour is controlled by `JavaInspector.ParseOptions.syntheticListField` (default **true** =
+synthetic-arrays direction). Off → the leaner model, no `_synthetic_list`. Wired through the openjdk backend
+(the path stdbase uses); the Kotlin front-end inherits it because it shares the bytecode-authoritative
+`CompiledTypesManager` load of `java.util.List`.
+
+Tests (all pass, run on a quiet host with `--no-daemon`):
+- openjdk `type/TestListSyntheticGetSet`: `List.get`/`set` carry `_synthetic_list` (gate on); gate off suppresses it.
+- prepwork `variable/TestGetSet2.test1getterVariable`: end-to-end `getterVariable(get(pos))` resolves to
+  `list._synthetic_list[pos]` instead of NPE'ing.
+- prepwork `variable/TestGetSet` test1/test5/test6: updated from the removal-era assertions (the `assertThrows(NPE)`
+  and the synthetic-free variable sets) to the restored behaviour.
+- inspection-kotlin `TestKotlinSyntheticListField`: Kotlin's `List<Int>` resolves to the same shared
+  `java.util.List` carrying `_synthetic_list`.
+
+stdbase can re-baseline `TestGetSet` now: `myList._synthetic_list[pos]` resolves at `STOP_AFTER_PARSING`.
+NB: the resolved element reference is `field._synthetic_list[index]` (no `$0` suffix — the field is named exactly
+`_synthetic_list`).

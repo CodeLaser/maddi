@@ -48,6 +48,8 @@ public class CommonTest {
     protected ClassSymbolScanner classSymbolScanner;
     // set by a test before scan() to supply faithful class-file parameter names
     protected ParameterNameIndex parameterNameIndex;
+    // mirrors JavaInspector.ParseOptions.syntheticListField; a test may set false before scan() to check the gate
+    protected boolean syntheticListField = true;
 
     public CommonTest() {
         this(List.of());
@@ -101,7 +103,7 @@ public class CommonTest {
                     .build();
             ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                     javacTask, sourceSet, infoByFqn, true, diagnostics,
-                    preload, parameterNameIndex, false, true);
+                    preload, parameterNameIndex, false, true, syntheticListField);
             classSymbolScanner = scanCompilationUnits.classSymbolScanner();
             return scanCompilationUnits.scan();
         } catch (IOException io) {
