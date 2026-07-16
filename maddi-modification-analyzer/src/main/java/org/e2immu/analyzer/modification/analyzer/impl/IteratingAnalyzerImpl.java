@@ -120,6 +120,30 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             counts.merge(key, 1, Integer::sum);
         }
         LOGGER.info("Verdict fingerprint: {}", counts);
+        String dump = System.getenv("FPDUMP");
+        if (dump != null) {
+            try (java.io.PrintWriter pw = new java.io.PrintWriter(dump)) {
+                for (Info info : analysisOrder) {
+                    String v;
+                    if (info instanceof org.e2immu.language.cst.api.info.MethodInfo) {
+                        var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                        v = "method nonModifying=" + b;
+                    } else if (info instanceof org.e2immu.language.cst.api.info.FieldInfo) {
+                        var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_FIELD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                        v = "field unmodified=" + b;
+                    } else if (info instanceof org.e2immu.language.cst.api.info.TypeInfo) {
+                        var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.class);
+                        v = "type immutable=" + b;
+                    } else continue;
+                    pw.println(v + " " + info.fullyQualifiedName());
+                }
+            } catch (java.io.IOException e) {
+                LOGGER.error("FPDUMP failed", e);
+            }
+        }
     }
 
     @Override
@@ -147,14 +171,33 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         // reverse adjacency: dependersOf(Y) = { X | X depends on Y } — the elements to re-analyze when Y changes
         java.util.Map<Info, java.util.Set<Info>> dependersOf;
         if (WORKLIST && dependencyGraph != null) {
+            // SYMMETRIC closure: the analyzers' true information flow runs along graph edges in BOTH
+            // directions — the AbstractMethodAnalyzer derives an abstract method's verdicts from its
+            // IMPLEMENTATIONS (graph edge impl -> abstract), the FieldAnalyzer reads its REFERRING methods
+            // (graph edge reader -> field). One-directional reverse adjacency froze 88 abstract-method and
+            // 23 field verdicts at conservative values (fpdump diffs, runs 16-18). Symmetric is a correct
+            // superset wherever the graph has at least one edge per real dependency; tighten later if the
+            // dirty-set growth ever matters (late-iteration sets are tiny).
             dependersOf = new java.util.HashMap<>();
-            dependencyGraph.edgeStream().forEach(e ->
-                    dependersOf.computeIfAbsent(e.to().t(), _ -> new java.util.HashSet<>()).add(e.from().t()));
-            LOGGER.info("Worklist narrowing ACTIVE; reverse adjacency for {} elements", dependersOf.size());
+            dependencyGraph.edgeStream().forEach(e -> {
+                dependersOf.computeIfAbsent(e.to().t(), _ -> new java.util.HashSet<>()).add(e.from().t());
+                dependersOf.computeIfAbsent(e.from().t(), _ -> new java.util.HashSet<>()).add(e.to().t());
+            });
+            // overrides may span source sets beyond the graph's vertex subset: keep the explicit relation
+            for (Info info : analysisOrder) {
+                if (info instanceof org.e2immu.language.cst.api.info.MethodInfo mi) {
+                    for (org.e2immu.language.cst.api.info.MethodInfo overridden : mi.overrides()) {
+                        dependersOf.computeIfAbsent(mi, _ -> new java.util.HashSet<>()).add(overridden);
+                        dependersOf.computeIfAbsent(overridden, _ -> new java.util.HashSet<>()).add(mi);
+                    }
+                }
+            }
+            LOGGER.info("Worklist narrowing ACTIVE; symmetric reverse adjacency for {} elements", dependersOf.size());
         } else {
             dependersOf = null;
         }
         java.util.Set<Info> dirty = null; // null = analyze everything
+        boolean verifying = false; // worklist ran dry -> one full pass certifies (0 changes = true fixpoint)
         while (true) {
             ++iterations;
             LOGGER.info("{}, cycle breaking active? {}", highlight("Start iteration " + iterations),
@@ -201,22 +244,36 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             previousPropertiesChanged = propertiesChanged;
             if (dependersOf != null) {
                 // v2: only SUMMARY changes propagate — dependents cannot observe element-internal changes.
-                // The changed element itself is not re-run either: without input changes its recomputation
-                // is deterministic (it gets dirtied again the moment one of its dependencies' summaries moves).
+                // The changed element itself IS re-run: a self-recursive method's summary feeds its own next
+                // analysis, and the call graph does not guarantee a self-edge (v2's first cut excluded self and
+                // froze recursive methods at their early conservative verdicts).
                 java.util.Set<Info> changed = singleIterationAnalyzer.summaryChangedInfos();
-                java.util.Set<Info> next = new java.util.HashSet<>();
+                java.util.Set<Info> next = new java.util.HashSet<>(changed);
                 for (Info c : changed) {
                     java.util.Set<Info> deps = dependersOf.get(c);
                     if (deps != null) next.addAll(deps);
                 }
                 dirty = next;
-                if (dirty.isEmpty()) {
-                    LOGGER.info("Stop iterating after {} iterations: worklist empty", iterations);
-                    logVerdictFingerprint(analysisOrder);
-                    if (configuration.guardContracts()) {
-                        new GuardAnalyzerImpl(javaInspector.runtime(), configuration, guardMessages).go(analysisOrder);
+                if (verifying) {
+                    if (propertiesChanged == 0) {
+                        // certified: a FULL iteration changed nothing — this is the true fixpoint, regardless
+                        // of any dependency-edge kinds the worklist's reverse adjacency might miss
+                        LOGGER.info("Stop iterating after {} iterations: worklist dry + full verification pass clean",
+                                iterations);
+                        logVerdictFingerprint(analysisOrder);
+                        if (configuration.guardContracts()) {
+                            new GuardAnalyzerImpl(javaInspector.runtime(), configuration, guardMessages).go(analysisOrder);
+                        }
+                        return;
                     }
-                    return;
+                    // the full pass found changes the worklist missed: resume narrowing from them
+                    LOGGER.info("Verification pass found {} changes; resuming worklist", propertiesChanged);
+                    verifying = false;
+                } else if (dirty.isEmpty()) {
+                    // worklist dry: do NOT stop yet — run one full pass to certify (or catch missed dependencies)
+                    LOGGER.info("Worklist empty after {} iterations; running a full verification pass", iterations);
+                    dirty = null;
+                    verifying = true;
                 }
             }
             LOGGER.info("Run again, properties changed {}", propertiesChanged);

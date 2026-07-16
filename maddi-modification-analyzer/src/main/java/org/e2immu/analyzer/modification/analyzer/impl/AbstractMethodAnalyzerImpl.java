@@ -66,27 +66,23 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
     // no implementation means we can completely ignore it
     private void doMethodWithoutImplementation(MethodInfo methodInfo) {
         if (!methodInfo.analysis().haveAnalyzedValueFor(INDEPENDENT_METHOD)) {
-            methodInfo.analysis().set(INDEPENDENT_METHOD, INDEPENDENT);
-            TolerantWrite.count("set:independentMethod@AMA");
+            TolerantWrite.setOnce(methodInfo.analysis(), INDEPENDENT_METHOD, INDEPENDENT, methodInfo);
             DECIDE.debug("AMA: Decide independent method without implementations {}", methodInfo);
             propertyChanges.incrementAndGet();
         }
         if (!methodInfo.analysis().haveAnalyzedValueFor(IMMUTABLE_METHOD)) {
-            methodInfo.analysis().set(IMMUTABLE_METHOD, ValueImpl.ImmutableImpl.IMMUTABLE);
-            TolerantWrite.count("set:immutableMethod@AMA");
+            TolerantWrite.setOnce(methodInfo.analysis(), IMMUTABLE_METHOD, ValueImpl.ImmutableImpl.IMMUTABLE, methodInfo);
             DECIDE.debug("AMA: Decide immutable method without implementations {}", methodInfo);
             propertyChanges.incrementAndGet();
         }
         for (ParameterInfo pi : methodInfo.parameters()) {
             if (!pi.analysis().haveAnalyzedValueFor(INDEPENDENT_PARAMETER)) {
-                pi.analysis().set(INDEPENDENT_PARAMETER, INDEPENDENT);
-                TolerantWrite.count("set:independentParameter@AMA");
+                TolerantWrite.setOnce(pi.analysis(), INDEPENDENT_PARAMETER, INDEPENDENT, pi);
                 DECIDE.debug("AMA: Decide independent parameter of method without implementations {}", pi);
                 propertyChanges.incrementAndGet();
             }
             if (!pi.analysis().haveAnalyzedValueFor(UNMODIFIED_PARAMETER)) {
-                pi.analysis().set(UNMODIFIED_PARAMETER, TRUE);
-                TolerantWrite.count("set:unmodifiedParameter@AMA");
+                TolerantWrite.setOnce(pi.analysis(), UNMODIFIED_PARAMETER, TRUE, pi);
                 DECIDE.debug("AMA: Decide unmodified parameter of method without implementations {}", pi);
                 propertyChanges.incrementAndGet();
             }
