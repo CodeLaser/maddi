@@ -72,6 +72,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     // internals (e.g. the java.net.http sources, for hint deduction).
     private final boolean jdkInternals;
 
+    // when true, java.util.List.get/set receive a synthetic '_synthetic_list' element field (array-access
+    // standardization); see JavaInspector.ParseOptions.syntheticListField and CreateSyntheticFieldsForGetSet
+    private final boolean syntheticListField;
+
+    public boolean syntheticListField() {
+        return syntheticListField;
+    }
+
     private final InfoByFqn infoByFqn; // Javac qualified name -> typeInfo, methodInfo, fieldInfo
     private final Map<Symbol.MethodSymbol, MethodInfo> methodSymbolMap = new IdentityHashMap<>();
     private final Map<Symbol.VarSymbol, FieldInfo> varSymbolMap = new IdentityHashMap<>();
@@ -109,7 +117,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                               Elements elements,
                               MaddiDiagnosticCollector maddiDiagnosticCollector,
                               @Nullable ParameterNameIndex parameterNameIndex,
-                              boolean jdkInternals) {
+                              boolean jdkInternals,
+                              boolean syntheticListField) {
         this.runtime = runtime;
         this.flagHelper = flagHelper;
         this.elements = elements;
@@ -120,8 +129,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         this.diagnosticCollector = maddiDiagnosticCollector;
         this.parameterNameIndex = parameterNameIndex;
         this.jdkInternals = jdkInternals;
+        this.syntheticListField = syntheticListField;
         this.computeMethodOverrides = new ComputeMethodOverrides(types, elements);
-        this.createSyntheticFieldsForGetSet = new CreateSyntheticFieldsForGetSet(runtime);
+        this.createSyntheticFieldsForGetSet = new CreateSyntheticFieldsForGetSet(runtime, syntheticListField);
 
         runtime.predefinedObjects().forEach(pd -> predefinedTypes.put(pd.simpleName(), pd));
 

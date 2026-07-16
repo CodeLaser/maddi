@@ -85,7 +85,8 @@ public class ScanCompilationUnits {
                                 List<String> packagesToPreload,
                                 org.e2immu.language.inspection.api.resource.ParameterNameIndex parameterNameIndex,
                                 boolean jdkInternals,
-                                boolean computeFingerPrints) {
+                                boolean computeFingerPrints,
+                                boolean syntheticListField) {
         this.runtime = runtime;
         this.diagnosticCollector = diagnosticCollector;
         this.task = task;
@@ -101,7 +102,7 @@ public class ScanCompilationUnits {
         computeMethodOverrides = new ComputeMethodOverrides(types, elements);
         flagHelper = new FlagHelper(runtime);
         classSymbolScanner = new ClassSymbolScanner(runtime, inputConfiguration, infoByFqn, sourceSet,
-                flagHelper, types, elements, diagnosticCollector, parameterNameIndex, jdkInternals);
+                flagHelper, types, elements, diagnosticCollector, parameterNameIndex, jdkInternals, syntheticListField);
         resolveJavaDoc = new ResolveJavaDoc(runtime, classSymbolScanner);
     }
 

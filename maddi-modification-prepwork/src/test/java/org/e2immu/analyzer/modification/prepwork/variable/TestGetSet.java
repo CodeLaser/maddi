@@ -148,10 +148,15 @@ public class TestGetSet extends CommonTest {
             } else fail();
         }
         {
+            // list-element getter getS(int j){ return list.get(j); } on a List<String> field.
+            // Restored synthetic-list behaviour (notes/getset-list-element-getter-npe.md): getterVariable now
+            // resolves to list._synthetic_list[j] instead of NPE'ing at RuntimeImpl.getSetVariable.
             MethodInfo test1 = X.findUniqueMethod("callGetS", 0);
             Statement s0 = test1.methodBody().statements().getFirst();
             MethodCall mc0 = (MethodCall) s0.expression();
-            assertThrows(NullPointerException.class, () -> runtime.getterVariable(mc0));
+            Variable v = runtime.getterVariable(mc0);
+            assertInstanceOf(DependentVariable.class, v);
+            assertTrue(v.fullyQualifiedName().contains("_synthetic_list"), v.fullyQualifiedName());
         }
         {
             MethodInfo test1 = X.findUniqueMethod("callSetS2", 1);
@@ -376,8 +381,11 @@ public class TestGetSet extends CommonTest {
         assertEquals("a.b.X.intList", getInt.getSetField().field().fullyQualifiedName());
         {
             VariableData vdLast = VariableDataImpl.of(getInt.methodBody().lastStatement());
+            // synthetic-list access: intList.get(index) resolves via java.util.List._synthetic_list
             assertEquals("""
-                    a.b.X.getInt(int), a.b.X.getInt(int):0:index, a.b.X.intList, a.b.X.this\
+                    a.b.X.getInt(int), a.b.X.getInt(int):0:index, a.b.X.intList, a.b.X.this, \
+                    java.util.List._synthetic_list#a.b.X.intList, \
+                    java.util.List._synthetic_list#a.b.X.intList[a.b.X.getInt(int):0:index]\
                     """, vdLast.knownVariableNamesToString());
         }
     }
@@ -442,9 +450,12 @@ public class TestGetSet extends CommonTest {
 
         MethodInfo get = X.findUniqueMethod("get", 2);
         VariableData vdLast = VariableDataImpl.of(get.methodBody().lastStatement());
+        // synthetic-list access: subList(...).get(i) resolves via java.util.List._synthetic_list
         assertEquals("""
                 a.b.X.get(java.util.List,int), a.b.X.get(java.util.List,int):0:list, \
-                a.b.X.get(java.util.List,int):1:i\
+                a.b.X.get(java.util.List,int):1:i, \
+                java.util.List._synthetic_list#scope10-16:10-34, \
+                java.util.List._synthetic_list#scope10-16:10-34[a.b.X.get(java.util.List,int):1:i]\
                 """, vdLast.knownVariableNamesToString());
     }
 

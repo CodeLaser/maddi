@@ -36,19 +36,38 @@ that has access to runtime, and can be shared between java-bytecode and java-par
 The alternative is to put this in Factory/FactoryImpl.
  */
 
-public record CreateSyntheticFieldsForGetSet(Runtime runtime) {
+public record CreateSyntheticFieldsForGetSet(Runtime runtime, boolean syntheticListField) {
     private static final Logger LOGGER = LoggerFactory.getLogger(CreateSyntheticFieldsForGetSet.class);
 
     private final static String GET_SET_ANNOTATION = GetSet.class.getCanonicalName();
 
+    // convenience: synthetic-list field creation on by default (see JavaInspector.ParseOptions.syntheticListField)
+    public CreateSyntheticFieldsForGetSet(Runtime runtime) {
+        this(runtime, true);
+    }
+
     public void createSyntheticFields(TypeInfo typeInfo) {
         TypeInfo.Builder builder = typeInfo.builder();
         builder.methods().stream().filter(MethodInfo::isAbstract).forEach(mi -> {
-            mi.annotations().forEach(ae -> {
-                if (GET_SET_ANNOTATION.equals(ae.typeInfo().fullyQualifiedName())) {
-                    getSet(typeInfo, mi, ae);
-                }
-            });
+            // java.util.List.get(int)/set(int,Object) carry the @GetSet annotation only in the AAPI archive, not
+            // in the JDK bytecode/openjdk sources this method inspects. The annotation-driven branch below would
+            // therefore never fire for the real java.util.List, leaving List.get without a GET_SET_FIELD and the
+            // _synthetic_list element field uncreated -- which makes RuntimeImpl.getSetVariable (indexed
+            // list-getter -> field._synthetic_list$0[index]) NPE. So create the field here, keyed on the exact
+            // interface FQN, while the builder is still open (pre-commit). Match the exact List FQN, not isList(),
+            // which is override-inclusive and would duplicate the field onto every ArrayList/Vector/... ; the
+            // field belongs once on the interface, which is where getSetVariable looks it up.
+            // Gated by syntheticListField (JavaInspector.ParseOptions): off -> leaner model, no synthetic field.
+            String miFqn = mi.fullyQualifiedName();
+            if (syntheticListField && (LIST_GET.equals(miFqn) || LIST_SET.equals(miFqn))) {
+                getSet(typeInfo, mi, false, "_synthetic_list");
+            } else {
+                mi.annotations().forEach(ae -> {
+                    if (GET_SET_ANNOTATION.equals(ae.typeInfo().fullyQualifiedName())) {
+                        getSet(typeInfo, mi, ae);
+                    }
+                });
+            }
         });
     }
 

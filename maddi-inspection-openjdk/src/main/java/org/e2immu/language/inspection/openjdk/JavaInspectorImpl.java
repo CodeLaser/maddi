@@ -239,7 +239,8 @@ public class JavaInspectorImpl implements JavaInspector {
                                ParseOptions parseOptions) {
         try {
             singleSourceSet(summary, sourcesByFqn, infoByFqn, sourceSet, !parseOptions.failFast(),
-                    parseOptions.ignoreModule(), parseOptions.parameterNames() || parameterNames);
+                    parseOptions.ignoreModule(), parseOptions.parameterNames() || parameterNames,
+                    parseOptions.syntheticListField());
         } catch (IOException ioe) {
             // register the failure in the Summary (preserving the cause) instead of dropping it and aborting
             // with a cause-less UnsupportedOperationException; harmonizes with the in-house inspector
@@ -352,7 +353,8 @@ public class JavaInspectorImpl implements JavaInspector {
             try {
                 Map<String, String> sourcesByFqn = sourcesByFqnBySourceSet.get(sourceSet);
                 singleSourceSet(summary, sourcesByFqn, infoByFqn, sourceSet, !parseOptions.failFast(),
-                        parseOptions.ignoreModule(), parseOptions.parameterNames() || parameterNames);
+                        parseOptions.ignoreModule(), parseOptions.parameterNames() || parameterNames,
+                        parseOptions.syntheticListField());
             } catch (IOException ioe) {
                 // register the failure in the Summary (preserving the cause) instead of dropping it and aborting
                 // with a cause-less UnsupportedOperationException; harmonizes with the in-house inspector
@@ -417,7 +419,7 @@ public class JavaInspectorImpl implements JavaInspector {
             Summary summary = new SummaryImpl(parseOptions.failFast());
             singleSourceSet(summary, Map.of(className, input), infoByFqn, sourceSet,
                     !parseOptions.failFast(), parseOptions.ignoreModule(),
-                    parseOptions.parameterNames() || parameterNames);
+                    parseOptions.parameterNames() || parameterNames, parseOptions.syntheticListField());
             return summary;
         } catch (IOException e) {
             LOGGER.error("Caught exception", e);
@@ -431,7 +433,8 @@ public class JavaInspectorImpl implements JavaInspector {
                                  SourceSet sourceSet,
                                  boolean ignoreErrors,
                                  boolean ignoreModule,
-                                 boolean parameterNames) throws IOException {
+                                 boolean parameterNames,
+                                 boolean syntheticListField) throws IOException {
         MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
         JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics);
         if (javacTask == null) {
@@ -443,7 +446,7 @@ public class JavaInspectorImpl implements JavaInspector {
         ParameterNameIndex pni = parameterNames ? parameterNameIndex() : null;
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                 javacTask, sourceSet, infoByFqn, true, diagnostics, preload, pni, jdkInternals,
-                computeFingerPrints);
+                computeFingerPrints, syntheticListField);
         ScanCompilationUnits.Result scanned = scanCompilationUnits.scan();
         this.lastScanUnits = scanCompilationUnits; // keep the live task for on-demand getOrLoad
 
