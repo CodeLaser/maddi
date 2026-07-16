@@ -159,12 +159,16 @@ public class Graph {
         if (Util.isVirtualModification(from) != Util.isVirtualModification(to)) return true;
         if (Util.virtual(from) == Util.virtual(to)) return false;
         // an edge between a real variable and a virtual (hidden-content) field is legitimate for element/membership
-        // (∈ ∋) and for assignment of the content itself (← →): a value read out of a container's hidden content is
-        // assigned from it, e.g. 'X x = optional.orElseGet(...)' yields 'x ← optional.§x'.
+        // (∈ ∋), for assignment of the content itself (← →): a value read out of a container's hidden content is
+        // assigned from it, e.g. 'X x = optional.orElseGet(...)' yields 'x ← optional.§x' — and for content
+        // subset/superset against a single value (⊆ ⊇, gate NORVSUB): 'Stream.generate(() -> alt)' yields
+        // 'genParam.§xs ⊆ 0:alt' (all the stream's content IS repetitions of alt).
         if (label == LinkNatureImpl.CONTAINS_AS_MEMBER
             || label == LinkNatureImpl.IS_ELEMENT_OF
             || label == LinkNatureImpl.IS_ASSIGNED_FROM
             || label == LinkNatureImpl.IS_ASSIGNED_TO) return false;
+        if (System.getenv("NORVSUB") == null
+            && (label == LinkNatureImpl.IS_SUBSET_OF || label == LinkNatureImpl.IS_SUPERSET_OF)) return false;
         // The owner ≻ own-virtual-field spine (the old engine's AddEdge.addField added it unconditionally): a
         // variable genuinely contains its own hidden content. These edges are load-bearing: the varargs fan-out
         // 'target.§is ~ collection.§is ≺ collection ∈ collections.§iss' closes to 'target.§is ∩ collections.§iss'

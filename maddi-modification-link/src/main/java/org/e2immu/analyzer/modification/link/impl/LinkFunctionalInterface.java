@@ -57,6 +57,11 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         // FUNCTIONAL INTERFACE
 
         MethodInfo sam = functionalInterfaceType.typeInfo().singleAbstractMethod();
+        if (System.getenv("LFITRACE") != null) {
+            System.out.println("LFITRACE fi=" + functionalInterfaceType + " fromTranslated=" + fromTranslated
+                               + " nature=" + linkNature + " returnPrimary=" + returnPrimary
+                               + " objectPrimary=" + objectPrimary + " linksList=" + linksList);
+        }
         if (sam == null || linksList.isEmpty()) return List.of();
         // SUPPLIER (no parameters) or CONSUMER (no return value): the SAM has only one "interesting" side.
         // A consumer that captures nothing linkable (e.g. 'list.forEach(x -> sideEffect())') falls through the loop
