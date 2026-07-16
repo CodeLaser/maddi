@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The maddi Eclipse plugin bundle (OSGi). Compiled by Tycho against the target platform (JDT + workbench).
+  The shared maddi-ide-client jar and Jackson are EMBEDDED on the bundle classpath: maven-dependency-plugin
+  copies them into lib/ before compilation, and MANIFEST.MF lists them on Bundle-ClassPath. The client jar
+  comes from the local Maven repo (./gradlew :maddi-ide-client:publishToMavenLocal); Jackson from central.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.codelaser.maddi.eclipse</groupId>
+        <artifactId>maddi-eclipse-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>io.codelaser.maddi.eclipse</artifactId>
+    <packaging>eclipse-plugin</packaging>
+
+    <properties>
+        <jackson.version>2.19.2</jackson.version>
+        <maddi.client.version>0.8.2</maddi.client.version>
+    </properties>
+
+    <build>
+        <plugins>
+            <!-- Embed the shared client + Jackson: copy them (stripped to stable names) into lib/ before
+                 Tycho compiles, so Bundle-ClassPath resolves them at compile and package time. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.8.1</version>
+                <executions>
+                    <execution>
+                        <id>embed-runtime-jars</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.basedir}/lib</outputDirectory>
+                            <overWriteReleases>true</overWriteReleases>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>io.codelaser</groupId>
+                                    <artifactId>maddi-ide-client</artifactId>
+                                    <version>${maddi.client.version}</version>
+                                    <destFileName>maddi-ide-client.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.fasterxml.jackson.core</groupId>
+                                    <artifactId>jackson-databind</artifactId>
+                                    <version>${jackson.version}</version>
+                                    <destFileName>jackson-databind.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.fasterxml.jackson.core</groupId>
+                                    <artifactId>jackson-core</artifactId>
+                                    <version>${jackson.version}</version>
+                                    <destFileName>jackson-core.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.fasterxml.jackson.core</groupId>
+                                    <artifactId>jackson-annotations</artifactId>
+                                    <version>${jackson.version}</version>
+                                    <destFileName>jackson-annotations.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+   <!-- Guard findings become problem markers: they show in the Problems view and on the editor ruler,
+        Eclipse's native "mark + explain" surface. -->
+   <extension point="org.eclipse.core.resources.markers"
+              id="contractViolation"
+              name="maddi contract violation">
+      <super type="org.eclipse.core.resources.problemmarker"/>
+      <super type="org.eclipse.core.resources.textmarker"/>
+      <persistent value="true"/>
+   </extension>
+
+   <extension point="org.eclipse.ui.commands">
+      <command id="io.codelaser.maddi.eclipse.analyze"
+               name="Analyze with maddi"
+               defaultHandler="org.e2immu.analyzer.ide.eclipse.AnalyzeMaddiHandler"/>
+   </extension>
+
+   <!-- Right-click a Java project → Analyze with maddi. -->
+   <extension point="org.eclipse.ui.menus">
+      <menuContribution locationURI="popup:org.eclipse.ui.popup.any?after=additions">
+         <command commandId="io.codelaser.maddi.eclipse.analyze"
+                  label="Analyze with maddi"
+                  style="push">
+            <visibleWhen checkEnabled="false">
+               <with variable="selection">
+                  <count value="1"/>
+                  <iterate>
+                     <adapt type="org.eclipse.core.resources.IProject"/>
+                  </iterate>
+               </with>
+            </visibleWhen>
+         </command>
+      </menuContribution>
+   </extension>
+</plugin>

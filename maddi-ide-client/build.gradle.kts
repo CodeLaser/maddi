@@ -20,11 +20,22 @@
 
 plugins {
     id("java-library-conventions")
+    `maven-publish` // so an Eclipse/Tycho build can consume this jar from the local Maven repo (publishToMavenLocal)
 }
+
+version = "0.8.2"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"]) // io.codelaser:maddi-ide-client:0.8.2
+        }
+    }
 }
 
 dependencies {
