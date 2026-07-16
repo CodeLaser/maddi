@@ -181,21 +181,28 @@ stand:
 
 | tier | classes |
 |---|---|
-| mapped | `GetSetValueImpl`, `FieldBooleanMapImpl`, `VariableBooleanMapImpl`, `AssignedToFieldImpl`, `PostConditionsImpl`, `PreconditionImpl`, `GetSetEquivalentImpl` |
+| mapped | `GetSetValueImpl`, `FieldBooleanMapImpl`, `VariableBooleanMapImpl`, `AssignedToFieldImpl`, `PostConditionsImpl`, `PreconditionImpl`, `GetSetEquivalentImpl`, `IndependentImpl` |
 | `return this` (plain: ints, strings) | `BoolImpl`, `ImmutableImpl`, `NotNullImpl`, `MessageImpl`, `ScopeImpl`, `CommutableDataImpl`, `IndicesOfEscapesImpl`, `SetOfStringsImpl` |
-| throws `NYI` (holds Info, not written) | `SetOfInfoImpl` (`PART_OF_CONSTRUCTION`), `VariableToTypeInfoSetImpl`, `SetOfTypeInfoImpl`, `SetOfMethodInfoImpl` (`IMPLEMENTATIONS`), **`IndependentImpl`**, `ParameterParSeqImpl`, `VariableDataImpl` (+`Builder`), `LinksImpl`, `MethodLinkedVariablesImpl`, `VariableInfoMap`, `ListOfLinksImpl` |
+| throws `NYI` (holds Info, not written) | `SetOfInfoImpl` (`PART_OF_CONSTRUCTION`), `VariableToTypeInfoSetImpl`, `SetOfTypeInfoImpl`, `SetOfMethodInfoImpl` (`IMPLEMENTATIONS`), `ParameterParSeqImpl`, `VariableDataImpl` (+`Builder`), `LinksImpl`, `MethodLinkedVariablesImpl`, `VariableInfoMap`, `ListOfLinksImpl` |
 
 There used to be a fourth, worst tier — **silently identity**: `Value.rewire` defaulted to `return this`, so a value
 holding `Info` that forgot to override passed stale references through without a sound. That was Trap 1 one level
 up. The default now throws, and every implementation states its choice, so the tiers above are exhaustive by
 construction.
 
-**`Independent` is not a plain lattice level, despite the name**: `IndependentImpl` carries
-`List<MethodInfo> dependentExceptions` (`ValueImpl:343`). An allow-list built from property names — which this doc
-previously proposed — would wave through exactly the property that needs rewiring most quietly. The useful split is
-not "plain vs Info-holding" (that is only *mechanical*); it is **"does its computation read another type's
-analysis?"**, which is what decides whether carrying is sound at all. The two questions are orthogonal:
-`VARIABLE_DATA` is stuffed with `Info` refs *and* carryable; `IMMUTABLE_TYPE` is a bare int *and* not.
+**`Independent` is not quite a plain lattice level, despite the name**: `IndependentImpl` carries
+`List<MethodInfo> dependentExceptions`. An allow-list built from property names — which this doc previously proposed
+— would have waved it through. It is narrower than it looks, though: the list is written from the annotated API only
+(`AnnotationToProperty`), never by the modification analyzer's computations, and in practice for a single case, the
+`remove()` of the `Iterator` returned by `java.lang.Iterable`, which enhanced for-loops depend on. That method lives
+in a library type, which is never rewired, so `infoMap` hands it back unchanged. `rewire` maps it anyway (nothing in
+the value guarantees the return type is not a source type) and returns `this` when the list is empty, which is both
+the common case and what keeps the `DEPENDENT`/`INDEPENDENT_HC`/`INDEPENDENT` singletons intact. Test:
+`prepwork/TestIndependentRewire`.
+
+The useful split is not "plain vs Info-holding" (that is only *mechanical*); it is **"does its computation read
+another type's analysis?"**, which is what decides whether carrying is sound at all. The two questions are
+orthogonal: `VARIABLE_DATA` is stuffed with `Info` refs *and* carryable; `IMMUTABLE_TYPE` is a bare int *and* not.
 
 Remaining points to settle:
 

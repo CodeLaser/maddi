@@ -576,13 +576,18 @@ public abstract class ValueImpl implements Value {
         }
 
         /*
-        Not a plain lattice level, despite the name: dependentExceptions holds MethodInfo. Only the DEPENDENT /
-        INDEPENDENT_HC / INDEPENDENT singletons are guaranteed to have it empty; anything built through the public
-        constructor carries real methods. Not implemented rather than silently wrong: see the note on Value.rewire.
+        Not quite a plain lattice level, despite the name: value and the parameter map are plain, but
+        dependentExceptions holds MethodInfo. It is written from the annotated API only (AnnotationToProperty), never
+        by the modification analyzer, and in practice for a single case: the remove() of the Iterator returned by
+        java.lang.Iterable, which enhanced for-loops depend on. Those live in a library type, which is never rewired,
+        so infoMap hands them back unchanged -- but map them anyway: nothing here says the return type cannot be a
+        source type. Empty is the overwhelmingly common case, and returning this keeps the singletons intact.
          */
         @Override
         public Value rewire(InfoMap infoMap) {
-            throw new UnsupportedOperationException("NYI");
+            if (dependentExceptions.isEmpty()) return this;
+            return new IndependentImpl(value, linkToParametersReturnValue,
+                    dependentExceptions.stream().map(infoMap::methodInfo).toList());
         }
     }
 
