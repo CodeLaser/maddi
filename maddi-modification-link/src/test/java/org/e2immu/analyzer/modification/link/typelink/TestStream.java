@@ -117,7 +117,9 @@ public class TestStream extends CommonTest {
         assertEquals("[-] --> method.§m←0:list.§m,method.§xs⊆0:list.§xs", mlv.toString());
 
         int propertiesChanged = tlc.propertiesChanged();
-        assertEquals(16, propertiesChanged);
+        // was 16: variablesLinkedToObject writes no longer count as property changes (they land on the freshly
+        // re-materialized body each iteration and kept the iterating analyzer from converging)
+        assertEquals(11, propertiesChanged);
         tlc.doMethod(method);
         tlc.doMethod(method1);
         tlc.doMethod(method2);

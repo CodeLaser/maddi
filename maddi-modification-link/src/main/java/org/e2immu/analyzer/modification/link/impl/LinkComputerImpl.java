@@ -706,7 +706,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                         wmc.methodCall().analysis().set(VARIABLES_LINKED_TO_OBJECT,
                                 new ValueImpl.VariableBooleanMapImpl(Map.copyOf(variablesLinkedToObject)));
                         TolerantWrite.count("set:variablesLinkedToObject@LCI");
-                        propertiesChanged.incrementAndGet();
+                        // deliberately NOT counted in propertiesChanged: the method body is re-materialized every
+                        // iteration, so this "write-once" lands on a fresh expression each time (measured: exactly
+                        // 635/iteration on timefold) — it recomputes an output for this iteration's consumers, it
+                        // is not a converging property. Counting it kept the iteration loop running to the max.
                     } catch (IllegalArgumentException iae) {
                         LinkComputerImpl.this.recursionPrevention.report(methodInfo);
                         throw iae;

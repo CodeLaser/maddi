@@ -4,6 +4,39 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — TIMEFOLD GREEN + CONVERGENCE DIAGNOSIS (runs 8-10)
+
+**run8 (crash round 2): ZERO caught exceptions across all 53,535 elements** (was 3,585);
+iterations 167s → 306s because formerly-crashing elements now complete. **run9: the full
+modification chain PASSES (exit 0)** — first green on a real-world project. run10 = run9 +
+UNMODOWN=1.
+
+**Convergence profile** (per-property instrumentation in TolerantWrite, logged top-10 per
+iteration): parse 18s, prep 2.5s, iteration 1 ≈ 5 min, then 9 more full ~5-min re-analyses
+chasing <0.5% of elements. Findings:
+- **immutableType refusals: 0** after the computeImmutableType root fix (hierarchy check
+  hoisted above the 'isDependent → FINAL_FIELDS' early return; the refused @Mutable had
+  been the CORRECT verdict on 123 types). TolerantWrite = tourniquet, root fix = cure.
+- **The propertiesChanged "oscillation floor" was mostly PHANTOM**: exactly
+  635/iteration from the variablesLinkedToObject write (LinkComputerImpl) — the method
+  body is re-materialized every iteration, so the "write-once" guard never holds and each
+  iteration re-counted the same 635 writes. No longer counted (TestStream pin 16 → 11).
+- unmodifiedVariable converges naturally by iteration 8 (14248→...→2→0); methodLinks
+  slowly but genuinely (6834→...→3).
+- **UNMODOWN=1 experiment** (gate, default OFF): apply the true→false downgrade for the
+  UNMODIFIED_* family instead of refusing. Suites GREEN with and without (536 pinned
+  verdicts unaffected); unmodifiedVariable refusals become clean downgrades and settle;
+  BUT **unmodifiedParameter oscillates at exactly 81-82/iteration** — a fixed parameter
+  set flips true↔false as links refine, so 'false is absorbing' is too simple there.
+  OPEN: trace that set before any default-on decision; gate-off leaves the harmless
+  refusal steady state (~64/iter) with the optimistic value winning.
+- Plateau early-exit (stopWhenCycleDetectedAndNoImprovements, now actually consulted)
+  fired at the boundary; with the phantom gone it will cut iterations for real.
+
+Speed ledger (task #21): worklist narrowing via reverse call-graph remains the ~10× lever;
+then intra-iteration parallelism; then the slow-tail methods (82% of methods finish in the
+first 25% of an iteration).
+
 ## UPDATE — REAL-WORLD CORPUS PHASE: timefold-solver full-chain (post-kotlin-merge)
 
 CloneBench is flat single-class functions — almost no sub-types/deep record structures, so
