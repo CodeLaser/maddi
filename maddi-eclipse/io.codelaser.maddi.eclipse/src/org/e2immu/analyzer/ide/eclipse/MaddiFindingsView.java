@@ -109,7 +109,7 @@ public class MaddiFindingsView extends ViewPart {
     private static IMarker markerAt(IFile file, AnalysisModel.Finding finding) {
         try {
             IMarker fallback = null;
-            for (IMarker marker : file.findMarkers(MaddiMarkers.MARKER_TYPE, false, IResource.DEPTH_ZERO)) {
+            for (IMarker marker : file.findMarkers(MaddiMarkers.VIOLATION_TYPE, false, IResource.DEPTH_ZERO)) {
                 fallback = marker;
                 if (finding.beginLine() != null
                         && finding.beginLine().equals(marker.getAttribute(IMarker.LINE_NUMBER, -1))) {
