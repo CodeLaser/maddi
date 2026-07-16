@@ -37,7 +37,10 @@ dependencies {
     implementation(project(":maddi-inspection-parser"))
     implementation(project(":maddi-inspection-resource"))
 
-    implementation(project(":maddi-inspection-integration"))
+    // test-only: aapi-parser's main has no reference to the in-house inspector; only module-info
+    // required it, which put it on the runtime class path of every consumer (notably maddi-run-openjdk,
+    // which has its own inspector).
+    testImplementation(project(":maddi-inspection-integration"))
     testImplementation(project(":maddi-java-bytecode"))
     testImplementation(project(":maddi-java-parser"))
 

@@ -11,7 +11,6 @@ module org.e2immu.analyzer.modification.prepwork {
 
     requires org.slf4j;
     requires org.jetbrains.annotations;
-    requires org.e2immu.language.inspection.integration;
 
     exports org.e2immu.analyzer.modification.prepwork;
     exports org.e2immu.analyzer.modification.prepwork.callgraph;

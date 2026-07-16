@@ -29,13 +29,17 @@ dependencies {
 
     implementation(project(":maddi-cst-impl"))
     implementation(project(":maddi-cst-io"))
-    implementation(project(":maddi-cst-print"))
-    implementation(project(":maddi-inspection-parser"))
-    implementation(project(":maddi-inspection-integration"))
-    implementation(project(":maddi-inspection-resource"))
-    implementation(project(":maddi-java-bytecode"))
-    implementation(project(":maddi-java-parser"))
 
+    /*
+    Parsing is a test-only concern here: prepwork's main analyses a CST, it does not build one. Everything below
+    used to be an 'implementation', which put it on the runtime class path of every prepwork consumer -- so
+    maddi-run-openjdk dragged in the in-house parser (and the congocc parser, and the bytecode reader) that it has
+    no use for. main referenced none of them: module-info only ever required inspection.integration, and no source
+    file used it, while the other four were not in module-info at all and so could not be referenced by main even
+    in principle -- main is compiled in module mode, where 'requires' is the whole of the visible world.
+     */
+    testImplementation(project(":maddi-inspection-integration"))
+    testImplementation(project(":maddi-inspection-resource"))
     testImplementation(project(":maddi-inspection-openjdk"))
     testImplementation(project(":maddi-java-openjdk"))
     testImplementation("ch.qos.logback:logback-classic")
