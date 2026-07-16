@@ -1164,9 +1164,17 @@ public abstract class ValueImpl implements Value {
             return methodInfoSet.stream().map(Object::toString).sorted().collect(Collectors.joining(", "));
         }
 
+        /*
+        Replace rather than insert: MethodInfo equality is structural (fqn + source set), so a rewired method is
+        equal to the object it replaces, and Set.add would keep the incumbent -- the stale one -- for ever. This set
+        is a registry of the current implementations, and it is written from the implementation's side onto the
+        abstract method, which lives upstream and is therefore never itself rewired.
+         */
         @Override
         public boolean add(MethodInfo methodInfo) {
-            return methodInfoSet.add(methodInfo);
+            boolean present = methodInfoSet.remove(methodInfo);
+            methodInfoSet.add(methodInfo);
+            return !present;
         }
 
         @Override
