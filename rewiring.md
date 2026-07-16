@@ -44,8 +44,8 @@ the map with the **new** objects makes lookups of the **old** ones resolve to th
 1. `reloadSources(inputConfiguration, sourcesByTestProtocolURIString)` → `ReloadResult(problems, sourceHasChanged)`.
    Compares each source file's stored fingerprint against a fresh MD5. Parses nothing, invalidates nothing: it only
    answers *what changed*. Requires `computeFingerPrints` (both runners pass `true`).
-2. The caller turns that into an `Invalidated` (see `RunRewireTests`): changed → INVALID; their dependents, from the
-   call graph's primary-type use graph → REWIRE; the rest → UNCHANGED.
+2. The caller turns that into an `Invalidated` (see `RunRewireTests`): changed → INVALID; their dependents, from
+   `prepwork/PrimaryTypeUseGraph.dependentsOf` → REWIRE; the rest → UNCHANGED.
 3. `parse(options.setInvalidated(...))` re-parses the INVALID, rewires the REWIRE, keeps the rest.
 
 ### The two inspectors differ in granularity
@@ -131,6 +131,7 @@ knows**, or **a default is indistinguishable from a decision**.
 | | |
 |---|---|
 | protocol | `TypeInfoImpl.rewirePhase0..3`, `InfoMapImpl`, `FactoryImpl.newInfoMap` |
+| who-depends-on-whom | `prepwork/callgraph/PrimaryTypeUseGraph` (projects + transposes `ComputeCallGraph`'s `G<Info>`), test `prepwork/TestPrimaryTypeUseGraph` |
 | API | `JavaInspector` (`InvalidationState`, `Invalidated`, `NOT_INVALIDATED`, `ReloadResult`, `reloadSources`), `InfoMap` |
 | in-house | `integration/JavaInspectorImpl.parse` (phase 1 decides per file; the InfoMap is built after phase 3), `integration/CompiledTypesManagerImpl` |
 | openjdk | `openjdk/JavaInspectorImpl.reparse` + `actionFor` + `reloadSources` + `listSourceFiles`, `openjdk/CompiledTypesManagerImpl`, `InfoByFqn` |
