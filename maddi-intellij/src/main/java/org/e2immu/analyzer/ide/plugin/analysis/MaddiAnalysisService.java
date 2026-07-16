@@ -16,6 +16,7 @@ package org.e2immu.analyzer.ide.plugin.analysis;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
+import com.intellij.codeInsight.hints.declarative.impl.DeclarativeInlayHintsPassFactory;
 import com.intellij.ide.plugins.IdeaPluginDescriptor;
 import com.intellij.ide.plugins.PluginManagerCore;
 import com.intellij.notification.NotificationGroupManager;
@@ -129,6 +130,9 @@ public final class MaddiAnalysisService implements Disposable {
 
         ApplicationManager.getApplication().invokeLater(() -> {
             if (project.isDisposed()) return;
+            // Declarative inlay hints cache on a modification stamp that restart() alone does not invalidate,
+            // so the first result would only show up on a later pass. Reset it so inlays recompute now.
+            DeclarativeInlayHintsPassFactory.Companion.resetModificationStamp();
             DaemonCodeAnalyzer.getInstance(project).restart(); // repaint annotators/inlays/gutter
             project.getMessageBus().syncPublisher(MaddiResultListener.TOPIC).resultUpdated(result);
         });
