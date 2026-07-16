@@ -105,6 +105,17 @@ knows**, or **a default is indistinguishable from a decision**.
    ever rewired — the loop stopped testing the thing it exists for. It now reloads after restoring too (reverting is
    a rewire in its own right). Symptom to recognise: `N of M changed` where N > 1 for a single edit.
 
+7. **`IMPLEMENTATIONS` points against the direction of rewiring, and structural equality made it self-sealing.**
+   `MethodAnalyzer.addImplementation` (`:356-360`) writes it onto the *overridden* abstract method, which lives in a
+   supertype — **upstream**. So the analysis has a back-edge the CST does not, and the closure argument below (no
+   UNCHANGED type reaches an INVALID one) does **not** protect it: interface `I` stays UNCHANGED, class `C` is
+   REWIRE, and `I.m`'s `IMPLEMENTATIONS` keeps the `C.m` that was replaced — for ever, because `I` is never rewired.
+   Re-running prep did not repair it: the set is mutable (`ValueImpl:1168`) and `MethodInfo.equals` is structural
+   (fqn + source set, `MethodInfoImpl:135-141`), so `add(newC.m)` on a set holding `oldC.m` found them equal, kept
+   the incumbent, and returned false. **The BASIC RULE that makes rewiring work is what made this set never update.**
+   Fixed by making `add` replace rather than insert; regression test `prepwork/TestImplementationsAfterRewire`.
+   Still open: nothing *prunes* the set, so an implementation deleted from the source stays listed.
+
 ### Testing traps
 
 - **Gradle aborts the whole run at the first failing task**, so later modules serve **stale** test XML. Two
@@ -142,28 +153,57 @@ So a rewired type comes back with an empty `analysis()`, at every level — incl
 prepwork keeps `VariableDataImpl.VARIABLE_DATA`, and where the link module keeps its own. Everything computed about
 a rewired type is lost, and must be recomputed.
 
-Whether that is right is the open question:
+**Dropping is mostly correct, not merely safe.** An earlier version of this doc called it "wasteful". That was wrong,
+and the reason is a one-line argument:
 
-- It is *safe*: a rewired type's data was computed against objects that no longer exist, and values like
-  `IMPLEMENTATIONS` (`Value.SetOfMethodInfo`) or `LINKS` hold `Info` references that would need rewiring themselves
-  — a `Value` would need a `rewire(InfoMap)` of its own. Copying them naively would smuggle stale objects into the
-  new CST, which is the very bug class in "Traps" 1 and 2.
-- It is *wasteful*: REWIRE means "unchanged". Recomputing the prepwork of every downstream type is most of the work
-  a reload was meant to avoid — and it is the reason for the whole exercise.
+> REWIRE is *defined* as "reaches an INVALID type".
 
-Note `translate` already has an answer where rewiring does not: `TranslationMap.isClearAnalysis()`, and
-`TypeInfoImpl`/`MethodInfoImpl` consult it. That is the precedent to look at first.
+So a rewired type's **inter-type derived** values (`LINKS`, `IMMUTABLE_TYPE`, `INDEPENDENT_*`) are exactly the ones
+whose inputs changed. Carrying them would re-point the references at the new objects while keeping a conclusion
+computed against source that no longer exists — a wrong answer wearing fresh references. Dropping them is right.
 
-Points to settle before writing code:
+The same closure gives the other half for free: **no UNCHANGED type can reach an INVALID one** (if it did, the use
+graph would make it reachable from the changed set, and it would have been REWIRE). So UNCHANGED types keep their
+objects *and* their analysis stays sound, with nothing to do. The two states are already exactly right.
 
-1. Which properties can be carried as they are (plain values: `Bool`, `Immutable`, `Independent`), and which hold
-   `Info` references and would need rewiring (`IMPLEMENTATIONS`, `LINKS`, `METHOD_LINKS`, `GET_SET_FIELD`,
-   `PARAMETER_ASSIGNED_TO_FIELD`, `VARIABLE_DATA`, …). The second group is the whole problem.
-2. Where the hook goes: a `Value.rewire(InfoMap)` (mirroring `Value.translate`), or a per-property allow-list, or
-   `clearAnalysis`-style opt-in on the InfoMap.
-3. Statement-level data is the bulk of it (`VARIABLE_DATA` per statement), and statements are rewired in phase 3 by
-   `Block.rewire` — check whether statement `analysis()` is carried there at all (measured above: it is not).
-4. Whoever consumes analysis after a reload must not silently see an empty map where it expects values. Today the
+The only prize is the **intrinsic** layer: `VARIABLE_DATA` is computed from the method's own body, which by
+definition of REWIRE did not change, and it is the bulk of prepwork's cost. It has exactly one cross-type
+dependency — `ApplyGetSetTranslation:67` reads `GET_SET_FIELD` off the *called* method — so carrying it is sound
+unless a method it calls in an INVALID type changed its getter/setter status. Narrow and checkable. That is the
+business case; everything else in analysis should simply be recomputed.
+
+### The hook exists, and is orphaned
+
+`Value.rewire(InfoMap)` (`Value.java:45`) and `PropertyValueMapImpl.rewire(InfoMap)` (`:37-41`, maps every value
+through `value.rewire`) are both written. **The only callers are two expression sites** (`ConstructorCallImpl:435`,
+`MethodCallImpl:437`) — no `rewirePhase` calls it at any Info level. Hence the bare `// analysis?`. The values
+underneath are in three tiers:
+
+| tier | classes |
+|---|---|
+| works | `GetSetValueImpl`, `FieldBooleanMapImpl`, `VariableBooleanMapImpl`, `AssignedToFieldImpl`, `PostConditionsImpl`, `PreconditionImpl`, `GetSetEquivalentImpl` |
+| throws `NYI` (loud) | `SetOfInfoImpl` (`PART_OF_CONSTRUCTION`), `VariableToTypeInfoSetImpl`, `SetOfTypeInfoImpl`, `SetOfMethodInfoImpl` (`IMPLEMENTATIONS`) |
+| **silently identity** | `VariableDataImpl`, `LinksImpl`, `MethodLinkedVariablesImpl`, `VariableInfoMap`, `ListOfLinksImpl`, **`IndependentImpl`**, `ParameterParSeqImpl` |
+
+The third tier is Trap 1 one level up: `Value.rewire` defaults to `return this`, so a value that holds `Info` and
+forgets to override passes stale references through silently. It should default to *throw*.
+
+**`Independent` is not a plain lattice level, despite the name**: `IndependentImpl` carries
+`List<MethodInfo> dependentExceptions` (`ValueImpl:343`). An allow-list built from property names — which this doc
+previously proposed — would wave through exactly the property that needs rewiring most quietly. The useful split is
+not "plain vs Info-holding" (that is only *mechanical*); it is **"does its computation read another type's
+analysis?"**, which is what decides whether carrying is sound at all. The two questions are orthogonal:
+`VARIABLE_DATA` is stuffed with `Info` refs *and* carryable; `IMMUTABLE_TYPE` is a bare int *and* not.
+
+Remaining points to settle:
+
+1. Statement-level data is the bulk of it (`VARIABLE_DATA` per statement), and statements are rewired in phase 3 by
+   `Block.rewire` — statement `analysis()` is not carried there (measured above).
+2. `translate`'s `TranslationMap.isClearAnalysis()` is the precedent for the *opt-in shape*, but not for a working
+   carry: when it does not clear, it does a raw `analysis().setAll(analysis())` — a verbatim copy that maps nothing.
+   For a rewire that is precisely Traps 1 and 2. (Its polarity is also inconsistent: the interface default is
+   `true`, `TranslationMapImpl.Builder`'s field default is `false`.)
+3. Whoever consumes analysis after a reload must not silently see an empty map where it expects values. Today the
    runners re-run prep over `summary.parseResult()`, so nothing notices — that will change the moment prep data is
    meant to survive.
 
