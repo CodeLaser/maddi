@@ -77,10 +77,7 @@ public class TestModificationFunctional extends CommonTest {
         MethodLinkedVariables mlvGo = go.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[-] --> go←this*.j", mlvGo.toString());
         assertEquals("""
-                $_fi3, a.b.X.go(String):0:in, \
-                a.b.X.run(String,java.util.function.Function):0:s, \
-                a.b.X.run(String,java.util.function.Function):1:function, \
-                this\
+                $_fi0, a.b.X.go(String):0:in, a.b.X.run(String,java.util.function.Function):0:s, a.b.X.run(String,java.util.function.Function):1:function, this\
                 """, mlvGo.sortedModifiedString());
     }
 
@@ -141,7 +138,7 @@ public class TestModificationFunctional extends CommonTest {
         MethodInfo go = X.findUniqueMethod("go", 1);
         VariableData vd0 = VariableDataImpl.of(go.methodBody().statements().getFirst());
         VariableInfo nr0 = vd0.variableInfo("nr");
-        assertEquals("nr.function←Λ$_fi4", nr0.linkedVariables().toString());
+        assertEquals("nr.function←Λ$_fi1", nr0.linkedVariables().toString());
 
         assertTrue(go.isModifying());
         ParameterInfo goIn = go.parameters().getFirst();
@@ -205,17 +202,17 @@ public class TestModificationFunctional extends CommonTest {
             Statement s0 = go.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             VariableInfo vi0R = vd0.variableInfo("r");
-            assertEquals("r.function←Λ$_fi4", vi0R.linkedVariables().toString());
+            assertEquals("r.function←Λ$_fi1", vi0R.linkedVariables().toString());
         }
         {
             Statement s1 = go.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
 
             VariableInfo vi1R = vd1.variableInfo("r");
-            assertEquals("r.function←Λ$_fi4,r.function→Λs.r.function,r→s.r",
+            assertEquals("r.function←Λ$_fi1,r.function→Λs.r.function,r→s.r",
                     vi1R.linkedVariables().toString());
             VariableInfo vi1S = vd1.variableInfo("s");
-            assertEquals("s.r.function←Λ$_fi4,s.r.function←Λr.function,s.r←r",
+            assertEquals("s.r.function←Λ$_fi1,s.r.function←Λr.function,s.r←r",
                     vi1S.linkedVariables().toString());
         }
         assertTrue(go.isModifying());
@@ -287,18 +284,18 @@ public class TestModificationFunctional extends CommonTest {
             Statement s0 = go.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             VariableInfo vi0R = vd0.variableInfo("r");
-            assertEquals("r.function←Λ$_fi4", vi0R.linkedVariables().toString());
+            assertEquals("r.function←Λ$_fi1", vi0R.linkedVariables().toString());
         }
         {
             Statement s1 = go.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
 
             VariableInfo vi1R = vd1.variableInfo("r");
-            assertEquals("r.function←Λ$_fi4,r.function→Λs.r.function,r→Λs.r",
+            assertEquals("r.function←Λ$_fi1,r.function→Λs.r.function,r→Λs.r",
                     vi1R.linkedVariables().toString());
             VariableInfo vi1S = vd1.variableInfo("s");
             assertEquals("""
-                    s.r.function←Λ$_fi4,s.r.function←Λr.function,s.r←Λr\
+                    s.r.function←Λ$_fi1,s.r.function←Λr.function,s.r←Λr\
                     """, vi1S.linkedVariables().toString());
         }
 
@@ -376,11 +373,7 @@ public class TestModificationFunctional extends CommonTest {
         MethodLinkedVariables mlvGo = go.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[-] --> go←this*.j", mlvGo.toString());
         assertEquals("""
-                $_fi4, a.b.X.go(String):0:in, \
-                a.b.X.indirection(String,java.util.function.Function):0:s, \
-                a.b.X.indirection(String,java.util.function.Function):1:function, \
-                a.b.X.run(String,java.util.function.Function):0:s, \
-                a.b.X.run(String,java.util.function.Function):1:function, this\
+                $_fi0, a.b.X.go(String):0:in, a.b.X.indirection(String,java.util.function.Function):0:s, a.b.X.indirection(String,java.util.function.Function):1:function, a.b.X.run(String,java.util.function.Function):0:s, a.b.X.run(String,java.util.function.Function):1:function, this\
                 """, mlvGo.sortedModifiedString());
     }
 
@@ -490,12 +483,12 @@ public class TestModificationFunctional extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viTd = vd0.variableInfo("td");
         // important intermediary step: we know that the lambda is present as a field of 'td'
-        assertEquals("td.throwingFunction←Λ$_fi5", viTd.linkedVariables().toString());
+        assertEquals("td.throwingFunction←Λ$_fi1", viTd.linkedVariables().toString());
 
         MethodInfo run = X.findUniqueMethod("run", 1);
         // second step: we must acknowledge that a functional interface is being called by "run"
         assertEquals("""
-                [0:td.throwingFunction*↗$_afi2] --> run←$_afi2,run↖Λ0:td.throwingFunction*\
+                [0:td.throwingFunction*↗$_afi0] --> run←$_afi0,run↖Λ0:td.throwingFunction*\
                 """, run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
         // this is the ultimate goal: we know that run(td) calls the apply function, so we know that methodBody
@@ -645,14 +638,14 @@ public class TestModificationFunctional extends CommonTest {
         // important intermediary step: we know that the lambda is present as a field of 'td'
         // moreover, modifications to td.variables[0] will propagate into this.someSet
         assertEquals("""
-                td.throwingFunction←Λ$_fi9,td.variables∋this.someSet,td.variables[0]∈td.variables,\
+                td.throwingFunction←Λ$_fi3,td.variables∋this.someSet,td.variables[0]∈td.variables,\
                 td.variables[0]←this.someSet,td.variables[0].§m≡td.variables.§m,td.variables[0].§m≡this.someSet.§m\
                 """, viTd.linkedVariables().toString());
 
         MethodInfo run = X.findUniqueMethod("run", 1);
         // second step: we must acknowledge that a functional interface is being called by "run"
         assertEquals("""
-                [0:td.throwingFunction*↗$_afi4] --> run←$_afi4,run↖Λ0:td.throwingFunction*\
+                [0:td.throwingFunction*↗$_afi0] --> run←$_afi0,run↖Λ0:td.throwingFunction*\
                 """, run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
         // this is the ultimate goal: we know that run(td) calls the apply function, so we know that methodBody
@@ -773,7 +766,7 @@ public class TestModificationFunctional extends CommonTest {
         // important intermediary step: we know that the lambda is present as a field of 'td'
         // moreover, modifications to td.variables[0] will propagate into this.someSet
         assertEquals("""
-                td.throwingFunction←Λ$_fi9,td.variables∋this.someSet,td.variables[0]∈td.variables,\
+                td.throwingFunction←Λ$_fi3,td.variables∋this.someSet,td.variables[0]∈td.variables,\
                 td.variables[0]←this.someSet,td.variables[0].§m≡td.variables.§m,td.variables[0].§m≡this.someSet.§m\
                 """, viTd.linkedVariables().toString());
 
@@ -781,11 +774,11 @@ public class TestModificationFunctional extends CommonTest {
         ParameterInfo run0 = run.parameters().getFirst();
         VariableData vdRun000 = VariableDataImpl.of(run.methodBody().statements().getFirst().block().statements().getFirst());
         VariableInfo viRun000Td = vdRun000.variableInfo(run0);
-        assertEquals("0:td.throwingFunction↗$_afi4", viRun000Td.linkedVariables().toString());
+        assertEquals("0:td.throwingFunction↗$_afi0", viRun000Td.linkedVariables().toString());
 
         // second step: we must acknowledge that a functional interface is being called by "run"
         // contrary to test6, there is no return value (run is a void method)
-        assertEquals("[0:td.throwingFunction*↗$_afi4] --> -",
+        assertEquals("[0:td.throwingFunction*↗$_afi0] --> -",
                 run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
         // this is the ultimate goal: we know that run(td) calls the apply function, so we know that methodBody
@@ -907,7 +900,7 @@ public class TestModificationFunctional extends CommonTest {
         // important intermediary step: we know that the lambda is present as a field of 'td'
         // moreover, modifications to td.variables[0] will propagate into this.someSet
         assertEquals("""
-                td.throwingFunction←Λ$_fi9,td.variables∋this.someSet,td.variables[0]∈td.variables,\
+                td.throwingFunction←Λ$_fi3,td.variables∋this.someSet,td.variables[0]∈td.variables,\
                 td.variables[0]←this.someSet,td.variables[0].§m≡td.variables.§m,td.variables[0].§m≡this.someSet.§m\
                 """, viTd.linkedVariables().toString());
 
@@ -915,7 +908,7 @@ public class TestModificationFunctional extends CommonTest {
 
         // second step: we must acknowledge that a functional interface is being called by "run"
         // contrary to test6, there is no return value (run is a void method)
-        assertEquals("[-, 1:td.throwingFunction*↗$_afi4] --> -",
+        assertEquals("[-, 1:td.throwingFunction*↗$_afi0] --> -",
                 run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
         // this is the ultimate goal: we know that run(td) calls the apply function, so we know that methodBody

@@ -247,10 +247,17 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
         public SourceMethodComputer(MethodInfo methodInfo) {
             this.methodInfo = methodInfo;
+            // PER-METHOD synthetic numbering ($__rvN, $__cN, $_ceN...): a fresh counter per method makes the
+            // names a deterministic function of the method's own structure — identical across iterations,
+            // worklist subsets and processing orders. The previous LinkComputer-global counter shifted every
+            // number whenever a subset/skip changed what ran before: ~5,600 spurious METHOD_LINKS "changes"
+            // per full pass on a settled corpus (timefold run20), blocking convergence certification.
+            // Cross-method collisions are harmless: synthetics are per-evaluation artifacts, and the summary's
+            // modified set no longer carries synthetic-rooted faces (see the filter in go()).
             this.expressionVisitor = new ExpressionVisitor(javaInspector.runtime(),
                     javaInspector, options, new VirtualFieldComputer(javaInspector),
                     LinkComputerImpl.this, this, methodInfo, recursionPrevention,
-                    variableCounter);
+                    new AtomicInteger());
             this.returnVariable = methodInfo.hasReturnValue() ? new ReturnVariableImpl(methodInfo) : null;
 
             // see Options.objectGraphLinks: the coarse ∩/≤/≥ web is not consumed by linking's applications and
@@ -354,7 +361,15 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     .collect(Collectors.toUnmodifiableSet());
             Set<Variable> allModified = Stream.concat(modified.stream(), modifiedOutside.stream())
                     .collect(Collectors.toUnmodifiableSet());
-            MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, allModified);
+            // the SUMMARY must not carry IntermediateVariable-rooted entries ($__rvN, $__rvN.field faces):
+            // per-evaluation scratch artifacts a caller cannot resolve — dead weight whose counter-dependent
+            // names made recomputed summaries spuriously unequal. MarkerVariables ($_fiN, $_ceN) STAY: their
+            // modified-ness deliberately crosses the boundary (a functional-interface marker's star tells the
+            // call site the SAM modifies, TestStaticValuesRecord 'interface in between').
+            Set<Variable> summaryModified = allModified.stream()
+                    .filter(v -> !(Util.primary(v) instanceof IntermediateVariable))
+                    .collect(Collectors.toUnmodifiableSet());
+            MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, summaryModified);
             if (System.getenv("BTRACE") != null && methodInfo.name().contains(System.getenv("BTRACE"))) {
                 System.out.println("BTRACE go() mlv=" + mlv);
             }
