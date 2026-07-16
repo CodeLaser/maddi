@@ -162,8 +162,8 @@ public class TestStaticValuesRecord extends CommonTest {
             LocalVariable r = rLvc.localVariable();
             VariableData vd0 = VariableDataImpl.of(rLvc);
             VariableInfo rVi0 = vd0.variableInfo(r);
-            assertEquals("r.n←$_ce3,r.set←0:in,r.set.§m≡0:in.§m", rVi0.linkedVariables().toString());
-            assertEquals("[-] --> method2.n←$_ce3,method2.set←0:in,method2.set.§m≡0:in.§m", mlv.toString());
+            assertEquals("r.n←$_ce1,r.set←0:in,r.set.§m≡0:in.§m", rVi0.linkedVariables().toString());
+            assertEquals("[-] --> method2.n←$_ce1,method2.set←0:in,method2.set.§m≡0:in.§m", mlv.toString());
         }
     }
 
@@ -601,7 +601,7 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableData vd0 = VariableDataImpl.of(bLvc);
             VariableInfo bVi0 = vd0.variableInfo(b);
             // code of ExpressionAnalyzer.methodCallStaticValue
-            assertEquals("b.function←Λ$_fi2,b.variables∋0:in,b.variables[0]∈b.variables,b.variables[0]←0:in,b.variables.§m≡b.variables.§m",
+            assertEquals("b.function←Λ$_fi1,b.variables∋0:in,b.variables[0]∈b.variables,b.variables[0]←0:in,b.variables.§m≡b.variables.§m",
                     bVi0.linkedVariables().toString());
         }
         {
@@ -611,7 +611,7 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableInfo rVi1 = vd1.variableInfo(r);
             // code of ExpressionAnalyzer.checkCaseForBuilder
             assertEquals("""
-                    r.function←Λ$_fi2,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables→b.variables,r.variables∋b.variables[0],r.variables[0]≡b.variables[0],r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables.§m≡b.variables.§m,r.variables[0].§m≡r.variables.§m,r≈b\
+                    r.function←Λ$_fi1,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables→b.variables,r.variables∋b.variables[0],r.variables[0]≡b.variables[0],r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables.§m≡b.variables.§m,r.variables[0].§m≡r.variables.§m,r≈b\
                     """, rVi1.linkedVariables().toString());
         }
         assertEquals("[-] --> method3∋0:in*,method3[0]←0:in*", mlvMethod3.toString());
@@ -622,11 +622,11 @@ public class TestStaticValuesRecord extends CommonTest {
             Statement s2 = method2.methodBody().statements().get(2);
             VariableData v2 = VariableDataImpl.of(s2);
             VariableInfo vi2Rv = v2.variableInfo(method2.fullyQualifiedName());
-            assertEquals("method2←Λ$_fi8", vi2Rv.linkedVariables().toString());
+            assertEquals("method2←Λ$_fi1", vi2Rv.linkedVariables().toString());
         }
         // the returned r.function() IS the stored String::length — the old engine lost this (empty summary);
         // recovered by the one-slot-one-group merge (NOSIBFACE)
-        assertEquals("[-] --> method2←Λ$_fi8", mlvMethod2.toString());
+        assertEquals("[-] --> method2←Λ$_fi1", mlvMethod2.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
@@ -634,22 +634,22 @@ public class TestStaticValuesRecord extends CommonTest {
             Statement s2 = method.methodBody().statements().get(2);
             VariableData v2 = VariableDataImpl.of(s2);
             VariableInfo vi2Rv = v2.variableInfo(method.fullyQualifiedName());
-            assertEquals("method←Λ$_fi15", vi2Rv.linkedVariables().toString());
+            assertEquals("method←Λ$_fi1", vi2Rv.linkedVariables().toString());
         }
         // same as method2: the returned r.function IS the stored String::length (NOSIBFACE recovery)
-        assertEquals("[-] --> method←Λ$_fi15", mlvMethod.toString());
+        assertEquals("[-] --> method←Λ$_fi1", mlvMethod.toString());
 
         MethodInfo method4 = X.findUniqueMethod("method4", 1);
         MethodLinkedVariables mlvMethod4 = method4.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method4));
         {
             Statement s0 = method4.methodBody().statements().getFirst();
             VariableInfo vi0b = VariableDataImpl.of(s0).variableInfo("b");
-            assertEquals("b.function←Λ$_fi22,b.variables∋0:t,b.variables[1]∈b.variables,b.variables[1]←0:t,b.variables.§m≡b.variables.§m",
+            assertEquals("b.function←Λ$_fi1,b.variables∋0:t,b.variables[1]∈b.variables,b.variables[1]←0:t,b.variables.§m≡b.variables.§m",
                     vi0b.linkedVariables().toString());
             Statement s1 = method4.methodBody().statements().get(1);
             VariableInfo vi1r = VariableDataImpl.of(s1).variableInfo("r");
             assertEquals("""
-                    r.function←Λ$_fi22,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables→b.variables,r.variables∋b.variables[1],r.variables[1]≡b.variables[1],r.variables[1]←b.variables[1],r.variables[1]∈r.variables,r.variables.§m≡b.variables.§m,r.variables[1].§m≡r.variables.§m,r≈b\
+                    r.function←Λ$_fi1,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables→b.variables,r.variables∋b.variables[1],r.variables[1]≡b.variables[1],r.variables[1]←b.variables[1],r.variables[1]∈r.variables,r.variables.§m≡b.variables.§m,r.variables[1].§m≡r.variables.§m,r≈b\
                     """, vi1r.linkedVariables().toString());
         }
         assertEquals("[-] --> -", mlvMethod4.toString());
@@ -659,7 +659,7 @@ public class TestStaticValuesRecord extends CommonTest {
         {
             Statement s0 = method5.methodBody().statements().getFirst();
             VariableInfo vi0b = VariableDataImpl.of(s0).variableInfo("r");
-            assertEquals("r.function←Λ$_fi29,r.variables∋0:t,r.variables[1]∈r.variables,r.variables[1]←0:t,r.variables[1].§m≡r.variables.§m",
+            assertEquals("r.function←Λ$_fi1,r.variables∋0:t,r.variables[1]∈r.variables,r.variables[1]←0:t,r.variables[1].§m≡r.variables.§m",
                     vi0b.linkedVariables().toString());
         }
         assertEquals("[-] --> -", mlvMethod5.toString());
@@ -731,12 +731,12 @@ public class TestStaticValuesRecord extends CommonTest {
             LocalVariableCreation bLvc = (LocalVariableCreation) method.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(bLvc);
             VariableInfo bVi0 = vd0.variableInfo("b");
-            assertEquals("b.function←Λ$_fi2", bVi0.linkedVariables().toString());
+            assertEquals("b.function←Λ$_fi1", bVi0.linkedVariables().toString());
         }
         {
             VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
             VariableInfo bVi1 = vd1.variableInfo("b");
-            assertEquals("b.function←Λ$_fi2,b.variables[0]∈b.variables,b.variables[0]←0:s",
+            assertEquals("b.function←Λ$_fi1,b.variables[0]∈b.variables,b.variables[0]←0:s",
                     bVi1.linkedVariables().toString());
         }
         {
@@ -744,11 +744,11 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableData vd2 = VariableDataImpl.of(rLvc);
             VariableInfo rVi2 = vd2.variableInfo("r");
             assertEquals("""
-                    r.function←Λ$_fi2,r.function←Λb.function,r.function→Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables∋b.variables[0],r.variables[0]∈b.variables,r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables.§m≡b.variables.§m,r.variables.§m≡0:s.§m,r≈b\
+                    r.function←Λ$_fi1,r.function←Λb.function,r.function→Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables∋b.variables[0],r.variables[0]∈b.variables,r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables.§m≡b.variables.§m,r.variables.§m≡0:s.§m,r≈b\
                     """, rVi2.linkedVariables().toString());
         }
         // example of the use of VariableTranslationAllowHierarchy
-        assertEquals("[-] --> method←Λ$_fi2*", mlvMethod.toString());
+        assertEquals("[-] --> method←Λ$_fi1*", mlvMethod.toString());
 
         MethodInfo method2 = X.findUniqueMethod("method2", 1);
         MethodInfo variable = R.findUniqueMethod("variable", 1);
@@ -772,7 +772,7 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableData v1 = VariableDataImpl.of(method2.methodBody().statements().get(1));
             VariableInfo vi2Rv = v1.variableInfo("r");
             assertEquals("""
-                    r.function←Λ$_fi8,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables→b.variables,r.variables∋b.variables[0],r.variables[0]≡b.variables[0],r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables.§m≡b.variables.§m,r.variables[0].§m≡r.variables.§m,r≈b\
+                    r.function←Λ$_fi1,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables→b.variables,r.variables∋b.variables[0],r.variables[0]≡b.variables[0],r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables.§m≡b.variables.§m,r.variables[0].§m≡r.variables.§m,r≈b\
                     """, vi2Rv.linkedVariables().toString());
         }
         {
