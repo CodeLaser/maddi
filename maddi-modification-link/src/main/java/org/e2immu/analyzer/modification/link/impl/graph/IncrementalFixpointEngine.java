@@ -61,7 +61,7 @@ public final class IncrementalFixpointEngine<V, L> {
                                      Predicate<V> acceptForComposite) {
         this.graph = new LabeledGraph<>();
         this.closure = new Closure<>(best);
-        this.witnessIndex = new WitnessIndex<>(scoreFunction);
+        this.witnessIndex = new WitnessIndex<>(scoreFunction, vertexComparator);
         this.combine = Objects.requireNonNull(combine);
         this.valid = Objects.requireNonNull(valid);
         this.best = Objects.requireNonNull(best);
@@ -309,7 +309,8 @@ public final class IncrementalFixpointEngine<V, L> {
                         if (leftW != null && rightW != null && doesNotCreateCycle(next, leftW, rightW)) {
                             Witness.CompositeWitness<V, L> candidate = Witness.CompositeWitness.of(leftW, rightW, newFact,
                                     fact, !optimize);
-                            assert !candidate.support().contains(next);
+                            // (the doesNotCreateCycle check above IS 'candidate.support() does not contain next';
+                            // asserting it again would materialize every candidate's lazy support)
                             boolean added = closure.add(next.source(), next.target(), next.label());
                             boolean improved = witnessIndex.putIfBetter(next, candidate);
                             if (added || improved) {
@@ -397,7 +398,9 @@ public final class IncrementalFixpointEngine<V, L> {
             return graph.replace(fact.source(), fact.target(), newLabel, reverseNewLabel)
                     ? Set.of(fact.source(), fact.target()) : Set.of();
         }
-        if (witness instanceof Witness.CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right, _, _)) {
+        if (witness instanceof Witness.CompositeWitness<V, L> cw) {
+            Fact<V, L> left = cw.left();
+            Fact<V, L> right = cw.right();
             Set<V> set1 = left.label().equals(fact.label()) ? replaceReturnAffected(left, newLabel, reverseNewLabel, skipStatementIndex, acceptRaw, visited) : Set.of();
             Set<V> set2 = right.label().equals(fact.label()) ? replaceReturnAffected(right, newLabel, reverseNewLabel, skipStatementIndex, acceptRaw, visited) : Set.of();
             return Stream.concat(Stream.concat(Stream.of(fact.source(), fact.target()), set1.stream()), set2.stream())

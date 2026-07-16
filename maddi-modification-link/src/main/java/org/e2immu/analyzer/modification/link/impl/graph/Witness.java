@@ -2,10 +2,10 @@ package org.e2immu.analyzer.modification.link.impl.graph;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 // explains how a certain fact was derived
 public sealed interface Witness<V, L>
@@ -28,20 +28,57 @@ public sealed interface Witness<V, L>
         }
     }
 
-    // DAG of explanations for the reduction engine
-    record CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right, boolean inferred,
-                                  Set<Fact<V, L>> support) implements Witness<V, L> {
+    // DAG of explanations for the reduction engine. NOT a record: the support set — the RAW facts underpinning
+    // the derivation — is materialized LAZILY and memoized. Eager materialization built a fresh union set for
+    // EVERY candidate composite (including the many that lose the putIfBetter race); on merge-heavy shapes
+    // (clone-bench Function18752956's 100-arm switch) that was a dominant cost. The child WITNESSES are held
+    // instead: memory is shared across the DAG, and only witnesses whose support is actually queried
+    // (doesNotCreateCycle on winners, orphan materialization, dumps) pay for it, once.
+    final class CompositeWitness<V, L> implements Witness<V, L> {
+        private final Fact<V, L> left;
+        private final Fact<V, L> right;
+        private final boolean inferred;
+        private final Witness<V, L> leftWitness;
+        private final Witness<V, L> rightWitness;
+        private Set<Fact<V, L>> support;
+
+        private CompositeWitness(Witness<V, L> leftWitness, Witness<V, L> rightWitness,
+                                 Fact<V, L> left, Fact<V, L> right, boolean inferred) {
+            this.left = left;
+            this.right = right;
+            this.inferred = inferred;
+            this.leftWitness = leftWitness;
+            this.rightWitness = rightWitness;
+        }
 
         public static <V, L> CompositeWitness<V, L> of(Witness<V, L> leftWitness,
                                                        Witness<V, L> rightWitness,
                                                        Fact<V, L> left,
                                                        Fact<V, L> right,
                                                        boolean inferred) {
-            Stream<Fact<V, L>> leftSupport = leftWitness.support().stream();
-            Stream<Fact<V, L>> rightSupport = rightWitness.support().stream();
-            Set<Fact<V, L>> newSupport = Stream.concat(leftSupport, rightSupport)
-                    .collect(Collectors.toUnmodifiableSet());
-            return new CompositeWitness<>(left, right, inferred, newSupport);
+            return new CompositeWitness<>(leftWitness, rightWitness, left, right, inferred);
+        }
+
+        public Fact<V, L> left() {
+            return left;
+        }
+
+        public Fact<V, L> right() {
+            return right;
+        }
+
+        public boolean inferred() {
+            return inferred;
+        }
+
+        @Override
+        public Set<Fact<V, L>> support() {
+            if (support == null) {
+                Set<Fact<V, L>> s = new HashSet<>(leftWitness.support());
+                s.addAll(rightWitness.support());
+                support = s;
+            }
+            return support;
         }
 
         @Override
@@ -51,6 +88,7 @@ public sealed interface Witness<V, L>
 
         @Override
         public String print(Function<V, String> vertexPrinter) {
+            Set<Fact<V, L>> support = support();
             return (inferred ? "*" : "")
                    + "[" + left.print(vertexPrinter) + ", " + right.print(vertexPrinter) + "]"
                    + (support.size() > 2 ? support.stream()
