@@ -107,14 +107,25 @@ public class PropertyImpl implements Property {
 
     private final String key;
     private final Value defaultValue;
+    private final boolean carryOnRewire;
 
     public PropertyImpl(String key) {
         this(key, ValueImpl.BoolImpl.FALSE);
     }
 
     public PropertyImpl(String key, Value defaultValue) {
+        this(key, defaultValue, false);
+    }
+
+    public PropertyImpl(String key, Value defaultValue, boolean carryOnRewire) {
         this.key = key;
         this.defaultValue = defaultValue;
+        this.carryOnRewire = carryOnRewire;
+    }
+
+    @Override
+    public boolean carryOnRewire() {
+        return carryOnRewire;
     }
 
     @Override

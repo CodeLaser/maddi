@@ -217,6 +217,80 @@ Remaining points to settle:
    runners re-run prep over `summary.parseResult()`, so nothing notices — that will change the moment prep data is
    meant to survive.
 
+## Parked mid-flight (2026-07-16) — carrying analysis across a rewire
+
+Started the prepwork/analysis carry. **The mechanism is committed as parked WIP but not yet validated** (the full
+suite must run on a quiet host first — see the blocker below). Resume here.
+
+**Done, committed unvalidated** (3 files, `cst-api` + `cst-analysis`):
+
+- `Property.carryOnRewire()` — new dimension, **default `false`** (drop). A property that opts in claims its value
+  is carry-worthy *and* that its `Value.rewire` maps every Info/Variable reference it holds.
+- `PropertyImpl` — 3-arg constructor `(key, defaultValue, carryOnRewire)`; the 2-arg delegates with `false`.
+- `PropertyValueMapImpl.rewire(InfoMap)` — now **filters**: carries only `key.carryOnRewire()`, drops the rest.
+  This is the one behaviour change on a live path: the two expression callers (`ConstructorCallImpl:435`,
+  `MethodCallImpl:437`) previously carried *every* value; they now drop non-carry ones. That is intended — a stale
+  value is no more welcome in a rewired `MethodCall` than on a rewired method — but it is why the full suite must
+  run before this is trusted.
+
+Nothing is opted in yet, so behaviour is drop-everything, i.e. identical to today. `VARIABLE_DATA` is the first
+intended opt-in.
+
+**The property split is three-way, not two** — and one leg is a *correctness* issue the "Open" section above
+undersells (it says "everything else should simply be recomputed"; that is false for the parse-time leg):
+
+| category | examples | on a rewire | why |
+|---|---|---|---|
+| parse-time | `GET_SET_FIELD` (set by `FactoryImpl.setGetSetField` ← record synthetics, `KotlinScan`) | **must carry** | a REWIRE type is *never re-parsed*, so if not carried it is **lost** — prep will not re-derive it |
+| intrinsic (prepwork) | `VARIABLE_DATA`, `PART_OF_CONSTRUCTION`, `FINAL_FIELD`, `RECURSIVE_METHOD`, `INSTANCEOF_SCOPE` | carry (the prize) | computed from the type's own body, which by definition of REWIRE did not change |
+| cross-type derived | `LINKS`, `METHOD_LINKS`, `IMMUTABLE_*`, `INDEPENDENT_*`, `IMPLEMENTATIONS` | must drop | inputs are exactly what changed |
+
+**`VariableData` is where the boundary is clean, and it is the module boundary.** It is a prepwork skeleton the
+link module fills in; a per-field split of `VariableInfoImpl`:
+
+| field | written by | on a rewire |
+|---|---|---|
+| `variable` | prepwork | carry, via `Variable.rewire(infoMap)` (exists) |
+| `assignments` (`String`, `String[]`), `reads` (`List<String>`), `variableNature`, `isVariableInClosure` | prepwork | carry verbatim — no Info refs |
+| `linkedVariables` (a `Links`) | **link** (`LinkComputerImpl`) | **drop** |
+| `UNMODIFIED_VARIABLE` | **link** (`LinkComputerImpl`, `WriteLinksAndModification`) | **drop** |
+
+Dropping the link fills is not just safe, it is *required*: `setLinkedVariables` has an overwrite guard, so a
+carried non-null would fight the link re-run rather than be replaced.
+
+**Two traps waiting in `VariableData` for whoever writes `rewire`:**
+
+1. `VariableInfoContainerImpl` asserts **identity** (`evaluation.variable() == variable`), so its rewire must build
+   the `VariableInfoImpl` and the container from the *same* mapped `Variable`, not map twice.
+2. `previousOrInitial` is `Either<VariableInfoContainer, VariableInfoImpl>` — a `Left` points at **another
+   statement's** container (`MethodAnalyzer:540`, `Either.left(vic)` over the previous statement's VD). So a
+   per-statement `VARIABLE_DATA.rewire` is **not** independent per statement; the previous container must already
+   be mapped. Carry statement analysis in statement order, or resolve the `Left` lazily through the InfoMap.
+
+**Next actions to resume:**
+
+1. Implement `VariableDataImpl.rewire` / `VariableInfoContainerImpl` / `VariableInfoImpl.rewire` — carry the
+   prepwork fields mapped through `InfoMap`, drop `linkedVariables`; mind the two traps above.
+2. Opt `VARIABLE_DATA` in (`carryOnRewire=true`); likewise `GET_SET_FIELD` (parse-time — its loss is a bug), and
+   the plain intrinsics.
+3. Wire statement-level carry: statements are rewired in phase 3 by `Block.rewire`, and `analysis()` is not carried
+   there. The precedent to mirror is `Statement.rewireAnnotations(infoMap)` — a **default method on the `Statement`
+   interface** (`Statement.java:173`) that every statement's `rewire` already calls to pass its annotations. Add a
+   sibling `rewireAnalysis(infoMap)` there and have each statement carry its analysis through it (there are ~20
+   statement `rewire` bodies, each already threading `rewireAnnotations`).
+4. Tests both halves: a rewired method's `VARIABLE_DATA` survives with re-pointed variables; its link-written
+   fields (`linkedVariables`, `UNMODIFIED_VARIABLE`, `LINKS`, `METHOD_LINKS`) come back empty.
+
+**Blocker — validation deferred to a pristine Gradle host.** The full suite is currently flaky: an intermittent
+javac NPE, `com.sun.tools.javac.code.Scope$StarImportScope.isFilled() ... tree.starImportScope is null`, thrown
+inside `task.analyze()` at `ScanCompilationUnits.scan:110` — the **parse** phase, ~1 run in 4–5, across
+`modification-link` / `-analyzer` / `java-openjdk`. **Not caused by the carry work**: an analysis-map filter cannot
+crash javac's enter phase, and it still reproduced with the `carryOnRewire` change present *and* the openjdk lazy
+loader (`setLazyLoader`) disabled. It is almost certainly the shared build host running several threads' Gradle
+daemons at once (contention on javac state); `sv-integration` on Fable never sees it, and that branch has **no**
+lazy-loader wiring at all. Diagnosis parked until the host is quiet — re-run the modification suites there before
+reading any red as real, and before trusting the carry work green.
+
 ## Not done
 
 - **Kotlin inspector**: no reload/rewire. `InfoByFqn` is already shared with it (`KotlinInspector`,
