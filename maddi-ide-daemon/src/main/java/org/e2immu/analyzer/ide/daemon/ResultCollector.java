@@ -19,9 +19,15 @@ import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
+import org.e2immu.language.cst.api.analysis.Property;
+import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.parser.Summary;
@@ -131,6 +137,10 @@ public class ResultCollector {
         for (AnnotationExpression ae : decorator.annotations(info)) {
             displayAnnotations.add(ae.print(simpleNames).toString());
         }
+        // maddi's decorator only emits the non-default @NotModified; make the modified case explicit so a
+        // modified parameter/field is visibly annotated (@Modified is otherwise silent, being the default).
+        if (isDecidedModified(info)) displayAnnotations.add(0, "@Modified");
+
         Map<String, String> properties = new LinkedHashMap<>();
         info.analysis().propertyValueStream().forEach(pv ->
                 properties.put(pv.property().key(), String.valueOf(pv.value())));
@@ -143,11 +153,21 @@ public class ResultCollector {
                 kindOf(info), info.fullyQualifiedName(), displayAnnotations, properties));
     }
 
+    /** A parameter/field whose "unmodified" property is a decided FALSE — i.e. it is modified. */
+    private static boolean isDecidedModified(Info info) {
+        Property property;
+        if (info instanceof ParameterInfo) property = PropertyImpl.UNMODIFIED_PARAMETER;
+        else if (info instanceof FieldInfo) property = PropertyImpl.UNMODIFIED_FIELD;
+        else return false;
+        Value.Bool unmodified = info.analysis().getOrNull(property, ValueImpl.BoolImpl.class);
+        return unmodified != null && unmodified.isFalse();
+    }
+
     private static String kindOf(Info info) {
         if (info instanceof TypeInfo) return "TYPE";
         if (info instanceof MethodInfo) return "METHOD";
-        if (info instanceof org.e2immu.language.cst.api.info.FieldInfo) return "FIELD";
-        if (info instanceof org.e2immu.language.cst.api.info.ParameterInfo) return "PARAMETER";
+        if (info instanceof FieldInfo) return "FIELD";
+        if (info instanceof ParameterInfo) return "PARAMETER";
         return "OTHER";
     }
 

@@ -58,13 +58,17 @@ public class MaddiLineMarkerProvider implements LineMarkerProvider {
         if (doc == null) return null;
 
         int idOffset = element.getTextRange().getStartOffset();
+        // A nested type/member sits inside its enclosing type's range, so several same-kind annotations can
+        // contain this identifier. Pick the SMALLEST (most specific) containing range, so e.g. a nested class
+        // gets its own annotations, not the outer class's.
         AnalysisModel.ElementAnnotation match = null;
+        int bestLength = Integer.MAX_VALUE;
         for (AnalysisModel.ElementAnnotation a : annotations) {
             if (!kind.equals(a.kind()) || a.displayAnnotations().isEmpty()) continue;
             TextRange r = MaddiPositions.range(doc, a.beginLine(), a.beginCol(), a.endLine(), a.endCol());
-            if (r != null && r.contains(idOffset)) {
+            if (r != null && r.contains(idOffset) && r.getLength() < bestLength) {
                 match = a;
-                break;
+                bestLength = r.getLength();
             }
         }
         if (match == null) return null;

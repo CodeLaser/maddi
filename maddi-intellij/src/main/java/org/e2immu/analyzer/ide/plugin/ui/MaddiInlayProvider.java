@@ -74,24 +74,30 @@ public class MaddiInlayProvider implements InlayHintsProvider {
             String kind = kindOf(element.getParent());
             if (kind == null) return;
             int idOffset = element.getTextRange().getStartOffset();
+            // Pick the SMALLEST (most specific) containing range of the right kind, so a nested type/member gets
+            // its own annotations rather than an enclosing type's (whose range also contains this identifier).
+            AnalysisModel.ElementAnnotation match = null;
+            int bestLength = Integer.MAX_VALUE;
             for (AnalysisModel.ElementAnnotation a : annotations) {
                 if (!kind.equals(a.kind()) || a.displayAnnotations().isEmpty()) continue;
                 TextRange r = MaddiPositions.range(doc, a.beginLine(), a.beginCol(), a.endLine(), a.endCol());
-                if (r != null && r.contains(idOffset)) {
-                    String text = String.join(" ", a.displayAnnotations());
-                    int anchor = element.getTextRange().getEndOffset();
-                    sink.addPresentation(
-                            new InlineInlayPosition(anchor, true, 0),
-                            null,
-                            null,
-                            HintFormat.Companion.getDefault(),
-                            builder -> {
-                                builder.text(text, null);
-                                return kotlin.Unit.INSTANCE;
-                            });
-                    return;
+                if (r != null && r.contains(idOffset) && r.getLength() < bestLength) {
+                    match = a;
+                    bestLength = r.getLength();
                 }
             }
+            if (match == null) return;
+            String text = String.join(" ", match.displayAnnotations());
+            int anchor = element.getTextRange().getEndOffset();
+            sink.addPresentation(
+                    new InlineInlayPosition(anchor, true, 0),
+                    null,
+                    null,
+                    HintFormat.Companion.getDefault(),
+                    builder -> {
+                        builder.text(text, null);
+                        return kotlin.Unit.INSTANCE;
+                    });
         }
     }
 
