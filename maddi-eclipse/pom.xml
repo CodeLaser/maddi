@@ -26,6 +26,7 @@
 
     <modules>
         <module>io.codelaser.maddi.eclipse</module>
+        <module>io.codelaser.maddi.eclipse.tests</module>
     </modules>
 
     <!-- The target platform: a current Eclipse release train (2025-09), which runs on Java 21+. Bump the

@@ -5,3 +5,5 @@ io.codelaser.maddi.eclipse/target/
 io.codelaser.maddi.eclipse/bin/
 io.codelaser.maddi.eclipse/lib/
 io.codelaser.maddi.eclipse/daemon/
+io.codelaser.maddi.eclipse.tests/target/
+io.codelaser.maddi.eclipse.tests/bin/

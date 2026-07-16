@@ -23,3 +23,5 @@ Bundle-ClassPath: .,
  lib/jackson-databind.jar,
  lib/jackson-core.jar,
  lib/jackson-annotations.jar
+Export-Package: org.e2immu.analyzer.ide.eclipse,
+ org.e2immu.analyzer.ide.client
