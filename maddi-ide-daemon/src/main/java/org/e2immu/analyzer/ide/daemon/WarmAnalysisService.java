@@ -26,7 +26,7 @@ import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
+import org.e2immu.language.inspection.openjdk.JavaInspectorImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,8 +53,24 @@ public class WarmAnalysisService implements AnalyzeHandler {
 
         emit(status, requestId, "initialize", "building inspector", null, null);
         InputConfiguration inputConfiguration = assembler.build(request.config());
-        JavaInspector inspector = new JavaInspectorImpl(true, true);
+        JavaInspector inspector = new JavaInspectorImpl(true, false); // openjdk inspector (run-openjdk style)
         List<String> initProblems = inspector.initialize(inputConfiguration).stream().map(String::valueOf).toList();
+
+        // Eagerly parse the JDK packages whose hints we load (after initialize, so the classpath is set), then
+        // load the bundled JDK + library analysis hints so modification/immutability/independence of library
+        // types is known, not guessed from shallow defaults. Order mirrors run-openjdk's RunAnalyzer.
+        HintsLoader hintsLoader = new HintsLoader();
+        hintsLoader.preload(inspector);
+        inspector.onlyPreload(); // commit preloaded types so LoadAnalysisResults can resolve them (like CommonTest)
+
+        SourceSet sourceSet = inspector.mainSources();
+        if (sourceSet == null) {
+            sourceSet = inputConfiguration.sourceSets().stream().findAny().orElse(null);
+        }
+
+        emit(status, requestId, "hints", "loading analysis hints", null, null);
+        int hints = hintsLoader.loadHints(inspector.runtime(), sourceSet);
+        LOGGER.info("preloaded {} primary types of analysis hints", hints);
 
         JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder()
                 .setDetailedSources(true)      // precise Source positions, required for inline hints
@@ -66,10 +82,6 @@ public class WarmAnalysisService implements AnalyzeHandler {
         emit(status, requestId, "parse", "parsing sources", null, null);
         Summary summary = inspector.parse(parseOptions);
 
-        SourceSet sourceSet = inspector.mainSources();
-        if (sourceSet == null) {
-            sourceSet = inputConfiguration.sourceSets().stream().findAny().orElse(null);
-        }
         ResultCollector collector = new ResultCollector(inspector.runtime(), sourceSet);
 
         // parseResult() throws when haveErrors(); with parse errors we return findings-only so the IDE still
@@ -77,7 +89,7 @@ public class WarmAnalysisService implements AnalyzeHandler {
         if (summary.haveErrors()) {
             LOGGER.info("parse produced {} error(s); returning findings-only", summary.parseExceptions().size());
             return new DaemonProtocol.Result(requestId, collector.parseFindings(summary), List.of(),
-                    initProblems, summary.parseExceptions().size(), System.currentTimeMillis() - start);
+                    initProblems, summary.parseExceptions().size(), hints, System.currentTimeMillis() - start);
         }
 
         ParseResult parseResult = summary.parseResult();
@@ -114,7 +126,7 @@ public class WarmAnalysisService implements AnalyzeHandler {
         LOGGER.info("analysis complete in {} ms: {} findings, {} element annotations",
                 elapsed, findings.size(), elementAnnotations.size());
         return new DaemonProtocol.Result(requestId, findings, elementAnnotations, initProblems,
-                summary.parseExceptions().size(), elapsed);
+                summary.parseExceptions().size(), hints, elapsed);
     }
 
     /**

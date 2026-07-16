@@ -107,6 +107,7 @@ public final class DaemonProtocol {
                          List<ElementAnnotation> elementAnnotations,
                          List<String> initializationProblems,
                          int parseErrorCount,
+                         int hintsLoaded,
                          long elapsedMillis) {
     }
 }
