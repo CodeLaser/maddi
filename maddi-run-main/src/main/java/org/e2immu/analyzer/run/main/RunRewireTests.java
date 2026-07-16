@@ -15,16 +15,13 @@
 package org.e2immu.analyzer.run.main;
 
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
+import org.e2immu.analyzer.modification.prepwork.callgraph.PrimaryTypeUseGraph;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.util.internal.graph.G;
-import org.e2immu.util.internal.graph.ImmutableGraph;
-import org.e2immu.util.internal.graph.V;
-import org.e2immu.util.internal.graph.op.Common;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,7 +29,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static org.e2immu.language.inspection.api.integration.JavaInspector.InvalidationState.*;
 
@@ -111,8 +107,7 @@ public class RunRewireTests {
         LOGGER.info("Calling javaInspector.reloadSources");
         JavaInspector.ReloadResult rr = javaInspector.reloadSources(inputConfiguration, Map.of());
         assert rr.sourceHasChanged().contains(pt);
-        G<TypeInfo> primaryTypeUseGraph = primaryTypeUseGraph(infoGraph);
-        Set<TypeInfo> dependentPrimaryTypes = dependent(primaryTypeUseGraph, rr.sourceHasChanged(), rr.sourceHasChanged());
+        Set<TypeInfo> dependentPrimaryTypes = new PrimaryTypeUseGraph(infoGraph).dependentsOf(rr.sourceHasChanged());
         assert Collections.disjoint(dependentPrimaryTypes, rr.sourceHasChanged());
         LOGGER.info("{} has {} dependent types", pt, dependentPrimaryTypes.size());
         JavaInspector.Invalidated invalidated = ti -> {
@@ -133,24 +128,6 @@ public class RunRewireTests {
         ComputeCallGraph ccg = new ComputeCallGraph(javaInspector.runtime(), parseResult1,
                 _ -> false);
         return ccg.go().graph();
-    }
-
-    private static G<TypeInfo> primaryTypeUseGraph(G<Info> infoGraph) {
-        G.Builder<TypeInfo> typeUseBuilder = new ImmutableGraph.Builder<>(Long::sum);
-        infoGraph.edgeStream().forEach(e -> {
-            TypeInfo ptFrom = e.from().t().typeInfo().primaryType();
-            TypeInfo ptTo = e.to().t().typeInfo().primaryType();
-            if (ptFrom != ptTo) typeUseBuilder.mergeEdge(ptTo, ptFrom, 1L);
-        });
-        return typeUseBuilder.build();
-    }
-
-    private static Set<TypeInfo> dependent(G<TypeInfo> primaryTypeUseGraph, Set<TypeInfo> pts, Set<TypeInfo> changed) {
-        List<V<TypeInfo>> list = pts.stream().map(V::new).toList();
-        return Common.follow(primaryTypeUseGraph, list, false)
-                .stream().map(V::t)
-                .filter(t -> !changed.contains(t))
-                .collect(Collectors.toUnmodifiableSet());
     }
 
     private static boolean write(Path path, String content) {
