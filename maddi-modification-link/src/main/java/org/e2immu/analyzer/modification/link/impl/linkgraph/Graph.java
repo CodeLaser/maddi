@@ -459,7 +459,17 @@ public class Graph {
 
     boolean addField(Variable from, Variable primary, String statementIndex) {
         if (!from.equals(primary) && !(primary instanceof This)
-            && from instanceof FieldReference && primary.equals(fieldScopeRoot(from))) {
+            && from instanceof FieldReference fr && primary.equals(fieldScopeRoot(from))) {
+            // intermediate spine (gate NOSPINEI): a DEEP face 'entry.§xy.§x' also materializes the mid-level
+            // chain 'entry ≻ entry.§xy ≻ entry.§xy.§x' — without the intermediate vertex the closure cannot
+            // key facts on the mid-level face ('entry.§xy ≺ 0:optional', TestSupplier test7). The direct
+            // 'entry ≻ entry.§xy.§x' fact still derives by ≻∘≻ composition.
+            if (System.getenv("NOSPINEI") == null && fr.scopeVariable() instanceof FieldReference parent
+                && Util.virtual(from) && Util.virtual(parent.fieldInfo())) {
+                boolean change = addField(parent, primary, statementIndex);
+                change |= mergeEdgeBi(parent, CONTAINS_AS_FIELD, from, statementIndex);
+                return change;
+            }
             return mergeEdgeBi(primary, CONTAINS_AS_FIELD, from, statementIndex);
         }
         return false;
