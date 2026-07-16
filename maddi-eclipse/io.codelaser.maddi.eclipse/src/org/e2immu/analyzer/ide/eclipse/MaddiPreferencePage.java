@@ -14,6 +14,8 @@
 
 package org.e2immu.analyzer.ide.eclipse;
 
+import org.eclipse.jface.preference.BooleanFieldEditor;
+import org.eclipse.jface.preference.ComboFieldEditor;
 import org.eclipse.jface.preference.DirectoryFieldEditor;
 import org.eclipse.jface.preference.FieldEditorPreferencePage;
 import org.eclipse.jface.preference.IntegerFieldEditor;
@@ -44,5 +46,22 @@ public class MaddiPreferencePage extends FieldEditorPreferencePage implements IW
                 "Daemon max heap (MB):", getFieldEditorParent());
         xmx.setValidRange(512, 131072);
         addField(xmx);
+
+        addField(new ComboFieldEditor(MaddiPreferences.HINT_FILTER,
+                "Gutter hints show:", hintFilterChoices(), getFieldEditorParent()));
+
+        addField(new BooleanFieldEditor(MaddiPreferences.AUTO_ANALYZE_ON_BUILD,
+                "Re-analyze automatically after a build", getFieldEditorParent()));
+    }
+
+    /** {label, stored-value} pairs for the hint-filter combo, straight from the enum. */
+    private static String[][] hintFilterChoices() {
+        HintFilter[] values = HintFilter.values();
+        String[][] choices = new String[values.length][2];
+        for (int i = 0; i < values.length; i++) {
+            choices[i][0] = values[i].label();
+            choices[i][1] = values[i].name();
+        }
+        return choices;
     }
 }

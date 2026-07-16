@@ -14,95 +14,30 @@
 
 package org.e2immu.analyzer.ide.eclipse;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import org.e2immu.analyzer.ide.client.AnalysisModel;
-import org.e2immu.analyzer.ide.client.MaddiDaemonProcess;
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
-import org.eclipse.core.commands.ExecutionException;
 import org.eclipse.core.resources.IProject;
-import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IAdaptable;
-import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.Status;
-import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
-import org.eclipse.swt.widgets.Display;
-import org.eclipse.ui.IWorkbenchPage;
-import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.handlers.HandlerUtil;
 
-import java.nio.file.Path;
-
 /**
- * Right-click a Java project → "Analyze with maddi": build the config from JDT, run the whole-project
- * analysis on the shared daemon off the UI thread, surface guard findings as markers, publish the result to
- * {@link MaddiResults}, and reveal the findings view. The full request/response is exactly the round-trip
- * the IntelliJ front-end performs, over the same client. Daemon settings come from {@link MaddiPreferences}.
+ * Right-click a Java project → "Analyze with maddi": hands the selected project to {@link MaddiAnalysis},
+ * which runs the whole-project analysis on the shared daemon off the UI thread and surfaces the result.
  */
 public class AnalyzeMaddiHandler extends AbstractHandler {
 
     @Override
-    public Object execute(ExecutionEvent event) throws ExecutionException {
+    public Object execute(ExecutionEvent event) {
         IProject project = projectOf(HandlerUtil.getCurrentSelection(event));
         if (project == null) return null;
         IJavaProject javaProject = JavaCore.create(project);
         if (javaProject == null || !javaProject.exists()) return null;
-
-        Job job = Job.create("maddi: analyzing " + project.getName(), monitor -> {
-            try {
-                analyze(javaProject);
-            } catch (Exception e) {
-                MaddiEclipsePlugin.error("maddi analysis failed", e);
-            }
-            return Status.OK_STATUS;
-        });
-        job.setUser(true);
-        job.schedule();
+        MaddiAnalysis.schedule(javaProject, true);
         return null;
-    }
-
-    private void analyze(IJavaProject javaProject) throws Exception {
-        String jdkHome = MaddiPreferences.jdkHome();
-        Path install = MaddiDaemonInstall.resolve(); // configured dir, else the copy bundled in the plugin
-        if (jdkHome == null || install == null) {
-            MaddiEclipsePlugin.info("Set the maddi JDK (25+) in Window → Preferences → maddi (the daemon is "
-                    + "bundled; set a daemon install directory only to override it).");
-            return;
-        }
-
-        MaddiDaemonProcess daemon = MaddiEclipsePlugin.get().daemon();
-        daemon.ensureStarted(install, Path.of(jdkHome), MaddiPreferences.daemonXmxMb(), null);
-
-        AnalysisModel.AnalyzeConfig config = new MaddiEclipseConfigBuilder().build(javaProject, jdkHome);
-        JsonNode node = daemon.analyze("req-" + System.nanoTime(), config, status -> { });
-        if ("error".equals(node.path("type").asText())) {
-            MaddiEclipsePlugin.error("daemon error: " + node.path("message").asText(), null);
-            return;
-        }
-        AnalysisModel.Result result = daemon.client().objectMapper().treeToValue(node, AnalysisModel.Result.class);
-
-        ResourcesPlugin.getWorkspace().run(
-                m -> MaddiMarkers.apply(ResourcesPlugin.getWorkspace().getRoot(), result),
-                null);
-        MaddiResults.get().update(result);
-        revealFindingsView();
-        MaddiEclipsePlugin.log(IStatus.INFO,
-                "maddi: " + result.findings().size() + " finding(s), " + result.hintsLoaded() + " hints", null);
-    }
-
-    private static void revealFindingsView() {
-        Display.getDefault().asyncExec(() -> {
-            try {
-                IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
-                if (page != null) page.showView(MaddiFindingsView.ID);
-            } catch (Exception e) {
-                MaddiEclipsePlugin.error("could not open the maddi findings view", e);
-            }
-        });
     }
 
     private static IProject projectOf(ISelection selection) {

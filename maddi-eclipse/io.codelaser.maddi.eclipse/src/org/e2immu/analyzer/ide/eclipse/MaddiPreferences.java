@@ -26,8 +26,11 @@ public final class MaddiPreferences {
     public static final String JDK_HOME = "maddi.jdkHome";
     public static final String DAEMON_INSTALL = "maddi.daemonInstall";
     public static final String DAEMON_XMX_MB = "maddi.daemonXmxMb";
+    public static final String HINT_FILTER = "maddi.hintFilter";
+    public static final String AUTO_ANALYZE_ON_BUILD = "maddi.autoAnalyzeOnBuild";
 
     public static final int DEFAULT_XMX_MB = 4096;
+    public static final HintFilter DEFAULT_HINT_FILTER = HintFilter.HIDE_CONTEXT_DEFAULTS;
 
     private MaddiPreferences() {
     }
@@ -45,6 +48,22 @@ public final class MaddiPreferences {
     public static int daemonXmxMb() {
         int v = store().getInt(DAEMON_XMX_MB);
         return v > 0 ? v : DEFAULT_XMX_MB;
+    }
+
+    /** Which computed annotations show as gutter hints. */
+    public static HintFilter hintFilter() {
+        String v = store().getString(HINT_FILTER);
+        if (isBlank(v)) return DEFAULT_HINT_FILTER;
+        try {
+            return HintFilter.valueOf(v);
+        } catch (IllegalArgumentException e) {
+            return DEFAULT_HINT_FILTER;
+        }
+    }
+
+    /** Re-analyze a project automatically after Eclipse builds it. */
+    public static boolean autoAnalyzeOnBuild() {
+        return store().getBoolean(AUTO_ANALYZE_ON_BUILD);
     }
 
     private static String resolve(String prefKey, String systemProperty, String envVar) {

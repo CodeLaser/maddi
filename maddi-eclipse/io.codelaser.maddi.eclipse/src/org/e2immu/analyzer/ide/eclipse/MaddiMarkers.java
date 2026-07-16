@@ -53,11 +53,30 @@ public final class MaddiMarkers {
             IFile file = locate(root, finding.uri());
             if (file != null) createViolation(file, finding);
         }
+        HintFilter filter = MaddiPreferences.hintFilter();
         for (AnalysisModel.ElementAnnotation element : result.elementAnnotations()) {
-            if (element.displayAnnotations() == null || element.displayAnnotations().isEmpty()) continue;
+            String text = hintText(element, filter);
+            if (text.isEmpty()) continue; // nothing to show under the current filter
             IFile file = locate(root, element.uri());
-            if (file != null) createHint(file, element);
+            if (file != null) createHint(file, element, text);
         }
+    }
+
+    /** The hint text under the current filter: the shown annotations joined; empty means "no marker". */
+    private static String hintText(AnalysisModel.ElementAnnotation element, HintFilter filter) {
+        List<AnalysisModel.Annotation> annotations = element.annotations();
+        if (annotations == null || annotations.isEmpty()) {
+            // no tagged annotations to filter on; fall back to the full display set unless suppressed entirely
+            return filter == HintFilter.NONE || element.displayAnnotations() == null
+                    ? "" : String.join(" ", element.displayAnnotations());
+        }
+        StringBuilder sb = new StringBuilder();
+        for (AnalysisModel.Annotation annotation : annotations) {
+            if (!filter.shows(annotation)) continue;
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(annotation.text());
+        }
+        return sb.toString();
     }
 
     private static void createViolation(IFile file, AnalysisModel.Finding finding) throws CoreException {
@@ -67,9 +86,10 @@ public final class MaddiMarkers {
         if (finding.beginLine() != null) marker.setAttribute(IMarker.LINE_NUMBER, finding.beginLine());
     }
 
-    private static void createHint(IFile file, AnalysisModel.ElementAnnotation element) throws CoreException {
+    private static void createHint(IFile file, AnalysisModel.ElementAnnotation element, String text)
+            throws CoreException {
         IMarker marker = file.createMarker(HINT_TYPE);
-        marker.setAttribute(IMarker.MESSAGE, String.join(" ", element.displayAnnotations()));
+        marker.setAttribute(IMarker.MESSAGE, text);
         if (element.beginLine() != null) marker.setAttribute(IMarker.LINE_NUMBER, element.beginLine());
     }
 
