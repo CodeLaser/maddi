@@ -17,6 +17,25 @@
                defaultHandler="org.e2immu.analyzer.ide.eclipse.AnalyzeMaddiHandler"/>
    </extension>
 
+   <!-- Daemon settings under Window → Preferences → maddi. -->
+   <extension point="org.eclipse.core.runtime.preferences">
+      <initializer class="org.e2immu.analyzer.ide.eclipse.MaddiPreferenceInitializer"/>
+   </extension>
+   <extension point="org.eclipse.ui.preferencePages">
+      <page id="io.codelaser.maddi.eclipse.preferences"
+            name="maddi"
+            class="org.e2immu.analyzer.ide.eclipse.MaddiPreferencePage"/>
+   </extension>
+
+   <!-- The navigable findings view (Window → Show View → maddi → maddi Findings). -->
+   <extension point="org.eclipse.ui.views">
+      <category id="io.codelaser.maddi.eclipse" name="maddi"/>
+      <view id="io.codelaser.maddi.eclipse.findingsView"
+            name="maddi Findings"
+            category="io.codelaser.maddi.eclipse"
+            class="org.e2immu.analyzer.ide.eclipse.MaddiFindingsView"/>
+   </extension>
+
    <!-- Right-click a Java project → Analyze with maddi. -->
    <extension point="org.eclipse.ui.menus">
       <menuContribution locationURI="popup:org.eclipse.ui.popup.any?after=additions">
