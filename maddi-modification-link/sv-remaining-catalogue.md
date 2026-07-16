@@ -4,6 +4,23 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — CLONEBENCH GREEN: 9306 types in ~23s analysis; giant-switch hang fixed 583s → 13s
+
+TestCloneBench (the full corpus, 16 directories, previously always skipped) now runs
+**BUILD SUCCESSFUL in 1m48s** (parse 9306 types + analyze with parallelism 4 in 23s), on the
+'analyzed' branch of testarchive. Three fixes:
+1. **Engine perf (commit 10e004b5)**: Function18752956_file2311713 (a ~100-arm switch in a
+   loop; equal-quality witness ties are the COMMON case) took 583s alone. Fixed in three
+   layers: putIfBetter's determinism tie-break no longer prints the recursive support set
+   (structural comparison via vertexComparator, no strings); CompositeWitness holds child
+   witnesses with LAZY memoized support (eager union per CANDIDATE was quadratic; losers never
+   materialize); Fact caches its hashCode. 583s → 13s (45×); both suites byte-identical;
+   TestGiantSwitchRepro added as perf guard (skips without testarchive).
+2. Two NULL-PRIMARY guards for array accesses on EXPRESSION bases (no primary variable):
+   `derivedFaceKeyed` (skip — nothing to rehome onto) and `LinksImpl.containsPrimaryOf`
+   (Objects.equals).
+Full sweep after: link 388/388, analyzer 122/122, deep bench green, parseq 1554ms.
+
 ## UPDATE — ***LINK SUITE FULLY GREEN*** (388/388); catalogue CLOSED
 
 The last two:

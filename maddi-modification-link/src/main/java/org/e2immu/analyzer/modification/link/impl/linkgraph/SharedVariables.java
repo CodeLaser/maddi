@@ -342,6 +342,9 @@ public class SharedVariables {
             if (pf.equals(primary) || !Util.isPartOf(primary, pf)) continue;
             for (Variable s : assignmentSources(pf)) {
                 Variable root = Util.primary(s);
+                // an array access on an EXPRESSION base has no primary variable (clone-bench shapes) — nothing
+                // to rehome the slot onto
+                if (root == null) continue;
                 java.util.List<Variable> sourceFaces;
                 if (root.equals(s)) {
                     // whole-object source ('withException.exit ← $__c_a'): its own faces

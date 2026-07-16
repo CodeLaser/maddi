@@ -249,7 +249,8 @@ public class LinksImpl implements Links {
         @Override
         public boolean containsPrimaryOf(Variable to) {
             Variable toPrimary = Util.primary(to);
-            return links.stream().anyMatch(l -> Util.primary(l.to()).equals(toPrimary));
+            // Util.primary is null for an array access on an EXPRESSION base (clone-bench shapes)
+            return links.stream().anyMatch(l -> Objects.equals(Util.primary(l.to()), toPrimary));
         }
     }
 
