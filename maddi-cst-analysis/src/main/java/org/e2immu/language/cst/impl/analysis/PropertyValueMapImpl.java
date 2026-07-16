@@ -106,6 +106,14 @@ public class PropertyValueMapImpl implements PropertyValueMap {
     }
 
     @Override
+    public <V extends Value> boolean overwrite(Property property, V value) {
+        assert value != null : "Not allowed to write null";
+        assert property.classOfValue().isAssignableFrom(value.getClass());
+        Value prev = map.put(property, value);
+        return !value.equals(prev);
+    }
+
+    @Override
     public void setAll(PropertyValueMap analysis) {
         analysis.propertyValueStream().forEach(pv -> set(pv.property(), pv.value()));
     }

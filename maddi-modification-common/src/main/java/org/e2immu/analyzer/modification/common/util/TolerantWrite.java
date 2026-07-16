@@ -39,6 +39,17 @@ public final class TolerantWrite {
         CHANGES.clear();
     }
 
+    /** convergence diagnosis for write sites that do not go through this class (plain set() + counter) */
+    public static void count(String key) {
+        CHANGES.computeIfAbsent(key, _ -> new java.util.concurrent.atomic.LongAdder()).increment();
+    }
+
+    // gate UNMODOWN=1: allow the true->false / weakening direction for the evidence-accumulating modification
+    // properties (see the downgrade branch below); OFF by default pending the verdict A/B
+    private static final boolean UNMODOWN = System.getenv("UNMODOWN") != null;
+    private static final java.util.Set<String> EVIDENCE_ACCUMULATING = java.util.Set.of(
+            "unmodifiedVariable", "unmodifiedParameter", "unmodifiedField", "nonModifyingMethod");
+
     public static <V extends Value> boolean setAllowControlledOverwrite(PropertyValueMap analysis,
                                                                         Property property,
                                                                         V value) {
@@ -52,6 +63,13 @@ public final class TolerantWrite {
         if (analysis.haveAnalyzedValueFor(property)) {
             V current = analysis.getOrDefault(property, value);
             if (!current.equals(value) && !current.overwriteAllowed(value)) {
+                if (UNMODOWN && EVIDENCE_ACCUMULATING.contains(property.key())) {
+                    // EXPERIMENT (gate UNMODOWN=1): for the UNMODIFIED_* family, modification evidence only
+                    // accumulates across iterations — 'modified' (false) is absorbing, so the legal refinement
+                    // direction is true->false, OPPOSITE to Bool's default policy. Apply the downgrade.
+                    LOGGER.debug("Downgrading {} {} -> {} on {}", property.key(), current, value, context);
+                    return analysis.overwrite(property, value);
+                }
                 LOGGER.warn("Keeping {}={}, refusing downgrade to {} on {}", property.key(), current, value, context);
                 return false;
             }

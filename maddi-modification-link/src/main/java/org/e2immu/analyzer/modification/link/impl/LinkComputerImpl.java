@@ -705,6 +705,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     try {
                         wmc.methodCall().analysis().set(VARIABLES_LINKED_TO_OBJECT,
                                 new ValueImpl.VariableBooleanMapImpl(Map.copyOf(variablesLinkedToObject)));
+                        TolerantWrite.count("set:variablesLinkedToObject@LCI");
                         propertiesChanged.incrementAndGet();
                     } catch (IllegalArgumentException iae) {
                         LinkComputerImpl.this.recursionPrevention.report(methodInfo);
