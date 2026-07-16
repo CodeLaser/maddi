@@ -67,15 +67,15 @@ public class AnalyzeMaddiHandler extends AbstractHandler {
 
     private void analyze(IJavaProject javaProject) throws Exception {
         String jdkHome = MaddiPreferences.jdkHome();
-        String install = MaddiPreferences.daemonInstall();
+        Path install = MaddiDaemonInstall.resolve(); // configured dir, else the copy bundled in the plugin
         if (jdkHome == null || install == null) {
-            MaddiEclipsePlugin.info("Set the maddi JDK (25+) and daemon install directory in "
-                    + "Window → Preferences → maddi.");
+            MaddiEclipsePlugin.info("Set the maddi JDK (25+) in Window → Preferences → maddi (the daemon is "
+                    + "bundled; set a daemon install directory only to override it).");
             return;
         }
 
         MaddiDaemonProcess daemon = MaddiEclipsePlugin.get().daemon();
-        daemon.ensureStarted(Path.of(install), Path.of(jdkHome), MaddiPreferences.daemonXmxMb(), null);
+        daemon.ensureStarted(install, Path.of(jdkHome), MaddiPreferences.daemonXmxMb(), null);
 
         AnalysisModel.AnalyzeConfig config = new MaddiEclipseConfigBuilder().build(javaProject, jdkHome);
         JsonNode node = daemon.analyze("req-" + System.nanoTime(), config, status -> { });
