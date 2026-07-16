@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.impl.graph.Fact;
 import org.e2immu.analyzer.modification.link.impl.linkgraph.FollowGraph;
@@ -304,7 +305,7 @@ class WriteLinksAndModification {
                 builder.removeIf(l -> !(l.from() instanceof This));
             }
             Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
-            vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
+            TolerantWrite.setAllowControlledOverwrite(vi.analysis(), UNMODIFIED_VARIABLE, newValue, variable);
 
             // The ⊇→~ rewrite runs at the statement where the modification OCCURS. With the persistent graph the
             // rewrite survives into later statements by itself; re-flipping on previouslyModified (the old
@@ -520,7 +521,9 @@ class WriteLinksAndModification {
                 if (!rv.equals(realTo) && LinkVariable.acceptForLinkedVariables(realTo)
                     && !(realTo instanceof MarkerVariable)) {
                     VirtualFieldComputer.M2 m2 = virtualFieldComputer.addModificationFieldEquivalence(rv, realTo);
-                    if (m2 != null) toAdd.add(new LinksImpl.LinkImpl(m2.m1(), IS_ASSIGNED_FROM, m2.m2()));
+                    if (m2 != null && validCompanionFace(m2.m1()) && validCompanionFace(m2.m2())) {
+                        toAdd.add(new LinksImpl.LinkImpl(m2.m1(), IS_ASSIGNED_FROM, m2.m2()));
+                    }
                 }
             }
             if (link.linkNature() == OBJECT_GRAPH_OVERLAPS
@@ -535,7 +538,9 @@ class WriteLinksAndModification {
                                                      && rv.equals(Util.firstRealVariable(l2.from())))) {
                     VirtualFieldComputer.M2 m2 = virtualFieldComputer.addModificationFieldEquivalence(rv, realTo);
                     LinkNature id = LinkNatureImpl.makeIdenticalTo(null);
-                    if (m2 != null) toAdd.add(new LinksImpl.LinkImpl(m2.m1(), id, m2.m2()));
+                    if (m2 != null && validCompanionFace(m2.m1()) && validCompanionFace(m2.m2())) {
+                        toAdd.add(new LinksImpl.LinkImpl(m2.m1(), id, m2.m2()));
+                    }
                 }
             }
         }
@@ -548,6 +553,14 @@ class WriteLinksAndModification {
                 builder.add(l.from(), l.linkNature(), l.to());
             }
         }
+    }
+
+    // mirrors LinkImpl's doNotStackMOnTopOfVirtualField invariant: on real-world deep-generic shapes (timefold
+    // bavet lambdas), addModificationFieldEquivalence can produce a §m face whose scope is itself a virtual
+    // field; such a companion is not representable as a Link -- skip it instead of tripping the constructor assert
+    private static boolean validCompanionFace(Variable v) {
+        return !(v instanceof FieldReference fr && Util.isVirtualModificationField(fr.fieldInfo())
+                 && fr.scopeVariable() instanceof FieldReference fr2 && Util.virtual(fr2.fieldInfo()));
     }
 
     // mirrors the internal-reference filter in FollowGraph.followGraph: a link between two variables sharing the

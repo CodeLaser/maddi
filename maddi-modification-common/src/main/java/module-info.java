@@ -11,4 +11,5 @@ module org.e2immu.analyzer.modification.common {
     exports org.e2immu.analyzer.modification.common;
     exports org.e2immu.analyzer.modification.common.defaults;
     exports org.e2immu.analyzer.modification.common.getset;
+    exports org.e2immu.analyzer.modification.common.util;
 }

@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.common.defaults.ShallowMethodAnalyzer;
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine;
 import org.e2immu.analyzer.modification.link.impl.linkgraph.FollowGraph;
@@ -206,7 +207,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             MethodLinkedVariables mlv = shallowMethodLinkComputer.go(methodInfo);
             if (write) {
-                if (methodInfo.analysis().setAllowControlledOverwrite(METHOD_LINKS, mlv)) {
+                if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, mlv, methodInfo)) {
                     propertiesChanged.incrementAndGet();
                 }
             }
@@ -217,7 +218,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             try {
                 tlv = new SourceMethodComputer(methodInfo).go();
                 if (write) {
-                    if (methodInfo.analysis().setAllowControlledOverwrite(METHOD_LINKS, tlv)) {
+                    if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, tlv, methodInfo)) {
                         propertiesChanged.incrementAndGet();
                     }
                 }
@@ -399,7 +400,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 }
             }
             Value.Bool nonModifying = ValueImpl.BoolImpl.from(!methodModified);
-            if (methodInfo.analysis().setAllowControlledOverwrite(PropertyImpl.NON_MODIFYING_METHOD, nonModifying)) {
+            if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), PropertyImpl.NON_MODIFYING_METHOD, nonModifying, methodInfo)) {
                 propertiesChanged.incrementAndGet();
             }
             for (ParameterInfo pi : methodInfo.parameters()) {
@@ -407,7 +408,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 if (links.stream().noneMatch(l -> l.to().variableStreamDescend()
                         .anyMatch(v -> v instanceof FieldReference fr && inCurrentHierarchy(fr.fieldInfo().owner())))) {
                     Value.Bool unmodified = ValueImpl.BoolImpl.from(!paramsModified[pi.index()]);
-                    if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, unmodified)) {
+                    if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER, unmodified, pi)) {
                         propertiesChanged.incrementAndGet();
                     }
                 } // else: we'll need to wait until we know about all the links of the field; see TestFieldAnalyzer

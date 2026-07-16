@@ -97,6 +97,7 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
     }
 
     private SearchResult searchAndExpand(List<Links> list) {
+        if (variableData == null) return null; // e.g. inside a lambda body without its own variable data
         Set<Variable> extraModified = new HashSet<>();
         int paramIndex = 0;
         for (Links links : list) {
