@@ -301,8 +301,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                                 && l.linkNature().isIdenticalToOrAssignedFromTo()
                                 && l.to() instanceof LocalVariable) {
                                 Expression constant = tc.get(l.to());
-                                if (constant != null && !(constant instanceof NullConstant)) {
-                                    assert vi.variable().parameterizedType().arrays() == 0;
+                                // array-typed variables stay out of constant propagation (the assert that stood
+                                // here fails on real code: an array local linked ≡ to a constant-holding local)
+                                if (constant != null && !(constant instanceof NullConstant)
+                                    && vi.variable().parameterizedType().arrays() == 0) {
                                     Expression prev = tc.put(vi.variable(), constant);
                                     if (prev != null && !constant.equals(prev)) {
                                         // multiple values...
@@ -381,7 +383,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             for (Map.Entry<ParameterInfo, Map<Variable, Set<TypeInfo>>> entry : all.entrySet()) {
                 ParameterInfo pi = entry.getKey();
                 var v2tiSet = new ValueImpl.VariableToTypeInfoSetImpl(entry.getValue());
-                if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.DOWNCAST_PARAMETER, v2tiSet)) {
+                if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.DOWNCAST_PARAMETER, v2tiSet)) {
                     propertiesChanged.incrementAndGet();
                 }
             }
@@ -679,7 +681,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 VariableInfoContainer vic = variableData.variableInfoContainerOrNull(v.fullyQualifiedName());
                 if (vic != null) {
                     VariableInfoImpl vii = (VariableInfoImpl) vic.best(Stage.EVALUATION);
-                    if (vii.analysis().setAllowControlledOverwrite(VariableInfoImpl.DOWNCAST_VARIABLE,
+                    if (TolerantWrite.setAllowControlledOverwrite(vii.analysis(), VariableInfoImpl.DOWNCAST_VARIABLE,
                             new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(set)))) {
                         propertiesChanged.incrementAndGet();
                     }
@@ -843,12 +845,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     if (!collected.isEmpty()) {
                         merge.setLinkedVariables(collected);
                     }
-                    if (merge.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE,
+                    if (TolerantWrite.setAllowControlledOverwrite(merge.analysis(), UNMODIFIED_VARIABLE,
                             ValueImpl.BoolImpl.from(unmodified.get()))) {
                         propertiesChanged.incrementAndGet();
                     }
                     if (!downcasts.isEmpty()) {
-                        if (merge.analysis().setAllowControlledOverwrite(DOWNCAST_VARIABLE,
+                        if (TolerantWrite.setAllowControlledOverwrite(merge.analysis(), DOWNCAST_VARIABLE,
                                 new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(downcasts)))) {
                             propertiesChanged.incrementAndGet();
                         }

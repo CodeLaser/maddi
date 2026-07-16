@@ -85,6 +85,9 @@ public class VirtualFieldTranslationMapImpl implements VirtualFieldTranslationMa
                 };
             }
         } else if (variable instanceof FieldReference fr) {
+            if (fr.fieldInfo().type().typeInfo() == null) {
+                return variable; // e.g. a bare type parameter: does not follow the 'container' scheme
+            }
             StringBuilder sbOld = new StringBuilder();
             StringBuilder sbNew = new StringBuilder();
             List<FieldInfo> fields = fr.fieldInfo().type().typeInfo().fields();

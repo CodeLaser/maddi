@@ -25,6 +25,12 @@ public final class TolerantWrite {
 
     public static <V extends Value> boolean setAllowControlledOverwrite(PropertyValueMap analysis,
                                                                         Property property,
+                                                                        V value) {
+        return setAllowControlledOverwrite(analysis, property, value, "?");
+    }
+
+    public static <V extends Value> boolean setAllowControlledOverwrite(PropertyValueMap analysis,
+                                                                        Property property,
                                                                         V value,
                                                                         Object context) {
         if (analysis.haveAnalyzedValueFor(property)) {
