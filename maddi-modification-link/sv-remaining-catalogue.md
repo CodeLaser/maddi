@@ -4,6 +4,27 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — varargs fan-out FIXED (gate NOVARTO); TimSort contract crash fixed; link 5 → 4
+
+The varargs residue was NOT the closure-algebra ∩ problem (that died with the spine): it was a
+plain call-site translation gap. fillAll's summary carries the fan-out fact on the TARGET's
+face with the varargs param as the TO side ('0:target.t ∈ 1:vs'), and linksBetweenParameters
+translated '1:vs' to the single argument at the varargs' own index — 'box.t ∈ a' only, b never
+seen. The existing fan-out loop only covered varargs on the FROM side. Fix in
+`LinkMethodCall.linksBetweenParameters`: a link whose TARGET is the varargs parameter fans the
+to-side out over every actual argument j=to.index()..n (same varargsLinkNature weakening).
+'1:a*~2:b*' then derives in the closure from the two ∈ edges (∋∘∈=~), as pinned.
+
+Also fixed en route: the parts-first refinement sort in `FollowGraph` — a documented PARTIAL,
+intransitive comparator — made TimSort THROW ('Comparison method violates its general
+contract') on the real parseq shapes once the new links changed the input permutation.
+Replaced with a stable insertion sort (tolerates partial orders, deterministic on top of the
+canonical pre-sort, byte-identical on both suites; fromList is per-primary and small).
+
+A/B: link 4 (zero regressions), analyzer 122/122, deep-structure bench green, parseq bench
+1631-1648ms ×2. Remaining 4: TestLinkModificationArea ≻, TestStream MR-swap (type-name drift),
+TestSupplier test7 ≺, TestSupplierSpec Stream.generate ⊆.
+
 ## UPDATE — mutator-returning-object FIXED (gate NORVSP); link 6 → 5
 
 The highest-consumer-value remaining test (all three linking goals). This session's earlier

@@ -93,14 +93,12 @@ public record FollowGraph(Graph graph) {
         fromList.sort(java.util.Comparator
                 .comparing((FromPair p) -> p.emitFrom().fullyQualifiedName())
                 .thenComparing(p -> p.queryFrom().fullyQualifiedName()));
-        fromList.sort((p1, p2) -> {
-            Variable v1 = p1.emitFrom();
-            Variable v2 = p2.emitFrom();
-            if (v1.equals(v2)) return 0;
-            if (Util.isPartOf(v1, v2)) return 1;
-            if (Util.isPartOf(v2, v1)) return -1;
-            return Util.isPartOfComparator(v1, v2);
-        });
+        // parts-first refinement: the comparator is a PARTIAL, intransitive order, and TimSort THROWS
+        // ('Comparison method violates its general contract') on inputs where it detects the inconsistency
+        // (first seen on the real parseq code, via the VL2O probe). A stable insertion sort tolerates the
+        // partial order, is deterministic on top of the canonical pre-sort, and preserves the exact ordering
+        // TimSort produced on the inputs it accepted. fromList is per-primary and small.
+        insertionSortPartsFirst(fromList);
 
         List<LinksImpl.LinkImpl> reverseReturnFacts = new ArrayList<>();
         // Engine feature #9: composite facts TARGETING a return variable are never created
@@ -230,5 +228,26 @@ public record FollowGraph(Graph graph) {
             }
         }
         return builder;
+    }
+
+    private static void insertionSortPartsFirst(java.util.List<FromPair> fromList) {
+        for (int i = 1; i < fromList.size(); i++) {
+            FromPair p = fromList.get(i);
+            int j = i - 1;
+            while (j >= 0 && partsFirst(fromList.get(j), p) > 0) {
+                fromList.set(j + 1, fromList.get(j));
+                j--;
+            }
+            fromList.set(j + 1, p);
+        }
+    }
+
+    private static int partsFirst(FromPair p1, FromPair p2) {
+        Variable v1 = p1.emitFrom();
+        Variable v2 = p2.emitFrom();
+        if (v1.equals(v2)) return 0;
+        if (Util.isPartOf(v1, v2)) return 1;
+        if (Util.isPartOf(v2, v1)) return -1;
+        return Util.isPartOfComparator(v1, v2);
     }
 }

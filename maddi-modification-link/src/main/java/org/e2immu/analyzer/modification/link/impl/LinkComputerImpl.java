@@ -345,6 +345,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             Set<Variable> allModified = Stream.concat(modified.stream(), modifiedOutside.stream())
                     .collect(Collectors.toUnmodifiableSet());
             MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, allModified);
+            if (System.getenv("BTRACE") != null && methodInfo.name().contains(System.getenv("BTRACE"))) {
+                System.out.println("BTRACE go() mlv=" + mlv);
+            }
             copyModificationsIntoMethod(allModified, inClosure, mlv);
             if (vd != null) copyDowncastIntoParameters(vd);
 
