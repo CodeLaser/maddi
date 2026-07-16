@@ -228,6 +228,7 @@ public class RunAnalyzer implements Runnable {
             // do actual modification analysis
             IteratingAnalyzer.Configuration modConfig = new IteratingAnalyzerImpl.ConfigurationBuilder()
                     .setMaxIterations(10)
+                    .setStopWhenCycleDetectedAndNoImprovements(true) // plateau early-exit, see IteratingAnalyzerImpl
                     .setTrackObjectCreations(false)
                     .setFaultTolerant(true) // isolate a crash on one element; report it, don't abort the whole run
                     .build();

@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.analyzer.impl;
 
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.analyzer.CycleBreakingStrategy;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.SingleIterationAnalyzer;
@@ -105,10 +106,12 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
         this.lastRun = singleIterationAnalyzer;
         boolean cycleBreakingActive = false;
+        int previousPropertiesChanged = Integer.MAX_VALUE;
         while (true) {
             ++iterations;
             LOGGER.info("{}, cycle breaking active? {}", highlight("Start iteration " + iterations),
                     cycleBreakingActive);
+            TolerantWrite.resetChangeCounts();
             Instant start = Instant.now();
             singleIterationAnalyzer.go(analysisOrder, cycleBreakingActive, iterations == 1);
             Instant end = Instant.now();
@@ -116,15 +119,28 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             LOGGER.info("Duration of single iteration: {} min {} sec {} ms", duration.toMinutesPart(),
                     duration.toSecondsPart(), duration.toMillisPart());
             int propertiesChanged = singleIterationAnalyzer.propertiesChanged();
+            // convergence diagnosis: which properties are still moving? (value-changing writes per property)
+            String topChanges = TolerantWrite.changeCounts().entrySet().stream()
+                    .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+                    .limit(10)
+                    .map(e -> e.getKey() + "=" + e.getValue())
+                    .reduce((a, b) -> a + ", " + b).orElse("-");
+            LOGGER.info("Iteration {} property changes (top 10): {}", iterations, topChanges);
             boolean done = propertiesChanged == 0;
-            if (iterations == configuration.maxIterations() || done) {
-                LOGGER.info("Stop iterating after {} iterations, done? {}", iterations, done);
+            // plateau: the change count no longer meaningfully decreases (an oscillation floor); further full
+            // re-analyses only pay for the same flips again. Opt-in via stopWhenCycleDetectedAndNoImprovements.
+            boolean plateau = configuration.stopWhenCycleDetectedAndNoImprovements()
+                              && iterations >= 3 && propertiesChanged >= 0.95 * previousPropertiesChanged;
+            if (iterations == configuration.maxIterations() || done || plateau) {
+                LOGGER.info("Stop iterating after {} iterations, done? {}{}", iterations, done,
+                        plateau ? " (plateau: " + propertiesChanged + " vs " + previousPropertiesChanged + ")" : "");
                 if (configuration.guardContracts()) {
                     // values are final now: verify user-written contracts, emit explanatory findings
                     new GuardAnalyzerImpl(javaInspector.runtime(), configuration, guardMessages).go(analysisOrder);
                 }
                 return;
             }
+            previousPropertiesChanged = propertiesChanged;
             LOGGER.info("Run again, properties changed {}", propertiesChanged);
             // TODO any strategy, e.g. after 3 iterations, activate cycle breaking
         }
