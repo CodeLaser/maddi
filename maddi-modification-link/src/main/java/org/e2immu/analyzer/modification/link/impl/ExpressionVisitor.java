@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
@@ -511,7 +512,7 @@ public record ExpressionVisitor(Runtime runtime,
                             : r.links().removeIfTo(v -> !LinkVariable.acceptForLinkedVariables(v)))
                     .toList();
             LinkComputer.ListOfLinks list = new LinkComputerImpl.ListOfLinksImpl(links);
-            cc.analysis().setAllowControlledOverwrite(LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS, list);
+            TolerantWrite.setAllowControlledOverwrite(cc.analysis(), LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS, list);
         }
         Set<Variable> extraModified = params.stream().flatMap(p ->
                 p.modified().keySet().stream()).collect(Collectors.toUnmodifiableSet());
@@ -710,7 +711,7 @@ public record ExpressionVisitor(Runtime runtime,
                             : r.links().removeIfTo(v -> !LinkVariable.acceptForLinkedVariables(v)))
                     .toList();
             LinkComputer.ListOfLinks list = new LinkComputerImpl.ListOfLinksImpl(links);
-            mc.analysis().setAllowControlledOverwrite(LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS, list);
+            TolerantWrite.setAllowControlledOverwrite(mc.analysis(), LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS, list);
         }
 
         // handle all matters 'linking'

@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.analyzer.impl;
 
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.analyzer.*;
 import org.e2immu.analyzer.modification.common.defaults.ShallowTypeAnalyzer;
 import org.e2immu.analyzer.modification.link.LinkComputer;
@@ -109,7 +110,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                     }
                     if (!firstIteration || !methodInfo.analysis().haveAnalyzedValueFor(METHOD_LINKS)) {
                         MethodLinkedVariables mlv = linkComputer.doMethod(methodInfo);
-                        if (methodInfo.analysis().setAllowControlledOverwrite(METHOD_LINKS, mlv)) {
+                        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, mlv)) {
                             propertiesChanged.incrementAndGet();
                         }
                     }
@@ -124,7 +125,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                     typesInOrder.add(typeInfo);
                 }
             } catch (RuntimeException | AssertionError | StackOverflowError e) {
-                LOGGER.error("Caught exception processing {}: {}", info, e.toString());
+                LOGGER.error("Caught exception processing {}", info, e);
                 if (!faultTolerant) throw e;
                 failed.add(info);
                 messages.add(crashFinding(info, e));
@@ -134,7 +135,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         try {
             abstractMethodAnalyzer.go(firstIteration, abstractMethods);
         } catch (RuntimeException | AssertionError | StackOverflowError e) {
-            LOGGER.error("Caught exception in the abstract-method analyzer: {}", e.toString());
+            LOGGER.error("Caught exception in the abstract-method analyzer", e);
             if (!faultTolerant) throw e;
             // batch step — attribute to the first abstract method so the finding is at least locatable
             if (!abstractMethods.isEmpty()) messages.add(crashFinding(abstractMethods.getFirst(), e));
@@ -149,7 +150,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
             try {
                 runTypeAnalyzers(activateCycleBreaking, typeInfo);
             } catch (RuntimeException | AssertionError | StackOverflowError e) {
-                LOGGER.error("Caught exception (2nd type pass) on {}: {}", typeInfo, e.toString());
+                LOGGER.error("Caught exception (2nd type pass) on {}", typeInfo, e);
                 if (!faultTolerant) throw e;
                 failed.add(typeInfo);
                 messages.add(crashFinding(typeInfo, e));

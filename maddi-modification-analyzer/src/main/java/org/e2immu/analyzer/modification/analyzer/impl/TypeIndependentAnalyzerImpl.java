@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.analyzer.impl;
 
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.TypeIndependentAnalyzer;
 import org.e2immu.language.cst.api.analysis.Message;
@@ -50,12 +51,12 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         if (typeIndependent.isIndependent()) return; // nothing to be gained
         Independent independent = computeIndependentType(typeInfo, activateCycleBreaking);
         if (independent != null) {
-            if (typeInfo.analysis().setAllowControlledOverwrite(INDEPENDENT_TYPE, independent)) {
+            if (TolerantWrite.setAllowControlledOverwrite(typeInfo.analysis(), INDEPENDENT_TYPE, independent)) {
                 DECIDE.debug("Ti: Decide independent of type {} = {}", typeInfo, independent);
                 propertyChanges.incrementAndGet();
             }
         } else if (activateCycleBreaking) {
-            boolean write = typeInfo.analysis().setAllowControlledOverwrite(INDEPENDENT_TYPE, INDEPENDENT);
+            boolean write = TolerantWrite.setAllowControlledOverwrite(typeInfo.analysis(), INDEPENDENT_TYPE, INDEPENDENT);
             assert write;
             propertyChanges.incrementAndGet();
             DECIDE.info("Ti: Decide independent of type {} = INDEPENDENT by {}", typeInfo, CYCLE_BREAKING);

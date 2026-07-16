@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.analyzer.impl;
 
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.analyzer.FieldAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
@@ -67,12 +68,12 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
             if (unmodifiedDone.isFalse()) {
                 Value.Bool unmodified = computeUnmodified(fieldInfo, methodsReferringToField);
                 if (unmodified != null) {
-                    if (fieldInfo.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_FIELD, unmodified)) {
+                    if (TolerantWrite.setAllowControlledOverwrite(fieldInfo.analysis(), PropertyImpl.UNMODIFIED_FIELD, unmodified)) {
                         DECIDE.debug("FI: Decide unmodified of field {} = {}", fieldInfo, unmodified);
                         propertyChanges.incrementAndGet();
                     }
                 } else if (cycleBreakingActive) {
-                    boolean write = fieldInfo.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_FIELD, TRUE);
+                    boolean write = TolerantWrite.setAllowControlledOverwrite(fieldInfo.analysis(), PropertyImpl.UNMODIFIED_FIELD, TRUE);
                     assert write;
                     DECIDE.info("FI: Decide unmodified of field {} = true by {}", fieldInfo, highlight("cycleBreaking"));
                     propertyChanges.incrementAndGet();
@@ -84,7 +85,7 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
             Links linkedVariables = computeLinkedVariables(fieldInfo, methodsReferringToField);
             if (linkedVariables == null) {
                 if (cycleBreakingActive) {
-                    boolean write = fieldInfo.analysis().setAllowControlledOverwrite(LinksImpl.LINKS, LinksImpl.EMPTY);
+                    boolean write = TolerantWrite.setAllowControlledOverwrite(fieldInfo.analysis(), LinksImpl.LINKS, LinksImpl.EMPTY);
                     assert write;
                     DECIDE.info("FI: Decide linked variables of field {} = empty by {}", fieldInfo, CYCLE_BREAKING);
                     propertyChanges.incrementAndGet();
@@ -93,19 +94,19 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                     return;
                 }
             }
-            if (fieldInfo.analysis().setAllowControlledOverwrite(LinksImpl.LINKS, linkedVariables)) {
+            if (TolerantWrite.setAllowControlledOverwrite(fieldInfo.analysis(), LinksImpl.LINKS, linkedVariables)) {
                 DECIDE.debug("FI: Decide linked variables of field {} = {}", fieldInfo, linkedVariables);
                 propertyChanges.incrementAndGet();
             }
             if (!currentIndependent.isIndependent()) {
                 Value.Independent independent = computeIndependent(fieldInfo, linkedVariables);
                 if (independent != null) {
-                    if (fieldInfo.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_FIELD, independent)) {
+                    if (TolerantWrite.setAllowControlledOverwrite(fieldInfo.analysis(), PropertyImpl.INDEPENDENT_FIELD, independent)) {
                         DECIDE.debug("FI: Decide independent of field {} = {}", fieldInfo, independent);
                         propertyChanges.incrementAndGet();
                     }
                 } else if (cycleBreakingActive) {
-                    boolean write = fieldInfo.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_FIELD, INDEPENDENT);
+                    boolean write = TolerantWrite.setAllowControlledOverwrite(fieldInfo.analysis(), PropertyImpl.INDEPENDENT_FIELD, INDEPENDENT);
                     assert write;
                     DECIDE.info("FI: Decide independent of field {} = INDEPENDENT by {}", fieldInfo, CYCLE_BREAKING);
                     propertyChanges.incrementAndGet();

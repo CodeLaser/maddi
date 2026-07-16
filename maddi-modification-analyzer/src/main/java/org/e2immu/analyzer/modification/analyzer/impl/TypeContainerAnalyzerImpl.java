@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.analyzer.impl;
 
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.TypeContainerAnalyzer;
 import org.e2immu.language.cst.api.analysis.Message;
@@ -45,7 +46,7 @@ public class TypeContainerAnalyzerImpl extends CommonAnalyzerImpl implements Typ
                 .filter(mi -> !mi.access().isPrivate())
                 .flatMap(mi -> mi.parameters().stream())
                 .allMatch(ParameterInfo::isUnmodified);
-        if (typeInfo.analysis().setAllowControlledOverwrite(PropertyImpl.CONTAINER_TYPE,
+        if (TolerantWrite.setAllowControlledOverwrite(typeInfo.analysis(), PropertyImpl.CONTAINER_TYPE,
                 ValueImpl.BoolImpl.from(isContainer))) {
             DECIDE.debug("TC: Decide container of type {} = {}", typeInfo, isContainer);
             propertyChanges.incrementAndGet();

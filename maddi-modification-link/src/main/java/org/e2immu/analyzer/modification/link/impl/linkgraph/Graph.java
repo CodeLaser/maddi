@@ -320,12 +320,26 @@ public class Graph {
             Set<Variable> fromInGraph = isKnownInGraph(from);
             Set<Variable> toInGraph = isKnownInGraph(to);
             if (sv == null) {
-                assert fromInGraph.isEmpty() && toInGraph.isEmpty()
-                        : from + " and " + to + " should already have been removed; they're in the same equivalance group"
-                          + " [nature " + linkNature + ", stmt " + statementIndex
-                          + ", fromInGraph " + fromInGraph + ", toInGraph " + toInGraph
-                          + ", groups " + cap(sharedVariables.print(Object::toString)) + "]";
-                return false;
+                // both sides are already direct members of the same group. Residual vertices spelled through a
+                // member (faces added by statements AFTER it joined — e.g. the summary import of a later
+                // 'v = wrap(v)' call in a reassignment-through-wrapper chain, timefold
+                // ValueSelectorFactory.buildValueSelector) are legal on real code; re-key them onto the rep,
+                // exactly as the sv != null path below does. (Historically an assert: "should already have been
+                // removed" — the no-residue assumption only holds on the suite's simpler shapes.)
+                SharedVariable group = sharedVariables.groupOf(from) != null
+                        ? sharedVariables.groupOf(from) : sharedVariables.groupOf(to);
+                if (group == null) return false;
+                boolean change = false;
+                if (!fromInGraph.isEmpty()) {
+                    transformToSharedVariable(from, fromInGraph, group, statementIndex);
+                    change = true;
+                }
+                Set<Variable> toResidue = isKnownInGraph(to);
+                if (!toResidue.isEmpty()) {
+                    transformToSharedVariable(to, toResidue, group, statementIndex);
+                    change = true;
+                }
+                return change;
             }
             if (!fromInGraph.isEmpty()) {
                 transformToSharedVariable(from, fromInGraph, sv, statementIndex);
@@ -350,10 +364,6 @@ public class Graph {
             return engine.addVertex(tFrom);
         }
         return engine.addSymmetricEdge(tFrom, tTo, linkNature, statementIndex) > 0;
-    }
-
-    private static String cap(String s) {
-        return s.length() <= 3000 ? s : s.substring(0, 3000) + "... (" + s.length() + " chars)";
     }
 
     private Set<Variable> isKnownInGraph(Variable variable) {

@@ -62,8 +62,12 @@ public class DependentVariableImpl extends VariableImpl implements DependentVari
         ParameterizedType pt;
         if (parameterizedType != null) {
             pt = parameterizedType;
-        } else {
+        } else if (arrayExpression.parameterizedType().arrays() > 0) {
             pt = arrayExpression.parameterizedType().copyWithOneFewerArrays();
+        } else {
+            // not statically an array (e.g. an Object-typed slot standing in for an array after translation):
+            // the element type cannot be derived; keep the slot's type rather than failing
+            pt = arrayExpression.parameterizedType();
         }
         return new DependentVariableImpl(arrayExpression, av, indexExpression, iv, pt);
     }
@@ -106,7 +110,11 @@ public class DependentVariableImpl extends VariableImpl implements DependentVari
     private static String expressionId(Expression expression) {
         if (expression instanceof ConstantExpression<?>) return expression.toString();
         Source source = expression.source();
-        assert source != null;
+        if (source == null) {
+            // synthetic expressions (built by analyzers, e.g. the link engine's virtual faces) carry no source;
+            // fall back to their print for a stable identity
+            return "`" + expression + "`";
+        }
         return "`" + source.beginLine() + "-" + source.beginPos() + "`";
     }
 
