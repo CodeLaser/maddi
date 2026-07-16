@@ -136,7 +136,7 @@ knows**, or **a default is indistinguishable from a decision**.
 | in-house | `integration/JavaInspectorImpl.parse` (phase 1 decides per file; the InfoMap is built after phase 3), `integration/CompiledTypesManagerImpl` |
 | openjdk | `openjdk/JavaInspectorImpl.reparse` + `actionFor` + `reloadSources` + `listSourceFiles`, `openjdk/CompiledTypesManagerImpl`, `InfoByFqn` |
 | fingerprints | `ScanCompilationUnits.fingerPrintOf` (openjdk), `MD5FingerPrint` |
-| driver | `run-openjdk/RunRewireTests` = `run-main/RunRewireTests` (identical), wired via `--analysis-steps rewire-tests` |
+| driver | `run-rewire/RunRewireTests` — one copy, shared by `run-main` and `run-openjdk`, wired via `--analysis-steps rewire-tests` |
 | tests | openjdk `TestInvalidate`, `TestReloadSources`, `TestReloadSourcesFromDisk`, `TestFingerPrint`, `TestReloadPrerequisites`, `TestJavaInspector6MultiProject.testRewirePerSourceSet`, `run-openjdk/TestRewireTests`; in-house `invalidate/TestInvalidate` |
 
 ## Open: rewiring and prepwork/analysis data
@@ -223,6 +223,18 @@ Remaining points to settle:
   `KotlinCompiledTypesManager`), and the CST machinery is language-agnostic, so the shape should follow the openjdk
   one. Its anonymous types come from `KotlinScan`/`KotlinBodyConverter`, which already call
   `getAndIncrementAnonymousTypes` like the Java front-ends.
+  **The gate is the `JavaInspector` interface, not module structure.** `KotlinInspector` is a standalone class, not
+  a `JavaInspector`, and the driver needs exactly three things it does not have: `reloadSources`,
+  `parse(ParseOptions)` and `runtime()`. `kotlin-parser-plan.md` §3 already assigns "implement `JavaInspector`" to
+  `maddi-inspection-kotlin`, and M5c lists "the full `JavaInspector` surface" as outstanding. Once that lands, the
+  driver is reusable as-is — it is interface-typed throughout, `ComputeCallGraph` walks the language-agnostic CST,
+  and even the `// some comment` edit it uses to move a fingerprint is valid Kotlin. Fingerprints per source file
+  are the other prerequisite (openjdk's is `ScanCompilationUnits.fingerPrintOf`); `PrimaryTypeUseGraph` already
+  works for any language.
+  Not answered by the Java design: a **mixed Java+Kotlin module** is mutually referential and so is *one* unit,
+  processed Kotlin-first (`kotlin-parser-plan.md` §5). Editing a `.java` file there can require re-running the
+  Kotlin scan, because Kotlin resolved against that Java source — a dependency the CST call graph does not record,
+  and which today's `Invalidated` (primary type → state, one front-end re-parsing) cannot express.
 - **openjdk selectivity**: a source set is re-scanned whole. Letting javac parse the set but building CST only for
   the INVALID units (unchanged types keep their objects) is the refinement; `singleSourceSet` already puts source
   roots on `SOURCE_PATH` for `restrictToPackages`, which is the mechanism.

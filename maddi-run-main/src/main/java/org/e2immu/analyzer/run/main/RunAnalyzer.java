@@ -23,6 +23,7 @@ import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
+import org.e2immu.analyzer.run.rewire.RunRewireTests;
 import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
 import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
 import org.e2immu.analyzer.run.config.Configuration;
