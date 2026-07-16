@@ -126,8 +126,16 @@ public final class MaddiAnalysisService implements Disposable {
         }
         AnalysisModel.Result result =
                 daemon.client().objectMapper().treeToValue(node, AnalysisModel.Result.class);
-        index(result);
+        applyResult(result);
+    }
 
+    /**
+     * Index a result and refresh the display surfaces. Public so tests (and any future non-daemon result
+     * source) can drive the UI with a canned result: {@link #index} runs synchronously, so the surface
+     * lookups ({@link #findingsForPath}/{@link #annotationsForPath}) are populated on return.
+     */
+    public void applyResult(AnalysisModel.Result result) {
+        index(result);
         ApplicationManager.getApplication().invokeLater(() -> {
             if (project.isDisposed()) return;
             // Declarative inlay hints cache on a modification stamp that restart() alone does not invalidate,

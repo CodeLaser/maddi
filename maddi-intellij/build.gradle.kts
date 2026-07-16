@@ -16,6 +16,8 @@
 // java-library-conventions and has NO maddi dependency. It runs on the IDE's JBR (21) and speaks
 // only plain JSON to the maddi daemon (JDK 25) over a loopback socket, so the JDK split stays clean.
 
+import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+
 plugins {
     id("java")
     // version omitted: the settings plugin (org.jetbrains.intellij.platform.settings) already puts
@@ -37,13 +39,18 @@ dependencies {
         // Since 2025.3 Community/Ultimate ship as one distribution (license-tiered), so use intellijIdea(...).
         intellijIdea("2025.3")
         bundledPlugin("com.intellij.java") // Java PSI, for mapping analysis results onto declarations
+        // Platform + Java test fixtures (LightJavaCodeInsightFixtureTestCase etc.) for surface tests.
+        testFramework(TestFrameworkType.Platform)
+        testFramework(TestFrameworkType.Plugin.Java)
     }
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    // The IntelliJ Platform test runtime (PathClassLoader) references JUnit 4's TestRule at startup;
-    // provide it so the Gradle test executor can start, even though our tests use JUnit 5.
-    testRuntimeOnly("junit:junit:4.13.2")
+    // The IntelliJ platform test fixtures are JUnit 4 (LightJavaCodeInsightFixtureTestCase extends
+    // junit.framework.TestCase), needed at compile time; the vintage engine runs them under the JUnit
+    // Platform alongside our JUnit 5 tests.
+    testImplementation("junit:junit:4.13.2")
+    testRuntimeOnly("org.junit.vintage:junit-vintage-engine:6.0.3")
 }
 
 intellijPlatform {
