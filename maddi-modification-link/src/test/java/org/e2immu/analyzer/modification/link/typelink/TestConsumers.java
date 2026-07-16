@@ -119,12 +119,12 @@ public class TestConsumers extends CommonTest {
         VariableData vd2 = VariableDataImpl.of(variableInfoStream2.methodBody().statements().get(2));
         VariableInfo mapped2 = vd2.variableInfo("mapped");
         assertEquals("""
-                mapped.§$s≤this.map.§$$s,mapped.§$s≤filtered.§$$s,mapped.§$s≤stream.§$$s,mapped≈filtered\
+                mapped.§$s≺filtered,mapped.§$s≤this.map.§$$s,mapped.§$s≺filtered.§$$s,mapped.§$s≤stream.§$$s,mapped≈filtered,mapped≈filtered.§$$s\
                 """, mapped2.linkedVariables().toString());
 
         VariableData vd3 = VariableDataImpl.of(variableInfoStream2.methodBody().statements().get(3));
         VariableInfo rv = vd3.variableInfo("a.b.C.VariableData.variableInfoStream2()");
-        assertEquals("variableInfoStream2.§$s∩0:e,variableInfoStream2.§$s≤this.map.§$$s",
+        assertEquals("variableInfoStream2∩0:e,variableInfoStream2.§$s≤this.map.§$$s",
                 rv.linkedVariables().toString());
 
         assertEquals("[] --> variableInfoStream2.§$s≤this.map.§$$s",

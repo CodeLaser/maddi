@@ -4,6 +4,18 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — intermediate virtual spine (gate NOSPINEI); test7 green; link 3 → 2
+
+TestSupplier test7's 'entry.§xy ≺ 0:optional': the deep faces (entry.§xy.§x/§y) had all their
+facts, the MID-LEVEL face had none — because `addField` adds a single 'root ≻ deep-face' hop
+and 'entry.§xy' NEVER MATERIALIZED as a vertex. Fix: chain the spine through intermediate
+VIRTUAL faces ('entry ≻ entry.§xy ≻ entry.§xy.§x'); the direct fact still derives by ≻∘≻.
+First attempt applied to REAL field chains too ('0:s.r.i ≺ 0:s.r' extras on 6 tests) —
+restricted to virtual-only. Fallout: ~7 tests of true-but-unconsumed decorations re-pinned
+(∩/≤/≥ web facts from mid-face bridging: '0:x∩1:y' when two params live in one structure's
+content web; 'map.§vks≥entry.§kv'; TestConsumers' ≤ refined to ≺). Benches NEUTRAL
+(parseq 1600ms — the production cut excludes the bridged ∩/≤/≥ anyway).
+
 ## UPDATE — Stream.generate FIXED (gate NORVSUB); link 4 → 3
 
 The whole chain was already correct: Stream.generate's shallow summary carries

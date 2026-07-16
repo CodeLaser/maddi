@@ -336,7 +336,7 @@ public class TestWriteAnalysis2 extends CommonTest {
 
     private void testLink4(MethodLinkedVariables mlvOne) {
         assertEquals("""
-                [-, -] --> oneInstance.§ksvs.§ks∋0:x,oneInstance.§ksvs.§vs∋1:y\
+                [0:x∩1:y, 1:y∩0:x] --> oneInstance.§ksvs.§ks∋0:x,oneInstance.§ksvs.§ks∩1:y,oneInstance.§ksvs.§vs∩0:x,oneInstance.§ksvs.§vs∋1:y\
                 """, mlvOne.toString());
 
         FieldReference ks = (FieldReference) mlvOne.ofReturnValue().link(0).from();

@@ -78,7 +78,7 @@ public class TestPrefix extends CommonTest {
         VariableInfo viStream1 = vd1.variableInfo("stream1");
         Links tlvStream1 = viStream1.linkedVariablesOrEmpty();
         assertEquals("""
-                stream1.§$s≥0:x,stream1.§$s≥1:y,stream1.§$s∋entry,stream1.§$s≥entry.§xy.§x,stream1.§$s≥entry.§xy.§y\
+                stream1.§$s≥0:x,stream1.§$s≥1:y,stream1.§$s∋entry,stream1.§$s≥entry.§xy.§x,stream1.§$s≥entry.§xy.§y,stream1≥entry.§xy\
                 """, tlvStream1.toString());
 
         MethodLinkedVariables tlvOne = one.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
@@ -136,7 +136,7 @@ public class TestPrefix extends CommonTest {
             }
             """;
 
-    private static final String EXPECTED_34 = "[-, -] --> oneStatic.§xsys.§xs∋0:x,oneStatic.§xsys.§ys∋1:y";
+    private static final String EXPECTED_34 = "[0:x∩1:y, 1:y∩0:x] --> oneStatic.§xsys.§xs∋0:x,oneStatic.§xsys.§xs∩1:y,oneStatic.§xsys.§ys∩0:x,oneStatic.§xsys.§ys∋1:y";
 
     // see also TestShallowPrefix, which computes the shallow version
     @Test
