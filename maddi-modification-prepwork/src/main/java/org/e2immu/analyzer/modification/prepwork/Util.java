@@ -273,7 +273,7 @@ public class Util {
         if (variable instanceof FieldReference fr && fr.scopeVariable() != null) {
             return Stream.concat(variableAndScopes(fr.scopeVariable()), Stream.of(variable));
         }
-        if (variable instanceof DependentVariable dv) {
+        if (variable instanceof DependentVariable dv && dv.arrayVariable() != null) {
             return Stream.concat(variableAndScopes(dv.arrayVariable()), Stream.of(variable));
         }
         return Stream.of(variable);

@@ -4,6 +4,67 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — REAL-WORLD CORPUS PHASE: timefold-solver full-chain (post-kotlin-merge)
+
+CloneBench is flat single-class functions — almost no sub-types/deep record structures, so
+the sv mechanisms barely fire there. New proving ground: `TestTimefoldSolver` +
+`TestLangchain4j` in maddi-run-openjdk (corpora in ~/git/test-oss), rewritten to
+`Main.execute` + exit-code assert + assumeTrue on corpus presence, and lifted from
+`--analysis-steps=prep` to the full `modification` chain.
+
+**Run 1 aborted at startup**: `MethodMapImpl` "Two methods with the same FQN and return
+type" on `AtomicBoolean.get()`. Root cause (traced with a temporary AMTTRACE): with ~13
+source-set scans sharing one InfoByFqn, each scan's javac-symbol dedup maps
+(methodSymbolMap/varSymbolMap, per javac context) cannot recognize members another scan
+already materialized via `ensureMethod` (resolving `solving.get()` in DefaultSolver); the
+lazy member-load at analysis time (`VirtualFieldComputer` → `getOrLoad(AtomicBoolean)`)
+then appended duplicate MethodInfos into the shared builder. FIX: `ClassSymbolScanner`
+dedups against the shared builder CONTENT (`findInBuilder`: name + erased params + erased
+return via the existing `sameTypes`; return included so covariant bridges stay distinct;
+fields by name). CloneBench never hit this: single source set.
+
+**Run 2 completed (fault-tolerant, 13m)**: 3585/53535 elements caught. Categories → fixes:
+- 1565× NPE `isIgnoreModifications`: `Util.variableAndScopes` missing the
+  `dv.arrayVariable() != null` guard (the FieldReference branch and `scopeVariables`
+  directly above both had it) → `Stream.of(null)`.
+- 1379× NPE `"container" is null`: `subFrom.parameterizedType().typeInfo()` null (bare
+  type parameter — nothing to slice into) in `ShallowMethodLinkComputer.transfer`'s
+  SliceFactory calls; `assert theField != null` converted to skip; both `findField`s
+  null-tolerant.
+- 233× index-OOB `VirtualFieldComputer.multipleTypeParameters:179`: the
+  `hiddenContentHierarchy` filter compares type-parameter SETS, so a supertype repeating a
+  type parameter yields a larger-arity container; index-mapping loop now bounded (+
+  `formalContainerType == null` skip). Proper fix = thread the type substitution through
+  the hierarchy walk (open).
+- 82× `Unable to find concrete value` (`VirtualFieldTranslationMapForMethodParameters`):
+  method type parameter unresolvable at call site → findValue returns null, tp left
+  untranslated (was: throw).
+- NPE `Graph.addField` "primary is null" (same null-primary family as the CloneBench
+  guards; expression-based array accesses).
+- 20× `LinkAppliedFunctionalInterface.searchAndExpand` with null variableData (lambda
+  bodies); 4× `contains(null)` in ExpressionVisitor.methodCall's consumedIntoObject filter.
+- 19× bare AssertionError in **NORVM** `returnSideModificationCompanions`:
+  `addModificationFieldEquivalence` can produce a §m face whose scope is itself virtual
+  (bavet deep-generic lambdas) — companion skipped via `validCompanionFace` (mirrors
+  LinkImpl's doNotStackMOnTopOfVirtualField, which now has assert MESSAGES).
+- 165× property-overwrite crashes (`unmodifiedVariable/Parameter` true→false,
+  `@FinalFields`→`@Mutable`, 2× METHOD_LINKS value): premature optimistic conclusions on
+  call cycles contradicted in iteration 2; the controlled-overwrite policy only allows
+  strengthening. New `TolerantWrite` (maddi-modification-common) keeps the stronger value +
+  WARNs instead of crashing the element (which lost the whole element AND kept the stale
+  value — strictly worse). **OPEN DESIGN QUESTION**: should the iterating analyzer allow
+  the weakening direction for evidence-accumulating properties (UNMODIFIED_*,
+  NON_MODIFYING_METHOD, IMMUTABLE_TYPE), making 'modified'/@Mutable absorbing? Changes
+  verdicts — user call. (Process note: TolerantWrite's first version passed a null default
+  to getOrDefault, which asserts non-null — 280 suite failures; use haveAnalyzedValueFor.)
+- 51× sv `"same equivalence group"` assert (`Graph.mergeEdgeBi` sv==null branch), all from
+  ONE real shape: `ValueSelectorFactory.buildValueSelector` (locals repeatedly reassigned
+  through wrapper methods that conditionally reassign their own parameter, if/else
+  both-branch reassignment, multi-return; reached via on-demand recursion from ~50 callers
+  — hence 50 reports for one method). `TestChainedReassignment` (5 shapes incl. the full
+  structure) does NOT repro — assert enriched with nature/stmt/graph/groups dump to pin
+  the real trigger on the next corpus run. OPEN.
+
 ## UPDATE — CLONEBENCH GREEN: 9306 types in ~23s analysis; giant-switch hang fixed 583s → 13s
 
 TestCloneBench (the full corpus, 16 directories, previously always skipped) now runs

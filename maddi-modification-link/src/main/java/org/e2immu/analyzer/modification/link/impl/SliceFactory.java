@@ -32,6 +32,7 @@ public class SliceFactory {
     }
 
     public static FF findField(TypeParameter typeParameter, TypeInfo container) {
+        if (container == null) return null; // e.g. the type is a bare type parameter: no container, no fields
         int i = 0;
         for (FieldInfo fieldInfo : container.fields()) {
             if (typeParameter.equals(fieldInfo.type().typeParameter())) {
@@ -43,6 +44,7 @@ public class SliceFactory {
     }
 
     public static FF findField(ParameterizedType parameterizedType, TypeInfo container) {
+        if (container == null) return null; // e.g. the type is a bare type parameter: no container, no fields
         int i = 0;
         for (FieldInfo fieldInfo : container.fields()) {
             if (parameterizedType.equals(fieldInfo.type())) {

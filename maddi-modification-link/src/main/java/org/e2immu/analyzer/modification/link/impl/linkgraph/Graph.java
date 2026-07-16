@@ -321,7 +321,10 @@ public class Graph {
             Set<Variable> toInGraph = isKnownInGraph(to);
             if (sv == null) {
                 assert fromInGraph.isEmpty() && toInGraph.isEmpty()
-                        : from + " and " + to + " should already have been removed; they're in the same equivalance group";
+                        : from + " and " + to + " should already have been removed; they're in the same equivalance group"
+                          + " [nature " + linkNature + ", stmt " + statementIndex
+                          + ", fromInGraph " + fromInGraph + ", toInGraph " + toInGraph
+                          + ", groups " + cap(sharedVariables.print(Object::toString)) + "]";
                 return false;
             }
             if (!fromInGraph.isEmpty()) {
@@ -347,6 +350,10 @@ public class Graph {
             return engine.addVertex(tFrom);
         }
         return engine.addSymmetricEdge(tFrom, tTo, linkNature, statementIndex) > 0;
+    }
+
+    private static String cap(String s) {
+        return s.length() <= 3000 ? s : s.substring(0, 3000) + "... (" + s.length() + " chars)";
     }
 
     private Set<Variable> isKnownInGraph(Variable variable) {
@@ -458,6 +465,7 @@ public class Graph {
     }
 
     boolean addField(Variable from, Variable primary, String statementIndex) {
+        if (primary == null) return false; // e.g. an array access on an expression base: no primary
         if (!from.equals(primary) && !(primary instanceof This)
             && from instanceof FieldReference fr && primary.equals(fieldScopeRoot(from))) {
             // intermediate spine (gate NOSPINEI): a DEEP face 'entry.§xy.§x' also materializes the mid-level

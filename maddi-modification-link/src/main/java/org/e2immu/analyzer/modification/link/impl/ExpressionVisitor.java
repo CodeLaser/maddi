@@ -736,7 +736,10 @@ public record ExpressionVisitor(Runtime runtime,
                 .map(Util::primary).filter(Objects::nonNull).collect(Collectors.toUnmodifiableSet());
         Set<Variable> objectModified = object.modified().keySet().stream()
                 .filter(v -> !(Util.primary(v) instanceof LinkVariable))
-                .filter(v -> !consumedIntoObject.contains(Util.primary(v)))
+                .filter(v -> {
+                    Variable p = Util.primary(v); // null (expression-based array access) cannot be consumed
+                    return p == null || !consumedIntoObject.contains(p);
+                })
                 .collect(Collectors.toUnmodifiableSet());
         return r.addModified(modified, mc.methodInfo())
                 .addModified(extraModified, null)

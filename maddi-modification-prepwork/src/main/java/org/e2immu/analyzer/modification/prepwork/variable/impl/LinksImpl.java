@@ -263,9 +263,10 @@ public class LinksImpl implements Links {
             assert from != null;
             assert to != null;
             assert linkNature != null;
-            assert doNotStackMOnTopOfVirtualField(from);
-            assert doNotStackMOnTopOfVirtualField(to);
-            assert Util.isVirtualModification(from) == Util.isVirtualModification(to);
+            assert doNotStackMOnTopOfVirtualField(from) : "§m stacked on virtual field: " + from;
+            assert doNotStackMOnTopOfVirtualField(to) : "§m stacked on virtual field: " + to;
+            assert Util.isVirtualModification(from) == Util.isVirtualModification(to)
+                    : "mixed §m/non-§m link: " + from + " " + linkNature + " " + to;
         }
 
         private static boolean doNotStackMOnTopOfVirtualField(Variable v) {

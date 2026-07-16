@@ -18,6 +18,7 @@ import org.e2immu.analyzer.modification.analyzer.CycleBreakingStrategy;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.TypeImmutableAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -53,7 +54,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         Independent independent = typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT);
         Immutable immutable = computeImmutableType(typeInfo, independent, activateCycleBreaking);
         if (immutable != null) {
-            if (typeInfo.analysis().setAllowControlledOverwrite(IMMUTABLE_TYPE, immutable)) {
+            if (TolerantWrite.setAllowControlledOverwrite(typeInfo.analysis(), IMMUTABLE_TYPE, immutable, typeInfo)) {
                 DECIDE.debug("TI: Decide immutable of type {} = {}", typeInfo, immutable);
                 propertyChanges.incrementAndGet();
             }
