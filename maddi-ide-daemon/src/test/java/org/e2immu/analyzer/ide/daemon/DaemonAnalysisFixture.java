@@ -60,4 +60,13 @@ public final class DaemonAnalysisFixture {
     public static Optional<DaemonProtocol.Finding> finding(DaemonProtocol.Result result, String category) {
         return result.findings().stream().filter(f -> category.equals(f.category())).findFirst();
     }
+
+    /** The tagged annotations of every element of {@code kind} whose fqn contains {@code fqnPart}. */
+    public static List<DaemonProtocol.Annotation> annotationsFor(DaemonProtocol.Result result, String kind,
+                                                                 String fqnPart) {
+        return result.elementAnnotations().stream()
+                .filter(e -> kind.equals(e.kind()) && e.fqn() != null && e.fqn().contains(fqnPart))
+                .flatMap(e -> e.annotations().stream())
+                .toList();
+    }
 }

@@ -60,9 +60,11 @@ public class MaddiSurfaceTest extends LightJavaCodeInsightFixtureTestCase {
         // Outer's range spans the whole class (contains Inner); Inner has its own smaller range. Outer is
         // listed first, so a naive first-containing-match would wrongly give Inner the outer's @Container.
         AnalysisModel.ElementAnnotation outer = new AnalysisModel.ElementAnnotation(
-                path, 1, 1, 3, 1, "TYPE", "Outer", List.of("@Container"), Map.of());
+                path, 1, 1, 3, 1, "TYPE", "Outer", List.of("@Container"),
+                List.of(new AnalysisModel.Annotation("@Container", "POSITIVE", false)), Map.of());
         AnalysisModel.ElementAnnotation inner = new AnalysisModel.ElementAnnotation(
-                path, 2, 5, 2, 40, "TYPE", "Outer.Inner", List.of("@Immutable"), Map.of());
+                path, 2, 5, 2, 40, "TYPE", "Outer.Inner", List.of("@Immutable"),
+                List.of(new AnalysisModel.Annotation("@Immutable", "POSITIVE", false)), Map.of());
         service().applyResult(result(List.of(), List.of(outer, inner)));
 
         List<String> tooltips = myFixture.findGuttersAtCaret().stream()

@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.e2immu.analyzer.ide.daemon.DaemonAnalysisFixture.analyze;
+import static org.e2immu.analyzer.ide.daemon.DaemonAnalysisFixture.annotationsFor;
 import static org.e2immu.analyzer.ide.daemon.DaemonAnalysisFixture.displayFor;
 import static org.e2immu.analyzer.ide.daemon.DaemonAnalysisFixture.finding;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -70,6 +71,18 @@ public class WarmAnalysisServiceTest {
                 "the contracted interface should show a container annotation");
         assertTrue(displayFor(r, "PARAMETER", "add").contains("@Modified"),
                 "the modified argument (BadImpl.add) should be rendered @Modified");
+
+        // the modified parameter is a NEGATIVE annotation that is NOT a context default (always worth showing)
+        DaemonProtocol.Annotation modified = annotationsFor(r, "PARAMETER", "BadImpl.add").stream()
+                .filter(a -> a.text().equals("@Modified")).findFirst().orElseThrow();
+        assertEquals("NEGATIVE", modified.polarity());
+        assertFalse(modified.contextDefault());
+
+        // the @Container interface's @NotModified param is POSITIVE and a context default (implied by @Container)
+        DaemonProtocol.Annotation notModified = annotationsFor(r, "PARAMETER", "HasAdd.add").stream()
+                .filter(a -> a.text().equals("@NotModified")).findFirst().orElseThrow();
+        assertEquals("POSITIVE", notModified.polarity());
+        assertTrue(notModified.contextDefault());
     }
 
     /** JDK hints are preloaded and make library-dependent analysis correct (List.size() is @NotModified). */

@@ -41,7 +41,7 @@ public final class MaddiSettings implements PersistentStateComponent<MaddiSettin
         public int daemonXmxMb = 4096;
         public boolean autoAnalyzeOnBuild = true;
         public boolean showGuardFindings = true;
-        public boolean showInlayHints = true;
+        public InlineHintsMode inlineHintsMode = InlineHintsMode.HIDE_CONTEXT_DEFAULTS;
         public boolean showGutterIcons = true;
     }
 
