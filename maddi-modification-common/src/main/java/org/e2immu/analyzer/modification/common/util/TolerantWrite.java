@@ -44,6 +44,20 @@ public final class TolerantWrite {
         CHANGES.computeIfAbsent(key, _ -> new java.util.concurrent.atomic.LongAdder()).increment();
     }
 
+    /**
+     * Write-once {@code set()} with the same diagnosis/worklist bookkeeping as the controlled-overwrite path.
+     * Without target attribution here, the worklist missed dependents of the abstract-method batch's decisions
+     * (run13: 138 verdicts more conservative than the full-re-analysis baseline).
+     */
+    public static <V extends Value> void setOnce(PropertyValueMap analysis, Property property, V value,
+                                                 Object context) {
+        analysis.set(property, value);
+        CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder()).increment();
+        if (context != null && !(context instanceof String) && !INTERNAL_PROPERTIES.contains(property.key())) {
+            CHANGED_TARGETS.add(context);
+        }
+    }
+
     // element-INTERNAL (statement-level) properties: their changes are invisible to dependents and must not
     // propagate through the worklist (a ParameterInfo context can reach here via UNMODIFIED_VARIABLE)
     private static final java.util.Set<String> INTERNAL_PROPERTIES =

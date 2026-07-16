@@ -4,6 +4,31 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — WORKLIST NARROWING (runs 11-20): 53.5min → 15min, true convergence; naming instability is the last blocker
+
+Gate WORKLIST=1 (+ NOPLATEAU=1 for A/B): iterations 2+ re-analyze only changed elements +
+dependents. Verdict-exactness chased via per-element FPDUMP diffs against the 53.5-min
+full baseline (run17):
+- v1 (any change propagates): 30min, plateaued ~10k dirty.
+- v2 (only summary changes propagate; internal statement-level changes stay local): 14.7
+  min, TRUE convergence (done==0, first ever) — but 138 verdicts conservative.
+- +self in dirty set (self-recursive methods need their own summary): 138 → ~77.
+- +override edges bidirectional (AbstractMethodAnalyzer derives the ABSTRACT method's
+  verdicts FROM implementations — the graph edge runs the other way): 77 → 37.
+- +full SYMMETRIC reverse adjacency (FieldAnalyzer reads referring methods, same story):
+  37 → 37 fields fixed, abstract-test cluster remains.
+- +verify-certify loop (worklist dry → one FULL pass; 0 changes = machine-checked
+  fixpoint, else resume): verdict diff → 2 elements (4 lines), but certification cannot
+  terminate: the full pass finds ~5,815 changes on a SETTLED state.
+**Root cause of the 5,815 (and the baseline's own never-converging methodLinks trickle):
+synthetic-variable NAMING instability.** LinksImpl.equals compares only the primary, so
+the churn comes through the modified sets — which contain $__rvN/$__svN synthetics
+numbered by a GLOBAL per-iteration counter. A worklist subset shifts every number;
+summaries spuriously compare unequal; dirty sets inflate; certification can't see a clean
+pass. FIX (next): per-method-deterministic numbering (pinned suite strings contain $__rvN
+→ mechanical re-pins). Until then WORKLIST stays opt-in: 15 min with 37 conservative
+verdicts (0.07%), or ~20 min with 2, vs 53.5 min baseline.
+
 ## UPDATE — LANGCHAIN4J GREEN (run2: exit 0, ZERO caught, 36m22s, plateau at iteration 5)
 
 Both real-world corpora (timefold-solver, langchain4j) now pass the full modification

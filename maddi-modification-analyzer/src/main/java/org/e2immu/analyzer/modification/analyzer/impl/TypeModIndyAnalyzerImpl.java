@@ -361,11 +361,11 @@ normal methods: does a modification to the return value imply any modification i
        /*   FIXME   Map<ParameterInfo, StaticValues> svMapParameters = collectReverseFromNonFinalFieldsToParameters(typeInfo);
             svMapParameters.forEach((pi, sv) -> {
                 if (!pi.analysis().haveAnalyzedValueFor(STATIC_VALUES_PARAMETER)) {
-                    pi.analysis().set(STATIC_VALUES_PARAMETER, sv);
+                    TolerantWrite.setOnce(pi.analysis(), STATIC_VALUES_PARAMETER, sv, pi);
                 }
                 if (sv.expression() instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr && fr.scopeIsThis()) {
                     if (!pi.analysis().haveAnalyzedValueFor(PARAMETER_ASSIGNED_TO_FIELD)) {
-                        pi.analysis().set(PARAMETER_ASSIGNED_TO_FIELD, new ValueImpl.AssignedToFieldImpl(Set.of(fr.fieldInfo())));
+                        TolerantWrite.setOnce(pi.analysis(), PARAMETER_ASSIGNED_TO_FIELD, new ValueImpl.AssignedToFieldImpl(Set.of(fr.fieldInfo())), pi);
                     }
                 }
             });
