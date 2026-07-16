@@ -35,7 +35,7 @@ public final class MaddiDaemonProcess implements Closeable {
     private DaemonClient client;
 
     /** Ensure a warm daemon is running on {@code jdkHome}; (re)launch + handshake if needed. */
-    public synchronized void ensureStarted(Path installDir, Path jdkHome, int xmxMb)
+    public synchronized void ensureStarted(Path installDir, Path jdkHome, int xmxMb, Path logFile)
             throws IOException, InterruptedException {
         if (handle != null && handle.process().isAlive() && client != null) return;
         closeQuietly();
@@ -44,7 +44,7 @@ public final class MaddiDaemonProcess implements Closeable {
             jvmArgs.add("-Xmx" + xmxMb + "m");
             jvmArgs.add("-XX:+UseG1GC");
         }
-        handle = launcher.launch(installDir, jdkHome, jvmArgs, 60_000);
+        handle = launcher.launch(installDir, jdkHome, jvmArgs, 60_000, logFile);
         client = new DaemonClient(handle.port(), 600_000); // heartbeats keep long analyses alive
         JsonNode ack = client.handshake(PROTOCOL_VERSION);
         if (!"handshakeAck".equals(ack.path("type").asText())) {

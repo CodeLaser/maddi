@@ -15,12 +15,16 @@
 package org.e2immu.analyzer.ide.plugin.daemon;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -55,8 +59,9 @@ public final class DaemonLauncher {
      * @param jdkHome     JDK 25+ home to run the daemon on; {@code null} uses the launcher script default (PATH/JAVA_HOME)
      * @param jvmArgs     extra JVM args (e.g. {@code -Xmx8g}); may be empty
      * @param startTimeoutMillis how long to wait for the {@code DAEMON_PORT=} line
+     * @param logFile     file to tee the daemon's stdout/stderr into (appended); {@code null} discards it
      */
-    public Handle launch(Path installDir, Path jdkHome, List<String> jvmArgs, long startTimeoutMillis)
+    public Handle launch(Path installDir, Path jdkHome, List<String> jvmArgs, long startTimeoutMillis, Path logFile)
             throws IOException, InterruptedException {
         Path launcher = launcherScript(installDir);
         List<String> command = new ArrayList<>();
@@ -76,6 +81,7 @@ public final class DaemonLauncher {
         }
 
         Process process = pb.start();
+        Writer log = openLog(logFile);
         BufferedReader stdout = new BufferedReader(
                 new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
 
@@ -84,6 +90,7 @@ public final class DaemonLauncher {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(startTimeoutMillis);
         String line;
         while (System.nanoTime() < deadline && (line = stdout.readLine()) != null) {
+            appendLog(log, line);
             Matcher pm = PORT_LINE.matcher(line);
             if (pm.find()) {
                 port = Integer.parseInt(pm.group(1));
@@ -94,10 +101,11 @@ public final class DaemonLauncher {
         }
         if (port < 0) {
             process.destroyForcibly();
+            if (log != null) closeQuietly(log);
             throw new IOException("daemon did not announce DAEMON_PORT within " + startTimeoutMillis + "ms");
         }
         // keep draining stdout so the process never blocks on a full pipe (daemon logs there)
-        drainInBackground(stdout);
+        drainInBackground(stdout, log);
         return new Handle(process, port, pid);
     }
 
@@ -111,15 +119,49 @@ public final class DaemonLauncher {
         return script;
     }
 
-    private static void drainInBackground(BufferedReader stdout) {
+    private static void drainInBackground(BufferedReader stdout, Writer log) {
         Thread t = new Thread(() -> {
             try {
-                while (stdout.readLine() != null) { /* discard daemon log noise */ }
+                String line;
+                while ((line = stdout.readLine()) != null) appendLog(log, line);
             } catch (IOException ignored) {
                 // process ended
+            } finally {
+                if (log != null) closeQuietly(log);
             }
         }, "maddi-daemon-stdout-drain");
         t.setDaemon(true);
         t.start();
+    }
+
+    private static Writer openLog(Path logFile) {
+        if (logFile == null) return null;
+        try {
+            if (logFile.getParent() != null) Files.createDirectories(logFile.getParent());
+            return new BufferedWriter(new OutputStreamWriter(
+                    Files.newOutputStream(logFile, StandardOpenOption.CREATE, StandardOpenOption.APPEND),
+                    StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            return null; // logging is best-effort; never block the daemon on it
+        }
+    }
+
+    private static void appendLog(Writer log, String line) {
+        if (log == null) return;
+        try {
+            log.write(line);
+            log.write('\n');
+            log.flush();
+        } catch (IOException ignored) {
+            // best-effort
+        }
+    }
+
+    private static void closeQuietly(Writer log) {
+        try {
+            log.close();
+        } catch (IOException ignored) {
+            // ignore
+        }
     }
 }

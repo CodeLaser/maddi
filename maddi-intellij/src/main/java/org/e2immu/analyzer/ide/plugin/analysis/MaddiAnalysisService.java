@@ -22,6 +22,7 @@ import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
@@ -107,7 +108,8 @@ public final class MaddiAnalysisService implements Disposable {
             return;
         }
         indicator.setText("maddi: starting daemon");
-        daemon.ensureStarted(resolveInstallDir(settings), Path.of(jdkHome), settings.daemonXmxMb);
+        Path logFile = Path.of(PathManager.getLogPath(), "maddi-daemon.log");
+        daemon.ensureStarted(resolveInstallDir(settings), Path.of(jdkHome), settings.daemonXmxMb, logFile);
 
         indicator.setText("maddi: building configuration");
         String resolvedJdkHome = jdkHome;

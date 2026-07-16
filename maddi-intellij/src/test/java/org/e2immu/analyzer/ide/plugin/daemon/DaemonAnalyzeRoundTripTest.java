@@ -79,7 +79,8 @@ public class DaemonAnalyzeRoundTripTest {
                 false);
 
         DaemonLauncher launcher = new DaemonLauncher();
-        try (DaemonLauncher.Handle handle = launcher.launch(installDir, Path.of(jdkHome), List.of(), 30_000);
+        Path logFile = projectDir.resolve("daemon.log");
+        try (DaemonLauncher.Handle handle = launcher.launch(installDir, Path.of(jdkHome), List.of(), 30_000, logFile);
              DaemonClient client = new DaemonClient(handle.port(), 120_000)) {
 
             assertEquals("handshakeAck", client.handshake(1).path("type").asText());
@@ -108,5 +109,8 @@ public class DaemonAnalyzeRoundTripTest {
 
             client.shutdown();
         }
+
+        // the daemon's stdout/stderr was teed to the log file
+        assertTrue(Files.exists(logFile) && Files.size(logFile) > 0, "daemon log file should be written");
     }
 }

@@ -39,7 +39,7 @@ public class DaemonLaunchTest {
 
         DaemonLauncher launcher = new DaemonLauncher();
         // jdkHome=null: use the launcher's default java (the Gradle daemon JVM is 25+ here)
-        try (DaemonLauncher.Handle handle = launcher.launch(installDir, null, List.of(), 30_000);
+        try (DaemonLauncher.Handle handle = launcher.launch(installDir, null, List.of(), 30_000, null);
              DaemonClient client = new DaemonClient(handle.port(), 5_000)) {
 
             JsonNode ack = client.handshake(1);
