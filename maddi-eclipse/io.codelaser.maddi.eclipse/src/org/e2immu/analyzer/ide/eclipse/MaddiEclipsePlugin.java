@@ -15,6 +15,8 @@
 package org.e2immu.analyzer.ide.eclipse;
 
 import org.e2immu.analyzer.ide.client.MaddiDaemonProcess;
+import org.eclipse.core.resources.IResourceChangeEvent;
+import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
@@ -32,15 +34,20 @@ public class MaddiEclipsePlugin extends AbstractUIPlugin {
 
     private static MaddiEclipsePlugin instance;
     private final MaddiDaemonProcess daemon = new MaddiDaemonProcess();
+    private final MaddiBuildListener buildListener = new MaddiBuildListener();
 
     @Override
     public void start(BundleContext context) throws Exception {
         super.start(context);
         instance = this;
+        // Always listen; the listener itself checks the auto-analyze preference, so toggling it needs no
+        // re-registration and costs nothing while off.
+        ResourcesPlugin.getWorkspace().addResourceChangeListener(buildListener, IResourceChangeEvent.POST_BUILD);
     }
 
     @Override
     public void stop(BundleContext context) throws Exception {
+        ResourcesPlugin.getWorkspace().removeResourceChangeListener(buildListener);
         daemon.close();
         instance = null;
         super.stop(context);

@@ -24,5 +24,7 @@ public class MaddiPreferenceInitializer extends AbstractPreferenceInitializer {
     public void initializeDefaultPreferences() {
         IPreferenceStore store = MaddiEclipsePlugin.get().getPreferenceStore();
         store.setDefault(MaddiPreferences.DAEMON_XMX_MB, MaddiPreferences.DEFAULT_XMX_MB);
+        store.setDefault(MaddiPreferences.HINT_FILTER, MaddiPreferences.DEFAULT_HINT_FILTER.name());
+        store.setDefault(MaddiPreferences.AUTO_ANALYZE_ON_BUILD, false);
     }
 }
