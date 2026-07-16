@@ -242,14 +242,14 @@ public class TestLinkMethodCall extends CommonTest {
     @DisplayName("returning an array element: return value links to the element and is an element of the array")
     @Test
     public void arrayElement() {
-        assertEquals("[-] --> arrayElement←0:boxes[0],arrayElement∈0:boxes", link("arrayElement"));
+        assertEquals("[-] --> arrayElement∈0:boxes,arrayElement←0:boxes[0]", link("arrayElement"));
     }
 
     @DisplayName("returning a two-dimensional array element: nested element-of links to the array")
     @Test
     public void grid2dElement() {
         assertEquals("[0:grid[0][0]∈0:grid[0]] -->"
-                     + " grid2dElement←0:grid[0][0],grid2dElement∈0:grid[0],grid2dElement∈∈0:grid",
+                     + " grid2dElement∈∈0:grid,grid2dElement∈0:grid[0],grid2dElement←0:grid[0][0]",
                 link("grid2dElement"));
     }
 
@@ -300,7 +300,7 @@ public class TestLinkMethodCall extends CommonTest {
     @DisplayName("mutator whose argument is a holder: the argument's field flows into the object's field")
     @Test
     public void copyFrom() {
-        assertEquals("[0:dst*.t←1:src.t*, 1:src.t*→0:dst*.t] --> -", link("copyFrom"));
+        assertEquals("[0:dst*.t←1:src.t*,0:dst*≈1:src*, 1:src.t*→0:dst*.t,1:src*≈0:dst*] --> -", link("copyFrom"));
         assertEquals("a.b.C.copyFrom(a.b.C.Box,a.b.C.Box):0:dst, a.b.C.copyFrom(a.b.C.Box,a.b.C.Box):1:src, src.t",
                 modified("copyFrom"));
     }
@@ -359,7 +359,7 @@ public class TestLinkMethodCall extends CommonTest {
     @DisplayName("static call: a field flows from one argument to another (links between parameters)")
     @Test
     public void transfer() {
-        assertEquals("[0:from.t*→1:to*.t, 1:to*.t←0:from.t*] --> -", link("transfer"));
+        assertEquals("[0:from.t*→1:to*.t,0:from*≈1:to*, 1:to*.t←0:from.t*,1:to*≈0:from*] --> -", link("transfer"));
         assertEquals("a.b.C.transfer(a.b.C.Box,a.b.C.Box):0:from, a.b.C.transfer(a.b.C.Box,a.b.C.Box):1:to, from.t",
                 modified("transfer"));
     }

@@ -455,15 +455,24 @@ public class ScanCompilationUnits {
      * Load ONE compiled type by its fully-qualified (canonical) name on demand, reusing this scan's javac task
      * (whose {@code Elements} resolves+completes classpath symbols lazily, exactly as {@link #preload} does per
      * type). Backs the CompiledTypesManager's lazy {@code getOrLoad}, so a type first referenced by another
-     * front-end (e.g. Kotlin) resolves to the same bytecode-authoritative TypeInfo. Returns null when the type
-     * is not on the classpath, is not a primary (package-owned) type, or fails to complete. Single-threaded,
-     * like all javac use here.
+     * front-end (e.g. Kotlin) resolves to the same bytecode-authoritative TypeInfo. Returns null when the type's
+     * module is not among the configured class-path parts, when it is not a primary (package-owned) type, or when
+     * it fails to complete. Single-threaded, like all javac use here.
      */
     public TypeInfo loadCompiledTypeOrNull(String fullyQualifiedName) {
         try {
             TypeElement te = task.getElements().getTypeElement(fullyQualifiedName);
             if (!(te instanceof Symbol.ClassSymbol cs)) return null;
             cs.complete();
+            /*
+            javac resolves against the whole platform, so without this every JDK type would load, whatever the
+            configured class path -- and callers that use a null to mean "this module is absent" would never see one.
+            LoadAnalysisResults is one: it skips the analysis hints of a type that does not resolve, which is what
+            keeps swing/awt/http hints out of a run that never asked for java.desktop.
+            The check is before the nested-type branch on purpose: findModule walks up to the primary type, so a
+            nested type's module is its top-level type's, and answering here saves the recursion.
+             */
+            if (!classSymbolScanner.moduleOnClassPath(cs)) return null;
             if (!(cs.owner instanceof Symbol.PackageSymbol)) {
                 // a nested type (e.g. java.util.Map.Entry, io.codelaser...Try.TryData): it is loaded as part of its
                 // enclosing type, not on its own. Load the top-level enclosing type -- which registers all nested

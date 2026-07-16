@@ -87,16 +87,16 @@ public class TestCollectorSpec extends CommonTest {
     @DisplayName("collect(toList()): the result's elements are a subset of the stream's (parity with stream().toList())")
     @Test
     public void toList() {
-        assertEquals("[-] --> toList.§xs⊆0:in.§xs", link("toList"));
-        assertEquals("[-] --> toListDirect.§xs⊆0:in.§xs", link("toListDirect"));
+        assertEquals("[-] --> toList.§m←0:in.§m,toList.§xs⊆0:in.§xs", link("toList"));
+        assertEquals("[-] --> toListDirect.§m←0:in.§m,toListDirect.§xs⊆0:in.§xs", link("toListDirect"));
     }
 
     @DisplayName("collect(toSet()) / toCollection(ArrayList::new) / toUnmodifiableList(): same accumulating shape")
     @Test
     public void toSetCollUnmod() {
-        assertEquals("[-] --> toSet.§xs⊆0:in.§xs", link("toSet"));
-        assertEquals("[-] --> toColl.§xs⊆0:in.§xs", link("toColl"));
-        assertEquals("[-] --> toUnmod.§xs⊆0:in.§xs", link("toUnmod"));
+        assertEquals("[-] --> toSet.§m←0:in.§m,toSet.§xs⊆0:in.§xs", link("toSet"));
+        assertEquals("[-] --> toColl.§m←0:in.§m,toColl.§xs⊆0:in.§xs", link("toColl"));
+        assertEquals("[-] --> toUnmod.§m←0:in.§m,toUnmod.§xs⊆0:in.§xs", link("toUnmod"));
     }
 
     // ---- identity / concrete-key map collectors -------------------------------------------------------------
@@ -104,13 +104,13 @@ public class TestCollectorSpec extends CommonTest {
     @DisplayName("collect(toMap(x->x, x->x)): keys and values are the elements, so the map's content ⊆ the stream's")
     @Test
     public void toMapIdentity() {
-        assertEquals("[-] --> toMapId.§xxs⊆0:in.§xs", link("toMapId"));
+        assertEquals("[-] --> toMapId.§m←0:in.§m,toMapId.§xxs⊆0:in.§xs", link("toMapId"));
     }
 
     @DisplayName("collect(groupingBy(x->x)): keys and (list) values derive from the elements")
     @Test
     public void groupingByIdentity() {
-        assertEquals("[-] --> groupId.§xxss⊆0:in.§xs", link("groupId"));
+        assertEquals("[-] --> groupId.§m←0:in.§m,groupId.§xxss⊆0:in.§xs", link("groupId"));
     }
 
     // ---- Tier 3: scalar/reducing collectors (must stay empty) ----------------------------------------------

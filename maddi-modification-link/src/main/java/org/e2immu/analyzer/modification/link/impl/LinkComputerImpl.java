@@ -2,9 +2,11 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.common.defaults.ShallowMethodAnalyzer;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.impl.graph.FollowGraph;
-import org.e2immu.analyzer.modification.link.impl.graph.LinkGraph;
-import org.e2immu.analyzer.modification.link.impl.graph.Timer;
+import org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine;
+import org.e2immu.analyzer.modification.link.impl.linkgraph.FollowGraph;
+import org.e2immu.analyzer.modification.link.impl.linkgraph.Graph;
+import org.e2immu.analyzer.modification.link.impl.linkgraph.LinkGraph;
+import org.e2immu.analyzer.modification.link.impl.linkgraph.MakeGraph;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.impl.translate.TranslateConstants;
@@ -26,10 +28,7 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.*;
 import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.LocalVariable;
-import org.e2immu.language.cst.api.variable.This;
-import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.api.variable.*;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -94,43 +93,47 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
     }
 
+    public interface TestVisitor {
+        void visit(String statementIndex, Graph graph);
+    }
+
     private final Options options;
     private final JavaInspector javaInspector;
     private final RecursionPrevention recursionPrevention;
     private final ShallowMethodLinkComputer shallowMethodLinkComputer;
-    private final LinkGraph linkGraph;
-    private final WriteLinksAndModification writeLinksAndModification;
+
     private final ShallowMethodAnalyzer shallowMethodAnalyzer;
     private final AtomicInteger propertiesChanged;
     private final AtomicInteger variableCounter = new AtomicInteger();
     private final AtomicInteger countSourceMethods = new AtomicInteger();
     private final VirtualFieldComputer virtualFieldComputer;
-    private final FollowGraph followGraph;
-    private final Timer timer = new Timer();
+    private final TestVisitor testVisitor;
 
     // for testing
     public LinkComputerImpl(JavaInspector javaInspector) {
-        this(javaInspector, Options.TEST, new AtomicInteger());
+        this(javaInspector, Options.TEST, new AtomicInteger(), null);
+    }
+
+    // for testing
+    public LinkComputerImpl(JavaInspector javaInspector, TestVisitor testVisitor) {
+        this(javaInspector, Options.TEST, new AtomicInteger(), testVisitor);
     }
 
     // for testing
     public LinkComputerImpl(JavaInspector javaInspector, Options options) {
-        this(javaInspector, options, new AtomicInteger());
+        this(javaInspector, options, new AtomicInteger(), null);
     }
 
-    public LinkComputerImpl(JavaInspector javaInspector, Options options, AtomicInteger propertiesChanged) {
+    public LinkComputerImpl(JavaInspector javaInspector, Options options, AtomicInteger propertiesChanged,
+                            TestVisitor testVisitor) {
         this.recursionPrevention = new RecursionPrevention(options.recurse());
         this.javaInspector = javaInspector;
         this.options = options;
         this.virtualFieldComputer = new VirtualFieldComputer(javaInspector);
         this.shallowMethodLinkComputer = new ShallowMethodLinkComputer(javaInspector.runtime(), virtualFieldComputer);
-        this.followGraph = new FollowGraph(timer);
-        this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime(), options.checkDuplicateNames(), timer,
-                followGraph);
-        this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, virtualFieldComputer, timer,
-                followGraph);
         this.shallowMethodAnalyzer = new ShallowMethodAnalyzer(javaInspector.runtime(), Element::annotations);
         this.propertiesChanged = propertiesChanged;
+        this.testVisitor = testVisitor;
     }
 
     @Override
@@ -237,6 +240,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         final Variable returnVariable;
         final Set<Variable> modificationsOutsideVariableData = new HashSet<>();
         final Stack<Links.Builder> yieldStack = new Stack<>();
+        final LinkGraph linkGraph;
+        final WriteLinksAndModification writeLinksAndModification;
+        final FollowGraph followGraph;
 
         public SourceMethodComputer(MethodInfo methodInfo) {
             this.methodInfo = methodInfo;
@@ -245,6 +251,28 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     LinkComputerImpl.this, this, methodInfo, recursionPrevention,
                     variableCounter);
             this.returnVariable = methodInfo.hasReturnValue() ? new ReturnVariableImpl(methodInfo) : null;
+
+            // see Options.objectGraphLinks: the coarse ∩/≤/≥ web is not consumed by linking's applications and
+            // is quadratic on deep structures; PRODUCTION excludes those labels from the closure entirely
+            java.util.function.Predicate<LinkNature> valid = options.objectGraphLinks()
+                    ? LinkNature::valid
+                    : ln -> ln.valid() && ln != LinkNatureImpl.OBJECT_GRAPH_OVERLAPS
+                            && ln != LinkNatureImpl.IS_IN_OBJECT_GRAPH && ln != LinkNatureImpl.OBJECT_GRAPH_CONTAINS;
+            IncrementalFixpointEngine<Variable, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine,
+                    LinkNature::best, valid, LinkNature::score, LinkNature::reverse,
+                    LinkGraph::vertexPrinter, Variable::compareTo,
+                    // composite facts must not TARGET a return variable (feature #9) nor an opaque someValue
+                    // marker ('add[0] ∈ $_v' — a fresh unanalyzable value takes no derived content facts;
+                    // the direct 'add ← $_v' edge itself stays)
+                    v -> !(v instanceof ReturnVariable)
+                         && (System.getenv("NOACM") != null
+                             || !(v instanceof MarkerVariable mv && mv.isSomeValue())));
+            Graph graph = new Graph(javaInspector.runtime(), engine);
+            this.followGraph = new FollowGraph(graph);
+            MakeGraph makeGraph = new MakeGraph(javaInspector, javaInspector.runtime(), graph);
+            this.linkGraph = new LinkGraph(javaInspector.runtime(), options.checkDuplicateNames(), graph, makeGraph);
+            this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, virtualFieldComputer,
+                    followGraph);
         }
 
         // both methods called from ExpressionVisitor.evaluateSwitchEntry
@@ -274,7 +302,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                                 Expression constant = tc.get(l.to());
                                 if (constant != null && !(constant instanceof NullConstant)) {
                                     assert vi.variable().parameterizedType().arrays() == 0;
-                                    tc.put(vi.variable(), constant);
+                                    Expression prev = tc.put(vi.variable(), constant);
+                                    if (prev != null && !constant.equals(prev)) {
+                                        // multiple values...
+                                        tc.remove(vi.variable());
+                                    }
                                 }
                             }
                         }
@@ -286,11 +318,17 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
         // TODO: copy linked variables of a variable in closure to others in the closure, to that closure
         public MethodLinkedVariables go() {
-            VariableData vd = doBlock(true, methodInfo.methodBody(), null);
+            VariableData vd = doBlock(methodInfo.methodBody(), null, true);
             Links ofReturnValue = vd == null || returnVariable == null
                                   || !vd.isKnown(returnVariable.fullyQualifiedName())
                     ? LinksImpl.EMPTY
                     : emptyIfOnlySomeValue(vd.variableInfo(returnVariable).linkedVariables());
+            if (System.getenv("BTRACE") != null && methodInfo.name().contains(System.getenv("BTRACE"))) {
+                System.out.println("BTRACE go() raw=" + (vd == null || returnVariable == null
+                                                         || !vd.isKnown(returnVariable.fullyQualifiedName())
+                        ? "?" : vd.variableInfo(returnVariable).linkedVariables())
+                                   + " ofReturnValue=" + ofReturnValue);
+            }
             Set<ParameterInfo> paramsInOfReturnValue = ofReturnValue.stream()
                     .flatMap(Link::parameterStream)
                     .collect(Collectors.toUnmodifiableSet());
@@ -314,6 +352,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             Set<Variable> allModified = Stream.concat(modified.stream(), modifiedOutside.stream())
                     .collect(Collectors.toUnmodifiableSet());
             MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, allModified);
+            if (System.getenv("BTRACE") != null && methodInfo.name().contains(System.getenv("BTRACE"))) {
+                System.out.println("BTRACE go() mlv=" + mlv);
+            }
             copyModificationsIntoMethod(allModified, inClosure, mlv);
             if (vd != null) copyDowncastIntoParameters(vd);
 
@@ -427,19 +468,23 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             return pi != null && pi.methodInfo().typeInfo().isStrictlyEnclosedIn(methodInfo.typeInfo());
         }
 
-        VariableData doBlock(boolean topBlock, Block block, VariableData previousVd) {
+        VariableData doBlock(Block block, VariableData previousVd) {
+            return doBlock(block, previousVd, false);
+        }
+
+        VariableData doBlock(Block block, VariableData previousVd, boolean topBlock) {
             VariableData vd = previousVd;
             boolean firstStatementOfBlock = true;
             for (Statement statement : block.statements()) {
                 if (statement instanceof ExplicitConstructorInvocation eci &&
                     eci.isSuper() && eci.isSynthetic()) continue; // ignore, artifact of openjdk
+                boolean lastStatement = topBlock && statement == block.statements().getLast();
                 if (statement instanceof Block b) {
                     // a block among the statements
-                    vd = doBlock(false, b, vd);
+                    vd = doBlock(b, vd);
                 } else {
                     try {
-                        boolean lastStatement = topBlock && statement == block.statements().getLast();
-                        vd = doStatement(statement, lastStatement, vd, firstStatementOfBlock);
+                        vd = doStatement(statement, vd, firstStatementOfBlock, lastStatement);
                     } catch (RuntimeException | AssertionError re) {
                         LOGGER.error("Caught exception in statement {} of {}: {}", statement.source(), methodInfo,
                                 re.getMessage());
@@ -452,9 +497,15 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         public VariableData doStatement(Statement statement,
-                                        boolean lastStatement,
                                         VariableData previousVd,
                                         boolean firstStatementOfBlock) {
+            return doStatement(statement, previousVd, firstStatementOfBlock, false);
+        }
+
+        public VariableData doStatement(Statement statement,
+                                        VariableData previousVd,
+                                        boolean firstStatementOfBlock,
+                                        boolean lastStatement) {
             Stage stageOfPrevious = firstStatementOfBlock ? Stage.EVALUATION : Stage.MERGE;
             LocalVariable forEachLv;
             boolean evaluate;
@@ -542,6 +593,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 Links rvLinks = new LinksImpl.Builder(returnVariable)
                         .add(LinkNatureImpl.IS_ASSIGNED_FROM, destination)
                         .build();
+                if (System.getenv("RVTRACE") != null) {
+                    System.out.println("RVTRACE stmt " + statement.source().index() + " dest=" + destination
+                                       + " rLinks=" + r.links());
+                }
                 if (r != null) {
                     r = r.with(rvLinks);
                     r = r.copyLinksToExtra();
@@ -552,43 +607,38 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 Links.Builder current = yieldStack.peek();
                 current.add(LinkNatureImpl.IS_ASSIGNED_FROM, r.links().primary());
             }
-            Map<Variable, Map<Variable, LinkNature>> graph;
+            String statementIndex = statement.source().index();
             if (r != null) {
                 this.erase.addAll(r.erase());
-                graph = linkGraph.compute(r.extra().map(), previousVd, stageOfPrevious, vd, replaceConstants,
+                linkGraph.compute(statementIndex, r.extra().map(), r.erase(), replaceConstants,
                         r.modified());
-            } else {
-                graph = Map.of();
             }
             Set<Variable> previouslyModified = computePreviouslyModified(vd, previousVd, stageOfPrevious);
-            WriteLinksAndModification.WriteResult wr = writeLinksAndModification.go(statement, lastStatement, vd, previouslyModified,
-                    r == null ? Map.of() : r.modified(), graph);
+            WriteLinksAndModification.WriteResult wr = writeLinksAndModification.go(statement, lastStatement, vd,
+                    previouslyModified, r == null ? Map.of() : r.modified());
             copyEvalIntoVariableData(wr.newLinks(), vd);
             modificationsOutsideVariableData.addAll(wr.modifiedOutsideVariableData());
 
-            int numberOfLinks = wr.newLinksSize();
-            TIMED.info("Done {} methods; do statement {} {} graph size {}, sum of links {}; timer {}",
-                    countSourceMethods.get(),
-                    methodInfo.fullyQualifiedName(),
-                    statement.source().index(), graph.size(), numberOfLinks, timer);
-           /* if (wr.newLinksSize() > 1000) {
-                double fraction = (double) wr.newLinksSize() / (graph.size() * graph.size());
-                if (fraction > 0.4) {
-                    LOGGER.error("Do statement {} {} graph size {}, sum of links {}\n\n", methodInfo.fullyQualifiedName(),
-                            statement.source().index(), graph.size(), wr.newLinksSize());
-                    for (Map.Entry<Variable, Links> entry : wr.newLinks().entrySet()) {
-                        LOGGER.error("{} -> {}", entry.getKey(), entry.getValue());
-                    }
-                    throw new UnsupportedOperationException();
-                }
-            }*/
             writeCasts(r == null ? new HashMap<>() : r.casts(), previousVd, stageOfPrevious, vd);
 
             if (statement.hasSubBlocks()) {
                 handleSubBlocks(statement, vd);
             }
             if (r != null) {
-                writeOutMethodCallAnalysis(r.writeMethodCalls(), vd, graph);
+                writeOutMethodCallAnalysis(r.writeMethodCalls(), vd);
+            }
+            if (testVisitor != null) {
+                testVisitor.visit(statementIndex, linkGraph.graph());
+            }
+
+            TIMED.info("Done {} methods. End of statement {} of {} graph size {}, facts in closure {}, witnesses {}",
+                    countSourceMethods,
+                    statementIndex, methodInfo.fullyQualifiedName(), linkGraph.graph().size(),
+                    linkGraph.graph().sizeOfClosure(), linkGraph.graph().sizeOfWitnesses());
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("End of statement {} of {} graph size {}, facts in closure {}, witnesses {}",
+                        statementIndex, methodInfo.fullyQualifiedName(), linkGraph.graph().size(),
+                        linkGraph.graph().sizeOfClosure(), linkGraph.graph().sizeOfWitnesses());
             }
             return vd;
         }
@@ -637,16 +687,15 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private void writeOutMethodCallAnalysis(List<ExpressionVisitor.WriteMethodCall> writeMethodCalls,
-                                                VariableData vd,
-                                                Map<Variable, Map<Variable, LinkNature>> graph) {
+                                                VariableData vd) {
             for (ExpressionVisitor.WriteMethodCall wmc : writeMethodCalls) {
                 // rather than taking the links in wmc, we want the fully expanded links
                 // (after running copyEvalIntoVariableData)
                 Map<Variable, Boolean> variablesLinkedToObject = new HashMap<>();
                 for (Link l : wmc.linksFromObject()) {
-                    addToVariablesLinkedToObject(vd, graph, l.to(), variablesLinkedToObject);
+                    addToVariablesLinkedToObject(vd, l.to(), variablesLinkedToObject);
                 }
-                addToVariablesLinkedToObject(vd, graph, wmc.linksFromObject().primary(), variablesLinkedToObject);
+                addToVariablesLinkedToObject(vd, wmc.linksFromObject().primary(), variablesLinkedToObject);
                 if (!variablesLinkedToObject.isEmpty()
                     // only write once, no point because actual variables in links will not change
                     && !wmc.methodCall().analysis().haveAnalyzedValueFor(VARIABLES_LINKED_TO_OBJECT)) {
@@ -663,24 +712,41 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private void addToVariablesLinkedToObject(VariableData vd,
-                                                  Map<Variable, Map<Variable, LinkNature>> graph,
                                                   Variable sub,
                                                   Map<Variable, Boolean> variablesLinkedToObject) {
             Variable primary = Util.primary(sub);
             if (primary != null && vd.isKnown(primary.fullyQualifiedName())) {
                 variablesLinkedToObject.put(primary, true);
                 VariableInfo viPrimary = vd.variableInfo(primary);
-                Links links = followGraph.followGraph(virtualFieldComputer, graph, viPrimary.variable()).build();
-                for (Link link : links) {
-                    if (!link.linkNature().isIdenticalTo()) {
-                        for (Variable v : Util.goUp(link.from())) {
+                // two sources, both needed:
+                // 1. the stored, fully reconstructed links — a raw followGraph(variable) probe misses everything
+                //    of a COLLAPSED variable (no translateForward, no shared-variable reconstruction; the VL2O
+                //    map lost 'ii2 ← 0:o');
+                // 2. the graph probe — collapsed groups hold facts the printed links deliberately suppress
+                //    (the slot alias 'ii[j]' behind "NOT: ii[j]∈ii"), with rep names EXPANDED to their real
+                //    members instead of leaking ('$__sv_ii[j]'). putIfAbsent: the stored pass is authoritative.
+                addVL2O(viPrimary.linkedVariablesOrEmpty(), null, variablesLinkedToObject);
+                Links probe = followGraph.followGraph(virtualFieldComputer, viPrimary.variable()).build();
+                addVL2O(probe, followGraph.graph(), variablesLinkedToObject);
+            }
+        }
+
+        private void addVL2O(Links links, Graph expandWith, Map<Variable, Boolean> variablesLinkedToObject) {
+            for (Link link : links) {
+                if (!link.linkNature().isIdenticalTo()) {
+                    for (Variable side : expand(link.from(), expandWith)) {
+                        for (Variable v : Util.goUp(side)) {
                             if (acceptForVL2O(v)) {
-                                variablesLinkedToObject.put(v, true);
+                                if (expandWith == null) variablesLinkedToObject.put(v, true);
+                                else variablesLinkedToObject.putIfAbsent(v, true);
                             }
                         }
-                        for (Variable v : Util.goUp(link.to())) {
+                    }
+                    for (Variable side : expand(link.to(), expandWith)) {
+                        for (Variable v : Util.goUp(side)) {
                             if (acceptForVL2O(v)) {
-                                variablesLinkedToObject.put(v, false);
+                                if (expandWith == null) variablesLinkedToObject.put(v, false);
+                                else variablesLinkedToObject.putIfAbsent(v, false);
                             }
                         }
                     }
@@ -688,17 +754,42 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
         }
 
+        private List<Variable> expand(Variable v, Graph expandWith) {
+            if (expandWith == null) return List.of(v);
+            return expandWith.expandRepToMembers(v).toList();
+        }
+
         private static boolean acceptForVL2O(Variable v) {
-            return !Util.virtual(v) && !(v instanceof MarkerVariable) && !(v instanceof IntermediateVariable);
+            if (Util.virtual(v) || v instanceof MarkerVariable || v instanceof IntermediateVariable) {
+                return false;
+            }
+            if (v instanceof FieldReference fr) {
+                return fr.scopeVariable() == null || acceptForVL2O(fr.scopeVariable());
+            }
+            if (v instanceof DependentVariable dv) {
+                return acceptForVL2O(dv.arrayVariable())
+                       && (dv.indexVariable() == null || acceptForVL2O(dv.indexVariable()));
+            }
+            return true;
         }
 
         private void handleSubBlocks(Statement statement, VariableData vd) {
             List<VariableData> vds = subBlocksForLinking(statement)
                     .filter(block -> !block.isEmpty())
-                    .map(block -> doBlock(false, block, vd))
+                    .map(block -> doBlock(block, vd))
                     .filter(Objects::nonNull)
                     .toList();
-            handleSubBlocks(vds, vd);
+            Set<Variable> toRemove = new HashSet<>();
+            for (VariableData subVd : vds) {
+                subVd.variableInfoContainerStream()
+                        .map(VariableInfoContainer::variable)
+                        .filter(variable ->
+                                vd.variableInfoContainerOrNull(variable.fullyQualifiedName()) == null)
+                        .forEach(toRemove::add);
+            }
+            handleSubBlocks(vds, vd, toRemove);
+            LOGGER.debug("Removing {}", toRemove);
+            linkGraph.graph().remove(toRemove);
         }
 
         // The CST's subBlockStream() does not include try-with-resources declarations. Those 'res = expr'
@@ -717,63 +808,68 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         // also called from ExpressionVisitor.switchExpression
-        void handleSubBlocks(List<VariableData> vds, VariableData vd) {
-            vd.variableInfoContainerStream()
-                    .filter(VariableInfoContainer::hasMerge)
-                    .forEach(vic -> {
-                        VariableInfo viEval = vic.best(Stage.EVALUATION);
-                        Variable variable = viEval.variable();
-                        Links eval = viEval.linkedVariables();
-                        String fqn = variable.fullyQualifiedName();
-                        Links.Builder collect = eval == null || eval.primary() == null
-                                ? new LinksImpl.Builder(variable)
-                                : new LinksImpl.Builder(eval);
-                        AtomicBoolean unmodified = new AtomicBoolean(viEval.isUnmodified());
-                        Set<TypeInfo> downcasts = new HashSet<>(viEval.analysis().getOrDefault(DOWNCAST_VARIABLE,
-                                ValueImpl.SetOfTypeInfoImpl.EMPTY).typeInfoSet());
-                        vds.forEach(subVd -> {
-                            VariableInfoContainer subVic = subVd.variableInfoContainerOrNull(fqn);
-                            if (subVic != null) {
-                                VariableInfo subVi = subVic.best();
-                                Links subTlv = subVi.linkedVariables();
-                                if (subTlv != null && subTlv.primary() != null) {
-                                    collect.addAllDistinct(subTlv);
-                                }
-                                if (subVi.isModified()) unmodified.set(false);
+        void handleSubBlocks(List<VariableData> vds, VariableData vd, Set<Variable> toRemove) {
+            vd.variableInfoContainerStream().forEach(vic -> {
+                if (vic.hasMerge()) {
+                    VariableInfo viEval = vic.best(Stage.EVALUATION);
+                    Variable variable = viEval.variable();
+                    Links eval = viEval.linkedVariables();
+                    String fqn = variable.fullyQualifiedName();
+                    Links.Builder collect = eval == null || eval.primary() == null
+                            ? new LinksImpl.Builder(variable)
+                            : new LinksImpl.Builder(eval);
+                    AtomicBoolean unmodified = new AtomicBoolean(viEval.isUnmodified());
+                    Set<TypeInfo> downcasts = new HashSet<>(viEval.analysis().getOrDefault(DOWNCAST_VARIABLE,
+                            ValueImpl.SetOfTypeInfoImpl.EMPTY).typeInfoSet());
+                    vds.forEach(subVd -> {
+                        VariableInfoContainer subVic = subVd.variableInfoContainerOrNull(fqn);
+                        if (subVic != null) {
+                            VariableInfo subVi = subVic.best();
+                            Links subTlv = subVi.linkedVariables();
+                            if (subTlv != null && subTlv.primary() != null) {
+                                collect.addAllDistinct(subTlv);
+                            }
+                            if (subVi.isModified()) unmodified.set(false);
 
-                                Value.SetOfTypeInfo subDowncasts = subVi.analysis().getOrDefault(DOWNCAST_VARIABLE,
-                                        ValueImpl.SetOfTypeInfoImpl.EMPTY);
-                                downcasts.addAll(subDowncasts.typeInfoSet());
-                            }
-                        });
-                        assert vic.hasMerge();
-                        VariableInfoImpl merge = (VariableInfoImpl) vic.best();
-                        Links collected = collect.build();
-                        if (!collected.isEmpty()) {
-                            merge.setLinkedVariables(collected);
-                        }
-                        if (merge.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE,
-                                ValueImpl.BoolImpl.from(unmodified.get()))) {
-                            propertiesChanged.incrementAndGet();
-                        }
-                        if (!downcasts.isEmpty()) {
-                            if (merge.analysis().setAllowControlledOverwrite(DOWNCAST_VARIABLE,
-                                    new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(downcasts)))) {
-                                propertiesChanged.incrementAndGet();
-                            }
+                            Value.SetOfTypeInfo subDowncasts = subVi.analysis().getOrDefault(DOWNCAST_VARIABLE,
+                                    ValueImpl.SetOfTypeInfoImpl.EMPTY);
+                            downcasts.addAll(subDowncasts.typeInfoSet());
                         }
                     });
+                    assert vic.hasMerge();
+                    VariableInfoImpl merge = (VariableInfoImpl) vic.best();
+                    Links collected = collect.build();
+                    if (!collected.isEmpty()) {
+                        merge.setLinkedVariables(collected);
+                    }
+                    if (merge.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE,
+                            ValueImpl.BoolImpl.from(unmodified.get()))) {
+                        propertiesChanged.incrementAndGet();
+                    }
+                    if (!downcasts.isEmpty()) {
+                        if (merge.analysis().setAllowControlledOverwrite(DOWNCAST_VARIABLE,
+                                new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(downcasts)))) {
+                            propertiesChanged.incrementAndGet();
+                        }
+                    }
+                } else if (vic.hasEvaluation()) {
+                    toRemove.add(vic.variable());
+                }
+            });
         }
 
         private void copyEvalIntoVariableData(Map<Variable, Links> expanded, VariableData vd) {
             vd.variableInfoContainerStream().forEach(vic -> {
                 VariableInfo vi = vic.getPreviousOrInitial();
                 Links links;
-                if (this.erase.contains(vi.variable())
-                    || !Collections.disjoint(Util.scopeVariables(vi.variable()), this.erase)) {
+                Links inExpanded = expanded.get(vi.variable());
+                if (inExpanded != null) {
+                    links = inExpanded;
+                } else if (this.erase.contains(vi.variable())
+                           || !Collections.disjoint(Util.scopeVariables(vi.variable()), this.erase)) {
                     links = new LinksImpl(vi.variable());
                 } else {
-                    links = expanded.getOrDefault(vi.variable(), LinksImpl.EMPTY);
+                    links = LinksImpl.EMPTY;
                 }
                 if (vic.hasEvaluation()) {
                     VariableInfoImpl eval = (VariableInfoImpl) vic.best(Stage.EVALUATION);

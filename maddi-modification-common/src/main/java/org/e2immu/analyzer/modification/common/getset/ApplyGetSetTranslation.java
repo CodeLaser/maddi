@@ -173,7 +173,10 @@ public record ApplyGetSetTranslation(Runtime runtime) implements TranslationMap 
 
      */
     private static void ensureGetSet(MethodInfo methodInfo) {
-        if (!methodInfo.isAbstract()) {
+        // A qualified explicit constructor invocation 'outer.super(...)' (JLS 8.8.7.1) is represented as a MethodCall
+        // whose methodInfo() is the superclass constructor. Get/set analysis is meaningless for a constructor, and
+        // GetSetHelper.doGetSetAnalysis asserts against being given one, so exclude constructors here.
+        if (!methodInfo.isAbstract() && !methodInfo.isConstructor()) {
             GetSetHelper.doGetSetAnalysis(methodInfo, methodInfo.methodBody());
         }
     }

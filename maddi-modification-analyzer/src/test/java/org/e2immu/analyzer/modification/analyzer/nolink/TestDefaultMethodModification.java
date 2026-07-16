@@ -18,7 +18,6 @@ import org.e2immu.analyzer.modification.analyzer.CommonTest;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -30,13 +29,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Modification of an implementation's field that reaches the field only through an inherited interface <em>default
  * method</em> (which mutates via an abstract accessor the implementation overrides to return the field).
  * <p>
- * The positive control -- the identical body written as a concrete method in the implementation -- is detected. The
- * inherited-default-method variant is NOT (a false negative, {@code @Disabled} below): the default method's body is
- * analyzed in the interface's context, where the abstract accessor returns an unknown value, so its modification never
- * links to each implementation's concrete field. Impact is narrow: the type-level immutability/independence/container
- * classifications are unaffected here (the accessor already exposes the field, forcing @FinalFields); only the
- * field-level UNMODIFIED_FIELD is unsound for this pattern. Fixing it means re-analyzing inherited default methods per
- * implementation.
+ * Ported from maddi-aapi (see maddi-modification-link/notes/default-method-modification-not-propagated-to-impl-field.md):
+ * the default method's body is analyzed in the interface's context, where the abstract accessor returns an unknown
+ * value, so its modification never links to each implementation's concrete field — a false negative in
+ * UNMODIFIED_FIELD. The positive control (identical body as a concrete method) is detected.
  */
 public class TestDefaultMethodModification extends CommonTest {
 
@@ -78,9 +74,6 @@ public class TestDefaultMethodModification extends CommonTest {
             """;
 
     @DisplayName("modification through an inherited default method must reach the implementation's field")
-    @Disabled("Known false negative: modification via an inherited interface default method (which mutates through an "
-            + "abstract accessor overridden to return the field) is not propagated to the implementation's field. "
-            + "Enable once inherited default methods are re-analyzed per implementation.")
     @Test
     public void inheritedDefaultMethod() {
         TypeInfo X = javaInspector.parse("a.b.X", INHERITED_DEFAULT);

@@ -110,7 +110,7 @@ public class TestIdentity extends CommonTest {
 
         VariableData vdCatch = VariableDataImpl.of(ts.catchClauses().getFirst().block().statements().getFirst());
         VariableInfo viRvCatch  = vdCatch.variableInfo(method.fullyQualifiedName());
-        assertEquals("method←0:jarURL", viRvCatch.linkedVariables().toString());
+        assertEquals("method←$_v,method←0:jarURL", viRvCatch.linkedVariables().toString());
 
         assertEquals("method←$_v,method←0:jarURL", viRv.linkedVariables().toString());
 
@@ -155,7 +155,7 @@ public class TestIdentity extends CommonTest {
         // the openjdk parser zero-pads statement indices to the block's digit width (this method body has >= 10
         // statements), so '1' -> '01' and '3' -> '03'
         assertEquals("D:-, A:[01.0.0, 03]", viRv.assignments().toString());
-        assertEquals("method→1:num,method←0:amb", viRv.linkedVariables().toString());
+        assertEquals("method←1:num", viRv.linkedVariables().toString());
 
         assertFalse(method.isIdentity());
     }
@@ -190,12 +190,12 @@ public class TestIdentity extends CommonTest {
         VariableData vd = VariableDataImpl.of(method.methodBody().lastStatement());
         VariableInfo viRv = vd.variableInfo(method.fullyQualifiedName());
         assertEquals("D:-, A:[0.0.0, 0.1.0.0.0, 0.1.0.1.4, 0.1.0=M, 0=M]", viRv.assignments().toString());
-        assertEquals("add←0:list,add←$_v,add[0]←1:item,add.§$←0:list.§$,add∋1:item",
+        assertEquals("add←0:list,add←$_v,add[0]←1:item,add[0].§m≡1:item.§m,add∋1:item,add.§$←0:list.§$",
                 viRv.linkedVariables().toString());
 
         MethodLinkedVariables mlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("""
-                [-, -] --> add←0:list,add←$_v,add[0]←1:item,add.§$←0:list.§$,add∋1:item\
+                [-, -] --> add←0:list,add←$_v,add[0]←1:item,add[0].§m≡1:item.§m,add∋1:item,add.§$←0:list.§$\
                 """, mlv.toString());
 
         assertFalse(method.isIdentity());
@@ -259,7 +259,7 @@ public class TestIdentity extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo vi0ii2 = vd0.variableInfo("ii2");
-        assertEquals("ii2←0:ii,ii2.§m≡0:ii.§m", vi0ii2.linkedVariables().toString());
+        assertEquals("ii2.§m≡0:ii.§m,ii2←0:ii", vi0ii2.linkedVariables().toString());
 
         MethodCall call2 = (MethodCall) method.methodBody().statements().getLast().expression();
         Value.VariableBooleanMap vbm = call2.analysis().getOrNull(LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT,

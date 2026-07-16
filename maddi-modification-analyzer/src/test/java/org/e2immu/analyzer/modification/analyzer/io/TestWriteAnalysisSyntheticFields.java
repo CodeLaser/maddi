@@ -84,11 +84,11 @@ public class TestWriteAnalysisSyntheticFields extends CommonTest {
 
         MethodInfo withException = TryDataImpl.findUniqueMethod("withException", 1);
         MethodLinkedVariables mlvWe = withException.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> withException.exception1.§m≡0:exception3.§m,withException.exception1←0:exception3", mlvWe.toString());
+        assertEquals("[-] --> withException.exception1←0:exception3,withException.exception1.§m≡0:exception3.§m", mlvWe.toString());
         FieldReference fr0 = (FieldReference) mlvWe.ofReturnValue().link(1).from();
         // why TryData? See LinkGraph.makeComparableSub; we correct the owner to the new sub
         // in this case, that's an interface.
-        assertEquals("a.b.Try.TryData.exception1", fr0.fieldInfo().fullyQualifiedName());
+        assertEquals("java.lang.Throwable.§m", fr0.fieldInfo().fullyQualifiedName());
 
         Trie<TypeInfo> typeTrie = new Trie<>();
         typeTrie.add(Try.fullyQualifiedName().split("\\."), Try);

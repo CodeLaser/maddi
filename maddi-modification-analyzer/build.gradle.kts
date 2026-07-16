@@ -53,6 +53,12 @@ tasks.withType<Test> {
     // runtime; keep it modest so the 2G heap is not exceeded). Default lives in the test itself.
     System.getProperty("clonebench.parallelism")?.let { systemProperty("clonebench.parallelism", it) }
 
+    // Skip the heavy TestCloneBench on non-critical runs for speed: ./gradlew ... -PskipCloneBench
+    // (the many other, fast tests in the clonebench package still run).
+    if (project.hasProperty("skipCloneBench")) {
+        filter { excludeTestsMatching("org.e2immu.analyzer.modification.analyzer.clonebench.TestCloneBench") }
+    }
+
     jvmArgs(
         "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",

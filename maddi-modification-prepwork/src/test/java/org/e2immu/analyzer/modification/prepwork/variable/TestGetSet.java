@@ -25,6 +25,7 @@ import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -583,6 +584,35 @@ public class TestGetSet extends CommonTest {
                         listB, resultMap\
                         """,
                 vdLast.knownVariableNamesToString());
+    }
+
+    // A qualified explicit constructor invocation 'a.super()' (JLS 8.8.7.1) is a MethodCall whose methodInfo() is the
+    // superclass CONSTRUCTOR. Get/set translation used to forward it into GetSetHelper.doGetSetAnalysis, which asserts
+    // it is never given a constructor -> the whole prep run died on an uncaught AssertionError. Prep must complete.
+    @Language("java")
+    private static final String INPUT_QUALIFIED_SUPER = """
+            package p;
+            public class A {
+                public class Inner { }
+                static class Sub extends A.Inner {
+                    Sub(A a) {
+                        a.super();
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("qualified explicit super() constructor invocation must not trip get/set analysis")
+    @Test
+    public void testQualifiedSuper() {
+        // the homegrown parser does not support a qualified explicit super() invocation; this construct (and the bug)
+        // is on the openjdk-parser path.
+        Assumptions.assumeTrue(openJdkParser, "qualified super() only parses under the openjdk parser");
+        TypeInfo A = javaInspector.parse("p.A", INPUT_QUALIFIED_SUPER);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
+        analyzer.doPrimaryType(A); // must not throw AssertionError from get/set analysis on the super constructor
+        TypeInfo sub = A.findSubType("Sub");
+        assertFalse(sub.constructors().isEmpty());
     }
 
 }

@@ -93,7 +93,10 @@ public class CommonTest {
     }
 
     static @NonNull AnalysisHintsParser createAnalysisHintsParser() {
-        JavaInspectorFactory javaInspectorFactory =  org.e2immu.analyzer.modification.common.CommonTest.javaInspectorFactory();
+        // the AAPI archive covers all JDK modules, including java.desktop (swing/awt) and java.net.http, so this
+        // compiler needs them on the classpath (the lean default only carries java.base)
+        JavaInspectorFactory javaInspectorFactory = org.e2immu.analyzer.modification.common.CommonTest
+                .javaInspectorFactory("java.desktop", "java.net.http");
         return new AnalysisHintsParser(javaInspectorFactory);
     }
 

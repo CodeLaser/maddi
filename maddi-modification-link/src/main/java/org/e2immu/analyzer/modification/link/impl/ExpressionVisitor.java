@@ -191,11 +191,19 @@ public record ExpressionVisitor(Runtime runtime,
                     LocalVariable lv = instanceOf.patternVariable().localVariable();
                     if (!lv.isUnnamed()) {
                         linksBuilder.add(LinkNatureImpl.IS_ASSIGNED_TO, lv);
+                        // 'o instanceof Set set' where o is itself a bound deconstruction component: the cast
+                        // alias is the same object, hence a component of o's containers too
+                        sourceMethodComputer.followGraph.graph().markPatternBindingAlias(ve.variable(), lv);
                         return r.moveLinksToExtra().with(linksBuilder.build());
                     }
                 } else if (instanceOf.patternVariable().recordType() != null) {
                     // a instanceof Point(Coord x, Coord y) -> x is field of a, y is field of a
                     recursivelyAddToBuilder(linksBuilder, instanceOf.patternVariable());
+                    // side-band mark: these ≻ links are GENUINE containment (deconstruction components), which
+                    // isInvalidFieldContainment must not drop as it does accessor-copy expansions
+                    for (Link link : linksBuilder.linkSet()) {
+                        sourceMethodComputer.followGraph.graph().markPatternBinding(link.from(), link.to());
+                    }
                     return r.moveLinksToExtra().with(linksBuilder.build());
                 }
             }
@@ -358,7 +366,7 @@ public record ExpressionVisitor(Runtime runtime,
             return new ResultVd(new Result(linksBuilder.build(), r.extra()).merge(rc), null);
         }
         sourceMethodComputer.startSwitchExpression(primary);
-        VariableData vd = sourceMethodComputer.doBlock(false, entry.statementAsBlock(), variableData);
+        VariableData vd = sourceMethodComputer.doBlock(entry.statementAsBlock(), variableData);
         Links yieldResult = sourceMethodComputer.endSwitchExpression();
         D d = copyLinksFromSwitchExpressionBlock(variableData, vd);
 
@@ -453,9 +461,9 @@ public record ExpressionVisitor(Runtime runtime,
             builder.add(LinkNatureImpl.IS_ASSIGNED_FROM, rValue.links().primary());
         }
         Result result = new Result(builder.build(), LinkedVariablesImpl.EMPTY);
-        if (a.assignmentOperator() != null || rValue.links() == null || rValue.links().primary() == null) {
-            result.addErase(a.variableTarget());
-        }
+        //if (a.assignmentOperator() != null || rValue.links() == null || rValue.links().primary() == null) {
+        result.addErase(a.variableTarget());
+        //}
         Set<Variable> scopeVariables = Util.scopeVariables(a.variableTarget());
         return result
                 .merge(rValue)
@@ -474,7 +482,17 @@ public record ExpressionVisitor(Runtime runtime,
 
         // only translate wrt concrete type
         MethodLinkedVariables mlv0 = recurseIntoLinkComputer(cc.constructor());
-        if (mlv0 == null) return EMPTY; // cannot do anything at the moment, no data
+        if (mlv0 == null) {
+            // No data for an EXTERNAL constructor (unannotated library type, 'new URL(...)'): the sound
+            // minimal result is still a FRESH OBJECT — return the new-object intermediate with no links, so
+            // the assignment records 'x ← $__oc' and handleReturnVariable substitutes the '← $_v' marker (a
+            // fresh unanalyzable return value must not look like a parameter identity, @Identity verdicts).
+            // For SOURCE constructors the null means 'not yet analyzed' (recursion prevention) — keep the old
+            // EMPTY short-circuit there: fabricating intermediates mid-cycle floods deeply recursive
+            // structures (TestParSeqLinkBench 0.9s -> 19s).
+            if (cc.constructor().typeInfo().compilationUnit().externalLibrary()) return object;
+            return EMPTY; // cannot do anything at the moment, no data
+        }
         MethodLinkedVariables mlv = mlv0.removeSomeValue();
         MethodLinkedVariables mlvTranslated1;
         if (mlv.virtual()) {
