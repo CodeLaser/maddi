@@ -109,6 +109,13 @@ public class WarmAnalysisServiceTest {
         // (c) the JDK/library analysis hints were preloaded
         assertTrue(result.hintsLoaded() > 0, "expected JDK/library analysis hints to be preloaded");
 
+        // (c2) a modified parameter is rendered @Modified explicitly (BadImpl.add(m) modifies m)
+        boolean modifiedParamShown = result.elementAnnotations().stream()
+                .filter(e -> "PARAMETER".equals(e.kind()))
+                .flatMap(e -> e.displayAnnotations().stream())
+                .anyMatch(a -> a.equals("@Modified"));
+        assertTrue(modifiedParamShown, "expected a @Modified parameter annotation (BadImpl.add's argument)");
+
         // (d) hints make library-dependent analysis correct: count() only reads list.size() → @NotModified
         //     (requires the java.util hints to be loaded and decoded)
         boolean countNotModified = result.elementAnnotations().stream()
