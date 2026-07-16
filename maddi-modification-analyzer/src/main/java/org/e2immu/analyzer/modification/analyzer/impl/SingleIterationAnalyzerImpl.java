@@ -57,6 +57,8 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final List<Message> messages;
     private final boolean faultTolerant;
     private final Set<Info> failed = new HashSet<>();
+    // worklist support: elements whose analysis changed in the most recent go() (see SingleIterationAnalyzer)
+    private final Set<Info> changedInfos = Collections.synchronizedSet(new HashSet<>());
 
     public static final String ANALYZER_CRASH = "analyzer-crash";
     public static final String LINK_CRASH = "link-crash";
@@ -84,6 +86,11 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     }
 
     @Override
+    public Set<Info> changedInfos() {
+        return Set.copyOf(changedInfos);
+    }
+
+    @Override
     public List<Message> messages() {
         // the iteration's own analyzers, plus the shallow analyzer used for abstract types
         return Stream.concat(messages.stream(), shallowTypeAnalyzer.messages().stream()).toList();
@@ -97,12 +104,15 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     @Override
     public void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration) {
         linkComputer.reset();
+        changedInfos.clear();
+        TolerantWrite.resetChangedTargets();
         Set<TypeInfo> abstractTypes = new HashSet<>();
         List<TypeInfo> typesInOrder = new ArrayList<>(analysisOrder.size());
 
         List<MethodInfo> abstractMethods = new ArrayList<>();
         for (Info info : analysisOrder) {
             if (faultTolerant && failed.contains(info)) continue; // an earlier iteration already crashed on this one
+            int changesBefore = propertiesChanged.get();
             try {
                 if (info instanceof MethodInfo methodInfo) {
                     if (firstIteration && methodInfo.isAbstract() && abstractTypes.add(info.typeInfo())) {
@@ -129,9 +139,12 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                 if (!faultTolerant) throw e;
                 failed.add(info);
                 messages.add(crashFinding(info, e));
+            } finally {
+                if (propertiesChanged.get() > changesBefore) changedInfos.add(info);
             }
         }
 
+        int changesBeforeAbstract = propertiesChanged.get();
         try {
             abstractMethodAnalyzer.go(firstIteration, abstractMethods);
         } catch (RuntimeException | AssertionError | StackOverflowError e) {
@@ -139,6 +152,9 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
             if (!faultTolerant) throw e;
             // batch step — attribute to the first abstract method so the finding is at least locatable
             if (!abstractMethods.isEmpty()) messages.add(crashFinding(abstractMethods.getFirst(), e));
+        } finally {
+            // batch step: coarse attribution, any change dirties all abstract methods of this round
+            if (propertiesChanged.get() > changesBeforeAbstract) changedInfos.addAll(abstractMethods);
         }
 
         /*
@@ -147,6 +163,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
          */
         for (TypeInfo typeInfo : typesInOrder) {
             if (faultTolerant && failed.contains(typeInfo)) continue;
+            int changesBefore2 = propertiesChanged.get();
             try {
                 runTypeAnalyzers(activateCycleBreaking, typeInfo);
             } catch (RuntimeException | AssertionError | StackOverflowError e) {
@@ -154,7 +171,16 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                 if (!faultTolerant) throw e;
                 failed.add(typeInfo);
                 messages.add(crashFinding(typeInfo, e));
+            } finally {
+                if (propertiesChanged.get() > changesBefore2) changedInfos.add(typeInfo);
             }
+        }
+        // union in the write-target attribution: writes that landed on elements other than the one being
+        // processed (the link computer's on-demand recursion writing a callee's METHOD_LINKS)
+        for (Object target : TolerantWrite.changedTargets()) {
+            // ParameterInfo extends Info but is not an analysis-order element: attribute to its method
+            if (target instanceof org.e2immu.language.cst.api.info.ParameterInfo pi) changedInfos.add(pi.methodInfo());
+            else if (target instanceof Info i) changedInfos.add(i);
         }
     }
 
