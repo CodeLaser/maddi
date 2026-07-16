@@ -269,7 +269,9 @@ public class LinksImpl implements Links {
                     : "mixed §m/non-§m link: " + from + " " + linkNature + " " + to;
         }
 
-        private static boolean doNotStackMOnTopOfVirtualField(Variable v) {
+        // public: link-producing sites (VirtualModificationIdenticals.expand, the NORVM companions) use this to
+        // SKIP a face that cannot be represented as a Link, rather than trip the constructor assert
+        public static boolean doNotStackMOnTopOfVirtualField(Variable v) {
             return !(v instanceof FieldReference fr && Util.isVirtualModificationField(fr.fieldInfo())
                      && fr.scopeVariable() instanceof FieldReference fr2 && Util.virtual(fr2.fieldInfo()));
         }

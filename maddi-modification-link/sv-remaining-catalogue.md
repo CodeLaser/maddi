@@ -4,6 +4,19 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — LANGCHAIN4J ROUND 1: 38 crashes → 2 fixes; plateau exit works (5 iterations, 32 min)
+
+First full-chain run on langchain4j (multi-module, ~27k methods): only 38 caught elements
+(timefold's first run had 3,585 — the hardening transferred). Two shapes:
+- 37× LinkImpl assert "§m stacked on virtual field" from `VirtualModificationIdenticals
+  .Group.expand`: §m faces on CONSTANTS' virtual faces ('"value".§$ss.§m',
+  'HttpClientProvider.class.§$s.§m'). doNotStackMOnTopOfVirtualField made public on
+  LinkImpl; expand() skips unrepresentable faces (same treatment as the NORVM companions).
+- 1× null objectPrimary in LinkMethodCall.findLinkToParameter (functional-interface path).
+The plateau early-exit fired at iteration 5 (4516 vs 4589 changes; methodLinks-dominated
+tail) — 32 min instead of ~60. Phantom fix confirmed: variablesLinkedToObject logged
+(324/iter) but no longer counted.
+
 ## UPDATE — TIMEFOLD GREEN + CONVERGENCE DIAGNOSIS (runs 8-10)
 
 **run8 (crash round 2): ZERO caught exceptions across all 53,535 elements** (was 3,585);

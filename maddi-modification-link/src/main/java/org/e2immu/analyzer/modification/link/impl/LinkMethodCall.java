@@ -513,7 +513,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
     }
 
     private ParameterInfo findLinkToParameter(Variable objectPrimary) {
-        if (variableData == null) return null;
+        if (objectPrimary == null || variableData == null) return null;
         return objectPrimary.variableStreamDescend()
                 .map(v -> {
                     VariableInfoContainer vic = variableData.variableInfoContainerOrNull(v.fullyQualifiedName());
