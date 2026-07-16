@@ -4,6 +4,23 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — ***LINK SUITE FULLY GREEN*** (388/388); catalogue CLOSED
+
+The last two:
+- **TestLinkModificationArea test2b**: the coarse '0:r.a ≻ aa.i' is replaced by the FINER
+  field-level links ('0:r.a.i→aa.i', '≺0:r.a', '←$_ce0'); verified by neutralizing the string
+  assert: ALL modification-AREA verdicts hold (aa modified ⟹ r.a modified ⟹ r modified; bb
+  clean). Re-pinned as a precision refinement.
+- **TestStream MR-swap**: stale STRUCTURAL INDEXING — the 'Type param Y[]' asserts targeted
+  link(0) as it was ordered before an earlier string re-pin; link(0) is now the whole-face
+  'stream2.§yxs~entries.§xys' whose virtual entry-content types (Map.Entry.§YX[]/§XY[]) are
+  correct. Plus one order-only re-pin of the method summary.
+
+**Final state: link 388/388 GREEN, analyzer 122/122 GREEN, deep-structure bench green, parseq
+bench 1692ms (production, real code). The sv big-bang started at 196/383 failing.** All
+engine mechanisms remain individually gated (see the techniques doc §8 gate list) for future
+bisection. The catalogue's job is done; new work items belong in fresh notes.
+
 ## UPDATE — intermediate virtual spine (gate NOSPINEI); test7 green; link 3 → 2
 
 TestSupplier test7's 'entry.§xy ≺ 0:optional': the deep faces (entry.§xy.§x/§y) had all their

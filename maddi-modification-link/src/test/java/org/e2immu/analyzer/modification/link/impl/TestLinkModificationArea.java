@@ -363,7 +363,9 @@ public class TestLinkModificationArea extends CommonTest {
             assertTrue(viA.isModified());
 
             VariableInfo viR = vd2.variableInfo(r);
-            assertEquals("0:r.a→aa,0:r.a≻aa.i,0:r.b→bb,0:r.a.i→aa.i", viR.linkedVariables().toString());
+            // vs the old engine: the coarse '0:r.a≻aa.i' is replaced by the finer field-level links
+            // (0:r.a.i→aa.i, ≺, ←$_ce0); all modification-AREA verdicts below hold (r.a modified ⟹ r, bb clean)
+            assertEquals("0:r.a.i←$_ce0,0:r.a.i→aa.i,0:r.a.i≺0:r.a,0:r.a→aa,0:r.b→bb", viR.linkedVariables().toString());
             assertTrue(viR.isModified());
 
             VariableInfo viB = vd2.variableInfo("bb");

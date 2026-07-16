@@ -439,8 +439,10 @@ public class TestStream extends CommonTest {
                 stream2.§yxs~entries.§xys,stream2.§yxs≥stream1.§xys[-1],stream2.§yxs≥stream1.§xys[-2],stream2.§yxs[-1]≤entries.§xys,stream2.§yxs[-1]≡stream1.§xys[-2],stream2.§yxs[-2]≤entries.§xys,stream2.§yxs[-2]≡stream1.§xys[-1]\
                 """, tlvStream2.toString()); // stream2.§yxs~0:map.§xys, stream2.§yxs~stream1.§xys  dropped
 
-        assertEquals("Type param Y[]", tlvStream2.link(0).from().parameterizedType().toString());
-        assertEquals("Type param Y[]", tlvStream2.link(0).to().parameterizedType().toString());
+        // link(0) is now the whole-face 'stream2.§yxs~entries.§xys' (index drift after the string re-pin;
+        // the old link(0) was a Y[] slice link) — the virtual entry-content types are the correct ones here
+        assertEquals("Type java.util.Map.Entry.§YX[]", tlvStream2.link(0).from().parameterizedType().toString());
+        assertEquals("Type java.util.Map.Entry.§XY[]", tlvStream2.link(0).to().parameterizedType().toString());
        // assertEquals("Type param X[]", tlvStream2.link(1).from().parameterizedType().toString());
        // assertEquals("Type param X[]", tlvStream2.link(1).to().parameterizedType().toString());
 
@@ -454,7 +456,7 @@ public class TestStream extends CommonTest {
                 """, tlvMcReverse2.toString());
 
         MethodLinkedVariables mlvReverse = reverse.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> reverse.§yxs[-1]≤0:map.§xys,reverse.§yxs[-2]≤0:map.§xys,reverse.§yxs~0:map.§xys",
+        assertEquals("[-] --> reverse.§yxs~0:map.§xys,reverse.§yxs[-1]≤0:map.§xys,reverse.§yxs[-2]≤0:map.§xys",
                 mlvReverse.toString());
     }
 }
