@@ -94,6 +94,34 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         }
     }
 
+    /**
+     * A/B equivalence signal for worklist/convergence experiments: the distribution of the key verdicts over
+     * all analysis-order elements. Two runs with identical fingerprints (very likely) computed identical verdicts.
+     */
+    private static void logVerdictFingerprint(List<Info> analysisOrder) {
+        java.util.Map<String, Integer> counts = new java.util.TreeMap<>();
+        for (Info info : analysisOrder) {
+            String key;
+            if (info instanceof org.e2immu.language.cst.api.info.MethodInfo) {
+                var v = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
+                        org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                key = "method.nonModifying=" + (v == null ? "?" : v);
+            } else if (info instanceof org.e2immu.language.cst.api.info.FieldInfo) {
+                var v = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_FIELD,
+                        org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                key = "field.unmodified=" + (v == null ? "?" : v);
+            } else if (info instanceof org.e2immu.language.cst.api.info.TypeInfo) {
+                var v = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE,
+                        org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.class);
+                key = "type.immutable=" + (v == null ? "?" : v);
+            } else {
+                key = "other";
+            }
+            counts.merge(key, 1, Integer::sum);
+        }
+        LOGGER.info("Verdict fingerprint: {}", counts);
+    }
+
     @Override
     public List<Message> messages() {
         return Stream.concat(lastRun == null ? Stream.of() : lastRun.messages().stream(),
@@ -102,18 +130,46 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
 
     @Override
     public void analyze(List<Info> analysisOrder) {
+        analyze(analysisOrder, null);
+    }
+
+    // gate WORKLIST=1: iterations 2+ only re-analyze changed elements + their dependents (reverse dependency
+    // edges); requires the dependency graph. OFF by default pending the corpus verdict A/B.
+    private static final boolean WORKLIST = System.getenv("WORKLIST") != null;
+
+    @Override
+    public void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph) {
         int iterations = 0;
         SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
         this.lastRun = singleIterationAnalyzer;
         boolean cycleBreakingActive = false;
         int previousPropertiesChanged = Integer.MAX_VALUE;
+        // reverse adjacency: dependersOf(Y) = { X | X depends on Y } — the elements to re-analyze when Y changes
+        java.util.Map<Info, java.util.Set<Info>> dependersOf;
+        if (WORKLIST && dependencyGraph != null) {
+            dependersOf = new java.util.HashMap<>();
+            dependencyGraph.edgeStream().forEach(e ->
+                    dependersOf.computeIfAbsent(e.to().t(), _ -> new java.util.HashSet<>()).add(e.from().t()));
+            LOGGER.info("Worklist narrowing ACTIVE; reverse adjacency for {} elements", dependersOf.size());
+        } else {
+            dependersOf = null;
+        }
+        java.util.Set<Info> dirty = null; // null = analyze everything
         while (true) {
             ++iterations;
             LOGGER.info("{}, cycle breaking active? {}", highlight("Start iteration " + iterations),
                     cycleBreakingActive);
             TolerantWrite.resetChangeCounts();
+            List<Info> subset;
+            if (dirty == null) {
+                subset = analysisOrder;
+            } else {
+                java.util.Set<Info> d = dirty;
+                subset = analysisOrder.stream().filter(d::contains).toList();
+                LOGGER.info("Worklist: {} of {} elements dirty", subset.size(), analysisOrder.size());
+            }
             Instant start = Instant.now();
-            singleIterationAnalyzer.go(analysisOrder, cycleBreakingActive, iterations == 1);
+            singleIterationAnalyzer.go(subset, cycleBreakingActive, iterations == 1);
             Instant end = Instant.now();
             Duration duration = Duration.between(start, end);
             LOGGER.info("Duration of single iteration: {} min {} sec {} ms", duration.toMinutesPart(),
@@ -134,6 +190,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             if (iterations == configuration.maxIterations() || done || plateau) {
                 LOGGER.info("Stop iterating after {} iterations, done? {}{}", iterations, done,
                         plateau ? " (plateau: " + propertiesChanged + " vs " + previousPropertiesChanged + ")" : "");
+                logVerdictFingerprint(analysisOrder);
                 if (configuration.guardContracts()) {
                     // values are final now: verify user-written contracts, emit explanatory findings
                     new GuardAnalyzerImpl(javaInspector.runtime(), configuration, guardMessages).go(analysisOrder);
@@ -141,6 +198,23 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                 return;
             }
             previousPropertiesChanged = propertiesChanged;
+            if (dependersOf != null) {
+                java.util.Set<Info> changed = singleIterationAnalyzer.changedInfos();
+                java.util.Set<Info> next = new java.util.HashSet<>(changed);
+                for (Info c : changed) {
+                    java.util.Set<Info> deps = dependersOf.get(c);
+                    if (deps != null) next.addAll(deps);
+                }
+                dirty = next;
+                if (dirty.isEmpty()) {
+                    LOGGER.info("Stop iterating after {} iterations: worklist empty", iterations);
+                    logVerdictFingerprint(analysisOrder);
+                    if (configuration.guardContracts()) {
+                        new GuardAnalyzerImpl(javaInspector.runtime(), configuration, guardMessages).go(analysisOrder);
+                    }
+                    return;
+                }
+            }
             LOGGER.info("Run again, properties changed {}", propertiesChanged);
             // TODO any strategy, e.g. after 3 iterations, activate cycle breaking
         }

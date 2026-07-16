@@ -44,6 +44,22 @@ public final class TolerantWrite {
         CHANGES.computeIfAbsent(key, _ -> new java.util.concurrent.atomic.LongAdder()).increment();
     }
 
+    // worklist support: the targets (Info / ParameterInfo contexts) of value-CHANGING writes this iteration.
+    // Captures writes that land on an element OTHER than the one currently being processed (the link computer's
+    // on-demand recursion writing a callee's METHOD_LINKS) — counter-delta attribution alone misses those.
+    private static final java.util.Set<Object> CHANGED_TARGETS =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
+    public static java.util.Set<Object> changedTargets() {
+        synchronized (CHANGED_TARGETS) {
+            return new java.util.HashSet<>(CHANGED_TARGETS);
+        }
+    }
+
+    public static void resetChangedTargets() {
+        CHANGED_TARGETS.clear();
+    }
+
     // gate UNMODOWN=1: allow the true->false / weakening direction for the evidence-accumulating modification
     // properties (see the downgrade branch below); OFF by default pending the verdict A/B
     private static final boolean UNMODOWN = System.getenv("UNMODOWN") != null;
@@ -68,7 +84,15 @@ public final class TolerantWrite {
                     // accumulates across iterations — 'modified' (false) is absorbing, so the legal refinement
                     // direction is true->false, OPPOSITE to Bool's default policy. Apply the downgrade.
                     LOGGER.debug("Downgrading {} {} -> {} on {}", property.key(), current, value, context);
-                    return analysis.overwrite(property, value);
+                    boolean downgraded = analysis.overwrite(property, value);
+                    if (downgraded) {
+                        CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder())
+                                .increment();
+                        if (context != null && !(context instanceof String)) {
+                            CHANGED_TARGETS.add(context);
+                        }
+                    }
+                    return downgraded;
                 }
                 LOGGER.warn("Keeping {}={}, refusing downgrade to {} on {}", property.key(), current, value, context);
                 return false;
@@ -77,6 +101,9 @@ public final class TolerantWrite {
         boolean changed = analysis.setAllowControlledOverwrite(property, value);
         if (changed) {
             CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder()).increment();
+            if (context != null && !(context instanceof String)) {
+                CHANGED_TARGETS.add(context);
+            }
         }
         return changed;
     }

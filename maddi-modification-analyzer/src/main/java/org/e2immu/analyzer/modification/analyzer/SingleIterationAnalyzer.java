@@ -29,6 +29,13 @@ public interface SingleIterationAnalyzer {
 
     int propertiesChanged();
 
+    /**
+     * Worklist support: the elements whose analysis values changed during the most recent {@code go} call --
+     * per-element counter-delta attribution united with the write-target attribution from TolerantWrite (which
+     * also catches the link computer's on-demand recursion writing a CALLEE's summary mid-caller).
+     */
+    java.util.Set<Info> changedInfos();
+
     /** Findings (warnings/errors about the analyzed code) collected by all analyzers of this iteration. */
     List<Message> messages();
 }
