@@ -111,7 +111,7 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
                                 (s0, s1) -> Stream.concat(s0.stream(), s1.stream()).collect(Collectors.toUnmodifiableSet())));
             }
             ValueImpl.VariableToTypeInfoSetImpl value = new ValueImpl.VariableToTypeInfoSetImpl(Map.copyOf(downcasts));
-            if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), DOWNCAST_PARAMETER, value)) {
+            if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), DOWNCAST_PARAMETER, value, pi)) {
                 DECIDE.debug("AMA: Decide downcast parameter {}: {}", pi, value.nice());
                 propertyChanges.incrementAndGet();
             }
@@ -130,7 +130,7 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
             fromImplementations = fromImplementations.min(independentImpl);
             if (fromImplementations.isDependent()) break; // no need to try others
         }
-        if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), INDEPENDENT_PARAMETER, fromImplementations)) {
+        if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), INDEPENDENT_PARAMETER, fromImplementations, pi)) {
             DECIDE.debug("AMA: Decide independent of param {} = {}", pi, fromImplementations);
         }
     }
@@ -148,7 +148,7 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
                 break;
             }
         }
-        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), NON_MODIFYING_METHOD, fromImplementations)) {
+        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), NON_MODIFYING_METHOD, fromImplementations, methodInfo)) {
             DECIDE.debug("AM: Decide non-modifying of method {} = {}", methodInfo, fromImplementations);
         }
     }
@@ -165,7 +165,7 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
             fromImplementations = fromImplementations.min(independentImpl);
             if (fromImplementations.isDependent()) break;
         }
-        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), INDEPENDENT_METHOD, fromImplementations)) {
+        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), INDEPENDENT_METHOD, fromImplementations, methodInfo)) {
             DECIDE.debug("AMA: Decide independent of method {} = {}", methodInfo, fromImplementations);
         }
     }
@@ -185,7 +185,7 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
                 break;
             }
         }
-        if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), UNMODIFIED_PARAMETER, fromImplementations)) {
+        if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), UNMODIFIED_PARAMETER, fromImplementations, pi)) {
             DECIDE.debug("Decide unmodified of param {} = {}", pi, fromImplementations);
         }
     }

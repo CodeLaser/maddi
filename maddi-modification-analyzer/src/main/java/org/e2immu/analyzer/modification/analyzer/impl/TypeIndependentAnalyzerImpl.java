@@ -51,12 +51,12 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         if (typeIndependent.isIndependent()) return; // nothing to be gained
         Independent independent = computeIndependentType(typeInfo, activateCycleBreaking);
         if (independent != null) {
-            if (TolerantWrite.setAllowControlledOverwrite(typeInfo.analysis(), INDEPENDENT_TYPE, independent)) {
+            if (TolerantWrite.setAllowControlledOverwrite(typeInfo.analysis(), INDEPENDENT_TYPE, independent, typeInfo)) {
                 DECIDE.debug("Ti: Decide independent of type {} = {}", typeInfo, independent);
                 propertyChanges.incrementAndGet();
             }
         } else if (activateCycleBreaking) {
-            boolean write = TolerantWrite.setAllowControlledOverwrite(typeInfo.analysis(), INDEPENDENT_TYPE, INDEPENDENT);
+            boolean write = TolerantWrite.setAllowControlledOverwrite(typeInfo.analysis(), INDEPENDENT_TYPE, INDEPENDENT, typeInfo);
             assert write;
             propertyChanges.incrementAndGet();
             DECIDE.info("Ti: Decide independent of type {} = INDEPENDENT by {}", typeInfo, CYCLE_BREAKING);

@@ -114,7 +114,7 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
         } else {
             identityFluent = false;
         }
-        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), FLUENT_METHOD, ValueImpl.BoolImpl.from(identityFluent))) {
+        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), FLUENT_METHOD, ValueImpl.BoolImpl.from(identityFluent), methodInfo)) {
             DECIDE.debug("MI: Decide @Fluent of {} = {}", methodInfo, identityFluent);
             propertyChanges.incrementAndGet();
         }
@@ -134,7 +134,7 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
         } else {
             identity = false;
         }
-        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), IDENTITY_METHOD, ValueImpl.BoolImpl.from(identity))) {
+        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), IDENTITY_METHOD, ValueImpl.BoolImpl.from(identity), methodInfo)) {
             DECIDE.debug("MI: Decide @Identity of {} = {}", methodInfo, identity);
             propertyChanges.incrementAndGet();
         }
@@ -166,7 +166,7 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             }
         }
         if (unmodifiedInMethod != null) {
-            if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), UNMODIFIED_PARAMETER, unmodifiedInMethod)) {
+            if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), UNMODIFIED_PARAMETER, unmodifiedInMethod, pi)) {
                 DECIDE.debug("MI: unmodified of parameter {} = {}", pi, unmodifiedInMethod);
                 propertyChanges.incrementAndGet();
             }
@@ -189,20 +189,20 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
     }
 
     private void handleExplicitlyEmptyMethod(MethodInfo methodInfo) {
-        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), PropertyImpl.NON_MODIFYING_METHOD, TRUE)) {
+        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), PropertyImpl.NON_MODIFYING_METHOD, TRUE, methodInfo)) {
             DECIDE.debug("MI: Decide non-modifying of method {} = true", methodInfo);
             propertyChanges.incrementAndGet();
         }
-        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), PropertyImpl.INDEPENDENT_METHOD, INDEPENDENT)) {
+        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), PropertyImpl.INDEPENDENT_METHOD, INDEPENDENT, methodInfo)) {
             DECIDE.debug("MI: Decide independent of method {} = independent", methodInfo);
             propertyChanges.incrementAndGet();
         }
         for (ParameterInfo pi : methodInfo.parameters()) {
-            if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER, TRUE)) {
+            if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER, TRUE, pi)) {
                 DECIDE.debug("MI: Decide unmodified of parameter {} = true", pi);
                 propertyChanges.incrementAndGet();
             }
-            if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.INDEPENDENT_PARAMETER, INDEPENDENT)) {
+            if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.INDEPENDENT_PARAMETER, INDEPENDENT, pi)) {
                 DECIDE.debug("MI: Decide independent of parameter {} = independent", pi);
                 propertyChanges.incrementAndGet();
             }
@@ -213,7 +213,7 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
         assert !methodInfo.isConstructor();
         // getter, setter
         Bool nonModifying = ValueImpl.BoolImpl.from(!fieldValue.setter());
-        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), NON_MODIFYING_METHOD, nonModifying)) {
+        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), NON_MODIFYING_METHOD, nonModifying, methodInfo)) {
             propertyChanges.incrementAndGet();
         }
         ParameterizedType type;
@@ -233,16 +233,16 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
     }
 
     private void handleGetter(MethodInfo methodInfo, Independent independentFromType) {
-        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), INDEPENDENT_METHOD, independentFromType)) {
+        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), INDEPENDENT_METHOD, independentFromType, methodInfo)) {
             DECIDE.debug("MI: Decide independent of method {} = {}}", methodInfo, independentFromType);
             propertyChanges.incrementAndGet();
         }
         for (ParameterInfo pi : methodInfo.parameters()) {
-            if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER, TRUE)) {
+            if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER, TRUE, pi)) {
                 DECIDE.debug("MI: Decide unmodified of getter parameter: {} = true", pi);
                 propertyChanges.incrementAndGet();
             }
-            if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), INDEPENDENT_PARAMETER, INDEPENDENT)) {
+            if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), INDEPENDENT_PARAMETER, INDEPENDENT, pi)) {
                 DECIDE.debug("MI: Decide @Independent of getter parameter: {} = true", pi);
                 propertyChanges.incrementAndGet();
             }
@@ -253,7 +253,7 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
         if (independentFromType.isIndependent()) {
             // must be unmodified, otherwise, we'll have to wait for a value to come from the field
             for (ParameterInfo pi : methodInfo.parameters()) {
-                if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER, TRUE)) {
+                if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER, TRUE, pi)) {
                     DECIDE.debug("MI: Decide unmodified of parameter because independent: {} = true", pi);
                     propertyChanges.incrementAndGet();
                 }
@@ -267,12 +267,12 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             } else {
                 for (ParameterInfo pi : methodInfo.parameters()) {
                     if (pi.index() == fieldValue.parameterIndexOfIndex()) {
-                        if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER, TRUE)) {
+                        if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER, TRUE, pi)) {
                             DECIDE.debug("MI: Decide unmodified of setter index parameter: {} = true", pi);
                             propertyChanges.incrementAndGet();
                         }
                     } else {
-                        if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER, unmodifiedField)) {
+                        if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER, unmodifiedField, pi)) {
                             DECIDE.debug("MI: Decide unmodified of setter parameter: {} = {}", pi, unmodifiedField);
                             propertyChanges.incrementAndGet();
                         }
@@ -295,12 +295,12 @@ normal methods: does a modification to the return value imply any modification i
 
         Independent independentMethod = doIndependentMethod(methodInfo, mlv);
         if (independentMethod != null) {
-            if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), PropertyImpl.INDEPENDENT_METHOD, independentMethod)) {
+            if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), PropertyImpl.INDEPENDENT_METHOD, independentMethod, methodInfo)) {
                 DECIDE.debug("MI: Decide independent of method {} = {}", methodInfo, independentMethod);
                 propertyChanges.incrementAndGet();
             }
         } else if (cycleBreakingActive) {
-            boolean write = TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), PropertyImpl.INDEPENDENT_METHOD, INDEPENDENT);
+            boolean write = TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), PropertyImpl.INDEPENDENT_METHOD, INDEPENDENT, methodInfo);
             assert write;
             propertyChanges.incrementAndGet();
             DECIDE.info("MI: Decide independent of method {} = INDEPENDENT by {}", methodInfo, CYCLE_BREAKING);
@@ -310,12 +310,12 @@ normal methods: does a modification to the return value imply any modification i
         for (ParameterInfo pi : methodInfo.parameters()) {
             Independent independent = doIndependentParameter(pi, mlv);
             if (independent != null) {
-                if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.INDEPENDENT_PARAMETER, independent)) {
+                if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.INDEPENDENT_PARAMETER, independent, pi)) {
                     DECIDE.debug("MI: Decide independent of parameter {} = {}", pi, independent);
                     propertyChanges.incrementAndGet();
                 }
             } else if (cycleBreakingActive) {
-                boolean write = TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.INDEPENDENT_PARAMETER, INDEPENDENT);
+                boolean write = TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.INDEPENDENT_PARAMETER, INDEPENDENT, pi);
                 assert write;
                 DECIDE.info("MI: Decide independent of parameter {} = INDEPENDENT by {}", pi, CYCLE_BREAKING);
                 propertyChanges.incrementAndGet();

@@ -36,6 +36,13 @@ public interface SingleIterationAnalyzer {
      */
     java.util.Set<Info> changedInfos();
 
+    /**
+     * Worklist v2: only elements whose EXTERNALLY VISIBLE summary changed (method links/modification verdicts,
+     * field/type verdicts) — the set whose dependents must be re-analyzed. Element-internal (statement-level)
+     * changes are excluded: dependents cannot observe them.
+     */
+    java.util.Set<Info> summaryChangedInfos();
+
     /** Findings (warnings/errors about the analyzed code) collected by all analyzers of this iteration. */
     List<Message> messages();
 }
