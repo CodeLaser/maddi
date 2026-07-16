@@ -7,6 +7,8 @@ import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.VirtualFieldTranslationMap;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
+import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -422,5 +424,15 @@ public class LinksImpl implements Links {
     public boolean containsVirtualFields() {
         if (Util.virtual(primary)) return true;
         return linkSet.stream().anyMatch(Link::containsVirtualFields);
+    }
+
+    /*
+    Holds the primary Variable and a Link per entry, each with a from and a to Variable, so a rewire has to map all
+    of them. Links are derived across types, so a REWIRE type's links are stale by construction and should be
+    recomputed rather than carried; hence not implemented. See rewiring.md.
+     */
+    @Override
+    public Value rewire(InfoMap infoMap) {
+        throw new UnsupportedOperationException("NYI");
     }
 }

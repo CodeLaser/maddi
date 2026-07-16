@@ -174,19 +174,21 @@ business case; everything else in analysis should simply be recomputed.
 
 ### The hook exists, and is orphaned
 
-`Value.rewire(InfoMap)` (`Value.java:45`) and `PropertyValueMapImpl.rewire(InfoMap)` (`:37-41`, maps every value
-through `value.rewire`) are both written. **The only callers are two expression sites** (`ConstructorCallImpl:435`,
-`MethodCallImpl:437`) — no `rewirePhase` calls it at any Info level. Hence the bare `// analysis?`. The values
-underneath are in three tiers:
+`Value.rewire(InfoMap)` and `PropertyValueMapImpl.rewire(InfoMap)` (`:37-41`, maps every value through
+`value.rewire`) are both written. **The only callers are two expression sites** (`ConstructorCallImpl:435`,
+`MethodCallImpl:437`) — no `rewirePhase` calls it at any Info level. Hence the bare `// analysis?`. Where the values
+stand:
 
 | tier | classes |
 |---|---|
-| works | `GetSetValueImpl`, `FieldBooleanMapImpl`, `VariableBooleanMapImpl`, `AssignedToFieldImpl`, `PostConditionsImpl`, `PreconditionImpl`, `GetSetEquivalentImpl` |
-| throws `NYI` (loud) | `SetOfInfoImpl` (`PART_OF_CONSTRUCTION`), `VariableToTypeInfoSetImpl`, `SetOfTypeInfoImpl`, `SetOfMethodInfoImpl` (`IMPLEMENTATIONS`) |
-| **silently identity** | `VariableDataImpl`, `LinksImpl`, `MethodLinkedVariablesImpl`, `VariableInfoMap`, `ListOfLinksImpl`, **`IndependentImpl`**, `ParameterParSeqImpl` |
+| mapped | `GetSetValueImpl`, `FieldBooleanMapImpl`, `VariableBooleanMapImpl`, `AssignedToFieldImpl`, `PostConditionsImpl`, `PreconditionImpl`, `GetSetEquivalentImpl` |
+| `return this` (plain: ints, strings) | `BoolImpl`, `ImmutableImpl`, `NotNullImpl`, `MessageImpl`, `ScopeImpl`, `CommutableDataImpl`, `IndicesOfEscapesImpl`, `SetOfStringsImpl` |
+| throws `NYI` (holds Info, not written) | `SetOfInfoImpl` (`PART_OF_CONSTRUCTION`), `VariableToTypeInfoSetImpl`, `SetOfTypeInfoImpl`, `SetOfMethodInfoImpl` (`IMPLEMENTATIONS`), **`IndependentImpl`**, `ParameterParSeqImpl`, `VariableDataImpl` (+`Builder`), `LinksImpl`, `MethodLinkedVariablesImpl`, `VariableInfoMap`, `ListOfLinksImpl` |
 
-The third tier is Trap 1 one level up: `Value.rewire` defaults to `return this`, so a value that holds `Info` and
-forgets to override passes stale references through silently. It should default to *throw*.
+There used to be a fourth, worst tier — **silently identity**: `Value.rewire` defaulted to `return this`, so a value
+holding `Info` that forgot to override passed stale references through without a sound. That was Trap 1 one level
+up. The default now throws, and every implementation states its choice, so the tiers above are exhaustive by
+construction.
 
 **`Independent` is not a plain lattice level, despite the name**: `IndependentImpl` carries
 `List<MethodInfo> dependentExceptions` (`ValueImpl:343`). An allow-list built from property names — which this doc

@@ -17,6 +17,8 @@ package org.e2immu.analyzer.modification.prepwork.variable.impl;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfoContainer;
 import org.e2immu.language.cst.api.analysis.Codec;
+import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
@@ -69,6 +71,11 @@ public class VariableDataImpl implements VariableData {
         }
 
         @Override
+        public Value rewire(InfoMap infoMap) {
+            throw new UnsupportedOperationException("Builder cannot be rewired, must be built first");
+        }
+
+        @Override
         public Stream<VariableInfoContainer> variableInfoContainerStream() {
             return vicByFqn.values().stream();
         }
@@ -88,6 +95,17 @@ public class VariableDataImpl implements VariableData {
     @Override
     public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
         return null;// not yet streamed
+    }
+
+    /*
+    The map keys are fully qualified names and survive, but every VariableInfoContainer underneath holds Variable
+    objects (and its own analysis), so a rewire has to descend into all of them. This is the one value worth
+    carrying across a rewire -- it is computed from the type's own body, which a REWIRE type by definition did not
+    change -- so this is the place to start when that is taken on. See rewiring.md.
+     */
+    @Override
+    public Value rewire(InfoMap infoMap) {
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override

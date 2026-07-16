@@ -42,8 +42,20 @@ public interface Value extends Comparable<Value> {
         return v == null || compareTo(v) <= 0 ? this : v;
     }
 
+    /**
+     * Produce the equivalent of this value in the rewired world: every {@link org.e2immu.language.cst.api.info.Info}
+     * and {@link Variable} reference must be mapped through {@code infoMap}, which returns its argument unchanged for
+     * anything that was not rewired.
+     * <p>
+     * The default throws rather than returning {@code this}. A value that holds Info or Variable references and
+     * silently returns {@code this} smuggles objects of the previous generation into the new CST, where they are
+     * indistinguishable from the real ones -- {@code Info} equality is structural (fqn + source set), so nothing
+     * downstream will notice. That bug class is expensive to find; failing here is not. So choose explicitly:
+     * {@code return this} when the value is plain (ints, strings), a real mapping when it is not, or throw when the
+     * mapping has not been written yet.
+     */
     default Value rewire(InfoMap infoMap) {
-        return this;
+        throw new UnsupportedOperationException("No rewire() on " + getClass());
     }
 
     default boolean overwriteAllowed(Value newValue) {

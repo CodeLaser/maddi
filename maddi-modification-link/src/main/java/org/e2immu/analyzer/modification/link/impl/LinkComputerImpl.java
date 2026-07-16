@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.NullConstant;
+import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -84,6 +85,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         public boolean overwriteAllowed(Value newValue) {
             // TODO
             return true;
+        }
+
+        // a list of Links; see LinksImpl.rewire
+        @Override
+        public Value rewire(InfoMap infoMap) {
+            throw new UnsupportedOperationException("NYI");
         }
     }
 
