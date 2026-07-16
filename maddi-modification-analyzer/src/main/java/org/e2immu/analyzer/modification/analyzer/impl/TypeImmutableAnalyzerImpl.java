@@ -70,9 +70,11 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         boolean haveSetters = typeInfo.methodStream()
                 .anyMatch(fi -> fi.getSetField() != null && fi.getSetField().setter());
         if (haveSetters) return MUTABLE;
-        if (independent.isDependent()) return FINAL_FIELDS;
 
-        // hierarchy
+        // hierarchy BEFORE the dependence cap: a mutable supertype makes the type MUTABLE regardless of its own
+        // final fields. The 'isDependent -> FINAL_FIELDS' early return that stood here committed a premature
+        // optimistic verdict which the hierarchy-aware 2nd type pass then tried (and was refused) to downgrade
+        // (timefold bavet Group*CollectorBiNode extending mutable AbstractGroupBiNode).
 
         Immutable immFromHierarchy = IMMUTABLE;
         boolean stopExternal = false;
@@ -96,6 +98,10 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
                 immutableSuperBroken = immutableSuper;
             }
             immFromHierarchy = immutableSuperBroken.min(immFromHierarchy);
+        }
+        if (independent.isDependent()) {
+            // an undecided supertype may still force MUTABLE: wait rather than conclude FINAL_FIELDS prematurely
+            return stopExternal ? null : FINAL_FIELDS;
         }
         if (immFromHierarchy.isFinalFields()) return FINAL_FIELDS;
 

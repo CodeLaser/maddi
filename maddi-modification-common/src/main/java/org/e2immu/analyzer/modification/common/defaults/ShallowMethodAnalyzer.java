@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.common.defaults;
 
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.analysis.Property;
@@ -78,7 +79,7 @@ public class ShallowMethodAnalyzer extends AnnotationToProperty {
             dataMap.put(parameterInfo, parameterData);
             parameterVoMap.forEach((p, vo) -> {
                 if (!vo.value().isDefault() || vo.origin() == ANNOTATED) {
-                    parameterInfo.analysis().setAllowControlledOverwrite(p, vo.value());
+                    TolerantWrite.setAllowControlledOverwrite(parameterInfo.analysis(), p, vo.value());
                 }
                 parameterData.put(p, vo.origin());
             });
@@ -90,7 +91,7 @@ public class ShallowMethodAnalyzer extends AnnotationToProperty {
         dataMap.put(methodInfo, methodData);
         voMap.forEach((p, vo) -> {
             if (!vo.value().isDefault() || vo.origin() == ANNOTATED) {
-                methodInfo.analysis().setAllowControlledOverwrite(p, vo.value());
+                TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), p, vo.value());
             }
             methodData.put(p, vo.origin());
         });

@@ -23,6 +23,22 @@ public final class TolerantWrite {
     private TolerantWrite() {
     }
 
+    // convergence diagnosis: successful (value-changing) writes per property key, reset per iteration by the
+    // iterating analyzer. Covers every setAllowControlledOverwrite in link+analyzer (they all route through
+    // here); plain set() sites (write-once) do not oscillate and are not counted.
+    private static final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.LongAdder>
+            CHANGES = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public static java.util.Map<String, Long> changeCounts() {
+        java.util.Map<String, Long> result = new java.util.TreeMap<>();
+        CHANGES.forEach((k, v) -> result.put(k, v.sum()));
+        return result;
+    }
+
+    public static void resetChangeCounts() {
+        CHANGES.clear();
+    }
+
     public static <V extends Value> boolean setAllowControlledOverwrite(PropertyValueMap analysis,
                                                                         Property property,
                                                                         V value) {
@@ -40,6 +56,10 @@ public final class TolerantWrite {
                 return false;
             }
         }
-        return analysis.setAllowControlledOverwrite(property, value);
+        boolean changed = analysis.setAllowControlledOverwrite(property, value);
+        if (changed) {
+            CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder()).increment();
+        }
+        return changed;
     }
 }
