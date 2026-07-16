@@ -11,6 +11,37 @@
       <persistent value="true"/>
    </extension>
 
+   <!-- Computed analysis hints (@Container, @NotModified, …): a plain text marker (NOT a problem marker,
+        so it stays out of the Problems view), shown as a gutter icon + hover on each declaration. -->
+   <extension point="org.eclipse.core.resources.markers"
+              id="analysisHint"
+              name="maddi analysis hint">
+      <super type="org.eclipse.core.resources.textmarker"/>
+      <persistent value="true"/>
+   </extension>
+   <extension point="org.eclipse.ui.editors.annotationTypes">
+      <type name="io.codelaser.maddi.eclipse.analysisHintAnnotation"
+            markerType="io.codelaser.maddi.eclipse.analysisHint"/>
+   </extension>
+   <extension point="org.eclipse.ui.editors.markerAnnotationSpecification">
+      <specification
+            annotationType="io.codelaser.maddi.eclipse.analysisHintAnnotation"
+            label="maddi analysis hint"
+            symbolicIcon="info"
+            textPreferenceKey="maddi.hint.text"
+            textPreferenceValue="false"
+            highlightPreferenceKey="maddi.hint.highlight"
+            highlightPreferenceValue="false"
+            overviewRulerPreferenceKey="maddi.hint.overview"
+            overviewRulerPreferenceValue="true"
+            verticalRulerPreferenceKey="maddi.hint.vertical"
+            verticalRulerPreferenceValue="true"
+            colorPreferenceKey="maddi.hint.color"
+            colorPreferenceValue="115,135,225"
+            presentationLayer="4"
+            contributesToHeader="false"/>
+   </extension>
+
    <extension point="org.eclipse.ui.commands">
       <command id="io.codelaser.maddi.eclipse.analyze"
                name="Analyze with maddi"

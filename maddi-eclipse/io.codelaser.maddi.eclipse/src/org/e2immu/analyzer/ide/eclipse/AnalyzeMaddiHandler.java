@@ -86,7 +86,7 @@ public class AnalyzeMaddiHandler extends AbstractHandler {
         AnalysisModel.Result result = daemon.client().objectMapper().treeToValue(node, AnalysisModel.Result.class);
 
         ResourcesPlugin.getWorkspace().run(
-                m -> MaddiMarkers.apply(ResourcesPlugin.getWorkspace().getRoot(), result.findings()),
+                m -> MaddiMarkers.apply(ResourcesPlugin.getWorkspace().getRoot(), result),
                 null);
         MaddiResults.get().update(result);
         revealFindingsView();
