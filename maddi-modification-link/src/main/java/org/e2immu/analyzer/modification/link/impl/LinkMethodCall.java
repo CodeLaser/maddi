@@ -231,6 +231,26 @@ public record LinkMethodCall(JavaInspector javaInspector,
                         // if to's index == i, we're talking the same index, rather than between indices
                         continue;
                     }
+                    ParameterInfo fromCheck = methodInfo.parameters().get(i);
+                    if (!fromCheck.isVarArgs() && to.isVarArgs() && System.getenv("NOVARTO") == null) {
+                        // LEAF — the link's TARGET is the varargs parameter: fan the to-side out over every
+                        // actual argument, with the same per-element weakening as the from-side fan-out.
+                        // 'fillAll(Box<T> target, T... vs)' with 'target.t ∈ 1:vs' at 'fillAll(box,a,b)' ->
+                        // 'box.t ∈ a' AND 'box.t ∈ b' (previously only the argument at the varargs' own index).
+                        LinkNature linkNature = varargsLinkNature(link.linkNature());
+                        Variable fromPrimary = params.get(i).links().primary();
+                        if (fromPrimary != null) {
+                            for (int j = to.index(); j < params.size(); ++j) {
+                                Variable argPrimary = params.get(j).links().primary();
+                                if (argPrimary != null) {
+                                    TranslationMap tm = new VariableTranslationMap(runtime).put(to, argPrimary);
+                                    Variable perArgTo = tm.translateVariableRecursively(link.to());
+                                    addCrosslink(fromPrimary, extra, fromCheck, link.from(), linkNature, perArgTo);
+                                }
+                            }
+                        }
+                        continue;
+                    }
                     Variable toPrimary = params.get(to.index()).links().primary();
                     if (toPrimary != null) {
                         TranslationMap toTm = new VariableTranslationMap(runtime).put(to, toPrimary);
