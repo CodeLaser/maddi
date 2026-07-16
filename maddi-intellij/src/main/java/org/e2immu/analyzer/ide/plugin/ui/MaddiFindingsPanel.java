@@ -85,7 +85,8 @@ public class MaddiFindingsPanel extends SimpleToolWindowPanel implements Disposa
         byFile.values().forEach(root::add);
         DefaultMutableTreeNode summary = new DefaultMutableTreeNode(new Row(
                 result.findings().size() + " finding(s), " + result.elementAnnotations().size()
-                        + " annotated element(s), " + result.elapsedMillis() + " ms", null, null, null));
+                        + " annotated element(s), " + result.hintsLoaded() + " hint type(s), "
+                        + result.elapsedMillis() + " ms", null, null, null));
         root.add(summary);
         model.reload();
         for (int i = 0; i < tree.getRowCount(); i++) tree.expandRow(i);

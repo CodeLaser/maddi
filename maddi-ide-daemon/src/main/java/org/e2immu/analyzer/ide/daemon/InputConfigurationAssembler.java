@@ -14,8 +14,10 @@
 
 package org.e2immu.analyzer.ide.daemon;
 
+import org.e2immu.annotation.Immutable;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
 
 import java.util.List;
 
@@ -69,11 +71,17 @@ public class InputConfigurationAssembler {
             builder.addRestrictSourceToPackages(restrict.toArray(new String[0]));
         }
 
-        // Supply the e2immu annotation types (@Immutable, @Container, @NotModified, …) from the daemon's own
-        // classpath (the distribution bundles maddi-support). Required so DecoratorImpl resolves them, and so
-        // the vast majority of analyzed projects — which do NOT depend on the annotations — still get hints,
-        // and so a project that DOES use them parses those imports.
-        return builder.build().withE2ImmuSupportFromClasspath();
+        // Supply the e2immu annotation types (@Immutable, @Container, @NotModified, …) as a real classpath part,
+        // located from the daemon's own classpath (the distribution bundles maddi-support). Required so
+        // DecoratorImpl resolves them, so projects that do NOT depend on the annotations still get hints, and so
+        // a project that DOES use them parses those imports. (The openjdk inspector does not support the
+        // jar-on-classpath: scheme that withE2ImmuSupportFromClasspath() uses.)
+        builder.addClassPathParts(SourceSetImpl.sourceSetOf(Immutable.class));
+        // Provide java.base as a first-class source set (like the analyzer's test harness) so the runtime
+        // registers its types for hint resolution — otherwise LoadAnalysisResults reports "type not on the
+        // classpath" even though the openjdk parser preloaded them.
+        builder.addClassPathParts(SourceSetImpl.javaBase());
+        return builder.build();
     }
 
     private static boolean notBlank(String s) {

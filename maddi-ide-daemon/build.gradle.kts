@@ -33,11 +33,9 @@ dependencies {
     implementation(project(":maddi-cst-impl"))
     implementation(project(":maddi-cst-io"))
     implementation(project(":maddi-cst-print"))
-    implementation(project(":maddi-inspection-parser"))
-    implementation(project(":maddi-inspection-integration"))   // JavaInspectorImpl
+    implementation(project(":maddi-inspection-openjdk"))       // JavaInspectorImpl (the integration one is phased out)
     implementation(project(":maddi-inspection-resource"))      // InputConfigurationImpl
     implementation(project(":maddi-java-bytecode"))
-    implementation(project(":maddi-java-parser"))
     implementation(project(":maddi-aapi-parser"))
 
     // to access resource:/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs.jar
@@ -48,16 +46,28 @@ dependencies {
     implementation("ch.qos.logback:logback-classic")
     implementation("com.fasterxml.jackson.core:jackson-databind")
 
-    // Test only: the e2immu annotations, used as the analyzed project's classpath in the analyze test.
-    testImplementation(project(":maddi-support"))
+    // the e2immu annotations, supplied to every analyzed project as a classpath part (SourceSetImpl.sourceSetOf)
+    implementation(project(":maddi-support"))
 }
+
+// The openjdk inspector drives javac internals; these exports are required at runtime (see maddi-run-openjdk).
+val openjdkExports = listOf(
+    "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+    "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+    "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+    "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+    "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+)
 
 application {
     mainClass = "org.e2immu.analyzer.ide.daemon.DaemonMain"
+    // baked into the generated start script's DEFAULT_JVM_OPTS, so the launched daemon has them
+    applicationDefaultJvmArgs = openjdkExports
 }
 
 // The analyze test points a real on-disk project at the e2immu annotations (maddi-support, on the test
 // classpath) as its "hot class files", exactly as the plugin will point maddi at IntelliJ's output.
 tasks.test {
+    jvmArgs(openjdkExports)
     useJUnitPlatform()
 }

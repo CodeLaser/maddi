@@ -59,6 +59,13 @@ public class WarmAnalysisServiceTest {
                     @Override
                     public void add(Mutable m) { m.set(3); } // modifies the argument → violates @Container
                 }
+
+                // Uses java.util: count() only reads the list. Computing it @NotModified requires knowing
+                // java.util.List.size() is @NotModified — i.e. the preloaded JDK analysis hints.
+                class Holder {
+                    private final java.util.List<String> items = new java.util.ArrayList<>();
+                    int count() { return items.size(); }
+                }
                 """);
 
         DaemonProtocol.AnalyzeConfig config = new DaemonProtocol.AnalyzeConfig(
@@ -98,6 +105,21 @@ public class WarmAnalysisServiceTest {
         // element annotations should be located and typed
         assertTrue(result.elementAnnotations().stream().anyMatch(e -> "TYPE".equals(e.kind())),
                 "expected at least one TYPE element annotation");
+
+        // (c) the JDK/library analysis hints were preloaded
+        assertTrue(result.hintsLoaded() > 0, "expected JDK/library analysis hints to be preloaded");
+
+        // (d) hints make library-dependent analysis correct: count() only reads list.size() → @NotModified
+        //     (requires the java.util hints to be loaded and decoded)
+        boolean countNotModified = result.elementAnnotations().stream()
+                .filter(e -> "METHOD".equals(e.kind()) && e.fqn() != null && e.fqn().contains("count"))
+                .flatMap(e -> e.displayAnnotations().stream())
+                .anyMatch(a -> a.contains("@NotModified"));
+        assertTrue(countNotModified,
+                "expected Holder.count() @NotModified (needs java.util.List.size() hints); annotations: "
+                        + result.elementAnnotations().stream()
+                        .filter(e -> e.fqn() != null && e.fqn().contains("count"))
+                        .map(e -> e.fqn() + " " + e.displayAnnotations()).toList());
     }
 
     private static String describeFindings(List<DaemonProtocol.Finding> findings) {

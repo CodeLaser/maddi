@@ -64,6 +64,7 @@ public final class AnalysisModel {
                          List<ElementAnnotation> elementAnnotations,
                          List<String> initializationProblems,
                          int parseErrorCount,
+                         int hintsLoaded,
                          long elapsedMillis) {
     }
 }
