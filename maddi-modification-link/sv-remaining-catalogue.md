@@ -4,6 +4,13 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE — LANGCHAIN4J GREEN (run2: exit 0, ZERO caught, 36m22s, plateau at iteration 5)
+
+Both real-world corpora (timefold-solver, langchain4j) now pass the full modification
+chain end-to-end with zero element crashes. Task 'run the 2 projects' complete; they are
+the standing proving ground. Next: worklist-narrowing A/B (gate WORKLIST=1; verdict
+fingerprint as the equivalence signal).
+
 ## UPDATE — LANGCHAIN4J ROUND 1: 38 crashes → 2 fixes; plateau exit works (5 iterations, 32 min)
 
 First full-chain run on langchain4j (multi-module, ~27k methods): only 38 caught elements
