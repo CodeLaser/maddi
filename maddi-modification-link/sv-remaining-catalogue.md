@@ -4,6 +4,27 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-17 (night) — CORPUS EXPANSION: TestCorpusSweep + guava/jenkins first contact (scan-level findings)
+
+Corpus-diversity round (user has ~15 candidates in ~/git/test-oss): TestCorpusSweep
+(gate SWEEP=1 or SWEEP=name1,name2) batch-runs every corpus with an
+inputConfiguration.json at its root; bar = exit 0. Guava + Jenkins nominated
+(generics/immutability depth; enterprise/DI shape) — configs generated via
+maddi-mvnplugin (main's jar-file-name fix; workingDirectory absolutized in the root
+copies; merge 5be888f9 brought main in, suites green).
+
+FIRST-CONTACT FINDINGS — all SCAN-level, a layer the original 3 corpora barely exercised:
+- guava (exit 2): (a) "Duplicating type HashBiMap.$0.MapEntry" — named inner class
+  inside anonymous classes collides in scanner naming; (b) AssertionError scanning
+  CharEscaperBuilder + reflect/Types (generics-heavy); (c) generated config points the
+  test source set at non-existent guava/guava/test. → task #24
+- jenkins (exit 5, 6s = stops after parse): ~110 javac "cannot find symbol: variable
+  Messages" in MAIN sources, while the 50 localizer-generated Messages.java ARE in
+  sourceDirectories AND collected (1,308 symbols > 1,260 main files); only 10 test units
+  dropped, none of them Messages. Contradiction (collected but unresolved) needs a javac-
+  level repro — suspect the per-source-set file-manager wiring for multi-directory sets.
+  Also: config carries only java.base ("Unknown module java.logging"). → task #25
+
 ## UPDATE 2026-07-17 (late) — VERIFICATION-PASS RESIDUE ROOT-CAUSED TO THE v2 ASSUMPTION; two hypotheses falsified, cost accepted (~2 passes)
 
 The ~160-element residue that verification pass 1 keeps finding on timefold (constraint-
