@@ -53,6 +53,9 @@ public abstract class VariableImpl implements Variable {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof VariableImpl variable)) return false;
+        // cached-hash fast reject before the O(length) string compare: FQNs are long (deep faces carry a
+        // full method signature), and the engine does many direct equals calls outside hash structures
+        if (hashCode() != variable.hashCode()) return false;
         return fqnForEquality().equals(variable.fqnForEquality());
     }
 
