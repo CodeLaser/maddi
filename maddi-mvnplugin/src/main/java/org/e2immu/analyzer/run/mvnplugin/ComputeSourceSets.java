@@ -12,7 +12,6 @@ import org.eclipse.aether.graph.DependencyNode;
 import org.eclipse.aether.util.artifact.JavaScopes;
 import org.eclipse.aether.util.filter.DependencyFilterUtils;
 
-import java.io.File;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
@@ -21,15 +20,13 @@ import java.util.stream.Collectors;
 
 public class ComputeSourceSets {
 
-    private final Path absWorkingDirectory;
     private final ProjectDependenciesResolver dependenciesResolver;
     private final MavenProject project;
     private final MavenSession session;
     private final Log log;
 
-    public ComputeSourceSets(File absWorkingDirectory, ProjectDependenciesResolver dependenciesResolver,
+    public ComputeSourceSets(ProjectDependenciesResolver dependenciesResolver,
                              MavenProject mavenProject, MavenSession mavenSession, Log log) {
-        this.absWorkingDirectory = absWorkingDirectory.toPath();
         this.dependenciesResolver = dependenciesResolver;
         this.project = mavenProject;
         this.session = mavenSession;
@@ -53,15 +50,19 @@ public class ComputeSourceSets {
         deps.addAll(computeClassPathParts(JavaScopes.RUNTIME, false, true, sourceSetsByName,
                 excludeFromClasspathSet));
         log.info("Have " + deps.size() + " dependent source sets for main");
+        // Emit absolute source directories (and a hierarchical file:/... URI). maddi resolves relative source dirs
+        // against the configured working directory, but the classpath parts are already absolute machine paths, so
+        // relativizing the sources buys no portability -- it only coupled the run to the process CWD and produced
+        // opaque "file:src/main/java" URIs. Absolute paths make the run independent of where mvn is launched from.
         List<Path> sourcePaths = project.getCompileSourceRoots().stream()
-                .map(path -> absWorkingDirectory.relativize(Path.of(path))).toList();
+                .map(path -> Path.of(path).toAbsolutePath().normalize()).toList();
         if (!sourcePaths.isEmpty()) {
             Set<String> restrictToPackages = stringToSet(sourcePackages);
 
             SourceSet mainSourceSet = new SourceSetImpl.Builder()
                     .setName(projectName + "/main")
                     .setSourceDirectories(sourcePaths)
-                    .setUri(URI.create("file:" + sourcePaths.getFirst()))
+                    .setUri(sourcePaths.getFirst().toUri())
                     .setSourceEncoding(encoding)
                     .setRestrictToPackages(restrictToPackages)
                     .setDependencies(List.copyOf(deps))
@@ -72,14 +73,14 @@ public class ComputeSourceSets {
                 excludeFromClasspathSet));
         log.info("Have " + deps.size() + " dependent source sets for test");
         List<Path> testSourcePaths = project.getTestCompileSourceRoots().stream()
-                .map(path -> absWorkingDirectory.relativize(Path.of(path))).toList();
+                .map(path -> Path.of(path).toAbsolutePath().normalize()).toList();
         if (!testSourcePaths.isEmpty()) {
             Set<String> restrictToTestPackages = stringToSet(testSourcePackages);
 
             SourceSet testSourceSet = new SourceSetImpl.Builder()
                     .setName(projectName + "/test")
                     .setSourceDirectories(testSourcePaths)
-                    .setUri(URI.create("file:" + testSourcePaths.getFirst()))
+                    .setUri(testSourcePaths.getFirst().toUri())
                     .setSourceEncoding(encoding)
                     .setTest(true)
                     .setRestrictToPackages(restrictToTestPackages)
