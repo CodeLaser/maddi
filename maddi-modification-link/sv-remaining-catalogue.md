@@ -4,6 +4,30 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-17 — LANGCHAIN4J ALSO CERTIFIES: both corpora reach a machine-checked fixpoint
+
+Langchain4j (WORKLIST=1 NOPLATEAU=1, 56,404 elements): 11 narrowing iterations to quiet →
+pass 1 finds 15 → cleanup → pass 2 finds 1 (unmodifiedField) → subset quiet → **pass 3
+clean, "done? true" after 14 iterations**. Exit 0, 41 min wall (the old 36-min "baseline"
+was a PLATEAU CUT at iteration 5, not converged; this is the first converged langchain4j
+run). Notably its pass-1 residue is 15 vs timefold's 142 — the FI-edge adjacency gap is
+corpus-dependent (timefold's abstract constraint-stream test hierarchy is the pathology).
+
+**State of the worklist arc: COMPLETE except the default-on decision.**
+- timefold: certified in 18 iterations, ~41 min, FPDUMP == baseline (0-line diff, twice).
+- langchain4j: certified in 14 iterations, ~41 min.
+- Correctness: certification = a full pass with 0 changes, machine-checked every run;
+  verdict-exactness vs full re-analysis proven on timefold.
+- Speed: certified 41 min vs 64-min baseline hitting the iteration cap NOT converged.
+- OPEN DECISION (user): flip WORKLIST default-on (evidence above); NOPLATEAU interaction:
+  under worklist+certification the plateau exit is unnecessary and arguably harmful.
+- NEXT SPEED LEVERS (parked, in order of expected payoff): intra-iteration parallelism
+  (audit lazy getOrLoad thread-safety first — verification passes and iteration 1 are
+  ~6-min full sweeps that would parallelize well on the MacStudio); FI-application edges
+  in the reverse adjacency (kills ~2 of 3 verification passes, ~12 min on timefold);
+  slow-tail method profiling.
+- Artifacts: scratchpad/lc4j-wl1-trail.txt, lc4j-wl1.xml, fpdump-lc4j-worklist1.txt.
+
 ## UPDATE 2026-07-17 — RUN26: FIRST CERTIFIED FIXPOINT (timefold, 41 min, verdict-exact); the "non-idempotent ~36" were a starved convergence chain, not oscillation
 
 Run26 (WORKLIST=1 NOPLATEAU=1 MLTRACE=1, with the attribution fix from commit 8475dabe):
