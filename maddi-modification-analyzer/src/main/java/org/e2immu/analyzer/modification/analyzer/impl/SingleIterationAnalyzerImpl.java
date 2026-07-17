@@ -130,13 +130,22 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         TolerantWrite.resetChangedTargets();
         Set<TypeInfo> abstractTypes = new HashSet<>(); // first iteration only, which always runs sequentially
 
+        long startLoop = System.currentTimeMillis();
         if (PARALLEL_THREADS > 1 && !firstIteration) {
             LOGGER.info("Parallel iteration: {} threads over {} elements", PARALLEL_THREADS, analysisOrder.size());
             List<java.util.concurrent.Future<?>> futures = new ArrayList<>(analysisOrder.size());
+            java.util.Map<Info, Long> elementMillis = new java.util.concurrent.ConcurrentHashMap<>();
             try (java.util.concurrent.ExecutorService pool =
                          java.util.concurrent.Executors.newFixedThreadPool(PARALLEL_THREADS)) {
                 for (Info info : analysisOrder) {
-                    futures.add(pool.submit(() -> processElement(info, activateCycleBreaking, false, abstractTypes)));
+                    futures.add(pool.submit(() -> {
+                        long t0 = System.nanoTime();
+                        try {
+                            processElement(info, activateCycleBreaking, false, abstractTypes);
+                        } finally {
+                            elementMillis.put(info, (System.nanoTime() - t0) / 1_000_000);
+                        }
+                    }));
                 }
             } // close() awaits completion of all submitted tasks
             for (java.util.concurrent.Future<?> future : futures) {
@@ -152,11 +161,18 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                     throw new RuntimeException(e);
                 }
             }
+            String slowest = elementMillis.entrySet().stream()
+                    .sorted(java.util.Map.Entry.<Info, Long>comparingByValue().reversed())
+                    .limit(10)
+                    .map(e -> e.getKey().fullyQualifiedName() + "=" + e.getValue() + "ms")
+                    .reduce((a, b) -> a + ", " + b).orElse("-");
+            LOGGER.info("Slowest elements: {}", slowest);
         } else {
             for (Info info : analysisOrder) {
                 processElement(info, activateCycleBreaking, firstIteration, abstractTypes);
             }
         }
+        long endLoop = System.currentTimeMillis();
         // derived rather than collected during the loop: same content as before, in deterministic
         // analysisOrder order, independent of parallel completion order
         List<MethodInfo> abstractMethods = analysisOrder.stream()
@@ -168,6 +184,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                 .map(info -> (TypeInfo) info)
                 .toList();
 
+        long startAbstract = System.currentTimeMillis();
         int changesBeforeAbstract = propertiesChanged.get();
         try {
             abstractMethodAnalyzer.go(firstIteration, abstractMethods);
@@ -181,6 +198,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
             if (propertiesChanged.get() > changesBeforeAbstract) changedInfos.addAll(abstractMethods);
         }
 
+        long startSecondPass = System.currentTimeMillis();
         /*
         run once more, because the abstract method analyzer may have resolved independence and modification values
         for abstract methods.
@@ -199,6 +217,9 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                 if (propertiesChanged.get() > changesBefore2) changedInfos.add(typeInfo);
             }
         }
+        long end = System.currentTimeMillis();
+        LOGGER.info("Phase timing: main loop {} ms, abstract batch {} ms, 2nd type pass {} ms",
+                endLoop - startLoop, startSecondPass - startAbstract, end - startSecondPass);
         unionInWriteTargets();
     }
 
