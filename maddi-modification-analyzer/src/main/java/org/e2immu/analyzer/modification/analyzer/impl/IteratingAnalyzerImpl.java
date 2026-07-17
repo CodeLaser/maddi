@@ -300,6 +300,11 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                     }
                     // the full pass found changes the worklist missed: resume narrowing from them
                     LOGGER.info("Verification pass found {} changes; resuming worklist", propertiesChanged);
+                    // residue diagnosis: WHO changed on a settled state? (adjacency-gap root-causing)
+                    java.util.Set<Info> residue = singleIterationAnalyzer.summaryChangedInfos();
+                    LOGGER.info("Verification-pass residue ({} elements): {}", residue.size(), residue.stream()
+                            .map(Info::fullyQualifiedName).sorted().limit(12)
+                            .reduce((a, b) -> a + ", " + b).orElse("-"));
                     verifying = false;
                 } else if (dirty.isEmpty() || propertiesChanged == 0) {
                     // worklist dry (or a zero-change subset round): do NOT stop yet — run one full pass to
