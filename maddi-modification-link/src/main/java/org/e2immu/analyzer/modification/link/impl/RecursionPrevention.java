@@ -4,15 +4,24 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 // used in LinkComputerImpl, to facilitate on-the-fly link computation
 class RecursionPrevention {
     private static final Logger LOGGER = LoggerFactory.getLogger(RecursionPrevention.class);
 
-    final Map<MethodInfo, Long> owner = new LinkedHashMap<>();
-    final Map<MethodInfo, Long> done = new LinkedHashMap<>();
+    /*
+    Recursion detection concerns a single computation stack, so the in-progress set is per thread. Sharing one
+    map across parallel worker threads (PARALLEL=n) made a method "in progress" on thread A degrade thread B's
+    independent computation to SHALLOW, producing scheduling-dependent summaries: a 1-method methodLinks
+    flip-flop that blocked fixpoint certification plus a handful of order-dependent verdicts (fernflower
+    PARALLEL=8 A/B), and a contended global monitor on the per-call-expression hot path.
+     */
+    private final ThreadLocal<Set<MethodInfo>> inProgress = ThreadLocal.withInitial(HashSet::new);
+    private final Map<MethodInfo, Long> done = new ConcurrentHashMap<>();
     final boolean recurse;
 
     public RecursionPrevention(boolean recurse) {
@@ -21,31 +30,26 @@ class RecursionPrevention {
 
     public enum How {GET, SHALLOW, LOCK}
 
-    public synchronized boolean sourceAllowed(MethodInfo methodInfo) {
-        Long prev = owner.get(methodInfo);
-        if (prev == null) {
-            owner.put(methodInfo, Thread.currentThread().threadId());
-            return true;
-        }
-        return false;
+    public boolean sourceAllowed(MethodInfo methodInfo) {
+        return inProgress.get().add(methodInfo);
     }
 
-    public synchronized How contains(MethodInfo methodInfo) {
+    public How contains(MethodInfo methodInfo) {
         if (!recurse) return How.GET;
-        Long threadId = owner.get(methodInfo);
-        LOGGER.debug("Test {} = {}", methodInfo, threadId);
-        return threadId != null ? How.SHALLOW : How.LOCK;
+        boolean mine = inProgress.get().contains(methodInfo);
+        LOGGER.debug("Test {} = {}", methodInfo, mine);
+        return mine ? How.SHALLOW : How.LOCK;
     }
 
-    public synchronized void doneSource(MethodInfo methodInfo) {
-        owner.remove(methodInfo);
+    public void doneSource(MethodInfo methodInfo) {
+        inProgress.get().remove(methodInfo);
         done.put(methodInfo, Thread.currentThread().threadId());
     }
 
-    public synchronized void report(MethodInfo methodInfo) {
+    public void report(MethodInfo methodInfo) {
         LOGGER.error("-- BEGIN OF RECURSION PREVENTION REPORT -- done by? {} I am {}", done.get(methodInfo),
                 Thread.currentThread().threadId());
-        owner.forEach((mi, id) -> LOGGER.error("{}: {}", id, mi));
+        inProgress.get().forEach(mi -> LOGGER.error("in progress on this thread: {}", mi));
         LOGGER.error("-- END OF RECURSION PREVENTION REPORT");
     }
 }
