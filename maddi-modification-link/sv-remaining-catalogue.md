@@ -4,6 +4,26 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-17 — TIMEFOLD PARALLEL=8: 11 min certified, verdict-exact (was 64 min uncertified yesterday, 41 min certified this morning)
+
+All of today combined (worklist default-on + certification + 2 O(n^2) fixes + PARALLEL=8):
+timefold full chain 11 min 6 s, "done? true", 0-line FPDUMP diff vs the canonical baseline,
+zero crashes. Profile: iteration 1 (sequential by v1 design) 5:11 = 47% of the run;
+parallel iterations 55s→3s; 4 full verification passes at ~55s (timefold's FI-edge gap
+costs extra verify-resume rounds). Certified EXACTLY at the 20-iteration cap → raised to
+30 (late iterations ~3s, headroom free).
+
+TIMING-MODEL CORRECTION (user): scan+parse is ~18 SECONDS on timefold (65 source sets),
+prepwork+call-graph ~2s — NOT the "~10 min scan phase" earlier notes claimed; that gap was
+gradle --rerun overhead + iteration 1 mislabeled. 3M-line projects scan in ~1:30.
+
+NEXT LEVERS, in order: (1) parallelize iteration 1 — now the dominant cost; needs either
+call-graph-strata scheduling (callees before callers, so the on-demand LOCK never computes
+cross-thread) or a shallow-fallback LOCK under parallel iteration 1 (cross-thread monitor
+deadlock is the blocker for naive parallelism there); (2) FI-application adjacency edges
+(each missing-edge verify-resume round costs a ~55s full pass); (3) langchain4j PARALLEL
+validation; (4) PARALLEL default-on decision (e.g. min(8, cores/2) with PARALLEL=1 opt-out).
+
 ## UPDATE 2026-07-17 — HOT-SPOT ROUND: fernflower 33 min → 4.5 min (certified); two O(n^2) fixes + the 2-constructor non-confluence
 
 Profiling (jstack aggregate over the reorderIf window) found two engine-wide quadratics:

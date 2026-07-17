@@ -227,7 +227,8 @@ public class RunAnalyzer implements Runnable {
 
             // do actual modification analysis
             IteratingAnalyzer.Configuration modConfig = new IteratingAnalyzerImpl.ConfigurationBuilder()
-                    .setMaxIterations(20) // safety net only: the loop exits on convergence/certification/plateau
+                    .setMaxIterations(30) // safety net only: the loop exits on convergence/certification/plateau
+                    // (timefold PARALLEL=8 certified exactly at 20 — late worklist iterations cost ~3s, so headroom is free)
                     .setStopWhenCycleDetectedAndNoImprovements(true) // plateau early-exit, see IteratingAnalyzerImpl
                     .setTrackObjectCreations(false)
                     .setFaultTolerant(true) // isolate a crash on one element; report it, don't abort the whole run
