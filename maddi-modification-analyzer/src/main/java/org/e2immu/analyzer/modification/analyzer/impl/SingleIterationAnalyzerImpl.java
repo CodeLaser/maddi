@@ -108,6 +108,11 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     }
 
     @Override
+    public java.util.Map<MethodInfo, Set<MethodInfo>> consumedSummaries() {
+        return linkComputer.consumedSummaries();
+    }
+
+    @Override
     public Set<Info> changedInfos() {
         return Set.copyOf(changedInfos);
     }
