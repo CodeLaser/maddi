@@ -4,6 +4,42 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-17 — INTRA-ITERATION PARALLELISM (gate PARALLEL=n): certified + verdict-exact at 8 threads on fernflower
+
+New small corpus: **fernflower** (~47k lines, 4,964 elements; TestFernflower +
+resources/inputConfiguration/fernflower.json). Third corpus GREEN on first contact, zero
+caught elements, certified in 12 iterations, ~33 min sequential — heavy per-element cost
+(~10x timefold: decompiler methods are huge), which makes it the ideal parallelism testbed.
+
+Concurrency foundation (thread-safety audit, agent-swept + verified):
+- PropertyValueMapImpl fully synchronized (cross-element writes are structural: analyzers
+  write callees' UNMODIFIED_PARAMETER etc.); TolerantWrite's check-then-act is atomic per
+  element map (synchronized on the map, same monitor) — without it a race could surface the
+  UnsupportedOperationException the guard exists to prevent.
+- EventuallyFinalOnDemand: volatile + locked on-demand load (concurrent first-touch of a
+  lazy bytecode inspection double-ran the loader; the second setFinal threw).
+- ShallowMethodAnalyzer: synchronized messages, atomic DEFAULTS_ANALYZER claim.
+- **RecursionPrevention: per-thread in-progress set** — the shared map made a method in
+  progress on thread A degrade thread B's independent computation to SHALLOW: scheduling-
+  dependent summaries (1-method methodLinks flip-flop blocking certification + 4
+  order-dependent nonModifying verdicts in the first PARALLEL=8 A/B). Root fix; also
+  removed a contended global monitor from the per-call-expression hot path.
+- SingleIterationAnalyzerImpl: loop body extracted to processElement; PARALLEL=n pool for
+  iterations 2+ (iteration 1 sequential: on-demand recursion + abstract shallow pass);
+  failed set concurrent; abstractMethods/typesInOrder derived from analysisOrder (order
+  deterministic, independent of completion order). Attribution over-attributes benignly
+  under parallelism (superset is safe).
+
+**A/B result (fernflower, PARALLEL=8 vs sequential): certified (13 iterations, done? true),
+FPDUMP diff = 0 lines, zero crashes, wall 20 min vs 33.** Big iterations 2:30 vs 5:30 —
+~2.1x on 8 threads → ~35-40% serial/contended fraction (100%-CPU stretches observed).
+Suspects: abstract-method batch + 2nd type pass (both by-design sequential) and/or a slow
+single element. Phase-timing + top-10-slowest-elements instrumentation added; next run
+pins the serial fraction, then: parallelize the 2nd type pass (same safety argument as the
+main loop), longest-first scheduling if a slow tail dominates, then timefold/langchain4j
+PARALLEL A/B, then the PARALLEL default decision (worklist is already default-on since
+c5d86656, opt-out NOWORKLIST=1).
+
 ## UPDATE 2026-07-17 — LANGCHAIN4J ALSO CERTIFIES: both corpora reach a machine-checked fixpoint
 
 Langchain4j (WORKLIST=1 NOPLATEAU=1, 56,404 elements): 11 narrowing iterations to quiet →
