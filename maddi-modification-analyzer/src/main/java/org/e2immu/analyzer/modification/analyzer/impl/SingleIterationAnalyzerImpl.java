@@ -58,13 +58,19 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final boolean faultTolerant;
     private final Set<Info> failed = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
-    // gate PARALLEL=<n>: run the per-element loop on n threads, iterations 2+ only (iteration 1 runs the
-    // on-demand link recursion + abstract-type shallow analysis and stays sequential). Default 1 = sequential.
+    // Parallel per-element loop: iterations 2+ on a fixed pool, iteration 1 via call-graph strata waves.
+    // DEFAULT ON since the 3-corpus proof (2026-07-17: certified + verdict-exact at 8 threads): min(8,
+    // cores-2) threads. Override with PARALLEL=<n>; PARALLEL=1 = sequential. Small runs (the suites) stay
+    // sequential via MIN_ELEMENTS_FOR_PARALLEL — no pool overhead, no order sensitivity in pinned counts.
     static final int PARALLEL_THREADS = parallelThreads(); // package: IteratingAnalyzerImpl gates wave computation
+    static final int MIN_ELEMENTS_FOR_PARALLEL = 256;
 
     private static int parallelThreads() {
         String s = System.getenv("PARALLEL");
-        if (s == null) return 1;
+        if (s == null) {
+            // fully qualified: the CST Runtime is imported in this file
+            return Math.max(1, Math.min(8, java.lang.Runtime.getRuntime().availableProcessors() - 2));
+        }
         try {
             return Math.max(1, Integer.parseInt(s.trim()));
         } catch (NumberFormatException e) {
@@ -138,7 +144,8 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         Set<TypeInfo> abstractTypes = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
         long startLoop = System.currentTimeMillis();
-        if (PARALLEL_THREADS > 1 && firstIteration && firstIterationWaves != null) {
+        if (PARALLEL_THREADS > 1 && firstIteration && firstIterationWaves != null
+            && analysisOrder.size() >= MIN_ELEMENTS_FOR_PARALLEL) {
             int units = firstIterationWaves.stream().mapToInt(List::size).sum();
             int elements = firstIterationWaves.stream().flatMap(List::stream).mapToInt(List::size).sum();
             if (elements != analysisOrder.size()) {
@@ -169,7 +176,8 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                     linkComputer.setLockComputeDisabled(false);
                 }
             }
-        } else if (PARALLEL_THREADS > 1 && !firstIteration) {
+        } else if (PARALLEL_THREADS > 1 && !firstIteration
+                   && analysisOrder.size() >= MIN_ELEMENTS_FOR_PARALLEL) {
             LOGGER.info("Parallel iteration: {} threads over {} elements", PARALLEL_THREADS, analysisOrder.size());
             List<java.util.concurrent.Future<?>> futures = new ArrayList<>(analysisOrder.size());
             java.util.Map<Info, Long> elementMillis = new java.util.concurrent.ConcurrentHashMap<>();
