@@ -225,7 +225,9 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                     .map(e -> e.getKey() + "=" + e.getValue())
                     .reduce((a, b) -> a + ", " + b).orElse("-");
             LOGGER.info("Iteration {} property changes (top 10): {}", iterations, topChanges);
-            boolean done = propertiesChanged == 0;
+            // under an active worklist, a zero-change SUBSET iteration is not a fixpoint certificate — only a
+            // zero-change FULL pass is; route through the verification branch below instead of stopping here
+            boolean done = propertiesChanged == 0 && (dependersOf == null || verifying);
             // plateau: the change count no longer meaningfully decreases (an oscillation floor); further full
             // re-analyses only pay for the same flips again. Opt-in via stopWhenCycleDetectedAndNoImprovements.
             boolean plateau = configuration.stopWhenCycleDetectedAndNoImprovements()
@@ -269,9 +271,10 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                     // the full pass found changes the worklist missed: resume narrowing from them
                     LOGGER.info("Verification pass found {} changes; resuming worklist", propertiesChanged);
                     verifying = false;
-                } else if (dirty.isEmpty()) {
-                    // worklist dry: do NOT stop yet — run one full pass to certify (or catch missed dependencies)
-                    LOGGER.info("Worklist empty after {} iterations; running a full verification pass", iterations);
+                } else if (dirty.isEmpty() || propertiesChanged == 0) {
+                    // worklist dry (or a zero-change subset round): do NOT stop yet — run one full pass to
+                    // certify (or catch missed dependencies)
+                    LOGGER.info("Worklist empty/quiet after {} iterations; running a full verification pass", iterations);
                     dirty = null;
                     verifying = true;
                 }
