@@ -23,7 +23,23 @@ Run26 (WORKLIST=1 NOPLATEAU=1 MLTRACE=1, with the attribution fix from commit 84
 - No non-confluence anywhere: two independent worklist runs both reproduce the baseline
   verdict-for-verdict.
 - Next: langchain4j certified run (generality), then the WORKLIST default-on decision.
-- Artifacts: scratchpad/run26-trail.txt, w8.sorted, final-diff-run26.txt (empty).
+- Artifacts: scratchpad/run26-trail.txt, w8.sorted, final-diff-run26.txt (empty),
+  run26-TestTimefoldSolver.xml (full log incl. 4,868 MLTRACE lines), run26-pass1-mltrace.txt.
+
+**Residue profile of verification pass 1 (the remaining adjacency gap, from MLTRACE):**
+142 methodLinks changes, ALL with identical toString — i.e., exclusively MODIFIED-SET
+changes (a modified variable not occurring in any link entry is invisible in the print;
+LinksImpl.equals is primary-only, so link-content differences cannot flip MLV.equals).
+They cluster in the abstract constraint-stream TEST hierarchy (SingleConstraintAssertionTest
+25, AbstractUniConstraintStreamTest 18, MoveDirectorTest.ValueAssignment 15, ...) — heavy
+lambda/functional-interface users. Interpretation: modified-set propagation through
+FI-APPLICATION edges that ComputeCallGraph adjacency does not model; the worklist starves
+them, the first full pass catches them, two cheap subset iterations settle them, pass 2 is
+methodLinks-clean. COST of the gap: ~2 extra full passes (~12 min on timefold). FUTURE
+LEVER (parked): add FI-application edges to the reverse adjacency (or parallelize the
+verification pass) to get certified runs to ~1 full pass. If chased, extend MLTRACE to
+print mlv.modified() at the call site (SingleIterationAnalyzerImpl) — TolerantWrite cannot
+name the set (no dependency on the link module).
 
 ## UPDATE 2026-07-17 — RUN25: WORKLIST IS VERDICT-EXACT (0-line diff vs baseline); certification blocked by ~36 non-idempotent methodLinks
 
