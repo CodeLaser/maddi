@@ -20,6 +20,15 @@ bazel_dep(name = "rules_jvm_external", version = "6.3")
 # Java toolchains
 bazel_dep(name = "platforms", version = "0.0.11")
 
+# Local JDK 26 toolchain. rules_java has no hermetic remotejdk_26 yet, and the project
+# needs JDK 26 to compile (e.g. java.lang.Process is AutoCloseable only from 26). The
+# `toolchains` extension exposes @local_jdk, auto-detected from JAVA_HOME / PATH; the
+# //:java26_toolchain built on it is registered first so it wins toolchain resolution.
+java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
+use_repo(java_toolchains, "local_jdk")
+
+register_toolchains("//:java26_toolchain_definition")
+
 # Register Java toolchains
 register_toolchains("@bazel_tools//tools/jdk:all")
 
