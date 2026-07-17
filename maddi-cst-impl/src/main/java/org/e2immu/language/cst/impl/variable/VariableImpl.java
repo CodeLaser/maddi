@@ -28,21 +28,46 @@ import java.util.stream.Stream;
 public abstract class VariableImpl implements Variable {
 
     private final ParameterizedType parameterizedType;
+    // equals/hashCode are on the analysis hot path (HashMap probes in the per-statement link graphs), and
+    // subclasses rebuild the fully qualified name recursively on every call (top leaf frames of a corpus
+    // jstack profile). All implementations are immutable value objects with construction-time-stable FQNs
+    // (LocalVariableImpl.name is final; FieldReference/DependentVariable components are final), so the FQN
+    // is memoized here. Benign race: the computation is idempotent.
+    private String cachedFqn;
+    private int cachedHash;
 
     public VariableImpl(ParameterizedType parameterizedType) {
         this.parameterizedType = parameterizedType;
+    }
+
+    private String fqnForEquality() {
+        String fqn = cachedFqn;
+        if (fqn == null) {
+            fqn = Objects.requireNonNull(fullyQualifiedName());
+            cachedFqn = fqn;
+        }
+        return fqn;
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof VariableImpl variable)) return false;
-        return Objects.equals(fullyQualifiedName(), variable.fullyQualifiedName());
+        // cached-hash fast reject before the O(length) string compare: FQNs are long (deep faces carry a
+        // full method signature), and the engine does many direct equals calls outside hash structures
+        if (hashCode() != variable.hashCode()) return false;
+        return fqnForEquality().equals(variable.fqnForEquality());
     }
 
     @Override
     public int hashCode() {
-        return fullyQualifiedName().hashCode();
+        int h = cachedHash;
+        if (h == 0) {
+            h = fqnForEquality().hashCode();
+            if (h == 0) h = 1;
+            cachedHash = h;
+        }
+        return h;
     }
 
     @Override

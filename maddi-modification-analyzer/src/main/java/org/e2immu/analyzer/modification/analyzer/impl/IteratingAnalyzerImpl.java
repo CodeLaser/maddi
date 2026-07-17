@@ -199,6 +199,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             dependersOf = null;
         }
         java.util.Set<Info> dirty = null; // null = analyze everything
+        java.util.Set<Info> orderSet = java.util.Set.copyOf(analysisOrder);
         boolean verifying = false; // worklist ran dry -> one full pass certifies (0 changes = true fixpoint)
         // strata-parallel first iteration (PARALLEL=n): dependency waves from the same call graph
         java.util.List<java.util.List<java.util.List<Info>>> firstIterationWaves;
@@ -261,15 +262,39 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             }
             previousPropertiesChanged = propertiesChanged;
             if (dependersOf != null) {
+                // union in the summary-consumption edges the link computer discovered: a consumer re-runs
+                // when a summary it ACTUALLY READ changes. Catches value-mediated flows (functional-
+                // interface application) with no syntactic call-graph edge — the measured source of the
+                // verification passes' residue (timefold: 142 modified-set changes per full pass).
+                for (java.util.Map.Entry<org.e2immu.language.cst.api.info.MethodInfo,
+                        java.util.Set<org.e2immu.language.cst.api.info.MethodInfo>> e
+                        : singleIterationAnalyzer.consumedSummaries().entrySet()) {
+                    Info consumer = mapToOrderElement(e.getKey(), orderSet);
+                    if (consumer == null) continue;
+                    for (org.e2immu.language.cst.api.info.MethodInfo consumed : e.getValue()) {
+                        dependersOf.computeIfAbsent(consumed, _ -> new java.util.HashSet<>()).add(consumer);
+                    }
+                }
                 // v2: only SUMMARY changes propagate — dependents cannot observe element-internal changes.
                 // The changed element itself IS re-run: a self-recursive method's summary feeds its own next
                 // analysis, and the call graph does not guarantee a self-edge (v2's first cut excluded self and
                 // froze recursive methods at their early conservative verdicts).
                 java.util.Set<Info> changed = singleIterationAnalyzer.summaryChangedInfos();
-                java.util.Set<Info> next = new java.util.HashSet<>(changed);
+                java.util.Set<Info> next = new java.util.HashSet<>();
                 for (Info c : changed) {
-                    java.util.Set<Info> deps = dependersOf.get(c);
-                    if (deps != null) next.addAll(deps);
+                    // an anonymous-class/lambda method is a graph vertex but NOT an analysis-order element:
+                    // it only recomputes when its ENCLOSING method re-runs. Unmapped, such dirty elements
+                    // were silently dropped by the subset filter — THE residue the verification passes kept
+                    // finding (timefold: ~160 $N.test(...) methods rewriting their summaries per full pass).
+                    Info mc = mapToOrderElement(c, orderSet);
+                    if (mc != null) next.add(mc);
+                    java.util.Set<Info> deps = dependersOf.get(c); // adjacency stays keyed by the raw vertex
+                    if (deps != null) {
+                        for (Info d : deps) {
+                            Info md = mapToOrderElement(d, orderSet);
+                            if (md != null) next.add(md);
+                        }
+                    }
                 }
                 dirty = next;
                 if (verifying) {
@@ -286,6 +311,11 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                     }
                     // the full pass found changes the worklist missed: resume narrowing from them
                     LOGGER.info("Verification pass found {} changes; resuming worklist", propertiesChanged);
+                    // residue diagnosis: WHO changed on a settled state? (adjacency-gap root-causing)
+                    java.util.Set<Info> residue = singleIterationAnalyzer.summaryChangedInfos();
+                    LOGGER.info("Verification-pass residue ({} elements): {}", residue.size(), residue.stream()
+                            .map(Info::fullyQualifiedName).sorted().limit(12)
+                            .reduce((a, b) -> a + ", " + b).orElse("-"));
                     verifying = false;
                 } else if (dirty.isEmpty() || propertiesChanged == 0) {
                     // worklist dry (or a zero-change subset round): do NOT stop yet — run one full pass to
@@ -298,5 +328,20 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             LOGGER.info("Run again, properties changed {}", propertiesChanged);
             // TODO any strategy, e.g. after 3 iterations, activate cycle breaking
         }
+    }
+
+    /**
+     * Map an element to its analysis-order element: an anonymous-class or lambda method (and its members)
+     * is not itself an order element — walk up through the enclosing methods until one is.
+     */
+    private static Info mapToOrderElement(Info info, java.util.Set<Info> orderSet) {
+        Info c = info;
+        int guard = 0;
+        while (c != null && !orderSet.contains(c) && guard++ < 10) {
+            org.e2immu.language.cst.api.info.TypeInfo t =
+                    c instanceof org.e2immu.language.cst.api.info.TypeInfo ti ? ti : c.typeInfo();
+            c = t == null ? null : t.enclosingMethod();
+        }
+        return c != null && orderSet.contains(c) ? c : null;
     }
 }
