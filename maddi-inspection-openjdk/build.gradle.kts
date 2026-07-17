@@ -32,6 +32,8 @@ dependencies {
     implementation(project(":maddi-inspection-resource"))
 
     testImplementation(project(":maddi-cst-impl"))
+    // for TestLombok: the lombok jar goes on the parsed classpath so javac can run the real Lombok processor
+    testImplementation("org.projectlombok:lombok:1.18.46")
 }
 
 tasks.withType<JavaCompile> {
