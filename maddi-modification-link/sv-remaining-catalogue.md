@@ -23,11 +23,15 @@ Structure matters: timefold i1 5:11 → 2:13 (50 waves, 39,335 units — fine-gr
 fernflower i1 ~unchanged (~1:55) — its core is ONE mega-SCC = one sequential unit.
 Xmx 6G→8G (heavy GC under PARALLEL=8, user-observed).
 
-**Ledger (all certified, all 0-line verdict diffs): timefold 64 min uncertified (2 days
-ago) → 41 certified (this morning) → 11 (hot-spot fixes) → 8:01 (strata i1).
-fernflower 33 min → 4:22.** OPEN: langchain4j full validation; PARALLEL default-on
-decision; mega-SCC corpora (fernflower-like) keep a sequential i1 core — intra-SCC
-parallelization would need speculative/duplicate computation, parked.
+**Ledger (all certified, all 0-line verdict diffs where a baseline exists): timefold
+64 min uncertified (2 days ago) → 41 certified (this morning) → 11 (hot-spot fixes) →
+8:01 (strata i1). fernflower 33 min → 4:22. langchain4j 41 min → 15:36 (certified, 14
+iterations; dump scratchpad/lc4j-par8.sorted saved as the future verdict baseline).**
+OPEN: PARALLEL default-on decision (evidence above; suites are unaffected either way —
+they run without a dependency graph); mega-SCC corpora (fernflower-like) keep a
+sequential i1 core — intra-SCC parallelization would need speculative/duplicate
+computation, parked; langchain4j never had a sequential FPDUMP baseline (bar was
+certification + crash-free).
 
 ## UPDATE 2026-07-17 — TIMEFOLD PARALLEL=8: 11 min certified, verdict-exact (was 64 min uncertified yesterday, 41 min certified this morning)
 
