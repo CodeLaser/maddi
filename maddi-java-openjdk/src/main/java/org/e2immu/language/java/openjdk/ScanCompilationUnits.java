@@ -121,7 +121,6 @@ public class ScanCompilationUnits {
         List<ModuleInfo> modules = new ArrayList<>();
         // compilation units dropped by fault isolation (accumulate mode), and their recorded failures
         List<CompilationUnitFailure> failures = new ArrayList<>();
-        Set<CompilationUnitTree> droppedUnits = new HashSet<>();
 
         // only index in the first pass; in the second pass, all predefined objects will be present
         List<TypeInfo> preloads;
@@ -177,14 +176,18 @@ public class ScanCompilationUnits {
                         throw new RuntimeException(ie);
                     } catch (ExecutionException ee) {
                         Throwable cause = ee.getCause() == null ? ee : ee.getCause();
-                        // the congocc pre-scan failed for this unit (e.g. a grammar gap on newer Java syntax).
-                        // fail-fast: rethrow. accumulate: drop the unit and record it, so it does not abort the
-                        // whole source set; Phase 1 then skips it (it has no scan result).
+                        // the congocc pre-scan failed for this unit (e.g. a grammar gap on a construct javac
+                        // accepts, such as 'super(new X(){...})'). It is auxiliary -- it only supplies source
+                        // positions for detailed sources. fail-fast: rethrow. accumulate: keep the unit with no
+                        // scan result (all scanResult reads are null-guarded, so detailed sources simply degrade
+                        // for this one file) rather than dropping a file javac parsed successfully.
                         if (!diagnosticCollector.ignoreErrors()) {
                             throw cause instanceof RuntimeException re ? re : new RuntimeException(cause);
                         }
-                        recordFailure(failures, e.getKey(), cause);
-                        droppedUnits.add(e.getKey());
+                        CompilationUnitTree failedUnit = e.getKey();
+                        LOGGER.warn("Detailed-source pre-scan failed for {}; continuing without detailed sources: {}",
+                                failedUnit.getSourceFile() == null ? "?" : failedUnit.getSourceFile().toUri(),
+                                cause.toString());
                     }
                 }
             }
@@ -197,7 +200,6 @@ public class ScanCompilationUnits {
         List<ScanCompilationUnit> scanners = new ArrayList<>();
         List<CompilationUnitTree> unitList = new ArrayList<>();
         for (CompilationUnitTree unit : units) {
-            if (droppedUnits.contains(unit)) continue; // congocc pre-scan already dropped this unit
             try {
                 ScanCompilationUnit scu = createScanner(unit, scanResults.get(unit), topLevelClassSymbols);
                 scu.buildCompilationUnit(unit);
