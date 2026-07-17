@@ -406,22 +406,32 @@ class WriteLinksAndModification {
         // all be swept by one removal (that bug dropped both ∈ copies while keeping the ∋)
         boolean[] removed = new boolean[links.size()];
         Set<String> seen = new HashSet<>();
+        String[] keys = new String[links.size()];
         for (int i = 0; i < links.size(); i++) {
             Link link = links.get(i);
             String key = link.from() + "|" + link.linkNature() + "|" + link.to();
+            keys[i] = key;
             if (!seen.add(key)) removed[i] = true; // exact duplicate: keep the first
+        }
+        // reverse-pair detection via a key index: the reverse-pair predicate is exactly "key(j) == revKey(i)"
+        // (pass 1 above already relies on the same toString-keyed identity), so only true candidates are
+        // visited, in the same ascending index order as the former all-pairs scan — which was O(n^2) in
+        // Variable.equals and the analysis-wide hot spot after the RedundantLinks fix (fernflower reorderIf).
+        Map<String, List<Integer>> byKey = new HashMap<>();
+        for (int i = 0; i < links.size(); i++) {
+            if (!removed[i]) byKey.computeIfAbsent(keys[i], _ -> new ArrayList<>()).add(i);
         }
         for (int i = 0; i < links.size(); i++) {
             if (removed[i]) continue;
             Link a = links.get(i);
-            for (int j = i + 1; j < links.size(); j++) {
-                if (removed[j]) continue;
+            String revKey = a.to() + "|" + a.linkNature().reverse() + "|" + a.from();
+            List<Integer> candidates = byKey.get(revKey);
+            if (candidates == null) continue;
+            for (int j : candidates) {
+                if (j <= i || removed[j]) continue;
                 Link b = links.get(j);
-                if (a.from().equals(b.to()) && a.to().equals(b.from())
-                    && a.linkNature().reverse().equals(b.linkNature())) {
-                    if (depth(a.from()) >= depth(b.from())) removed[j] = true;
-                    else removed[i] = true;
-                }
+                if (depth(a.from()) >= depth(b.from())) removed[j] = true;
+                else removed[i] = true;
             }
         }
         boolean any = false;
