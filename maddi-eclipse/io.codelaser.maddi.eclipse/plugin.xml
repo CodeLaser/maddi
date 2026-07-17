@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+   <!-- Guard findings become problem markers: they show in the Problems view and on the editor ruler,
+        Eclipse's native "mark + explain" surface. -->
+   <extension point="org.eclipse.core.resources.markers"
+              id="contractViolation"
+              name="maddi contract violation">
+      <super type="org.eclipse.core.resources.problemmarker"/>
+      <super type="org.eclipse.core.resources.textmarker"/>
+      <persistent value="true"/>
+   </extension>
+
+   <!-- Computed analysis hints (@Container, @NotModified, …): a plain text marker (NOT a problem marker,
+        so it stays out of the Problems view), shown as a gutter icon + hover on each declaration. -->
+   <extension point="org.eclipse.core.resources.markers"
+              id="analysisHint"
+              name="maddi analysis hint">
+      <super type="org.eclipse.core.resources.textmarker"/>
+      <persistent value="true"/>
+   </extension>
+   <extension point="org.eclipse.ui.editors.annotationTypes">
+      <type name="io.codelaser.maddi.eclipse.analysisHintAnnotation"
+            markerType="io.codelaser.maddi.eclipse.analysisHint"/>
+   </extension>
+   <extension point="org.eclipse.ui.editors.markerAnnotationSpecification">
+      <specification
+            annotationType="io.codelaser.maddi.eclipse.analysisHintAnnotation"
+            label="maddi analysis hint"
+            symbolicIcon="info"
+            textPreferenceKey="maddi.hint.text"
+            textPreferenceValue="false"
+            highlightPreferenceKey="maddi.hint.highlight"
+            highlightPreferenceValue="false"
+            overviewRulerPreferenceKey="maddi.hint.overview"
+            overviewRulerPreferenceValue="true"
+            verticalRulerPreferenceKey="maddi.hint.vertical"
+            verticalRulerPreferenceValue="true"
+            colorPreferenceKey="maddi.hint.color"
+            colorPreferenceValue="115,135,225"
+            presentationLayer="4"
+            contributesToHeader="false"/>
+   </extension>
+
+   <extension point="org.eclipse.ui.commands">
+      <command id="io.codelaser.maddi.eclipse.analyze"
+               name="Analyze with maddi"
+               defaultHandler="org.e2immu.analyzer.ide.eclipse.AnalyzeMaddiHandler"/>
+   </extension>
+
+   <!-- Daemon settings under Window → Preferences → maddi. -->
+   <extension point="org.eclipse.core.runtime.preferences">
+      <initializer class="org.e2immu.analyzer.ide.eclipse.MaddiPreferenceInitializer"/>
+   </extension>
+   <extension point="org.eclipse.ui.preferencePages">
+      <page id="io.codelaser.maddi.eclipse.preferences"
+            name="maddi"
+            class="org.e2immu.analyzer.ide.eclipse.MaddiPreferencePage"/>
+   </extension>
+
+   <!-- The navigable findings view (Window → Show View → maddi → maddi Findings). -->
+   <extension point="org.eclipse.ui.views">
+      <category id="io.codelaser.maddi.eclipse" name="maddi"/>
+      <view id="io.codelaser.maddi.eclipse.findingsView"
+            name="maddi Findings"
+            category="io.codelaser.maddi.eclipse"
+            class="org.e2immu.analyzer.ide.eclipse.MaddiFindingsView"/>
+   </extension>
+
+   <!-- Right-click a Java project → Analyze with maddi. -->
+   <extension point="org.eclipse.ui.menus">
+      <menuContribution locationURI="popup:org.eclipse.ui.popup.any?after=additions">
+         <command commandId="io.codelaser.maddi.eclipse.analyze"
+                  label="Analyze with maddi"
+                  style="push">
+            <visibleWhen checkEnabled="false">
+               <with variable="selection">
+                  <count value="1"/>
+                  <iterate>
+                     <adapt type="org.eclipse.core.resources.IProject"/>
+                  </iterate>
+               </with>
+            </visibleWhen>
+         </command>
+      </menuContribution>
+   </extension>
+</plugin>

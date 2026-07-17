@@ -12,34 +12,23 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-plugins {
-    `java-platform`
-    `maven-publish` // published to Maven local so the Tycho/Eclipse build can resolve maddi-ide-client's POM (imports this BOM)
-}
+package org.e2immu.analyzer.ide.daemon;
 
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            from(components["javaPlatform"]) // io.codelaser:platform:<version>
-        }
+/**
+ * Seam between the socket transport ({@link DaemonMain}) and the actual analysis
+ * ({@link WarmAnalysisService}). Implementations run one whole-project analysis per call.
+ */
+public interface AnalyzeHandler {
+
+    /** Sink for coarse progress messages emitted during a long analysis. */
+    interface StatusSink {
+        void status(DaemonProtocol.Status status);
     }
+
+    /**
+     * Run a whole-project analysis and return a plain-JSON result. May emit {@code status}
+     * updates via the sink. Throwing is allowed: the transport turns it into an {@code error}
+     * message and keeps the daemon alive.
+     */
+    DaemonProtocol.Result analyze(DaemonProtocol.AnalyzeProject request, StatusSink status) throws Exception;
 }
-
-dependencies {
-    constraints {
-        api("org.jgrapht:jgrapht-core:1.5.2")
-        api("org.jgrapht:jgrapht-io:1.5.2")
-
-        api("org.junit.jupiter:junit-jupiter-api:6.0.3")
-
-        api("org.slf4j:slf4j-api:2.0.17")
-        api("ch.qos.logback:logback-classic:1.5.32")
-
-        api("org.jetbrains:annotations:26.1.0")
-        api("com.fasterxml.jackson.core:jackson-databind:2.19.2")
-        api("commons-cli:commons-cli:1.11.0")
-
-        api("org.ow2.asm:asm:9.9.1")
-    }
-}
-

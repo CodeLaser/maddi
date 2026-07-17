@@ -12,34 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-plugins {
-    `java-platform`
-    `maven-publish` // published to Maven local so the Tycho/Eclipse build can resolve maddi-ide-client's POM (imports this BOM)
+package org.e2immu.analyzer.ide.plugin.analysis;
+
+import com.intellij.util.messages.Topic;
+import org.e2immu.analyzer.ide.client.AnalysisModel;
+import org.jetbrains.annotations.NotNull;
+
+/** Fired on the project message bus whenever a fresh analysis result is available (tool window etc. subscribe). */
+public interface MaddiResultListener {
+    Topic<MaddiResultListener> TOPIC = Topic.create("maddi analysis result", MaddiResultListener.class);
+
+    void resultUpdated(@NotNull AnalysisModel.Result result);
 }
-
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            from(components["javaPlatform"]) // io.codelaser:platform:<version>
-        }
-    }
-}
-
-dependencies {
-    constraints {
-        api("org.jgrapht:jgrapht-core:1.5.2")
-        api("org.jgrapht:jgrapht-io:1.5.2")
-
-        api("org.junit.jupiter:junit-jupiter-api:6.0.3")
-
-        api("org.slf4j:slf4j-api:2.0.17")
-        api("ch.qos.logback:logback-classic:1.5.32")
-
-        api("org.jetbrains:annotations:26.1.0")
-        api("com.fasterxml.jackson.core:jackson-databind:2.19.2")
-        api("commons-cli:commons-cli:1.11.0")
-
-        api("org.ow2.asm:asm:9.9.1")
-    }
-}
-
