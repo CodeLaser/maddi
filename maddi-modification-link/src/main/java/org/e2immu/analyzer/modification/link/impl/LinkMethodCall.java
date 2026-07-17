@@ -634,7 +634,11 @@ public record LinkMethodCall(JavaInspector javaInspector,
                     toAdd.forEach(t -> {
                         Variable from = vtm.translateVariableRecursively(t.from());
                         Variable to = t.to();
-                        if (Util.acceptModificationLink(from, to)) {
+                        if (Util.acceptModificationLink(from, to)
+                            // skip faces that cannot be represented as a Link (same treatment as
+                            // VirtualModificationIdenticals.expand; activemq: '§m on this.transactionStore.§…')
+                            && LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(from)
+                            && LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(to)) {
                             builder.add(from, t.linkNature(), to);
                         }
                     });
