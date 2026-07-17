@@ -12,34 +12,19 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-plugins {
-    `java-platform`
-    `maven-publish` // published to Maven local so the Tycho/Eclipse build can resolve maddi-ide-client's POM (imports this BOM)
-}
+package org.e2immu.analyzer.ide.eclipse;
 
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            from(components["javaPlatform"]) // io.codelaser:platform:<version>
-        }
+import org.eclipse.core.runtime.preferences.AbstractPreferenceInitializer;
+import org.eclipse.jface.preference.IPreferenceStore;
+
+/** Seeds preference defaults (only the daemon heap has one; the JDK/install paths are required input). */
+public class MaddiPreferenceInitializer extends AbstractPreferenceInitializer {
+
+    @Override
+    public void initializeDefaultPreferences() {
+        IPreferenceStore store = MaddiEclipsePlugin.get().getPreferenceStore();
+        store.setDefault(MaddiPreferences.DAEMON_XMX_MB, MaddiPreferences.DEFAULT_XMX_MB);
+        store.setDefault(MaddiPreferences.HINT_FILTER, MaddiPreferences.DEFAULT_HINT_FILTER.name());
+        store.setDefault(MaddiPreferences.AUTO_ANALYZE_ON_BUILD, false);
     }
 }
-
-dependencies {
-    constraints {
-        api("org.jgrapht:jgrapht-core:1.5.2")
-        api("org.jgrapht:jgrapht-io:1.5.2")
-
-        api("org.junit.jupiter:junit-jupiter-api:6.0.3")
-
-        api("org.slf4j:slf4j-api:2.0.17")
-        api("ch.qos.logback:logback-classic:1.5.32")
-
-        api("org.jetbrains:annotations:26.1.0")
-        api("com.fasterxml.jackson.core:jackson-databind:2.19.2")
-        api("commons-cli:commons-cli:1.11.0")
-
-        api("org.ow2.asm:asm:9.9.1")
-    }
-}
-

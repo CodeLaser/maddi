@@ -1,0 +1,51 @@
+<idea-plugin>
+    <id>io.codelaser.maddi.intellij</id>
+    <name>maddi</name>
+    <vendor url="https://codelaser.io">CodeLaser</vendor>
+    <description><![CDATA[
+        Displays <b>maddi</b> analysis hints — immutability, container, independence, modification and
+        nullability — inline on Java source, and marks + explains <b>guard-system</b> contract
+        violations with their why-chain. Analysis runs in a warm out-of-process maddi daemon (JDK 25+);
+        the plugin talks to it over a loopback socket.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup id="maddi" displayType="BALLOON"/>
+        <!-- @Service classes (MaddiSettings, MaddiAnalysisService) auto-register. -->
+        <externalAnnotator language="JAVA"
+                           implementationClass="org.e2immu.analyzer.ide.plugin.ui.MaddiExternalAnnotator"/>
+        <codeInsight.lineMarkerProvider language="JAVA"
+                           implementationClass="org.e2immu.analyzer.ide.plugin.ui.MaddiLineMarkerProvider"/>
+        <toolWindow id="maddi" anchor="bottom"
+                    factoryClass="org.e2immu.analyzer.ide.plugin.ui.MaddiToolWindowFactory"/>
+        <codeInsight.declarativeInlayProvider language="JAVA"
+                    implementationClass="org.e2immu.analyzer.ide.plugin.ui.MaddiInlayProvider"
+                    providerId="maddi.hints"
+                    isEnabledByDefault="true"
+                    group="OTHER_GROUP"
+                    bundle="messages.MaddiBundle"
+                    nameKey="inlay.maddi.name"
+                    descriptionKey="inlay.maddi.description"/>
+        <applicationConfigurable parentId="tools"
+                    id="maddi.settings"
+                    displayName="maddi"
+                    instance="org.e2immu.analyzer.ide.plugin.settings.MaddiConfigurable"/>
+    </extensions>
+
+    <projectListeners>
+        <listener class="org.e2immu.analyzer.ide.plugin.analysis.MaddiCompilationListener"
+                  topic="com.intellij.openapi.compiler.CompilationStatusListener"/>
+    </projectListeners>
+
+    <actions>
+        <action id="maddi.AnalyzeProject"
+                class="org.e2immu.analyzer.ide.plugin.action.AnalyzeWithMaddiAction"
+                text="Analyze with maddi"
+                description="Compile the project and run a whole-project maddi analysis">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>

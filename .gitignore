@@ -10,3 +10,6 @@ bazel-*
 .idea
 **/.idea
 */.kotlin
+
+# IntelliJ Platform Gradle Plugin runIde sandbox
+.intellijPlatform/

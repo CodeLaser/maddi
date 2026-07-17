@@ -13,6 +13,16 @@
  */
 
 
+// Type-safe accessors aren't generated for this settings-plugin extension inside the nested
+// dependencyResolutionManagement.repositories scope, so import the extension function explicitly.
+import org.jetbrains.intellij.platform.gradle.extensions.intellijPlatform
+
+plugins {
+    // Adds the IntelliJ Platform repositories at the settings level, required because
+    // repositoriesMode is FAIL_ON_PROJECT_REPOS (no per-project repositories allowed). See maddi-intellij.
+    id("org.jetbrains.intellij.platform.settings") version "2.18.1"
+}
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -21,6 +31,10 @@ dependencyResolutionManagement {
         maven(url = "https://packages.jetbrains.team/maven/p/ij/intellij-dependencies")
         maven(url = "https://www.jetbrains.com/intellij-repository/releases")
         maven(url = "https://cache-redirector.jetbrains.com/intellij-third-party-dependencies")
+        // IntelliJ IDEA SDK + marketplace, for the maddi-intellij plugin module.
+        intellijPlatform {
+            defaultRepositories()
+        }
     }
 }
 
@@ -57,6 +71,9 @@ include("maddi-run-rewire")
 include("maddi-run-main")
 include("maddi-run-openjdk")
 include("maddi-run-kotlin")
+include("maddi-ide-daemon")
+include("maddi-ide-client")
+include("maddi-intellij")
 include("maddi-cst-print-kotlin")
 //include("maddi-run-scanbuild")
 include("maddi-gradleplugin")
