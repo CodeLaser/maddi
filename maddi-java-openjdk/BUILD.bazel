@@ -11,12 +11,20 @@
 # License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 load("//:java_library_conventions.bzl", "maddi_java_library")
-load("//:platform.bzl", "OPENJDK_JAVAC_EXPORTS")
+# module-info.java makes this a named module, so the javac-internals exports must
+# target that module rather than ALL-UNNAMED (see maddi-java-openjdk/build.gradle.kts).
+_MODULE = "org.e2immu.language.java.openjdk"
 
 maddi_java_library(
     name = "maddi-java-openjdk",
     srcs = glob(["src/main/java/**/*.java"]),
-    javacopts = OPENJDK_JAVAC_EXPORTS,
+    javacopts = [
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=" + _MODULE,
+        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=" + _MODULE,
+        "--add-exports=jdk.compiler/com.sun.tools.javac.code=" + _MODULE,
+        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=" + _MODULE,
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=" + _MODULE,
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//maddi-cst-analysis",
