@@ -200,6 +200,15 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         }
         java.util.Set<Info> dirty = null; // null = analyze everything
         boolean verifying = false; // worklist ran dry -> one full pass certifies (0 changes = true fixpoint)
+        // strata-parallel first iteration (PARALLEL=n): dependency waves from the same call graph
+        java.util.List<java.util.List<java.util.List<Info>>> firstIterationWaves;
+        if (SingleIterationAnalyzerImpl.PARALLEL_THREADS > 1 && dependencyGraph != null) {
+            firstIterationWaves = org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder
+                    .waves(dependencyGraph);
+            LOGGER.info("Computed {} first-iteration waves", firstIterationWaves.size());
+        } else {
+            firstIterationWaves = null;
+        }
         while (true) {
             ++iterations;
             LOGGER.info("{}, cycle breaking active? {}", highlight("Start iteration " + iterations),
@@ -214,7 +223,8 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                 LOGGER.info("Worklist: {} of {} elements dirty", subset.size(), analysisOrder.size());
             }
             Instant start = Instant.now();
-            singleIterationAnalyzer.go(subset, cycleBreakingActive, iterations == 1);
+            singleIterationAnalyzer.go(subset, cycleBreakingActive, iterations == 1,
+                    iterations == 1 ? firstIterationWaves : null);
             Instant end = Instant.now();
             Duration duration = Duration.between(start, end);
             LOGGER.info("Duration of single iteration: {} min {} sec {} ms", duration.toMinutesPart(),

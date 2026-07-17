@@ -15,6 +15,16 @@ public interface LinkComputer {
     // can be called multiple times
     MethodLinkedVariables doMethod(MethodInfo methodInfo);
 
+    /**
+     * Parallel first iteration (strata-parallel waves): while enabled, an on-demand LOCK on an ABSENT
+     * METHOD_LINKS degrades to a shallow computation instead of computing under the callee's analysis
+     * monitor (cross-thread monitor cycles would deadlock). The wave order makes the case rare; iteration
+     * 2+ and the certification loop repair the shallow value.
+     */
+    default void setLockComputeDisabled(boolean disabled) {
+        // no-op by default
+    }
+
     int propertiesChanged();
 
     void reset();
