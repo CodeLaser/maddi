@@ -766,10 +766,13 @@ public record ExpressionVisitor(Runtime runtime,
                 if (linkComputer.lockComputeDisabled()
                     && !methodInfo.analysis().haveAnalyzedValueFor(METHOD_LINKS)) {
                     // parallel first iteration: computing another element's links while holding its analysis
-                    // monitor could deadlock across worker threads. The strata order makes an absent callee
-                    // rare (a graph-missed edge, e.g. FI application) — degrade to shallow, exactly like the
-                    // recursion fallback; iteration 2+/certification repair it.
-                    yield linkComputer.doMethodShallowDoNotWrite(methodInfo);
+                    // monitor (getOrCreate) could deadlock across worker threads. Compute WITHOUT the monitor
+                    // instead: same full-quality on-demand computation as the sequential path (a shallow
+                    // fallback here froze first-impression verdict losses on graph-missed edges, e.g. FI
+                    // application). Two threads may duplicate the work; the value is deterministic and the
+                    // write TolerantWrite-guarded, so the second write is a no-op. Cycles terminate via the
+                    // same-thread SHALLOW fallback of RecursionPrevention.
+                    yield linkComputer.doMethod(methodInfo);
                 }
                 yield methodInfo.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(methodInfo));
             }
