@@ -14,6 +14,15 @@
 
 plugins {
     `java-platform`
+    `maven-publish` // published to Maven local so the Tycho/Eclipse build can resolve maddi-ide-client's POM (imports this BOM)
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["javaPlatform"]) // io.codelaser:platform:<version>
+        }
+    }
 }
 
 dependencies {

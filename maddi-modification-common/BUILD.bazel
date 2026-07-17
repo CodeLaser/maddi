@@ -19,6 +19,7 @@ maddi_java_library(
     deps = [
         "//maddi-cst-analysis",
         "//maddi-cst-api",
+        "//maddi-cst-print",
         "//maddi-graph",
         "//maddi-inspection-api",
         "//maddi-support",

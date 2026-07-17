@@ -12,7 +12,6 @@ import org.eclipse.aether.graph.DependencyNode;
 import org.eclipse.aether.util.artifact.JavaScopes;
 import org.eclipse.aether.util.filter.DependencyFilterUtils;
 
-import java.io.File;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
@@ -21,15 +20,13 @@ import java.util.stream.Collectors;
 
 public class ComputeSourceSets {
 
-    private final Path absWorkingDirectory;
     private final ProjectDependenciesResolver dependenciesResolver;
     private final MavenProject project;
     private final MavenSession session;
     private final Log log;
 
-    public ComputeSourceSets(File absWorkingDirectory, ProjectDependenciesResolver dependenciesResolver,
+    public ComputeSourceSets(ProjectDependenciesResolver dependenciesResolver,
                              MavenProject mavenProject, MavenSession mavenSession, Log log) {
-        this.absWorkingDirectory = absWorkingDirectory.toPath();
         this.dependenciesResolver = dependenciesResolver;
         this.project = mavenProject;
         this.session = mavenSession;
@@ -53,15 +50,19 @@ public class ComputeSourceSets {
         deps.addAll(computeClassPathParts(JavaScopes.RUNTIME, false, true, sourceSetsByName,
                 excludeFromClasspathSet));
         log.info("Have " + deps.size() + " dependent source sets for main");
+        // Emit absolute source directories (and a hierarchical file:/... URI). maddi resolves relative source dirs
+        // against the configured working directory, but the classpath parts are already absolute machine paths, so
+        // relativizing the sources buys no portability -- it only coupled the run to the process CWD and produced
+        // opaque "file:src/main/java" URIs. Absolute paths make the run independent of where mvn is launched from.
         List<Path> sourcePaths = project.getCompileSourceRoots().stream()
-                .map(path -> absWorkingDirectory.relativize(Path.of(path))).toList();
+                .map(path -> Path.of(path).toAbsolutePath().normalize()).toList();
         if (!sourcePaths.isEmpty()) {
             Set<String> restrictToPackages = stringToSet(sourcePackages);
 
             SourceSet mainSourceSet = new SourceSetImpl.Builder()
                     .setName(projectName + "/main")
                     .setSourceDirectories(sourcePaths)
-                    .setUri(URI.create("file:" + sourcePaths.getFirst()))
+                    .setUri(sourcePaths.getFirst().toUri())
                     .setSourceEncoding(encoding)
                     .setRestrictToPackages(restrictToPackages)
                     .setDependencies(List.copyOf(deps))
@@ -72,14 +73,14 @@ public class ComputeSourceSets {
                 excludeFromClasspathSet));
         log.info("Have " + deps.size() + " dependent source sets for test");
         List<Path> testSourcePaths = project.getTestCompileSourceRoots().stream()
-                .map(path -> absWorkingDirectory.relativize(Path.of(path))).toList();
+                .map(path -> Path.of(path).toAbsolutePath().normalize()).toList();
         if (!testSourcePaths.isEmpty()) {
             Set<String> restrictToTestPackages = stringToSet(testSourcePackages);
 
             SourceSet testSourceSet = new SourceSetImpl.Builder()
                     .setName(projectName + "/test")
                     .setSourceDirectories(testSourcePaths)
-                    .setUri(URI.create("file:" + testSourcePaths.getFirst()))
+                    .setUri(testSourcePaths.getFirst().toUri())
                     .setSourceEncoding(encoding)
                     .setTest(true)
                     .setRestrictToPackages(restrictToTestPackages)
@@ -120,31 +121,37 @@ public class ComputeSourceSets {
         Set<SourceSet> results = new HashSet<>();
         for (DependencyNode child : node.getChildren()) {
             Artifact artifact = child.getArtifact();
-            String name = artifact.getGroupId() + ":" + artifact.getArtifactId() + ":" + artifact.getVersion();
-            if (!sourceSetsByName.containsKey(name) &&
-                (excludeFromClasspathSet.isEmpty() || !excludeFromClasspathSet.contains(artifact.getArtifactId()))) {
-                Set<SourceSet> children;
-                if (child.getChildren().isEmpty()) {
-                    children = Set.of();
+            if (artifact == null || artifact.getFile() == null) continue;
+            // maddi keys a classpath source set by its jar file name and resolves it as "jar file: <name>"
+            // (its own --write-input-configuration names jars this way too), so the part name must be the jar
+            // file name, not the groupId:artifactId:version coordinate.
+            String name = artifact.getFile().getName();
+            // Flatten the whole subtree into direct dependencies. A classpath is flat, and nesting the transitive
+            // deps under their parent -- combined with the name-dedup below -- would drop an already-seen dep from
+            // its parent's child set, leaving it unreachable when maddi walks the graph to build the parse
+            // classpath (e.g. slf4j-api under a provided slf4j binding never reaching the compile classpath).
+            results.addAll(processDependencyNodes(child, test, runtimeOnly, sourceSetsByName,
+                    excludeFromClasspathSet, indent + 1));
+            if (!excludeFromClasspathSet.contains(artifact.getArtifactId())) {
+                SourceSet existing = sourceSetsByName.get(name);
+                if (existing != null) {
+                    results.add(existing); // already created (possibly in an earlier scope); still a direct dep here
                 } else {
-                    children = Set.copyOf(processDependencyNodes(child, test, runtimeOnly, sourceSetsByName,
-                            excludeFromClasspathSet, indent + 1));
+                    URI uri = URI.create("file:" + artifact.getFile().getPath());
+                    SourceSet sourceSet = new SourceSetImpl.Builder()
+                            .setName(name)
+                            .setUri(uri)
+                            .setTest(test)
+                            .setLibrary(true)
+                            .setExternalLibrary(true)
+                            .setPartOfJdk(false)
+                            .setRuntimeOnly(runtimeOnly)
+                            .setDependencies(List.of())
+                            .build();
+                    sourceSetsByName.put(name, sourceSet);
+                    log.debug("Added class path part " + name);
+                    results.add(sourceSet);
                 }
-                log.debug("**".repeat(indent) + " " + name + " has " + children.size() + " child(ren)");
-                URI uri = URI.create("file:" + artifact.getFile().getPath());
-                SourceSet sourceSet = new SourceSetImpl.Builder()
-                        .setName(name)
-                        .setUri(uri)
-                        .setTest(test)
-                        .setLibrary(true)
-                        .setExternalLibrary(true)
-                        .setPartOfJdk(false)
-                        .setRuntimeOnly(runtimeOnly)
-                        .setDependencies(List.copyOf(children))
-                        .build();
-                sourceSetsByName.put(name, sourceSet);
-                log.debug("Added class path part " + name);
-                results.add(sourceSet);
             }
         }
         return results;

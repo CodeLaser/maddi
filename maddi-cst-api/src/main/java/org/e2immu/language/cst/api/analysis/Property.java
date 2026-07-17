@@ -20,4 +20,24 @@ public interface Property {
     Value defaultValue();
 
     String key();
+
+    /**
+     * Whether this property's value survives a rewire (see {@code rewiring.md}).
+     * <p>
+     * A rewired type is one whose own source did not change, but which reaches a type that did — so anything
+     * <em>derived across types</em> (links, immutability, independence) was computed against source that no longer
+     * exists, and must be recomputed rather than carried: for those, dropping is the correct answer, not merely the
+     * safe one. Hence the default of {@code false}.
+     * <p>
+     * Two kinds do want carrying. Data <em>intrinsic</em> to the type's own body — prepwork's, chiefly
+     * {@code VARIABLE_DATA} — is still valid, because the body did not change, and recomputing it is most of the
+     * cost a reload exists to avoid. Data written at <em>parse</em> time is stronger still: a rewired type is never
+     * re-parsed, so if it is not carried it is simply lost.
+     * <p>
+     * Saying true here is a claim that the value is one of those two, and that its {@link Value#rewire} maps every
+     * Info and Variable reference it holds.
+     */
+    default boolean carryOnRewire() {
+        return false;
+    }
 }

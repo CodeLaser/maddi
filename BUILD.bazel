@@ -12,8 +12,19 @@
 
 # Root BUILD file
 
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+
 # Export platform configuration
 exports_files(["platform.bzl", "java_library_conventions.bzl"])
+
+# JDK 26 compile toolchain over the locally-installed JDK (see .bazelrc / MODULE.bazel).
+# rules_java ships no hermetic remotejdk_26 yet; swap java_runtime to remotejdk_26 once it does.
+default_java_toolchain(
+    name = "java26_toolchain",
+    source_version = "26",
+    target_version = "26",
+    java_runtime = "@local_jdk//:jdk",
+)
 
 # Package group for internal visibility
 package_group(

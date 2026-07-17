@@ -38,10 +38,18 @@ public class PropertyValueMapImpl implements PropertyValueMap {
     private static final Logger LOGGER = LoggerFactory.getLogger(PropertyValueMapImpl.class);
     private final Map<Property, Value> map = new HashMap<>();
 
+    /**
+     * Carries only the properties that declare {@link Property#carryOnRewire()}; the rest are dropped, which for
+     * anything derived across types is the correct answer rather than a lossy one (see {@code rewiring.md}).
+     * Applies to expressions as much as to Info: a stale value is no more welcome inside a rewired MethodCall than
+     * on a rewired method.
+     */
     @Override
     public synchronized PropertyValueMap rewire(InfoMap infoMap) {
         PropertyValueMapImpl rewiredMap = new PropertyValueMapImpl();
-        map.forEach((key, value) -> rewiredMap.set(key, value.rewire(infoMap)));
+        map.forEach((key, value) -> {
+            if (key.carryOnRewire()) rewiredMap.set(key, value.rewire(infoMap));
+        });
         return rewiredMap;
     }
 

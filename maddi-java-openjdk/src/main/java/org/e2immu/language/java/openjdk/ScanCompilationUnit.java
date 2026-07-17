@@ -101,7 +101,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         this.flagHelper = flagHelper;
         this.computeMethodOverrides = computeMethodOverrides;
         this.docTrees = docTrees;
-        this.createSyntheticFieldsForGetSet = new CreateSyntheticFieldsForGetSet(runtime);
+        this.createSyntheticFieldsForGetSet = new CreateSyntheticFieldsForGetSet(runtime,
+                classSymbolScanner.syntheticListField());
 
         DocSourcePositions docSourcePositions = docTrees.getSourcePositions();
         this.scanJavaDoc = new ScanJavaDoc(runtime, typeData, docSourcePositions, compilationUnitTree, lineMap);
@@ -1775,7 +1776,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         VariableExpression target = asAssignmentTarget(currentExpression);
         Tree.Kind kind = node.getKind();
         MethodInfo operator = switch (kind) {
-            case PLUS_ASSIGNMENT -> runtime.assignPlusOperatorInt();
+            // s += x on a String is concatenation, not numeric addition: pick the String operator so
+            // assignOperatorToBinary yields plusOperatorString, and a consumer reconstructing s = s + x does not
+            // route a String into runtime.sum() (SumImpl asserts numeric operands). String is the only type with
+            // a compound operator that is a different operation, not a widened numeric one.
+            case PLUS_ASSIGNMENT -> target.parameterizedType().isJavaLangString()
+                    ? runtime.assignPlusOperatorString()
+                    : runtime.assignPlusOperatorInt();
             case MINUS_ASSIGNMENT -> runtime.assignMinusOperatorInt();
             case MULTIPLY_ASSIGNMENT -> runtime.assignMultiplyOperatorInt();
             case DIVIDE_ASSIGNMENT -> runtime.assignDivideOperatorInt();

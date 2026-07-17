@@ -20,8 +20,11 @@ import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.MethodCall;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.variable.DependentVariable;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
@@ -77,7 +80,10 @@ public class TestGetSet2 extends CommonTest {
 
         Expression getE = get.methodBody().lastStatement().expression();
         if (getE instanceof MethodCall mc) {
-            assertEquals("GetSetValueImpl[field=null, setter=false, parameterIndexOfIndex=-1, list=false]",
+            // the inner call is java.util.List.get(int); it now carries the restored synthetic-list GetSet field
+            // (was field=null before the getset-list-element-getter-npe.md fix, which broke getSetVariable)
+            assertEquals("GetSetValueImpl[field=java.util.List._synthetic_list, setter=false,"
+                         + " parameterIndexOfIndex=0, list=true]",
                     mc.methodInfo().getSetField().toString());
         } else fail();
 
@@ -100,6 +106,43 @@ public class TestGetSet2 extends CommonTest {
                     get1.print(runtime.qualificationQualifyFromPrimaryType()).toString());
             assertEquals("get(pos)", mc.parameterExpressions().getFirst().toString());
         } else fail();
+    }
+
+    /**
+     * Regression for notes/getset-list-element-getter-npe.md: resolving a call to a user's indexed list-getter
+     * (X.get(int), whose field is a List&lt;Integer&gt;) to the variable it denotes needs java.util.List's own
+     * {@code _synthetic_list} element field. That field is created by CreateSyntheticFieldsForGetSet during
+     * inspection; a refactor (a54eb89c) had dropped the hard-coded java.util.List watcher, so List loaded from
+     * bytecode/openjdk (which carries no physical @GetSet) no longer got it, and getSetVariable NPE'd at
+     * RuntimeImpl:359 ("Called on wrong method"). This exercises the full getterVariable path that stdbase hits.
+     */
+    @Test
+    public void test1getterVariable() {
+        TypeInfo X = javaInspector.parse("X", INPUT1);
+        new PrepAnalyzer(runtime).doPrimaryType(X);
+
+        // the fix itself: java.util.List.get(int) must carry a non-null GetSet field '_synthetic_list'
+        FieldInfo myList = X.getFieldByName("myList", true);
+        TypeInfo list = myList.type().typeInfo();
+        assertEquals("java.util.List", list.fullyQualifiedName());
+        MethodInfo listGet = list.findUniqueMethod("get", 1);
+        Value.FieldValue listGetField = listGet.getSetField();
+        assertNotNull(listGetField.field(), "java.util.List.get must have a synthetic GetSet field");
+        assertEquals("_synthetic_list", listGetField.field().name());
+        assertTrue(listGetField.list());
+
+        // the reported crash: getterVariable on the call to the user's getter get(pos)
+        MethodInfo method = X.findUniqueMethod("method", 1);
+        Expression expression = method.methodBody().lastStatement().expression();
+        MethodCall equalsCall = (MethodCall) expression;               // myList.get(pos).equals(get(pos))
+        MethodCall userGetCall = (MethodCall) equalsCall.parameterExpressions().getFirst();  // get(pos)
+        assertEquals("get(pos)", userGetCall.toString());
+
+        Variable resolved = runtime.getterVariable(userGetCall);       // used to NPE at RuntimeImpl:359
+        assertNotNull(resolved);
+        assertInstanceOf(DependentVariable.class, resolved);
+        assertTrue(resolved.toString().contains("_synthetic_list"),
+                "expected the resolved element variable to reference the synthetic list field, got: " + resolved);
     }
 
     @Language("java")
