@@ -648,7 +648,13 @@ public class JavaInspectorImpl implements JavaInspector {
             }
             for (SourceSet dependency : sourceSet.dependencies()) {
                 if (!dependency.externalLibrary()) {
-                    File file = Path.of(dependency.uri()).toFile();
+                    // A source-set dependency (e.g. test -> main): its types are parsed from source in this same
+                    // run, so they are already in the CompiledTypesManager. Only add it as a compiled classpath
+                    // entry when its URI is a real (hierarchical file) path -- a relative/opaque URI such as
+                    // file:src/main/java (as the mvn plugin emits) is not a compiled output and Path.of would throw.
+                    URI uri = dependency.uri();
+                    if (uri.isOpaque() || !"file".equals(uri.getScheme())) continue;
+                    File file = Path.of(uri).toFile();
                     if (ignoreModule || !dependency.isModule()) {
                         jarsAndClassDirectories.add(file);
                     } else {
