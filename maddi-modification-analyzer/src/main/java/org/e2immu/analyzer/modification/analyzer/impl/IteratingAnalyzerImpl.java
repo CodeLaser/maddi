@@ -280,10 +280,21 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                 // analysis, and the call graph does not guarantee a self-edge (v2's first cut excluded self and
                 // froze recursive methods at their early conservative verdicts).
                 java.util.Set<Info> changed = singleIterationAnalyzer.summaryChangedInfos();
-                java.util.Set<Info> next = new java.util.HashSet<>(changed);
+                java.util.Set<Info> next = new java.util.HashSet<>();
                 for (Info c : changed) {
-                    java.util.Set<Info> deps = dependersOf.get(c);
-                    if (deps != null) next.addAll(deps);
+                    // an anonymous-class/lambda method is a graph vertex but NOT an analysis-order element:
+                    // it only recomputes when its ENCLOSING method re-runs. Unmapped, such dirty elements
+                    // were silently dropped by the subset filter — THE residue the verification passes kept
+                    // finding (timefold: ~160 $N.test(...) methods rewriting their summaries per full pass).
+                    Info mc = mapToOrderElement(c, orderSet);
+                    if (mc != null) next.add(mc);
+                    java.util.Set<Info> deps = dependersOf.get(c); // adjacency stays keyed by the raw vertex
+                    if (deps != null) {
+                        for (Info d : deps) {
+                            Info md = mapToOrderElement(d, orderSet);
+                            if (md != null) next.add(md);
+                        }
+                    }
                 }
                 dirty = next;
                 if (verifying) {
@@ -320,16 +331,17 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
     }
 
     /**
-     * Map a summary consumer to its analysis-order element: a lambda's synthetic method is not itself an
-     * order element — walk up through the enclosing methods until one is.
+     * Map an element to its analysis-order element: an anonymous-class or lambda method (and its members)
+     * is not itself an order element — walk up through the enclosing methods until one is.
      */
-    private static Info mapToOrderElement(org.e2immu.language.cst.api.info.MethodInfo methodInfo,
-                                          java.util.Set<Info> orderSet) {
-        org.e2immu.language.cst.api.info.MethodInfo m = methodInfo;
+    private static Info mapToOrderElement(Info info, java.util.Set<Info> orderSet) {
+        Info c = info;
         int guard = 0;
-        while (m != null && !orderSet.contains(m) && guard++ < 10) {
-            m = m.typeInfo().enclosingMethod();
+        while (c != null && !orderSet.contains(c) && guard++ < 10) {
+            org.e2immu.language.cst.api.info.TypeInfo t =
+                    c instanceof org.e2immu.language.cst.api.info.TypeInfo ti ? ti : c.typeInfo();
+            c = t == null ? null : t.enclosingMethod();
         }
-        return m != null && orderSet.contains(m) ? m : null;
+        return c != null && orderSet.contains(c) ? c : null;
     }
 }
