@@ -279,6 +279,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             String fullyQualifiedName = jcClassDecl.sym.fullname.toString();
             TypeInfo known = typeData.getType(fullyQualifiedName);
             String simpleName = node.getSimpleName().toString();
+            if (known == null && !typeStack.isEmpty()) {
+                // the fullname lookup above misses a local class nested in a method/anonymous body (its canonical
+                // name doesn't match maddi's synthetic FQN). A forward reference (e.g. 'new MapEntry(...)'
+                // textually before the 'class MapEntry' declaration in the same body) may already have registered
+                // it as a subtype of the enclosing type; reuse that rather than duplicating ('Duplicating type').
+                // Only fires when such a subtype already exists, so it is a no-op for the normal case.
+                known = typeStack.getLast().findSubType(simpleName, false);
+            }
 
             if (known != null && known.compilationUnit().sourceSet().equals(compilationUnit.sourceSet())) {
                 typeInfo = known; // was already created because of the order
