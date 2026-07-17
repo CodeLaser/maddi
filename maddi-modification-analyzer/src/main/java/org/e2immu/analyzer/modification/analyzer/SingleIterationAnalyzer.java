@@ -40,6 +40,15 @@ public interface SingleIterationAnalyzer {
     int propertiesChanged();
 
     /**
+     * Summary-consumption edges discovered by the link computer (consumer read consumed's METHOD_LINKS
+     * while computing its own links) — see LinkComputer.recordSummaryConsumption. Accumulated over the run.
+     */
+    default java.util.Map<org.e2immu.language.cst.api.info.MethodInfo,
+            java.util.Set<org.e2immu.language.cst.api.info.MethodInfo>> consumedSummaries() {
+        return java.util.Map.of();
+    }
+
+    /**
      * Worklist support: the elements whose analysis values changed during the most recent {@code go} call --
      * per-element counter-delta attribution united with the write-target attribution from TolerantWrite (which
      * also catches the link computer's on-demand recursion writing a CALLEE's summary mid-caller).

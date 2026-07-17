@@ -12,6 +12,11 @@ interface LinkComputerRecursion {
         return false;
     }
 
+    /** see {@link org.e2immu.analyzer.modification.link.LinkComputer#recordSummaryConsumption} */
+    default void recordSummaryConsumption(MethodInfo consumer, MethodInfo consumed) {
+        // no-op by default
+    }
+
     MethodLinkedVariables doMethod(MethodInfo methodInfo);
 
     MethodLinkedVariables recurseMethod(MethodInfo methodInfo);
