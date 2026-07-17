@@ -670,6 +670,15 @@ public class MethodAnalyzer {
             VariableData vd = entry.getValue();
             vd.variableInfoStream().forEach(vi -> {
                 VariableInfoContainer vic = vdStatement.variableInfoContainerOrNull(vi.variable().fullyQualifiedName());
+                // A block-local variable that shadows an outer variable of the same simple name has the same
+                // fullyQualifiedName but is a *different* instance (e.g. a for-each loop variable 'env' shadowing a
+                // captured 'env'). It is out of scope after this block, so it must not be merged into the outer
+                // variable's (FQN-keyed) container -- doing so would give that container a merge about a different
+                // variable than its own, breaking the VariableInfoContainer invariant. Reference identity, not
+                // equals(): equals() is FQN-based and would treat the two same-named variables as equal.
+                if (vic != null && vic.variable() != vi.variable()) {
+                    return;
+                }
                 if (vic == null || vic.hasMerge()) {
                     if (copyToMerge(index, vi.variable(), vd, iv.closure)
                         && iv.acceptLimitedScope(vd, vi.variable(), vi.assignments().indexOfDefinition(), index)) {
