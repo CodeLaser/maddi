@@ -137,6 +137,19 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         this.testVisitor = testVisitor;
     }
 
+    // parallel first iteration: LOCK on an absent METHOD_LINKS degrades to shallow (see LinkComputer)
+    private volatile boolean lockComputeDisabled;
+
+    @Override
+    public void setLockComputeDisabled(boolean disabled) {
+        this.lockComputeDisabled = disabled;
+    }
+
+    @Override
+    public boolean lockComputeDisabled() {
+        return lockComputeDisabled;
+    }
+
     @Override
     public int propertiesChanged() {
         return propertiesChanged.get();

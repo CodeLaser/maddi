@@ -27,6 +27,16 @@ public interface SingleIterationAnalyzer {
 
     void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration);
 
+    /**
+     * Like the 3-arg {@code go}, additionally providing dependency waves for a strata-parallel FIRST
+     * iteration (see ComputeAnalysisOrder.waves): each wave's units run concurrently, units are sequential
+     * inside, waves are barriers. Ignored (delegates) by default or when null.
+     */
+    default void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration,
+                    List<List<List<Info>>> firstIterationWaves) {
+        go(analysisOrder, activateCycleBreaking, firstIteration);
+    }
+
     int propertiesChanged();
 
     /**

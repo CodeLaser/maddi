@@ -60,7 +60,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
 
     // gate PARALLEL=<n>: run the per-element loop on n threads, iterations 2+ only (iteration 1 runs the
     // on-demand link recursion + abstract-type shallow analysis and stays sequential). Default 1 = sequential.
-    private static final int PARALLEL_THREADS = parallelThreads();
+    static final int PARALLEL_THREADS = parallelThreads(); // package: IteratingAnalyzerImpl gates wave computation
 
     private static int parallelThreads() {
         String s = System.getenv("PARALLEL");
@@ -124,14 +124,52 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
 
     @Override
     public void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration) {
+        go(analysisOrder, activateCycleBreaking, firstIteration, null);
+    }
+
+    @Override
+    public void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration,
+                   List<List<List<Info>>> firstIterationWaves) {
         linkComputer.reset();
         changedInfos.clear();
         summaryChangedInfos.clear();
         TolerantWrite.resetChangedTargets();
-        Set<TypeInfo> abstractTypes = new HashSet<>(); // first iteration only, which always runs sequentially
+        // first iteration only; concurrent for the strata-parallel path
+        Set<TypeInfo> abstractTypes = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
         long startLoop = System.currentTimeMillis();
-        if (PARALLEL_THREADS > 1 && !firstIteration) {
+        if (PARALLEL_THREADS > 1 && firstIteration && firstIterationWaves != null) {
+            int units = firstIterationWaves.stream().mapToInt(List::size).sum();
+            int elements = firstIterationWaves.stream().flatMap(List::stream).mapToInt(List::size).sum();
+            if (elements != analysisOrder.size()) {
+                // defensive: the waves must cover exactly the analysis order's element set
+                LOGGER.warn("Wave element count {} != analysis order size {}; falling back to sequential",
+                        elements, analysisOrder.size());
+                for (Info info : analysisOrder) {
+                    processElement(info, activateCycleBreaking, true, abstractTypes);
+                }
+            } else {
+                LOGGER.info("Strata-parallel FIRST iteration: {} threads, {} waves, {} units, {} elements",
+                        PARALLEL_THREADS, firstIterationWaves.size(), units, elements);
+                linkComputer.setLockComputeDisabled(true);
+                try (java.util.concurrent.ExecutorService pool =
+                             java.util.concurrent.Executors.newFixedThreadPool(PARALLEL_THREADS)) {
+                    for (List<List<Info>> wave : firstIterationWaves) {
+                        List<java.util.concurrent.Future<?>> futures = new ArrayList<>(wave.size());
+                        for (List<Info> unit : wave) {
+                            futures.add(pool.submit(() -> {
+                                for (Info info : unit) {
+                                    processElement(info, activateCycleBreaking, true, abstractTypes);
+                                }
+                            }));
+                        }
+                        joinAll(futures); // barrier per wave: the next wave's callees are complete
+                    }
+                } finally {
+                    linkComputer.setLockComputeDisabled(false);
+                }
+            }
+        } else if (PARALLEL_THREADS > 1 && !firstIteration) {
             LOGGER.info("Parallel iteration: {} threads over {} elements", PARALLEL_THREADS, analysisOrder.size());
             List<java.util.concurrent.Future<?>> futures = new ArrayList<>(analysisOrder.size());
             java.util.Map<Info, Long> elementMillis = new java.util.concurrent.ConcurrentHashMap<>();
@@ -148,19 +186,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                     }));
                 }
             } // close() awaits completion of all submitted tasks
-            for (java.util.concurrent.Future<?> future : futures) {
-                try {
-                    future.get();
-                } catch (java.util.concurrent.ExecutionException e) {
-                    // only reachable when !faultTolerant (processElement rethrows); preserve that contract
-                    if (e.getCause() instanceof RuntimeException re) throw re;
-                    if (e.getCause() instanceof Error error) throw error;
-                    throw new RuntimeException(e.getCause());
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException(e);
-                }
-            }
+            joinAll(futures);
             String slowest = elementMillis.entrySet().stream()
                     .sorted(java.util.Map.Entry.<Info, Long>comparingByValue().reversed())
                     .limit(10)
@@ -221,6 +247,22 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         LOGGER.info("Phase timing: main loop {} ms, abstract batch {} ms, 2nd type pass {} ms",
                 endLoop - startLoop, startSecondPass - startAbstract, end - startSecondPass);
         unionInWriteTargets();
+    }
+
+    private static void joinAll(List<java.util.concurrent.Future<?>> futures) {
+        for (java.util.concurrent.Future<?> future : futures) {
+            try {
+                future.get();
+            } catch (java.util.concurrent.ExecutionException e) {
+                // only reachable when !faultTolerant (processElement rethrows); preserve that contract
+                if (e.getCause() instanceof RuntimeException re) throw re;
+                if (e.getCause() instanceof Error error) throw error;
+                throw new RuntimeException(e.getCause());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     private void processElement(Info info, boolean activateCycleBreaking, boolean firstIteration,

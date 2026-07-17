@@ -53,4 +53,40 @@ public class ComputeAnalysisOrder {
         return result.asList(Comparator.comparing(Info::fullyQualifiedName));
     }
 
+    /**
+     * Dependency WAVES for a strata-parallel first iteration: each wave's units are mutually edge-free in
+     * the (filtered) call graph, so they can run concurrently; a unit is a single element, except for the
+     * remaining call cycles, where a whole connected cycle group is one sequential unit (its members recurse
+     * into each other, and must stay on one thread). Waves in dependency order: linearized strata (callees
+     * first), then the cycle groups, then the periphery attached to cycles (its hierarchy levels are
+     * dependency-ordered). Same subgraph and element set as {@link #go(G)}; FQN-sorted for determinism.
+     */
+    public static List<List<List<Info>>> waves(G<Info> callGraph) {
+        Set<V<Info>> subSet = callGraph.vertices().stream()
+                .filter(v -> !(v.t() instanceof ModuleInfo))
+                .filter(v -> !v.t().typeInfo().compilationUnit().externalLibrary())
+                .collect(Collectors.toUnmodifiableSet());
+        G<Info> subGraph = callGraph.subGraph(subSet, l -> l >= ComputeCallGraph.REFERENCES);
+        Linearize.Result<Info> result = Linearize.linearize(subGraph, Linearize.LinearizationMode.ALL);
+        Comparator<Info> cmp = Comparator.comparing(Info::fullyQualifiedName);
+        List<List<List<Info>>> waves = new java.util.ArrayList<>();
+        for (Set<V<Info>> stratum : result.linearized().list()) {
+            if (!stratum.isEmpty()) {
+                waves.add(stratum.stream().map(V::t).sorted(cmp).map(i -> (List<Info>) List.of(i)).toList());
+            }
+        }
+        List<List<Info>> cycleUnits = result.remainingCycles().cycles().stream()
+                .map(c -> (List<Info>) c.vertices().stream().map(V::t).sorted(cmp).toList())
+                .filter(u -> !u.isEmpty())
+                .sorted(Comparator.comparing(u -> u.getFirst().fullyQualifiedName()))
+                .toList();
+        if (!cycleUnits.isEmpty()) waves.add(cycleUnits);
+        for (Set<V<Info>> level : result.attachedToCycles().list()) {
+            if (!level.isEmpty()) {
+                waves.add(level.stream().map(V::t).sorted(cmp).map(i -> (List<Info>) List.of(i)).toList());
+            }
+        }
+        return waves;
+    }
+
 }

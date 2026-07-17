@@ -762,7 +762,17 @@ public record ExpressionVisitor(Runtime runtime,
         return switch (how) {
             case GET -> methodInfo.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
             case SHALLOW -> linkComputer.doMethodShallowDoNotWrite(methodInfo);
-            case LOCK -> methodInfo.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(methodInfo));
+            case LOCK -> {
+                if (linkComputer.lockComputeDisabled()
+                    && !methodInfo.analysis().haveAnalyzedValueFor(METHOD_LINKS)) {
+                    // parallel first iteration: computing another element's links while holding its analysis
+                    // monitor could deadlock across worker threads. The strata order makes an absent callee
+                    // rare (a graph-missed edge, e.g. FI application) — degrade to shallow, exactly like the
+                    // recursion fallback; iteration 2+/certification repair it.
+                    yield linkComputer.doMethodShallowDoNotWrite(methodInfo);
+                }
+                yield methodInfo.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(methodInfo));
+            }
         };
     }
 
