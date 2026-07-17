@@ -101,32 +101,39 @@ public final class TolerantWrite {
                                                                         Property property,
                                                                         V value,
                                                                         Object context) {
-        String traceBefore = MLTRACE && "methodLinks".equals(property.key())
-                             && analysis.haveAnalyzedValueFor(property)
-                ? String.valueOf(analysis.getOrDefault(property, value)) : null;
-        if (analysis.haveAnalyzedValueFor(property)) {
-            V current = analysis.getOrDefault(property, value);
-            if (!current.equals(value) && !current.overwriteAllowed(value)) {
-                if (UNMODOWN && EVIDENCE_ACCUMULATING.contains(property.key())) {
-                    // EXPERIMENT (gate UNMODOWN=1): for the UNMODIFIED_* family, modification evidence only
-                    // accumulates across iterations — 'modified' (false) is absorbing, so the legal refinement
-                    // direction is true->false, OPPOSITE to Bool's default policy. Apply the downgrade.
-                    LOGGER.debug("Downgrading {} {} -> {} on {}", property.key(), current, value, context);
-                    boolean downgraded = analysis.overwrite(property, value);
-                    if (downgraded) {
-                        CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder())
-                                .increment();
-                        if (context != null && !(context instanceof String) && !INTERNAL_PROPERTIES.contains(property.key())) {
-                            CHANGED_TARGETS.add(context);
+        boolean changed;
+        String traceBefore;
+        // the check-then-act below must be atomic per element map: without the lock, a concurrent write between
+        // the downgrade pre-check and the set can surface the UnsupportedOperationException this guard exists
+        // to prevent (which would fault-fail the element). Same monitor as PropertyValueMapImpl's own methods.
+        synchronized (analysis) {
+            traceBefore = MLTRACE && "methodLinks".equals(property.key())
+                          && analysis.haveAnalyzedValueFor(property)
+                    ? String.valueOf(analysis.getOrDefault(property, value)) : null;
+            if (analysis.haveAnalyzedValueFor(property)) {
+                V current = analysis.getOrDefault(property, value);
+                if (!current.equals(value) && !current.overwriteAllowed(value)) {
+                    if (UNMODOWN && EVIDENCE_ACCUMULATING.contains(property.key())) {
+                        // EXPERIMENT (gate UNMODOWN=1): for the UNMODIFIED_* family, modification evidence only
+                        // accumulates across iterations — 'modified' (false) is absorbing, so the legal refinement
+                        // direction is true->false, OPPOSITE to Bool's default policy. Apply the downgrade.
+                        LOGGER.debug("Downgrading {} {} -> {} on {}", property.key(), current, value, context);
+                        boolean downgraded = analysis.overwrite(property, value);
+                        if (downgraded) {
+                            CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder())
+                                    .increment();
+                            if (context != null && !(context instanceof String) && !INTERNAL_PROPERTIES.contains(property.key())) {
+                                CHANGED_TARGETS.add(context);
+                            }
                         }
+                        return downgraded;
                     }
-                    return downgraded;
+                    LOGGER.warn("Keeping {}={}, refusing downgrade to {} on {}", property.key(), current, value, context);
+                    return false;
                 }
-                LOGGER.warn("Keeping {}={}, refusing downgrade to {} on {}", property.key(), current, value, context);
-                return false;
             }
+            changed = analysis.setAllowControlledOverwrite(property, value);
         }
-        boolean changed = analysis.setAllowControlledOverwrite(property, value);
         if (changed) {
             CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder()).increment();
             if (context != null && !(context instanceof String) && !INTERNAL_PROPERTIES.contains(property.key())) {
