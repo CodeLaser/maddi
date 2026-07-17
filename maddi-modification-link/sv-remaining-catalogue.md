@@ -4,6 +4,22 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-18 — CAMEL CORE GREEN (8 modules swept): NO_VALUE guard + cycle-protection shallow fallback
+
+camel-core is an aggregator (0 sources) — the reported linking asserts live in the real
+modules. All 8 substantive core modules now sweep green (camel-api 16s/8.7k elements,
+camel-base 22s, camel-base-engine 43s, camel-core-model 28s/12k, camel-core-processor 5s,
+camel-core-reifier 5s, camel-support 14s/8.8k, camel-util 11s). Two engine fixes:
+1. addModificationFieldEquivalence: typeImmutable NO_VALUE (undecided) hit min()'s assert;
+   undecided counts as MUTABLE for the §m-pair decision (conservative direction).
+2. **Cycle protection (LinkGraph.compute)**: camel's generated bulk-converter loaders need
+   >20 expandGraph rounds. Three designs measured: throw (old) = dead element; keep the
+   partial graph = 5s -> 30min module grind (downstream cost on the huge graph); FINAL:
+   throw at ceiling 30, caught in doMethod's source path, degrade the METHOD to a shallow
+   summary — 22s, exit 0, zero caught.
+Process note: per-module sweep loop must run gradle from the maddi repo (a cd'ed loop
+silently re-ran one stale config for all modules — element counts per line now guard that).
+
 ## UPDATE 2026-07-18 — JENKINS CORE GREEN (6th corpus): exit 0, certified in 13 iterations, 12.5 min
 
 After the kotlin-side prepwork fixes (merge efb87d26: commonType raw-argument fallback,
