@@ -4,6 +4,32 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-18 — GUAVA GREEN (4th corpus): 2 more engine-wide O(n^2) kills + 4 crash fixes; 72s certified
+
+Guava first contact (post kotlin-merge scanner fixes 83c0c92d) stalled the link phase
+INDEFINITELY on a single method (~2min in, "Done 7863", one thread pinned). Two jstack
+rounds found two more all-pairs scans, both now indexed (suites + java-parser green,
+verdict-neutral by construction):
+1. **WriteLinksAndModification.suppressRedundantScopeUps** — n^2 pairs x 4 scope-chain
+   walks. scopeVariables never contains the variable itself → the equals guard was vacuous
+   and the removal set order-independent → scope-pair index maps, n x chainDepth^2.
+2. **LinksImpl.Builder.contains / containsPrimaryOf** — linear scans driven from
+   interleaved filter->add stream pipelines in doVariableReturnRecompute. Lazy indexes,
+   incrementally maintained on add, invalidated on removals; Link's (from,to)-only
+   equality and constructor asserts kept out via a dedicated TripletKey record.
+Then the classic triage: 422 caught -> 4 categories -> 0:
+- GenericsHelperImpl.mapInTermsOfParametersOfSuperType asserted on the SELF-type case
+  (VirtualFieldComputer's walk on recursive self-bounded generics) → distance-0 forward map.
+- LinkMethodCall.appliedFunctionalInterfaces: ParameterInfo.index() beyond the call's
+  argument list (varargs / cross-method summaries) → bound guard.
+- EnclosedExpressionImpl.internalCompareTo blind-cast: order() delegates to inner, so the
+  comparator pairs it with NON-enclosed peers → compare unwrapped.
+- LinkAppliedFunctionalInterface: null linkedVariables guard.
+**Result: exit 0, zero caught, certified fixpoint in 12 iterations, 72 SECONDS total**
+(20,293 elements). TestGuava added to the proving ground. The corpus-diversity bet paid
+exactly as hoped: generics depth found engine-wide quadratics that timefold/langchain4j/
+fernflower never triggered.
+
 ## UPDATE 2026-07-17 (night) — CORPUS EXPANSION: TestCorpusSweep + guava/jenkins first contact (scan-level findings)
 
 Corpus-diversity round (user has ~15 candidates in ~/git/test-oss): TestCorpusSweep
