@@ -245,11 +245,21 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         MethodLinkedVariables tlv;
         if (recursionPrevention.sourceAllowed(methodInfo)) {
             try {
-                tlv = new SourceMethodComputer(methodInfo).go();
-                if (write) {
-                    if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, tlv, methodInfo)) {
-                        propertiesChanged.incrementAndGet();
+                try {
+                    tlv = new SourceMethodComputer(methodInfo).go();
+                    if (write) {
+                        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, tlv, methodInfo)) {
+                            propertiesChanged.incrementAndGet();
+                        }
                     }
+                } catch (UnsupportedOperationException uoe) {
+                    if (!"cycle protection".equals(uoe.getMessage())) throw uoe;
+                    // a statement's link graph refused to settle (generated bulk-converter loaders,
+                    // camel-base): a SHALLOW summary beats both a dead element (the old behaviour) and the
+                    // minutes-long grind on the huge partial graph. The partially built per-method graph is
+                    // discarded with the SourceMethodComputer instance.
+                    LOGGER.warn("Cycle protection tripped in {}; falling back to shallow links", methodInfo);
+                    tlv = doMethod(methodInfo, true, write, writeShallow);
                 }
             } finally {
                 recursionPrevention.doneSource(methodInfo);

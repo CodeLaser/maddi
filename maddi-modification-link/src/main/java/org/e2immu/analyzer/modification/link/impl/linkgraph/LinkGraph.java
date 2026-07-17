@@ -107,13 +107,10 @@ public class LinkGraph {
             ++cycleProtection;
             if (cycleProtection > 30) {
                 // NOTE: a class in the maddi code base needs >10 rounds, camel's generated bulk-converter
-                // loaders >20. At the ceiling, keep the PARTIAL graph rather than throwing — the throw cost
-                // the whole element its analysis (camel-base first contact), strictly worse than fewer links.
-                // Ceiling deliberately tight: expansion rounds get more expensive as the graph grows (a
-                // ceiling of 100 ground for minutes on the same statement).
-                LOGGER.warn("Cycle protection: expandGraph did not settle after {} rounds in statement {}",
-                        cycleProtection - 1, statementIndex);
-                break;
+                // loaders >20. Keeping the partial graph is NOT an option (its size makes everything
+                // downstream minutes-slow: measured 5s -> 30min on camel-base); the throw is caught at the
+                // method level, which degrades to a SHALLOW summary (LinkComputerImpl.doMethod).
+                throw new UnsupportedOperationException("cycle protection");
             }
             change = makeGraph.expandGraph(statementIndex, modifiedInThisEvaluation.keySet());
         }
