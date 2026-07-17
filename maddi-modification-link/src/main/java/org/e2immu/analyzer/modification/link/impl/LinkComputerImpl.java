@@ -735,14 +735,21 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
         private void writeOutMethodCallAnalysis(List<ExpressionVisitor.WriteMethodCall> writeMethodCalls,
                                                 VariableData vd) {
+            // per-primary VL2O contributions are identical for every method call of this statement (the
+            // follow graph and vd are fixed here), and broker-style chained calls repeat the same primaries:
+            // uncached, the full-graph probe + rep expansion ran per call x per primary — the activemq
+            // first-contact stall. Replayed with the original put (stored pass) / putIfAbsent (probe pass)
+            // semantics, in the original per-primary order.
+            Map<Variable, Vl2oContribution> contributionCache = new HashMap<>();
             for (ExpressionVisitor.WriteMethodCall wmc : writeMethodCalls) {
                 // rather than taking the links in wmc, we want the fully expanded links
                 // (after running copyEvalIntoVariableData)
                 Map<Variable, Boolean> variablesLinkedToObject = new HashMap<>();
                 for (Link l : wmc.linksFromObject()) {
-                    addToVariablesLinkedToObject(vd, l.to(), variablesLinkedToObject);
+                    addToVariablesLinkedToObject(vd, l.to(), variablesLinkedToObject, contributionCache);
                 }
-                addToVariablesLinkedToObject(vd, wmc.linksFromObject().primary(), variablesLinkedToObject);
+                addToVariablesLinkedToObject(vd, wmc.linksFromObject().primary(), variablesLinkedToObject,
+                        contributionCache);
                 if (!variablesLinkedToObject.isEmpty()
                     // only write once, no point because actual variables in links will not change
                     && !wmc.methodCall().analysis().haveAnalyzedValueFor(VARIABLES_LINKED_TO_OBJECT)) {
@@ -762,23 +769,34 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
         }
 
+        private record Vl2oContribution(Map<Variable, Boolean> stored, Map<Variable, Boolean> probe) {
+        }
+
         private void addToVariablesLinkedToObject(VariableData vd,
                                                   Variable sub,
-                                                  Map<Variable, Boolean> variablesLinkedToObject) {
+                                                  Map<Variable, Boolean> variablesLinkedToObject,
+                                                  Map<Variable, Vl2oContribution> contributionCache) {
             Variable primary = Util.primary(sub);
             if (primary != null && vd.isKnown(primary.fullyQualifiedName())) {
                 variablesLinkedToObject.put(primary, true);
-                VariableInfo viPrimary = vd.variableInfo(primary);
-                // two sources, both needed:
-                // 1. the stored, fully reconstructed links — a raw followGraph(variable) probe misses everything
-                //    of a COLLAPSED variable (no translateForward, no shared-variable reconstruction; the VL2O
-                //    map lost 'ii2 ← 0:o');
-                // 2. the graph probe — collapsed groups hold facts the printed links deliberately suppress
-                //    (the slot alias 'ii[j]' behind "NOT: ii[j]∈ii"), with rep names EXPANDED to their real
-                //    members instead of leaking ('$__sv_ii[j]'). putIfAbsent: the stored pass is authoritative.
-                addVL2O(viPrimary.linkedVariablesOrEmpty(), null, variablesLinkedToObject);
-                Links probe = followGraph.followGraph(virtualFieldComputer, viPrimary.variable()).build();
-                addVL2O(probe, followGraph.graph(), variablesLinkedToObject);
+                Vl2oContribution contribution = contributionCache.computeIfAbsent(primary, p -> {
+                    VariableInfo viPrimary = vd.variableInfo(p);
+                    // two sources, both needed:
+                    // 1. the stored, fully reconstructed links — a raw followGraph(variable) probe misses everything
+                    //    of a COLLAPSED variable (no translateForward, no shared-variable reconstruction; the VL2O
+                    //    map lost 'ii2 ← 0:o');
+                    // 2. the graph probe — collapsed groups hold facts the printed links deliberately suppress
+                    //    (the slot alias 'ii[j]' behind "NOT: ii[j]∈ii"), with rep names EXPANDED to their real
+                    //    members instead of leaking ('$__sv_ii[j]'). putIfAbsent: the stored pass is authoritative.
+                    Map<Variable, Boolean> stored = new LinkedHashMap<>();
+                    addVL2O(viPrimary.linkedVariablesOrEmpty(), null, stored);
+                    Map<Variable, Boolean> probeMap = new LinkedHashMap<>();
+                    Links probe = followGraph.followGraph(virtualFieldComputer, viPrimary.variable()).build();
+                    addVL2O(probe, followGraph.graph(), probeMap);
+                    return new Vl2oContribution(stored, probeMap);
+                });
+                variablesLinkedToObject.putAll(contribution.stored()); // stored pass: put semantics
+                contribution.probe().forEach(variablesLinkedToObject::putIfAbsent); // probe pass
             }
         }
 
