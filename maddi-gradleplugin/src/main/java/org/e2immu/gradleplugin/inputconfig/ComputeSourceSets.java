@@ -77,19 +77,6 @@ public class ComputeSourceSets {
                           String restrictSourcesToPackages,
                           String restrictTestSourcesToPackages,
                           Set<String> excludeFromClasspath) {
-        Result result = compute(project, restrictSourcesToPackages, restrictTestSourcesToPackages, excludeFromClasspath,
-                new HashSet<>());
-        LOGGER.info("Exit compute source sets with result: {} has source sets/classpath parts {}, {} dependent source projects",
-                result.mainSourceSetName, result.sourceSetsByName.keySet(), result.sourceSetDependencies.size());
-        return result;
-    }
-
-    private Result compute(Project project,
-                           String restrictSourcesToPackages,
-                           String restrictTestSourcesToPackages,
-                           Set<String> excludeFromClasspath,
-                           Set<String> projectsSeen) {
-        projectsSeen.add(project.getName());
         LOGGER.info("Computing source sets of {}", project);
 
         String encoding = detectSourceEncoding(project);
@@ -98,8 +85,6 @@ public class ComputeSourceSets {
         Map<String, SourceSet> sourceSetsByName = new HashMap<>();
         String projectName = project.getName();
 
-        Set<File> mainClasspath = new HashSet<>();
-        Set<File> testClasspath = new HashSet<>();
         for (org.gradle.api.tasks.SourceSet gradleSourceSet : javaPluginExtension.getSourceSets()) {
             String sourceSetName = projectName + "/" + gradleSourceSet.getName();
             boolean test = gradleSourceSet.getName().toLowerCase().contains("test");
@@ -107,25 +92,21 @@ public class ComputeSourceSets {
                     test ? restrictTestSourcesToPackages : restrictSourcesToPackages,
                     encoding, test);
             if (sourceSet != null) sourceSetsByName.put(sourceSet.name(), sourceSet);
-
-            gradleSourceSet.getCompileClasspath().getFiles().stream().filter(File::canRead).forEach(file -> {
-                if (test) testClasspath.add(file);
-                else mainClasspath.add(file);
-            });
         }
 
-        List<Result> sourceSetDependencies = new ArrayList<>();
         List<Configuration> configurations = sortConfigurations(project);
-        inspectConfigurations(project, excludeFromClasspath, projectsSeen, configurations, sourceSetsByName,
-                sourceSetDependencies, mainClasspath, testClasspath);
+        inspectConfigurations(excludeFromClasspath, configurations, sourceSetsByName);
         String mainSourceSetName = projectName + "/main";
-        return new Result(mainSourceSetName, sourceSetsByName, sourceSetDependencies);
+        // No cross-project source recursion (see inspectConfigurations): sibling projects are consumed as
+        // compiled classpath parts, so there are never dependent source projects to carry here.
+        Result result = new Result(mainSourceSetName, sourceSetsByName, List.of());
+        LOGGER.info("Exit compute source sets with result: {} has source sets/classpath parts {}",
+                result.mainSourceSetName, result.sourceSetsByName.keySet());
+        return result;
     }
 
-    private void inspectConfigurations(Project project, Set<String> excludeFromClasspath, Set<String> projectsSeen,
-                                       List<Configuration> configurations, Map<String, SourceSet> sourceSetsByName,
-                                       List<Result> sourceSetDependencies,
-                                       Set<File> mainClassPath, Set<File> testClasspath) {
+    private void inspectConfigurations(Set<String> excludeFromClasspath,
+                                       List<Configuration> configurations, Map<String, SourceSet> sourceSetsByName) {
         for (Configuration configuration : configurations) {
             if (configuration.isCanBeResolved()) {
                 String configurationName = configuration.getName();
@@ -134,60 +115,41 @@ public class ComputeSourceSets {
                 boolean isRuntimeOnly = configurationName.toLowerCase().contains("runtime");
 
                 for (ResolvedArtifactResult rar : configuration.getIncoming().getArtifacts().getArtifacts()) {
+                    // Both external libraries and project (sibling module) dependencies are consumed the same way:
+                    // as their already-resolved compiled artifact on THIS project's classpath. We deliberately do NOT
+                    // recurse into a sibling project to co-parse its source -- that resolves the sibling's own
+                    // configurations, which Gradle 9 rejects as unsafe cross-project resolution (a hard error in
+                    // multi-project builds). This matches how the Maven plugin treats reactor siblings: as jars.
+                    String description;
+                    boolean excludedByCoordinate;
                     if (rar.getVariant().getOwner() instanceof ModuleComponentIdentifier mci) {
-                        String description = mci.getGroup() + ":" + mci.getModule() + ":" + mci.getVersion();
-                        if (!sourceSetsByName.containsKey(description)) {
-                            LOGGER.info(" -- library dependency {} in {}", description, configurationName);
-                            File file = rar.getFile();
-                            if (file.canRead() && !excludeFromClasspath.contains(file.getName())
-                                && !excludeFromClasspath.contains(description)
-                                && !excludeFromClasspath.contains(mci.getModule())) {
-                                SourceSet set = new SourceSetImpl.Builder()
-                                        .setName(description)
-                                        .setUri(makeURI(toRelativePath(file)))
-                                        .setTest(isTest)
-                                        .setLibrary(true)
-                                        .setExternalLibrary(true)
-                                        .setPartOfJdk(false)
-                                        .setRuntimeOnly(isRuntimeOnly)
-                                        .build();
-                                sourceSetsByName.put(description, set);
-                            }
-                        }
+                        description = mci.getGroup() + ":" + mci.getModule() + ":" + mci.getVersion();
+                        excludedByCoordinate = excludeFromClasspath.contains(description)
+                                                || excludeFromClasspath.contains(mci.getModule());
                     } else if (rar.getVariant().getOwner() instanceof DefaultProjectComponentIdentifier pci) {
-                        String description = pci.getProjectName();
-                        Project dependentProject = findProject(project, pci.getProjectName());
-                        if (dependentProject != null) {
-                            if (!projectsSeen.contains(description)) {
-                                LOGGER.info(" --  project dependency {} in configuration {}, looking for path {}", description,
-                                        configurationName, pci.getProjectIdentity());
-                                // recursion!!
-                                Result result = compute(dependentProject, null,
-                                        null, excludeFromClasspath, projectsSeen);
-                                sourceSetDependencies.add(result);
-                            }
-                        } else {
-                            String projectName = pci.getProjectName();
-                            File file;
-                            File inMain = mainClassPath.stream()
-                                    .filter(f -> f.getPath().contains(projectName)).findFirst().orElse(null);
-                            if (isTest && inMain == null) {
-                                file = testClasspath.stream().filter(f -> f.getPath().contains(projectName))
-                                        .findFirst().orElse(null);
-                            } else {
-                                file = inMain;
-                            }
-                            if (file != null) {
-                                SourceSet sourceSet = new SourceSetImpl.Builder().setName(projectName)
-                                        .setUri(makeURI(toRelativePath(file))).setTest(isTest).setLibrary(true)
-                                        .setExternalLibrary(true).build();
-                                sourceSetsByName.putIfAbsent(projectName, sourceSet);
-                                LOGGER.info(" --  added project dependency via classpath: {}", file);
-                            } else {
-                                LOGGER.info(" --  ignoring project dependency {} in configuration {}, not found",
-                                        description, configurationName);
-                            }
-                        }
+                        description = pci.getProjectName();
+                        excludedByCoordinate = excludeFromClasspath.contains(pci.getProjectName());
+                    } else {
+                        continue;
+                    }
+                    File file = rar.getFile();
+                    // maddi keys a classpath source set by its jar file name and resolves it as "jar file: <name>",
+                    // so the part name must be the jar file name, not the coordinate (otherwise: "Cannot find class
+                    // path source set interpreted as jar file: ...").
+                    String name = file.getName();
+                    if (!sourceSetsByName.containsKey(name) && file.canRead()
+                        && !excludeFromClasspath.contains(name) && !excludedByCoordinate) {
+                        LOGGER.info(" -- dependency {} ({}) in {}", description, name, configurationName);
+                        SourceSet set = new SourceSetImpl.Builder()
+                                .setName(name)
+                                .setUri(absoluteURI(file))
+                                .setTest(isTest)
+                                .setLibrary(true)
+                                .setExternalLibrary(true)
+                                .setPartOfJdk(false)
+                                .setRuntimeOnly(isRuntimeOnly)
+                                .build();
+                        sourceSetsByName.put(name, set);
                     }
                 }
             }
@@ -212,12 +174,6 @@ public class ComputeSourceSets {
         return configurations;
     }
 
-    private Project findProject(Project project, String projectName) {
-        return project.getRootProject().getAllprojects().stream()
-                .filter(p -> p.getName().equals(projectName)).findFirst().orElse(null);
-    }
-
-
     Path toRelativePath(File file) {
         Path path = file.getAbsoluteFile().toPath();
         try {
@@ -230,6 +186,16 @@ public class ComputeSourceSets {
     static URI makeURI(Path path) {
         assert !path.isAbsolute();
         return URI.create("file:" + path);
+    }
+
+    // Classpath parts (jars in ~/.gradle/caches, project-dependency class dirs) must carry an ABSOLUTE,
+    // hierarchical file URI: maddi's openjdk inspector does a bare Path.of(classPathPart.uri()) with no
+    // working-directory resolution, and Path.of throws IllegalArgumentException ("URI is not hierarchical")
+    // on the opaque "file:<relative>" form makeURI produces. These paths are machine-specific anyway, so a
+    // relative form buys no portability. (Source directories stay relative: the inspector resolves those
+    // against the configured working directory.)
+    static URI absoluteURI(File file) {
+        return file.getAbsoluteFile().toURI();
     }
 
     private SourceSet makeSourceSet(org.gradle.api.tasks.SourceSet gradleSourceSet,
@@ -250,12 +216,15 @@ public class ComputeSourceSets {
         if (kotlin instanceof SourceDirectorySet kotlinDirs) {
             srcDirs.addAll(kotlinDirs.getSrcDirs());
         }
+        // Emit ABSOLUTE source directories and a hierarchical file:/... URI. A relative/opaque URI (file:src) makes
+        // maddi's openjdk inspector skip this source set when it appears as another set's dependency (test -> main),
+        // because it cannot Path.of() an opaque URI -- so test sources then fail to resolve main types. Absolute
+        // paths also remove any dependence on the process working directory. (Mirrors the Maven plugin.)
         List<Path> paths = srcDirs.stream()
-                .filter(File::canRead).map(this::toRelativePath).toList();
+                .filter(File::canRead).map(f -> f.getAbsoluteFile().toPath().normalize()).toList();
         if (paths.isEmpty()) return null;
-        Path path = paths.getFirst();
         return new SourceSetImpl.Builder().setName(e2immuSourceSetName)
-                .setSourceDirectories(paths).setUri(makeURI(path))
+                .setSourceDirectories(paths).setUri(paths.getFirst().toUri())
                 .setSourceEncoding(sourceEncoding).setTest(test)
                 .setRestrictToPackages(restrictToPackages).build();
     }

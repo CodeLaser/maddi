@@ -43,11 +43,11 @@ dependencies {
 tasks.withType<JavaCompile> {
     options.compilerArgs.addAll(
         listOf(
-            "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-            "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-            "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-            "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-            "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.api=org.e2immu.language.java.openjdk,ALL-UNNAMED",
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=org.e2immu.language.java.openjdk,ALL-UNNAMED",
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.code=org.e2immu.language.java.openjdk,ALL-UNNAMED",
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=org.e2immu.language.java.openjdk,ALL-UNNAMED",
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.util=org.e2immu.language.java.openjdk,ALL-UNNAMED"
         )
     )
 }
@@ -56,10 +56,10 @@ tasks.test {
     useJUnitPlatform()
     maxParallelForks = 4
     jvmArgs(
-        "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-        "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.api=org.e2immu.language.java.openjdk,ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=org.e2immu.language.java.openjdk,ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=org.e2immu.language.java.openjdk,ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=org.e2immu.language.java.openjdk,ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=org.e2immu.language.java.openjdk,ALL-UNNAMED"
     )
 }

@@ -82,7 +82,6 @@ dependencies {
     compileOnly("org.apache.maven.resolver:maven-resolver-util:1.8.2")
 
     shade("com.fasterxml.jackson.core:jackson-databind")
-    shade("ch.qos.logback:logback-classic")
 }
 
 tasks.shadowJar {
@@ -91,8 +90,13 @@ tasks.shadowJar {
     // slf4j-api arrives transitively via the maddi modules; Maven core provides it, so keep it out of the jar
     // (two copies of the API would clash with the binding). maddi's own class names are not relocated — the
     // mojos reference RunAnalyzer etc. by their real names.
+    // logback-classic likewise must NOT be bundled: it is an slf4j *binding*, and Maven already installs its own
+    // (maven-slf4j-provider). A bundled logback 1.5.x also demands slf4j-api 2.x (org.slf4j.spi.LoggingEventAware),
+    // which clashes with the slf4j-api 1.7.x that Maven 3.9.x exports to plugins.
     dependencies {
         exclude(dependency("org.slf4j:slf4j-api"))
+        exclude(dependency("ch.qos.logback:logback-classic"))
+        exclude(dependency("ch.qos.logback:logback-core"))
     }
     mergeServiceFiles()
 }

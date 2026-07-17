@@ -10,3 +10,9 @@ bazel-*
 .idea
 **/.idea
 */.kotlin
+
+# IntelliJ Platform Gradle Plugin runIde sandbox
+.intellijPlatform/
+
+# per-machine bazel config (JAVA_HOME pin etc.)
+user.bazelrc

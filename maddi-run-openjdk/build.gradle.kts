@@ -43,6 +43,7 @@ dependencies {
     runtimeOnly(project(":maddi-aapi-archive"))
 
     implementation(project(":maddi-run-config"))
+    implementation(project(":maddi-run-rewire"))
 
     implementation("commons-cli:commons-cli")
     implementation("ch.qos.logback:logback-classic")

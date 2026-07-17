@@ -239,7 +239,8 @@ public class JavaInspectorImpl implements JavaInspector {
                                ParseOptions parseOptions) {
         try {
             singleSourceSet(summary, sourcesByFqn, infoByFqn, sourceSet, !parseOptions.failFast(),
-                    parseOptions.ignoreModule(), parseOptions.parameterNames() || parameterNames);
+                    parseOptions.ignoreModule(), parseOptions.parameterNames() || parameterNames,
+                    parseOptions.syntheticListField(), parseOptions.lombok());
         } catch (IOException ioe) {
             // register the failure in the Summary (preserving the cause) instead of dropping it and aborting
             // with a cause-less UnsupportedOperationException; harmonizes with the in-house inspector
@@ -352,7 +353,8 @@ public class JavaInspectorImpl implements JavaInspector {
             try {
                 Map<String, String> sourcesByFqn = sourcesByFqnBySourceSet.get(sourceSet);
                 singleSourceSet(summary, sourcesByFqn, infoByFqn, sourceSet, !parseOptions.failFast(),
-                        parseOptions.ignoreModule(), parseOptions.parameterNames() || parameterNames);
+                        parseOptions.ignoreModule(), parseOptions.parameterNames() || parameterNames,
+                        parseOptions.syntheticListField(), parseOptions.lombok());
             } catch (IOException ioe) {
                 // register the failure in the Summary (preserving the cause) instead of dropping it and aborting
                 // with a cause-less UnsupportedOperationException; harmonizes with the in-house inspector
@@ -417,7 +419,8 @@ public class JavaInspectorImpl implements JavaInspector {
             Summary summary = new SummaryImpl(parseOptions.failFast());
             singleSourceSet(summary, Map.of(className, input), infoByFqn, sourceSet,
                     !parseOptions.failFast(), parseOptions.ignoreModule(),
-                    parseOptions.parameterNames() || parameterNames);
+                    parseOptions.parameterNames() || parameterNames, parseOptions.syntheticListField(),
+                    parseOptions.lombok());
             return summary;
         } catch (IOException e) {
             LOGGER.error("Caught exception", e);
@@ -431,9 +434,11 @@ public class JavaInspectorImpl implements JavaInspector {
                                  SourceSet sourceSet,
                                  boolean ignoreErrors,
                                  boolean ignoreModule,
-                                 boolean parameterNames) throws IOException {
+                                 boolean parameterNames,
+                                 boolean syntheticListField,
+                                 boolean lombok) throws IOException {
         MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
-        JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics);
+        JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, lombok);
         if (javacTask == null) {
             LOGGER.warn("Have no sources in source set {}", sourceSet.name());
             return;
@@ -443,7 +448,7 @@ public class JavaInspectorImpl implements JavaInspector {
         ParameterNameIndex pni = parameterNames ? parameterNameIndex() : null;
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                 javacTask, sourceSet, infoByFqn, true, diagnostics, preload, pni, jdkInternals,
-                computeFingerPrints);
+                computeFingerPrints, syntheticListField);
         ScanCompilationUnits.Result scanned = scanCompilationUnits.scan();
         this.lastScanUnits = scanCompilationUnits; // keep the live task for on-demand getOrLoad
 
@@ -593,7 +598,8 @@ public class JavaInspectorImpl implements JavaInspector {
     private JavacTask createTask(SourceSet sourceSet,
                                  boolean ignoreModule,
                                  Map<String, String> sourcesByFqn,
-                                 MaddiDiagnosticCollector diagnostics) throws IOException {
+                                 MaddiDiagnosticCollector diagnostics,
+                                 boolean lombok) throws IOException {
         List<File> sources = new ArrayList<>();
         Map<String, String> sourcesByClassName;
         // use in-memory sources when they are supplied (parse(Map,...) and parseSingleFileInSourceSet(...));
@@ -645,7 +651,13 @@ public class JavaInspectorImpl implements JavaInspector {
             }
             for (SourceSet dependency : sourceSet.dependencies()) {
                 if (!dependency.externalLibrary()) {
-                    File file = Path.of(dependency.uri()).toFile();
+                    // A source-set dependency (e.g. test -> main): its types are parsed from source in this same
+                    // run, so they are already in the CompiledTypesManager. Only add it as a compiled classpath
+                    // entry when its URI is a real (hierarchical file) path -- a relative/opaque URI such as
+                    // file:src/main/java (as the mvn plugin emits) is not a compiled output and Path.of would throw.
+                    URI uri = dependency.uri();
+                    if (uri.isOpaque() || !"file".equals(uri.getScheme())) continue;
+                    File file = Path.of(uri).toFile();
                     if (ignoreModule || !dependency.isModule()) {
                         jarsAndClassDirectories.add(file);
                     } else {
@@ -679,7 +691,19 @@ public class JavaInspectorImpl implements JavaInspector {
             // parseSingleFileInSourceSet calls) it intermittently corrupts and surfaces as
             // "tree.starImportScope is null" during task.analyze(). maddi keys its CST by FQN strings, not javac
             // Names, so not sharing names across compilations is safe here.
-            List<String> options = new ArrayList<>(List.of("-proc:none", "-parameters", "-XDuseUnsharedTable=true"));
+            List<String> options = new ArrayList<>(List.of("-parameters", "-XDuseUnsharedTable=true"));
+            if (lombok) {
+                // Run the real Lombok annotation processor inside javac: it mutates the AST (generating getters,
+                // setters, constructors, @Builder, loggers, ...) and the scanner then reads those members into the
+                // CST like hand-written code -- full fidelity, unlike the in-house parser's partial re-synthesis.
+                // The lombok-*.jar is on the compile classpath (that is how InputConfiguration.containsLombok()
+                // detected it), so javac finds the processor on the default (class-path) processor path.
+                options.add("-processor");
+                options.add("lombok.launch.AnnotationProcessorHider$AnnotationProcessor");
+            } else {
+                // No Lombok on the classpath: disable all annotation processing (faster, avoids surprises).
+                options.add("-proc:none");
+            }
             if (jdkInternals) {
                 options.addAll(jdkInternalsJavacOptions(sourceSet));
             } else {

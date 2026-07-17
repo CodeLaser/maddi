@@ -25,7 +25,9 @@ def maddi_java_library(
     
     # Merge common deps with provided deps
     all_deps = COMMON_JAVA_DEPS + (deps or [])
-    all_javacopts = javacopts + ["--enable-preview"]
+    # The custom JDK-26 toolchain bundles Error Prone (enabled as errors); the Gradle
+    # build uses plain javac, so disable it to keep the two builds in agreement.
+    all_javacopts = ["-XepDisableAllChecks"] + javacopts
 
     java_library(
         name = name,
@@ -73,9 +75,6 @@ def maddi_java_test(
         use_testrunner = False,  # Don't use Bazel's default JUnit 4 runner
         main_class = "org.junit.platform.console.ConsoleLauncher",
         args = all_args,
-        javacopts = [
-            "--enable-preview",
-            #  "-source", "24",
-        ],
+        javacopts = ["-XepDisableAllChecks"],
         **kwargs
     )
