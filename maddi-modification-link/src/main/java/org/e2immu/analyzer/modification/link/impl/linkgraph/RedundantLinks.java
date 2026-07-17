@@ -37,25 +37,36 @@ public class RedundantLinks {
         see TestStream,1
      */
     public void redundantLinks(Links.Builder builder) {
-        Map<Variable, Set<Variable>> completions = new HashMap<>();
+        /*
+        The individual completion sets are only consumed as their UNION (redundantTo) plus a key-set
+        membership test, so one multi-source DFS per nature group computes the identical result in
+        O(V+E) — the per-link DFS was the analysis-wide hot spot on dense statement graphs (fernflower
+        IfHelper.reorderIf: 145s/iteration, 97% of samples in completion()). The overwrite semantics
+        (LAST link's nature key wins per to-variable, see the FIXME above — a merge is wrong) are kept
+        by grouping each to-variable under its last key in builder order; the guard is not mutated
+        during this loop, so batching sees the same guard state the per-link version did.
+         */
+        Map<Variable, LinkNature> lastKeyPerTo = new LinkedHashMap<>();
         builder.forEach(link -> {
             LinkNature key = key(link.linkNature());
             if (key != null) {
-                Map<Variable, Set<Variable>> completionGuardForLn
-                        = completionGuard.computeIfAbsent(key, _ -> new LinkedHashMap<>());
-                Set<Variable> completion = completion(completionGuardForLn, link.to());
-                Set<Variable> prev = completions.put(link.to(), completion);
-                if (prev != null && !prev.isEmpty()) {
-                    LOGGER.warn("Overwrite value of {}: {} -> {}", link.to(), prev, completion);
-                }
+                lastKeyPerTo.put(link.to(), key);
             }
         });
+        Map<LinkNature, Set<Variable>> startsPerKey = new LinkedHashMap<>();
+        lastKeyPerTo.forEach((to, key) -> startsPerKey.computeIfAbsent(key, _ -> new LinkedHashSet<>()).add(to));
         Set<Variable> redundantTo = new HashSet<>();
-        for (Map.Entry<Variable, Set<Variable>> entry : completions.entrySet()) {
-            redundantTo.addAll(entry.getValue());
-        }
+        startsPerKey.forEach((key, starts) -> {
+            Map<Variable, Set<Variable>> completionGuardForLn
+                    = completionGuard.computeIfAbsent(key, _ -> new LinkedHashMap<>());
+            Set<Variable> result = new HashSet<>(); // shared visited set == union of per-start completions
+            for (Variable start : starts) {
+                completion(completionGuardForLn, result, start);
+            }
+            redundantTo.addAll(result);
+        });
         builder.forEach(link -> {
-            if (completions.containsKey(link.to())) {
+            if (lastKeyPerTo.containsKey(link.to())) {
                 LinkNature key = key(link.linkNature());
                 if (key != null) {
                     Map<Variable, Set<Variable>> completionGuardForLn
@@ -72,12 +83,6 @@ public class RedundantLinks {
                                  // see TestModificationFunctional,2b
                                  && !(link.to() instanceof FunctionalInterfaceVariable)
                                  && !(link.to() instanceof AppliedFunctionalInterfaceVariable));
-    }
-
-    private static Set<Variable> completion(Map<Variable, Set<Variable>> graph, Variable start) {
-        Set<Variable> result = new HashSet<>();
-        completion(graph, result, start);
-        return result;
     }
 
     private static void completion(Map<Variable, Set<Variable>> graph, Set<Variable> result, Variable start) {
