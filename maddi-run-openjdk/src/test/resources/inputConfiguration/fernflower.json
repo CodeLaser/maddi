@@ -1,0 +1,431 @@
+{
+  "workingDirectory" : ".",
+  "classPathParts" : [ {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.base",
+    "uri" : "jmod:java.base",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.compiler",
+    "uri" : "jmod:java.compiler",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.datatransfer",
+    "uri" : "jmod:java.datatransfer",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.desktop",
+    "uri" : "jmod:java.desktop",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.instrument",
+    "uri" : "jmod:java.instrument",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.logging",
+    "uri" : "jmod:java.logging",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.management",
+    "uri" : "jmod:java.management",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.management.rmi",
+    "uri" : "jmod:java.management.rmi",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.naming",
+    "uri" : "jmod:java.naming",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.net.http",
+    "uri" : "jmod:java.net.http",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.prefs",
+    "uri" : "jmod:java.prefs",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.rmi",
+    "uri" : "jmod:java.rmi",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.scripting",
+    "uri" : "jmod:java.scripting",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.security.jgss",
+    "uri" : "jmod:java.security.jgss",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.security.sasl",
+    "uri" : "jmod:java.security.sasl",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.sql",
+    "uri" : "jmod:java.sql",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.sql.rowset",
+    "uri" : "jmod:java.sql.rowset",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.transaction.xa",
+    "uri" : "jmod:java.transaction.xa",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.xml",
+    "uri" : "jmod:java.xml",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java.xml.crypto",
+    "uri" : "jmod:java.xml.crypto",
+    "library" : true,
+    "externalLibrary" : true,
+    "partOfJdk" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "annotations-26.1.0.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.jetbrains/annotations/26.1.0/c1e9226d7ca6661020c58c94397da0cc3673d5e4/annotations-26.1.0.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "ant-1.10.15.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.apache.ant/ant/1.10.15/da854f5503ee061a5a3b2cfcbe98ee27aa4a5ef9/ant-1.10.15.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "apiguardian-api-1.1.2.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.apiguardian/apiguardian-api/1.1.2/a231e0d844d2721b0fa1b238006d15c6ded6842a/apiguardian-api-1.1.2.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "ecj-3.31.0.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.eclipse.jdt/ecj/3.31.0/50394238395356ed13af308aff4e4592b1412531/ecj-3.31.0.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy/3.0.25/afc7f7a3b2e3e86482d1f636aa3c1733f9c7473/groovy-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-ant-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-ant/3.0.25/4c334f0023049a377447b187a53df90f450c2ac8/groovy-ant-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-astbuilder-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-astbuilder/3.0.25/50cb1003e3b583229c0f352ea92a905fb542260c/groovy-astbuilder-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-cli-picocli-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-cli-picocli/3.0.25/93d619966773903bbc95029f73225ba6fdd985b0/groovy-cli-picocli-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-console-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-console/3.0.25/bd93d9680cd9735430548438b8cff5a1246ed6f5/groovy-console-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-datetime-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-datetime/3.0.25/550f06a082a13001683a1f3607c87e5080f8936e/groovy-datetime-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-docgenerator-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-docgenerator/3.0.25/9dc78affffb14cd8a5b3eecf6b05ac4dc867207e/groovy-docgenerator-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-groovydoc-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-groovydoc/3.0.25/399343149f728bb0e65039eb43d584b2d273f2ee/groovy-groovydoc-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-groovysh-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-groovysh/3.0.25/ca15d43e8aea8e903ea0998d74a1ee2537da3771/groovy-groovysh-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-jmx-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-jmx/3.0.25/be58138f305b4b4bd6e012f5bba2f6da7550b614/groovy-jmx-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-json-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-json/3.0.25/25a47780615947d68211e9f0616295184ed37cc9/groovy-json-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-jsr223-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-jsr223/3.0.25/556af05bbaa01b3ee01aa375ad730f5016502613/groovy-jsr223-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-macro-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-macro/3.0.25/f9ce33f9d537b8fc80999413af9a97eeb5ae98ce/groovy-macro-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-nio-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-nio/3.0.25/30a5c16ca5328be15f2bdcb42e14f93c6a526b45/groovy-nio-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-servlet-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-servlet/3.0.25/6bef43ba2dfded254f18c168bd3c155e9045205b/groovy-servlet-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-sql-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-sql/3.0.25/534f01dd13f1bc1d7c5cfaa80b452f8168e325f2/groovy-sql-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-swing-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-swing/3.0.25/b367dfbe6622dbbd5e6cc3bea08993ad33f93d19/groovy-swing-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-templates-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-templates/3.0.25/5304ab674c98f076755bcaf8c5918c8762a6e86d/groovy-templates-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-test-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-test/3.0.25/89c6d39b314dd606ccdc2efaf8d818e06a55749a/groovy-test-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-test-junit5-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-test-junit5/3.0.25/5179297748c3a0f76e97f741e6840db1c237521/groovy-test-junit5-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-testng-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-testng/3.0.25/f19b691e08da529c16ee00192c8f8fefb4602828/groovy-testng-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "groovy-xml-3.0.25.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.codehaus.groovy/groovy-xml/3.0.25/6d1a6fd6badc8236e15c7a0545a958654ad8b417/groovy-xml-3.0.25.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "hamcrest-core-1.3.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.hamcrest/hamcrest-core/1.3/42a25dc3219429f0e5d060061f71acb49bf010a0/hamcrest-core-1.3.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "java-rt-253.31033.145.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/com.jetbrains.intellij.java/java-rt/253.31033.145/c0c6ae9a2a33f82adb68405081c3773854aad8ca/java-rt-253.31033.145.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "javaparser-core-3.25.6.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/com.github.javaparser/javaparser-core/3.25.6/5e058bea33f92e5dd6f41f86066009cd56250452/javaparser-core-3.25.6.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "jspecify-1.0.0.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.jspecify/jspecify/1.0.0/7425a601c1c7ec76645a78d22b8c6a627edee507/jspecify-1.0.0.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "junit-4.13.2.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/junit/junit/4.13.2/8ac9e16d933b6fb43bc7f576336b8f4d7eb5ba12/junit-4.13.2.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "junit-jupiter-6.0.3.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.junit.jupiter/junit-jupiter/6.0.3/da72f4bc0feccbca639b901ace26e3a62512ebec/junit-jupiter-6.0.3.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "junit-jupiter-api-6.0.3.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.junit.jupiter/junit-jupiter-api/6.0.3/2e6cfb62db85350179f0408ed5270f7cdf8cefda/junit-jupiter-api-6.0.3.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "junit-jupiter-params-6.0.3.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.junit.jupiter/junit-jupiter-params/6.0.3/6cd3efadd171a3ddd70413868a9c3af988a45907/junit-jupiter-params-6.0.3.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "junit-platform-commons-6.0.3.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.junit.platform/junit-platform-commons/6.0.3/1093a7faa2ba47c28aa83f378d9a2083463bb20c/junit-platform-commons-6.0.3.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  }, {
+    "sourceEncoding" : "UTF-8",
+    "name" : "opentest4j-1.3.0.jar",
+    "uri" : "file:/Users/bnaudts/.gradle/caches/modules-2/files-2.1/org.opentest4j/opentest4j/1.3.0/152ea56b3a72f655d4fd677fc0ef2596c3dd5e6e/opentest4j-1.3.0.jar",
+    "library" : true,
+    "externalLibrary" : true,
+    "restrictToPackages" : [ ]
+  } ],
+  "sourceSets" : [ {
+    "name" : "java/main",
+    "sourceDirectories" : [ "/Users/bnaudts/git/test-oss/fernflower/src" ],
+    "uri" : "file:/Users/bnaudts/git/test-oss/fernflower/build/classes/java/main",
+    "restrictToPackages" : [ ],
+    "dependencies" : [ "annotations-26.1.0.jar" ]
+  }, {
+    "name" : "java/test",
+    "sourceDirectories" : [ "/Users/bnaudts/git/test-oss/fernflower/test" ],
+    "uri" : "file:/Users/bnaudts/git/test-oss/fernflower/build/classes/java/test",
+    "test" : true,
+    "restrictToPackages" : [ ],
+    "dependencies" : [ "java/main", "annotations-26.1.0.jar", "junit-jupiter-6.0.3.jar", "junit-jupiter-params-6.0.3.jar", "groovy-test-junit5-3.0.25.jar", "junit-jupiter-api-6.0.3.jar", "junit-platform-commons-6.0.3.jar", "ecj-3.31.0.jar", "java-rt-253.31033.145.jar", "groovy-ant-3.0.25.jar", "groovy-astbuilder-3.0.25.jar", "groovy-cli-picocli-3.0.25.jar", "groovy-console-3.0.25.jar", "groovy-datetime-3.0.25.jar", "groovy-groovydoc-3.0.25.jar", "groovy-jmx-3.0.25.jar", "groovy-json-3.0.25.jar", "groovy-jsr223-3.0.25.jar", "groovy-macro-3.0.25.jar", "groovy-nio-3.0.25.jar", "groovy-servlet-3.0.25.jar", "groovy-sql-3.0.25.jar", "groovy-swing-3.0.25.jar", "groovy-templates-3.0.25.jar", "groovy-test-3.0.25.jar", "groovy-testng-3.0.25.jar", "groovy-xml-3.0.25.jar", "groovy-3.0.25.jar", "groovy-docgenerator-3.0.25.jar", "groovy-groovysh-3.0.25.jar", "apiguardian-api-1.1.2.jar", "jspecify-1.0.0.jar", "ant-1.10.15.jar", "javaparser-core-3.25.6.jar", "junit-4.13.2.jar", "opentest4j-1.3.0.jar", "hamcrest-core-1.3.jar" ]
+  } ],
+  "alternativeJREDirectory" : null
+}

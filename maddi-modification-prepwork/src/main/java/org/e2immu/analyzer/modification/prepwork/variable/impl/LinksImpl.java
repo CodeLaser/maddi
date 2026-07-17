@@ -263,12 +263,15 @@ public class LinksImpl implements Links {
             assert from != null;
             assert to != null;
             assert linkNature != null;
-            assert doNotStackMOnTopOfVirtualField(from);
-            assert doNotStackMOnTopOfVirtualField(to);
-            assert Util.isVirtualModification(from) == Util.isVirtualModification(to);
+            assert doNotStackMOnTopOfVirtualField(from) : "§m stacked on virtual field: " + from;
+            assert doNotStackMOnTopOfVirtualField(to) : "§m stacked on virtual field: " + to;
+            assert Util.isVirtualModification(from) == Util.isVirtualModification(to)
+                    : "mixed §m/non-§m link: " + from + " " + linkNature + " " + to;
         }
 
-        private static boolean doNotStackMOnTopOfVirtualField(Variable v) {
+        // public: link-producing sites (VirtualModificationIdenticals.expand, the NORVM companions) use this to
+        // SKIP a face that cannot be represented as a Link, rather than trip the constructor assert
+        public static boolean doNotStackMOnTopOfVirtualField(Variable v) {
             return !(v instanceof FieldReference fr && Util.isVirtualModificationField(fr.fieldInfo())
                      && fr.scopeVariable() instanceof FieldReference fr2 && Util.virtual(fr2.fieldInfo()));
         }

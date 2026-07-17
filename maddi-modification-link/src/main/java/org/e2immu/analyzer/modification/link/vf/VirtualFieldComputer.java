@@ -174,8 +174,13 @@ public class VirtualFieldComputer {
         if (fieldTm != null) {
             for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
                 TypeInfo formalContainerType = formalHiddenContent.type().typeInfo();
+                if (formalContainerType == null) continue; // e.g. a single-type-parameter container: no §-container type
                 int i = 0;
                 for (FieldInfo field : formalContainerType.fields()) {
+                    // the hierarchy filter compares type-parameter SETS, so a supertype repeating a type
+                    // parameter has a container of larger arity than ours; the first occurrences map
+                    // correctly by index, the unmappable extras are skipped
+                    if (i >= containerType.fields().size()) break;
                     ParameterizedType outType = containerType.fields().get(i).type();
                     int arrayDiff = outType.arrays() - field.type().arrays();
                     fieldTm.put(field.type().typeParameter(), outType.copyWithArrays(arrayDiff));

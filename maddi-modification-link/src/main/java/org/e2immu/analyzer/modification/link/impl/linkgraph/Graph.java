@@ -320,9 +320,26 @@ public class Graph {
             Set<Variable> fromInGraph = isKnownInGraph(from);
             Set<Variable> toInGraph = isKnownInGraph(to);
             if (sv == null) {
-                assert fromInGraph.isEmpty() && toInGraph.isEmpty()
-                        : from + " and " + to + " should already have been removed; they're in the same equivalance group";
-                return false;
+                // both sides are already direct members of the same group. Residual vertices spelled through a
+                // member (faces added by statements AFTER it joined — e.g. the summary import of a later
+                // 'v = wrap(v)' call in a reassignment-through-wrapper chain, timefold
+                // ValueSelectorFactory.buildValueSelector) are legal on real code; re-key them onto the rep,
+                // exactly as the sv != null path below does. (Historically an assert: "should already have been
+                // removed" — the no-residue assumption only holds on the suite's simpler shapes.)
+                SharedVariable group = sharedVariables.groupOf(from) != null
+                        ? sharedVariables.groupOf(from) : sharedVariables.groupOf(to);
+                if (group == null) return false;
+                boolean change = false;
+                if (!fromInGraph.isEmpty()) {
+                    transformToSharedVariable(from, fromInGraph, group, statementIndex);
+                    change = true;
+                }
+                Set<Variable> toResidue = isKnownInGraph(to);
+                if (!toResidue.isEmpty()) {
+                    transformToSharedVariable(to, toResidue, group, statementIndex);
+                    change = true;
+                }
+                return change;
             }
             if (!fromInGraph.isEmpty()) {
                 transformToSharedVariable(from, fromInGraph, sv, statementIndex);
@@ -458,6 +475,7 @@ public class Graph {
     }
 
     boolean addField(Variable from, Variable primary, String statementIndex) {
+        if (primary == null) return false; // e.g. an array access on an expression base: no primary
         if (!from.equals(primary) && !(primary instanceof This)
             && from instanceof FieldReference fr && primary.equals(fieldScopeRoot(from))) {
             // intermediate spine (gate NOSPINEI): a DEEP face 'entry.§xy.§x' also materializes the mid-level

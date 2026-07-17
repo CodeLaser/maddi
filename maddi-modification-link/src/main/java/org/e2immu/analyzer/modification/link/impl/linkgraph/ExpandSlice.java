@@ -5,6 +5,7 @@ import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -77,6 +78,13 @@ record ExpandSlice(Graph graph) {
                         // record only in one direction
                         Variable frKv = dvK.arrayVariable();
                         Variable fr2Vks = dv.arrayVariable();
+                        // real-code guards: expression-based slices have no array variable; a translated base can
+                        // be a bare type parameter (no typeInfo) or a container of smaller arity than the index
+                        if (!(frKv instanceof FieldReference) || !(fr2Vks instanceof FieldReference)) continue;
+                        TypeInfo tKv = frKv.parameterizedType().typeInfo();
+                        TypeInfo tVks = fr2Vks.parameterizedType().typeInfo();
+                        if (tKv == null || tVks == null
+                            || tKv.fields().size() <= index || tVks.fields().size() <= index1) continue;
 
                         Edge pc = new Edge(frKv, LinkNatureImpl.SHARES_ELEMENTS, fr2Vks);
                         List<List<F2>> lists = map.computeIfAbsent(pc, _ -> new ArrayList<>());

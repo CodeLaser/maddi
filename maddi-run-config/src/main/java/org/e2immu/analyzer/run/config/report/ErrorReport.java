@@ -93,7 +93,8 @@ public final class ErrorReport {
             LOGGER.error("Aborted on error: {}", terminalParse.getMessage());
             count++;
         } else if (terminal != null) {
-            LOGGER.error("Analysis aborted with {}: {}", terminal.getClass().getName(), rootMessage(terminal));
+            LOGGER.error("Analysis aborted with {}: {}", terminal.getClass().getName(), rootMessage(terminal),
+                    terminal);
             count++;
         }
         if (summary != null && !summary.parseWarnings().isEmpty()) {

@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.common.defaults;
 
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.analysis.Property;
@@ -48,7 +49,8 @@ public class ShallowMethodAnalyzer extends AnnotationToProperty {
     private static final Logger LOGGER = LoggerFactory.getLogger(ShallowMethodAnalyzer.class);
     private final AnalysisHelper analysisHelper;
     private final Map<TypeInfo, Set<TypeInfo>> hierarchyProblems = new HashMap<>();
-    private final List<Message> messages = new LinkedList<>();
+    // shared instance, reachable from concurrently analyzed elements
+    private final List<Message> messages = Collections.synchronizedList(new LinkedList<>());
 
 
     public ShallowMethodAnalyzer(Runtime runtime, AnnotationProvider annotationProvider) {
@@ -57,10 +59,14 @@ public class ShallowMethodAnalyzer extends AnnotationToProperty {
     }
 
     public Map<Info, ShallowAnalyzer.InfoData> analyze(MethodInfo methodInfo) {
-        if (methodInfo.analysis().getOrDefault(DEFAULTS_ANALYZER, FALSE).isTrue()) {
-            return Map.of(); // already done
+        // atomic claim: check-then-set on the same monitor as the analysis map, so two threads reaching the
+        // same (callee's) method don't both pass the guard and double-set the write-once property
+        synchronized (methodInfo.analysis()) {
+            if (methodInfo.analysis().getOrDefault(DEFAULTS_ANALYZER, FALSE).isTrue()) {
+                return Map.of(); // already done
+            }
+            methodInfo.analysis().set(DEFAULTS_ANALYZER, TRUE);
         }
-        methodInfo.analysis().set(DEFAULTS_ANALYZER, TRUE);
         Map<Info, ShallowAnalyzer.InfoData> dataMap = new HashMap<>();
 
         boolean explicitlyEmpty = methodInfo.explicitlyEmptyMethod();
@@ -78,7 +84,7 @@ public class ShallowMethodAnalyzer extends AnnotationToProperty {
             dataMap.put(parameterInfo, parameterData);
             parameterVoMap.forEach((p, vo) -> {
                 if (!vo.value().isDefault() || vo.origin() == ANNOTATED) {
-                    parameterInfo.analysis().setAllowControlledOverwrite(p, vo.value());
+                    TolerantWrite.setAllowControlledOverwrite(parameterInfo.analysis(), p, vo.value());
                 }
                 parameterData.put(p, vo.origin());
             });
@@ -90,7 +96,7 @@ public class ShallowMethodAnalyzer extends AnnotationToProperty {
         dataMap.put(methodInfo, methodData);
         voMap.forEach((p, vo) -> {
             if (!vo.value().isDefault() || vo.origin() == ANNOTATED) {
-                methodInfo.analysis().setAllowControlledOverwrite(p, vo.value());
+                TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), p, vo.value());
             }
             methodData.put(p, vo.origin());
         });

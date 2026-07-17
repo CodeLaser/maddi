@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.analyzer.impl;
 
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.analyzer.*;
 import org.e2immu.analyzer.modification.common.defaults.ShallowTypeAnalyzer;
 import org.e2immu.analyzer.modification.link.LinkComputer;
@@ -55,7 +56,31 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final AtomicInteger propertiesChanged;
     private final List<Message> messages;
     private final boolean faultTolerant;
-    private final Set<Info> failed = new HashSet<>();
+    private final Set<Info> failed = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    // Parallel per-element loop: iterations 2+ on a fixed pool, iteration 1 via call-graph strata waves.
+    // DEFAULT ON since the 3-corpus proof (2026-07-17: certified + verdict-exact at 8 threads): min(8,
+    // cores-2) threads. Override with PARALLEL=<n>; PARALLEL=1 = sequential. Small runs (the suites) stay
+    // sequential via MIN_ELEMENTS_FOR_PARALLEL — no pool overhead, no order sensitivity in pinned counts.
+    static final int PARALLEL_THREADS = parallelThreads(); // package: IteratingAnalyzerImpl gates wave computation
+    static final int MIN_ELEMENTS_FOR_PARALLEL = 256;
+
+    private static int parallelThreads() {
+        String s = System.getenv("PARALLEL");
+        if (s == null) {
+            // fully qualified: the CST Runtime is imported in this file
+            return Math.max(1, Math.min(8, java.lang.Runtime.getRuntime().availableProcessors() - 2));
+        }
+        try {
+            return Math.max(1, Integer.parseInt(s.trim()));
+        } catch (NumberFormatException e) {
+            LOGGER.warn("Cannot parse PARALLEL={}, running sequentially", s);
+            return 1;
+        }
+    }
+    // worklist support: elements whose analysis changed in the most recent go() (see SingleIterationAnalyzer)
+    private final Set<Info> changedInfos = Collections.synchronizedSet(new HashSet<>());
+    private final Set<Info> summaryChangedInfos = Collections.synchronizedSet(new HashSet<>());
 
     public static final String ANALYZER_CRASH = "analyzer-crash";
     public static final String LINK_CRASH = "link-crash";
@@ -83,6 +108,16 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     }
 
     @Override
+    public Set<Info> changedInfos() {
+        return Set.copyOf(changedInfos);
+    }
+
+    @Override
+    public Set<Info> summaryChangedInfos() {
+        return Set.copyOf(summaryChangedInfos);
+    }
+
+    @Override
     public List<Message> messages() {
         // the iteration's own analyzers, plus the shallow analyzer used for abstract types
         return Stream.concat(messages.stream(), shallowTypeAnalyzer.messages().stream()).toList();
@@ -95,64 +130,198 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
 
     @Override
     public void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration) {
-        linkComputer.reset();
-        Set<TypeInfo> abstractTypes = new HashSet<>();
-        List<TypeInfo> typesInOrder = new ArrayList<>(analysisOrder.size());
+        go(analysisOrder, activateCycleBreaking, firstIteration, null);
+    }
 
-        List<MethodInfo> abstractMethods = new ArrayList<>();
-        for (Info info : analysisOrder) {
-            if (faultTolerant && failed.contains(info)) continue; // an earlier iteration already crashed on this one
-            try {
-                if (info instanceof MethodInfo methodInfo) {
-                    if (firstIteration && methodInfo.isAbstract() && abstractTypes.add(info.typeInfo())) {
-                        shallowTypeAnalyzer.analyze(info.typeInfo());
-                    }
-                    if (!firstIteration || !methodInfo.analysis().haveAnalyzedValueFor(METHOD_LINKS)) {
-                        MethodLinkedVariables mlv = linkComputer.doMethod(methodInfo);
-                        if (methodInfo.analysis().setAllowControlledOverwrite(METHOD_LINKS, mlv)) {
-                            propertiesChanged.incrementAndGet();
-                        }
-                    }
-                    if (methodInfo.isAbstract()) abstractMethods.add(methodInfo);
-                } else if (info instanceof FieldInfo fieldInfo) {
-                    if (fieldInfo.owner().isAbstract() && firstIteration) {
-                        shallowTypeAnalyzer.analyzeField(fieldInfo);
-                    }
-                    fieldAnalyzer.go(fieldInfo, activateCycleBreaking);
-                } else if (info instanceof TypeInfo typeInfo) {
-                    runTypeAnalyzers(activateCycleBreaking, typeInfo);
-                    typesInOrder.add(typeInfo);
+    @Override
+    public void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration,
+                   List<List<List<Info>>> firstIterationWaves) {
+        linkComputer.reset();
+        changedInfos.clear();
+        summaryChangedInfos.clear();
+        TolerantWrite.resetChangedTargets();
+        // first iteration only; concurrent for the strata-parallel path
+        Set<TypeInfo> abstractTypes = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+        long startLoop = System.currentTimeMillis();
+        if (PARALLEL_THREADS > 1 && firstIteration && firstIterationWaves != null
+            && analysisOrder.size() >= MIN_ELEMENTS_FOR_PARALLEL) {
+            int units = firstIterationWaves.stream().mapToInt(List::size).sum();
+            int elements = firstIterationWaves.stream().flatMap(List::stream).mapToInt(List::size).sum();
+            if (elements != analysisOrder.size()) {
+                // defensive: the waves must cover exactly the analysis order's element set
+                LOGGER.warn("Wave element count {} != analysis order size {}; falling back to sequential",
+                        elements, analysisOrder.size());
+                for (Info info : analysisOrder) {
+                    processElement(info, activateCycleBreaking, true, abstractTypes);
                 }
-            } catch (RuntimeException | AssertionError | StackOverflowError e) {
-                LOGGER.error("Caught exception processing {}: {}", info, e.toString());
-                if (!faultTolerant) throw e;
-                failed.add(info);
-                messages.add(crashFinding(info, e));
+            } else {
+                LOGGER.info("Strata-parallel FIRST iteration: {} threads, {} waves, {} units, {} elements",
+                        PARALLEL_THREADS, firstIterationWaves.size(), units, elements);
+                linkComputer.setLockComputeDisabled(true);
+                try (java.util.concurrent.ExecutorService pool =
+                             java.util.concurrent.Executors.newFixedThreadPool(PARALLEL_THREADS)) {
+                    for (List<List<Info>> wave : firstIterationWaves) {
+                        List<java.util.concurrent.Future<?>> futures = new ArrayList<>(wave.size());
+                        for (List<Info> unit : wave) {
+                            futures.add(pool.submit(() -> {
+                                for (Info info : unit) {
+                                    processElement(info, activateCycleBreaking, true, abstractTypes);
+                                }
+                            }));
+                        }
+                        joinAll(futures); // barrier per wave: the next wave's callees are complete
+                    }
+                } finally {
+                    linkComputer.setLockComputeDisabled(false);
+                }
+            }
+        } else if (PARALLEL_THREADS > 1 && !firstIteration
+                   && analysisOrder.size() >= MIN_ELEMENTS_FOR_PARALLEL) {
+            LOGGER.info("Parallel iteration: {} threads over {} elements", PARALLEL_THREADS, analysisOrder.size());
+            List<java.util.concurrent.Future<?>> futures = new ArrayList<>(analysisOrder.size());
+            java.util.Map<Info, Long> elementMillis = new java.util.concurrent.ConcurrentHashMap<>();
+            try (java.util.concurrent.ExecutorService pool =
+                         java.util.concurrent.Executors.newFixedThreadPool(PARALLEL_THREADS)) {
+                for (Info info : analysisOrder) {
+                    futures.add(pool.submit(() -> {
+                        long t0 = System.nanoTime();
+                        try {
+                            processElement(info, activateCycleBreaking, false, abstractTypes);
+                        } finally {
+                            elementMillis.put(info, (System.nanoTime() - t0) / 1_000_000);
+                        }
+                    }));
+                }
+            } // close() awaits completion of all submitted tasks
+            joinAll(futures);
+            String slowest = elementMillis.entrySet().stream()
+                    .sorted(java.util.Map.Entry.<Info, Long>comparingByValue().reversed())
+                    .limit(10)
+                    .map(e -> e.getKey().fullyQualifiedName() + "=" + e.getValue() + "ms")
+                    .reduce((a, b) -> a + ", " + b).orElse("-");
+            LOGGER.info("Slowest elements: {}", slowest);
+        } else {
+            for (Info info : analysisOrder) {
+                processElement(info, activateCycleBreaking, firstIteration, abstractTypes);
             }
         }
+        long endLoop = System.currentTimeMillis();
+        // derived rather than collected during the loop: same content as before, in deterministic
+        // analysisOrder order, independent of parallel completion order
+        List<MethodInfo> abstractMethods = analysisOrder.stream()
+                .filter(info -> info instanceof MethodInfo mi && mi.isAbstract() && !failed.contains(info))
+                .map(info -> (MethodInfo) info)
+                .toList();
+        List<TypeInfo> typesInOrder = analysisOrder.stream()
+                .filter(info -> info instanceof TypeInfo && !failed.contains(info))
+                .map(info -> (TypeInfo) info)
+                .toList();
 
+        long startAbstract = System.currentTimeMillis();
+        int changesBeforeAbstract = propertiesChanged.get();
         try {
             abstractMethodAnalyzer.go(firstIteration, abstractMethods);
         } catch (RuntimeException | AssertionError | StackOverflowError e) {
-            LOGGER.error("Caught exception in the abstract-method analyzer: {}", e.toString());
+            LOGGER.error("Caught exception in the abstract-method analyzer", e);
             if (!faultTolerant) throw e;
             // batch step — attribute to the first abstract method so the finding is at least locatable
             if (!abstractMethods.isEmpty()) messages.add(crashFinding(abstractMethods.getFirst(), e));
+        } finally {
+            // batch step: coarse attribution, any change dirties all abstract methods of this round
+            if (propertiesChanged.get() > changesBeforeAbstract) changedInfos.addAll(abstractMethods);
         }
 
+        long startSecondPass = System.currentTimeMillis();
         /*
         run once more, because the abstract method analyzer may have resolved independence and modification values
         for abstract methods.
          */
         for (TypeInfo typeInfo : typesInOrder) {
             if (faultTolerant && failed.contains(typeInfo)) continue;
+            int changesBefore2 = propertiesChanged.get();
             try {
                 runTypeAnalyzers(activateCycleBreaking, typeInfo);
             } catch (RuntimeException | AssertionError | StackOverflowError e) {
-                LOGGER.error("Caught exception (2nd type pass) on {}: {}", typeInfo, e.toString());
+                LOGGER.error("Caught exception (2nd type pass) on {}", typeInfo, e);
                 if (!faultTolerant) throw e;
                 failed.add(typeInfo);
                 messages.add(crashFinding(typeInfo, e));
+            } finally {
+                if (propertiesChanged.get() > changesBefore2) changedInfos.add(typeInfo);
+            }
+        }
+        long end = System.currentTimeMillis();
+        LOGGER.info("Phase timing: main loop {} ms, abstract batch {} ms, 2nd type pass {} ms",
+                endLoop - startLoop, startSecondPass - startAbstract, end - startSecondPass);
+        unionInWriteTargets();
+    }
+
+    private static void joinAll(List<java.util.concurrent.Future<?>> futures) {
+        for (java.util.concurrent.Future<?> future : futures) {
+            try {
+                future.get();
+            } catch (java.util.concurrent.ExecutionException e) {
+                // only reachable when !faultTolerant (processElement rethrows); preserve that contract
+                if (e.getCause() instanceof RuntimeException re) throw re;
+                if (e.getCause() instanceof Error error) throw error;
+                throw new RuntimeException(e.getCause());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    private void processElement(Info info, boolean activateCycleBreaking, boolean firstIteration,
+                                Set<TypeInfo> abstractTypes) {
+        if (faultTolerant && failed.contains(info)) return; // an earlier iteration already crashed on this one
+        int changesBefore = propertiesChanged.get();
+        try {
+            if (info instanceof MethodInfo methodInfo) {
+                if (firstIteration && methodInfo.isAbstract() && abstractTypes.add(info.typeInfo())) {
+                    shallowTypeAnalyzer.analyze(info.typeInfo());
+                }
+                if (!firstIteration || !methodInfo.analysis().haveAnalyzedValueFor(METHOD_LINKS)) {
+                    MethodLinkedVariables mlv = linkComputer.doMethod(methodInfo);
+                    // methodLinks IS the method's summary: pass the target so the change reaches
+                    // summaryChangedInfos and dirties dependents (the 3-arg overload's "?" context did not,
+                    // leaving the worklist 0-dirty after a verification pass found methodLinks changes)
+                    if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, mlv,
+                            methodInfo)) {
+                        propertiesChanged.incrementAndGet();
+                    }
+                }
+            } else if (info instanceof FieldInfo fieldInfo) {
+                if (fieldInfo.owner().isAbstract() && firstIteration) {
+                    shallowTypeAnalyzer.analyzeField(fieldInfo);
+                }
+                fieldAnalyzer.go(fieldInfo, activateCycleBreaking);
+            } else if (info instanceof TypeInfo typeInfo) {
+                runTypeAnalyzers(activateCycleBreaking, typeInfo);
+            }
+        } catch (RuntimeException | AssertionError | StackOverflowError e) {
+            LOGGER.error("Caught exception processing {}", info, e);
+            if (!faultTolerant) throw e;
+            failed.add(info);
+            messages.add(crashFinding(info, e));
+        } finally {
+            // under PARALLEL the delta can over-attribute (another thread's change lands in the window);
+            // a superset of changed elements is safe for the worklist
+            if (propertiesChanged.get() > changesBefore) changedInfos.add(info);
+        }
+    }
+
+    private void unionInWriteTargets() {
+        // union in the write-target attribution: writes that landed on elements other than the one being
+        // processed (the link computer's on-demand recursion writing a callee's METHOD_LINKS)
+        for (Object target : TolerantWrite.changedTargets()) {
+            // ParameterInfo extends Info but is not an analysis-order element: attribute to its method
+            Info info = target instanceof org.e2immu.language.cst.api.info.ParameterInfo pi ? pi.methodInfo()
+                    : target instanceof Info i ? i : null;
+            if (info != null) {
+                changedInfos.add(info);
+                summaryChangedInfos.add(info); // targets carry only summary-level properties (see TolerantWrite)
             }
         }
     }

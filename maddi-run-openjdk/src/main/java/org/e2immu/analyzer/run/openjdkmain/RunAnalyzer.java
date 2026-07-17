@@ -240,13 +240,15 @@ public class RunAnalyzer implements Runnable {
 
             // do actual modification analysis
             IteratingAnalyzer.Configuration modConfig = new IteratingAnalyzerImpl.ConfigurationBuilder()
-                    .setMaxIterations(10)
+                    .setMaxIterations(30) // safety net only: the loop exits on convergence/certification/plateau
+                    // (timefold PARALLEL=8 certified exactly at 20 — late worklist iterations cost ~3s, so headroom is free)
+                    .setStopWhenCycleDetectedAndNoImprovements(true) // plateau early-exit, see IteratingAnalyzerImpl
                     .setTrackObjectCreations(false)
                     .setFaultTolerant(true) // isolate a crash on one element; report it, don't abort the whole run
                     .build();
             IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(javaInspector, modConfig);
             try {
-                analyzer.analyze(order);
+                analyzer.analyze(order, ccg.graph()); // graph enables worklist narrowing (default ON, NOWORKLIST=1 opts out)
             } catch (RuntimeException | AssertionError analyzerError) {
                 terminalError = analyzerError;
                 exitValue = Main.EXIT_ANALYSER_ERROR;

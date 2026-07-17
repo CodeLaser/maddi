@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.impl.graph.Fact;
 import org.e2immu.analyzer.modification.link.impl.linkgraph.FollowGraph;
@@ -304,7 +305,7 @@ class WriteLinksAndModification {
                 builder.removeIf(l -> !(l.from() instanceof This));
             }
             Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
-            vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
+            TolerantWrite.setAllowControlledOverwrite(vi.analysis(), UNMODIFIED_VARIABLE, newValue, variable);
 
             // The ⊇→~ rewrite runs at the statement where the modification OCCURS. With the persistent graph the
             // rewrite survives into later statements by itself; re-flipping on previouslyModified (the old
@@ -405,22 +406,32 @@ class WriteLinksAndModification {
         // all be swept by one removal (that bug dropped both ∈ copies while keeping the ∋)
         boolean[] removed = new boolean[links.size()];
         Set<String> seen = new HashSet<>();
+        String[] keys = new String[links.size()];
         for (int i = 0; i < links.size(); i++) {
             Link link = links.get(i);
             String key = link.from() + "|" + link.linkNature() + "|" + link.to();
+            keys[i] = key;
             if (!seen.add(key)) removed[i] = true; // exact duplicate: keep the first
+        }
+        // reverse-pair detection via a key index: the reverse-pair predicate is exactly "key(j) == revKey(i)"
+        // (pass 1 above already relies on the same toString-keyed identity), so only true candidates are
+        // visited, in the same ascending index order as the former all-pairs scan — which was O(n^2) in
+        // Variable.equals and the analysis-wide hot spot after the RedundantLinks fix (fernflower reorderIf).
+        Map<String, List<Integer>> byKey = new HashMap<>();
+        for (int i = 0; i < links.size(); i++) {
+            if (!removed[i]) byKey.computeIfAbsent(keys[i], _ -> new ArrayList<>()).add(i);
         }
         for (int i = 0; i < links.size(); i++) {
             if (removed[i]) continue;
             Link a = links.get(i);
-            for (int j = i + 1; j < links.size(); j++) {
-                if (removed[j]) continue;
+            String revKey = a.to() + "|" + a.linkNature().reverse() + "|" + a.from();
+            List<Integer> candidates = byKey.get(revKey);
+            if (candidates == null) continue;
+            for (int j : candidates) {
+                if (j <= i || removed[j]) continue;
                 Link b = links.get(j);
-                if (a.from().equals(b.to()) && a.to().equals(b.from())
-                    && a.linkNature().reverse().equals(b.linkNature())) {
-                    if (depth(a.from()) >= depth(b.from())) removed[j] = true;
-                    else removed[i] = true;
-                }
+                if (depth(a.from()) >= depth(b.from())) removed[j] = true;
+                else removed[i] = true;
             }
         }
         boolean any = false;
@@ -520,7 +531,9 @@ class WriteLinksAndModification {
                 if (!rv.equals(realTo) && LinkVariable.acceptForLinkedVariables(realTo)
                     && !(realTo instanceof MarkerVariable)) {
                     VirtualFieldComputer.M2 m2 = virtualFieldComputer.addModificationFieldEquivalence(rv, realTo);
-                    if (m2 != null) toAdd.add(new LinksImpl.LinkImpl(m2.m1(), IS_ASSIGNED_FROM, m2.m2()));
+                    if (m2 != null && validCompanionFace(m2.m1()) && validCompanionFace(m2.m2())) {
+                        toAdd.add(new LinksImpl.LinkImpl(m2.m1(), IS_ASSIGNED_FROM, m2.m2()));
+                    }
                 }
             }
             if (link.linkNature() == OBJECT_GRAPH_OVERLAPS
@@ -535,7 +548,9 @@ class WriteLinksAndModification {
                                                      && rv.equals(Util.firstRealVariable(l2.from())))) {
                     VirtualFieldComputer.M2 m2 = virtualFieldComputer.addModificationFieldEquivalence(rv, realTo);
                     LinkNature id = LinkNatureImpl.makeIdenticalTo(null);
-                    if (m2 != null) toAdd.add(new LinksImpl.LinkImpl(m2.m1(), id, m2.m2()));
+                    if (m2 != null && validCompanionFace(m2.m1()) && validCompanionFace(m2.m2())) {
+                        toAdd.add(new LinksImpl.LinkImpl(m2.m1(), id, m2.m2()));
+                    }
                 }
             }
         }
@@ -548,6 +563,14 @@ class WriteLinksAndModification {
                 builder.add(l.from(), l.linkNature(), l.to());
             }
         }
+    }
+
+    // mirrors LinkImpl's doNotStackMOnTopOfVirtualField invariant: on real-world deep-generic shapes (timefold
+    // bavet lambdas), addModificationFieldEquivalence can produce a §m face whose scope is itself a virtual
+    // field; such a companion is not representable as a Link -- skip it instead of tripping the constructor assert
+    private static boolean validCompanionFace(Variable v) {
+        return !(v instanceof FieldReference fr && Util.isVirtualModificationField(fr.fieldInfo())
+                 && fr.scopeVariable() instanceof FieldReference fr2 && Util.virtual(fr2.fieldInfo()));
     }
 
     // mirrors the internal-reference filter in FollowGraph.followGraph: a link between two variables sharing the

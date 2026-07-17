@@ -12,8 +12,12 @@ import org.e2immu.language.cst.api.variable.Variable;
 
 public class SliceFactory {
 
+    // null when the base's container type cannot provide the slice's field: a bare type parameter (no typeInfo),
+    // or a container of smaller arity than the index (supertype type-parameter repetition, see findField callers)
     public static DependentVariable create(Runtime runtime, FieldReference base, int negativeIndex) {
-        FieldInfo fieldInfo = base.fieldInfo().type().typeInfo().fields().get(-1 - negativeIndex);
+        TypeInfo container = base.fieldInfo().type().typeInfo();
+        if (container == null || container.fields().size() < -negativeIndex) return null;
+        FieldInfo fieldInfo = container.fields().get(-1 - negativeIndex);
         return create(runtime, base, negativeIndex, fieldInfo);
     }
 
@@ -32,6 +36,7 @@ public class SliceFactory {
     }
 
     public static FF findField(TypeParameter typeParameter, TypeInfo container) {
+        if (container == null) return null; // e.g. the type is a bare type parameter: no container, no fields
         int i = 0;
         for (FieldInfo fieldInfo : container.fields()) {
             if (typeParameter.equals(fieldInfo.type().typeParameter())) {
@@ -43,6 +48,7 @@ public class SliceFactory {
     }
 
     public static FF findField(ParameterizedType parameterizedType, TypeInfo container) {
+        if (container == null) return null; // e.g. the type is a bare type parameter: no container, no fields
         int i = 0;
         for (FieldInfo fieldInfo : container.fields()) {
             if (parameterizedType.equals(fieldInfo.type())) {

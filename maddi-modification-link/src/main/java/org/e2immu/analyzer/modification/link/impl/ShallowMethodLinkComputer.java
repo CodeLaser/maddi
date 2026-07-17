@@ -386,38 +386,44 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     if (intersection.size() == 1) {
                         if (arraysFrom > 0) {
                             if (arraysTo == arraysFrom) {
+                                // a null theField (e.g. subFrom's type is a bare type parameter: no container to
+                                // slice into) means the link cannot be expressed at this granularity: skip it
                                 if (toType.typeParameter() != null) {
                                     SliceFactory.FF theField = SliceFactory.findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
-                                    assert theField != null;
-                                    DependentVariable dv = SliceFactory.create(runtime, subFrom, theField.negative(),
-                                            theField.fieldInfo());
-                                    builder.add(dv, IS_SUBSET_OF, subTo);
+                                    if (theField != null) {
+                                        DependentVariable dv = SliceFactory.create(runtime, subFrom, theField.negative(),
+                                                theField.fieldInfo());
+                                        builder.add(dv, IS_SUBSET_OF, subTo);
+                                    }
                                 } else {
                                     // slice across: TestShallow,4: keySet.ks~this.kvs[-1].k
                                     SliceFactory.FF theField = SliceFactory.findField(intersection.getFirst(), toType.typeInfo());
-                                    assert theField != null;
-                                    DependentVariable slice = SliceFactory.create(runtime, subTo, theField.negative(),
-                                            theField.fieldInfo());
-                                    builder.add(subFrom, IS_SUBSET_OF, slice);
+                                    if (theField != null) {
+                                        DependentVariable slice = SliceFactory.create(runtime, subTo, theField.negative(),
+                                                theField.fieldInfo());
+                                        builder.add(subFrom, IS_SUBSET_OF, slice);
+                                    }
                                 }
                             } else if (arraysTo == 0) {
                                 // slice to a single element: TestShallowPrefix,1: oneStatic.xys[-1]>0:x
                                 SliceFactory.FF theField = SliceFactory.findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
-                                assert theField != null;
-                                DependentVariable slice = SliceFactory.create(runtime, subFrom, theField.negative(),
-                                        theField.fieldInfo());
-                                builder.add(slice, CONTAINS_AS_MEMBER, subTo);
+                                if (theField != null) {
+                                    DependentVariable slice = SliceFactory.create(runtime, subFrom, theField.negative(),
+                                            theField.fieldInfo());
+                                    builder.add(slice, CONTAINS_AS_MEMBER, subTo);
+                                }
                             }
                         } else {
                             // indexing, e.g. TestShallowPrefix,3:  oneStatic.xy.x==0:x (totalFrom 0)
                             // e.g. TestShallowPrefix,2: oneStatic.xsys.xs>0:x (totalFrom 1)
                             SliceFactory.FF theField = SliceFactory.findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
-                            assert theField != null;
-                            int totalFrom = arraysFrom + theField.fieldInfo().type().arrays();
-                            LinkNature linkNature = deriveLinkNature(totalFrom, arraysTo, subShareSuper, reverseIsAssignedFrom);
-                            FieldReference subSubFrom = runtime.newFieldReference(theField.fieldInfo(),
-                                    runtime.newVariableExpression(subFrom), theField.fieldInfo().type());
-                            builder.add(subSubFrom, linkNature, subTo);
+                            if (theField != null) {
+                                int totalFrom = arraysFrom + theField.fieldInfo().type().arrays();
+                                LinkNature linkNature = deriveLinkNature(totalFrom, arraysTo, subShareSuper, reverseIsAssignedFrom);
+                                FieldReference subSubFrom = runtime.newFieldReference(theField.fieldInfo(),
+                                        runtime.newVariableExpression(subFrom), theField.fieldInfo().type());
+                                builder.add(subSubFrom, linkNature, subTo);
+                            }
                         }
                     }
                 }
@@ -462,6 +468,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
 
 
     private static FieldInfo findField(ParameterizedType fieldType, TypeInfo container) {
+        if (container == null) return null; // e.g. the type is a bare type parameter: no container, no fields
         for (FieldInfo fieldInfo : container.fields()) {
             if (fieldType.equals(fieldInfo.type())) {
                 return fieldInfo;

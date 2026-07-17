@@ -60,6 +60,6 @@ public class TestAppliedFunctionalInterface extends CommonTest {
         // run(s, r) applies r.function (a functional-interface field inside the record r): searchAndExpand
         MethodInfo run = X.findUniqueMethod("run", 2);
         MethodLinkedVariables mlvRun = run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, 1:r.function*↗$_afi2] --> run←$_afi2,run↖Λ1:r.function*", mlvRun.toString());
+        assertEquals("[-, 1:r.function*↗$_afi0] --> run←$_afi0,run↖Λ1:r.function*", mlvRun.toString());
     }
 }

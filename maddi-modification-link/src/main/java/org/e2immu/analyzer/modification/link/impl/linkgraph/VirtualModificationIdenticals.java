@@ -19,9 +19,12 @@ public class VirtualModificationIdenticals {
 
     public record Group(LinkNature linkNature, Set<Variable> members) {
         public Stream<Link> expand(Variable v1) {
+            // a §m face whose base is itself a virtual face (langchain4j: §m on a CONSTANT's §$ss face,
+            // '"value".§$ss.§m') is not representable as a Link; skip instead of tripping the constructor assert
+            if (!LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(v1)) return Stream.of();
             Stream.Builder<Link> links = Stream.builder();
             for (Variable v2 : members) {
-                if (v1 != v2) {
+                if (v1 != v2 && LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(v2)) {
                     links.accept(new LinksImpl.LinkImpl(v1, linkNature, v2));
                 }
             }

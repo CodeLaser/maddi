@@ -7,6 +7,11 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 interface LinkComputerRecursion {
     void doAnonymousType(TypeInfo typeInfo);
 
+    /** see {@link org.e2immu.analyzer.modification.link.LinkComputer#setLockComputeDisabled(boolean)} */
+    default boolean lockComputeDisabled() {
+        return false;
+    }
+
     MethodLinkedVariables doMethod(MethodInfo methodInfo);
 
     MethodLinkedVariables recurseMethod(MethodInfo methodInfo);

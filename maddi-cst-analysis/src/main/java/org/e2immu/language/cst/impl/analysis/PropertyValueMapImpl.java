@@ -28,6 +28,11 @@ import java.util.stream.Stream;
 
 /*
 Does not use SetOnceMap<> because of controlled overwrites.
+
+All access is synchronized on 'this': analyzers write properties of OTHER elements (a method call writes
+UNMODIFIED_PARAMETER on the callee's parameters), so under intra-iteration parallelism two threads can hit
+the same element's map. External compound check-then-act sequences (TolerantWrite) synchronize on the map
+object as well — same monitor.
  */
 public class PropertyValueMapImpl implements PropertyValueMap {
     private static final Logger LOGGER = LoggerFactory.getLogger(PropertyValueMapImpl.class);
@@ -40,7 +45,7 @@ public class PropertyValueMapImpl implements PropertyValueMap {
      * on a rewired method.
      */
     @Override
-    public PropertyValueMap rewire(InfoMap infoMap) {
+    public synchronized PropertyValueMap rewire(InfoMap infoMap) {
         PropertyValueMapImpl rewiredMap = new PropertyValueMapImpl();
         map.forEach((key, value) -> {
             if (key.carryOnRewire()) rewiredMap.set(key, value.rewire(infoMap));
@@ -49,25 +54,26 @@ public class PropertyValueMapImpl implements PropertyValueMap {
     }
 
     @Override
-    public Stream<PropertyValue> propertyValueStream() {
-        return map.entrySet().stream().map(e -> new PropertyValue(e.getKey(), e.getValue()));
+    public synchronized Stream<PropertyValue> propertyValueStream() {
+        // snapshot under the lock; the returned stream is safe to consume without it
+        return map.entrySet().stream().map(e -> new PropertyValue(e.getKey(), e.getValue())).toList().stream();
     }
 
     @Override
-    public boolean haveAnalyzedValueFor(Property property) {
+    public synchronized boolean haveAnalyzedValueFor(Property property) {
         return map.containsKey(property);
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public <V extends Value> V getOrDefault(Property property, V defaultValue) {
+    public synchronized <V extends Value> V getOrDefault(Property property, V defaultValue) {
         assert defaultValue != null;
         return (V) map.getOrDefault(property, defaultValue);
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public <V extends Value> V getOrNull(Property property, Class<? extends V> clazz) {
+    public synchronized <V extends Value> V getOrNull(Property property, Class<? extends V> clazz) {
         return (V) map.get(property);
     }
 
@@ -84,7 +90,7 @@ public class PropertyValueMapImpl implements PropertyValueMap {
     }
 
     @Override
-    public void set(Property property, Value value) {
+    public synchronized void set(Property property, Value value) {
         assert value != null : "Not allowed to write null";
 
         assert property.classOfValue().isAssignableFrom(value.getClass());
@@ -95,7 +101,7 @@ public class PropertyValueMapImpl implements PropertyValueMap {
 
     @SuppressWarnings("unchecked")
     @Override
-    public <V extends Value> boolean setAllowControlledOverwrite(Property property, V value) {
+    public synchronized <V extends Value> boolean setAllowControlledOverwrite(Property property, V value) {
         assert value != null : "Not allowed to write null";
         V current = (V) map.get(property);
         if (current == null) {
@@ -114,12 +120,20 @@ public class PropertyValueMapImpl implements PropertyValueMap {
     }
 
     @Override
+    public synchronized <V extends Value> boolean overwrite(Property property, V value) {
+        assert value != null : "Not allowed to write null";
+        assert property.classOfValue().isAssignableFrom(value.getClass());
+        Value prev = map.put(property, value);
+        return !value.equals(prev);
+    }
+
+    @Override
     public void setAll(PropertyValueMap analysis) {
         analysis.propertyValueStream().forEach(pv -> set(pv.property(), pv.value()));
     }
 
     @Override
-    public boolean isEmpty() {
+    public synchronized boolean isEmpty() {
         return map.isEmpty();
     }
 }

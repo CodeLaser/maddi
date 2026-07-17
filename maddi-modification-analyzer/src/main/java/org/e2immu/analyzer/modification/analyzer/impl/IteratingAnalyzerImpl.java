@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.analyzer.impl;
 
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.analyzer.CycleBreakingStrategy;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.SingleIterationAnalyzer;
@@ -93,6 +94,58 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         }
     }
 
+    /**
+     * A/B equivalence signal for worklist/convergence experiments: the distribution of the key verdicts over
+     * all analysis-order elements. Two runs with identical fingerprints (very likely) computed identical verdicts.
+     */
+    private static void logVerdictFingerprint(List<Info> analysisOrder) {
+        java.util.Map<String, Integer> counts = new java.util.TreeMap<>();
+        for (Info info : analysisOrder) {
+            String key;
+            if (info instanceof org.e2immu.language.cst.api.info.MethodInfo) {
+                var v = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
+                        org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                key = "method.nonModifying=" + (v == null ? "?" : v);
+            } else if (info instanceof org.e2immu.language.cst.api.info.FieldInfo) {
+                var v = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_FIELD,
+                        org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                key = "field.unmodified=" + (v == null ? "?" : v);
+            } else if (info instanceof org.e2immu.language.cst.api.info.TypeInfo) {
+                var v = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE,
+                        org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.class);
+                key = "type.immutable=" + (v == null ? "?" : v);
+            } else {
+                key = "other";
+            }
+            counts.merge(key, 1, Integer::sum);
+        }
+        LOGGER.info("Verdict fingerprint: {}", counts);
+        String dump = System.getenv("FPDUMP");
+        if (dump != null) {
+            try (java.io.PrintWriter pw = new java.io.PrintWriter(dump)) {
+                for (Info info : analysisOrder) {
+                    String v;
+                    if (info instanceof org.e2immu.language.cst.api.info.MethodInfo) {
+                        var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                        v = "method nonModifying=" + b;
+                    } else if (info instanceof org.e2immu.language.cst.api.info.FieldInfo) {
+                        var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_FIELD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                        v = "field unmodified=" + b;
+                    } else if (info instanceof org.e2immu.language.cst.api.info.TypeInfo) {
+                        var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.class);
+                        v = "type immutable=" + b;
+                    } else continue;
+                    pw.println(v + " " + info.fullyQualifiedName());
+                }
+            } catch (java.io.IOException e) {
+                LOGGER.error("FPDUMP failed", e);
+            }
+        }
+    }
+
     @Override
     public List<Message> messages() {
         return Stream.concat(lastRun == null ? Stream.of() : lastRun.messages().stream(),
@@ -101,29 +154,146 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
 
     @Override
     public void analyze(List<Info> analysisOrder) {
+        analyze(analysisOrder, null);
+    }
+
+    // Worklist narrowing: iterations 2+ only re-analyze changed elements + their dependents (reverse
+    // dependency edges); requires the dependency graph. ON by default since the corpus proof (2026-07-17):
+    // certified fixpoints on timefold + langchain4j, verdict dumps identical to full re-analysis.
+    // Opt out with NOWORKLIST=1 (e.g. for baseline A/B runs).
+    private static final boolean WORKLIST = System.getenv("NOWORKLIST") == null;
+
+    @Override
+    public void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph) {
         int iterations = 0;
         SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
         this.lastRun = singleIterationAnalyzer;
         boolean cycleBreakingActive = false;
+        int previousPropertiesChanged = Integer.MAX_VALUE;
+        // reverse adjacency: dependersOf(Y) = { X | X depends on Y } — the elements to re-analyze when Y changes
+        java.util.Map<Info, java.util.Set<Info>> dependersOf;
+        if (WORKLIST && dependencyGraph != null) {
+            // SYMMETRIC closure: the analyzers' true information flow runs along graph edges in BOTH
+            // directions — the AbstractMethodAnalyzer derives an abstract method's verdicts from its
+            // IMPLEMENTATIONS (graph edge impl -> abstract), the FieldAnalyzer reads its REFERRING methods
+            // (graph edge reader -> field). One-directional reverse adjacency froze 88 abstract-method and
+            // 23 field verdicts at conservative values (fpdump diffs, runs 16-18). Symmetric is a correct
+            // superset wherever the graph has at least one edge per real dependency; tighten later if the
+            // dirty-set growth ever matters (late-iteration sets are tiny).
+            dependersOf = new java.util.HashMap<>();
+            dependencyGraph.edgeStream().forEach(e -> {
+                dependersOf.computeIfAbsent(e.to().t(), _ -> new java.util.HashSet<>()).add(e.from().t());
+                dependersOf.computeIfAbsent(e.from().t(), _ -> new java.util.HashSet<>()).add(e.to().t());
+            });
+            // overrides may span source sets beyond the graph's vertex subset: keep the explicit relation
+            for (Info info : analysisOrder) {
+                if (info instanceof org.e2immu.language.cst.api.info.MethodInfo mi) {
+                    for (org.e2immu.language.cst.api.info.MethodInfo overridden : mi.overrides()) {
+                        dependersOf.computeIfAbsent(mi, _ -> new java.util.HashSet<>()).add(overridden);
+                        dependersOf.computeIfAbsent(overridden, _ -> new java.util.HashSet<>()).add(mi);
+                    }
+                }
+            }
+            LOGGER.info("Worklist narrowing ACTIVE; symmetric reverse adjacency for {} elements", dependersOf.size());
+        } else {
+            dependersOf = null;
+        }
+        java.util.Set<Info> dirty = null; // null = analyze everything
+        boolean verifying = false; // worklist ran dry -> one full pass certifies (0 changes = true fixpoint)
+        // strata-parallel first iteration (PARALLEL=n): dependency waves from the same call graph
+        java.util.List<java.util.List<java.util.List<Info>>> firstIterationWaves;
+        if (SingleIterationAnalyzerImpl.PARALLEL_THREADS > 1 && dependencyGraph != null
+            && analysisOrder.size() >= SingleIterationAnalyzerImpl.MIN_ELEMENTS_FOR_PARALLEL) {
+            firstIterationWaves = org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder
+                    .waves(dependencyGraph);
+            LOGGER.info("Computed {} first-iteration waves", firstIterationWaves.size());
+        } else {
+            firstIterationWaves = null;
+        }
         while (true) {
             ++iterations;
             LOGGER.info("{}, cycle breaking active? {}", highlight("Start iteration " + iterations),
                     cycleBreakingActive);
+            TolerantWrite.resetChangeCounts();
+            List<Info> subset;
+            if (dirty == null) {
+                subset = analysisOrder;
+            } else {
+                java.util.Set<Info> d = dirty;
+                subset = analysisOrder.stream().filter(d::contains).toList();
+                LOGGER.info("Worklist: {} of {} elements dirty", subset.size(), analysisOrder.size());
+            }
             Instant start = Instant.now();
-            singleIterationAnalyzer.go(analysisOrder, cycleBreakingActive, iterations == 1);
+            singleIterationAnalyzer.go(subset, cycleBreakingActive, iterations == 1,
+                    iterations == 1 ? firstIterationWaves : null);
             Instant end = Instant.now();
             Duration duration = Duration.between(start, end);
             LOGGER.info("Duration of single iteration: {} min {} sec {} ms", duration.toMinutesPart(),
                     duration.toSecondsPart(), duration.toMillisPart());
             int propertiesChanged = singleIterationAnalyzer.propertiesChanged();
-            boolean done = propertiesChanged == 0;
-            if (iterations == configuration.maxIterations() || done) {
-                LOGGER.info("Stop iterating after {} iterations, done? {}", iterations, done);
+            // convergence diagnosis: which properties are still moving? (value-changing writes per property)
+            String topChanges = TolerantWrite.changeCounts().entrySet().stream()
+                    .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+                    .limit(10)
+                    .map(e -> e.getKey() + "=" + e.getValue())
+                    .reduce((a, b) -> a + ", " + b).orElse("-");
+            LOGGER.info("Iteration {} property changes (top 10): {}", iterations, topChanges);
+            // under an active worklist, a zero-change SUBSET iteration is not a fixpoint certificate — only a
+            // zero-change FULL pass is; route through the verification branch below instead of stopping here
+            boolean done = propertiesChanged == 0 && (dependersOf == null || verifying);
+            // plateau: the change count no longer meaningfully decreases (an oscillation floor); further full
+            // re-analyses only pay for the same flips again. Opt-in via stopWhenCycleDetectedAndNoImprovements.
+            // Irrelevant under an active worklist: the verify-certify loop reaches a machine-checked fixpoint
+            // (and a subset iteration's change count is not comparable to the previous iteration's anyway).
+            boolean plateau = dependersOf == null
+                              && configuration.stopWhenCycleDetectedAndNoImprovements()
+                              && System.getenv("NOPLATEAU") == null
+                              && iterations >= 3 && propertiesChanged >= 0.95 * previousPropertiesChanged;
+            if (iterations == configuration.maxIterations() || done || plateau) {
+                LOGGER.info("Stop iterating after {} iterations, done? {}{}", iterations, done,
+                        plateau ? " (plateau: " + propertiesChanged + " vs " + previousPropertiesChanged + ")" : "");
+                logVerdictFingerprint(analysisOrder);
                 if (configuration.guardContracts()) {
                     // values are final now: verify user-written contracts, emit explanatory findings
                     new GuardAnalyzerImpl(javaInspector.runtime(), configuration, guardMessages).go(analysisOrder);
                 }
                 return;
+            }
+            previousPropertiesChanged = propertiesChanged;
+            if (dependersOf != null) {
+                // v2: only SUMMARY changes propagate — dependents cannot observe element-internal changes.
+                // The changed element itself IS re-run: a self-recursive method's summary feeds its own next
+                // analysis, and the call graph does not guarantee a self-edge (v2's first cut excluded self and
+                // froze recursive methods at their early conservative verdicts).
+                java.util.Set<Info> changed = singleIterationAnalyzer.summaryChangedInfos();
+                java.util.Set<Info> next = new java.util.HashSet<>(changed);
+                for (Info c : changed) {
+                    java.util.Set<Info> deps = dependersOf.get(c);
+                    if (deps != null) next.addAll(deps);
+                }
+                dirty = next;
+                if (verifying) {
+                    if (propertiesChanged == 0) {
+                        // certified: a FULL iteration changed nothing — this is the true fixpoint, regardless
+                        // of any dependency-edge kinds the worklist's reverse adjacency might miss
+                        LOGGER.info("Stop iterating after {} iterations: worklist dry + full verification pass clean",
+                                iterations);
+                        logVerdictFingerprint(analysisOrder);
+                        if (configuration.guardContracts()) {
+                            new GuardAnalyzerImpl(javaInspector.runtime(), configuration, guardMessages).go(analysisOrder);
+                        }
+                        return;
+                    }
+                    // the full pass found changes the worklist missed: resume narrowing from them
+                    LOGGER.info("Verification pass found {} changes; resuming worklist", propertiesChanged);
+                    verifying = false;
+                } else if (dirty.isEmpty() || propertiesChanged == 0) {
+                    // worklist dry (or a zero-change subset round): do NOT stop yet — run one full pass to
+                    // certify (or catch missed dependencies)
+                    LOGGER.info("Worklist empty/quiet after {} iterations; running a full verification pass", iterations);
+                    dirty = null;
+                    verifying = true;
+                }
             }
             LOGGER.info("Run again, properties changed {}", propertiesChanged);
             // TODO any strategy, e.g. after 3 iterations, activate cycle breaking
