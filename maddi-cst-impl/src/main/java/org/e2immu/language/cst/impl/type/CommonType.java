@@ -108,21 +108,26 @@ public class CommonType {
         if (!commonSuperType.typeParameters().isEmpty()) {
             ParameterizedType concrete = pt1.concreteSuperType(result);
             ParameterizedType concretept2 = pt2.concreteSuperType(result);
-            List<ParameterizedType> updatedParameters = new ArrayList<>(commonSuperType.typeParameters().size());
-            int i = 0;
-            for (ParameterizedType parameter : concrete.parameters()) {
-                ParameterizedType pt2Parameter = concretept2.parameters().get(i++);
-                ParameterizedType commonParameter;
-                if (pt1.equals(parameter) && pt2.equals(pt2Parameter)) {
-                    // common situation when the types implement Comparable; must avoid infinite recursion
-                    commonParameter = runtime.objectParameterizedType();
-                } else {
-                    commonParameter = commonType(parameter, pt2Parameter);
+            // A raw type on either side (or any type-argument arity mismatch) means we cannot unify type
+            // arguments position by position -- e.g. commonType(List<String>, raw List). Fall back to the raw
+            // common supertype rather than indexing past the shorter argument list.
+            if (concrete.parameters().size() == concretept2.parameters().size()) {
+                List<ParameterizedType> updatedParameters = new ArrayList<>(commonSuperType.typeParameters().size());
+                int i = 0;
+                for (ParameterizedType parameter : concrete.parameters()) {
+                    ParameterizedType pt2Parameter = concretept2.parameters().get(i++);
+                    ParameterizedType commonParameter;
+                    if (pt1.equals(parameter) && pt2.equals(pt2Parameter)) {
+                        // common situation when the types implement Comparable; must avoid infinite recursion
+                        commonParameter = runtime.objectParameterizedType();
+                    } else {
+                        commonParameter = commonType(parameter, pt2Parameter);
+                    }
+                    updatedParameters.add(commonParameter);
                 }
-                updatedParameters.add(commonParameter);
+                return new ParameterizedTypeImpl(commonSuperType, null, updatedParameters, result.arrays(),
+                        null);
             }
-            return new ParameterizedTypeImpl(commonSuperType, null, updatedParameters, result.arrays(),
-                    null);
         }
         return result;
     }
