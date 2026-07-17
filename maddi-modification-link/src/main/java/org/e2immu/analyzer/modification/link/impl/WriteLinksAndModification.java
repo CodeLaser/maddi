@@ -458,23 +458,53 @@ class WriteLinksAndModification {
 
     private void suppressRedundantScopeUps(Links.Builder builder) {
         List<Link> links = new ArrayList<>(builder.linkSet());
+        /*
+        Semantically identical to the former all-pairs scan, which cost n^2 pairs x up to 4 scope-chain
+        walks each — a single guava method sat here for minutes (first-contact stall at 'Done 7863').
+        A variable's scope chain never contains the variable itself, so the former fine.equals(coarse)
+        guard was vacuous and the removal set is order-independent: build, once per 'fine' link, the
+        scope-up (from,to) pair -> suppressed-natures maps, then drop every 'coarse' link whose
+        endpoints + nature hit one of them.
+         */
+        record VPair(Variable from, Variable to) {
+        }
+        Map<VPair, Set<org.e2immu.analyzer.modification.prepwork.variable.LinkNature>> fromUp = new HashMap<>();
+        Map<VPair, Set<org.e2immu.analyzer.modification.prepwork.variable.LinkNature>> toUp = new HashMap<>();
+        Map<VPair, Set<org.e2immu.analyzer.modification.prepwork.variable.LinkNature>> bothUp = new HashMap<>();
+        for (Link fine : links) {
+            Set<Variable> svFrom = Util.scopeVariables(fine.from());
+            Set<Variable> svTo = Util.scopeVariables(fine.to());
+            var rFrom = fine.linkNature().redundantFromUp();
+            var rTo = fine.linkNature().redundantToUp();
+            var rBoth = fine.linkNature().redundantUp();
+            if (!rFrom.isEmpty()) {
+                for (Variable sf : svFrom) {
+                    fromUp.computeIfAbsent(new VPair(sf, fine.to()), _ -> new HashSet<>()).addAll(rFrom);
+                }
+            }
+            if (!rTo.isEmpty()) {
+                for (Variable st : svTo) {
+                    toUp.computeIfAbsent(new VPair(fine.from(), st), _ -> new HashSet<>()).addAll(rTo);
+                }
+            }
+            if (!rBoth.isEmpty()) {
+                for (Variable sf : svFrom) {
+                    for (Variable st : svTo) {
+                        bothUp.computeIfAbsent(new VPair(sf, st), _ -> new HashSet<>()).addAll(rBoth);
+                    }
+                }
+            }
+        }
         Set<Link> toRemove = new HashSet<>();
         for (Link coarse : links) {
-            for (Link fine : links) {
-                if (fine.equals(coarse)) continue;
-                boolean fromUp = Util.scopeVariables(fine.from()).contains(coarse.from())
-                                 && fine.to().equals(coarse.to())
-                                 && fine.linkNature().redundantFromUp().contains(coarse.linkNature());
-                boolean toUp = fine.from().equals(coarse.from())
-                               && Util.scopeVariables(fine.to()).contains(coarse.to())
-                               && fine.linkNature().redundantToUp().contains(coarse.linkNature());
-                boolean bothUp = Util.scopeVariables(fine.from()).contains(coarse.from())
-                                 && Util.scopeVariables(fine.to()).contains(coarse.to())
-                                 && fine.linkNature().redundantUp().contains(coarse.linkNature());
-                if (fromUp || toUp || bothUp) {
-                    toRemove.add(coarse);
-                    break;
-                }
+            VPair key = new VPair(coarse.from(), coarse.to());
+            var f = fromUp.get(key);
+            var t = toUp.get(key);
+            var b = bothUp.get(key);
+            if (f != null && f.contains(coarse.linkNature())
+                || t != null && t.contains(coarse.linkNature())
+                || b != null && b.contains(coarse.linkNature())) {
+                toRemove.add(coarse);
             }
         }
         builder.removeIf(toRemove::contains);
