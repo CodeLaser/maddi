@@ -127,7 +127,11 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                     }
                     if (!firstIteration || !methodInfo.analysis().haveAnalyzedValueFor(METHOD_LINKS)) {
                         MethodLinkedVariables mlv = linkComputer.doMethod(methodInfo);
-                        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, mlv)) {
+                        // methodLinks IS the method's summary: pass the target so the change reaches
+                        // summaryChangedInfos and dirties dependents (the 3-arg overload's "?" context did not,
+                        // leaving the worklist 0-dirty after a verification pass found methodLinks changes)
+                        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, mlv,
+                                methodInfo)) {
                             propertiesChanged.incrementAndGet();
                         }
                     }

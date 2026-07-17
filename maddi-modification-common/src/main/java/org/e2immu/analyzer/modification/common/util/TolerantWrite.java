@@ -80,6 +80,11 @@ public final class TolerantWrite {
         CHANGED_TARGETS.clear();
     }
 
+    // gate MLTRACE=1: log old->new on every value-CHANGING methodLinks write of an existing value. Diagnostic
+    // for the non-idempotent summary tail (~36 methods rewrite their methodLinks on every full pass over a
+    // settled state, blocking certification); the value diff shows which slot/face is unstable.
+    private static final boolean MLTRACE = System.getenv("MLTRACE") != null;
+
     // gate UNMODOWN=1: allow the true->false / weakening direction for the evidence-accumulating modification
     // properties (see the downgrade branch below); OFF by default pending the verdict A/B
     private static final boolean UNMODOWN = System.getenv("UNMODOWN") != null;
@@ -96,6 +101,9 @@ public final class TolerantWrite {
                                                                         Property property,
                                                                         V value,
                                                                         Object context) {
+        String traceBefore = MLTRACE && "methodLinks".equals(property.key())
+                             && analysis.haveAnalyzedValueFor(property)
+                ? String.valueOf(analysis.getOrDefault(property, value)) : null;
         if (analysis.haveAnalyzedValueFor(property)) {
             V current = analysis.getOrDefault(property, value);
             if (!current.equals(value) && !current.overwriteAllowed(value)) {
@@ -123,6 +131,11 @@ public final class TolerantWrite {
             CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder()).increment();
             if (context != null && !(context instanceof String) && !INTERNAL_PROPERTIES.contains(property.key())) {
                 CHANGED_TARGETS.add(context);
+            }
+            if (traceBefore != null) {
+                // MLTRACE: only value-CHANGING rewrites of an EXISTING methodLinks value (first-time writes
+                // are not instability)
+                LOGGER.info("MLTRACE {}\n  old={}\n  new={}", context, traceBefore, value);
             }
         }
         return changed;

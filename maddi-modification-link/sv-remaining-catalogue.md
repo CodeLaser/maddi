@@ -4,7 +4,40 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
-## SESSION STATUS 2026-07-17 — STOPPED (gradle unreliable); RESUME HERE
+## UPDATE 2026-07-17 — RUN25: WORKLIST IS VERDICT-EXACT (0-line diff vs baseline); certification blocked by ~36 non-idempotent methodLinks
+
+Resume executed as planned: suites verified commit 9f6d8719 (link 393/0, analyzer 143/0 —
+note: gradle's `--rerun` is PER-TASK; trailing it after two tasks only reruns the last one,
+which is part of yesterday's "unreliable" impression). Run25 (WORKLIST=1 NOPLATEAU=1,
+FPDUMP) completed exit 0.
+
+**Headline: the worklist run's per-element verdict dump is IDENTICAL to the full
+re-analysis baseline (diff = 0 lines over 53,535 elements).** The verify-resume loop
+recovers everything the narrowing misses; the earlier 37-element conservatism is fully
+closed; no non-confluence at the verdict level.
+
+**But certification never closed, and wall clock was ~68 min (worse than baseline):**
+- Verification passes 1-2 found genuine residue (methodLinks 707→107 + unmodified*).
+- Passes 3-6 plateaued: methodLinks = 35/37/36/19 rewrites per FULL pass on a settled
+  state — a stable set of ~36 methods whose recomputed summary compares unequal every
+  time (LinksImpl.equals is primary-only, so the PRIMARY parts flip). Residual
+  instability the per-method numbering fix does not cover; verdict-irrelevant (see
+  headline) but blocks the 0-change certificate.
+- Each retry cost a full ~6-min pass because the worklist came back 0-dirty: **attribution
+  bug** — SingleIterationAnalyzerImpl's main-loop METHOD_LINKS write used the 3-arg
+  TolerantWrite overload (context "?"), so methodLinks changes never reached
+  summaryChangedInfos / dependents. (The on-demand recursion sites in LinkComputerImpl
+  did pass methodInfo — why the worklist was as good as it was.)
+
+Fixes landed (suites 393/0 + 143/0): (1) pass methodInfo at the main-loop METHOD_LINKS
+write; (2) gate MLTRACE=1 in TolerantWrite logs old→new on every value-changing rewrite
+of an existing methodLinks — names the unstable methods and shows which face flips.
+Run26 (WORKLIST=1 NOPLATEAU=1 MLTRACE=1) in flight to root-cause the ~36; suspicion:
+hash/iteration-order tie-breaking in the link-graph closure over per-iteration
+re-materialized bodies. Artifacts: scratchpad/run25-trail.txt, w7.sorted,
+final-diff-run25.txt (empty).
+
+## SESSION STATUS 2026-07-17 — STOPPED (gradle unreliable); RESUME HERE (superseded by the update above)
 
 **Where we are (all committed except two files in this final commit):**
 - Both corpora GREEN end-to-end, zero element crashes: timefold (runs 21-24), langchain4j
