@@ -55,7 +55,7 @@ public abstract class CommonMojo extends AbstractMojo {
     @Parameter(property = "excludeFromClasspath", defaultValue = "")
     private String excludeFromClasspath;
 
-    @Parameter(property = "jmods", defaultValue = "java.base")
+    @Parameter(property = "jmods", defaultValue = "java.se")
     private String jmods;
 
     @Parameter(property = "testSourcePackages", defaultValue = "")
@@ -161,13 +161,10 @@ public abstract class CommonMojo extends AbstractMojo {
         InputConfiguration.Builder builder = new InputConfigurationImpl.Builder();
         builder.setAlternativeJREDirectory(jre);
         builder.setWorkingDirectory(workingDirectory);
-        File absWorkingDirectory = workingDirectory == null || workingDirectory.isBlank()
-                ? project.getBasedir().getAbsoluteFile() : new File(workingDirectory).getAbsoluteFile();
 
         Set<String> excludeFromClasspathSet = excludeFromClasspath == null || excludeFromClasspath.isBlank() ? Set.of() :
                 Arrays.stream(excludeFromClasspath.split("[;,]\\s*")).collect(Collectors.toUnmodifiableSet());
-        ComputeDependencies.SourceSetDependencies result = new ComputeSourceSets(absWorkingDirectory,
-                dependenciesResolver, project,
+        ComputeDependencies.SourceSetDependencies result = new ComputeSourceSets(dependenciesResolver, project,
                 session, getLog()).compute(sourceEncoding, sourcePackages, testSourcePackages, excludeFromClasspathSet);
 
         makeJavaModules(jmods).forEach(set -> result.sourceSetsByName().put(set.name(), set));
