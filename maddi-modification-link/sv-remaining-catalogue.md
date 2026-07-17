@@ -4,6 +4,23 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-18 — ACTIVEMQ BROKER GREEN (5th corpus): VL2O contribution cache + qualified inner creation; 2min certified
+
+activemq-broker first contact (concurrency axis): stalled iteration 1 at 'Done 4338' —
+NOT one quadratic loop this time, but breadth: the per-method-call VL2O reconstruction
+(full followGraph probe + rep expansion per call x per primary), which broker-style
+chained calls multiply. Fix: per-STATEMENT contribution cache keyed by primary (the
+follow graph and vd are fixed within one write-out), replayed with the original
+put/putIfAbsent pass semantics — the whole run then took 121s. Then 2 crash categories:
+- 'outer.new Inner(...)' (qualified inner-class creation) was an NYI assert in
+  ExpressionVisitor.constructorCall: now evaluates the outer, conservatively marks it
+  modified, and treats the creation as a fresh object (constructor summaries do not model
+  the outer instance).
+- LinkMethodCall.parametersToObject produced a '§m on virtual field' face → same
+  skip-unrepresentable-face guard as VirtualModificationIdenticals.expand.
+**Result: exit 0, zero caught, certified in 12 iterations, 119s.** TestActiveMQBroker
+added. Proving ground now 5 corpora: timefold, langchain4j, fernflower, guava, activemq.
+
 ## UPDATE 2026-07-18 — GUAVA GREEN (4th corpus): 2 more engine-wide O(n^2) kills + 4 crash fixes; 72s certified
 
 Guava first contact (post kotlin-merge scanner fixes 83c0c92d) stalled the link phase
