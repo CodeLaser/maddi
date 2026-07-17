@@ -764,15 +764,17 @@ public record ExpressionVisitor(Runtime runtime,
             case SHALLOW -> linkComputer.doMethodShallowDoNotWrite(methodInfo);
             case LOCK -> {
                 if (linkComputer.lockComputeDisabled()
+                    && !methodInfo.isAbstract() // abstract -> shallow compute, no nested locks: getOrCreate is safe
                     && !methodInfo.analysis().haveAnalyzedValueFor(METHOD_LINKS)) {
                     // parallel first iteration: computing another element's links while holding its analysis
-                    // monitor (getOrCreate) could deadlock across worker threads. Compute WITHOUT the monitor
-                    // instead: same full-quality on-demand computation as the sequential path (a shallow
-                    // fallback here froze first-impression verdict losses on graph-missed edges, e.g. FI
-                    // application). Two threads may duplicate the work; the value is deterministic and the
-                    // write TolerantWrite-guarded, so the second write is a no-op. Cycles terminate via the
-                    // same-thread SHALLOW fallback of RecursionPrevention.
-                    yield linkComputer.doMethod(methodInfo);
+                    // monitor (getOrCreate) could deadlock across worker threads. recurseMethod computes
+                    // WITHOUT the monitor and WRITES the result (the plain doMethod(MethodInfo) does not
+                    // write — using it here recomputed whole chains per touch, an exponential cascade in a
+                    // large call cycle; and a shallow fallback froze first-impression verdict losses on
+                    // graph-missed edges). Two threads may duplicate a computation; the value is
+                    // deterministic and the write TolerantWrite-guarded, so the loser's write is a no-op.
+                    // Cycles terminate via the same-thread SHALLOW fallback of RecursionPrevention.
+                    yield linkComputer.recurseMethod(methodInfo);
                 }
                 yield methodInfo.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(methodInfo));
             }
