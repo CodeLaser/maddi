@@ -202,7 +202,8 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         boolean verifying = false; // worklist ran dry -> one full pass certifies (0 changes = true fixpoint)
         // strata-parallel first iteration (PARALLEL=n): dependency waves from the same call graph
         java.util.List<java.util.List<java.util.List<Info>>> firstIterationWaves;
-        if (SingleIterationAnalyzerImpl.PARALLEL_THREADS > 1 && dependencyGraph != null) {
+        if (SingleIterationAnalyzerImpl.PARALLEL_THREADS > 1 && dependencyGraph != null
+            && analysisOrder.size() >= SingleIterationAnalyzerImpl.MIN_ELEMENTS_FOR_PARALLEL) {
             firstIterationWaves = org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder
                     .waves(dependencyGraph);
             LOGGER.info("Computed {} first-iteration waves", firstIterationWaves.size());
