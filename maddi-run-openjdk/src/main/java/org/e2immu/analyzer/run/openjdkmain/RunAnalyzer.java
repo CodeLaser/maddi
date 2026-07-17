@@ -14,7 +14,6 @@
 
 package org.e2immu.analyzer.run.openjdkmain;
 
-import ch.qos.logback.classic.Level;
 import org.e2immu.analyzer.aapi.parser.AnalysisHints;
 import org.e2immu.analyzer.aapi.parser.AnalysisHintsCompiler;
 import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfiguration;
@@ -101,12 +100,25 @@ public class RunAnalyzer implements Runnable {
         // enumerate whatever was collected/thrown to the user (previously printSummaries() was an empty no-op)
     }
 
-    private void runAnalyzer() throws IOException {
-        // only when logback is the active SLF4J backend (the CLI); under a different backend -- e.g. the Gradle
-        // worker's own SLF4J provider -- the root logger is not a logback Logger, so leave the level as configured
-        if (LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) instanceof ch.qos.logback.classic.Logger rootLogger) {
-            rootLogger.setLevel(Level.INFO);
+    // Lower the root level to INFO only when logback is the active SLF4J backend (the CLI). Done reflectively so
+    // this module carries no compile/runtime dependency on logback: under another backend -- the Gradle worker's
+    // provider, or Maven core's slf4j binding when embedded as the mvn plugin -- logback is absent, and the level
+    // is left as configured.
+    private static void setLogbackRootLevelToInfoIfPresent() {
+        try {
+            org.slf4j.Logger root = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+            Class<?> logbackLogger = Class.forName("ch.qos.logback.classic.Logger");
+            if (logbackLogger.isInstance(root)) {
+                Class<?> level = Class.forName("ch.qos.logback.classic.Level");
+                logbackLogger.getMethod("setLevel", level).invoke(root, level.getField("INFO").get(null));
+            }
+        } catch (ReflectiveOperationException logbackNotOnClasspath) {
+            // no logback backend -> nothing to tune
         }
+    }
+
+    private void runAnalyzer() throws IOException {
+        setLogbackRootLevelToInfoIfPresent();
 
         JavaInspector javaInspector = new JavaInspectorImpl(true, false);
         javaInspector.setJdkInternals(configuration.generalConfiguration().jdkInternals());

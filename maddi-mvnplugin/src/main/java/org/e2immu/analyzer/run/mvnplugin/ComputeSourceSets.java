@@ -120,7 +120,10 @@ public class ComputeSourceSets {
         Set<SourceSet> results = new HashSet<>();
         for (DependencyNode child : node.getChildren()) {
             Artifact artifact = child.getArtifact();
-            String name = artifact.getGroupId() + ":" + artifact.getArtifactId() + ":" + artifact.getVersion();
+            // maddi keys a classpath source set by its jar file name and resolves it as "jar file: <name>"
+            // (its own --write-input-configuration names jars this way too), so the part name must be the jar
+            // file name, not the groupId:artifactId:version coordinate.
+            String name = artifact.getFile().getName();
             if (!sourceSetsByName.containsKey(name) &&
                 (excludeFromClasspathSet.isEmpty() || !excludeFromClasspathSet.contains(artifact.getArtifactId()))) {
                 Set<SourceSet> children;

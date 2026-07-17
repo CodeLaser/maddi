@@ -13,7 +13,6 @@ module org.e2immu.analyzer.run.openjdkmain {
     requires org.e2immu.util.internal.graph;
     requires org.e2immu.util.internal.util;
 
-    requires ch.qos.logback.classic;
     requires com.fasterxml.jackson.databind;
     requires java.management;
     requires org.apache.commons.cli;
