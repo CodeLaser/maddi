@@ -69,7 +69,7 @@
         <jre implementation="java.lang.String" default-value="">${jre}</jre>
         <workingDirectory implementation="java.lang.String" default-value="${project.basedir}">${workingDirectory}</workingDirectory>
         <excludeFromClasspath implementation="java.lang.String" default-value="">${excludeFromClasspath}</excludeFromClasspath>
-        <jmods implementation="java.lang.String" default-value="java.base">${jmods}</jmods>
+        <jmods implementation="java.lang.String" default-value="java.se">${jmods}</jmods>
         <testSourcePackages implementation="java.lang.String" default-value="">${testSourcePackages}</testSourcePackages>
         <sourcePackages implementation="java.lang.String" default-value="">${sourcePackages}</sourcePackages>
         <sourceEncoding implementation="java.lang.String" default-value="UTF-8">${sourceEncoding}</sourceEncoding>
@@ -138,7 +138,7 @@
         <jre implementation="java.lang.String" default-value="">${jre}</jre>
         <workingDirectory implementation="java.lang.String" default-value="${project.basedir}">${workingDirectory}</workingDirectory>
         <excludeFromClasspath implementation="java.lang.String" default-value="">${excludeFromClasspath}</excludeFromClasspath>
-        <jmods implementation="java.lang.String" default-value="java.base">${jmods}</jmods>
+        <jmods implementation="java.lang.String" default-value="java.se">${jmods}</jmods>
         <testSourcePackages implementation="java.lang.String" default-value="">${testSourcePackages}</testSourcePackages>
         <sourcePackages implementation="java.lang.String" default-value="">${sourcePackages}</sourcePackages>
         <sourceEncoding implementation="java.lang.String" default-value="UTF-8">${sourceEncoding}</sourceEncoding>
@@ -213,7 +213,7 @@
         <jre implementation="java.lang.String" default-value="">${jre}</jre>
         <workingDirectory implementation="java.lang.String" default-value="${project.basedir}">${workingDirectory}</workingDirectory>
         <excludeFromClasspath implementation="java.lang.String" default-value="">${excludeFromClasspath}</excludeFromClasspath>
-        <jmods implementation="java.lang.String" default-value="java.base">${jmods}</jmods>
+        <jmods implementation="java.lang.String" default-value="java.se">${jmods}</jmods>
         <testSourcePackages implementation="java.lang.String" default-value="">${testSourcePackages}</testSourcePackages>
         <sourcePackages implementation="java.lang.String" default-value="">${sourcePackages}</sourcePackages>
         <sourceEncoding implementation="java.lang.String" default-value="UTF-8">${sourceEncoding}</sourceEncoding>
@@ -289,7 +289,7 @@
         <jre implementation="java.lang.String" default-value="">${jre}</jre>
         <workingDirectory implementation="java.lang.String" default-value="${project.basedir}">${workingDirectory}</workingDirectory>
         <excludeFromClasspath implementation="java.lang.String" default-value="">${excludeFromClasspath}</excludeFromClasspath>
-        <jmods implementation="java.lang.String" default-value="java.base">${jmods}</jmods>
+        <jmods implementation="java.lang.String" default-value="java.se">${jmods}</jmods>
         <testSourcePackages implementation="java.lang.String" default-value="">${testSourcePackages}</testSourcePackages>
         <sourcePackages implementation="java.lang.String" default-value="">${sourcePackages}</sourcePackages>
         <sourceEncoding implementation="java.lang.String" default-value="UTF-8">${sourceEncoding}</sourceEncoding>
@@ -362,7 +362,7 @@
         <jre implementation="java.lang.String" default-value="">${jre}</jre>
         <workingDirectory implementation="java.lang.String" default-value="${project.basedir}">${workingDirectory}</workingDirectory>
         <excludeFromClasspath implementation="java.lang.String" default-value="">${excludeFromClasspath}</excludeFromClasspath>
-        <jmods implementation="java.lang.String" default-value="java.base">${jmods}</jmods>
+        <jmods implementation="java.lang.String" default-value="java.se">${jmods}</jmods>
         <testSourcePackages implementation="java.lang.String" default-value="">${testSourcePackages}</testSourcePackages>
         <sourcePackages implementation="java.lang.String" default-value="">${sourcePackages}</sourcePackages>
         <sourceEncoding implementation="java.lang.String" default-value="UTF-8">${sourceEncoding}</sourceEncoding>

@@ -967,7 +967,18 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             } else {
                 String fullyQualifiedName = typeVar.tsym.owner.toString();
                 TypeInfo owner = getType(fullyQualifiedName);
-                assert owner != null;
+                if (owner == null) {
+                    // the type variable is owned by a local class (declared inside a method body), which is not
+                    // registered under a canonical FQN; a named local class is registered on the element stack by
+                    // its simple name while in scope, so resolve its owner from there instead of asserting.
+                    String ownerSimpleName = typeVar.tsym.owner.getSimpleName().toString();
+                    if (!ownerSimpleName.isEmpty()
+                        && elementStack.find(ownerSimpleName) instanceof TypeInfo localOwner) {
+                        owner = localOwner;
+                    }
+                }
+                assert owner != null : "Cannot find owner " + fullyQualifiedName
+                        + " of type variable " + typeParameterName;
                 typeParameter = findTypeParameter(owner, typeParameterName);
             }
             return runtime.newParameterizedType(typeParameter, 0, null);
@@ -1074,9 +1085,19 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         if (type instanceof JCTree.JCArrayTypeTree att) {
             int n = 1;
             Tree t = att.elemtype;
-            while (t instanceof JCTree.JCArrayTypeTree att2) {
-                ++n;
-                t = att2.elemtype;
+            // descend through all array dimensions to reach the array-less base. A type-use annotation on an
+            // inner dimension (e.g. `char[] @Nullable []`) appears as a JCAnnotatedType between two array
+            // trees; unwrap it, otherwise the loop stops early and 'withoutArray' still carries arrays.
+            while (true) {
+                while (t instanceof JCTree.JCAnnotatedType at2 && at2.underlyingType instanceof JCTree.JCArrayTypeTree) {
+                    t = at2.underlyingType;
+                }
+                if (t instanceof JCTree.JCArrayTypeTree att2) {
+                    ++n;
+                    t = att2.elemtype;
+                } else {
+                    break;
+                }
             }
             ParameterizedType withoutArray = convertTree(t, dsb);
             ParameterizedType withArray = withoutArray.copyWithArrays(withoutArray.arrays() + n);

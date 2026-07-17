@@ -721,6 +721,12 @@ public class JavaInspectorImpl implements JavaInspector {
              Map<String, String> sourcesByClassName, StandardJavaFileManager fm) throws IOException {
         List<File> allSources = new LinkedList<>();
         for (File sourceDir : sources) {
+            if (!Files.isDirectory(sourceDir.toPath())) {
+                // a configured source root that doesn't exist on disk (e.g. a build tool emits a default
+                // test-source dir that the project never created); treat as empty rather than aborting the scan
+                LOGGER.warn("Skipping source directory {}: does not exist", sourceDir);
+                continue;
+            }
             try (Stream<Path> walk = Files.walk(sourceDir.toPath())) {
                 walk.filter(p -> p.toString().endsWith(".java"))
                         .sorted()

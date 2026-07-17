@@ -167,7 +167,8 @@ public abstract class CommonMojo extends AbstractMojo {
         ComputeDependencies.SourceSetDependencies result = new ComputeSourceSets(dependenciesResolver, project,
                 session, getLog()).compute(sourceEncoding, sourcePackages, testSourcePackages, excludeFromClasspathSet);
 
-        makeJavaModules(jmods).forEach(set -> result.sourceSetsByName().put(set.name(), set));
+        List<SourceSet> javaModules = makeJavaModules(jmods);
+        javaModules.forEach(set -> result.sourceSetsByName().put(set.name(), set));
 
         G<String> graph = new ComputeDependencies(s -> getLog().debug(s)).go(result);
         List<String> linearization = Linearize.linearize(graph).asList(String::compareToIgnoreCase);
@@ -175,6 +176,7 @@ public abstract class CommonMojo extends AbstractMojo {
             getLog().debug("Graph: " + graph);
             getLog().debug("Linearization:\n  " + String.join("\n  ", linearization) + "\n");
         }
+        Set<String> emitted = new HashSet<>();
         for (String name : linearization) {
             Map<V<String>, Long> edges = graph.edges(new V<>(name));
             List<SourceSet> dependencies = edges == null ? List.of() : edges.keySet()
@@ -187,6 +189,15 @@ public abstract class CommonMojo extends AbstractMojo {
                 SourceSet set = sourceSet.withDependencies(dependencies);
                 if (!set.externalLibrary()) builder.addSourceSets(set);
                 else builder.addClassPathParts(set);
+                emitted.add(name);
+            }
+        }
+        // The dependency graph typically only reaches java.base, so the rest of the requested jmod closure
+        // (java.se: java.logging, java.xml, java.desktop, java.sql, ...) would be dropped. Non-modular sources
+        // need the whole JDK visible, so force every requested JDK module onto the classpath regardless.
+        for (SourceSet jmodSet : javaModules) {
+            if (emitted.add(jmodSet.name())) {
+                builder.addClassPathParts(jmodSet);
             }
         }
         return builder.build();
