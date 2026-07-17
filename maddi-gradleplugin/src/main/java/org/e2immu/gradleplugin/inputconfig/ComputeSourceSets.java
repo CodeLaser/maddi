@@ -136,22 +136,26 @@ public class ComputeSourceSets {
                 for (ResolvedArtifactResult rar : configuration.getIncoming().getArtifacts().getArtifacts()) {
                     if (rar.getVariant().getOwner() instanceof ModuleComponentIdentifier mci) {
                         String description = mci.getGroup() + ":" + mci.getModule() + ":" + mci.getVersion();
-                        if (!sourceSetsByName.containsKey(description)) {
-                            LOGGER.info(" -- library dependency {} in {}", description, configurationName);
-                            File file = rar.getFile();
+                        File file = rar.getFile();
+                        // maddi keys a classpath source set by its jar file name and resolves it as "jar file:
+                        // <name>", so the part name must be the jar file name, not the group:module:version
+                        // coordinate (otherwise: "Cannot find class path source set interpreted as jar file: ...").
+                        String name = file.getName();
+                        if (!sourceSetsByName.containsKey(name)) {
+                            LOGGER.info(" -- library dependency {} ({}) in {}", description, name, configurationName);
                             if (file.canRead() && !excludeFromClasspath.contains(file.getName())
                                 && !excludeFromClasspath.contains(description)
                                 && !excludeFromClasspath.contains(mci.getModule())) {
                                 SourceSet set = new SourceSetImpl.Builder()
-                                        .setName(description)
-                                        .setUri(makeURI(toRelativePath(file)))
+                                        .setName(name)
+                                        .setUri(absoluteURI(file))
                                         .setTest(isTest)
                                         .setLibrary(true)
                                         .setExternalLibrary(true)
                                         .setPartOfJdk(false)
                                         .setRuntimeOnly(isRuntimeOnly)
                                         .build();
-                                sourceSetsByName.put(description, set);
+                                sourceSetsByName.put(name, set);
                             }
                         }
                     } else if (rar.getVariant().getOwner() instanceof DefaultProjectComponentIdentifier pci) {
@@ -179,7 +183,7 @@ public class ComputeSourceSets {
                             }
                             if (file != null) {
                                 SourceSet sourceSet = new SourceSetImpl.Builder().setName(projectName)
-                                        .setUri(makeURI(toRelativePath(file))).setTest(isTest).setLibrary(true)
+                                        .setUri(absoluteURI(file)).setTest(isTest).setLibrary(true)
                                         .setExternalLibrary(true).build();
                                 sourceSetsByName.putIfAbsent(projectName, sourceSet);
                                 LOGGER.info(" --  added project dependency via classpath: {}", file);
@@ -232,6 +236,16 @@ public class ComputeSourceSets {
         return URI.create("file:" + path);
     }
 
+    // Classpath parts (jars in ~/.gradle/caches, project-dependency class dirs) must carry an ABSOLUTE,
+    // hierarchical file URI: maddi's openjdk inspector does a bare Path.of(classPathPart.uri()) with no
+    // working-directory resolution, and Path.of throws IllegalArgumentException ("URI is not hierarchical")
+    // on the opaque "file:<relative>" form makeURI produces. These paths are machine-specific anyway, so a
+    // relative form buys no portability. (Source directories stay relative: the inspector resolves those
+    // against the configured working directory.)
+    static URI absoluteURI(File file) {
+        return file.getAbsoluteFile().toURI();
+    }
+
     private SourceSet makeSourceSet(org.gradle.api.tasks.SourceSet gradleSourceSet,
                                     String e2immuSourceSetName,
                                     String restrictTo,
@@ -250,12 +264,15 @@ public class ComputeSourceSets {
         if (kotlin instanceof SourceDirectorySet kotlinDirs) {
             srcDirs.addAll(kotlinDirs.getSrcDirs());
         }
+        // Emit ABSOLUTE source directories and a hierarchical file:/... URI. A relative/opaque URI (file:src) makes
+        // maddi's openjdk inspector skip this source set when it appears as another set's dependency (test -> main),
+        // because it cannot Path.of() an opaque URI -- so test sources then fail to resolve main types. Absolute
+        // paths also remove any dependence on the process working directory. (Mirrors the Maven plugin.)
         List<Path> paths = srcDirs.stream()
-                .filter(File::canRead).map(this::toRelativePath).toList();
+                .filter(File::canRead).map(f -> f.getAbsoluteFile().toPath().normalize()).toList();
         if (paths.isEmpty()) return null;
-        Path path = paths.getFirst();
         return new SourceSetImpl.Builder().setName(e2immuSourceSetName)
-                .setSourceDirectories(paths).setUri(makeURI(path))
+                .setSourceDirectories(paths).setUri(paths.getFirst().toUri())
                 .setSourceEncoding(sourceEncoding).setTest(test)
                 .setRestrictToPackages(restrictToPackages).build();
     }
