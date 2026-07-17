@@ -25,6 +25,21 @@ public interface LinkComputer {
         // no-op by default
     }
 
+    /**
+     * Worklist support: consumer read consumed's METHOD_LINKS summary while its own links were computed —
+     * the ground truth of "consumer depends on consumed", including value-mediated flows (functional-
+     * interface application) that have no syntactic reference edge in the call graph. Accumulated over the
+     * whole run (dependencies persist across iterations); the iterating analyzer unions these into its
+     * reverse adjacency so summary changes dirty their actual readers.
+     */
+    default void recordSummaryConsumption(MethodInfo consumer, MethodInfo consumed) {
+        // no-op by default
+    }
+
+    default java.util.Map<MethodInfo, java.util.Set<MethodInfo>> consumedSummaries() {
+        return java.util.Map.of();
+    }
+
     int propertiesChanged();
 
     void reset();

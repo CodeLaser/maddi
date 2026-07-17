@@ -758,6 +758,8 @@ public record ExpressionVisitor(Runtime runtime,
             return new MethodLinkedVariablesImpl(LinksImpl.EMPTY,
                     methodInfo.parameters().stream().map(_ -> LinksImpl.EMPTY).toList(), Set.of());
         }
+        // worklist edge discovery: currentMethod's links are being computed FROM methodInfo's summary
+        linkComputer.recordSummaryConsumption(currentMethod, methodInfo);
         RecursionPrevention.How how = recursionPrevention.contains(methodInfo);
         return switch (how) {
             case GET -> methodInfo.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);

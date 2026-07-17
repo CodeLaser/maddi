@@ -140,6 +140,22 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     // parallel first iteration: LOCK on an absent METHOD_LINKS degrades to shallow (see LinkComputer)
     private volatile boolean lockComputeDisabled;
 
+    // worklist support (see LinkComputer.recordSummaryConsumption): NOT cleared by reset() — dependencies
+    // persist across iterations, and a subset iteration only re-records what it actually re-computes
+    private final java.util.Map<MethodInfo, java.util.Set<MethodInfo>> consumedSummaries =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    @Override
+    public void recordSummaryConsumption(MethodInfo consumer, MethodInfo consumed) {
+        consumedSummaries.computeIfAbsent(consumer, _ -> java.util.concurrent.ConcurrentHashMap.newKeySet())
+                .add(consumed);
+    }
+
+    @Override
+    public java.util.Map<MethodInfo, java.util.Set<MethodInfo>> consumedSummaries() {
+        return consumedSummaries;
+    }
+
     @Override
     public void setLockComputeDisabled(boolean disabled) {
         this.lockComputeDisabled = disabled;

@@ -199,6 +199,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             dependersOf = null;
         }
         java.util.Set<Info> dirty = null; // null = analyze everything
+        java.util.Set<Info> orderSet = java.util.Set.copyOf(analysisOrder);
         boolean verifying = false; // worklist ran dry -> one full pass certifies (0 changes = true fixpoint)
         // strata-parallel first iteration (PARALLEL=n): dependency waves from the same call graph
         java.util.List<java.util.List<java.util.List<Info>>> firstIterationWaves;
@@ -261,6 +262,19 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             }
             previousPropertiesChanged = propertiesChanged;
             if (dependersOf != null) {
+                // union in the summary-consumption edges the link computer discovered: a consumer re-runs
+                // when a summary it ACTUALLY READ changes. Catches value-mediated flows (functional-
+                // interface application) with no syntactic call-graph edge — the measured source of the
+                // verification passes' residue (timefold: 142 modified-set changes per full pass).
+                for (java.util.Map.Entry<org.e2immu.language.cst.api.info.MethodInfo,
+                        java.util.Set<org.e2immu.language.cst.api.info.MethodInfo>> e
+                        : singleIterationAnalyzer.consumedSummaries().entrySet()) {
+                    Info consumer = mapToOrderElement(e.getKey(), orderSet);
+                    if (consumer == null) continue;
+                    for (org.e2immu.language.cst.api.info.MethodInfo consumed : e.getValue()) {
+                        dependersOf.computeIfAbsent(consumed, _ -> new java.util.HashSet<>()).add(consumer);
+                    }
+                }
                 // v2: only SUMMARY changes propagate — dependents cannot observe element-internal changes.
                 // The changed element itself IS re-run: a self-recursive method's summary feeds its own next
                 // analysis, and the call graph does not guarantee a self-edge (v2's first cut excluded self and
@@ -298,5 +312,19 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             LOGGER.info("Run again, properties changed {}", propertiesChanged);
             // TODO any strategy, e.g. after 3 iterations, activate cycle breaking
         }
+    }
+
+    /**
+     * Map a summary consumer to its analysis-order element: a lambda's synthetic method is not itself an
+     * order element — walk up through the enclosing methods until one is.
+     */
+    private static Info mapToOrderElement(org.e2immu.language.cst.api.info.MethodInfo methodInfo,
+                                          java.util.Set<Info> orderSet) {
+        org.e2immu.language.cst.api.info.MethodInfo m = methodInfo;
+        int guard = 0;
+        while (m != null && !orderSet.contains(m) && guard++ < 10) {
+            m = m.typeInfo().enclosingMethod();
+        }
+        return m != null && orderSet.contains(m) ? m : null;
     }
 }
