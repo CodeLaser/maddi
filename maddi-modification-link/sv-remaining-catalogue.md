@@ -4,6 +4,40 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## SESSION STATUS 2026-07-17 — STOPPED (gradle unreliable); RESUME HERE
+
+**Where we are (all committed except two files in this final commit):**
+- Both corpora GREEN end-to-end, zero element crashes: timefold (runs 21-24), langchain4j
+  (run2, 36m). The full-chain tests are the standing proving ground.
+- Per-method synthetic numbering LANDED (commit before this one): $__rvN/$_ceN/$_fiN names
+  deterministic per method; ~30 pins re-pinned (all pure renumbering); the summary modified
+  set filters IntermediateVariable-rooted entries (MarkerVariables stay — their star
+  crosses the boundary).
+- Worklist narrowing (gate WORKLIST=1) + verify-certify loop: the CERTIFICATION GATE FIX
+  and maxIterations 10→20 are in THIS commit, **UNVERIFIED by suites** (gradle died before
+  run25 and the suite round). RESUME BY: (1) suites (link+analyzer, --rerun), (2) rerun
+  run25 = `WORKLIST=1 NOPLATEAU=1 FPDUMP=... TestTimefoldSolver`, expect: ~8 worklist
+  iterations → full pass finds ~910 → 2-3 cheap iterations → second full pass CLEAN =
+  certified, diff vs baseline dump expected 0-4 lines (run24 got to 4 lines but hit the
+  old 10-iteration cap mid-cycle).
+- Timings (timefold, 53,535 elements): baseline 10 full iterations = 64 min, NOT converged
+  (22 changes/iter at cap); worklist uncertified = 17.5 min, done==0 at iteration 8;
+  worklist + certification ≈ 25-30 min projected.
+- The 74-line diff question (37 elements: 27 abstract constraint-stream test methods
+  nonModifying, 10 testdomain fields) is what certification resolves: run24's verification
+  pass DID catch them (910 changes incl. internals) — with iteration headroom the certified
+  result should match the baseline. If a clean-pass-certified run still differs from the
+  baseline: two stable fixpoints (non-confluence under the no-downgrade policy) — document,
+  don't chase.
+- OPEN (parked): UNMODOWN direction experiment (unmodifiedParameter oscillates ~82/iter
+  under the gate — needs a per-case trace before any default change); intra-iteration
+  parallelism (audit lazy getOrLoad thread-safety first); slow-tail methods (82% of methods
+  finish in the first 25% of an iteration); baseline still has a genuine 22-change/iter
+  tail at cap (real refinement, reachable with headroom).
+- Process cautions for the restart: gradle env-vars need --rerun; NEVER compile while a
+  test JVM runs; same-test A/B chains overwrite each other's XML/binary output — capture
+  dumps/trails per run immediately (FPDUMP=file, and copy the trail before the next run).
+
 ## UPDATE — WORKLIST NARROWING (runs 11-20): 53.5min → 15min, true convergence; naming instability is the last blocker
 
 Gate WORKLIST=1 (+ NOPLATEAU=1 for A/B): iterations 2+ re-analyze only changed elements +
