@@ -11,7 +11,17 @@
 # License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 common --enable_bzlmod
-build --java_runtime_version=remotejdk_21
-build --java_language_version=21
 
-test --jvmopt="--enable-preview"
+# The project targets JDK 26 (the Gradle build compiles with the running JDK, and some
+# sources use JDK 26 library APIs, e.g. java.lang.Process implementing AutoCloseable).
+# rules_java ships no hermetic remotejdk_26 yet, so we compile against the locally
+# installed JDK 26 via a custom toolchain (//:java26_toolchain, registered in MODULE.bazel).
+build --java_language_version=26
+build --java_runtime_version=local_jdk
+build --tool_java_language_version=26
+build --tool_java_runtime_version=local_jdk
+
+# @local_jdk is detected from JAVA_HOME at repo-fetch time. If your shell JAVA_HOME is
+# not a JDK 26, pin it per-machine in an (uncommitted) user.bazelrc, e.g.:
+#   build --repo_env=JAVA_HOME=/path/to/jdk-26
+try-import %workspace%/user.bazelrc
