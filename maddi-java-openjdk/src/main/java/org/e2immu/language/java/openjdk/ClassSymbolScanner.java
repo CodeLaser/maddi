@@ -655,6 +655,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         if (inMap != null) return inMap;
 
         String name = vs.getSimpleName().toString();
+        // cross-scanner dedup, same reasoning as findInBuilder for methods; fields dedupe by name
+        FieldInfo inBuilder = typeInfo.builder().fields().stream()
+                .filter(fi -> name.equals(fi.name()))
+                .findFirst().orElse(null);
+        if (inBuilder != null) {
+            put(vs, inBuilder);
+            return inBuilder;
+        }
         LOGGER.debug("Adding field {} to {}", name, typeInfo);
         ParameterizedType type = convert(vs.type);
         boolean isStatic = (vs.flags() & Flags.STATIC) != 0;
@@ -667,6 +675,31 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
         put(vs, fieldInfo);
         return fieldInfo;
+    }
+
+    /*
+    Cross-scanner dedup. The TypeInfo (and its builder) is shared across source-set scans via InfoByFqn, but each
+    scan has its own javac context, so methodSymbolMap/varSymbolMap can never recognize a member that another scan
+    already materialized (typically via ensureMethod resolving a call in its sources). Without this check, a later
+    member pass (loadType COMPLETE/LOAD_MEMBERS through the lazy loader) appends a second MethodInfo for the same
+    method, and commit fails in MethodMapImpl ("Two methods with the same FQN and return type?").
+    The return type takes part in the signature on purpose: covariant bridge methods share name+params with the
+    real method and must remain distinct (see the by-return nesting in MethodMapImpl).
+     */
+    private MethodInfo findInBuilder(TypeInfo typeInfo, Symbol.MethodSymbol ms) {
+        String simpleName = ms.getSimpleName().toString();
+        if ("<init>".equals(simpleName)) {
+            return typeInfo.builder().constructors().stream()
+                    .filter(mi -> sameTypes(mi.parameters(), ms.params))
+                    .findFirst().orElse(null);
+        }
+        return typeInfo.builder().methods().stream()
+                .filter(mi -> simpleName.equals(mi.name())
+                              && mi.returnType() != null
+                              && sameTypes(mi.parameters(), ms.params)
+                              && mi.returnType().erasedForFQN().fullyQualifiedName()
+                                      .equals(convert(types.erasure(ms.getReturnType())).fullyQualifiedName()))
+                .findFirst().orElse(null);
     }
 
     MethodInfo addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms, boolean synthetic) {
@@ -682,6 +715,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
         MethodInfo inMap = methodSymbolMap.get(ms);
         if (inMap != null) return inMap;
+        MethodInfo inBuilder = findInBuilder(typeInfo, ms);
+        if (inBuilder != null) {
+            put(ms, inBuilder);
+            return inBuilder;
+        }
         String name = ms.getSimpleName().toString();
         //  assert (ms.flags() & Flags.BRIDGE) == 0 : "Do not want any bridge method " + ms + " in " + typeInfo;
         MethodInfo method;

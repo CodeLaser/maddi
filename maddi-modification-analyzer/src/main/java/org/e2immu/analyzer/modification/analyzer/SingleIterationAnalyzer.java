@@ -27,7 +27,31 @@ public interface SingleIterationAnalyzer {
 
     void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration);
 
+    /**
+     * Like the 3-arg {@code go}, additionally providing dependency waves for a strata-parallel FIRST
+     * iteration (see ComputeAnalysisOrder.waves): each wave's units run concurrently, units are sequential
+     * inside, waves are barriers. Ignored (delegates) by default or when null.
+     */
+    default void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration,
+                    List<List<List<Info>>> firstIterationWaves) {
+        go(analysisOrder, activateCycleBreaking, firstIteration);
+    }
+
     int propertiesChanged();
+
+    /**
+     * Worklist support: the elements whose analysis values changed during the most recent {@code go} call --
+     * per-element counter-delta attribution united with the write-target attribution from TolerantWrite (which
+     * also catches the link computer's on-demand recursion writing a CALLEE's summary mid-caller).
+     */
+    java.util.Set<Info> changedInfos();
+
+    /**
+     * Worklist v2: only elements whose EXTERNALLY VISIBLE summary changed (method links/modification verdicts,
+     * field/type verdicts) — the set whose dependents must be re-analyzed. Element-internal (statement-level)
+     * changes are excluded: dependents cannot observe them.
+     */
+    java.util.Set<Info> summaryChangedInfos();
 
     /** Findings (warnings/errors about the analyzed code) collected by all analyzers of this iteration. */
     List<Message> messages();

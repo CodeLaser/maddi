@@ -430,6 +430,10 @@ public class SharedVariables {
         return memberToGroup.containsKey(from);
     }
 
+    public SharedVariable groupOf(Variable variable) {
+        return memberToGroup.get(variable);
+    }
+
     // group members (of ANY group) that are proper fields/elements of 'owner': for the fluent setter, 'this.i'
     // is a member of the {this.i, 0:i} group and therefore invisible under the {return, this} group's rep — but
     // it is a field of the face 'this' and must be discoverable for the field-level mirror (setI.i ← this.i).

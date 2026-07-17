@@ -141,7 +141,7 @@ public class TestStaticValues1 extends CommonTest {
             VariableData vd0 = VariableDataImpl.of(methodC.methodBody().statements().getFirst());
             assertEquals("a.b.X.j#scope20-15:20-21, x", vd0.knownVariableNamesToString());
             VariableInfo viX = vd0.variableInfo("x");
-            assertEquals("x.j←$_ce3", viX.linkedVariables().toString());
+            assertEquals("x.j←$_ce1", viX.linkedVariables().toString());
 
             // TODO should we have kept $_ce1?
             assertEquals("[] --> -", mlvC.toString());
@@ -368,7 +368,7 @@ public class TestStaticValues1 extends CommonTest {
         MethodInfo method1 = X.findUniqueMethod("method1", 1);
         test6Method(method1, sInT, rInS, "0");
         MethodInfo method2 = X.findUniqueMethod("method2", 1);
-        test6Method(method2, sInT, rInS, "1");
+        test6Method(method2, sInT, rInS, "0"); // per-method synthetic numbering: every method starts at $_ce0
     }
 
 

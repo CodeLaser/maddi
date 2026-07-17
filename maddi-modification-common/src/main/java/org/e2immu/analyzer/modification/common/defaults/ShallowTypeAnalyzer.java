@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.common.defaults;
 
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.annotation.Independent;
 import org.e2immu.language.cst.api.analysis.Message;
@@ -92,7 +93,7 @@ public class ShallowTypeAnalyzer extends AnnotationToProperty {
             boolean independent = annotationProvider.annotations(typeParameter).stream().anyMatch(ae ->
                     Independent.class.getCanonicalName().equals(ae.typeInfo().fullyQualifiedName()));
             if (independent) {
-                typeParameter.analysis().setAllowControlledOverwrite(INDEPENDENT_TYPE_PARAMETER, INDEPENDENT);
+                TolerantWrite.setAllowControlledOverwrite(typeParameter.analysis(), INDEPENDENT_TYPE_PARAMETER, INDEPENDENT);
                 dataMap.put(typeParameter, new ShallowAnalyzer.InfoData(Map.of(INDEPENDENT_TYPE_PARAMETER, ANNOTATED)));
             } else {
                 immutableIndependentOfTypeParameters = false;
@@ -104,7 +105,7 @@ public class ShallowTypeAnalyzer extends AnnotationToProperty {
 
         map.forEach((p, v) -> {
             // not writing out default values, we may want to overwrite in AbstractInfoAnalyzer
-            if (!v.isDefault()) typeInfo.analysis().setAllowControlledOverwrite(p, v);
+            if (!v.isDefault()) TolerantWrite.setAllowControlledOverwrite(typeInfo.analysis(), p, v);
         });
         return dataMap;
     }
@@ -235,7 +236,7 @@ public class ShallowTypeAnalyzer extends AnnotationToProperty {
         ShallowAnalyzer.InfoData infoData = new ShallowAnalyzer.InfoData(new HashMap<>());
         fieldMap.forEach((p, vo) -> {
             if (!vo.value().isDefault()) {
-                fieldInfo.analysis().setAllowControlledOverwrite(p, vo.value());
+                TolerantWrite.setAllowControlledOverwrite(fieldInfo.analysis(), p, vo.value());
             }
             infoData.put(p, vo.origin());
         });

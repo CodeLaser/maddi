@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.common.defaults.ShallowMethodAnalyzer;
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine;
 import org.e2immu.analyzer.modification.link.impl.linkgraph.FollowGraph;
@@ -136,6 +137,19 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         this.testVisitor = testVisitor;
     }
 
+    // parallel first iteration: LOCK on an absent METHOD_LINKS degrades to shallow (see LinkComputer)
+    private volatile boolean lockComputeDisabled;
+
+    @Override
+    public void setLockComputeDisabled(boolean disabled) {
+        this.lockComputeDisabled = disabled;
+    }
+
+    @Override
+    public boolean lockComputeDisabled() {
+        return lockComputeDisabled;
+    }
+
     @Override
     public int propertiesChanged() {
         return propertiesChanged.get();
@@ -206,7 +220,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             MethodLinkedVariables mlv = shallowMethodLinkComputer.go(methodInfo);
             if (write) {
-                if (methodInfo.analysis().setAllowControlledOverwrite(METHOD_LINKS, mlv)) {
+                if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, mlv, methodInfo)) {
                     propertiesChanged.incrementAndGet();
                 }
             }
@@ -217,7 +231,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             try {
                 tlv = new SourceMethodComputer(methodInfo).go();
                 if (write) {
-                    if (methodInfo.analysis().setAllowControlledOverwrite(METHOD_LINKS, tlv)) {
+                    if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, tlv, methodInfo)) {
                         propertiesChanged.incrementAndGet();
                     }
                 }
@@ -246,10 +260,17 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
         public SourceMethodComputer(MethodInfo methodInfo) {
             this.methodInfo = methodInfo;
+            // PER-METHOD synthetic numbering ($__rvN, $__cN, $_ceN...): a fresh counter per method makes the
+            // names a deterministic function of the method's own structure — identical across iterations,
+            // worklist subsets and processing orders. The previous LinkComputer-global counter shifted every
+            // number whenever a subset/skip changed what ran before: ~5,600 spurious METHOD_LINKS "changes"
+            // per full pass on a settled corpus (timefold run20), blocking convergence certification.
+            // Cross-method collisions are harmless: synthetics are per-evaluation artifacts, and the summary's
+            // modified set no longer carries synthetic-rooted faces (see the filter in go()).
             this.expressionVisitor = new ExpressionVisitor(javaInspector.runtime(),
                     javaInspector, options, new VirtualFieldComputer(javaInspector),
                     LinkComputerImpl.this, this, methodInfo, recursionPrevention,
-                    variableCounter);
+                    new AtomicInteger());
             this.returnVariable = methodInfo.hasReturnValue() ? new ReturnVariableImpl(methodInfo) : null;
 
             // see Options.objectGraphLinks: the coarse ∩/≤/≥ web is not consumed by linking's applications and
@@ -300,8 +321,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                                 && l.linkNature().isIdenticalToOrAssignedFromTo()
                                 && l.to() instanceof LocalVariable) {
                                 Expression constant = tc.get(l.to());
-                                if (constant != null && !(constant instanceof NullConstant)) {
-                                    assert vi.variable().parameterizedType().arrays() == 0;
+                                // array-typed variables stay out of constant propagation (the assert that stood
+                                // here fails on real code: an array local linked ≡ to a constant-holding local)
+                                if (constant != null && !(constant instanceof NullConstant)
+                                    && vi.variable().parameterizedType().arrays() == 0) {
                                     Expression prev = tc.put(vi.variable(), constant);
                                     if (prev != null && !constant.equals(prev)) {
                                         // multiple values...
@@ -351,7 +374,15 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     .collect(Collectors.toUnmodifiableSet());
             Set<Variable> allModified = Stream.concat(modified.stream(), modifiedOutside.stream())
                     .collect(Collectors.toUnmodifiableSet());
-            MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, allModified);
+            // the SUMMARY must not carry IntermediateVariable-rooted entries ($__rvN, $__rvN.field faces):
+            // per-evaluation scratch artifacts a caller cannot resolve — dead weight whose counter-dependent
+            // names made recomputed summaries spuriously unequal. MarkerVariables ($_fiN, $_ceN) STAY: their
+            // modified-ness deliberately crosses the boundary (a functional-interface marker's star tells the
+            // call site the SAM modifies, TestStaticValuesRecord 'interface in between').
+            Set<Variable> summaryModified = allModified.stream()
+                    .filter(v -> !(Util.primary(v) instanceof IntermediateVariable))
+                    .collect(Collectors.toUnmodifiableSet());
+            MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, summaryModified);
             if (System.getenv("BTRACE") != null && methodInfo.name().contains(System.getenv("BTRACE"))) {
                 System.out.println("BTRACE go() mlv=" + mlv);
             }
@@ -380,7 +411,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             for (Map.Entry<ParameterInfo, Map<Variable, Set<TypeInfo>>> entry : all.entrySet()) {
                 ParameterInfo pi = entry.getKey();
                 var v2tiSet = new ValueImpl.VariableToTypeInfoSetImpl(entry.getValue());
-                if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.DOWNCAST_PARAMETER, v2tiSet)) {
+                if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.DOWNCAST_PARAMETER, v2tiSet)) {
                     propertiesChanged.incrementAndGet();
                 }
             }
@@ -399,7 +430,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 }
             }
             Value.Bool nonModifying = ValueImpl.BoolImpl.from(!methodModified);
-            if (methodInfo.analysis().setAllowControlledOverwrite(PropertyImpl.NON_MODIFYING_METHOD, nonModifying)) {
+            if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), PropertyImpl.NON_MODIFYING_METHOD, nonModifying, methodInfo)) {
                 propertiesChanged.incrementAndGet();
             }
             for (ParameterInfo pi : methodInfo.parameters()) {
@@ -407,7 +438,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 if (links.stream().noneMatch(l -> l.to().variableStreamDescend()
                         .anyMatch(v -> v instanceof FieldReference fr && inCurrentHierarchy(fr.fieldInfo().owner())))) {
                     Value.Bool unmodified = ValueImpl.BoolImpl.from(!paramsModified[pi.index()]);
-                    if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, unmodified)) {
+                    if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER, unmodified, pi)) {
                         propertiesChanged.incrementAndGet();
                     }
                 } // else: we'll need to wait until we know about all the links of the field; see TestFieldAnalyzer
@@ -678,7 +709,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 VariableInfoContainer vic = variableData.variableInfoContainerOrNull(v.fullyQualifiedName());
                 if (vic != null) {
                     VariableInfoImpl vii = (VariableInfoImpl) vic.best(Stage.EVALUATION);
-                    if (vii.analysis().setAllowControlledOverwrite(VariableInfoImpl.DOWNCAST_VARIABLE,
+                    if (TolerantWrite.setAllowControlledOverwrite(vii.analysis(), VariableInfoImpl.DOWNCAST_VARIABLE,
                             new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(set)))) {
                         propertiesChanged.incrementAndGet();
                     }
@@ -702,7 +733,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     try {
                         wmc.methodCall().analysis().set(VARIABLES_LINKED_TO_OBJECT,
                                 new ValueImpl.VariableBooleanMapImpl(Map.copyOf(variablesLinkedToObject)));
-                        propertiesChanged.incrementAndGet();
+                        TolerantWrite.count("set:variablesLinkedToObject@LCI");
+                        // deliberately NOT counted in propertiesChanged: the method body is re-materialized every
+                        // iteration, so this "write-once" lands on a fresh expression each time (measured: exactly
+                        // 635/iteration on timefold) — it recomputes an output for this iteration's consumers, it
+                        // is not a converging property. Counting it kept the iteration loop running to the max.
                     } catch (IllegalArgumentException iae) {
                         LinkComputerImpl.this.recursionPrevention.report(methodInfo);
                         throw iae;
@@ -842,12 +877,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     if (!collected.isEmpty()) {
                         merge.setLinkedVariables(collected);
                     }
-                    if (merge.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE,
+                    if (TolerantWrite.setAllowControlledOverwrite(merge.analysis(), UNMODIFIED_VARIABLE,
                             ValueImpl.BoolImpl.from(unmodified.get()))) {
                         propertiesChanged.incrementAndGet();
                     }
                     if (!downcasts.isEmpty()) {
-                        if (merge.analysis().setAllowControlledOverwrite(DOWNCAST_VARIABLE,
+                        if (TolerantWrite.setAllowControlledOverwrite(merge.analysis(), DOWNCAST_VARIABLE,
                                 new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(downcasts)))) {
                             propertiesChanged.incrementAndGet();
                         }

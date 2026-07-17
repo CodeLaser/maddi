@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
@@ -511,7 +512,7 @@ public record ExpressionVisitor(Runtime runtime,
                             : r.links().removeIfTo(v -> !LinkVariable.acceptForLinkedVariables(v)))
                     .toList();
             LinkComputer.ListOfLinks list = new LinkComputerImpl.ListOfLinksImpl(links);
-            cc.analysis().setAllowControlledOverwrite(LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS, list);
+            TolerantWrite.setAllowControlledOverwrite(cc.analysis(), LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS, list);
         }
         Set<Variable> extraModified = params.stream().flatMap(p ->
                 p.modified().keySet().stream()).collect(Collectors.toUnmodifiableSet());
@@ -710,7 +711,7 @@ public record ExpressionVisitor(Runtime runtime,
                             : r.links().removeIfTo(v -> !LinkVariable.acceptForLinkedVariables(v)))
                     .toList();
             LinkComputer.ListOfLinks list = new LinkComputerImpl.ListOfLinksImpl(links);
-            mc.analysis().setAllowControlledOverwrite(LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS, list);
+            TolerantWrite.setAllowControlledOverwrite(mc.analysis(), LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS, list);
         }
 
         // handle all matters 'linking'
@@ -736,7 +737,10 @@ public record ExpressionVisitor(Runtime runtime,
                 .map(Util::primary).filter(Objects::nonNull).collect(Collectors.toUnmodifiableSet());
         Set<Variable> objectModified = object.modified().keySet().stream()
                 .filter(v -> !(Util.primary(v) instanceof LinkVariable))
-                .filter(v -> !consumedIntoObject.contains(Util.primary(v)))
+                .filter(v -> {
+                    Variable p = Util.primary(v); // null (expression-based array access) cannot be consumed
+                    return p == null || !consumedIntoObject.contains(p);
+                })
                 .collect(Collectors.toUnmodifiableSet());
         return r.addModified(modified, mc.methodInfo())
                 .addModified(extraModified, null)
@@ -758,7 +762,22 @@ public record ExpressionVisitor(Runtime runtime,
         return switch (how) {
             case GET -> methodInfo.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
             case SHALLOW -> linkComputer.doMethodShallowDoNotWrite(methodInfo);
-            case LOCK -> methodInfo.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(methodInfo));
+            case LOCK -> {
+                if (linkComputer.lockComputeDisabled()
+                    && !methodInfo.isAbstract() // abstract -> shallow compute, no nested locks: getOrCreate is safe
+                    && !methodInfo.analysis().haveAnalyzedValueFor(METHOD_LINKS)) {
+                    // parallel first iteration: computing another element's links while holding its analysis
+                    // monitor (getOrCreate) could deadlock across worker threads. recurseMethod computes
+                    // WITHOUT the monitor and WRITES the result (the plain doMethod(MethodInfo) does not
+                    // write — using it here recomputed whole chains per touch, an exponential cascade in a
+                    // large call cycle; and a shallow fallback froze first-impression verdict losses on
+                    // graph-missed edges). Two threads may duplicate a computation; the value is
+                    // deterministic and the write TolerantWrite-guarded, so the loser's write is a no-op.
+                    // Cycles terminate via the same-thread SHALLOW fallback of RecursionPrevention.
+                    yield linkComputer.recurseMethod(methodInfo);
+                }
+                yield methodInfo.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(methodInfo));
+            }
         };
     }
 

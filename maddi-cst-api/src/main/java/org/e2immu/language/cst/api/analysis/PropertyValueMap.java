@@ -49,5 +49,14 @@ public interface PropertyValueMap {
 
     <V extends Value> boolean setAllowControlledOverwrite(Property property, V value);
 
+    /**
+     * Unconditional replacement, bypassing the {@link Value#overwriteAllowed(Value)} direction policy. For
+     * direction-aware refinement in the iterating analyzer (evidence-accumulating properties whose legal
+     * refinement runs OPPOSITE to the value's default policy); use sparingly.
+     *
+     * @return true when the stored value changed
+     */
+    <V extends Value> boolean overwrite(Property property, V value);
+
     void setAll(PropertyValueMap analysis);
 }

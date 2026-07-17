@@ -112,8 +112,10 @@ public class VariableTranslationMap implements TranslationMap {
                 if (translatedIndex instanceof IntConstant ic && ic.constant() < 0
                     && translatedArray instanceof VariableExpression ve
                     && ve.variable() instanceof FieldReference base) {
-                    // slice... we must guard its type
-                    return SliceFactory.create(runtime, base, ic.constant());
+                    // slice... we must guard its type; when the translated base cannot provide the field
+                    // (bare type parameter / smaller container), fall through and keep the original type
+                    DependentVariable slice = SliceFactory.create(runtime, base, ic.constant());
+                    if (slice != null) return slice;
                 }
                 // when the translated array is not statically an array (a downcast slot such as Object-typed
                 // 'ld.variables[1]' standing in for 'float[][] matrix'), the element type cannot be recomputed

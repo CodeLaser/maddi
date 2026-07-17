@@ -35,6 +35,7 @@ public class VirtualFieldTranslationMapForMethodParameters {
     public VirtualFieldTranslationMap go(VirtualFieldTranslationMap vfTm, MethodCall mc) {
         for (TypeParameter tp : mc.methodInfo().typeParameters()) {
             ParameterizedType bestValue = findValue(mc, tp);
+            if (bestValue == null) continue; // unresolvable from arguments/return: leave tp untranslated
             VirtualFields vf = virtualFieldComputer.compute(bestValue, false).virtualFields();
             if (vf.hiddenContent() != null) {
                 vfTm.put(tp, vf.hiddenContent().type());
@@ -56,7 +57,7 @@ public class VirtualFieldTranslationMapForMethodParameters {
         VirtualFieldTranslationMap vfTm = new VirtualFieldTranslationMapImpl(virtualFieldComputer, runtime);
         for (TypeParameter tp : mc.methodInfo().typeParameters()) {
             ParameterizedType bestValue = findValue(mc, tp);
-            vfTm.put(tp, bestValue);
+            if (bestValue != null) vfTm.put(tp, bestValue); // null: unresolvable, leave tp untranslated
         }
         return vfTm;
     }
@@ -76,12 +77,9 @@ public class VirtualFieldTranslationMapForMethodParameters {
                 if (res != null) return res;
             }
         }
-        // try the return type
-        ParameterizedType rt = extractValueForTp(mc.methodInfo().returnType(), mc.concreteReturnType(), tp);
-        if (rt != null) {
-            return rt;
-        }
-        throw new UnsupportedOperationException("Unable to find concrete value");
+        // try the return type; null when the type parameter is unresolvable at this call site (e.g. it only
+        // occurs in positions the extractor cannot see through) -- callers then leave it untranslated
+        return extractValueForTp(mc.methodInfo().returnType(), mc.concreteReturnType(), tp);
     }
 
     private ParameterizedType extractValueForTp(ParameterizedType formal,

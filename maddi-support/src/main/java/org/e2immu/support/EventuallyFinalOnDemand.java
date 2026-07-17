@@ -15,36 +15,44 @@
 package org.e2immu.support;
 
 public class EventuallyFinalOnDemand<T> {
-    private T value;
-    private boolean isFinal;
+    private volatile T value;
+    private volatile boolean isFinal;
     private volatile Runnable onDemand;
 
-    // not synchronized: we'll be calling get() from inside the runnable
-    // it is important that only setFinal can clear onDemand, and set isFinal at the same time
-    // no value should be returned as long as onDemand != null
+    // Concurrency: the on-demand loader (lazy bytecode inspection) can be first-touched by several analyzer
+    // threads at once; unsynchronized, both would run it and the second setFinal throws. The monitor is
+    // reentrant, so the loader calling get() from inside run() (same thread) still works as in the original
+    // unsynchronized design. It is important that only setFinal can clear onDemand, and set isFinal at the
+    // same time; no value should be returned as long as onDemand != null.
     public T get() {
+        if (isFinal) return value; // fast path: a committed value never changes again
         Runnable runnable = onDemand;
         if (runnable != null) {
-            runnable.run();
+            synchronized (this) {
+                Runnable again = onDemand; // may have been cleared while we waited for the monitor
+                if (again != null) {
+                    again.run();
+                }
+            }
         }
         return value;
     }
 
-    public void setFinal(T value) {
+    public synchronized void setFinal(T value) {
         if (this.isFinal) {
             throw new IllegalStateException("Trying to overwrite final value");
         }
-        this.isFinal = true;
         this.value = value;
+        this.isFinal = true;
         this.onDemand = null;
     }
 
-    public void setVariable(T value) {
+    public synchronized void setVariable(T value) {
         if (this.isFinal) throw new IllegalStateException("Value is already final");
         this.value = value;
     }
 
-    public void setOnDemand(Runnable onDemand) {
+    public synchronized void setOnDemand(Runnable onDemand) {
         assert !isFinal && this.onDemand == null;
         this.onDemand = onDemand;
     }

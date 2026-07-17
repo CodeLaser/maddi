@@ -4,6 +4,384 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-17 (evening) — STRATA-PARALLEL ITERATION 1: timefold 8 min, fernflower 4:22, both certified + verdict-exact
+
+The first iteration now also runs parallel (gate PARALLEL=n), in dependency WAVES from
+the call graph (ComputeAnalysisOrder.waves): linearized strata → connected cycle groups
+(one sequential unit each) → attached periphery levels; wave barriers keep callees
+complete before callers. The LOCK valve went through three designs — the lessons:
+1. shallow fallback for absent callees: DEADLOCK-FREE but froze first-impression verdict
+   losses on graph-missed edges (14-element drift incl. nonModifying/unmodifiedField).
+2. plain doMethod(MethodInfo): does NOT write METHOD_LINKS → recomputed whole chains per
+   touch, exponential in fernflower's mega-SCC (killed at 9.5 min, 16k+ computations).
+3. **recurseMethod** (computes AND writes, monitor-free, memoizing; abstract callees stay
+   on getOrCreate since their shallow compute takes no nested locks): VERDICT-EXACT —
+   fernflower diff 0 lines (even the earlier 2-constructor drift healed), timefold diff
+   0 lines vs the canonical baseline. Duplicate cross-thread computes are benign
+   (deterministic value, TolerantWrite-guarded write).
+Structure matters: timefold i1 5:11 → 2:13 (50 waves, 39,335 units — fine-grained);
+fernflower i1 ~unchanged (~1:55) — its core is ONE mega-SCC = one sequential unit.
+Xmx 6G→8G (heavy GC under PARALLEL=8, user-observed).
+
+**Ledger (all certified, all 0-line verdict diffs where a baseline exists): timefold
+64 min uncertified (2 days ago) → 41 certified (this morning) → 11 (hot-spot fixes) →
+8:01 (strata i1). fernflower 33 min → 4:22. langchain4j 41 min → 15:36 (certified, 14
+iterations; dump scratchpad/lc4j-par8.sorted saved as the future verdict baseline).**
+OPEN: PARALLEL default-on decision (evidence above; suites are unaffected either way —
+they run without a dependency graph); mega-SCC corpora (fernflower-like) keep a
+sequential i1 core — intra-SCC parallelization would need speculative/duplicate
+computation, parked; langchain4j never had a sequential FPDUMP baseline (bar was
+certification + crash-free).
+
+## UPDATE 2026-07-17 — TIMEFOLD PARALLEL=8: 11 min certified, verdict-exact (was 64 min uncertified yesterday, 41 min certified this morning)
+
+All of today combined (worklist default-on + certification + 2 O(n^2) fixes + PARALLEL=8):
+timefold full chain 11 min 6 s, "done? true", 0-line FPDUMP diff vs the canonical baseline,
+zero crashes. Profile: iteration 1 (sequential by v1 design) 5:11 = 47% of the run;
+parallel iterations 55s→3s; 4 full verification passes at ~55s (timefold's FI-edge gap
+costs extra verify-resume rounds). Certified EXACTLY at the 20-iteration cap → raised to
+30 (late iterations ~3s, headroom free).
+
+TIMING-MODEL CORRECTION (user): scan+parse is ~18 SECONDS on timefold (65 source sets),
+prepwork+call-graph ~2s — NOT the "~10 min scan phase" earlier notes claimed; that gap was
+gradle --rerun overhead + iteration 1 mislabeled. 3M-line projects scan in ~1:30.
+
+NEXT LEVERS, in order: (1) parallelize iteration 1 — now the dominant cost; needs either
+call-graph-strata scheduling (callees before callers, so the on-demand LOCK never computes
+cross-thread) or a shallow-fallback LOCK under parallel iteration 1 (cross-thread monitor
+deadlock is the blocker for naive parallelism there); (2) FI-application adjacency edges
+(each missing-edge verify-resume round costs a ~55s full pass); (3) langchain4j PARALLEL
+validation; (4) PARALLEL default-on decision (e.g. min(8, cores/2) with PARALLEL=1 opt-out).
+
+## UPDATE 2026-07-17 — HOT-SPOT ROUND: fernflower 33 min → 4.5 min (certified); two O(n^2) fixes + the 2-constructor non-confluence
+
+Profiling (jstack aggregate over the reorderIf window) found two engine-wide quadratics:
+1. **RedundantLinks.completion**: a DFS per LINK over the accumulated guard graph. The
+   per-link completion sets are only consumed as their union, so one multi-source DFS per
+   nature group computes the identical result in O(V+E) (overwrite semantics preserved:
+   last nature key per to-var in builder order). reorderIf 145s → 77s/iteration.
+2. **WriteLinksAndModification.dedupReversePairs**: all-pairs reverse-pair scan with
+   Variable.equals. The predicate is exactly key(j)==revKey(i) on the same toString keys
+   pass 1 already uses → hash index, same ascending visit order. reorderIf 77s → 20s.
+Both verdict-neutral: suites 393/0+143/0 AND the corpus dump matches the pre-fix
+sequential baseline exactly (0-line diff, 4,907 elements).
+
+Fernflower ledger (certified every run): sequential 33 min → PARALLEL=8 20 min →
++RedundantLinks 11 min → +dedup **4 min 28 s** (parallel iterations 25s, iteration 1
+2:00, reorderIf 20s). Sequential post-fix: 21 min (RedundantLinks only; dedup not yet
+re-measured sequentially).
+
+**Known non-confluence (2 elements, 0.04%): Exprent.<init>(int) + StatEdge.EdgeType
+.<init>(int)** flip nonModifying false(seq)→true(par). Both trivial int-storing
+constructors; the PARALLEL verdict is the semantically better one, and false→true is the
+LEGAL refinement direction — meaning the sequential order MISSES a refinement these
+constructors should get (locked conservative and never revisited). Parallelism exposes,
+not causes, the gap. FOLLOW-UP: trace why the sequential iteration never upgrades a
+trivial constructor's nonModifying.
+
+## UPDATE 2026-07-17 — INTRA-ITERATION PARALLELISM (gate PARALLEL=n): certified + verdict-exact at 8 threads on fernflower
+
+New small corpus: **fernflower** (~47k lines, 4,964 elements; TestFernflower +
+resources/inputConfiguration/fernflower.json). Third corpus GREEN on first contact, zero
+caught elements, certified in 12 iterations, ~33 min sequential — heavy per-element cost
+(~10x timefold: decompiler methods are huge), which makes it the ideal parallelism testbed.
+
+Concurrency foundation (thread-safety audit, agent-swept + verified):
+- PropertyValueMapImpl fully synchronized (cross-element writes are structural: analyzers
+  write callees' UNMODIFIED_PARAMETER etc.); TolerantWrite's check-then-act is atomic per
+  element map (synchronized on the map, same monitor) — without it a race could surface the
+  UnsupportedOperationException the guard exists to prevent.
+- EventuallyFinalOnDemand: volatile + locked on-demand load (concurrent first-touch of a
+  lazy bytecode inspection double-ran the loader; the second setFinal threw).
+- ShallowMethodAnalyzer: synchronized messages, atomic DEFAULTS_ANALYZER claim.
+- **RecursionPrevention: per-thread in-progress set** — the shared map made a method in
+  progress on thread A degrade thread B's independent computation to SHALLOW: scheduling-
+  dependent summaries (1-method methodLinks flip-flop blocking certification + 4
+  order-dependent nonModifying verdicts in the first PARALLEL=8 A/B). Root fix; also
+  removed a contended global monitor from the per-call-expression hot path.
+- SingleIterationAnalyzerImpl: loop body extracted to processElement; PARALLEL=n pool for
+  iterations 2+ (iteration 1 sequential: on-demand recursion + abstract shallow pass);
+  failed set concurrent; abstractMethods/typesInOrder derived from analysisOrder (order
+  deterministic, independent of completion order). Attribution over-attributes benignly
+  under parallelism (superset is safe).
+
+**A/B result (fernflower, PARALLEL=8 vs sequential): certified (13 iterations, done? true),
+FPDUMP diff = 0 lines, zero crashes, wall 20 min vs 33.** Big iterations 2:30 vs 5:30 —
+~2.1x on 8 threads → ~35-40% serial/contended fraction (100%-CPU stretches observed).
+Suspects: abstract-method batch + 2nd type pass (both by-design sequential) and/or a slow
+single element. Phase-timing + top-10-slowest-elements instrumentation added; next run
+pins the serial fraction, then: parallelize the 2nd type pass (same safety argument as the
+main loop), longest-first scheduling if a slow tail dominates, then timefold/langchain4j
+PARALLEL A/B, then the PARALLEL default decision (worklist is already default-on since
+c5d86656, opt-out NOWORKLIST=1).
+
+## UPDATE 2026-07-17 — LANGCHAIN4J ALSO CERTIFIES: both corpora reach a machine-checked fixpoint
+
+Langchain4j (WORKLIST=1 NOPLATEAU=1, 56,404 elements): 11 narrowing iterations to quiet →
+pass 1 finds 15 → cleanup → pass 2 finds 1 (unmodifiedField) → subset quiet → **pass 3
+clean, "done? true" after 14 iterations**. Exit 0, 41 min wall (the old 36-min "baseline"
+was a PLATEAU CUT at iteration 5, not converged; this is the first converged langchain4j
+run). Notably its pass-1 residue is 15 vs timefold's 142 — the FI-edge adjacency gap is
+corpus-dependent (timefold's abstract constraint-stream test hierarchy is the pathology).
+
+**State of the worklist arc: COMPLETE except the default-on decision.**
+- timefold: certified in 18 iterations, ~41 min, FPDUMP == baseline (0-line diff, twice).
+- langchain4j: certified in 14 iterations, ~41 min.
+- Correctness: certification = a full pass with 0 changes, machine-checked every run;
+  verdict-exactness vs full re-analysis proven on timefold.
+- Speed: certified 41 min vs 64-min baseline hitting the iteration cap NOT converged.
+- OPEN DECISION (user): flip WORKLIST default-on (evidence above); NOPLATEAU interaction:
+  under worklist+certification the plateau exit is unnecessary and arguably harmful.
+- NEXT SPEED LEVERS (parked, in order of expected payoff): intra-iteration parallelism
+  (audit lazy getOrLoad thread-safety first — verification passes and iteration 1 are
+  ~6-min full sweeps that would parallelize well on the MacStudio); FI-application edges
+  in the reverse adjacency (kills ~2 of 3 verification passes, ~12 min on timefold);
+  slow-tail method profiling.
+- Artifacts: scratchpad/lc4j-wl1-trail.txt, lc4j-wl1.xml, fpdump-lc4j-worklist1.txt.
+
+## UPDATE 2026-07-17 — RUN26: FIRST CERTIFIED FIXPOINT (timefold, 41 min, verdict-exact); the "non-idempotent ~36" were a starved convergence chain, not oscillation
+
+Run26 (WORKLIST=1 NOPLATEAU=1 MLTRACE=1, with the attribution fix from commit 8475dabe):
+- 12 narrowing iterations to quiet (the methodLinks trickle now stays in the worklist and
+  SETTLES: 20→13→3→0) → verification pass 1 finds 173 → 2 cheap subset iterations →
+  pass 2 finds 4 (unmodifiedField 2 + unmodifiedParameter 2, ZERO methodLinks) → 1 subset
+  iteration → **pass 3 finds 0 → "Stop iterating after 18 iterations, done? true"** —
+  the first machine-certified fixpoint. FPDUMP diff vs baseline: **0 lines** (second
+  verdict-exact run in a row). Wall: ~41 min incl. scan (~30 min analysis) vs 64-min
+  uncertified baseline cap and run25's 68-min cap-out.
+- DIAGNOSIS REVISED: run25's 35/37/36/19 plateau was NOT non-idempotence/oscillation.
+  Those methods form a long convergence chain; without attribution the worklist never
+  re-ran them, so each FULL pass advanced the chain exactly one step. With the main-loop
+  METHOD_LINKS write attributed, the chain converges inside cheap subset iterations and
+  full passes come back clean. The attribution fix was the root fix; MLTRACE (gated)
+  stays as a diagnostic.
+- No non-confluence anywhere: two independent worklist runs both reproduce the baseline
+  verdict-for-verdict.
+- Next: langchain4j certified run (generality), then the WORKLIST default-on decision.
+- Artifacts: scratchpad/run26-trail.txt, w8.sorted, final-diff-run26.txt (empty),
+  run26-TestTimefoldSolver.xml (full log incl. 4,868 MLTRACE lines), run26-pass1-mltrace.txt.
+
+**Residue profile of verification pass 1 (the remaining adjacency gap, from MLTRACE):**
+142 methodLinks changes, ALL with identical toString — i.e., exclusively MODIFIED-SET
+changes (a modified variable not occurring in any link entry is invisible in the print;
+LinksImpl.equals is primary-only, so link-content differences cannot flip MLV.equals).
+They cluster in the abstract constraint-stream TEST hierarchy (SingleConstraintAssertionTest
+25, AbstractUniConstraintStreamTest 18, MoveDirectorTest.ValueAssignment 15, ...) — heavy
+lambda/functional-interface users. Interpretation: modified-set propagation through
+FI-APPLICATION edges that ComputeCallGraph adjacency does not model; the worklist starves
+them, the first full pass catches them, two cheap subset iterations settle them, pass 2 is
+methodLinks-clean. COST of the gap: ~2 extra full passes (~12 min on timefold). FUTURE
+LEVER (parked): add FI-application edges to the reverse adjacency (or parallelize the
+verification pass) to get certified runs to ~1 full pass. If chased, extend MLTRACE to
+print mlv.modified() at the call site (SingleIterationAnalyzerImpl) — TolerantWrite cannot
+name the set (no dependency on the link module).
+
+## UPDATE 2026-07-17 — RUN25: WORKLIST IS VERDICT-EXACT (0-line diff vs baseline); certification blocked by ~36 non-idempotent methodLinks
+
+Resume executed as planned: suites verified commit 9f6d8719 (link 393/0, analyzer 143/0 —
+note: gradle's `--rerun` is PER-TASK; trailing it after two tasks only reruns the last one,
+which is part of yesterday's "unreliable" impression). Run25 (WORKLIST=1 NOPLATEAU=1,
+FPDUMP) completed exit 0.
+
+**Headline: the worklist run's per-element verdict dump is IDENTICAL to the full
+re-analysis baseline (diff = 0 lines over 53,535 elements).** The verify-resume loop
+recovers everything the narrowing misses; the earlier 37-element conservatism is fully
+closed; no non-confluence at the verdict level.
+
+**But certification never closed, and wall clock was ~68 min (worse than baseline):**
+- Verification passes 1-2 found genuine residue (methodLinks 707→107 + unmodified*).
+- Passes 3-6 plateaued: methodLinks = 35/37/36/19 rewrites per FULL pass on a settled
+  state — a stable set of ~36 methods whose recomputed summary compares unequal every
+  time (LinksImpl.equals is primary-only, so the PRIMARY parts flip). Residual
+  instability the per-method numbering fix does not cover; verdict-irrelevant (see
+  headline) but blocks the 0-change certificate.
+- Each retry cost a full ~6-min pass because the worklist came back 0-dirty: **attribution
+  bug** — SingleIterationAnalyzerImpl's main-loop METHOD_LINKS write used the 3-arg
+  TolerantWrite overload (context "?"), so methodLinks changes never reached
+  summaryChangedInfos / dependents. (The on-demand recursion sites in LinkComputerImpl
+  did pass methodInfo — why the worklist was as good as it was.)
+
+Fixes landed (suites 393/0 + 143/0): (1) pass methodInfo at the main-loop METHOD_LINKS
+write; (2) gate MLTRACE=1 in TolerantWrite logs old→new on every value-changing rewrite
+of an existing methodLinks — names the unstable methods and shows which face flips.
+Run26 (WORKLIST=1 NOPLATEAU=1 MLTRACE=1) in flight to root-cause the ~36; suspicion:
+hash/iteration-order tie-breaking in the link-graph closure over per-iteration
+re-materialized bodies. Artifacts: scratchpad/run25-trail.txt, w7.sorted,
+final-diff-run25.txt (empty).
+
+## SESSION STATUS 2026-07-17 — STOPPED (gradle unreliable); RESUME HERE (superseded by the update above)
+
+**Where we are (all committed except two files in this final commit):**
+- Both corpora GREEN end-to-end, zero element crashes: timefold (runs 21-24), langchain4j
+  (run2, 36m). The full-chain tests are the standing proving ground.
+- Per-method synthetic numbering LANDED (commit before this one): $__rvN/$_ceN/$_fiN names
+  deterministic per method; ~30 pins re-pinned (all pure renumbering); the summary modified
+  set filters IntermediateVariable-rooted entries (MarkerVariables stay — their star
+  crosses the boundary).
+- Worklist narrowing (gate WORKLIST=1) + verify-certify loop: the CERTIFICATION GATE FIX
+  and maxIterations 10→20 are in THIS commit, **UNVERIFIED by suites** (gradle died before
+  run25 and the suite round). RESUME BY: (1) suites (link+analyzer, --rerun), (2) rerun
+  run25 = `WORKLIST=1 NOPLATEAU=1 FPDUMP=... TestTimefoldSolver`, expect: ~8 worklist
+  iterations → full pass finds ~910 → 2-3 cheap iterations → second full pass CLEAN =
+  certified, diff vs baseline dump expected 0-4 lines (run24 got to 4 lines but hit the
+  old 10-iteration cap mid-cycle).
+- Timings (timefold, 53,535 elements): baseline 10 full iterations = 64 min, NOT converged
+  (22 changes/iter at cap); worklist uncertified = 17.5 min, done==0 at iteration 8;
+  worklist + certification ≈ 25-30 min projected.
+- The 74-line diff question (37 elements: 27 abstract constraint-stream test methods
+  nonModifying, 10 testdomain fields) is what certification resolves: run24's verification
+  pass DID catch them (910 changes incl. internals) — with iteration headroom the certified
+  result should match the baseline. If a clean-pass-certified run still differs from the
+  baseline: two stable fixpoints (non-confluence under the no-downgrade policy) — document,
+  don't chase.
+- OPEN (parked): UNMODOWN direction experiment (unmodifiedParameter oscillates ~82/iter
+  under the gate — needs a per-case trace before any default change); intra-iteration
+  parallelism (audit lazy getOrLoad thread-safety first); slow-tail methods (82% of methods
+  finish in the first 25% of an iteration); baseline still has a genuine 22-change/iter
+  tail at cap (real refinement, reachable with headroom).
+- Process cautions for the restart: gradle env-vars need --rerun; NEVER compile while a
+  test JVM runs; same-test A/B chains overwrite each other's XML/binary output — capture
+  dumps/trails per run immediately (FPDUMP=file, and copy the trail before the next run).
+
+## UPDATE — WORKLIST NARROWING (runs 11-20): 53.5min → 15min, true convergence; naming instability is the last blocker
+
+Gate WORKLIST=1 (+ NOPLATEAU=1 for A/B): iterations 2+ re-analyze only changed elements +
+dependents. Verdict-exactness chased via per-element FPDUMP diffs against the 53.5-min
+full baseline (run17):
+- v1 (any change propagates): 30min, plateaued ~10k dirty.
+- v2 (only summary changes propagate; internal statement-level changes stay local): 14.7
+  min, TRUE convergence (done==0, first ever) — but 138 verdicts conservative.
+- +self in dirty set (self-recursive methods need their own summary): 138 → ~77.
+- +override edges bidirectional (AbstractMethodAnalyzer derives the ABSTRACT method's
+  verdicts FROM implementations — the graph edge runs the other way): 77 → 37.
+- +full SYMMETRIC reverse adjacency (FieldAnalyzer reads referring methods, same story):
+  37 → 37 fields fixed, abstract-test cluster remains.
+- +verify-certify loop (worklist dry → one FULL pass; 0 changes = machine-checked
+  fixpoint, else resume): verdict diff → 2 elements (4 lines), but certification cannot
+  terminate: the full pass finds ~5,815 changes on a SETTLED state.
+**Root cause of the 5,815 (and the baseline's own never-converging methodLinks trickle):
+synthetic-variable NAMING instability.** LinksImpl.equals compares only the primary, so
+the churn comes through the modified sets — which contain $__rvN/$__svN synthetics
+numbered by a GLOBAL per-iteration counter. A worklist subset shifts every number;
+summaries spuriously compare unequal; dirty sets inflate; certification can't see a clean
+pass. FIX (next): per-method-deterministic numbering (pinned suite strings contain $__rvN
+→ mechanical re-pins). Until then WORKLIST stays opt-in: 15 min with 37 conservative
+verdicts (0.07%), or ~20 min with 2, vs 53.5 min baseline.
+
+## UPDATE — LANGCHAIN4J GREEN (run2: exit 0, ZERO caught, 36m22s, plateau at iteration 5)
+
+Both real-world corpora (timefold-solver, langchain4j) now pass the full modification
+chain end-to-end with zero element crashes. Task 'run the 2 projects' complete; they are
+the standing proving ground. Next: worklist-narrowing A/B (gate WORKLIST=1; verdict
+fingerprint as the equivalence signal).
+
+## UPDATE — LANGCHAIN4J ROUND 1: 38 crashes → 2 fixes; plateau exit works (5 iterations, 32 min)
+
+First full-chain run on langchain4j (multi-module, ~27k methods): only 38 caught elements
+(timefold's first run had 3,585 — the hardening transferred). Two shapes:
+- 37× LinkImpl assert "§m stacked on virtual field" from `VirtualModificationIdenticals
+  .Group.expand`: §m faces on CONSTANTS' virtual faces ('"value".§$ss.§m',
+  'HttpClientProvider.class.§$s.§m'). doNotStackMOnTopOfVirtualField made public on
+  LinkImpl; expand() skips unrepresentable faces (same treatment as the NORVM companions).
+- 1× null objectPrimary in LinkMethodCall.findLinkToParameter (functional-interface path).
+The plateau early-exit fired at iteration 5 (4516 vs 4589 changes; methodLinks-dominated
+tail) — 32 min instead of ~60. Phantom fix confirmed: variablesLinkedToObject logged
+(324/iter) but no longer counted.
+
+## UPDATE — TIMEFOLD GREEN + CONVERGENCE DIAGNOSIS (runs 8-10)
+
+**run8 (crash round 2): ZERO caught exceptions across all 53,535 elements** (was 3,585);
+iterations 167s → 306s because formerly-crashing elements now complete. **run9: the full
+modification chain PASSES (exit 0)** — first green on a real-world project. run10 = run9 +
+UNMODOWN=1.
+
+**Convergence profile** (per-property instrumentation in TolerantWrite, logged top-10 per
+iteration): parse 18s, prep 2.5s, iteration 1 ≈ 5 min, then 9 more full ~5-min re-analyses
+chasing <0.5% of elements. Findings:
+- **immutableType refusals: 0** after the computeImmutableType root fix (hierarchy check
+  hoisted above the 'isDependent → FINAL_FIELDS' early return; the refused @Mutable had
+  been the CORRECT verdict on 123 types). TolerantWrite = tourniquet, root fix = cure.
+- **The propertiesChanged "oscillation floor" was mostly PHANTOM**: exactly
+  635/iteration from the variablesLinkedToObject write (LinkComputerImpl) — the method
+  body is re-materialized every iteration, so the "write-once" guard never holds and each
+  iteration re-counted the same 635 writes. No longer counted (TestStream pin 16 → 11).
+- unmodifiedVariable converges naturally by iteration 8 (14248→...→2→0); methodLinks
+  slowly but genuinely (6834→...→3).
+- **UNMODOWN=1 experiment** (gate, default OFF): apply the true→false downgrade for the
+  UNMODIFIED_* family instead of refusing. Suites GREEN with and without (536 pinned
+  verdicts unaffected); unmodifiedVariable refusals become clean downgrades and settle;
+  BUT **unmodifiedParameter oscillates at exactly 81-82/iteration** — a fixed parameter
+  set flips true↔false as links refine, so 'false is absorbing' is too simple there.
+  OPEN: trace that set before any default-on decision; gate-off leaves the harmless
+  refusal steady state (~64/iter) with the optimistic value winning.
+- Plateau early-exit (stopWhenCycleDetectedAndNoImprovements, now actually consulted)
+  fired at the boundary; with the phantom gone it will cut iterations for real.
+
+Speed ledger (task #21): worklist narrowing via reverse call-graph remains the ~10× lever;
+then intra-iteration parallelism; then the slow-tail methods (82% of methods finish in the
+first 25% of an iteration).
+
+## UPDATE — REAL-WORLD CORPUS PHASE: timefold-solver full-chain (post-kotlin-merge)
+
+CloneBench is flat single-class functions — almost no sub-types/deep record structures, so
+the sv mechanisms barely fire there. New proving ground: `TestTimefoldSolver` +
+`TestLangchain4j` in maddi-run-openjdk (corpora in ~/git/test-oss), rewritten to
+`Main.execute` + exit-code assert + assumeTrue on corpus presence, and lifted from
+`--analysis-steps=prep` to the full `modification` chain.
+
+**Run 1 aborted at startup**: `MethodMapImpl` "Two methods with the same FQN and return
+type" on `AtomicBoolean.get()`. Root cause (traced with a temporary AMTTRACE): with ~13
+source-set scans sharing one InfoByFqn, each scan's javac-symbol dedup maps
+(methodSymbolMap/varSymbolMap, per javac context) cannot recognize members another scan
+already materialized via `ensureMethod` (resolving `solving.get()` in DefaultSolver); the
+lazy member-load at analysis time (`VirtualFieldComputer` → `getOrLoad(AtomicBoolean)`)
+then appended duplicate MethodInfos into the shared builder. FIX: `ClassSymbolScanner`
+dedups against the shared builder CONTENT (`findInBuilder`: name + erased params + erased
+return via the existing `sameTypes`; return included so covariant bridges stay distinct;
+fields by name). CloneBench never hit this: single source set.
+
+**Run 2 completed (fault-tolerant, 13m)**: 3585/53535 elements caught. Categories → fixes:
+- 1565× NPE `isIgnoreModifications`: `Util.variableAndScopes` missing the
+  `dv.arrayVariable() != null` guard (the FieldReference branch and `scopeVariables`
+  directly above both had it) → `Stream.of(null)`.
+- 1379× NPE `"container" is null`: `subFrom.parameterizedType().typeInfo()` null (bare
+  type parameter — nothing to slice into) in `ShallowMethodLinkComputer.transfer`'s
+  SliceFactory calls; `assert theField != null` converted to skip; both `findField`s
+  null-tolerant.
+- 233× index-OOB `VirtualFieldComputer.multipleTypeParameters:179`: the
+  `hiddenContentHierarchy` filter compares type-parameter SETS, so a supertype repeating a
+  type parameter yields a larger-arity container; index-mapping loop now bounded (+
+  `formalContainerType == null` skip). Proper fix = thread the type substitution through
+  the hierarchy walk (open).
+- 82× `Unable to find concrete value` (`VirtualFieldTranslationMapForMethodParameters`):
+  method type parameter unresolvable at call site → findValue returns null, tp left
+  untranslated (was: throw).
+- NPE `Graph.addField` "primary is null" (same null-primary family as the CloneBench
+  guards; expression-based array accesses).
+- 20× `LinkAppliedFunctionalInterface.searchAndExpand` with null variableData (lambda
+  bodies); 4× `contains(null)` in ExpressionVisitor.methodCall's consumedIntoObject filter.
+- 19× bare AssertionError in **NORVM** `returnSideModificationCompanions`:
+  `addModificationFieldEquivalence` can produce a §m face whose scope is itself virtual
+  (bavet deep-generic lambdas) — companion skipped via `validCompanionFace` (mirrors
+  LinkImpl's doNotStackMOnTopOfVirtualField, which now has assert MESSAGES).
+- 165× property-overwrite crashes (`unmodifiedVariable/Parameter` true→false,
+  `@FinalFields`→`@Mutable`, 2× METHOD_LINKS value): premature optimistic conclusions on
+  call cycles contradicted in iteration 2; the controlled-overwrite policy only allows
+  strengthening. New `TolerantWrite` (maddi-modification-common) keeps the stronger value +
+  WARNs instead of crashing the element (which lost the whole element AND kept the stale
+  value — strictly worse). **OPEN DESIGN QUESTION**: should the iterating analyzer allow
+  the weakening direction for evidence-accumulating properties (UNMODIFIED_*,
+  NON_MODIFYING_METHOD, IMMUTABLE_TYPE), making 'modified'/@Mutable absorbing? Changes
+  verdicts — user call. (Process note: TolerantWrite's first version passed a null default
+  to getOrDefault, which asserts non-null — 280 suite failures; use haveAnalyzedValueFor.)
+- 51× sv `"same equivalence group"` assert (`Graph.mergeEdgeBi` sv==null branch), all from
+  ONE real shape: `ValueSelectorFactory.buildValueSelector` (locals repeatedly reassigned
+  through wrapper methods that conditionally reassign their own parameter, if/else
+  both-branch reassignment, multi-return; reached via on-demand recursion from ~50 callers
+  — hence 50 reports for one method). `TestChainedReassignment` (5 shapes incl. the full
+  structure) does NOT repro — assert enriched with nature/stmt/graph/groups dump to pin
+  the real trigger on the next corpus run. OPEN.
+
 ## UPDATE — CLONEBENCH GREEN: 9306 types in ~23s analysis; giant-switch hang fixed 583s → 13s
 
 TestCloneBench (the full corpus, 16 directories, previously always skipped) now runs
