@@ -4,6 +4,31 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-17 (evening) — STRATA-PARALLEL ITERATION 1: timefold 8 min, fernflower 4:22, both certified + verdict-exact
+
+The first iteration now also runs parallel (gate PARALLEL=n), in dependency WAVES from
+the call graph (ComputeAnalysisOrder.waves): linearized strata → connected cycle groups
+(one sequential unit each) → attached periphery levels; wave barriers keep callees
+complete before callers. The LOCK valve went through three designs — the lessons:
+1. shallow fallback for absent callees: DEADLOCK-FREE but froze first-impression verdict
+   losses on graph-missed edges (14-element drift incl. nonModifying/unmodifiedField).
+2. plain doMethod(MethodInfo): does NOT write METHOD_LINKS → recomputed whole chains per
+   touch, exponential in fernflower's mega-SCC (killed at 9.5 min, 16k+ computations).
+3. **recurseMethod** (computes AND writes, monitor-free, memoizing; abstract callees stay
+   on getOrCreate since their shallow compute takes no nested locks): VERDICT-EXACT —
+   fernflower diff 0 lines (even the earlier 2-constructor drift healed), timefold diff
+   0 lines vs the canonical baseline. Duplicate cross-thread computes are benign
+   (deterministic value, TolerantWrite-guarded write).
+Structure matters: timefold i1 5:11 → 2:13 (50 waves, 39,335 units — fine-grained);
+fernflower i1 ~unchanged (~1:55) — its core is ONE mega-SCC = one sequential unit.
+Xmx 6G→8G (heavy GC under PARALLEL=8, user-observed).
+
+**Ledger (all certified, all 0-line verdict diffs): timefold 64 min uncertified (2 days
+ago) → 41 certified (this morning) → 11 (hot-spot fixes) → 8:01 (strata i1).
+fernflower 33 min → 4:22.** OPEN: langchain4j full validation; PARALLEL default-on
+decision; mega-SCC corpora (fernflower-like) keep a sequential i1 core — intra-SCC
+parallelization would need speculative/duplicate computation, parked.
+
 ## UPDATE 2026-07-17 — TIMEFOLD PARALLEL=8: 11 min certified, verdict-exact (was 64 min uncertified yesterday, 41 min certified this morning)
 
 All of today combined (worklist default-on + certification + 2 O(n^2) fixes + PARALLEL=8):
