@@ -4,6 +4,27 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-17 — RUN26: FIRST CERTIFIED FIXPOINT (timefold, 41 min, verdict-exact); the "non-idempotent ~36" were a starved convergence chain, not oscillation
+
+Run26 (WORKLIST=1 NOPLATEAU=1 MLTRACE=1, with the attribution fix from commit 8475dabe):
+- 12 narrowing iterations to quiet (the methodLinks trickle now stays in the worklist and
+  SETTLES: 20→13→3→0) → verification pass 1 finds 173 → 2 cheap subset iterations →
+  pass 2 finds 4 (unmodifiedField 2 + unmodifiedParameter 2, ZERO methodLinks) → 1 subset
+  iteration → **pass 3 finds 0 → "Stop iterating after 18 iterations, done? true"** —
+  the first machine-certified fixpoint. FPDUMP diff vs baseline: **0 lines** (second
+  verdict-exact run in a row). Wall: ~41 min incl. scan (~30 min analysis) vs 64-min
+  uncertified baseline cap and run25's 68-min cap-out.
+- DIAGNOSIS REVISED: run25's 35/37/36/19 plateau was NOT non-idempotence/oscillation.
+  Those methods form a long convergence chain; without attribution the worklist never
+  re-ran them, so each FULL pass advanced the chain exactly one step. With the main-loop
+  METHOD_LINKS write attributed, the chain converges inside cheap subset iterations and
+  full passes come back clean. The attribution fix was the root fix; MLTRACE (gated)
+  stays as a diagnostic.
+- No non-confluence anywhere: two independent worklist runs both reproduce the baseline
+  verdict-for-verdict.
+- Next: langchain4j certified run (generality), then the WORKLIST default-on decision.
+- Artifacts: scratchpad/run26-trail.txt, w8.sorted, final-diff-run26.txt (empty).
+
 ## UPDATE 2026-07-17 — RUN25: WORKLIST IS VERDICT-EXACT (0-line diff vs baseline); certification blocked by ~36 non-idempotent methodLinks
 
 Resume executed as planned: suites verified commit 9f6d8719 (link 393/0, analyzer 143/0 —
