@@ -120,34 +120,37 @@ public class ComputeSourceSets {
         Set<SourceSet> results = new HashSet<>();
         for (DependencyNode child : node.getChildren()) {
             Artifact artifact = child.getArtifact();
+            if (artifact == null || artifact.getFile() == null) continue;
             // maddi keys a classpath source set by its jar file name and resolves it as "jar file: <name>"
             // (its own --write-input-configuration names jars this way too), so the part name must be the jar
             // file name, not the groupId:artifactId:version coordinate.
             String name = artifact.getFile().getName();
-            if (!sourceSetsByName.containsKey(name) &&
-                (excludeFromClasspathSet.isEmpty() || !excludeFromClasspathSet.contains(artifact.getArtifactId()))) {
-                Set<SourceSet> children;
-                if (child.getChildren().isEmpty()) {
-                    children = Set.of();
+            // Flatten the whole subtree into direct dependencies. A classpath is flat, and nesting the transitive
+            // deps under their parent -- combined with the name-dedup below -- would drop an already-seen dep from
+            // its parent's child set, leaving it unreachable when maddi walks the graph to build the parse
+            // classpath (e.g. slf4j-api under a provided slf4j binding never reaching the compile classpath).
+            results.addAll(processDependencyNodes(child, test, runtimeOnly, sourceSetsByName,
+                    excludeFromClasspathSet, indent + 1));
+            if (!excludeFromClasspathSet.contains(artifact.getArtifactId())) {
+                SourceSet existing = sourceSetsByName.get(name);
+                if (existing != null) {
+                    results.add(existing); // already created (possibly in an earlier scope); still a direct dep here
                 } else {
-                    children = Set.copyOf(processDependencyNodes(child, test, runtimeOnly, sourceSetsByName,
-                            excludeFromClasspathSet, indent + 1));
+                    URI uri = URI.create("file:" + artifact.getFile().getPath());
+                    SourceSet sourceSet = new SourceSetImpl.Builder()
+                            .setName(name)
+                            .setUri(uri)
+                            .setTest(test)
+                            .setLibrary(true)
+                            .setExternalLibrary(true)
+                            .setPartOfJdk(false)
+                            .setRuntimeOnly(runtimeOnly)
+                            .setDependencies(List.of())
+                            .build();
+                    sourceSetsByName.put(name, sourceSet);
+                    log.debug("Added class path part " + name);
+                    results.add(sourceSet);
                 }
-                log.debug("**".repeat(indent) + " " + name + " has " + children.size() + " child(ren)");
-                URI uri = URI.create("file:" + artifact.getFile().getPath());
-                SourceSet sourceSet = new SourceSetImpl.Builder()
-                        .setName(name)
-                        .setUri(uri)
-                        .setTest(test)
-                        .setLibrary(true)
-                        .setExternalLibrary(true)
-                        .setPartOfJdk(false)
-                        .setRuntimeOnly(runtimeOnly)
-                        .setDependencies(List.copyOf(children))
-                        .build();
-                sourceSetsByName.put(name, sourceSet);
-                log.debug("Added class path part " + name);
-                results.add(sourceSet);
             }
         }
         return results;
