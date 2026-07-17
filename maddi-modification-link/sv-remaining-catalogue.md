@@ -4,6 +4,15 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-18 — JENKINS CORE GREEN (6th corpus): exit 0, certified in 13 iterations, 12.5 min
+
+After the kotlin-side prepwork fixes (merge efb87d26: commonType raw-argument fallback,
+shadowed captured variable), jenkins core runs the full modification chain: exit 0,
+certified, 30,478 elements, ZERO link/analyzer crashes. Residue (task #25, narrow): 10 of
+~1,260 TEST files dropped at scan with 'cannot find symbol: Messages' — main sources
+resolve the same localizer-generated classes fine, so it is a test-source-set resolution
+question, not the earlier main-scan blocker. TestJenkinsCore added.
+
 ## UPDATE 2026-07-18 — ACTIVEMQ BROKER GREEN (5th corpus): VL2O contribution cache + qualified inner creation; 2min certified
 
 activemq-broker first contact (concurrency axis): stalled iteration 1 at 'Done 4338' —
