@@ -7,6 +7,7 @@ module org.e2immu.language.java.parser {
     requires org.slf4j;
 
     exports org.e2immu.parser.java;
+    exports org.e2immu.parser.java.util;
     exports org.parsers.java;
     exports org.parsers.java.ast;
 }
