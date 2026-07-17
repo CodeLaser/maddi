@@ -4,6 +4,32 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-17 — HOT-SPOT ROUND: fernflower 33 min → 4.5 min (certified); two O(n^2) fixes + the 2-constructor non-confluence
+
+Profiling (jstack aggregate over the reorderIf window) found two engine-wide quadratics:
+1. **RedundantLinks.completion**: a DFS per LINK over the accumulated guard graph. The
+   per-link completion sets are only consumed as their union, so one multi-source DFS per
+   nature group computes the identical result in O(V+E) (overwrite semantics preserved:
+   last nature key per to-var in builder order). reorderIf 145s → 77s/iteration.
+2. **WriteLinksAndModification.dedupReversePairs**: all-pairs reverse-pair scan with
+   Variable.equals. The predicate is exactly key(j)==revKey(i) on the same toString keys
+   pass 1 already uses → hash index, same ascending visit order. reorderIf 77s → 20s.
+Both verdict-neutral: suites 393/0+143/0 AND the corpus dump matches the pre-fix
+sequential baseline exactly (0-line diff, 4,907 elements).
+
+Fernflower ledger (certified every run): sequential 33 min → PARALLEL=8 20 min →
++RedundantLinks 11 min → +dedup **4 min 28 s** (parallel iterations 25s, iteration 1
+2:00, reorderIf 20s). Sequential post-fix: 21 min (RedundantLinks only; dedup not yet
+re-measured sequentially).
+
+**Known non-confluence (2 elements, 0.04%): Exprent.<init>(int) + StatEdge.EdgeType
+.<init>(int)** flip nonModifying false(seq)→true(par). Both trivial int-storing
+constructors; the PARALLEL verdict is the semantically better one, and false→true is the
+LEGAL refinement direction — meaning the sequential order MISSES a refinement these
+constructors should get (locked conservative and never revisited). Parallelism exposes,
+not causes, the gap. FOLLOW-UP: trace why the sequential iteration never upgrades a
+trivial constructor's nonModifying.
+
 ## UPDATE 2026-07-17 — INTRA-ITERATION PARALLELISM (gate PARALLEL=n): certified + verdict-exact at 8 threads on fernflower
 
 New small corpus: **fernflower** (~47k lines, 4,964 elements; TestFernflower +
