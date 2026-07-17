@@ -234,7 +234,7 @@ public class RunAnalyzer implements Runnable {
                     .build();
             IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(javaInspector, modConfig);
             try {
-                analyzer.analyze(order, ccg.graph()); // graph enables WORKLIST=1 narrowing
+                analyzer.analyze(order, ccg.graph()); // graph enables worklist narrowing (default ON, NOWORKLIST=1 opts out)
             } catch (RuntimeException | AssertionError analyzerError) {
                 terminalError = analyzerError;
                 exitValue = Main.EXIT_ANALYSER_ERROR;

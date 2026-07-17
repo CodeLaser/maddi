@@ -157,9 +157,11 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         analyze(analysisOrder, null);
     }
 
-    // gate WORKLIST=1: iterations 2+ only re-analyze changed elements + their dependents (reverse dependency
-    // edges); requires the dependency graph. OFF by default pending the corpus verdict A/B.
-    private static final boolean WORKLIST = System.getenv("WORKLIST") != null;
+    // Worklist narrowing: iterations 2+ only re-analyze changed elements + their dependents (reverse
+    // dependency edges); requires the dependency graph. ON by default since the corpus proof (2026-07-17):
+    // certified fixpoints on timefold + langchain4j, verdict dumps identical to full re-analysis.
+    // Opt out with NOWORKLIST=1 (e.g. for baseline A/B runs).
+    private static final boolean WORKLIST = System.getenv("NOWORKLIST") == null;
 
     @Override
     public void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph) {
@@ -230,7 +232,10 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             boolean done = propertiesChanged == 0 && (dependersOf == null || verifying);
             // plateau: the change count no longer meaningfully decreases (an oscillation floor); further full
             // re-analyses only pay for the same flips again. Opt-in via stopWhenCycleDetectedAndNoImprovements.
-            boolean plateau = configuration.stopWhenCycleDetectedAndNoImprovements()
+            // Irrelevant under an active worklist: the verify-certify loop reaches a machine-checked fixpoint
+            // (and a subset iteration's change count is not comparable to the previous iteration's anyway).
+            boolean plateau = dependersOf == null
+                              && configuration.stopWhenCycleDetectedAndNoImprovements()
                               && System.getenv("NOPLATEAU") == null
                               && iterations >= 3 && propertiesChanged >= 0.95 * previousPropertiesChanged;
             if (iterations == configuration.maxIterations() || done || plateau) {

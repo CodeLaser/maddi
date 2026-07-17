@@ -57,7 +57,7 @@ public interface IteratingAnalyzer {
 
     /**
      * Like {@link #analyze(List)}, additionally providing the dependency graph (edge from X to Y = X depends
-     * on Y, as built by ComputeCallGraph). With the WORKLIST=1 gate, iterations 2+ only re-analyze elements
+     * on Y, as built by ComputeCallGraph). Worklist narrowing (default ON; opt out with NOWORKLIST=1) then makes iterations 2+ only re-analyze elements
      * that changed in the previous iteration plus their dependents (reverse edges) — the worklist narrowing.
      */
     default void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph) {
