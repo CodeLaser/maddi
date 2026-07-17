@@ -96,7 +96,11 @@ public class EnclosedExpressionImpl extends ExpressionImpl implements EnclosedEx
 
     @Override
     public int internalCompareTo(Expression expression) {
-        return inner.compareTo(((EnclosedExpression) expression).inner());
+        // order() delegates to inner, so the comparator can pair us with a NON-enclosed expression of the
+        // inner's order (guava first contact: BinaryOperator vs enclosed binary operator) — compare against
+        // the other side as-is rather than blind-casting
+        Expression other = expression instanceof EnclosedExpression ee ? ee.inner() : expression;
+        return inner.compareTo(other);
     }
 
     @Override

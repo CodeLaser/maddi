@@ -204,8 +204,11 @@ public record LinkMethodCall(JavaInspector javaInspector,
                         LinkAppliedFunctionalInterface handler = new LinkAppliedFunctionalInterface(javaInspector, runtime,
                                 linkComputerOptions, virtualFieldComputer, currentMethod, variableData, stage);
                         LinksImpl.Builder builder = new LinksImpl.Builder(links.primary());
+                        // index bound: the ParameterInfo may belong to a method with more parameters than
+                        // this call has arguments (varargs / cross-method summaries, guava first contact)
                         Function<Variable, List<Links>> paramProvider = v ->
-                                v instanceof ParameterInfo pi ? List.of(params.get(pi.index()).links()) : List.of();
+                                v instanceof ParameterInfo pi && pi.index() < params.size()
+                                        ? List.of(params.get(pi.index()).links()) : List.of();
                         handler.go(builder, paramProvider, applied, extraModified, null, link.linkNature(),
                                 null);
                         extra.merge(links.primary(), builder.build(), Links::merge);
