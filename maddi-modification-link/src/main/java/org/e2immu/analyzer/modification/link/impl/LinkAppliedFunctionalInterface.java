@@ -106,6 +106,7 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
             VariableInfoContainer vic = variableData.variableInfoContainerOrNull(list0Primary.fullyQualifiedName());
             if (vic != null) {
                 VariableInfo vi = vic.best(stage);
+                if (vi.linkedVariables() == null) continue; // not yet computed for this variable (guava first contact)
                 List<FunctionalInterfaceVariable> fis = vi.linkedVariables().stream()
                         .filter(l -> l.to() instanceof FunctionalInterfaceVariable)
                         .map(l -> (FunctionalInterfaceVariable) l.to())
