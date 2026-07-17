@@ -4,6 +4,28 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-17 (late) — VERIFICATION-PASS RESIDUE ROOT-CAUSED TO THE v2 ASSUMPTION; two hypotheses falsified, cost accepted (~2 passes)
+
+The ~160-element residue that verification pass 1 keeps finding on timefold (constraint-
+stream test methods + their $N.test anonymous SAM implementations, modified-set-only
+changes, verdict-irrelevant — dumps stay 0-diff) was chased through two mechanical
+hypotheses, BOTH falsified by A/B runs:
+1. Consumed-summary edges (recurseIntoLinkComputer funnel → reverse adjacency): landed
+   (safe superset, kept), residue unchanged — the METHOD_LINKS reads were not the gap.
+2. Dirty-target mapping (anonymous/lambda methods dirtied but silently dropped by the
+   order filter): landed (kept — the drop was real), residue unchanged — the residue's
+   summary writes were already attributed to the enclosing order elements.
+CONCLUSION: at the quiet point these methods RECOMPUTE DIFFERENTLY because their link
+computation reads state that changes WITHOUT a summary-level write — per-statement
+internal state of other elements (VariableData / StaticValues / VL2O), exactly what the
+v2 worklist design ("only summary changes propagate") deliberately excludes. A real fix
+= make the read-relevant internal state summary-visible (fingerprint it); a design task.
+ACCEPTED for now: cost is ~2 extra full verification passes (~2 min timefold, ~1 min
+langchain4j, ~10s fernflower); correctness is certification-guaranteed regardless.
+Micro-round the same evening: VariableImpl FQN memoization + cached-hash fast reject in
+equals (kept; measured effect within langchain4j's ±10% run-to-run noise band 13:45-15:49).
+Diagnostic kept: the verifying branch logs residue element names.
+
 ## UPDATE 2026-07-17 (evening) — STRATA-PARALLEL ITERATION 1: timefold 8 min, fernflower 4:22, both certified + verdict-exact
 
 The first iteration now also runs parallel (gate PARALLEL=n), in dependency WAVES from
