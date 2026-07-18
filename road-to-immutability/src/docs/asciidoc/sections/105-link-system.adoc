@@ -1,0 +1,164 @@
+[[link-system]]
+= The link system
+
+The chapters up to now have used _linking_ informally: two variables are linked when modifying the content
+of one may modify the content of the other.
+This chapter describes, at a technical but hopefully still readable level, how the analyzer actually
+computes links.
+It is the first of two chapters that trade the tutorial style for a look under the hood; the concepts of
+the earlier chapters — modification, independence, accessible and hidden content — are assumed throughout.
+
+== Links, natures, and summaries
+
+A _link_ is a triple: `(from, nature, to)`, where `from` and `to` are variables — in a broad sense that
+includes fields of variables, array elements, and several synthetic kinds introduced below — and the
+_nature_ expresses *how* the two relate.
+Where the earlier chapters distinguished only "statically assigned", "dependent" and "independent with
+hidden content", the engine works with a richer alphabet.
+The natures that matter most, with the notation used in the analyzer's own output:
+
+[cols="1,2,4"]
+|===
+|symbol |name |meaning, by example
+
+|`≡` |identity |two spellings of the same variable
+|`←` `→` |assigned from / to |`X x = box.t`: `x ← box.t`
+|`∈` `∋` |is element of / contains |`list.get(0)`: `get ∈ list.§xs`
+|`⊆` `⊇` |subset / superset |`new ArrayList<>(l)`: `copy.§xs ⊆ l.§xs`
+|`~` |shares elements |`dst.addAll(src)`: `dst.§xs ~ src.§xs`
+|`≺` `≻` `≈` |field of / contains field / shares fields |field-level dependence
+|`≤` `≥` `∩` |object-graph containment / overlap |the weakest, "somewhere in the object graph" relations
+|===
+
+Reciprocals normally appear in pairs: `x ∈ list.§xs` alongside `list.§xs ∋ x`.
+A `*` after a variable means it is (or may be) modified at that point: `box*.t`.
+
+The unit of exchange between methods is the _method link summary_ (`MethodLinkedVariables`): how a method's
+return value, parameters and receiver relate, plus which of them it modifies.
+For example, the summary of a setter `void set(X x)` on a one-field holder reads
+`[0:box*.t←1:x*] --> -`: parameter `x` is assigned into the receiver's field, both are marked modified,
+and there are no return-value links.
+Summaries are computed once per method and then _applied_ at every call site, translating the callee's
+formal `this` and parameters into the actual receiver and arguments.
+
+== Two field models: concrete fields and virtual fields
+
+A link names a _place inside_ a variable, and there are two ways to name such a place:
+
+* For types whose source the analyzer has parsed, the place is a real field: `box.t`, `pair.a`, `bb.t.t`.
+* For shallowly analyzed types — most of the JDK — no field is visible.
+  Their contents are represented by _virtual fields_, written with a `§` prefix: `list.§xs` for a list's
+  elements, `map.§kvs` for a map's entries.
+  A virtual field is exactly the _hidden content_ of the chapter on <<hidden-content>>, given a
+  name so that links can point at it.
+
+The distinction drives which natures appear: a one-field holder tends to produce assignment links
+(`←`, `→`), a collection produces element links (`∈`, `∋`, `~`, `⊆`).
+Otherwise the shapes are identical, and this symmetry is heavily used in the test suite, which pins the
+same relationship over a source type (`Box<T>`) and a JDK type (`List<X>`) side by side.
+
+One virtual field deserves special mention: `§m`, the _modification component_.
+It stands for "the mutable aspect of this object, wherever it lives", and lets the engine express that two
+variables share their modification fate without committing to a structural claim.
+
+== From expressions to a method summary
+
+The linking pipeline runs per method, statement by statement, expression by expression:
+
+1. preparatory analysis (`maddi-modification-prepwork`) computes, per method, the variables, their
+   assignments and reads;
+2. the link computer walks the method body; every expression produces a small result: its primary links,
+   links about other variables it touched, and the variables it modified;
+3. at every method call, the callee's summary is translated onto the call site — the central operation of
+   the whole system.
+   Formal parameters become arguments, the formal `this` becomes the receiver (including through
+   inheritance: a supertype's `this` maps to the same receiver), and the callee's modification marks
+   transfer to the actual variables;
+4. the accumulated links feed a per-method _link graph_ on which a fixpoint closure runs (next section);
+5. the method's own summary is extracted from the closure, and becomes available to _its_ callers.
+
+Functional interfaces get their own machinery, because a lambda's effect happens at a distance: the place
+that _captures_ `x -> box.set(x)` is not the place that _applies_ it.
+The capture is wrapped into a synthetic functional-interface variable carrying the lambda's links and
+modifications; the application site — say `list.forEach(consumer)` — finds that variable and _lifts_ the
+lambda's links onto the concrete receiver: the summary of `forEach` says "the receiver's elements flow
+into the consumer", and the lifting engine substitutes the lambda's parameter by those elements.
+When the lambda is not yet known (a method that merely receives a `Consumer` and applies it), the
+application is recorded symbolically and resolved later, at the caller that supplies the concrete lambda.
+
+== The closure: facts, witnesses, and an incremental fixpoint
+
+Links compose: from `a ← b` and `b ∈ c.§xs` follows `a ∈ c.§xs`.
+Composition is defined by a binary operator on natures (the full table lives in the module's README);
+composing natures generally _weakens_ them — a subset of an overlap is at best an overlap — and the
+weakest results (`≤`, `∩`) eventually compose to nothing, which keeps the closure finite.
+
+The engine that computes this closure (`IncrementalFixpointEngine`) treats each link as a _fact_ and works
+incrementally: statements add facts, each new fact is propagated forward and backward against the existing
+closure, and every derived fact carries a _witness_ — the pair of facts it was composed from.
+Witnesses earn their keep when facts are _removed_: when a modification invalidates a link (the `⊇→~`
+rewrite below), all facts whose witness chain rests on the removed fact must be recomputed, and only those.
+This is what makes the engine incremental rather than recompute-the-world.
+
+Two practical notes on this machinery:
+
+* Modification is destructive: calling `list.remove(..)` after `copy.§xs ⊆ list.§xs` was established
+  demotes the subset claim to `~` (shares elements) — the copy still shares content, but the neat
+  containment no longer holds.
+  The rewrite fires once, at the modification statement, and only for links the modified variable itself
+  owns.
+* Cycle protection: pathological code shapes (deeply mutually recursive accessors, decompiler-generated
+  monsters) can make the closure explode.
+  The graph walk carries a hard ceiling; hitting it abandons the _source-level_ computation for that
+  method and degrades to its shallow summary, keeping the element alive at reduced precision rather than
+  crashing or grinding.
+
+== The shared-variable collapse
+
+The system as described so far has a scaling problem, and solving it is the most substantial recent change
+to the link engine.
+Consider a builder-style method that threads one object through many locals: every local is assigned from
+the previous one, every field of the object is reachable from every local, and the naive link set grows as
+(locals × fields × natures) — the _part-of link explosion_.
+On real code bases this reached hundreds of thousands of links for a single method.
+
+The collapse introduces _shared variables_: an equivalence grouping of variables that provably denote the
+same runtime slot, in two tiers:
+
+* _modification identity_: variables linked by `≡` on their `§m` component — they share their modification
+  fate exactly;
+* _assignment groups_: chains of pure whole-object assignments (`a = b; c = a;`) collapse into one group
+  with a single representative.
+
+The graph then stores edges against group _representatives_ only.
+What used to be quadratic bookkeeping becomes one edge per relationship, and the closure runs on the
+collapsed graph.
+
+The price is _reconstruction_: the method summary must be expressed in terms of the method's real
+parameters, fields and return value — not internal representatives.
+At extraction time, representative-level facts are projected back onto the group members that matter,
+guided by one master rule: _direction_.
+Assignment direction within a group is preserved (the source of an assignment passes knowledge to the
+recipient, never the reverse), field-level facts are re-homed onto each endpoint of an intra-group link
+("`setI ← this` mirrors to `setI.i ← this.i`"), and a redundancy pass removes links that are transitive
+consequences of nearer hops.
+The reconstruction techniques have their own catalogue in the module
+(`sv-reconstruction-techniques.md`); the summary-level behavior is pinned by the link test suite, which is
+the de-facto specification.
+
+== Reading the output
+
+For the curious, the fastest way to build intuition is to read summaries off real methods.
+A few shapes, all current output:
+
+----
+X read(Box<X> box)        { return box.get(); }   [-] --> read←0:box.t
+X get(List<X> list)       { return list.get(0); } [-] --> get∈0:list.§xs
+void add(List<X> l, X x)  { l.add(x); }           [0:l*.§xs∋1:x, 1:x∈0:l*.§xs] --> -   MOD[0:l]
+List<X> copy(List<X> l)   { return new ArrayList<>(l); }  [-] --> copy.§xs⊆0:l.§xs
+int size(List<X> list)    { return list.size(); } [-] --> -   MOD[]
+----
+
+`0:`/`1:` are parameter indices; `MOD[..]` lists the modified variables.
+The last line is the pure case: nothing flows, nothing changes — and that, ultimately, is what the whole
+system exists to prove.

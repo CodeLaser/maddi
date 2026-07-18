@@ -315,10 +315,12 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
                 .addComments(comments().stream().map(c -> c.rewire(infoMap)).toList())
                 .setSource(source())
                 .setInitializer(initializer().rewire(infoMap)).commit();
+        // carry the opted-in analysis (see Property.carryOnRewire); inert until a property opts in
+        rewiredField.analysis().setAll(analysis().rewire(infoMap));
     }
 
     @Override
-    public Element rewire(InfoMap infoMap) {
+    public Element rewire(InfoMapView infoMap) {
         throw new UnsupportedOperationException("Must use the infoMap.fieldInfo() method");
     }
 }

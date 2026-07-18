@@ -15,6 +15,7 @@
 package org.e2immu.analyzer.modification.prepwork.io;
 
 import org.e2immu.language.cst.api.analysis.Codec;
+import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -40,14 +41,22 @@ public class WriteAnalysisResults {
 
     private final Runtime runtime;
     private final Predicate<TypeInfo> typePredicate;
+    // which analysis properties to serialise; the analysisFingerprint (analysis-rewiring.md) passes a predicate
+    // that keeps only the analyzer output. Default true = write everything, the production behaviour.
+    private final Predicate<Property> propertyPredicate;
 
     public WriteAnalysisResults(Runtime runtime) {
         this(runtime, ti -> true);
     }
 
     public WriteAnalysisResults(Runtime runtime, Predicate<TypeInfo> typePredicate) {
+        this(runtime, typePredicate, p -> true);
+    }
+
+    public WriteAnalysisResults(Runtime runtime, Predicate<TypeInfo> typePredicate, Predicate<Property> propertyPredicate) {
         this.runtime = runtime;
         this.typePredicate = typePredicate;
+        this.propertyPredicate = propertyPredicate;
     }
 
     public void write(String destinationDirectory, Trie<TypeInfo> typeTrie) throws IOException {
@@ -108,15 +117,16 @@ public class WriteAnalysisResults {
         }
     }
 
-    private static Codec.EncodedValue write(Codec codec, Codec.Context context, Info info, int index) {
+    private Codec.EncodedValue write(Codec codec, Codec.Context context, Info info, int index) {
         Stream<Codec.EncodedPropertyValue> stream = info.analysis().propertyValueStream()
                 .filter(pv -> !pv.value().isDefault()) // not streaming default values
+                .filter(pv -> propertyPredicate.test(pv.property()))
                 .map(pv -> codec.encode(context, pv.property(), pv.value()))
                 .filter(Objects::nonNull); // some properties will (temporarily) not be streamed
         return codec.encode(context, info, "" + index, stream, null);
     }
 
-    private static Codec.EncodedValue writeMethod(Codec codec, Codec.Context context, MethodInfo methodInfo, int index) {
+    private Codec.EncodedValue writeMethod(Codec codec, Codec.Context context, MethodInfo methodInfo, int index) {
         List<Codec.EncodedValue> subs = new ArrayList<>(methodInfo.parameters().size());
         int p = 0;
         for (ParameterInfo parameterInfo : methodInfo.parameters()) {
@@ -127,6 +137,7 @@ public class WriteAnalysisResults {
         }
         Stream<Codec.EncodedPropertyValue> stream = methodInfo.analysis().propertyValueStream()
                 .filter(pv -> !pv.value().isDefault())
+                .filter(pv -> propertyPredicate.test(pv.property()))
                 .map(pv -> codec.encode(context, pv.property(), pv.value()))
                 .filter(Objects::nonNull); // some properties will (temporarily) not be streamed
         return codec.encode(context, methodInfo, "" + index, stream, subs);
@@ -175,9 +186,22 @@ public class WriteAnalysisResults {
         }
         Stream<Codec.EncodedPropertyValue> stream = typeInfo.analysis().propertyValueStream()
                 .filter(pv -> !pv.value().isDefault())
+                .filter(pv -> propertyPredicate.test(pv.property()))
                 .map(pv -> codec.encode(context, pv.property(), pv.value()))
                 .filter(Objects::nonNull); // some properties will (temporarily) not be streamed
         return codec.encode(context, typeInfo, "" + index, stream, subs);
+    }
+
+    /**
+     * Encode a single primary type's analysis to a {@link Codec.EncodedValue}, honouring the type and property
+     * predicates. Shared by the file writer ({@link #writePrimary}) and the analysisFingerprint (which serialises
+     * this and hashes it); see {@code analysis-rewiring.md}.
+     */
+    public Codec.EncodedValue encodePrimaryType(Codec codec, Codec.Context context, TypeInfo primaryType) {
+        context.push(primaryType);
+        Codec.EncodedValue ev = writeType(codec, context, primaryType, 0);
+        context.pop();
+        return ev;
     }
 
     private void writePrimary(OutputStreamWriter osw,
@@ -185,9 +209,7 @@ public class WriteAnalysisResults {
                               AtomicBoolean first,
                               TypeInfo primaryType) throws IOException {
         Codec.Context context = new CodecImpl.ContextImpl();
-        context.push(primaryType);
-        Codec.EncodedValue ev = writeType(codec, context, primaryType, 0);
-        context.pop();
+        Codec.EncodedValue ev = encodePrimaryType(codec, context, primaryType);
 
         if (ev != null) {
             if (first.get()) first.set(false);

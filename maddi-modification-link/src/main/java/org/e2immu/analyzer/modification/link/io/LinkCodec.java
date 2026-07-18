@@ -128,6 +128,12 @@ public class LinkCodec {
                 }
                 return encodeList(context, List.of(encodeString(context, "m"), encodeString(context, name)));
             }
+            // SharedVariable/IntermediateVariable have no codec branch by design: they are kept out of
+            // summaries by acceptForLinkedVariables filtering. If one leaks here, the fallback would
+            // silently encode it as an ordinary local — fail at the cause instead.
+            assert !(variable instanceof org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable)
+                   && !(variable instanceof org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable)
+                    : "engine-internal variable leaked into persistence: " + variable;
             return super.encodeVariable(context, variable);
         }
 
@@ -182,7 +188,7 @@ public class LinkCodec {
             if ("m".equals(s)) {
                 String name = decodeString(context, list.get(1));
                 MarkerVariable mv = decodedMarkerVariables.get(name);
-                assert mv != null : "Cannot find" + name;
+                assert mv != null : "Cannot find " + name;
                 return mv;
             }
             if ("a".equals(s)) {
@@ -209,7 +215,12 @@ public class LinkCodec {
                 String name = decodeString(context, list.get(1));
                 ParameterizedType pt = decodeType(context, list.get(2));
                 if (list.size() == 3) {
-                    return new MarkerVariable(name, pt, runtime.newEmptyExpression());
+                    // cache like the other branches: the encode side emits an "m" back-reference for a
+                    // repeated marker name, and someValue markers all share the literal name "$_v" —
+                    // without this put, the second occurrence hit the "Cannot find" assert above
+                    MarkerVariable emptyMv = new MarkerVariable(name, pt, runtime.newEmptyExpression());
+                    decodedMarkerVariables.put(name, emptyMv);
+                    return emptyMv;
                 }
                 Expression ae = decodeExpression(context, list.get(3));
                 MarkerVariable mv = new MarkerVariable(name, pt, ae);

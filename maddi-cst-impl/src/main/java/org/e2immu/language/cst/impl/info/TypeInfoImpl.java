@@ -892,6 +892,8 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         }
         TypeInfo rewiredType = infoMap.typeInfo(this);
         rewiredType.builder().commit();
+        // carry the opted-in analysis (see Property.carryOnRewire); inert until a property opts in
+        rewiredType.analysis().setAll(analysis().rewire(infoMap));
     }
 
     @Override
@@ -1014,7 +1016,7 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
     }
 
     @Override
-    public Element rewire(InfoMap infoMap) {
+    public Element rewire(InfoMapView infoMap) {
         throw new UnsupportedOperationException("Must use one of the infoMap methods");
     }
 

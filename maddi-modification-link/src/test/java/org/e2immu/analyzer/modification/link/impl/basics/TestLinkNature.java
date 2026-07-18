@@ -30,7 +30,8 @@ public class TestLinkNature {
                 IS_SUBSET_OF, IS_SUPERSET_OF, IS_ELEMENT_OF, CONTAINS_AS_MEMBER,
                 IS_IDENTICAL_TO, IS_ASSIGNED_FROM, IS_ASSIGNED_TO,
                 IS_FIELD_OF, CONTAINS_AS_FIELD,
-                IS_DECORATED_WITH);
+                IS_DECORATED_WITH, CONTAINS_DECORATION,
+                COULD_BE_ELEMENT_OF, COULD_CONTAIN_AS_MEMBER);
     }
 
     @Test

@@ -176,12 +176,13 @@ These were found while documenting; they are covered by tests in `TestVirtualFie
    pins the behaviour so it resurfaces if anyone relies on sub-tuple linking. Revisit only if Guava-`Table`-shaped
    types with live sub-tuple views become important.
 
-2. **`addModificationFieldEquivalence` looks like a copy-paste bug — but is load-bearing.** It computes
-   `immutableFrom = typeImmutable(to.parameterizedType())` (reads `to`, not `from`). Changing it to `from` makes
-   the modification equivalence depend on `min(from, to)` rather than `to` alone, which *changes* the link output
-   and breaks `TestCast`, `TestInstanceOf` and a `TestList` case. So it is **not** a safe one-line fix: it needs a
-   decision on the intended modification semantics, and the affected expected-values updated. Left as-is with an
-   in-code note. (`VirtualFieldComputer`, the `M2` method.)
+2. **`addModificationFieldEquivalence` — RESOLVED (2026-07).** The long-standing copy-paste read
+   (`immutableFrom` computed from `to`) has been fixed: the semantics decision was taken that the pair denotes
+   ONE runtime object, so a `§m` pair is emitted when EITHER static type is mutable (`min(from, to)`), with a
+   NO_VALUE short-circuit treating undecided types as mutable (conservative for modification tracking; camel
+   first contact). The affected pins (`TestCast`, `TestInstanceOf`, `TestList`) were re-baselined — eager
+   emission is finer than the old modification-coupled emission, and verdict-neutral. See the in-code comment
+   at `VirtualFieldComputer.addModificationFieldEquivalence`.
 
 3. **Two overlapping "does this need virtual fields?" predicates — load-bearing divergence, left in place
    (2026-06).** `Util.needsVirtual(...)` excludes **all** functional interfaces (`isFunctionalInterface()`), while

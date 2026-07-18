@@ -56,7 +56,7 @@ class WriteLinksAndModification {
         Set<Variable> unmarkedModifications = new HashSet<>(modifiedDuringEvaluation.keySet());
         Map<Variable, Links.Builder> newLinkedVariables = new HashMap<>();
         List<Link> toRemove = new ArrayList<>();
-        if (System.getenv("SVDUMP") != null) {
+        if (Gate.isSet("SVDUMP")) {
             System.out.println("SVDUMP stmt " + statement.source().index() + "\n"
                                + followGraph.graph().printShared(Object::toString));
             System.out.println("SVDUMP-MOD stmt " + statement.source().index() + " "
@@ -99,7 +99,7 @@ class WriteLinksAndModification {
             // gate NOFLIPSAME: raw edges inserted at THIS statement are the post-state of the modifying call
             // itself and survive the ⊇→~ rewrite (see replaceReturnAffected); NOFLIPSAME=1 restores the
             // unconditional rewrite
-            String skipStatementIndex = System.getenv("NOFLIPSAME") == null ? statement.source().index() : null;
+            String skipStatementIndex = !Gate.isSet("NOFLIPSAME") ? statement.source().index() : null;
             Set<Variable> affected = new HashSet<>();
             for (Link link : toRemove) {
                 // gate NOFLIPOWN: a composite ⊆/⊇ entailed by intact raw edges is not invalidated by the
@@ -108,7 +108,7 @@ class WriteLinksAndModification {
                 // unmodified) because the iterator's derived ⊆ descended to it (TestMap test2Reverse0).
                 Variable owner = flipOwner.get(link);
                 java.util.function.Predicate<Fact<Variable, LinkNature>> acceptRaw =
-                        owner == null || System.getenv("NOFLIPOWN") != null
+                        owner == null || Gate.isSet("NOFLIPOWN")
                                 ? _ -> true
                                 : fact -> ownsFact(owner, fact);
                 Set<Variable> set = followGraph.graph()
@@ -118,7 +118,6 @@ class WriteLinksAndModification {
                 affected.add(link.to());
                 updateNewLinks(newLinkedVariables, link);
             }
-            // assert !affected.isEmpty();
             followGraph.graph().recompute(affected, statement.source().index(), this::acceptRemoval);
         }
         Map<Variable, Links> builtNewLinkedVariables = new HashMap<>();
@@ -257,7 +256,7 @@ class WriteLinksAndModification {
                 .filter(link -> !builder.contains(link.from(), link.linkNature(), link.to()))
                 .forEach(link -> builder.add(link.from(), link.linkNature(), link.to()));
 
-        if (System.getenv("RVTRACE") != null && variable instanceof ReturnVariable) {
+        if (Gate.isSet("RVTRACE") && variable instanceof ReturnVariable) {
             System.out.println("RVTRACE b1=" + builder1.linkSet() + " b2=" + builder2.linkSet()
                                + " b=" + builder.linkSet());
         }
@@ -278,7 +277,7 @@ class WriteLinksAndModification {
             // because 'stream.§xs⊆0:in.§xs' was already emitted for an earlier variable of this statement).
             // Returns stay complete (handled above); in the last statement, parameters stay complete too — the
             // method summary reads them there.
-            if (System.getenv("NORL") == null
+            if (!Gate.isSet("NORL")
                 && (!lastStatement || !(variable instanceof org.e2immu.language.cst.api.info.ParameterInfo))) {
                 redundantLinks.redundantLinks(builder);
             }
@@ -312,11 +311,11 @@ class WriteLinksAndModification {
             // engine's behavior, needed there because its per-statement graph rebuild resurrected ⊆/⊇) would
             // permanently destroy containment knowledge that this evaluation did not invalidate.
             // Gate NOFLIPSAME=1 restores the old re-flip.
-            if (!unmodified && (modifiedInEval || System.getenv("NOFLIPSAME") != null)) {
+            if (!unmodified && (modifiedInEval || Gate.isSet("NOFLIPSAME"))) {
                 // ⊆, ⊇ become ~ after a modification
                 builder.linkSet().forEach(link -> {
                     if (link.linkNature() == IS_SUBSET_OF || link.linkNature() == IS_SUPERSET_OF) {
-                        if (System.getenv("FLIPTRACE") != null) {
+                        if (Gate.isSet("FLIPTRACE")) {
                             System.out.println("FLIPTRACE owner=" + variable + " link=" + link
                                                + " builder=" + builder.linkSet());
                         }
@@ -333,7 +332,7 @@ class WriteLinksAndModification {
         // ⊇→~ flip at TestStaticValuesRecord test4b:357 was the previouslyModified re-flip destroying
         // same-statement containment in the persistent graph (fixed above, gate NOFLIPSAME), present in
         // every run context — not a class-vs-full-suite difference.
-        if (System.getenv("NOVMIDIR") == null) {
+        if (!Gate.isSet("NOVMIDIR")) {
             for (Link l : followGraph.graph().vmiDirectionalFacts(variable)) {
                 if (!builder.contains(l.from(), l.linkNature(), l.to())
                     && !builder.contains(l.to(), l.linkNature().reverse(), l.from())) {
@@ -346,7 +345,7 @@ class WriteLinksAndModification {
         // return's face ('l1.§m ≡ method.§m' — the view chain's §m reaches the summary endpoint). Inherently
         // statement-scoped: the return group only exists from the return statement on, and views are written
         // forward — the leak-to-earlier-views that killed the naive graph-side rehoming cannot occur here.
-        if (System.getenv("NORVEQ") == null && !(variable instanceof ReturnVariable) && virtualFieldComputer != null) {
+        if (!Gate.isSet("NORVEQ") && !(variable instanceof ReturnVariable) && virtualFieldComputer != null) {
             List<Link> toAddRv = new ArrayList<>();
             for (Link l : builder.linkSet()) {
                 if (l.linkNature().isIdenticalTo()
@@ -370,7 +369,7 @@ class WriteLinksAndModification {
                 if (!present) builder.add(l.from(), l.linkNature(), l.to());
             }
         }
-        if (System.getenv("BTRACE") != null && variable.toString().contains(System.getenv("BTRACE"))) {
+        if (Gate.isSet("BTRACE") && variable.toString().contains(Gate.get("BTRACE"))) {
             System.out.println("BTRACE stmt " + statement.source().index() + " var=" + variable
                                + " builder=" + builder.linkSet());
         }
@@ -400,31 +399,38 @@ class WriteLinksAndModification {
      the element wins over '∋' keyed on the container; 's.r.j → s.k' wins over 's.k ← s.r.j'). Survivors keep
      their insertion order (output order is asserted by the tests).
      */
+    // key by the Variable OBJECTS (fqn-based equality), not their printed form: the previous string key
+    // concatenated the variables, and Variable.toString runs the full CST printer — 22.6% of the fernflower
+    // run's CPU was inside dedupReversePairs building these keys (async-profiler round 1). The nature stays
+    // keyed on its symbol so pass-variants compare exactly as the old string key did.
+    private record LinkKey(Variable from, String nature, Variable to) {
+    }
+
     private void dedupReversePairs(Links.Builder builder) {
         List<Link> links = new ArrayList<>(builder.linkSet());
         // removals tracked BY INDEX: Link is a record with value equality, so equal duplicates would otherwise
         // all be swept by one removal (that bug dropped both ∈ copies while keeping the ∋)
         boolean[] removed = new boolean[links.size()];
-        Set<String> seen = new HashSet<>();
-        String[] keys = new String[links.size()];
+        Set<LinkKey> seen = new HashSet<>();
+        LinkKey[] keys = new LinkKey[links.size()];
         for (int i = 0; i < links.size(); i++) {
             Link link = links.get(i);
-            String key = link.from() + "|" + link.linkNature() + "|" + link.to();
+            LinkKey key = new LinkKey(link.from(), link.linkNature().toString(), link.to());
             keys[i] = key;
             if (!seen.add(key)) removed[i] = true; // exact duplicate: keep the first
         }
         // reverse-pair detection via a key index: the reverse-pair predicate is exactly "key(j) == revKey(i)"
-        // (pass 1 above already relies on the same toString-keyed identity), so only true candidates are
+        // (pass 1 above already relies on the same keyed identity), so only true candidates are
         // visited, in the same ascending index order as the former all-pairs scan — which was O(n^2) in
         // Variable.equals and the analysis-wide hot spot after the RedundantLinks fix (fernflower reorderIf).
-        Map<String, List<Integer>> byKey = new HashMap<>();
+        Map<LinkKey, List<Integer>> byKey = new HashMap<>();
         for (int i = 0; i < links.size(); i++) {
             if (!removed[i]) byKey.computeIfAbsent(keys[i], _ -> new ArrayList<>()).add(i);
         }
         for (int i = 0; i < links.size(); i++) {
             if (removed[i]) continue;
             Link a = links.get(i);
-            String revKey = a.to() + "|" + a.linkNature().reverse() + "|" + a.from();
+            LinkKey revKey = new LinkKey(a.to(), a.linkNature().reverse().toString(), a.from());
             List<Integer> candidates = byKey.get(revKey);
             if (candidates == null) continue;
             for (int j : candidates) {
@@ -458,23 +464,53 @@ class WriteLinksAndModification {
 
     private void suppressRedundantScopeUps(Links.Builder builder) {
         List<Link> links = new ArrayList<>(builder.linkSet());
+        /*
+        Semantically identical to the former all-pairs scan, which cost n^2 pairs x up to 4 scope-chain
+        walks each — a single guava method sat here for minutes (first-contact stall at 'Done 7863').
+        A variable's scope chain never contains the variable itself, so the former fine.equals(coarse)
+        guard was vacuous and the removal set is order-independent: build, once per 'fine' link, the
+        scope-up (from,to) pair -> suppressed-natures maps, then drop every 'coarse' link whose
+        endpoints + nature hit one of them.
+         */
+        record VPair(Variable from, Variable to) {
+        }
+        Map<VPair, Set<org.e2immu.analyzer.modification.prepwork.variable.LinkNature>> fromUp = new HashMap<>();
+        Map<VPair, Set<org.e2immu.analyzer.modification.prepwork.variable.LinkNature>> toUp = new HashMap<>();
+        Map<VPair, Set<org.e2immu.analyzer.modification.prepwork.variable.LinkNature>> bothUp = new HashMap<>();
+        for (Link fine : links) {
+            Set<Variable> svFrom = Util.scopeVariables(fine.from());
+            Set<Variable> svTo = Util.scopeVariables(fine.to());
+            var rFrom = fine.linkNature().redundantFromUp();
+            var rTo = fine.linkNature().redundantToUp();
+            var rBoth = fine.linkNature().redundantUp();
+            if (!rFrom.isEmpty()) {
+                for (Variable sf : svFrom) {
+                    fromUp.computeIfAbsent(new VPair(sf, fine.to()), _ -> new HashSet<>()).addAll(rFrom);
+                }
+            }
+            if (!rTo.isEmpty()) {
+                for (Variable st : svTo) {
+                    toUp.computeIfAbsent(new VPair(fine.from(), st), _ -> new HashSet<>()).addAll(rTo);
+                }
+            }
+            if (!rBoth.isEmpty()) {
+                for (Variable sf : svFrom) {
+                    for (Variable st : svTo) {
+                        bothUp.computeIfAbsent(new VPair(sf, st), _ -> new HashSet<>()).addAll(rBoth);
+                    }
+                }
+            }
+        }
         Set<Link> toRemove = new HashSet<>();
         for (Link coarse : links) {
-            for (Link fine : links) {
-                if (fine.equals(coarse)) continue;
-                boolean fromUp = Util.scopeVariables(fine.from()).contains(coarse.from())
-                                 && fine.to().equals(coarse.to())
-                                 && fine.linkNature().redundantFromUp().contains(coarse.linkNature());
-                boolean toUp = fine.from().equals(coarse.from())
-                               && Util.scopeVariables(fine.to()).contains(coarse.to())
-                               && fine.linkNature().redundantToUp().contains(coarse.linkNature());
-                boolean bothUp = Util.scopeVariables(fine.from()).contains(coarse.from())
-                                 && Util.scopeVariables(fine.to()).contains(coarse.to())
-                                 && fine.linkNature().redundantUp().contains(coarse.linkNature());
-                if (fromUp || toUp || bothUp) {
-                    toRemove.add(coarse);
-                    break;
-                }
+            VPair key = new VPair(coarse.from(), coarse.to());
+            var f = fromUp.get(key);
+            var t = toUp.get(key);
+            var b = bothUp.get(key);
+            if (f != null && f.contains(coarse.linkNature())
+                || t != null && t.contains(coarse.linkNature())
+                || b != null && b.contains(coarse.linkNature())) {
+                toRemove.add(coarse);
             }
         }
         builder.removeIf(toRemove::contains);
@@ -517,7 +553,7 @@ class WriteLinksAndModification {
        'method ∩ 0:in.§$s' + 'method.§$s ∩ 0:in' give 'method.§m ≡ 0:in.§m'.
      */
     private void returnSideModificationCompanions(ReturnVariable rv, Links.Builder builder) {
-        if (virtualFieldComputer == null || System.getenv("NORVM") != null) return;
+        if (virtualFieldComputer == null || Gate.isSet("NORVM")) return;
         List<Link> links = new ArrayList<>(builder.linkSet());
         List<Link> toAdd = new ArrayList<>();
         for (Link link : links) {
@@ -658,7 +694,7 @@ class WriteLinksAndModification {
         // §m-equivalence ('identical except via remove()', Iterable.iterator()) propagates a member's modification
         // only when the modifying method is in the pass set. E.g. iterating a collection modifies the ITERATOR
         // (next()), which must not mark the collection modified; remove() would.
-        if (System.getenv("NOPASSFIX") != null) {
+        if (Gate.isSet("NOPASSFIX")) {
             return followGraph.graph().eqVariables(variable).noneMatch(modifiedVariablesAndTheirCause::containsKey);
         }
         return followGraph.graph().eqGroups(variable).noneMatch(group ->

@@ -105,8 +105,11 @@ public class LinkGraph {
         int cycleProtection = 0;
         while (change) {
             ++cycleProtection;
-            if (cycleProtection > 20) {
-                // NOTE: there is a class that requires more than 10 cycles in the maddi code base...
+            if (cycleProtection > 30) {
+                // NOTE: a class in the maddi code base needs >10 rounds, camel's generated bulk-converter
+                // loaders >20. Keeping the partial graph is NOT an option (its size makes everything
+                // downstream minutes-slow: measured 5s -> 30min on camel-base); the throw is caught at the
+                // method level, which degrades to a SHALLOW summary (LinkComputerImpl.doMethod).
                 throw new UnsupportedOperationException("cycle protection");
             }
             change = makeGraph.expandGraph(statementIndex, modifiedInThisEvaluation.keySet());
@@ -173,25 +176,4 @@ public class LinkGraph {
         return variable.simpleName();
     }
 
-    // indirection in applied functional interface variable
-    // TODO this is shaky code, dedicated to TestStaticBiFunction,6
-    //  it may have relevance later
-    public Links indirect(Variable primary, Link link, Links links2) {
-       /* Variable v = links2.primary();
-        Variable pi = Util.primary(link.to());
-        TranslationMap tm2 = new VariableTranslationMap(runtime).put(v, pi);
-        Links links2Tm = links2.translate(tm2);
-        Map<Variable, Links> linkedVariables = new HashMap<>();
-        Links links = new LinksImpl(primary, List.of(link));
-        linkedVariables.put(links.primary(), links);
-        linkedVariables.put(links2Tm.primary(), links2Tm);
-        Map<Variable, Map<Variable, LinkNature>> graph = makeGraph(linkedVariables, Set.of());
-        if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Indirection graph, primary {}:\n{}", links.primary(), printGraph(graph));
-        }
-        Links.Builder builder = followGraph.followGraph(null, graph, links.primary());
-        builder.removeIf(l -> l.to().variableStreamDescend().anyMatch(vv -> vv instanceof ParameterInfo));
-        return builder.build();*/
-        return LinksImpl.EMPTY; // FIXME
-    }
 }

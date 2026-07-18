@@ -39,8 +39,11 @@ parse (openjdk or maddi parser) → CST
 - **PrepAnalyzer** is upstream; it must run before LinkComputer (`new PrepAnalyzer(runtime, opts).doPrimaryType(t)`).
 - **LinkComputerImpl.doMethod(mi)** computes one method's mlv; **doPrimaryType** does a whole type (with recursion via
   `recurseMethod`, guarded by `RecursionPrevention`). Results are stored in `analysis()` under `METHOD_LINKS`.
-- A method's own mlv is reached by a **fixpoint propagation** over the link graph (`LinkGraph`,
-  `TestFixedpointPropagationAlgorithm`), combining link natures with a binary operator (see README table).
+- A method's own mlv is reached by a **fixpoint propagation** over the link graph: the generic
+  `impl/graph/IncrementalFixpointEngine` (facts, witnesses, incremental removal) runs under the domain
+  graph of `impl/linkgraph/` (`LinkGraph` is the per-statement commit driver), combining link natures with
+  a binary operator (see README table). The shared-variable collapse and its reconstruction are described
+  in `sv-reconstruction-techniques.md`.
 
 ---
 
@@ -327,11 +330,14 @@ System.out.println(mlv + "  MOD[" + mlv.sortedModifiedString() + "]");
 - Language-construct coverage (var, ternary, switch/patterns, try-with-resources, wildcards, arrays, enum, inner
   classes, …) lives in `src/test/java/.../typelink/TestLanguageConstructs.java`.
 
-**Baseline** (as of this writing): the full link suite is green except two long-standing failures —
-`TestList.shallow (multiplicity 1 instead of 2)` and `TestShallowFunctional.find (return type)`. Treat any *third*
-failure as a regression. Watch for a flaky `IllegalStateException: tree.starImportScope is null` — that is the openjdk
-parser's javac concurrency issue, mitigated by `-XDuseUnsharedTable=true`; it is not a linking bug. For the full
-story (root cause, the built-in fix, and why parallel forks are safe) see the authoritative
+**Baseline** (updated 2026-07-18): the full link suite is **green** — the two former long-standing failures
+(`TestList.shallow`, `TestShallowFunctional.find`) were fixed during the sv work. Treat **any** enabled-test
+failure as a regression. The only intentionally skipped items are documented `@Disabled` tests: the four
+`impl/large/` files (synthetic mocks that do not type-check under the openjdk javac) and three methods in
+`typelink/TestStaticBiFunction` (CongoCC parser regression). Watch for a flaky
+`IllegalStateException: tree.starImportScope is null` / `CompilationProblems` — that is the openjdk
+parser's javac concurrency issue (mitigated by `-XDuseUnsharedTable=true` and a synchronized lazy
+`getOrLoad`); it is not a linking bug. For the full story see the authoritative
 [`maddi-inspection-openjdk/parsing-stability.md`](../maddi-inspection-openjdk/parsing-stability.md).
 
 ---
@@ -345,7 +351,8 @@ story (root cause, the built-in fix, and why parallel forks are safe) see the au
   specs for the exact pinned shapes.
 - **`parametersToObject` from-side** — the param→object case where the object part is a link's `from` is not handled
   (dead branch removed + documented in code). Revisit if a legitimate case surfaces.
-- **`TestList.shallow` / `TestShallowFunctional`** — pre-existing baseline failures in the HC/multiplicity area.
+- **`TestList.shallow` / `TestShallowFunctional`** — the former pre-existing baseline failures in the
+  HC/multiplicity area were fixed during the sv work (suite green, see §8).
 - Historically fixed here (don't re-break): for-each over a *bare-type-parameter array* now links (`m∈0:arr`) while
   varargs-of-collections keeps the iterable path; try-with-resources now propagates resource modification (the
   resource declaration is processed as an LVC — `LinkComputerImpl.subBlocksForLinking`).
@@ -362,6 +369,15 @@ story (root cause, the built-in fix, and why parallel forks are safe) see the au
 - `LinkFunctionalInterface` (the lifting engine, §7.3), `LinkAppliedFunctionalInterface` (`$_afi` expansion) — FI
   application (§7). `ShallowMethodLinkComputer` builds the `Λ`-marked summaries of JDK FI-consuming methods.
 - `LinkGraph`, `LinkNatureImpl`, `Result`, `LinkedVariablesImpl`, `Links`/`Link` (in prepwork `…variable.impl`).
+- `impl/graph/` — the GENERIC incremental fixpoint engine: `IncrementalFixpointEngine` (facts, witnesses,
+  incremental removal), `Closure`, `LabeledGraph`, `Fact`, `Witness`, `WitnessIndex`. No domain knowledge;
+  all semantics are injected at construction (see `LinkComputerImpl`).
+- `impl/linkgraph/` — the DOMAIN graph and the shared-variable collapse: `Graph` (facade, edge admission,
+  collapse write path, reconstruction read path), `SharedVariables` (assignment groups),
+  `VirtualModificationIdenticals` (§m equivalence), `FollowGraph` (summary extraction), `MakeGraph`
+  (sub-propagation), `RedundantLinks`, `ExpandSlice`. Design + guards: `sv-reconstruction-techniques.md`.
+- `WriteLinksAndModification` — per-statement writer: rehoming/expansion of collapsed links, the ⊇→~
+  modification rewrite, the per-variable modification verdicts.
 - `vf/VirtualFieldComputer`, `vf/VirtualFields` (+ `vf/virtual-fields.md`).
 - `impl/localvar/…` — the synthetic variable kinds (`FunctionalInterfaceVariable`, `IntermediateVariable`, …).
 - Tests: `impl/TestLinkMethodCall` (the spec), `typelink/TestLanguageConstructs`, plus many `impl/Test*` for
@@ -371,4 +387,4 @@ story (root cause, the built-in fix, and why parallel forks are safe) see the au
 
 *Starting point for a new session: read §5 (`LinkMethodCall`) + §6 (worked examples) + `TestLinkMethodCall`; for
 functional interfaces read §7 + the three §7.4 specs. Collectors (§7.5) are the next target. Prove changes with the §8
-probe loop and the two-failure baseline noted in §8.*
+probe loop against the green-suite baseline noted in §8.*

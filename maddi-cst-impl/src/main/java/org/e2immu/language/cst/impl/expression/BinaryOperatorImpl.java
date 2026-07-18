@@ -23,6 +23,7 @@ import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.GreaterThanZero;
 import org.e2immu.language.cst.api.expression.Precedence;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
@@ -260,7 +261,7 @@ public class BinaryOperatorImpl extends ExpressionImpl implements BinaryOperator
     }
 
     @Override
-    public Expression rewire(InfoMap infoMap) {
+    public Expression rewire(InfoMapView infoMap) {
         return new BinaryOperatorImpl(comments(), source(), operator, precedence, lhs.rewire(infoMap),
                 rhs.rewire(infoMap), parameterizedType);
     }

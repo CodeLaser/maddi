@@ -106,6 +106,7 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
             VariableInfoContainer vic = variableData.variableInfoContainerOrNull(list0Primary.fullyQualifiedName());
             if (vic != null) {
                 VariableInfo vi = vic.best(stage);
+                if (vi.linkedVariables() == null) continue; // not yet computed for this variable (guava first contact)
                 List<FunctionalInterfaceVariable> fis = vi.linkedVariables().stream()
                         .filter(l -> l.to() instanceof FunctionalInterfaceVariable)
                         .map(l -> (FunctionalInterfaceVariable) l.to())
@@ -155,26 +156,18 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
         if (links.primary() == null) return LinksImpl.EMPTY;
         Links.Builder builder = new LinksImpl.Builder(links.primary());
         for (Link link : links) {
-            if (link.to() instanceof ParameterInfo pi) {
+            if (link.to() instanceof ParameterInfo pi && isSamParameter(pi, params)) {
                 // replace (TestBiFunction, link to extract:0:x)
-                assert pi.index() < params.size();
                 Variable primary = Objects.requireNonNullElse(params.get(pi.index()).links().primary(), link.to());
                 builder.add(link.from(), link.linkNature(), primary);
-            } else if (link.to() instanceof FieldReference fr && fr.scopeVariable() instanceof ParameterInfo pi) {
+            } else if (link.to() instanceof FieldReference fr && fr.scopeVariable() instanceof ParameterInfo pi
+                       && isSamParameter(pi, params)) {
                 Result result = params.get(pi.index());
                 Variable primary = Objects.requireNonNullElse(result.links().primary(), link.to());
                 if (primary instanceof LocalVariable) {
-                    // see TestStaticBiFunction,6: no direct mapping
-
-                    // this is the old "join" of previous implementations; we should call expand now
-                    // FIXME
-                  /*  Timer timer = new Timer();
-                    Graph graph = new Graph(engine);
-                    Links ls = new LinkGraph(javaInspector, runtime, linkComputerOptions.checkDuplicateNames(),
-                            graph, new FollowGraph(graph))
-                            .indirect(links.primary(), link, result.links());
-                    if (ls != null) builder.addAllDistinct(ls);
-                    */
+                    // see TestStaticBiFunction,6: no direct mapping exists — deliberately emit nothing.
+                    // (A pre-sv "join" through a private graph was tried and removed; if a legitimate
+                    // case surfaces, route it through the sv expansion, not a side graph.)
                 } else {
                     builder.add(link.from(), link.linkNature(), runtime.newFieldReference(fr.fieldInfo(),
                             runtime.newVariableExpression(primary), fr.fieldInfo().type()));
@@ -187,4 +180,14 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
         return builder.build();
     }
 
+    /*
+    Only the SAM's own formal parameters may be replaced by the arguments of the application. A link can also point
+    to a parameter of the current (enclosing) method, captured by the lambda: guava's AtomicDouble.accumulateAndGet
+    passes 'oldValue -> f.applyAsDouble(oldValue, x)' to a unary SAM, and the lambda's links include the captured
+    parameter 'x' (index 1) of accumulateAndGet itself -- out of range for the 1-argument application. Such links
+    must be copied through unchanged, not translated.
+     */
+    private boolean isSamParameter(ParameterInfo pi, List<Result> params) {
+        return !currentMethod.equals(pi.methodInfo()) && pi.index() < params.size();
+    }
 }

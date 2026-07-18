@@ -124,7 +124,9 @@ public class LinkNatureImpl implements LinkNature {
 
     @Override
     public int hashCode() {
-        if (pass == null) return hashCode[rank];
+        // pass is never null (constructors normalize to Set.of()); the precomputed array serves the
+        // common empty-pass singletons, Objects.hash the rare ☷ variants
+        if (pass.isEmpty()) return hashCode[rank];
         return Objects.hash(symbol, rank, pass);
     }
 
@@ -336,6 +338,8 @@ public class LinkNatureImpl implements LinkNature {
             if (other == IS_SUBSET_OF || other == SHARES_ELEMENTS) return SHARES_ELEMENTS;
             if (other == CONTAINS_AS_FIELD || other == OBJECT_GRAPH_CONTAINS) return OBJECT_GRAPH_CONTAINS;
             if (other == CONTAINS_AS_MEMBER) return CONTAINS_AS_MEMBER;
+            // mirror of ∈? ∘ ⊆ = ∈? (symmetry gap found when TestLinkNature gained the ?-natures)
+            if (other == COULD_CONTAIN_AS_MEMBER) return COULD_CONTAIN_AS_MEMBER;
             if (other == IS_ELEMENT_OF
                 || other == IS_FIELD_OF
                 || other == SHARES_FIELDS
@@ -361,6 +365,11 @@ public class LinkNatureImpl implements LinkNature {
                 || other == IS_ELEMENT_OF
                 || other == OBJECT_GRAPH_OVERLAPS // (*)
                 || other == IS_FIELD_OF) return OBJECT_GRAPH_OVERLAPS;
+        }
+
+        if (this == COULD_CONTAIN_AS_MEMBER) {
+            // mirror of ∈ ∘ ∈? = ∈? (symmetry gap found when TestLinkNature gained the ?-natures)
+            if (other == CONTAINS_AS_MEMBER) return COULD_CONTAIN_AS_MEMBER;
         }
 
         if (this == SHARES_ELEMENTS) {

@@ -545,7 +545,15 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
         rewiredMethod.builder()
                 .addOverrides(overrides().stream().map(infoMap::methodInfo).toList())
                 .setMethodBody(rewired).commit();
-        // analysis?
+        // carry the opted-in analysis (see Property.carryOnRewire) onto the rewired method and its parameters,
+        // re-pointing every Info/Variable reference through the infoMap. A no-op for properties that opt out
+        // (PropertyValueMap.rewire filters them), so this is inert until a property opts in.
+        rewiredMethod.analysis().setAll(analysis().rewire(infoMap));
+        List<ParameterInfo> oldParameters = parameters();
+        List<ParameterInfo> newParameters = rewiredMethod.parameters();
+        for (int i = 0; i < oldParameters.size() && i < newParameters.size(); i++) {
+            newParameters.get(i).analysis().setAll(oldParameters.get(i).analysis().rewire(infoMap));
+        }
     }
 
     @Override
@@ -700,7 +708,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     }
 
     @Override
-    public Element rewire(InfoMap infoMap) {
+    public Element rewire(InfoMapView infoMap) {
         throw new UnsupportedOperationException("Must use the infoMap.methodInfo() method");
     }
 }

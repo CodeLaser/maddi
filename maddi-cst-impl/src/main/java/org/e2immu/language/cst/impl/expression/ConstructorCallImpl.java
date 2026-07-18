@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.Precedence;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
@@ -422,7 +423,7 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
     }
 
     @Override
-    public Expression rewire(InfoMap infoMap) {
+    public Expression rewire(InfoMapView infoMap) {
         List<Expression> rewiredArgs = parameterExpressions.stream().map(e -> e.rewire(infoMap)).toList();
         return new ConstructorCallImpl(comments(), source(),
                 constructor == null ? null : infoMap.methodInfo(constructor),

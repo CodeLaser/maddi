@@ -15,6 +15,7 @@
 package org.e2immu.language.cst.api.element;
 
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 
 import java.util.List;
@@ -102,7 +103,7 @@ public interface JavaDoc extends MultiLineComment {
         /** Returns the text content of this tag. */
         String content();
 
-        Tag rewire(InfoMap infoMap);
+        Tag rewire(InfoMapView infoMap);
 
         Tag translate(TranslationMap translationMap);
 

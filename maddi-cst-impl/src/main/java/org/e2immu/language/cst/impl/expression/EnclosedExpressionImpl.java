@@ -22,6 +22,7 @@ import org.e2immu.language.cst.api.expression.EnclosedExpression;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.Precedence;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.translate.TranslationMap;
@@ -96,7 +97,11 @@ public class EnclosedExpressionImpl extends ExpressionImpl implements EnclosedEx
 
     @Override
     public int internalCompareTo(Expression expression) {
-        return inner.compareTo(((EnclosedExpression) expression).inner());
+        // order() delegates to inner, so the comparator can pair us with a NON-enclosed expression of the
+        // inner's order (guava first contact: BinaryOperator vs enclosed binary operator) — compare against
+        // the other side as-is rather than blind-casting
+        Expression other = expression instanceof EnclosedExpression ee ? ee.inner() : expression;
+        return inner.compareTo(other);
     }
 
     @Override
@@ -158,7 +163,7 @@ public class EnclosedExpressionImpl extends ExpressionImpl implements EnclosedEx
     }
 
     @Override
-    public Expression rewire(InfoMap infoMap) {
+    public Expression rewire(InfoMapView infoMap) {
         return new EnclosedExpressionImpl(comments(), source(), inner.rewire(infoMap));
     }
 }

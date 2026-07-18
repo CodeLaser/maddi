@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
@@ -86,7 +87,7 @@ public class LocalTypeDeclarationImpl extends StatementImpl implements LocalType
     }
 
     @Override
-    public Statement rewire(InfoMap infoMap) {
+    public Statement rewire(InfoMapView infoMap) {
         return new LocalTypeDeclarationImpl(comments(), source(), rewireAnnotations(infoMap), label(),
                 infoMap.typeInfoRecurseAllPhases(typeInfo));
     }

@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl.graph;
 
+import org.e2immu.analyzer.modification.link.impl.Gate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -120,7 +121,7 @@ public final class IncrementalFixpointEngine<V, L> {
     }
 
     public boolean removeVertices(Set<V> vertices) {
-        if (System.getenv("NOMAT") == null) materializeWitnessOrphans(vertices);
+        if (!Gate.isSet("NOMAT")) materializeWitnessOrphans(vertices);
         closure.removeVertices(vertices);
         return graph.removeVertices(vertices);
     }
@@ -200,7 +201,7 @@ public final class IncrementalFixpointEngine<V, L> {
 
         while (!queue.isEmpty()) {
             Fact<V, L> fact = queue.removeFirst();
-            LOGGER.debug("-- inference phase: process {}", fact.print(vertexPrinter));
+            if (LOGGER.isDebugEnabled()) LOGGER.debug("-- inference phase: process {}", fact.print(vertexPrinter));
             propagateForward(fact, queue, false, null);
             propagateBackward(fact, queue, false, null);
         }
@@ -209,7 +210,7 @@ public final class IncrementalFixpointEngine<V, L> {
         while (!queueCopy.isEmpty()) {
             Fact<V, L> fact = queueCopy.removeFirst();
             if (history.add(fact)) {
-                LOGGER.debug("-- optimization phase: process {}", fact.print(vertexPrinter));
+                if (LOGGER.isDebugEnabled()) LOGGER.debug("-- optimization phase: process {}", fact.print(vertexPrinter));
                 propagateForward(fact, queueCopy, true, history);
                 propagateBackward(fact, queueCopy, true, history);
             }
@@ -239,7 +240,8 @@ public final class IncrementalFixpointEngine<V, L> {
                         boolean improved = witnessIndex.putIfBetter(next, candidate);
                         boolean added = closure.add(next.source(), next.target(), next.label());
                         if (added || improved) {
-                            LOGGER.debug(" -- -- forward, {} {} {} witness {}", next.print(vertexPrinter),
+                            if (LOGGER.isDebugEnabled()) LOGGER.debug(" -- -- forward, {} {} {} witness {}",
+                                    next.print(vertexPrinter),
                                     added ? "added" : "",
                                     improved ? "improved" : "",
                                     candidate.print(vertexPrinter));
@@ -277,7 +279,7 @@ public final class IncrementalFixpointEngine<V, L> {
                     ? Witness.CompositeWitness.of(leftW, rightW, revRight, revLeft, !optimize)
                     : fallback;
             witnessIndex.putIfBetter(mirror, witness);
-            LOGGER.debug(" -- -- symmetric completion, {}", mirror.print(vertexPrinter));
+            if (LOGGER.isDebugEnabled()) LOGGER.debug(" -- -- symmetric completion, {}", mirror.print(vertexPrinter));
             queue.addLast(mirror);
         }
     }
@@ -314,7 +316,7 @@ public final class IncrementalFixpointEngine<V, L> {
                             boolean added = closure.add(next.source(), next.target(), next.label());
                             boolean improved = witnessIndex.putIfBetter(next, candidate);
                             if (added || improved) {
-                                LOGGER.debug(" -- -- backward, {} {} {} witness {}",
+                                if (LOGGER.isDebugEnabled()) LOGGER.debug(" -- -- backward, {} {} {} witness {}",
                                         added ? "added" : "",
                                         improved ? "improved" : "",
                                         next.print(vertexPrinter), candidate.print(vertexPrinter));

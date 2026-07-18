@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.statement.Block;
@@ -168,7 +169,7 @@ public class SwitchStatementNewStyleImpl extends StatementImpl implements Switch
     }
 
     @Override
-    public Statement rewire(InfoMap infoMap) {
+    public Statement rewire(InfoMapView infoMap) {
         return new SwitchStatementNewStyleImpl(comments(), source(), rewireAnnotations(infoMap), label(),
                 selector.rewire(infoMap), entries.stream().map(e -> (SwitchEntry) e.rewire(infoMap)).toList());
     }
