@@ -355,3 +355,69 @@ run had ~10 random victims. **The carry work can now be validated on a normal ru
 - `InfoByFqn.removeAllSources()` calls `removeIf` on the lists in `multiTypeByFqn`, which are immutable
   (`List.of`/`toList`). It throws the moment that map is non-empty; it survives only because the tested set-ups
   never populate it. `removeType` avoids the hazard by rebuilding.
+
+## Plan: call-graph-granular rewiring (per type, not per source set)
+
+Today the openjdk reload's unit is the **source set** (`reparse` → `actionFor` → `scanSourceSet`): a set with *any*
+INVALID type is `RESCAN`ned whole (`actionFor` returns `RESCAN` on the first INVALID), and every type in it — INVALID
+*and* UNCHANGED alike — becomes a new object. The `Invalidated` predicate is per-type and REWIRE is already computed
+from the call graph (`PrimaryTypeUseGraph(ccg.graph()).dependentsOf(changed)`), but `actionFor` **coarsens that away**
+to the set. Proposal: drive the rewire at the granularity the call graph already provides — per primary type.
+
+### Why it is worth doing
+
+- **The early-cutoff skip is only as good as the REWIRE set is small.** Coarsening inflates it two ways: an edit to
+  one type re-scans its whole set (every UNCHANGED sibling becomes a new object), and each of those new objects makes
+  *its* dependents REWIRE — a spurious cone the skip must then carry or recompute. Per-type rewiring shrinks REWIRE to
+  the actual call-graph dependents of the actually-changed types.
+- **Single-source-set projects get incrementality at all.** Today "in a single-source-set project nothing is ever
+  rewired" — the whole set is re-scanned. Per-type, an edit rewires only the changed type's dependents within the set.
+- It closes the gap with the in-house inspector, which is already per-file.
+
+### Soundness basis (already relied upon)
+
+`ComputeCallGraph` is a **complete type-reference graph**, not a call-only graph: structural edges (type→members,
+`extends`/`implements`, field types, method signatures — its "A") plus body edges (calls, constructor calls, method
+references, field references — its "D"). Its transpose `PrimaryTypeUseGraph` therefore captures *every* type that
+references a given type, and the reload already trusts it for the REWIRE classification. Per-type rewiring uses the
+same information, un-coarsened — it introduces no new soundness assumption. (The previous run's graph is the right one
+to consult: a *newly added* reference to a changed type comes from an edited — hence INVALID — type, which is rebuilt
+regardless.)
+
+### The mechanism
+
+1. **Invalidate per type, not per set.** In `reparse`, invalidate only the INVALID types in the registry; keep the
+   UNCHANGED ones (even those sharing a set with an INVALID type).
+2. **javac parses the set, the scan builds CST only for the INVALID units.** javac still needs the whole set in scope
+   to resolve symbols, so parse it (the unchanged sources go on `SOURCE_PATH`); but `ScanCompilationUnits` builds CST
+   only for the INVALID compilation units and, when their references reach an UNCHANGED type, resolves it through the
+   registry (`getOrLoad`) to the **kept** object rather than rebuilding it. This is the per-file selectivity the
+   in-house inspector already has; openjdk's `restrictToPackages`/`SOURCE_PATH` is package-granular today and is the
+   starting point.
+3. **`rebuilt` seed = the INVALID types only** (not "all types in rescanned sets"), so the `InfoMap` re-points
+   references onto exactly the re-parsed objects; UNCHANGED objects are never replaced, so nothing points at a stale
+   copy of them.
+4. **REWIRE = `dependentsOf(INVALID)`** at type granularity, as computed; rewire exactly those.
+
+### Central feasibility question / risks
+
+- **Type-granular CST build within a package.** INVALID and UNCHANGED types can live in the *same* package (Base and
+  Helper in `a.b`), so package-level `restrictToPackages` is too coarse; the scan must skip building at the
+  compilation-unit (file) level while javac still parses those files for resolution. This is the crux; verify
+  `ScanCompilationUnits` can iterate javac's parsed units and skip CST construction for a designated subset, keeping
+  the old `TypeInfo`.
+- **Resolution against kept objects.** An INVALID unit referencing an UNCHANGED same-set type must resolve to the kept
+  registry object; this is the `getOrLoad` path (the one the concurrency fix hardened), so the plumbing exists.
+- **javac cost is not saved** — the whole set is still parsed/entered. The win is in CST construction, rewiring, and
+  (most of all) the downstream analysis skip, not in javac time. Worth stating so the benefit is not oversold.
+- **On-demand types** (anonymous/local/lambda) are rebuilt by phase 3 within an INVALID type; unchanged types' on-demand
+  types are simply kept with their owner. No new hazard, but a test should cover an INVALID type with anonymous classes
+  next to an UNCHANGED sibling.
+
+### Recommendation
+
+Do it — it is the single change that most improves the early-cutoff skip's yield, and its soundness rests on the call
+graph the reload already trusts. Sequence: (a) make `reparse` invalidate per type and seed `rebuilt` from the INVALID
+set; (b) teach `ScanCompilationUnits` file-granular CST skipping with registry resolution to kept objects; (c) a
+2-source-set + same-package test (edit one of two types in a package, assert the sibling keeps its object and only the
+call-graph dependents are rewired). Kept behind the existing `Invalidated` API, so it is transparent to callers.
