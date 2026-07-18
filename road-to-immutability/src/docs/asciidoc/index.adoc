@@ -108,6 +108,16 @@ include::{includedir}/070-modification-part2.adoc[leveloffset=+1]
 
 include::{includedir}/080-hidden-content.adoc[leveloffset=+1]
 
+<<<
+
+// Part II: the tutorial ends here; the next two chapters describe the implementation
+// (the link system, and the iterating analyzer) at a technical level.
+
+include::{includedir}/105-link-system.adoc[leveloffset=+1]
+
+<<<
+
+include::{includedir}/108-convergence.adoc[leveloffset=+1]
 
 <<<
 

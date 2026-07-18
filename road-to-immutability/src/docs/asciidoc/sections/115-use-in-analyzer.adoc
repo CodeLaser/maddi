@@ -2,46 +2,27 @@
 == Support classes in the analyzer
 
 Practice what you preach, and all that.
-The {maddi} analyzer relies heavily on support classes such as `SetOnce`, and on the builder pattern described in the previous section.
-Almost all public types are containers.
-Because we intend to use the analyzer's code as a showcase for this project, one important class (`ExpressionContext`) was intentionally kept as a non-container.
+The {maddi} analyzer itself is written in the style this document advocates, and its central data
+structure is a live example of the two-phase life cycle of <<eventual-immutability>>.
 
-A good example of our aim for eventual immutability is `TypeInfo`, the primary container holding a type.
-Initially, a type is nothing but a reference, with a fully qualified name.
-Source code or byte code inspection augments it with information about its methods and fields.
-Whilst during inspection information is writable, after inspection this information becomes immutable.
-We use the builder pattern for `TypeInspection`, using `TypeInspectionImpl.Builder` first and `TypeInspectionImpl` later.
-The inspection information is stored using `SetOnce`:
+The common syntax tree (CST) — the language-agnostic representation shared by the Java and Kotlin
+front-ends — is built through the builder pattern throughout: every `TypeInfo`, `MethodInfo` and
+`FieldInfo` starts life as a mutable builder during inspection, and is _committed_ into an immutable form
+before analysis begins.
+After the commit, the object's structural content — its methods, fields, hierarchy, statements — never
+changes again, and the analyzer's many threads read it freely without synchronization.
 
-.Example {counter:example}, explaining `org.e2immu.analyzer.model.TypeInfo`
-[source,java]
-----
-public class TypeInfo {
-    public final String fullyQualifiedName;
-    public final SetOnce<TypeInspection> typeInspection = new SetOnce<>();
-    //...
-}
-----
+The analysis results themselves live in a property map attached to each info object
+(`element.analysis()`), and follow the discipline described in
+<<convergence>>: a property value is written once, absence means
+"undecided", and the rare legitimate refinements go through a guarded, monotonicity-checking write
+facility.
+This is eventual immutability at the granularity of a single property: mutable while the fixpoint
+iteration runs, frozen from certification onward.
+Software engineers using the analyzer as a library can rely on the same guarantee as before: once the
+analysis phase is over, all inspected and analyzed information remains stable.
 
-Once inspection is over, the code analyzer takes over.
-Results are temporarily stored in `TypeAnalysisImpl.Builder`, then copied into the immutable `TypeAnalysisImpl` class.
-Both classes implement the `TypeAnalysis` interface to shield off the build phase.
-Once the immutable type is ready, it is stored in `TypeInfo`:
-
-.Example {counter:example}, explaining `org.e2immu.analyzer.model.TypeInfo`
-[source,java]
-----
-@ImmutableContainer(after="typeAnalysis,typeInspection")
-public class TypeInfo {
-    public final String fullyQualifiedName;
-
-    public final SetOnce<TypeInspection> typeInspection = new SetOnce<>();
-    public final SetOnce<TypeAnalysis> typeAnalysis = new SetOnce<>();
-
-    //...
-}
-----
-
-In this way, if we keep playing by the book recursively downward, `TypeInfo` will become an eventually immutable type.
-Software engineers writing applications which use the {maddi} analyzer as a library, can feel secure that once the
-analysis phase is over, all the inspected and analyzed information remains stable.
+One deliberate exception proves the rule: info objects are _single-instance_ — one `TypeInfo` per fully
+qualified name and source set — so identity comparison (`==`) is the correct equality throughout the
+engine, and the immutable-after-commit design is what makes handing these objects across threads safe in
+the first place.
