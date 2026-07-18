@@ -250,6 +250,11 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                 // what we want: $__rv2.§yxs[-2]  -> replace §yx by §yxs[-2]
                 //               stream1.§xys[-1] -> replace §xy by §xys[-1]
                 FI correspondingField = correspondingField(frKv, frK.fieldInfo());
+                if (correspondingField == null) {
+                    // no field of matching type in the container (SAM shapes reachable since the analysis
+                    // hints attach to java.util.function): no upscaling mapping exists, keep the translation
+                    return translated;
+                }
                 int sliceIndex = -1 - correspondingField.index;
                 TypeInfo enclosing = frKv.fieldInfo().type().typeInfo().compilationUnitOrEnclosingType().getRight();
                 String newTypeName = frKv.fieldInfo().simpleName().toUpperCase().replace("§", "")
@@ -307,6 +312,8 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
     private record FI(FieldInfo fieldInfo, int index) {
     }
 
+    // null when the container type carries no field of the requested type: the caller degrades to the
+    // untouched translation (no upscaling mapping exists)
     private static FI correspondingField(FieldReference frKv, FieldInfo sub) {
         int i = 0;
         for (FieldInfo fi : frKv.fieldInfo().type().typeInfo().fields()) {
@@ -315,6 +322,6 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
             }
             ++i;
         }
-        throw new UnsupportedOperationException();
+        return null;
     }
 }

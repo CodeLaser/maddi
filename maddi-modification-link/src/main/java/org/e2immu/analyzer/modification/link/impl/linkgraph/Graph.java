@@ -134,6 +134,9 @@ public class Graph {
             if (!group.linkNature().pass().isEmpty()) return;
             Variable face = group.members().stream()
                     .filter(v -> owner.equals(Util.firstRealVariable(v)))
+                    // a stacked face (x.§m.§m, legal inside VMI bookkeeping) cannot be represented as a Link:
+                    // skip it rather than trip the LinkImpl constructor assert (timefold constraint streams)
+                    .filter(LinksImpl.LinkImpl::doNotStackMOnTopOfVirtualField)
                     .findFirst().orElse(null);
             if (face == null) return;
             for (Variable sib : group.members()) {
@@ -141,7 +144,8 @@ public class Graph {
                     closureStream(sib).forEach(entry -> {
                         if (Util.isVirtualModification(entry.getKey())
                             && !entry.getKey().equals(face)
-                            && !group.members().contains(entry.getKey())) {
+                            && !group.members().contains(entry.getKey())
+                            && LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(entry.getKey())) {
                             result.add(new LinksImpl.LinkImpl(face, entry.getValue(), entry.getKey()));
                         }
                     });
@@ -200,7 +204,12 @@ public class Graph {
                     if (!v.equals(repFrom) && Util.isPartOf(repFrom, v)) {
                         Variable fromSub = rehome(v, repFrom, from);
                         Variable toSub = rehome(v, repFrom, to);
-                        result.add(new LinksImpl.LinkImpl(fromSub, link.linkNature(), toSub));
+                        // rehoming a §m member onto an endpoint that is itself x.§m stacks §m.§m — not
+                        // representable as a Link; skip (same policy as vmiDirectionalFacts)
+                        if (LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(fromSub)
+                            && LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(toSub)) {
+                            result.add(new LinksImpl.LinkImpl(fromSub, link.linkNature(), toSub));
+                        }
                     }
                 }
                 // A field of the SOURCE face may itself be collapsed into a DIFFERENT group ('this.i' lives in
@@ -208,8 +217,13 @@ public class Graph {
                 // member-fields of the source onto the recipient: 'setI ← this' mirrors to 'setI.i ← this.i'
                 // (source knowledge transfers to the recipient, techniques §1.2; never the reverse).
                 if (link.linkNature().isAssignedFrom()) {
-                    sharedVariables.memberFieldsOf(to).forEach(m ->
-                            result.add(new LinksImpl.LinkImpl(rehome(m, to, from), link.linkNature(), m)));
+                    sharedVariables.memberFieldsOf(to).forEach(m -> {
+                        Variable rehomed = rehome(m, to, from);
+                        if (LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(rehomed)
+                            && LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(m)) {
+                            result.add(new LinksImpl.LinkImpl(rehomed, link.linkNature(), m));
+                        }
+                    });
                 }
             }
         });
