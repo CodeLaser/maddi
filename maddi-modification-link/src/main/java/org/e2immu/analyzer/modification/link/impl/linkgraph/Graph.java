@@ -82,6 +82,22 @@ public class Graph {
         }
     }
 
+    // side-band mediation provenance (task #39): variable pairs whose direct link was produced through a
+    // syntactic mediation (pattern binding, cast). Populated at insertion (simpleAddToGraph) from
+    // Link.mediated(); consulted at extraction (WriteLinksAndModification) when statement-level links are
+    // rebuilt — both the engine's facts and the shared-variable collapse erase the flag. Unordered pairs:
+    // the engine stores both orientations of an edge. Direct pairs only; a chain composed ACROSS a
+    // mediated hop is not (yet) tainted — record before consuming this for declared-type decisions.
+    private final Set<Set<Variable>> mediatedPairs = new HashSet<>();
+
+    public void markMediated(Variable a, Variable b) {
+        if (!a.equals(b)) mediatedPairs.add(Set.of(a, b));
+    }
+
+    public boolean isMediatedPair(Variable a, Variable b) {
+        return !a.equals(b) && mediatedPairs.contains(Set.of(a, b));
+    }
+
     public void markFreshObjectReturn(Variable returnVariable) {
         freshObjectReturns.add(returnVariable);
     }
@@ -273,6 +289,8 @@ public class Graph {
         if (engine.removeVertices(set)) {
             engine.recompute(set, statementIndex, _ -> true);
         }
+        // a cleared (reassigned) variable's mediation provenance is stale: the pair described the OLD value
+        mediatedPairs.removeIf(pair -> pair.stream().anyMatch(set::contains));
     }
 
     // diagnostic: NOSV=1 in the environment disables the shared-variable collapse (assignments stay first-class
@@ -475,6 +493,12 @@ public class Graph {
 
 
     boolean simpleAddToGraph(Variable from, LinkNature linkNature, Variable to, String statementIndex) {
+        return simpleAddToGraph(from, linkNature, to, statementIndex, false);
+    }
+
+    boolean simpleAddToGraph(Variable from, LinkNature linkNature, Variable to, String statementIndex,
+                             boolean mediated) {
+        if (mediated) markMediated(from, to);
         boolean change = mergeEdgeBi(from, linkNature, to, statementIndex);
         change |= addField(from, Util.primary(from), statementIndex);
         change |= addField(to, Util.primary(to), statementIndex);
@@ -524,6 +548,7 @@ public class Graph {
 
     public void remove(Set<Variable> toRemove) {
         engine.removeVertices(toRemove);
+        mediatedPairs.removeIf(pair -> pair.stream().anyMatch(toRemove::contains));
     }
 
     public Set<Variable> replaceReturnAffected(Variable from, Variable to,

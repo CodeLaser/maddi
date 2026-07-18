@@ -40,9 +40,6 @@ public class TestMediatedLinks extends CommonTest {
             }
             """;
 
-    @Disabled("task #39 step 1, REMAINING WORK: the flag is set at production (ExpressionVisitor) but "
-            + "reconstruction rebuilds links without it — thread mediated through Graph.mergeEdgeBi storage, "
-            + "FollowGraph extraction and the WriteLinksAndModification rebuild, then enable.")
     @DisplayName("pattern-binding link is stored MEDIATED")
     @Test
     public void test() {
