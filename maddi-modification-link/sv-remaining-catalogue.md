@@ -37,8 +37,9 @@
   protocol violation by any thread; the lock cannot see composite-build side doors. User repointed
   the includeBuild. Note for the future: a "foreign" build-output write with no foreign gradle
   process in the repo = look for includeBuild references from sibling repos. The chain-taint round
-  was committed on pins + certified 0-diff A/B; 3-suite green confirmation owed and rerun after
-  the repoint. Gate runs now SELF-CERTIFY: touch a marker
+  was committed on pins + certified 0-diff A/B; the owed link-suite green LANDED 2026-07-18 22:3x
+  after the repoint (prepwork/analyzer had passed repeatedly throughout) — the round is fully
+  gated, saga CLOSED. Gate runs now SELF-CERTIFY: touch a marker
   before gradle, find-newer on build outputs (excluding own modules) after — red + foreign writes
   = collision (rerun in a quiet window); red + certified-quiet = real bug, and would revive the
   in-JVM residual hypothesis (the 21:48 event's causal chain via the aapi-parser CLASS DIR is the
