@@ -151,7 +151,9 @@ analyser at all.
 
 ## 7. Gaps
 
-No `TODO`/`FIXME` markers anywhere — the gaps are structural, not annotated.
+No `TODO`/`FIXME` markers anywhere — the gaps are structural, not annotated. These are the Eclipse-side
+ones; queued work across both front-ends and the daemon — partial re-analysis, progress — is in
+`ide-todo.md`.
 
 1. **No builder, no nature** — analysis is a listener, so there is no delta scoping. Every trigger is a
    whole-project run that deletes and rebuilds *all* markers at `DEPTH_INFINITE` from the workspace root.
