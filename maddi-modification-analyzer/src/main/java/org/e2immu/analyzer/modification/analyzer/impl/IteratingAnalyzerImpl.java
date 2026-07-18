@@ -266,6 +266,20 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             // under an active worklist, a zero-change SUBSET iteration is not a fixpoint certificate — only a
             // zero-change FULL pass is; route through the verification branch below instead of stopping here
             boolean done = propertiesChanged == 0 && (dependersOf == null || verifying);
+            // certification blind spot (PLAN-modification-reachability §9): refused downgrades are invisible
+            // to the change count, so "no changes" can certify prematurely-frozen optimistic values. Surface
+            // them; STRICTCERT=1 additionally refuses certification (the run then ends at maxIterations,
+            // honestly uncertified).
+            java.util.Map<String, Long> refused = TolerantWrite.refusedDowngrades();
+            if (done && !refused.isEmpty()) {
+                LOGGER.error("Certification reached with {} refused downgrade attempt(s) — frozen optimistic "
+                             + "values survive the fixpoint (see PLAN-modification-reachability): {}",
+                        refused.values().stream().mapToLong(Long::longValue).sum(), refused);
+                if (System.getenv("STRICTCERT") != null) {
+                    LOGGER.error("STRICTCERT=1: refusing certification");
+                    done = false;
+                }
+            }
             // certification point. If types are still immutability-UNDECIDED, they are waiting on information
             // that will never arrive (external supers without values, call cycles): activate cycle breaking
             // for the remaining rounds and run one more full pass, so the fixpoint we certify includes the

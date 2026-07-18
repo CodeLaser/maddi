@@ -30,8 +30,12 @@ Engine, soundness/precision (from the semantic + precision audits):
 - StackEntry rule-2 miss (public final fields of mutable types accepted at level 2) — investigate,
   suspicion: cycle-breaking-era undecided field type.
 - Independence under cycle breaking: fernflower records storing ctor args verdicted INDEPENDENT
-  where the clean-path verdict is DEPENDENT/FF — suspicion: FieldAnalyzer breaking branch LINKS=EMPTY
-  erasure feeding independence.
+  where the clean-path verdict is DEPENDENT/FF. MECHANISM FOUND 2026-07-18 via the new
+  refused-downgrade counter: certification passes with 11 refused downgrades standing, 6 of them
+  independentType (@Independent(hc=true) frozen against @Dependent evidence, e.g.
+  FastFixedSetFactory.FastFixedSet) — the freeze class of PLAN-modification-reachability, not (only)
+  the LINKS=EMPTY erasure. STRICTCERT=1 now refuses such certifications; default surfaces an ERROR
+  with per-property counts.
 - Lambda promotion gap: stateless / read-only-capture lambdas never promoted past @FinalFields.
 - Constants-only interface verdicted @Mutable (interface default).
 - camel-api null cluster (246/787): abstract methods without hints stay NON_MODIFYING=null under the
