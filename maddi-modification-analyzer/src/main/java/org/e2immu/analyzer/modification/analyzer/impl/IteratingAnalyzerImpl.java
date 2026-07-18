@@ -242,6 +242,27 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             // under an active worklist, a zero-change SUBSET iteration is not a fixpoint certificate — only a
             // zero-change FULL pass is; route through the verification branch below instead of stopping here
             boolean done = propertiesChanged == 0 && (dependersOf == null || verifying);
+            // certification point. If types are still immutability-UNDECIDED, they are waiting on information
+            // that will never arrive (external supers without values, call cycles): activate cycle breaking
+            // for the remaining rounds and run one more full pass, so the fixpoint we certify includes the
+            // broken-cycle conclusions. Opt-out NOCYCLEBREAKING=1.
+            if (done && !cycleBreakingActive && System.getenv("NOCYCLEBREAKING") == null) {
+                long undecided = analysisOrder.stream()
+                        .filter(i -> i instanceof org.e2immu.language.cst.api.info.TypeInfo t
+                                     && t.analysis().getOrNull(
+                                org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.class) == null)
+                        .count();
+                if (undecided > 0) {
+                    LOGGER.info("Certification point, but {} types immutability-undecided: activating cycle breaking",
+                            undecided);
+                    cycleBreakingActive = true;
+                    dirty = null; // one more FULL pass, now with cycle breaking
+                    if (dependersOf != null) verifying = true;
+                    previousPropertiesChanged = propertiesChanged;
+                    continue;
+                }
+            }
             // plateau: the change count no longer meaningfully decreases (an oscillation floor); further full
             // re-analyses only pay for the same flips again. Opt-in via stopWhenCycleDetectedAndNoImprovements.
             // Irrelevant under an active worklist: the verify-certify loop reaches a machine-checked fixpoint
