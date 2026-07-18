@@ -19,6 +19,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.element.FingerPrint;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.io.CodecImpl;
@@ -27,7 +28,13 @@ import org.e2immu.language.inspection.api.resource.MD5FingerPrint;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -99,5 +106,44 @@ public class AnalysisFingerprint {
     /** The analysisFingerprint of a primary type with an explicit normalizer profile (e.g. {@link #RAW}). */
     public static FingerPrint of(Runtime runtime, TypeInfo primaryType, List<FingerprintNormalizer> normalizers) {
         return MD5FingerPrint.compute(normalize(dump(runtime, primaryType, ANALYZER_OUTPUT_ONLY), normalizers));
+    }
+
+    /**
+     * A source set's rollup fingerprint: the hash of its primary types' (fqn-sorted) {@link #DEFAULT}-normalized
+     * analysis dumps. Two runs whose rollups match produced the same analyzer output for the whole set, so a
+     * dependent set need not be re-analyzed — the coarse cross-source-set early cutoff.
+     */
+    public static FingerPrint ofSourceSet(Runtime runtime, Collection<TypeInfo> primaryTypes) {
+        StringBuilder sb = new StringBuilder();
+        primaryTypes.stream().sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).forEach(pt ->
+                sb.append(pt.fullyQualifiedName()).append('=')
+                        .append(normalize(dump(runtime, pt, ANALYZER_OUTPUT_ONLY), DEFAULT)).append('\n'));
+        return MD5FingerPrint.compute(sb.toString());
+    }
+
+    /**
+     * Compute each source set's rollup fingerprint from the analyzed primary types and store it on the set,
+     * SetOnce-guarded (skipped where already set, e.g. loaded from persisted results). Activates the dormant
+     * {@link SourceSet#analysisFingerPrintOrNull()} hook; the value persists via the analysis-results JSON. Returns
+     * the per-set fingerprints for logging. This is the <em>storage</em> half of early cutoff; the compare half
+     * (skip re-analysis of a set whose stored fingerprint is unchanged) follows once carry lands. See
+     * {@code analysis-rewiring.md}.
+     */
+    public static Map<SourceSet, FingerPrint> storePerSourceSet(Runtime runtime, Collection<TypeInfo> primaryTypes) {
+        Map<SourceSet, List<TypeInfo>> bySet = new HashMap<>();
+        for (TypeInfo pt : primaryTypes) {
+            bySet.computeIfAbsent(pt.compilationUnit().sourceSet(), s -> new ArrayList<>()).add(pt);
+        }
+        Map<SourceSet, FingerPrint> result = new LinkedHashMap<>();
+        bySet.entrySet().stream()
+                .sorted(Comparator.comparing(e -> e.getKey().name()))
+                .forEach(e -> {
+                    FingerPrint fp = ofSourceSet(runtime, e.getValue());
+                    if (e.getKey().analysisFingerPrintOrNull() == null) {
+                        e.getKey().setAnalysisFingerPrint(fp);
+                    }
+                    result.put(e.getKey(), fp);
+                });
+        return result;
     }
 }

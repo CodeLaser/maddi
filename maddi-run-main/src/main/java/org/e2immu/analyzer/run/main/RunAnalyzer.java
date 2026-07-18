@@ -23,6 +23,7 @@ import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
+import org.e2immu.analyzer.modification.prepwork.io.AnalysisFingerprint;
 import org.e2immu.analyzer.run.rewire.RunRewireTests;
 import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
 import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
@@ -207,6 +208,10 @@ public class RunAnalyzer implements Runnable {
                 return;
             }
             analysisMessages.addAll(analyzer.messages());
+            // analysisFingerprint: store each source set's rollup for incremental early-cutoff (analysis-rewiring.md)
+            int fpSets = AnalysisFingerprint.storePerSourceSet(javaInspector.runtime(),
+                    summary.parseResult().primaryTypes()).size();
+            LOGGER.info("Stored analysis fingerprints for {} source set(s)", fpSets);
             if (analysisMessages.stream().anyMatch(m -> m.level().isError())) {
                 exitValue = Main.EXIT_ANALYSER_ERROR;
             }
