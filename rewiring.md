@@ -292,6 +292,16 @@ carried non-null would fight the link re-run rather than be replaced.
   otherwise; `GetSetValueImpl.rewire` re-points the field through the `InfoMap`. Test
   `prepwork/TestGetSetFieldRewire` (record accessor's `GET_SET_FIELD` survives, pointing at the *rewired* field).
 
+- **The derived-tier `Value.rewire` are implemented** (were NYI): `SetOfMethodInfoImpl` (`IMPLEMENTATIONS` —
+  re-points each implementation method), `LinksImpl` (`LINKS` — re-points primary + every from/to variable), and
+  `MethodLinkedVariablesImpl` (`METHOD_LINKS` — return-value links, positional parameter links, modified set). These
+  are what a fingerprint-stable type's *full* analysis carry needs (the early-cutoff, `analysis-rewiring.md`), as
+  opposed to the always-safe intrinsic carry. Test `analyzer/rewire/TestDerivedRewire` rewires the real analyzed
+  values directly (they are not opted into `carryOnRewire`, so the rewire phase filters them — the test exercises the
+  value-level rewire): `IMPLEMENTATIONS` re-points precisely, `LINKS`/`METHOD_LINKS` rewire without a synthetic-var NYI.
+  Not yet done: the remaining NYI tier (`VariableToTypeInfoSetImpl`, `ParameterParSeqImpl`, `SetOfInfoImpl`, …) and a
+  full-carry path (`carry all` vs the `carryOnRewire` filter) that the fingerprint-gated skip will drive.
+
 Still to do: `VARIABLE_DATA` (items 1 + 3 — `VariableDataImpl`/`VariableInfoImpl.rewire` and statement-level
 `Statement.rewireAnalysis`, minding the two traps), and the plain intrinsics. Note the analysis-rewiring
 reprioritisation (`analysis-rewiring.md`): prepwork `VARIABLE_DATA` is the *cheap* tier, so it is no longer the

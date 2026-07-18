@@ -498,6 +498,10 @@ public class LinksImpl implements Links {
      */
     @Override
     public Value rewire(InfoMap infoMap) {
-        throw new UnsupportedOperationException("NYI");
+        // carryOnRewire (LINKS): re-point the primary and every from/to variable through the infoMap.
+        List<Link> rewiredLinks = linkSet.stream()
+                .map(l -> (Link) new LinkImpl(l.from().rewire(infoMap), l.linkNature(), l.to().rewire(infoMap)))
+                .toList();
+        return new LinksImpl(primary.rewire(infoMap), rewiredLinks);
     }
 }
