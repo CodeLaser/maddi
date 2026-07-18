@@ -154,10 +154,15 @@ So the wiring is:
    the call. Verified by `modification-analyzer/integration/TestSeededIncrementalAnalysis`: seeding a converged order
    with one element analyses exactly that element and stops — no pass ever covers the whole order. The full
    (`initialDirty == null`) path is byte-for-byte the old behaviour (analyzer suite green).
-2. **Clear-before-recompute for a carried type when it is first dirtied.** A carried type pulled into `dirty` must
-   have its carry-tier `removeIf`'d before re-analysis, or the monotonic guard rejects a lowered value (unlike a
-   normal run, where iteration 1 computed the value fresh and iteration 2 only refines it upward). Pass the carried
-   set; on first dirtying of a carried element, clear it and drop it from the set (clear once).
+2. **Clear-before-recompute for a carried type when it is first dirtied** — **DONE (2026-07-18).**
+   `analyze(order, graph, initialDirty, Consumer<Info> beforeFirstRecompute)`: the worklist discovers the dirty
+   frontier dynamically, so the clear is a callback the analyzer fires **once per element, before its first
+   re-analysis, and only after the seed round** (the seed is fresh INVALID source, never carried — `everAnalyzed` is
+   pre-seeded with it). The driver's callback `removeIf`s the `CROSS_TYPE_DERIVED` tier of a carried element (and drops
+   it from its carried set), so the fresh, possibly-lowering re-analysis is not rejected by the monotonic guard.
+   Verified by `integration/TestClearBeforeRecomputeHook`: with the cross-type-derived tier dropped everywhere (a
+   stale-carry state), seeding one element fires the hook for each propagated element exactly once and **never for the
+   seed**; a converged seed propagates nothing and the hook stays silent.
 3. **The frontier is the fingerprint.** A recomputed type propagates to its dependents only if its fresh
    analysisFingerprint differs from the carried/prior one — the `EarlyCutoffWorklist` logic, here realised *inside*
    the analyzer's own summary-change propagation rather than as a separate loop.
