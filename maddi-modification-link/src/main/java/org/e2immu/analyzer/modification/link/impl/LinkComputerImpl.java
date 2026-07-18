@@ -257,6 +257,14 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     // minutes-long grind on the huge partial graph. The partially built per-method graph is
                     // discarded with the SourceMethodComputer instance.
                     LOGGER.warn("Cycle protection tripped in {}; falling back to shallow links", methodInfo);
+                    // mark the degradation: per-call data (VL2O) is absent inside this method, and consumers
+                    // like extract-interface must know to go pessimistic (task #36)
+                    if (!methodInfo.analysis().haveAnalyzedValueFor(
+                            org.e2immu.language.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD)) {
+                        methodInfo.analysis().set(
+                                org.e2immu.language.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+                    }
                     tlv = doMethod(methodInfo, true, write, writeShallow);
                 }
             } finally {
