@@ -37,6 +37,7 @@ public class MaddiConfigurable implements Configurable {
     private JBCheckBox autoAnalyzeOnBuild;
     private JBCheckBox showGuardFindings;
     private ComboBox<InlineHintsMode> inlineHintsMode;
+    private ComboBox<HintPlacement> hintPlacement;
     private JBCheckBox showGutterIcons;
     private JBCheckBox warnNearMisses;
 
@@ -60,6 +61,7 @@ public class MaddiConfigurable implements Configurable {
         autoAnalyzeOnBuild = new JBCheckBox("Re-analyze automatically after each successful build");
         showGuardFindings = new JBCheckBox("Mark guard contract violations");
         inlineHintsMode = new ComboBox<>(InlineHintsMode.values());
+        hintPlacement = new ComboBox<>(HintPlacement.values());
         showGutterIcons = new JBCheckBox("Show gutter icons on analyzed declarations");
         warnNearMisses = new JBCheckBox("Warn about near misses");
 
@@ -72,6 +74,8 @@ public class MaddiConfigurable implements Configurable {
                 .addComponent(showGuardFindings)
                 .addLabeledComponent("Inline hints:", inlineHintsMode, 1, false)
                 .addTooltip("Which computed annotations appear inline. The gutter always shows the full set.")
+                .addLabeledComponent("Hint placement:", hintPlacement, 1, false)
+                .addTooltip("Where a declaration's annotations are drawn. Parameters are always inline.")
                 .addComponent(showGutterIcons)
                 .addComponent(warnNearMisses)
                 .addTooltip("Flags types and methods that narrowly miss a property, e.g. one modifying method"
@@ -91,6 +95,7 @@ public class MaddiConfigurable implements Configurable {
                 || autoAnalyzeOnBuild.isSelected() != s.autoAnalyzeOnBuild
                 || showGuardFindings.isSelected() != s.showGuardFindings
                 || inlineHintsMode.getSelectedItem() != s.inlineHintsMode
+                || hintPlacement.getSelectedItem() != s.hintPlacement
                 || showGutterIcons.isSelected() != s.showGutterIcons
                 || warnNearMisses.isSelected() != s.warnNearMisses;
     }
@@ -104,6 +109,7 @@ public class MaddiConfigurable implements Configurable {
         s.autoAnalyzeOnBuild = autoAnalyzeOnBuild.isSelected();
         s.showGuardFindings = showGuardFindings.isSelected();
         s.inlineHintsMode = (InlineHintsMode) inlineHintsMode.getSelectedItem();
+        s.hintPlacement = (HintPlacement) hintPlacement.getSelectedItem();
         s.showGutterIcons = showGutterIcons.isSelected();
         s.warnNearMisses = warnNearMisses.isSelected();
     }
@@ -117,6 +123,7 @@ public class MaddiConfigurable implements Configurable {
         autoAnalyzeOnBuild.setSelected(s.autoAnalyzeOnBuild);
         showGuardFindings.setSelected(s.showGuardFindings);
         inlineHintsMode.setSelectedItem(s.inlineHintsMode);
+        hintPlacement.setSelectedItem(s.hintPlacement);
         showGutterIcons.setSelected(s.showGutterIcons);
         warnNearMisses.setSelected(s.warnNearMisses);
     }

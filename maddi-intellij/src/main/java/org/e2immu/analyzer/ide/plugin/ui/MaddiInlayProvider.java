@@ -14,9 +14,11 @@
 
 package org.e2immu.analyzer.ide.plugin.ui;
 
+import com.intellij.codeInsight.hints.declarative.AboveLineIndentedPosition;
 import com.intellij.codeInsight.hints.declarative.HintFormat;
 import com.intellij.codeInsight.hints.declarative.InlayHintsCollector;
 import com.intellij.codeInsight.hints.declarative.InlayHintsProvider;
+import com.intellij.codeInsight.hints.declarative.InlayPosition;
 import com.intellij.codeInsight.hints.declarative.InlayTreeSink;
 import com.intellij.codeInsight.hints.declarative.InlineInlayPosition;
 import com.intellij.codeInsight.hints.declarative.SharedBypassCollector;
@@ -33,6 +35,7 @@ import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiParameter;
 import org.e2immu.analyzer.ide.plugin.analysis.MaddiAnalysisService;
 import org.e2immu.analyzer.ide.client.AnalysisModel;
+import org.e2immu.analyzer.ide.plugin.settings.HintPlacement;
 import org.e2immu.analyzer.ide.plugin.settings.InlineHintsMode;
 import org.e2immu.analyzer.ide.plugin.settings.MaddiSettings;
 import org.jetbrains.annotations.NotNull;
@@ -42,14 +45,19 @@ import java.util.List;
 
 /**
  * Renders the computed analysis hints ({@code @Immutable}, {@code @Container}, {@code @NotModified},
- * {@code @NotNull}, …) as inline inlays at each declaration (type/method/field/parameter). Matches a
- * maddi element to a declaration's name identifier by range containment + kind.
+ * {@code @NotNull}, …) as inlays at each declaration (type/method/field/parameter). Matches a maddi element
+ * to a declaration's name identifier by range containment + kind.
+ * <p>
+ * Declarations get their hints on a line of their own above them by default, so the result reads like
+ * hand-written annotated API source; see {@link HintPlacement} for the setting and for why parameters are
+ * always inline.
  */
 public class MaddiInlayProvider implements InlayHintsProvider {
 
     @Override
     public @Nullable InlayHintsCollector createCollector(@NotNull PsiFile file, @NotNull Editor editor) {
-        InlineHintsMode mode = MaddiSettings.getInstance().getState().inlineHintsMode;
+        MaddiSettings.State settings = MaddiSettings.getInstance().getState();
+        InlineHintsMode mode = settings.inlineHintsMode;
         if (mode == InlineHintsMode.NONE) return null;
         VirtualFile vf = file.getVirtualFile();
         if (vf == null) return null;
@@ -58,18 +66,23 @@ public class MaddiInlayProvider implements InlayHintsProvider {
         if (annotations.isEmpty()) return null;
         Document doc = file.getViewProvider().getDocument();
         if (doc == null) return null;
-        return new Collector(annotations, doc, mode);
+        return new Collector(annotations, doc, mode, settings.hintPlacement);
     }
+
+    private static final String PARAMETER = "PARAMETER";
 
     private static final class Collector implements SharedBypassCollector {
         private final List<AnalysisModel.ElementAnnotation> annotations;
         private final Document doc;
         private final InlineHintsMode mode;
+        private final HintPlacement placement;
 
-        Collector(List<AnalysisModel.ElementAnnotation> annotations, Document doc, InlineHintsMode mode) {
+        Collector(List<AnalysisModel.ElementAnnotation> annotations, Document doc, InlineHintsMode mode,
+                  HintPlacement placement) {
             this.annotations = annotations;
             this.doc = doc;
             this.mode = mode;
+            this.placement = placement;
         }
 
         @Override
@@ -96,9 +109,8 @@ public class MaddiInlayProvider implements InlayHintsProvider {
                     .map(AnalysisModel.Annotation::text)
                     .collect(java.util.stream.Collectors.joining(" "));
             if (text.isEmpty()) return; // everything filtered out under the current mode
-            int anchor = element.getTextRange().getEndOffset();
             sink.addPresentation(
-                    new InlineInlayPosition(anchor, true, 0),
+                    position(element, kind),
                     null,
                     null,
                     HintFormat.Companion.getDefault(),
@@ -106,6 +118,18 @@ public class MaddiInlayProvider implements InlayHintsProvider {
                         builder.text(text, null);
                         return kotlin.Unit.INSTANCE;
                     });
+        }
+
+        /**
+         * A parameter's annotations always go next to the parameter; for everything else the placement is a
+         * setting, defaulting to a line of its own above the declaration (see {@link HintPlacement}).
+         */
+        private InlayPosition position(PsiElement identifier, String kind) {
+            if (PARAMETER.equals(kind) || placement == HintPlacement.INLINE) {
+                return new InlineInlayPosition(identifier.getTextRange().getEndOffset(), true, 0);
+            }
+            // anchored on the identifier: the hint lands above that line, indented to match the declaration
+            return new AboveLineIndentedPosition(identifier.getTextRange().getStartOffset(), 0, 0);
         }
     }
 

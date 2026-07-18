@@ -17,6 +17,7 @@ package org.e2immu.analyzer.ide.eclipse;
 import org.e2immu.analyzer.ide.client.AnalysisModel;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.ITextViewer;
 import org.eclipse.jface.text.Position;
@@ -51,6 +52,9 @@ import java.util.concurrent.CompletableFuture;
  */
 public class MaddiCodeMiningProvider extends AbstractCodeMiningProvider {
 
+    /** The one element kind whose hint has to be drawn inline; see {@link #mining}. */
+    private static final String PARAMETER = "PARAMETER";
+
     @Override
     public CompletableFuture<List<? extends ICodeMining>> provideCodeMinings(ITextViewer viewer,
                                                                              IProgressMonitor monitor) {
@@ -75,12 +79,31 @@ public class MaddiCodeMiningProvider extends AbstractCodeMiningProvider {
             if (!editedFile.equals(MaddiDocumentPositions.toPath(element.uri()))) continue;
             String text = filter.textFor(element);
             if (text.isEmpty()) continue; // nothing to show for this declaration under the current filter
-            Position position = MaddiDocumentPositions.position(document, element.beginLine(),
-                    element.beginCol());
-            if (position == null) continue; // the document moved on since the analysis; skip rather than guess
-            minings.add(new MaddiHintCodeMining(position, this, text));
+            ICodeMining mining = mining(document, element, text);
+            if (mining != null) minings.add(mining); // null: the document moved on; skip rather than guess
         }
         return minings;
+    }
+
+    /**
+     * Where a hint goes depends on what it annotates and on the {@link HintPlacement} preference. A
+     * parameter's annotation only makes sense next to the parameter, so it is always drawn inline;
+     * everything else follows the preference, defaulting to its own line above the declaration.
+     */
+    private ICodeMining mining(IDocument document, AnalysisModel.ElementAnnotation element, String text) {
+        if (PARAMETER.equals(element.kind()) || MaddiPreferences.hintPlacement() == HintPlacement.INLINE) {
+            Position position = MaddiDocumentPositions.position(document, element.beginLine(),
+                    element.beginCol());
+            // the separator matters: the label is drawn immediately before the parameter's own text
+            return position == null ? null : new MaddiHintCodeMining(position, this, text + ' ');
+        }
+        Integer line = element.beginLine();
+        if (line == null || line < 1 || line > document.getNumberOfLines()) return null;
+        try {
+            return new MaddiHintLineHeaderCodeMining(line - 1, document, this, text);
+        } catch (BadLocationException e) {
+            return null;
+        }
     }
 
     /** The file this editor is showing, as an absolute path, or null when it is not a workspace file. */
