@@ -18,7 +18,11 @@
 - Profiling rounds 1-3 done: -26% CPU (dedup keys ran the CST printer), -37% allocations (eager
   debug args, getenv-per-lookup, scopeVariables), lock-clean. ASPROF env gate in run-openjdk.
 - javac parse flake root-caused and fixed (concurrent lazy getOrLoad into the live JavacTask +
-  plain-HashMap registry); watch for recurrence.
+  plain-HashMap registry); RECURRED 2026-07-18 18:41 despite the fix — 10 victims in ONE link-suite
+  fork JVM, including a garbled test-results XML filename (name-table string corruption made
+  visible) and a downstream CompilationProblems casualty. -XDuseUnsharedTable confirmed present;
+  conclusion: a SECOND unsynchronized path into the live JavacTask exists (task #40). Mitigation:
+  -PforkEvery=1.
 - Elasticsearch first contact COMPLETED 2026-07-18 (attempt 11, 5h29m, 24G heap, work ceiling
   active): **239,732 elements** — 152,210 methods (101,822 nonModifying / 48,537 modifying /
   1,851 null = 99% decided), 41,717 fields (28,581/12,571/565), 45,805 types. Types:
@@ -94,7 +98,19 @@ session tasks #36-#39):
   which mediation deliberately decouples. Slice reverted (jfocus baseline restored, 176/1-known).
   Correct sequence: (1) engine adds mediation provenance to assignment-tier links (nature variant or
   flag; sticky through composition), (2) then de-duplicate CommonAnalyze consuming unmediated ←
-  only. Maddi-internal same-disease siblings unaffected and still valid: WLAM's five mirror blocks,
+  only. STEP 1 DONE 2026-07-18: Link.mediated() flag (LinkImpl 4th component, EXCLUDED from
+  equals/hashCode/toString — provenance, not identity) + a direct-pair registry on Graph
+  (mediatedPairs, populated at simpleAddToGraph from the produced link, pruned on clear/remove)
+  consulted at WLAM's two final emission points; the flag ALSO flows through LinkImpl
+  translate/translateFrom and the Builder 4-arg add. Design finding: the pattern-binding '→' never
+  enters the SharedVariables collapse (collapse fires on ← only) — the stored ii←0:o comes from the
+  ENGINE's symmetric edge via FollowGraph, whose facts carry no flag; hence the out-of-band pair
+  registry covering BOTH paths, not an Assignment-record thread. Pinned in TestMediatedLinks
+  (enabled, green). REMAINING for step 2 readiness: (a) chain-transitive taint (a link composed
+  ACROSS a mediated hop is still emitted unmediated — the reconstruction's reachable() chains and
+  the closure's compositions); (b) cast-mediated assignments (Result.casts join) not yet flagged at
+  production; (c) codec does not persist mediated (checkpoint restore loses provenance).
+  Maddi-internal same-disease siblings unaffected and still valid: WLAM's five mirror blocks,
   iterateOverShared vs expandRepToMembers (==/.equals divergence),
   ShallowMethodLinkComputer.correspondingTypeParameters vs hiddenContentHierarchy.
 

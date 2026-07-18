@@ -240,9 +240,14 @@ public class LinksImpl implements Links {
 
         @Override
         public Builder add(Variable from, LinkNature linkNature, Variable to) {
+            return add(from, linkNature, to, false);
+        }
+
+        @Override
+        public Builder add(Variable from, LinkNature linkNature, Variable to, boolean mediated) {
             assert primary instanceof This || Util.isPartOf(primary, from);
             if (!representable(from, to)) return this;
-            LinkImpl link = new LinkImpl(from, linkNature, to);
+            LinkImpl link = new LinkImpl(from, linkNature, to, mediated);
             links.add(link);
             addToIndexes(link);
             return this;
@@ -397,13 +402,13 @@ public class LinksImpl implements Links {
         public Link translate(TranslationMap translationMap) {
             Variable tFrom = translationMap.translateVariableRecursively(from);
             Variable tTo = translationMap.translateVariableRecursively(to);
-            return new LinkImpl(tFrom, linkNature, tTo);
+            return new LinkImpl(tFrom, linkNature, tTo, mediated);
         }
 
         @Override
         public Link translateFrom(TranslationMap translationMap) {
             Variable tFrom = translationMap.translateVariableRecursively(from);
-            return new LinkImpl(tFrom, linkNature, to);
+            return new LinkImpl(tFrom, linkNature, to, mediated);
         }
 
         @Override
