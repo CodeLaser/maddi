@@ -163,9 +163,24 @@ So the wiring is:
    Verified by `integration/TestClearBeforeRecomputeHook`: with the cross-type-derived tier dropped everywhere (a
    stale-carry state), seeding one element fires the hook for each propagated element exactly once and **never for the
    seed**; a converged seed propagates nothing and the hook stays silent.
-3. **The frontier is the fingerprint.** A recomputed type propagates to its dependents only if its fresh
-   analysisFingerprint differs from the carried/prior one — the `EarlyCutoffWorklist` logic, here realised *inside*
-   the analyzer's own summary-change propagation rather than as a separate loop.
+3. **The frontier is the fingerprint** — **DONE (2026-07-18), the capstone.** Realised as `EarlyCutoffWorklist`
+   driving a *real* per-type recompute at primary-type granularity, closing the gap the prototype's stand-in left:
+   `run-openjdk/TestEarlyCutoffWorklistDriver`, a three-source-set use chain `Top → Mid → Base`, through the actual
+   reload path. `recompute(t)` = clear the optimistic carry (`removeIf CROSS_TYPE_DERIVED`) → `prep().doPrimaryType(t)`
+   → `analyze(order)` → `AnalysisFingerprint.of(t)`; the worklist queues `t`'s dependents only when that fresh
+   fingerprint differs from the prior. A **comment edit at `Base` recomputes only `Base`** — its output is unchanged,
+   so the frontier cuts off and the whole `Mid`/`Top` tail is spared (never re-prepped nor re-analysed, returning with
+   their carried output). A **semantic edit propagates**: `Base`'s output moves, so `Mid` is pulled in and recomputed.
+   This is per-type granularity — distinct from, and complementary to, the *within-analyzer* seeded worklist of steps
+   1–2 (which restricts a single `analyze` call at method/field granularity). Both are valid orchestrations; the
+   per-type driver is the one that gets the true fingerprint frontier.
+
+   **Known gap (codec).** Fingerprinting a per-type-recomputed type whose links reference a **modifiable field**
+   throws `UnsupportedOperationException` from `Codec$TypeAndSorted.fieldIndex`: after a single-type re-analysis the
+   field carried in the link is not `==`-identical to the one in the owner's `fields()`, so the out-of-context field
+   encoding cannot index it. Full-analysis fingerprinting (all types in one pass) does not hit this. The capstone's
+   semantic case is deliberately fieldless to sidestep it; closing it needs the field-reference encoding to resolve by
+   fqn/index rather than identity (or the per-type recompute to canonicalise field references against the owner).
 
 ### The property-tier flag — DONE (2026-07-18)
 
