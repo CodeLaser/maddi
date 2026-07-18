@@ -24,7 +24,12 @@
   sources and rewriting class files/jars while live test forks read them. Explains the
   starImportScope NPEs (javac on half-written classpath entries), the garbled XML filename (JUnit
   discovery on a half-written class file), and the morning maddi-graph unreadable-jar race.
-  PROTOCOL: do not run gradle in ~/git/maddi from two threads concurrently (task #40). In-JVM
+  PROTOCOL: do not run gradle in ~/git/maddi from two threads concurrently (task #40). CAUGHT
+  RED-HANDED 21:39:08 same day: soak run 3 (of 3; runs 1-2 quiet + 0 flakes) had 4 classpath jars
+  (cst-impl, graph, util, inspection-openjdk) rewritten by a sibling process mid-run — the failing
+  suite's XML timestamp matches the jar mtimes to the second, and the garbled discovery filename
+  reappeared. Mechanical fix: bin/gradle-locked.sh (stale-proof lock in build/), MANDATORY per
+  CLAUDE.md. In-JVM
   leads (owner-thread assertion, one-lock-per-JavacTask) stay relevant for analyzer-PARALLEL
   corpus runs only. SECOND ROOT CAUSE FOUND 2026-07-18 (lead from the flakiness thread, confirmed
   + fixed here): createTask returned the JavacTask from INSIDE try-with-resources on its
