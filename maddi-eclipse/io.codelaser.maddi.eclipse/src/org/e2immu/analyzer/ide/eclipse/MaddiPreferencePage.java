@@ -48,7 +48,11 @@ public class MaddiPreferencePage extends FieldEditorPreferencePage implements IW
         addField(xmx);
 
         addField(new ComboFieldEditor(MaddiPreferences.HINT_FILTER,
-                "Gutter hints show:", hintFilterChoices(), getFieldEditorParent()));
+                "Hints show:", hintFilterChoices(), getFieldEditorParent()));
+
+        addField(new BooleanFieldEditor(MaddiPreferences.INLINE_HINTS,
+                "Show hints inline in the editor (needs Java > Editor > Code Minings enabled)",
+                getFieldEditorParent()));
 
         addField(new BooleanFieldEditor(MaddiPreferences.AUTO_ANALYZE_ON_BUILD,
                 "Re-analyze automatically after a build", getFieldEditorParent()));

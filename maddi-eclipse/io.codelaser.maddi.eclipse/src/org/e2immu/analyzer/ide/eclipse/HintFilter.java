@@ -16,6 +16,8 @@ package org.e2immu.analyzer.ide.eclipse;
 
 import org.e2immu.analyzer.ide.client.AnalysisModel;
 
+import java.util.List;
+
 /**
  * Which computed annotations appear as gutter hints, mirroring the IntelliJ plugin's inline-hints filter.
  * maddi's decorator collapses "baseline" and "negative polarity" onto the same boundary, so the choices are
@@ -49,5 +51,26 @@ public enum HintFilter {
             case POSITIVE_ONLY -> !"NEGATIVE".equals(annotation.polarity());
             case NEGATIVE_ONLY -> !"POSITIVE".equals(annotation.polarity());
         };
+    }
+
+    /**
+     * What this element should read as under this filter: the shown annotations joined, or empty for
+     * "show nothing here". Shared by every surface (gutter markers, inline code minings) so one filter
+     * setting means the same thing everywhere.
+     */
+    public String textFor(AnalysisModel.ElementAnnotation element) {
+        List<AnalysisModel.Annotation> annotations = element.annotations();
+        if (annotations == null || annotations.isEmpty()) {
+            // no tagged annotations to filter on; fall back to the full display set unless suppressed entirely
+            return this == NONE || element.displayAnnotations() == null
+                    ? "" : String.join(" ", element.displayAnnotations());
+        }
+        StringBuilder sb = new StringBuilder();
+        for (AnalysisModel.Annotation annotation : annotations) {
+            if (!shows(annotation)) continue;
+            if (!sb.isEmpty()) sb.append(' ');
+            sb.append(annotation.text());
+        }
+        return sb.toString();
     }
 }

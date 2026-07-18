@@ -84,4 +84,25 @@
          </command>
       </menuContribution>
    </extension>
+
+   <!-- Inline hints in the Java editor. This is the public path: AbstractTextEditor.installCodeMiningProviders()
+        reads this registry, and JDT registers its own references/implementations minings here too, so no JDT
+        internals are involved. The enabledWhen mirrors JDT's, matching on the editor input's content type
+        (following angelozerr/jdt-codemining, which does not test the editor class at all). Note that JDT still
+        gates all minings in its editor on Java > Editor > Code Minings > Enable code minings. -->
+   <extension point="org.eclipse.ui.workbench.texteditor.codeMiningProviders">
+      <codeMiningProvider
+            class="org.e2immu.analyzer.ide.eclipse.MaddiCodeMiningProvider"
+            id="io.codelaser.maddi.eclipse.codemining.hints"
+            label="maddi analysis hints">
+         <enabledWhen>
+            <with variable="editorInput">
+               <adapt type="org.eclipse.core.resources.IFile">
+                  <test property="org.eclipse.core.resources.contentTypeId"
+                        value="org.eclipse.jdt.core.javaSource"/>
+               </adapt>
+            </with>
+         </enabledWhen>
+      </codeMiningProvider>
+   </extension>
 </plugin>
