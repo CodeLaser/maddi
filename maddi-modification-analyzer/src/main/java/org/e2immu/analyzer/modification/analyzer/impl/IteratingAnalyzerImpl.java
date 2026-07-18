@@ -197,16 +197,26 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
 
     @Override
     public void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph) {
-        analyze(analysisOrder, dependencyGraph, null);
+        analyze(analysisOrder, dependencyGraph, null, null);
     }
 
     @Override
     public void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph,
                         java.util.Set<Info> initialDirty) {
+        analyze(analysisOrder, dependencyGraph, initialDirty, null);
+    }
+
+    @Override
+    public void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph,
+                        java.util.Set<Info> initialDirty, java.util.function.Consumer<Info> beforeFirstRecompute) {
         // incremental (early-cutoff) mode: seed the worklist with initialDirty and stop the moment it runs dry,
         // WITHOUT the full verification / cycle-breaking passes — those re-touch the untouched (carried) elements
         // and would defeat the skip. See analysis-rewiring.md and IteratingAnalyzer#analyze(List,G,Set).
         boolean incremental = initialDirty != null;
+        // clear-before-recompute: elements already analysed (never to be re-cleared). Seeded with the seed itself,
+        // which is fresh (INVALID) source, never carried — so the hook fires only for elements the worklist later
+        // pulls in, i.e. carried types entering the dirty frontier, exactly once each, before their first analysis.
+        java.util.Set<Info> everAnalyzed = incremental ? new java.util.HashSet<>(initialDirty) : java.util.Set.of();
         int iterations = 0;
         SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
         this.lastRun = singleIterationAnalyzer;
@@ -265,6 +275,14 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                 java.util.Set<Info> d = dirty;
                 subset = analysisOrder.stream().filter(d::contains).toList();
                 LOGGER.info("Worklist: {} of {} elements dirty", subset.size(), analysisOrder.size());
+            }
+            if (incremental && beforeFirstRecompute != null) {
+                // clear-before-recompute: newly-dirtied elements (never analysed before in this run) may be carried
+                // types whose stale cross-type-derived values must be cleared before the fresh, possibly-lowering
+                // re-analysis. Fire the hook once per element, before it enters go().
+                for (Info info : subset) {
+                    if (everAnalyzed.add(info)) beforeFirstRecompute.accept(info);
+                }
             }
             Instant start = Instant.now();
             singleIterationAnalyzer.go(subset, cycleBreakingActive, iterations == 1,

@@ -115,6 +115,22 @@ public interface IteratingAnalyzer {
      */
     default void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph,
                          java.util.Set<Info> initialDirty) {
+        analyze(analysisOrder, dependencyGraph, initialDirty, null);
+    }
+
+    /**
+     * As {@link #analyze(List, org.e2immu.util.internal.graph.G, java.util.Set)}, with a clear-before-recompute hook.
+     * In incremental mode the worklist discovers the dirty frontier dynamically: a <em>carried</em> type is pulled in
+     * only when a dependency's summary changes. Before such a type is re-analysed, its carried cross-type-derived
+     * values must be cleared, or the monotonic overwrite guard rejects a value the fresh analysis <em>lowers</em>
+     * (unlike a normal run, where iteration 1 computes the value from nothing and later iterations only refine it
+     * upward). {@code beforeFirstRecompute} is invoked once per element, the first time it is about to be analysed
+     * <em>after</em> the seed round (the seed is fresh, never carried, so it is skipped). The driver's callback clears
+     * the {@code CROSS_TYPE_DERIVED} tier of a carried element (and drops it from its carried set). {@code null} ⇒ no
+     * hook. Only consulted when {@code initialDirty != null}.
+     */
+    default void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph,
+                         java.util.Set<Info> initialDirty, java.util.function.Consumer<Info> beforeFirstRecompute) {
         analyze(analysisOrder, dependencyGraph);
     }
 
