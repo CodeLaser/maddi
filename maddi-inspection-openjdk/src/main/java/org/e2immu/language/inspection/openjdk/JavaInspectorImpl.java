@@ -76,6 +76,12 @@ public class JavaInspectorImpl implements JavaInspector {
     // the most recent scan's units, retained so its still-live javac task can resolve+load a compiled type by
     // FQN on demand (the CompiledTypesManager's lazy getOrLoad path). Single-threaded, like all javac use here.
     private ScanCompilationUnits lastScanUnits;
+    // Each JavacTask's StandardJavaFileManager, kept OPEN for as long as its task can be driven (parse/analyze
+    // after createTask returns, lazy getOrLoad long after). Closing it earlier is use-after-close: javac mostly
+    // self-heals (closed containers are lazily re-created) but intermittently corrupts mid-read — the historical
+    // low-count "tree.starImportScope is null" flakes that no concurrency fix could cure. Closed in
+    // invalidateAllSources(), when every retained task is dropped.
+    private final List<StandardJavaFileManager> openFileManagers = new ArrayList<>();
     private boolean parameterNames;
     private ParameterNameIndex parameterNameIndex; // lazily loaded when parameterNames is on
     private boolean jdkInternals; // "we're working with JDK internals": load jdk.internal.* types + open javac
@@ -105,6 +111,16 @@ public class JavaInspectorImpl implements JavaInspector {
     @Override
     public void invalidateAllSources() {
         infoByFqn.removeAllSources();
+        // all retained javac tasks are now unreachable through this inspector; their file managers can close
+        for (StandardJavaFileManager fm : openFileManagers) {
+            try {
+                fm.close();
+            } catch (IOException e) {
+                LOGGER.debug("Ignoring exception closing a javac file manager: {}", e.toString());
+            }
+        }
+        openFileManagers.clear();
+        lastScanUnits = null;
     }
 
     @Override
@@ -636,7 +652,11 @@ public class JavaInspectorImpl implements JavaInspector {
             }
         }
 
-        try (StandardJavaFileManager fm = javaCompiler.getStandardFileManager(diagnostics, null, null)) {
+        // NOT try-with-resources: the returned JavacTask holds this manager and is driven long after this
+        // method returns (parse/analyze in scan(), lazy getOrLoad far later). See openFileManagers.
+        StandardJavaFileManager fm = javaCompiler.getStandardFileManager(diagnostics, null, null);
+        openFileManagers.add(fm);
+        {
             Iterable<? extends JavaFileObject> allCompilationUnits = computeCompilationUnits(sourceSet, ignoreModule,
                     sources, sourcesByClassName, fm);
             boolean hasModuleInfo = false;

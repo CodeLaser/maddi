@@ -26,7 +26,13 @@
   discovery on a half-written class file), and the morning maddi-graph unreadable-jar race.
   PROTOCOL: do not run gradle in ~/git/maddi from two threads concurrently (task #40). In-JVM
   leads (owner-thread assertion, one-lock-per-JavacTask) stay relevant for analyzer-PARALLEL
-  corpus runs only.
+  corpus runs only. SECOND ROOT CAUSE FOUND 2026-07-18 (lead from the flakiness thread, confirmed
+  + fixed here): createTask returned the JavacTask from INSIDE try-with-resources on its
+  StandardJavaFileManager — every parse/analyze/lazy-load ran against a CLOSED file manager.
+  Use-after-close: mostly self-healing (closed containers lazily re-created) but intermittently
+  corrupting mid-read — the historical low-victim-count flakes that no locking could cure. Fix:
+  fm outlives the task (openFileManagers, closed in invalidateAllSources). Plus an assert that
+  -XDuseUnsharedTable is HONORED (Names.table is not SharedNameTable), ScanCompilationUnits.
 - Elasticsearch first contact COMPLETED 2026-07-18 (attempt 11, 5h29m, 24G heap, work ceiling
   active): **239,732 elements** — 152,210 methods (101,822 nonModifying / 48,537 modifying /
   1,851 null = 99% decided), 41,717 fields (28,581/12,571/565), 45,805 types. Types:
