@@ -235,7 +235,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
                         continue;
                     }
                     ParameterInfo fromCheck = methodInfo.parameters().get(i);
-                    if (!fromCheck.isVarArgs() && to.isVarArgs() && System.getenv("NOVARTO") == null) {
+                    if (!fromCheck.isVarArgs() && to.isVarArgs() && !Gate.isSet("NOVARTO")) {
                         // LEAF — the link's TARGET is the varargs parameter: fan the to-side out over every
                         // actual argument, with the same per-element weakening as the from-side fan-out.
                         // 'fillAll(Box<T> target, T... vs)' with 'target.t ∈ 1:vs' at 'fillAll(box,a,b)' ->

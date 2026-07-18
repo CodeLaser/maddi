@@ -13,8 +13,11 @@ import java.util.*;
 // important: this class should not retain any references to OpenJDK structures
 public class CompiledTypesManagerImpl implements CompiledTypesManager {
     private final SourceSet javaBase;
-    private final Map<String, TypeInfo> typesLoaded = new HashMap<>();
-    private final Set<String> packageParts = new HashSet<>();
+    // read and written from parallel analyzer worker threads (getOrLoad during PARALLEL analysis):
+    // these must be concurrent, and the lazy-load slow path below must additionally serialize access
+    // to the (thread-hostile) javac task behind the loader
+    private final Map<String, TypeInfo> typesLoaded = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Set<String> packageParts = java.util.concurrent.ConcurrentHashMap.newKeySet();
     // the scan's own registry. This class is a second, flatter cache of the same types, so invalidating or rewiring
     // a type has to reach both: leaving the type in InfoByFqn would have the next scan resolve references to the
     // stale object.
@@ -97,9 +100,16 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         TypeInfo typeInfo = typesLoaded.get(fullyQualifiedName);
         if (typeInfo != null) return typeInfo;
         if (lazyLoader == null) return null;
-        TypeInfo loaded = lazyLoader.apply(fullyQualifiedName);
-        if (loaded != null) addTypeInfo(null, loaded); // cache; the loader already registered it in InfoByFqn
-        return loaded;
+        // the loader runs on the scan's live JavacTask, and javac is not thread-safe: unsynchronized
+        // concurrent loads from PARALLEL analyzer threads corrupted javac's process-wide state, surfacing
+        // as the intermittent StarImportScope NPE / CompilationProblems in LATER parses of the same JVM
+        synchronized (this) {
+            TypeInfo raced = typesLoaded.get(fullyQualifiedName);
+            if (raced != null) return raced;
+            TypeInfo loaded = lazyLoader.apply(fullyQualifiedName);
+            if (loaded != null) addTypeInfo(null, loaded); // cache; the loader already registered it in InfoByFqn
+            return loaded;
+        }
     }
 
     @Override

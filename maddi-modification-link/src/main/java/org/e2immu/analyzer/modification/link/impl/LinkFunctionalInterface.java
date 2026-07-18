@@ -57,7 +57,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         // FUNCTIONAL INTERFACE
 
         MethodInfo sam = functionalInterfaceType.typeInfo().singleAbstractMethod();
-        if (System.getenv("LFITRACE") != null) {
+        if (Gate.isSet("LFITRACE")) {
             System.out.println("LFITRACE fi=" + functionalInterfaceType + " fromTranslated=" + fromTranslated
                                + " nature=" + linkNature + " returnPrimary=" + returnPrimary
                                + " objectPrimary=" + objectPrimary + " linksList=" + linksList);

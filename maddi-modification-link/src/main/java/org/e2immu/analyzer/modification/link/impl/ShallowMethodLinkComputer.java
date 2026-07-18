@@ -267,7 +267,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
 
         MethodLinkedVariables shallowResult = new MethodLinkedVariablesImpl(ofReturnValue.build(), ofParameters,
                 Set.copyOf(modified));
-        if (System.getenv("BTRACE") != null && methodInfo.fullyQualifiedName().contains(System.getenv("BTRACE"))) {
+        if (Gate.isSet("BTRACE") && methodInfo.fullyQualifiedName().contains(Gate.get("BTRACE"))) {
             System.out.println("BTRACE shallow " + methodInfo.fullyQualifiedName() + " mlv=" + shallowResult);
         }
         return shallowResult;

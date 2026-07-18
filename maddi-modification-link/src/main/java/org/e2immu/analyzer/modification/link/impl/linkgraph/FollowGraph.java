@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
+import org.e2immu.analyzer.modification.link.impl.Gate;
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
@@ -29,7 +30,7 @@ public record FollowGraph(Graph graph) {
 
     public Links.Builder followGraph(VirtualFieldComputer virtualFieldComputer, Variable primary) {
         Links.Builder builder = new LinksImpl.Builder(primary);
-        if (System.getenv("SBDUMP") != null && System.getenv("SBDUMP").equals(primary.simpleName())) {
+        if (Gate.isSet("SBDUMP") && Gate.get("SBDUMP").equals(primary.simpleName())) {
             System.out.println("SBDUMP closure with witnesses:");
             System.out.println(graph.printClosure());
         }
@@ -70,7 +71,7 @@ public record FollowGraph(Graph graph) {
                     // ($__sv_$__rv6.bodyThrowingFunction) then carries knowledge the collapse stranded on the
                     // chain rep's field face (the ←Λ$_fi method-reference edge): read v's closure, emit keyed
                     // on the recipient face. Only the source→recipient direction transfers (assignmentSources).
-                    if (System.getenv("NODFP") == null) {
+                    if (!Gate.isSet("NODFP")) {
                         for (Variable sibling : graph.allShared(e)) {
                             if (sibling.equals(e) || !graph.assignmentSources(sibling).contains(e)) continue;
                             for (Variable face : faces) {
@@ -105,7 +106,7 @@ public record FollowGraph(Graph graph) {
         // (acceptForComposite), so 'return run ↖ 1:r.function' exists keyed on the return vertex only.
         // For a non-return primary, read the return vertices' closures and emit the reverse
         // ('1:r.function ↗ run') keyed on the primary's face. Gate NORVREV.
-        if (!(primary instanceof ReturnVariable) && System.getenv("NORVREV") == null) {
+        if (!(primary instanceof ReturnVariable) && !Gate.isSet("NORVREV")) {
             for (Variable v : graph.variables()) {
                 if (!(Util.primary(v) instanceof ReturnVariable)) continue;
                 List<Variable> faces = primary instanceof SharedVariable sv
