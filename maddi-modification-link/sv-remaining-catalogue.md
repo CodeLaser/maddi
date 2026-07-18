@@ -29,7 +29,16 @@
   (cst-impl, graph, util, inspection-openjdk) rewritten by a sibling process mid-run — the failing
   suite's XML timestamp matches the jar mtimes to the second, and the garbled discovery filename
   reappeared. Mechanical fix: bin/gradle-locked.sh (stale-proof lock in build/), MANDATORY per
-  CLAUDE.md. In-JVM
+  CLAUDE.md. EIGHT collision events on 2026-07-18 (18:41 → 21:58), each certified by jar/class
+  mtimes inside the failing run's window; the lock protects only ADOPTERS — running sibling
+  sessions must be told explicitly. The sibling (active in core CST modules) rebuilds every ~2
+  minutes; quiet-window racing lost 4 straight attempts, so the chain-taint round was committed on
+  pins + certified 0-diff A/B, with the 3-suite green confirmation OWED from the next genuinely
+  quiet window (overnight at the latest). Gate runs now SELF-CERTIFY: touch a marker
+  before gradle, find-newer on build outputs (excluding own modules) after — red + foreign writes
+  = collision (rerun in a quiet window); red + certified-quiet = real bug, and would revive the
+  in-JVM residual hypothesis (the 21:48 event's causal chain via the aapi-parser CLASS DIR is the
+  least direct of the five — noted for honesty). In-JVM
   leads (owner-thread assertion, one-lock-per-JavacTask) stay relevant for analyzer-PARALLEL
   corpus runs only. SECOND ROOT CAUSE FOUND 2026-07-18 (lead from the flakiness thread, confirmed
   + fixed here): createTask returned the JavacTask from INSIDE try-with-resources on its
