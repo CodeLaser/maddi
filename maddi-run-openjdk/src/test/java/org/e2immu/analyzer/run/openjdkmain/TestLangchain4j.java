@@ -33,6 +33,7 @@ public class TestLangchain4j {
                 "--input-configuration=./src/test/resources/inputConfiguration/langchain4j.json"
                 //,"--parallel"
                 , "--analysis-steps=modification"
+                , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk"
                 //,"--debug=memory",
         });
         assertEquals(Main.EXIT_OK, exitValue);

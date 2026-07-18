@@ -39,6 +39,7 @@ public class TestGuava {
         int exitValue = Main.execute(new String[]{
                 "--input-configuration=" + CONFIG
                 , "--analysis-steps=modification"
+                , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk"
         });
         assertEquals(Main.EXIT_OK, exitValue);
     }
