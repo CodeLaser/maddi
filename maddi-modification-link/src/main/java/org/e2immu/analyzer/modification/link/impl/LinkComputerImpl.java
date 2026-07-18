@@ -105,7 +105,6 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
     private final ShallowMethodAnalyzer shallowMethodAnalyzer;
     private final AtomicInteger propertiesChanged;
-    private final AtomicInteger variableCounter = new AtomicInteger();
     private final AtomicInteger countSourceMethods = new AtomicInteger();
     private final VirtualFieldComputer virtualFieldComputer;
     private final TestVisitor testVisitor;
@@ -174,7 +173,6 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     @Override
     public void reset() {
         this.countSourceMethods.set(0);
-        this.variableCounter.set(0);
         this.propertiesChanged.set(0);
     }
 

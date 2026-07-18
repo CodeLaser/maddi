@@ -94,6 +94,12 @@ public class LinksImpl implements Links {
     }
 
     private Codec.EncodedValue encodeLink(Codec codec, Codec.Context context, Link link) {
+        // natures are encoded by symbol only. A pass-carrying ≡ variant (☷, e.g. Iterator.remove-style
+        // annotations) loses its method set and its symbol is not decodable — fail HERE, at the cause,
+        // rather than with a delayed "Unknown symbol ☷" on decode. Full pass-set encoding is an open item
+        // (org-review 2026-07-18, item 5).
+        assert link.linkNature().pass() == null || link.linkNature().pass().isEmpty()
+                : "pass-carrying link nature cannot be persisted yet: " + link;
         return codec.encodeList(context, List.of(
                 codec.encodeVariable(context, link.from()),
                 codec.encodeString(context, link.linkNature().toString()),
