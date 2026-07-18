@@ -46,6 +46,21 @@ representation every normalizer shares; a structural one may parse/re-serialise 
   `of(runtime, type, profile)` takes a custom list. Position-invariance is on by default because it is sound and
   only improves precision.
 
+### Wired into the flow — the storage half (2026-07-18)
+
+`AnalysisFingerprint.storePerSourceSet(runtime, primaryTypes)` groups the analyzed primary types by source set,
+computes each set's rollup (`ofSourceSet` = hash of its fqn-sorted, normalised per-type dumps), and stores it on the
+set — **SetOnce-guarded**, so a set already carrying a loaded fingerprint is left alone. Both production runners
+(`run-openjdk`, `run-main`) call it right after the modification analysis converges, and log the count. This
+activates the dormant `SourceSet.analysisFingerPrintOrNull()` hook; the value already persists through the
+analysis-results JSON (`JsonStreaming`), so a later run can read the previous fingerprint back.
+
+This is deliberately only the **storage** (and persistence) half. The **compare** half — on reload, skip
+re-analysing a set whose stored fingerprint is unchanged, carrying its results — needs two things that are not in
+yet: the reload flow must actually *run analysis* (today `RunRewireTests` reloads + reparses + recomputes the call
+graph but does **not** analyse, so post-reload there is nothing to compare), and the parked `carryOnRewire` must land
+so a spared type comes back with its analysis rather than empty. Test `TestAnalysisFingerprint.testSourceSetRollupAndStore`.
+
 ## The point: skip link + analyzer, not prepwork
 
 Prepwork is ~1/10 of the modification-analysis cost; **link + analyzer are the other 9/10**. So the prize is

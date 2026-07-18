@@ -18,6 +18,7 @@ import org.e2immu.analyzer.modification.analyzer.CommonTest;
 import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
 import org.e2immu.analyzer.modification.prepwork.io.AnalysisFingerprint;
 import org.e2immu.language.cst.api.element.FingerPrint;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -133,5 +135,20 @@ public class TestAnalysisFingerprint extends CommonTest {
         assertEquals(AnalysisFingerprint.of(base.runtime(), base.typeInfo()),
                 AnalysisFingerprint.of(shifted.runtime(), shifted.typeInfo()),
                 "the analysis is identical; only positions moved, so the normalized fingerprint must match");
+    }
+
+    @DisplayName("per-source-set rollup: deterministic, and storePerSourceSet activates the dormant hook")
+    @Test
+    public void testSourceSetRollupAndStore() throws IOException {
+        Analyzed a = analyze("a.b.X", IMMUTABLE);
+        SourceSet ss = a.typeInfo().compilationUnit().sourceSet();
+        FingerPrint direct = AnalysisFingerprint.ofSourceSet(a.runtime(), List.of(a.typeInfo()));
+        assertEquals(direct, AnalysisFingerprint.ofSourceSet(a.runtime(), List.of(a.typeInfo())), "deterministic");
+
+        assertNull(ss.analysisFingerPrintOrNull(), "not set before storePerSourceSet");
+        Map<SourceSet, FingerPrint> stored = AnalysisFingerprint.storePerSourceSet(a.runtime(), List.of(a.typeInfo()));
+        assertEquals(1, stored.size());
+        assertEquals(direct, stored.get(ss));
+        assertEquals(direct, ss.analysisFingerPrintOrNull(), "the hook is now populated (and persists via JSON)");
     }
 }
