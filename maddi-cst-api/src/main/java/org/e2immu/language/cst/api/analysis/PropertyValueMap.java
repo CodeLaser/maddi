@@ -25,6 +25,15 @@ public interface PropertyValueMap {
 
     PropertyValueMap rewire(InfoMap infoMap);
 
+    /**
+     * A filtered carry: keep only the properties matching {@code filter}, re-pointing their values through the
+     * {@code infoMap}. {@link #rewire(InfoMap)} is this with {@code Property::carryOnRewire}. The fingerprint-gated
+     * skip passes the analyzer-output predicate (verdicts + link summaries, excluding prepwork-internal detail like
+     * {@code VARIABLE_DATA}, which is recomputed anyway) — see {@code analysis-rewiring.md}. Requires each kept
+     * property's value to implement {@code rewire}.
+     */
+    PropertyValueMap rewire(InfoMap infoMap, java.util.function.Predicate<Property> filter);
+
     record PropertyValue(Property property, Value value) {
 
     }

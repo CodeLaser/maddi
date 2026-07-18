@@ -46,9 +46,15 @@ public class PropertyValueMapImpl implements PropertyValueMap {
      */
     @Override
     public synchronized PropertyValueMap rewire(InfoMap infoMap) {
+        return rewire(infoMap, Property::carryOnRewire);
+    }
+
+    // filtered carry (analysis-rewiring.md): the fingerprint-gated skip passes the analyzer-output predicate
+    @Override
+    public synchronized PropertyValueMap rewire(InfoMap infoMap, java.util.function.Predicate<Property> filter) {
         PropertyValueMapImpl rewiredMap = new PropertyValueMapImpl();
         map.forEach((key, value) -> {
-            if (key.carryOnRewire()) rewiredMap.set(key, value.rewire(infoMap));
+            if (filter.test(key)) rewiredMap.set(key, value.rewire(infoMap));
         });
         return rewiredMap;
     }

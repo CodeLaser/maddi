@@ -1065,9 +1065,16 @@ public abstract class ValueImpl implements Value {
             return new SetOfInfoImpl(set);
         }
 
+        // carryOnRewire (e.g. PART_OF_CONSTRUCTION): re-point each Info through the infoMap, dispatching by kind.
         @Override
         public Value rewire(InfoMap infoMap) {
-            throw new UnsupportedOperationException("NYI");
+            return new SetOfInfoImpl(infoSet.stream().<Info>map(i -> switch (i) {
+                case TypeInfo t -> infoMap.typeInfo(t);
+                case MethodInfo m -> infoMap.methodInfo(m);
+                case FieldInfo f -> infoMap.fieldInfo(f);
+                case ParameterInfo p -> infoMap.parameterInfo(p);
+                default -> throw new UnsupportedOperationException();
+            }).collect(Collectors.toUnmodifiableSet()));
         }
     }
 
@@ -1126,9 +1133,13 @@ public abstract class ValueImpl implements Value {
             return true;
         }
 
+        // carryOnRewire (DOWNCAST_PARAMETER): re-point each variable key and each TypeInfo value through the infoMap.
         @Override
         public Value rewire(InfoMap infoMap) {
-            throw new UnsupportedOperationException("NYI");
+            Map<Variable, Set<TypeInfo>> rewired = new HashMap<>();
+            variableToTypeInfoSet.forEach((v, ts) -> rewired.put(v.rewire(infoMap),
+                    ts.stream().map(infoMap::typeInfo).collect(Collectors.toUnmodifiableSet())));
+            return new VariableToTypeInfoSetImpl(Map.copyOf(rewired));
         }
     }
 
@@ -1164,9 +1175,11 @@ public abstract class ValueImpl implements Value {
             return typeInfoSet.stream().map(Object::toString).sorted().collect(Collectors.joining(", "));
         }
 
+        // carryOnRewire: re-point each TypeInfo through the infoMap.
         @Override
         public Value rewire(InfoMap infoMap) {
-            throw new UnsupportedOperationException("NYI");
+            return new SetOfTypeInfoImpl(typeInfoSet.stream().map(infoMap::typeInfo)
+                    .collect(Collectors.toUnmodifiableSet()));
         }
 
         @Override
