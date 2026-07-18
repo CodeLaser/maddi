@@ -91,4 +91,24 @@ public final class AnalysisModel {
                          int hintsLoaded,
                          long elapsedMillis) {
     }
+
+    /**
+     * Analysis values established after one pass, streamed before the run finishes so the editor can be
+     * annotated early. Arrives as a non-terminal {@code partialResult} frame, i.e. through
+     * {@code DaemonClient.analyze}'s status consumer — see {@link #PARTIAL_RESULT}.
+     * <p>
+     * Merge these by element rather than replacing wholesale: {@code elements} is what one pass analyzed
+     * (everything on the first, a shrinking subset after), not a complete picture. Nothing here is ever
+     * retracted — values are write-once and only strengthen — so a merge never has to remove an annotation
+     * a previous frame provided. {@code certain} means the fixpoint was certified and the values are final.
+     */
+    public record PartialResult(String requestId,
+                                int iteration,
+                                boolean fullPass,
+                                boolean certain,
+                                List<ElementAnnotation> elements) {
+    }
+
+    /** Frame type of a streamed {@link PartialResult}, as it appears in the status consumer. */
+    public static final String PARTIAL_RESULT = "partialResult";
 }

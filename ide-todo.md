@@ -76,21 +76,27 @@ they are probably not even looking at.
 refines them. On a large project this changes the feel completely: the file on screen is annotated in seconds
 rather than after the whole run.
 
-**The design question to settle first — are early decisions final?** Streaming is only honest if a value
-emitted in iteration 1 cannot later be contradicted; otherwise the UI has to *retract*, and a hint that
-appears and then changes is worse than one that appears late. Two possible answers, and which one holds
-decides the whole shape:
+**The design question — answered, and the engine half has landed.** `AnalysisValueFeed` (`ec77f8bb`, merged
+from `kotlin`) settles it: published values are **write-once and refine monotonically**, so a consumer never
+needs retraction — a displayed value can only get stronger. Streaming is sound; no "stable subset" compromise
+is needed.
 
-- values are monotonic / hardened once decided → stream freely, later frames only add;
-- values can be revised → stream only the subset provably stable after iteration 1, or make the wire carry
-  revisions and have the front-ends replace by element.
+The feed emits `passCompleted(iteration, fullPass, analyzed)` at pass boundaries **from the coordinator
+thread with the workers quiescent**, so reading `info.analysis()` there is safe, plus `phase(...)` for
+cycle-breaking activation and the three terminal outcomes. Registered through
+`IteratingAnalyzer.setValueFeed`, a default no-op, so nothing pays for it unregistered.
 
-Worth answering in the analyzer before designing anything in the IDE.
+Three things it imposes on a consumer:
 
-**What it needs, assuming it holds.**
+- `analyzed` is **valid only during the call** — copy anything retained.
+- it **over-approximates**: the whole order on the first pass, the shrinking dirty set after. Diff against
+  your own previous state rather than trusting it as a changed-set.
+- **positive type-immutability typically arrives last**, in the cycle-breaking pass. So an early stream looks
+  complete while systematically missing `@Immutable` on types; display wants the status ladder the interface
+  documents (provisional → quiet → final at `TERMINAL_CERTIFIED`) rather than presenting early values as
+  settled.
 
-- *Analyzer*: a callback from `analyze(order)` as decisions harden — the same hook (c) wants for counting, so
-  build it once, shaped for results rather than counts.
+**What remains — the daemon adapter and the front-ends.**
 - *Protocol*: `status` is progress-only and there is exactly one terminal `result`. Prefer a **new
   `partialResult` frame** over making `result` repeatable, and not only on taste: `DaemonClient.analyze`
   loops until it sees `result` or `error` and hands every *other* frame to the `onStatus` consumer. So a new
