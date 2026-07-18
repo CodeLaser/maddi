@@ -271,8 +271,8 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             boolean done = propertiesChanged == 0 && (dependersOf == null || verifying);
             // certification blind spot (PLAN-modification-reachability §9): refused downgrades are invisible
             // to the change count, so "no changes" can certify prematurely-frozen optimistic values. Surface
-            // them; STRICTCERT=1 additionally refuses certification (the run then ends at maxIterations,
-            // honestly uncertified).
+            // them; setting STRICTCERT (PRESENCE-only, any value — house convention for all engine gates)
+            // additionally refuses certification (the run then ends at maxIterations, honestly uncertified).
             java.util.Map<String, Long> refused = TolerantWrite.refusedDowngrades();
             if (done && !refused.isEmpty()) {
                 LOGGER.error("Certification reached with {} refused downgrade attempt(s) — frozen optimistic "
