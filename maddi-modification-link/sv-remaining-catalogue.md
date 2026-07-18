@@ -29,12 +29,16 @@
   (cst-impl, graph, util, inspection-openjdk) rewritten by a sibling process mid-run — the failing
   suite's XML timestamp matches the jar mtimes to the second, and the garbled discovery filename
   reappeared. Mechanical fix: bin/gradle-locked.sh (stale-proof lock in build/), MANDATORY per
-  CLAUDE.md. EIGHT collision events on 2026-07-18 (18:41 → 21:58), each certified by jar/class
-  mtimes inside the failing run's window; the lock protects only ADOPTERS — running sibling
-  sessions must be told explicitly. The sibling (active in core CST modules) rebuilds every ~2
-  minutes; quiet-window racing lost 4 straight attempts, so the chain-taint round was committed on
-  pins + certified 0-diff A/B, with the 3-suite green confirmation OWED from the next genuinely
-  quiet window (overnight at the latest). Gate runs now SELF-CERTIFY: touch a marker
+  CLAUDE.md. TRUE ROOT CAUSE FOUND 2026-07-18 22:3x after ~10 certified collision events (18:41 →
+  22:08): jfocus-standardize/settings.gradle.kts line 1 = includeBuild("../maddi") — the sibling
+  thread's compiles (run in ~/git/jfocus-standardize, believing they used maddi-kotlin) executed
+  maddi's OWN jar tasks via the composite build, rewriting ~/git/maddi/*/build outputs (incl.
+  maddi-support.jar, on the test inspector's javac classpath) while live test forks read them. No
+  protocol violation by any thread; the lock cannot see composite-build side doors. User repointed
+  the includeBuild. Note for the future: a "foreign" build-output write with no foreign gradle
+  process in the repo = look for includeBuild references from sibling repos. The chain-taint round
+  was committed on pins + certified 0-diff A/B; 3-suite green confirmation owed and rerun after
+  the repoint. Gate runs now SELF-CERTIFY: touch a marker
   before gradle, find-newer on build outputs (excluding own modules) after — red + foreign writes
   = collision (rerun in a quiet window); red + certified-quiet = real bug, and would revive the
   in-JVM residual hypothesis (the 21:48 event's causal chain via the aapi-parser CLASS DIR is the
