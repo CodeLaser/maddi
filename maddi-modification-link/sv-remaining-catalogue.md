@@ -116,10 +116,12 @@ session tasks #36-#39):
   covers the COLLAPSE path too (the ← does enter SharedVariables, and the registry recovers it);
   pinned in TestMediatedLinks.testCast + testPlain negative control. Residual: an EXPRESSION cast
   ('x = (II) o.bar()') records no cast side-band (addCast fires for variable operands only) — same
-  variable-based scope as jfocus's own casts join. REMAINING for step 2 readiness: (a)
-  chain-transitive taint (a link composed ACROSS a mediated hop is still emitted unmediated — the
-  reconstruction's reachable() chains and the closure's compositions); (c) codec does not persist
-  mediated (checkpoint restore loses provenance).
+  variable-based scope as jfocus's own casts join. (c) codec persistence DONE same day: optional
+  4th element on the [from, nature, to] wire format, appended only when mediated — unmediated
+  output byte-identical, old 3-element files decode unmediated; single decoder funnel
+  (MethodLinkedVariablesImpl.decodeLink); pinned in TestWriteAnalysisMediated. REMAINING for
+  step 2 readiness: (a) chain-transitive taint (a link composed ACROSS a mediated hop is still
+  emitted unmediated — the reconstruction's reachable() chains and the closure's compositions).
   Maddi-internal same-disease siblings unaffected and still valid: WLAM's five mirror blocks,
   iterateOverShared vs expandRepToMembers (==/.equals divergence),
   ShallowMethodLinkComputer.correspondingTypeParameters vs hiddenContentHierarchy.

@@ -110,11 +110,14 @@ public class LinksImpl implements Links {
                     .forEach(mi -> natureList.add(codec.encodeMethodInfo(context, mi)));
             natureEv = codec.encodeList(context, natureList);
         }
-        return codec.encodeList(context, List.of(
+        List<Codec.EncodedValue> parts = new java.util.ArrayList<>(List.of(
                 codec.encodeVariable(context, link.from()),
                 natureEv,
                 codec.encodeVariable(context, link.to())
         ));
+        // mediation provenance (task #39): appended only when set, so unmediated output stays byte-identical
+        if (link.mediated()) parts.add(codec.encodeBoolean(context, true));
+        return codec.encodeList(context, parts);
     }
 
     @Override

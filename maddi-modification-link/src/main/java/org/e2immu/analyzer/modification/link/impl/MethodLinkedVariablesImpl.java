@@ -102,8 +102,10 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
         } else {
             linkNature = LinkNatureImpl.decode(codec.decodeString(context, natureEv));
         }
-        Variable to = codec.decodeVariable(context, list.getLast());
-        builder.add(from, linkNature, to);
+        Variable to = codec.decodeVariable(context, list.get(2));
+        // optional 4th element: mediation provenance (task #39); absent = unmediated (also old files)
+        boolean mediated = list.size() > 3 && codec.decodeBoolean(context, list.get(3));
+        builder.add(from, linkNature, to, mediated);
     }
 
     @Override
