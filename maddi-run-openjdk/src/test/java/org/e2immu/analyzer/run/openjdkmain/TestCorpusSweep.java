@@ -17,6 +17,7 @@ import java.util.List;
  * Batch first-contact sweep over every corpus in ~/git/test-oss that carries an inputConfiguration.json.
  * The bar per corpus: exit 0 (crash-free, certified fixpoint via the default worklist+parallel engine).
  * Gated on SWEEP=1 (this can run for hours); a corpus list via SWEEP=name1,name2 restricts the sweep.
+ * A name may contain slashes to address a nested module (e.g. SWEEP=camel/core/camel-util).
  * Verdict baselines are NOT checked here — promote a corpus to its own pinned test for that.
  */
 public class TestCorpusSweep {
@@ -39,10 +40,17 @@ public class TestCorpusSweep {
         List<String> only = gate.equals("1") ? List.of()
                 : List.of(gate.split(","));
         List<Result> results = new ArrayList<>();
-        try (var dirs = Files.list(CORPORA)) {
-            for (Path dir : dirs.filter(Files::isDirectory).sorted().toList()) {
-                String name = dir.getFileName().toString();
-                if (!only.isEmpty() && !only.contains(name)) continue;
+        List<Path> dirs = new ArrayList<>();
+        if (only.isEmpty()) {
+            try (var stream = Files.list(CORPORA)) {
+                dirs.addAll(stream.filter(Files::isDirectory).sorted().toList());
+            }
+        } else {
+            only.forEach(o -> dirs.add(CORPORA.resolve(o)));
+        }
+        {
+            for (Path dir : dirs) {
+                String name = CORPORA.relativize(dir).toString();
                 Path config = dir.resolve("inputConfiguration.json");
                 if (!Files.exists(config)) config = dir.resolve("target/inputConfiguration.json");
                 if (!Files.exists(config)) continue;
@@ -53,7 +61,8 @@ public class TestCorpusSweep {
                 try {
                     exitValue = Main.execute(new String[]{
                             "--input-configuration=" + config,
-                            "--analysis-steps=modification"
+                            "--analysis-steps=modification",
+                            "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk"
                     });
                 } catch (Throwable t) {
                     exitValue = -1;

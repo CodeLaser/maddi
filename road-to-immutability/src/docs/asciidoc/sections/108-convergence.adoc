@@ -1,0 +1,135 @@
+[[convergence]]
+= Convergence: the iterating analyzer
+
+The previous chapter described how links are computed for one method, given the summaries of the methods
+it calls.
+This chapter describes the layer above: how the analyzer orders the work, iterates it to a fixpoint,
+knows when it is done, and what it does when the code refuses to cooperate.
+Like the previous chapter, it is technical in nature; unlike a design document, everything here describes
+the engine as it runs today.
+
+== Properties, and the discipline of writing them
+
+Every conclusion the analyzer draws — a method is non-modifying, a field's content is unmodified, a type
+is immutable at some level — is a _property value_ attached to a method, field or type.
+Three rules govern them:
+
+* Values are written at most once per analysis, and always in the _conservative-to-optimistic_ direction:
+  an absent value means "not decided yet", never "assumed fine".
+  A guarded overwrite facility (`TolerantWrite`) exists for the few places that legitimately refine a
+  value (cycle breaking, below), and it enforces monotonicity: a verdict may become more precise, never
+  contradict itself.
+* Undecided is a first-class state.
+  An analyzer component that cannot conclude — because a field's type is not yet decided, a supertype is
+  still open, a callee's summary is missing — returns "no value" and will simply be visited again.
+* Decisions are local, dependencies are explicit.
+  The immutability of a type depends on its fields' finality and modification status, its methods'
+  modification status, and its supertypes' immutability; each of those is itself a property, computed by
+  its own component.
+
+== Ordering the work
+
+Before iteration starts, the analyzer computes an _analysis order_ from the call graph and the type
+hierarchy: methods before their callers where possible, subtypes and enclosing types grouped, fields
+between their initializers and their readers.
+Two prepared ingredients matter beyond ordering:
+
+* _part of construction_: the set of methods only reachable from constructors.
+  Assignments there do not count against a field's effective finality — the essence of the
+  effectively-final rule of the chapter on <<finalfields>>.
+  Note that assignments to a nested type's fields may come from the enclosing type, a sibling type, or a
+  lambda anywhere in the primary type; the computation scans the whole primary type.
+* _shallow summaries_ for everything outside the parsed source: JDK and library types receive their
+  properties from the annotated APIs (below) or conservative defaults.
+
+Java being Java, the call graph has cycles — recursion, mutual recursion, callbacks — so a single pass in
+analysis order cannot suffice.
+Hence: iteration.
+
+== The iteration loop
+
+The main loop (`IteratingAnalyzerImpl`) repeatedly runs the per-element analyzers over the analysis
+order, counting _property changes_ — the number of newly decided or refined values in the pass.
+The first pass visits everything; subsequent passes narrow to a _worklist_: only elements whose inputs
+changed in the previous pass are dirty and revisited, with dirty targets mapped to their enclosing
+analysis-order element.
+On large code bases the worklist typically collapses from tens of thousands of elements to a few hundred
+within two or three passes.
+
+The loop may run in parallel: independent elements of the analysis order are processed by a small thread
+pool (bounded by the machine's cores).
+Parallelism is behaviorally almost — not perfectly — transparent: the vast majority of verdicts are
+scheduling-independent, and the few known non-confluent shapes (a constructor whose modification verdict
+depends on whether a sibling was decided in the same pass) are tracked explicitly and resolve to the
+conservative side.
+
+== Verification and certification
+
+Reaching "no more changes" is necessary but not sufficient: a fixpoint reached through optimistic
+intermediate states could in principle rest on values that would not be re-derived from scratch.
+The loop therefore ends with _verification passes_: with all values frozen, every element is recomputed
+once more and the engine checks that nothing changes.
+A run that exits this way is _certified_: the published verdicts are a self-consistent fixpoint of the
+analysis functions, independent of the path that produced them.
+The engine's proving ground — a set of open-source code bases from a few thousand to fifty thousand
+elements — is kept certified and crash-free on the default configuration, and every engine change is
+gated on reproducing byte-identical verdict dumps (an "A/B with zero diff") on at least one of them.
+
+== Cycle breaking
+
+Some clusters never decide on their own.
+The classic shape: type A's immutability waits on field type B, whose immutability waits on a method
+whose modification verdict waits on A.
+Everyone is undecided, nobody moves, and the loop reaches its certification point with a residue of
+undecided types.
+
+At exactly that point — quiescence, with undecided immutability remaining — the engine activates _cycle
+breaking_: one more full pass in which the blocked components are allowed to resolve their undecided
+inputs by strategy rather than waiting.
+The default strategy floors an undecided supertype at final-fields level and treats absent information as
+non-modifying; the breaking pass then lets the normal machinery draw its conclusions, and the loop
+re-certifies including them.
+On the decompiler code base that motivated the work, immutability went from 380-out-of-450 types
+undecided to a single undecided type, with the positive verdicts (immutable, immutable-with-hidden-content)
+appearing for the first time.
+
+Cycle breaking is deliberately conservative about the _strength_ of what it concludes: a type whose
+deep immutability rests on a broken cycle is published at the hidden-content level rather than the full
+level, because the unbroken evidence is not there.
+
+== Annotated APIs as analysis hints
+
+The analyzer ships curated property sets for the JDK — `String` is deeply immutable, `Object` is
+immutable with hidden content, the collection interfaces are mutable, the functional interfaces carry
+their link summaries — under the name _analysis hints_.
+They are loaded after parsing, resolved against the compiled-types universe of the run, and pre-seed the
+property store so that source-code analysis starts from knowledge rather than pessimism.
+The difference is not cosmetic: without the hints, every path through a JDK type bottoms out in
+"undecided", and the immutability side of the analysis barely concludes anything positive; with them, the
+proving-ground code bases settle into full immutability distributions.
+
+== When code refuses to cooperate
+
+A static analyzer that dies on the first pathological method is useless on real code.
+The engine's fault-tolerance policy, refined over the corpus work, has three tiers:
+
+* _statement- and method-level containment_: an exception while linking one statement abandons that
+  method's source-level analysis and degrades it to its shallow summary — the element stays alive at
+  reduced precision;
+* _cycle protection with a tight ceiling_: run-away closures are cut off early and degrade the same way
+  (an early experiment with a generous ceiling let one module's analysis grind from seconds to half an
+  hour before the tight-ceiling-plus-fallback design was adopted);
+* _guards at the boundaries_: unrepresentable link shapes are skipped at the point of production, and
+  every skip is a logged, countable event rather than a silent loss.
+
+Finally, most non-default behaviors — disabling the worklist, disabling parallelism, disabling cycle
+breaking, dumping the per-element verdict fingerprint — are reachable through environment gates, which is
+how the A/B verification workflow and the regression hunts of the development process are driven.
+
+== A note on scale
+
+For calibration, on current hardware the analyzer processes, certified, code bases in the range of
+50,000 elements (methods, fields, types) in a few minutes, with linking dominating the cost.
+The performance work follows a strict rule worth stating in a document about correctness: an optimization
+is accepted only when the verdict dump is byte-identical before and after.
+Speed is never allowed to buy verdict changes.

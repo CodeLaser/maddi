@@ -475,7 +475,19 @@ public record ExpressionVisitor(Runtime runtime,
     }
 
     private Result constructorCall(VariableData variableData, Stage stage, ConstructorCall cc) {
-        assert cc.object() == null || cc.object().isEmpty() : "NYI";
+        if (cc.object() != null && !cc.object().isEmpty()) {
+            // qualified inner-class creation 'outer.new Inner(...)' (activemq first contact): linking the
+            // outer instance into the creation is NYI — evaluate the outer for its own links/modifications,
+            // conservatively mark its scope chain modified, and treat the creation as a fresh object (the
+            // constructor's summary does not model the outer instance).
+            Result outer = visit(cc.object(), variableData, stage);
+            LocalVariable lvOuter = IntermediateVariable.newObject(runtime, variableCounter.getAndIncrement(),
+                    cc.parameterizedType());
+            Result fresh = new Result(new LinksImpl.Builder(lvOuter).build(), LinkedVariablesImpl.EMPTY);
+            Variable outerPrimary = outer.links() == null ? null : outer.links().primary();
+            Set<Variable> modified = outerPrimary == null ? Set.of() : Set.of(outerPrimary);
+            return fresh.merge(outer).addModified(modified, null);
+        }
 
         LocalVariable lv = IntermediateVariable.newObject(runtime, variableCounter.getAndIncrement(),
                 cc.parameterizedType());

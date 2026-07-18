@@ -4,6 +4,269 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-18e — PROFILING ROUND 3 (lock, jenkins-core): NO contention bottleneck
+
+Lock profile under PARALLEL=8 (jenkins-core, 28k elements, green): total lock-wait weight
+negligible — 2565 sampled units vs ~45-60k CPU samples on comparable runs. Largest monitor:
+the synchronized set in TolerantWrite.setAllowControlledOverwrite (55% of that trivial
+total); the new synchronized getOrLoad miss path does not register at all. Verdict: the
+parallel engine is compute-bound, not lock-bound; no action. Profiling harness (ASPROF gate)
++ per-round findings: rounds 1 (CPU, -26%), 2 (alloc, -37%), 3 (lock, no-op) all catalogued.
+
+## UPDATE 2026-07-18d — PROFILING ROUND 2 (alloc, timefold): -37% allocations; javac flake ROOT-CAUSED
+
+Alloc profile (timefold, 76% of allocations in link) found three sinks, all fixed:
+1. slf4j eager-argument trap: IncrementalFixpointEngine's LOGGER.debug calls evaluate
+   fact.print(vertexPrinter) args even at INFO — ~21% of ALL allocations. isDebugEnabled guards.
+2. System.getenv(String) allocates per lookup; the NOACM gate ran per graph vertex (7.8%
+   incl. all gates). New Gate class (one Map.copyOf(System.getenv())); mechanical sweep of
+   all 37 link-module gates.
+3. Util.scopeVariables: stream-concat + toUnmodifiableSet per scope level (11.7%) →
+   iterative HashSet build (3.0% after).
+Timefold: allocation weight -37% (3.25M→2.06M), wall 3m33s→2m53s (-19%), FPDUMP A/B 0-diff
+on 50464 elements. Suites green.
+
+**javac StarImportScope flake root-caused** (was a watch-item): CompiledTypesManagerImpl —
+typesLoaded was a plain HashMap read/written by PARALLEL analyzer threads, and getOrLoad's
+miss path drove the live JavacTask concurrently (lazyLoader → loadCompiledTypeOrNull, doc
+says "single-threaded" but nothing enforced it). Corruption surfaced in LATER parses of the
+same JVM = random victims. Fix: concurrent collections + synchronized double-checked miss
+path. Evidence: 2 consecutive full triple-suite runs 737/0 (previously ~10 victims per run),
+fernflower A/B 0-diff. Process note: a suite-gate must grep BUILD SUCCESSFUL — a compile
+failure with tail -1 read STALE test XMLs as green.
+
+## UPDATE 2026-07-18c — PROFILING ROUND 1 (async-profiler, CPU, fernflower): -26% CPU
+
+Harness: ASPROF=<agent opts> env gate in maddi-run-openjdk test task attaches
+/opt/homebrew/lib/libasyncProfiler.dylib (+DebugNonSafepoints); pair with -PnoAssertions.
+Baseline (10ms sampling, whole JVM): 61022 samples; attribution link 43% / cst 35% /
+prepwork 9%. Single dominant finding: WriteLinksAndModification.dedupReversePairs built its
+dedup keys by string-concatenating Variables — Variable.toString runs the FULL CST printer —
+22.6% of the entire run's CPU. Fix: LinkKey record (Variable objects + nature symbol);
+link suite green (order-asserted), fernflower FPDUMP A/B clean (EdgeType oscillator only).
+After: 45102 samples (-26% CPU), gradle wall 3m22s -> 2m23s; dedup now 1.9%.
+NEXT hot spots (round-4 candidates): variable-keyed HashMap churn (getNode 8.5%,
+VariableImpl.equals+hashCode ~6%, cache candidate: precomputed hash in VariableImpl),
+Util.isPartOf 2.9%, itable/vtable stubs ~7% (megamorphic call sites).
+
+## UPDATE 2026-07-18b — IMMUTABILITY PRECISION AUDIT (fernflower, 144 verdicts) + 4-fix round
+
+Broad re-test under the new defaults (hints + cycle breaking): activemq, jenkins and all 8
+camel-core modules green first try (TestCorpusSweep now accepts SWEEP=camel/core/<module>
+slash paths). Corpus-wide immutability is live, e.g. guava 253 @Imm / 200 @ImmHC / 593 @FF /
+1057 @Mut (null 32); jenkins 147/480/1457/1558 (null 58). Anomaly: camel-api keeps 246/787
+null — interface-heavy, abstract methods w/o hints stay NON_MODIFYING=null and the current
+breaking strategy doesn't force them.
+
+Precision audit (4 parallel agents over the fernflower tiers):
+- **@Immutable 66: 54 OK / 12 WRONG** — all one pattern: data-carrier records/holders whose
+  components are mutable engine types (Exprent/Statement/StatEdge/collections) promoted to
+  hc-FREE level 3. Root cause: computeImmutableType granted L3 on independence+extensibility
+  alone, never checking field types' deep immutability. **FIXED**: instanceFieldTypesDeeplyImmutable
+  gate (static fields skipped per spec); undecided → wait, under breaking → HC floor.
+- **@ImmutableHC 50: 42 OK / 5 wrong / 3 borderline** — 1 UNSOUND: ClassesProcessor.Inner's
+  non-final fields are reassigned by the ENCLOSING class; effectively-final detection only
+  looked at owner methods (call-graph edges) + types enclosed IN the owner. **FIXED**:
+  ComputePartOfConstructionFinalField loop 2 now scans every method of the primary type
+  (enclosing + sibling types can assign a nested type's private fields). Repros in
+  TestFinalFieldBranchAssignment. Remaining wrong: StackEntry (public final fields of mutable
+  types accepted at L2 — rule-2 check exists at loopOverFieldsAndMethods:145, suspicion:
+  cycle-breaking-era undecided field type; investigate) + 3 hc-bit over-set on anonymous
+  enum-constant bodies (conservative, minor).
+- **@FinalFields 20-of-231 sample: 0 unsound / 11 conservative** — dominant gap: capture-free
+  or read-only-capture lambdas never promoted past L1 (open, precision-only).
+- **@Mutable 8-of-159 sample: 6 OK / 2 conservative** — constants-only interface @Mutable
+  (interface default?); lambda captured-content modification conflated with reassignment.
+
+Corpus regressions triaged in the same round:
+- **timefold+langchain4j exit 2**: main's 2026-07-17 lombok commit (b75683e2) passes
+  -processor for EVERY source set when containsLombok() (config-GLOBAL) is true; source sets
+  without the lombok jar on their classpath abort ENTER ("processor not found" →
+  Elements.getTypeElement ISE in indexJavaLangForJavaDocParsing). **FIXED**: per-source-set
+  lombokOnClassPath check in JavaInspectorImpl.createTask.
+- **guava exit 5**: AssertionError in LinkAppliedFunctionalInterface.replaceParametersByEvalInApplied
+  — links can point to CAPTURED parameters of the enclosing method (AtomicDouble.accumulateAndGet's
+  x inside 'oldValue -> f.applyAsDouble(oldValue, x)'), out of range for the SAM's argument
+  list. Latent forever; exposed by hints giving java.util.function methods link info.
+  **FIXED**: isSamParameter guard (not currentMethod's param + index in range), pass-through
+  otherwise.
+
+Suites green after the round: prepwork 199/0, link 393/0, analyzer 145/0 (+3 repro tests).
+Verification: fernflower re-run confirmed the audit arithmetic exactly — @Immutable 66→54
+(the 12 flagged over-promotions, all moved to @ImmutableHC 50→62), @Mutable 159→161 (the
+enclosing-assignment hole; 1 in-sample + 1 outside). Guava green (18755 elements).
+
+Hints-exposed latent link crashes, chased over verification rounds 2-3 (each fix suite-green,
+fernflower A/B zero-line):
+- timefold: '§m stacked on virtual field' assert — TWO link-producing sites missing the
+  designed doNotStackMOnTopOfVirtualField skip (LinkImpl's own comment names the policy):
+  Graph.vmiDirectionalFacts and both mirror-producers in Graph.sharedAssignmentEdgeStream.
+  Timefold's constraint-stream core (3793 caught exceptions) was the trigger; corpus now
+  analyzes 50k elements (test-classes parse since lombok processing).
+- langchain4j: lombok 1.18.30 pinned by the corpus crashes under the embedded javac
+  (TypeTag.UNKNOWN reflection). Added per-source-set degrade in JavaInspectorImpl: on a
+  lombok-frame RuntimeException the scan retries without the processor (pre-b75683e2
+  behavior). Corpus went 0 → 53644 elements analyzed. Second latent:
+  LinkFunctionalInterface.correspondingField threw UOE when the container type has no field
+  of the requested type — now degrades to the untouched translation.
+- timefold rounds 4-5: a THIRD stacking producer (FollowGraph via the Builder funnel) →
+  moved the skip INTO LinksImpl.Builder (add/add/prepend guard 'representable'; direct
+  LinkImpl constructions keep the assert as backstop). Error lines 69234 → 1386. The next
+  layer was a different assert: translateHandleFunctional produced a fromTranslated not
+  part-of the builder's primary (400 catches / 12 constraint-stream types) → ownership
+  pre-check at the LinkMethodCall call site (drop the one unattributable link, not the
+  element).
+- **javac parse flake ESCALATED to watch-item**: 'StarImportScope NPE' (the old
+  tree.starImportScope symptom, supposedly fixed by -XDuseUnsharedTable=true) hit 4 suite
+  runs today with random victims (11, then 7, then 2 tests; each green in isolation/rerun;
+  also one TestFaultIsolation CompilationProblems). Environmental timing (many back-to-back
+  suite+corpus runs, several live gradle daemons) makes it more likely — but the flag
+  evidently does not cover all shared javac state. Investigate: which JavacTask paths skip
+  the flag, and whether the getOrLoad live-task (lastScanUnits) shares state across tests.
+OPEN (this round): StackEntry L2 investigation; independence-under-cycle-breaking (fernflower
+records that store ctor args verdicted INDEPENDENT — clean unit test says DEPENDENT/FF;
+suspicion: FieldAnalyzer breaking branch LINKS=EMPTY erasure feeding independence);
+lambda-promotion precision gap; constants-interface @Mutable default; camel-api null cluster;
+WHY do stacked §m.§m faces exist in VMI groups at all (producers now skip at Link creation,
+but the stacked variables' origin is unexplained).
+
+## UPDATE 2026-07-18 — AUDIT ISSUES ATTACKED: Outer.this fixed, hints unblocked, cycle breaking live
+
+All three semantic-audit engine actions landed (suites green throughout):
+1. **Outer.this (unsound, #28)**: modified enclosing-This now counts via
+   isEqualToOrInnerClassOf in copyModificationsIntoMethod. Repro TestModificationOuterThis;
+   guava A/B corrected 161 method verdicts (incl. CompactHashMap.EntrySetView.remove).
+2. **Analysis-hints ordering (#29)**: the preload ran BEFORE parse → resolved 0/249 types.
+   Moved post-parse: 0 skipped; all proving-ground tests + the sweep now preload the jdk
+   hints by default.
+3. **Cycle breaking at the certification point** (opt-out NOCYCLEBREAKING=1): when
+   certified-but-undecided types remain, one more full pass runs with breaking active and
+   re-certifies. FieldAnalyzer's breaking branch made idempotent (assert-write + null
+   fall-through crashed 200+ elements on first activation).
+**Fernflower immutability: 380 null / 0 positive → 1 null / 66 @Immutable + 50 @ImmutableHC
++ 231 @FinalFields + 159 @Mutable — certified, crash-free.** All corpus FPDUMP baselines
+are superseded (verdict-changing fixes, correct direction) — re-pin on next runs.
+REMAINING from the audit: aliased-static-singleton unsoundness (DUMMY; tier-3
+canonicalization); constructor non-confluence under PARALLEL (spec says ctors modifying);
+unmodifiedField doc note; immutability PRECISION audit now that the positive side exists.
+
+## CURRENT STATE 2026-07-18 + NEXT ACTIONS (semantic-audit follow-up)
+
+State: branch sv-integration @ 7d255f00, clean, suites green (link 393/0, analyzer 143/0).
+Proving ground: timefold/langchain4j/fernflower/guava/activemq/jenkins-core + 8 camel-core
+modules, all certified & crash-free on defaults (worklist ON, PARALLEL ON min(8,cores-2),
+TestCorpusSweep gate SWEEP=name for the rest). Semantic audit done:
+**semantic-audit-2026-07-18.md** (modification 86/11.5/2; immutability structurally blocked).
+
+NEXT ACTIONS (in order):
+1. **Task #28 — Outer.this modification propagation (UNSOUND).** Repro: guava
+   CompactHashMap.EntrySetView.remove → CompactHashMap.this.removeHelper (modifying) but
+   view method stays nonModifying=true. Plan: failing suite test first (inner class calls
+   Outer.this.modifyingMethod()); then trace where receiver-modification → caller
+   nonModifying attribution loses the qualified-outer This (likely
+   copyModificationsIntoMethod / the modified-set → NON_MODIFYING_METHOD decision treating
+   only the inner 'this'; the outer This IS reachable via the synthetic outer field).
+2. **Task #29 — analysis-hints preload resolves 0/249 types.** Trace:
+   RunAnalyzer passes sourceSetOfRequest = javaInspector.mainSources(); PrepWorkCodec
+   typeProvider = runtime.getFullyQualified(fqn, false, sourceSetOfRequest) returns null
+   even for java.lang.Object although jmod:java.base is scanned. Read
+   inspection-openjdk RuntimeWithCompiledTypesManager.getFullyQualified:53 (and the
+   integration variant) — likely sourceSet-dependency visibility filtering or a
+   typesLoaded-population gap. Fix, verify: fernflower run with
+   --preload-analysis-results-dirs .../analyzedPackageFiles/jdk must (a) log 0 skipped,
+   (b) move the immutability distribution (Object=@ImmutableHC, String=@Immutable attach).
+3. **Cycle-breaking activation (TODO in IteratingAnalyzerImpl.analyze).** After #29, many
+   nulls resolve via hints; for the rest: activate cycle breaking for one extra round when
+   the worklist is quiet but undecided types remain, BEFORE certification. A/B with FPDUMP
+   equivalence on fernflower+timefold; verdicts may legitimately move (new positive
+   immutability) — re-pin baselines then.
+4. Re-measure immutability distributions on all corpora + re-run the audit's immutability
+   leg (UnsignedInteger etc. must conclude).
+Also parked: aliased-static-singleton unsoundness (DUMMY; ties to tier-3 canonicalization);
+constructor non-confluence (parallel side violates 'non-trivial ctors are modifying');
+doc note on unmodifiedField = content-only.
+
+## UPDATE 2026-07-18 — SEMANTIC VERIFICATION ROUND: see semantic-audit-2026-07-18.md
+
+96-element stratified sample over 4 corpora, judged against the road-to-immutability spec:
+**86% correct, 11.5% over-conservative, 2% unsound.** Two unsound mechanisms (tasks #28/#29
+area): modification lost through Outer.this calls (guava CompactHashMap views), and aliased
+static-singleton content mutation missed (fernflower BytecodeMappingTracer.DUMMY — the
+same-object-multiple-places phenomenon). unmodifiedField is CONTENT-only by design
+(assignment lives in setField/effectively-final) — doc phrasing diverges, engine internally
+consistent. IMMUTABILITY IS STRUCTURALLY BLOCKED at corpus scale: zero positive conclusions
+anywhere — TypeImmutableAnalyzer's stopExternal wait + cycle-breaking never activated +
+analysis-hints preload resolving 0/249 types (task #29). Full report + degradation map:
+**semantic-audit-2026-07-18.md**.
+
+## UPDATE 2026-07-18 — CAMEL CORE GREEN (8 modules swept): NO_VALUE guard + cycle-protection shallow fallback
+
+camel-core is an aggregator (0 sources) — the reported linking asserts live in the real
+modules. All 8 substantive core modules now sweep green (camel-api 16s/8.7k elements,
+camel-base 22s, camel-base-engine 43s, camel-core-model 28s/12k, camel-core-processor 5s,
+camel-core-reifier 5s, camel-support 14s/8.8k, camel-util 11s). Two engine fixes:
+1. addModificationFieldEquivalence: typeImmutable NO_VALUE (undecided) hit min()'s assert;
+   undecided counts as MUTABLE for the §m-pair decision (conservative direction).
+2. **Cycle protection (LinkGraph.compute)**: camel's generated bulk-converter loaders need
+   >20 expandGraph rounds. Three designs measured: throw (old) = dead element; keep the
+   partial graph = 5s -> 30min module grind (downstream cost on the huge graph); FINAL:
+   throw at ceiling 30, caught in doMethod's source path, degrade the METHOD to a shallow
+   summary — 22s, exit 0, zero caught.
+Process note: per-module sweep loop must run gradle from the maddi repo (a cd'ed loop
+silently re-ran one stale config for all modules — element counts per line now guard that).
+
+## UPDATE 2026-07-18 — JENKINS CORE GREEN (6th corpus): exit 0, certified in 13 iterations, 12.5 min
+
+After the kotlin-side prepwork fixes (merge efb87d26: commonType raw-argument fallback,
+shadowed captured variable), jenkins core runs the full modification chain: exit 0,
+certified, 30,478 elements, ZERO link/analyzer crashes. Residue (task #25, narrow): 10 of
+~1,260 TEST files dropped at scan with 'cannot find symbol: Messages' — main sources
+resolve the same localizer-generated classes fine, so it is a test-source-set resolution
+question, not the earlier main-scan blocker. TestJenkinsCore added.
+
+## UPDATE 2026-07-18 — ACTIVEMQ BROKER GREEN (5th corpus): VL2O contribution cache + qualified inner creation; 2min certified
+
+activemq-broker first contact (concurrency axis): stalled iteration 1 at 'Done 4338' —
+NOT one quadratic loop this time, but breadth: the per-method-call VL2O reconstruction
+(full followGraph probe + rep expansion per call x per primary), which broker-style
+chained calls multiply. Fix: per-STATEMENT contribution cache keyed by primary (the
+follow graph and vd are fixed within one write-out), replayed with the original
+put/putIfAbsent pass semantics — the whole run then took 121s. Then 2 crash categories:
+- 'outer.new Inner(...)' (qualified inner-class creation) was an NYI assert in
+  ExpressionVisitor.constructorCall: now evaluates the outer, conservatively marks it
+  modified, and treats the creation as a fresh object (constructor summaries do not model
+  the outer instance).
+- LinkMethodCall.parametersToObject produced a '§m on virtual field' face → same
+  skip-unrepresentable-face guard as VirtualModificationIdenticals.expand.
+**Result: exit 0, zero caught, certified in 12 iterations, 119s.** TestActiveMQBroker
+added. Proving ground now 5 corpora: timefold, langchain4j, fernflower, guava, activemq.
+
+## UPDATE 2026-07-18 — GUAVA GREEN (4th corpus): 2 more engine-wide O(n^2) kills + 4 crash fixes; 72s certified
+
+Guava first contact (post kotlin-merge scanner fixes 83c0c92d) stalled the link phase
+INDEFINITELY on a single method (~2min in, "Done 7863", one thread pinned). Two jstack
+rounds found two more all-pairs scans, both now indexed (suites + java-parser green,
+verdict-neutral by construction):
+1. **WriteLinksAndModification.suppressRedundantScopeUps** — n^2 pairs x 4 scope-chain
+   walks. scopeVariables never contains the variable itself → the equals guard was vacuous
+   and the removal set order-independent → scope-pair index maps, n x chainDepth^2.
+2. **LinksImpl.Builder.contains / containsPrimaryOf** — linear scans driven from
+   interleaved filter->add stream pipelines in doVariableReturnRecompute. Lazy indexes,
+   incrementally maintained on add, invalidated on removals; Link's (from,to)-only
+   equality and constructor asserts kept out via a dedicated TripletKey record.
+Then the classic triage: 422 caught -> 4 categories -> 0:
+- GenericsHelperImpl.mapInTermsOfParametersOfSuperType asserted on the SELF-type case
+  (VirtualFieldComputer's walk on recursive self-bounded generics) → distance-0 forward map.
+- LinkMethodCall.appliedFunctionalInterfaces: ParameterInfo.index() beyond the call's
+  argument list (varargs / cross-method summaries) → bound guard.
+- EnclosedExpressionImpl.internalCompareTo blind-cast: order() delegates to inner, so the
+  comparator pairs it with NON-enclosed peers → compare unwrapped.
+- LinkAppliedFunctionalInterface: null linkedVariables guard.
+**Result: exit 0, zero caught, certified fixpoint in 12 iterations, 72 SECONDS total**
+(20,293 elements). TestGuava added to the proving ground. The corpus-diversity bet paid
+exactly as hoped: generics depth found engine-wide quadratics that timefold/langchain4j/
+fernflower never triggered.
+
 ## UPDATE 2026-07-17 (night) — CORPUS EXPANSION: TestCorpusSweep + guava/jenkins first contact (scan-level findings)
 
 Corpus-diversity round (user has ~15 candidates in ~/git/test-oss): TestCorpusSweep

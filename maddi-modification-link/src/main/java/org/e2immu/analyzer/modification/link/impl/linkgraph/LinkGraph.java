@@ -105,8 +105,11 @@ public class LinkGraph {
         int cycleProtection = 0;
         while (change) {
             ++cycleProtection;
-            if (cycleProtection > 20) {
-                // NOTE: there is a class that requires more than 10 cycles in the maddi code base...
+            if (cycleProtection > 30) {
+                // NOTE: a class in the maddi code base needs >10 rounds, camel's generated bulk-converter
+                // loaders >20. Keeping the partial graph is NOT an option (its size makes everything
+                // downstream minutes-slow: measured 5s -> 30min on camel-base); the throw is caught at the
+                // method level, which degrades to a SHALLOW summary (LinkComputerImpl.doMethod).
                 throw new UnsupportedOperationException("cycle protection");
             }
             change = makeGraph.expandGraph(statementIndex, modifiedInThisEvaluation.keySet());

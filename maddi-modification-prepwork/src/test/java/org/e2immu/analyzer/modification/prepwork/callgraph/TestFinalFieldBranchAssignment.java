@@ -103,6 +103,48 @@ public class TestFinalFieldBranchAssignment extends CommonTest {
                 """));
     }
 
+    private boolean isFinalInInner(@Language("java") String input) {
+        TypeInfo X = javaInspector.parse(ABX, input);
+        new PrepAnalyzer(runtime).doPrimaryType(X);
+        FieldInfo i = X.findSubType("Inner").getFieldByName("i", true);
+        assertTrue(i.analysis().haveAnalyzedValueFor(PropertyImpl.FINAL_FIELD), "FINAL_FIELD not computed");
+        return i.analysis().getOrDefault(PropertyImpl.FINAL_FIELD, FALSE).isTrue();
+    }
+
+    @DisplayName("nested type's field assigned by the enclosing type is not final")
+    @Test
+    public void testAssignmentFromEnclosingType() {
+        assertFalse(isFinalInInner("""
+                package a.b;
+                class X {
+                    static class Inner {
+                        private int i;
+                        Inner(int i) { this.i = i; }
+                        int get() { return i; }
+                    }
+                    void renumber(Inner inner) { inner.i = 42; }
+                }
+                """));
+    }
+
+    @DisplayName("nested type's field assigned by a sibling nested type is not final")
+    @Test
+    public void testAssignmentFromSiblingType() {
+        assertFalse(isFinalInInner("""
+                package a.b;
+                class X {
+                    static class Inner {
+                        private int i;
+                        Inner(int i) { this.i = i; }
+                        int get() { return i; }
+                    }
+                    static class Renumberer {
+                        void renumber(Inner inner) { inner.i = 42; }
+                    }
+                }
+                """));
+    }
+
     @DisplayName("positive control: field assigned only in the constructor stays final")
     @Test
     public void testFinalControl() {

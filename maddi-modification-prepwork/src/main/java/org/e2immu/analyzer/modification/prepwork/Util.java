@@ -24,6 +24,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.*;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -257,16 +258,24 @@ public class Util {
         return false;
     }
 
+    // iterative, no streams: the recursive concat+collect version allocated a stream pipeline and a set PER
+    // SCOPE LEVEL, and this helper runs inside FollowGraph/MakeGraph hot loops (11.6% of a corpus run's
+    // allocations, async-profiler round 2). Callers only read the result; do not mutate it.
     public static Set<Variable> scopeVariables(Variable variable) {
-        if (variable instanceof FieldReference fr && fr.scopeVariable() != null) {
-            return Stream.concat(scopeVariables(fr.scopeVariable()).stream(), Stream.of(fr.scopeVariable()))
-                    .collect(Collectors.toUnmodifiableSet());
+        Variable scope = scopeOrArray(variable);
+        if (scope == null) return Set.of();
+        Set<Variable> result = new HashSet<>();
+        while (scope != null) {
+            result.add(scope);
+            scope = scopeOrArray(scope);
         }
-        if (variable instanceof DependentVariable dv && dv.arrayVariable() != null) {
-            return Stream.concat(scopeVariables(dv.arrayVariable()).stream(), Stream.of(dv.arrayVariable()))
-                    .collect(Collectors.toUnmodifiableSet());
-        }
-        return Set.of();
+        return result;
+    }
+
+    private static Variable scopeOrArray(Variable v) {
+        if (v instanceof FieldReference fr) return fr.scopeVariable();
+        if (v instanceof DependentVariable dv) return dv.arrayVariable();
+        return null;
     }
 
     public static Stream<Variable> variableAndScopes(Variable variable) {

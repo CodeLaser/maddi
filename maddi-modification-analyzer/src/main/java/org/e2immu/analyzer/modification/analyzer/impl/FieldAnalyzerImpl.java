@@ -85,10 +85,15 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
             Links linkedVariables = computeLinkedVariables(fieldInfo, methodsReferringToField);
             if (linkedVariables == null) {
                 if (cycleBreakingActive) {
-                    boolean write = TolerantWrite.setAllowControlledOverwrite(fieldInfo.analysis(), LinksImpl.LINKS, LinksImpl.EMPTY, fieldInfo);
-                    assert write;
-                    DECIDE.info("FI: Decide linked variables of field {} = empty by {}", fieldInfo, CYCLE_BREAKING);
-                    propertyChanges.incrementAndGet();
+                    // idempotent: on re-runs of the breaking pass the value may already stand (write=false);
+                    // the former 'assert write' + unconditional fall-through-with-null crashed 200+ elements
+                    // when cycle breaking first activated at corpus scale
+                    if (TolerantWrite.setAllowControlledOverwrite(fieldInfo.analysis(), LinksImpl.LINKS,
+                            LinksImpl.EMPTY, fieldInfo)) {
+                        DECIDE.info("FI: Decide linked variables of field {} = empty by {}", fieldInfo, CYCLE_BREAKING);
+                        propertyChanges.incrementAndGet();
+                    }
+                    linkedVariables = fieldInfo.analysis().getOrDefault(LinksImpl.LINKS, LinksImpl.EMPTY);
                 } else {
                     UNDECIDED.debug("FI: Linked variables of field {} undecided", fieldInfo);
                     return;

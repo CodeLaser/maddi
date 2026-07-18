@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
+import org.e2immu.analyzer.modification.link.impl.Gate;
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.impl.graph.Fact;
 import org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine;
@@ -134,6 +135,9 @@ public class Graph {
             if (!group.linkNature().pass().isEmpty()) return;
             Variable face = group.members().stream()
                     .filter(v -> owner.equals(Util.firstRealVariable(v)))
+                    // a stacked face (x.§m.§m, legal inside VMI bookkeeping) cannot be represented as a Link:
+                    // skip it rather than trip the LinkImpl constructor assert (timefold constraint streams)
+                    .filter(LinksImpl.LinkImpl::doNotStackMOnTopOfVirtualField)
                     .findFirst().orElse(null);
             if (face == null) return;
             for (Variable sib : group.members()) {
@@ -141,7 +145,8 @@ public class Graph {
                     closureStream(sib).forEach(entry -> {
                         if (Util.isVirtualModification(entry.getKey())
                             && !entry.getKey().equals(face)
-                            && !group.members().contains(entry.getKey())) {
+                            && !group.members().contains(entry.getKey())
+                            && LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(entry.getKey())) {
                             result.add(new LinksImpl.LinkImpl(face, entry.getValue(), entry.getKey()));
                         }
                     });
@@ -167,14 +172,14 @@ public class Graph {
             || label == LinkNatureImpl.IS_ELEMENT_OF
             || label == LinkNatureImpl.IS_ASSIGNED_FROM
             || label == LinkNatureImpl.IS_ASSIGNED_TO) return false;
-        if (System.getenv("NORVSUB") == null
+        if (!Gate.isSet("NORVSUB")
             && (label == LinkNatureImpl.IS_SUBSET_OF || label == LinkNatureImpl.IS_SUPERSET_OF)) return false;
         // The owner ≻ own-virtual-field spine (the old engine's AddEdge.addField added it unconditionally): a
         // variable genuinely contains its own hidden content. These edges are load-bearing: the varargs fan-out
         // 'target.§is ~ collection.§is ≺ collection ∈ collections.§iss' closes to 'target.§is ∩ collections.§iss'
         // only through them. The general real↔virtual ≺/≻ ban (a graph-size reduction) stays for CROSS-variable
         // containment, which is malformed.
-        if (System.getenv("NOSPINE") != null) return true;
+        if (Gate.isSet("NOSPINE")) return true;
         if (label == LinkNatureImpl.CONTAINS_AS_FIELD && Util.virtual(to) && from.equals(fieldScopeRoot(to))) {
             return false;
         }
@@ -194,13 +199,18 @@ public class Graph {
             // vertices live re-keyed on the rep; project each onto both endpoints of the intra-group link.
             Variable from = link.from(), to = link.to();
             Variable repFrom = sharedVariables.translateForward(from);
-            if (System.getenv("NOMIRROR") == null
+            if (!Gate.isSet("NOMIRROR")
                 && repFrom instanceof SharedVariable && repFrom.equals(sharedVariables.translateForward(to))) {
                 for (Variable v : engine.vertices()) {
                     if (!v.equals(repFrom) && Util.isPartOf(repFrom, v)) {
                         Variable fromSub = rehome(v, repFrom, from);
                         Variable toSub = rehome(v, repFrom, to);
-                        result.add(new LinksImpl.LinkImpl(fromSub, link.linkNature(), toSub));
+                        // rehoming a §m member onto an endpoint that is itself x.§m stacks §m.§m — not
+                        // representable as a Link; skip (same policy as vmiDirectionalFacts)
+                        if (LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(fromSub)
+                            && LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(toSub)) {
+                            result.add(new LinksImpl.LinkImpl(fromSub, link.linkNature(), toSub));
+                        }
                     }
                 }
                 // A field of the SOURCE face may itself be collapsed into a DIFFERENT group ('this.i' lives in
@@ -208,8 +218,13 @@ public class Graph {
                 // member-fields of the source onto the recipient: 'setI ← this' mirrors to 'setI.i ← this.i'
                 // (source knowledge transfers to the recipient, techniques §1.2; never the reverse).
                 if (link.linkNature().isAssignedFrom()) {
-                    sharedVariables.memberFieldsOf(to).forEach(m ->
-                            result.add(new LinksImpl.LinkImpl(rehome(m, to, from), link.linkNature(), m)));
+                    sharedVariables.memberFieldsOf(to).forEach(m -> {
+                        Variable rehomed = rehome(m, to, from);
+                        if (LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(rehomed)
+                            && LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(m)) {
+                            result.add(new LinksImpl.LinkImpl(rehomed, link.linkNature(), m));
+                        }
+                    });
                 }
             }
         });
@@ -249,7 +264,7 @@ public class Graph {
         // materializeWitnessOrphans (inside removeVertices) first preserves knowledge between SURVIVORS whose
         // witnesses routed through any of these.
         Set<Variable> set;
-        if (System.getenv("NODESC") != null) {
+        if (Gate.isSet("NODESC")) {
             set = Set.of(variable);
         } else {
             set = new HashSet<>(isKnownInGraph(variable));
@@ -262,11 +277,11 @@ public class Graph {
 
     // diagnostic: NOSV=1 in the environment disables the shared-variable collapse (assignments stay first-class
     // edges), so the O(N^2) part-of link explosion is not bounded. Used to demonstrate what sv prevents.
-    private static final boolean NOSV = System.getenv("NOSV") != null;
+    private static final boolean NOSV = Gate.isSet("NOSV");
 
     boolean mergeEdgeBi(Variable from, LinkNature linkNature, Variable to, String statementIndex) {
-        if (System.getenv("TRACEVAR") != null
-            && (from.toString().contains(System.getenv("TRACEVAR")) || to.toString().contains(System.getenv("TRACEVAR")))) {
+        if (Gate.isSet("TRACEVAR")
+            && (from.toString().contains(Gate.get("TRACEVAR")) || to.toString().contains(Gate.get("TRACEVAR")))) {
             System.out.println("TRACE mergeEdgeBi " + statementIndex + ": " + from + " " + linkNature + " " + to);
         }
         // boundary filter for the Options.objectGraphLinks label cut: PRODUCTION excludes ∩/≤/≥ from the
@@ -296,7 +311,7 @@ public class Graph {
                 // reassignment — removing it abandons the group rep carrying the first path's knowledge.
                 sharedVariables.remove(from);
                 // TODO what with fromInGraph?
-            } else if (System.getenv("NORSRC") == null
+            } else if (!Gate.isSet("NORSRC")
                        && fromInGroups && sharedVariables.isSourceAtOtherStatement(from, statementIndex)) {
                 // 'from' was a pure SOURCE in its group ('method ← 1:num' at an earlier statement) and is now
                 // being assigned ('num = amb'): its past source-participation stays valid for the OLD value, but
@@ -392,15 +407,15 @@ public class Graph {
                 // field spine 'target ≻ target.§is') must be re-keyed on both sides ('$__sv ≻ $__sv.§is'); leaving
                 // the to-side untranslated resurrects the removed member vertex and produces a half-translated edge
                 // ('$__sv ≻ target.§is') that invalidEdge then rightly drops — severing the spine at every collapse.
-                Variable newTo = System.getenv("NOBOTH") != null ? link.getKey()
+                Variable newTo = Gate.isSet("NOBOTH") ? link.getKey()
                         : vtm.translateVariableRecursively(link.getKey());
                 // re-homing a member's edges onto the shared representative can make the source coincide with the
                 // target (the edge pointed at another member of the same group); skip the resulting self-loop,
                 // which the engine forbids (Fact asserts source != target).
                 if (newFrom.equals(newTo)) continue;
-                if (System.getenv("TRACEVAR") != null
-                    && (newFrom.toString().contains(System.getenv("TRACEVAR"))
-                        || newTo.toString().contains(System.getenv("TRACEVAR")))) {
+                if (Gate.isSet("TRACEVAR")
+                    && (newFrom.toString().contains(Gate.get("TRACEVAR"))
+                        || newTo.toString().contains(Gate.get("TRACEVAR")))) {
                     System.out.println("TRACE transform " + variable + "->" + sharedVariable + " re-add: "
                                        + newFrom + " " + link.getValue() + " " + newTo);
                 }
@@ -482,7 +497,7 @@ public class Graph {
             // chain 'entry ≻ entry.§xy ≻ entry.§xy.§x' — without the intermediate vertex the closure cannot
             // key facts on the mid-level face ('entry.§xy ≺ 0:optional', TestSupplier test7). The direct
             // 'entry ≻ entry.§xy.§x' fact still derives by ≻∘≻ composition.
-            if (System.getenv("NOSPINEI") == null && fr.scopeVariable() instanceof FieldReference parent
+            if (!Gate.isSet("NOSPINEI") && fr.scopeVariable() instanceof FieldReference parent
                 && Util.virtual(from) && Util.virtual(parent.fieldInfo())) {
                 boolean change = addField(parent, primary, statementIndex);
                 change |= mergeEdgeBi(parent, CONTAINS_AS_FIELD, from, statementIndex);

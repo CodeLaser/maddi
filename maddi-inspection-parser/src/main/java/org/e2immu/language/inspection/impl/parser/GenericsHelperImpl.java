@@ -324,7 +324,12 @@ public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
     @Override
     public Map<NamedType, ParameterizedType> mapInTermsOfParametersOfSuperType(TypeInfo ti,
                                                                                ParameterizedType superType) {
-        assert superType.typeInfo() != ti;
+        if (superType.typeInfo() == ti) {
+            // distance 0: the link machinery's virtual-field walk can ask a type about itself (guava's
+            // recursive generics, e.g. self-bounded builders); the forward map alone is the answer.
+            // The parser proper never hits this case (formerly an assert).
+            return superType.forwardTypeParameterMap();
+        }
         if (ti.parentClass() != null) {
             if (ti.parentClass().typeInfo() == superType.typeInfo()) {
                 Map<NamedType, ParameterizedType> forward = superType.forwardTypeParameterMap();
