@@ -76,6 +76,8 @@ import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyzer {
     public static final String CONTRACT_VIOLATION = "contract-violation";
     public static final String NEAR_MISS_CONTAINER = "near-miss-container";
+    public static final String NEAR_MISS_NOT_MODIFIED = "near-miss-not-modified";
+    public static final String NEAR_MISS_INDEPENDENT = "near-miss-independent";
 
     private final ContractReader contractReader;
     private final AnalysisHelper analysisHelper = new AnalysisHelper();
@@ -123,6 +125,8 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
             if (info instanceof TypeInfo typeInfo) {
                 RankedFinding f = containerNearMiss(typeInfo, policy);
                 if (f != null) findings.add(f);
+            } else if (info instanceof MethodInfo methodInfo) {
+                methodNearMisses(methodInfo, policy, findings);
             }
         }
         findings.sort(Comparator.comparingInt(RankedFinding::blocking)
@@ -215,6 +219,86 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
                              + slot.method().fullyQualifiedName() + " that does";
         return blame != null ? MessageImpl.cause(culprit, attribution, blame)
                 : MessageImpl.cause(culprit, attribution);
+    }
+
+    /**
+     * Method-level near-misses: an abstract method one implementation short of being contractable
+     * {@code @NotModified} (no implementation modifies its receiver) or {@code @Independent} (no implementation
+     * exposes state). Skipped when the user already contracted that property — the guard polices those. A method
+     * can yield both a {@code @NotModified} and an {@code @Independent} near-miss.
+     */
+    private void methodNearMisses(MethodInfo methodInfo, IteratingAnalyzer.NearMissPolicy policy,
+                                  List<RankedFinding> findings) {
+        if (!methodInfo.isAbstract()) return;
+        Map<Property, Value> contracts = contractReader.contracts(methodInfo);
+        if (!(contracts.get(NON_MODIFYING_METHOD) instanceof Value.Bool nm && nm.isTrue())) {
+            RankedFinding f = notModifiedNearMiss(methodInfo, policy);
+            if (f != null) findings.add(f);
+        }
+        if (!(contracts.get(INDEPENDENT_METHOD) instanceof Value.Independent ind && ind.isAtLeastIndependentHc())) {
+            RankedFinding f = independentNearMiss(methodInfo, policy);
+            if (f != null) findings.add(f);
+        }
+    }
+
+    /**
+     * {@code @NotModified} near-miss: exactly one modifying implementation (out of at least
+     * {@code minImplementations}). The implementations carry genuinely computed values, so the count is trusted;
+     * an undecided implementation suppresses the finding.
+     */
+    private RankedFinding notModifiedNearMiss(MethodInfo abstractMethod, IteratingAnalyzer.NearMissPolicy policy) {
+        int total = 0;
+        List<MethodInfo> modifying = new ArrayList<>();
+        for (MethodInfo impl : implementationsOf(abstractMethod)) {
+            total++;
+            Value.Bool nonModifying = impl.analysis().getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+            if (nonModifying == null) return null; // undecided implementation: cannot attribute "1 of N"
+            if (nonModifying.isFalse()) modifying.add(impl);
+        }
+        if (total < policy.minImplementations()) return null;
+        if (modifying.isEmpty() || modifying.size() > policy.maxBlockingImplementations()) return null;
+
+        MethodInfo culprit = modifying.getFirst();
+        Message blame = blameMethodModifying(culprit);
+        String attribution = culprit.fullyQualifiedName() + " is modifying — the only " + modifying.size() + " of "
+                             + total + " implementations of " + abstractMethod.fullyQualifiedName() + " that is";
+        Message cause = blame != null ? MessageImpl.cause(culprit, attribution, blame)
+                : MessageImpl.cause(culprit, attribution);
+        String message = abstractMethod.fullyQualifiedName() + " would satisfy @NotModified but for " + modifying.size()
+                         + " of its " + total + " implementations (" + culprit.fullyQualifiedName()
+                         + "); consider @NotModified";
+        return new RankedFinding(MessageImpl.warn(abstractMethod, NEAR_MISS_NOT_MODIFIED, message, cause),
+                modifying.size(), total);
+    }
+
+    /**
+     * {@code @Independent} near-miss: exactly one decided-DEPENDENT implementation (out of at least
+     * {@code minImplementations}). Reads the implementations, never the abstract method's own value — that one may
+     * be a {@code ShallowMethodAnalyzer} default rather than a computation (see {@code guardIndependentType}).
+     */
+    private RankedFinding independentNearMiss(MethodInfo abstractMethod, IteratingAnalyzer.NearMissPolicy policy) {
+        int total = 0;
+        List<MethodInfo> dependent = new ArrayList<>();
+        for (MethodInfo impl : implementationsOf(abstractMethod)) {
+            total++;
+            Value.Independent ind = impl.analysis().getOrNull(INDEPENDENT_METHOD, ValueImpl.IndependentImpl.class);
+            if (ind == null) return null; // undecided implementation: cannot attribute "1 of N"
+            if (ind.isDependent()) dependent.add(impl);
+        }
+        if (total < policy.minImplementations()) return null;
+        if (dependent.isEmpty() || dependent.size() > policy.maxBlockingImplementations()) return null;
+
+        MethodInfo culprit = dependent.getFirst();
+        Message blame = blameMethodDependent(culprit);
+        String attribution = culprit.fullyQualifiedName() + " is dependent — the only " + dependent.size() + " of "
+                             + total + " implementations of " + abstractMethod.fullyQualifiedName() + " that is";
+        Message cause = blame != null ? MessageImpl.cause(culprit, attribution, blame)
+                : MessageImpl.cause(culprit, attribution);
+        String message = abstractMethod.fullyQualifiedName() + " would satisfy @Independent but for " + dependent.size()
+                         + " of its " + total + " implementations (" + culprit.fullyQualifiedName()
+                         + "); consider @Independent";
+        return new RankedFinding(MessageImpl.warn(abstractMethod, NEAR_MISS_INDEPENDENT, message, cause),
+                dependent.size(), total);
     }
 
     private void guardType(TypeInfo typeInfo) {
