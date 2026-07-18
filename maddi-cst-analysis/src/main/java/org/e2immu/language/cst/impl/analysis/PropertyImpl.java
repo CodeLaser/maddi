@@ -57,8 +57,11 @@ public class PropertyImpl implements Property {
             ValueImpl.ParameterParSeqImpl.EMPTY);
     public static final Property COMMUTABLE_METHODS = new PropertyImpl("commutableMethods",
             ValueImpl.CommutableDataImpl.NONE);
+    // carryOnRewire: GET_SET_FIELD is parse-time (record synthetics, KotlinScan via FactoryImpl.setGetSetField).
+    // A REWIRE'd type is never re-parsed, so if not carried it is lost and prep does not re-derive it; carry it,
+    // GetSetValueImpl.rewire re-points the field through the infoMap. See analysis-rewiring.md / rewiring.md.
     public static final Property GET_SET_FIELD = new PropertyImpl("getSetField",
-            ValueImpl.GetSetValueImpl.EMPTY);
+            ValueImpl.GetSetValueImpl.EMPTY, true);
     public static final Property GET_SET_EQUIVALENT = new PropertyImpl("getSetEquivalent",
             ValueImpl.GetSetEquivalentImpl.EMPTY);
     public static final Property IMPLEMENTATIONS = new PropertyImpl("implementations",
