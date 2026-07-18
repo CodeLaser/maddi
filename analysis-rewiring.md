@@ -122,6 +122,26 @@ and it has a specific, documented blocker:
   the verdict lattices). So the worklist's "recompute a confirmed-dirty type" step needs a clear-first. This is the
   last piece; the carry it guards is now a plain `rewire(view, …)` call.
 
+### The outside-reload carry, demonstrated end to end (2026-07-18)
+
+`run-openjdk/TestOutsideReloadCarry`: two source sets (dependent `User` uses `Base`), analyse, edit `Base`, reload so
+`User` is REWIRE (its derived analysis dropped), then carry `User`'s output onto the rewired object via
+`javaInspector.lastRewireInfoMap()` — no re-analysis. After the carry the verdicts (`IMMUTABLE_TYPE`) and `METHOD_LINKS`
+are back, and `PART_OF_CONSTRUCTION` holds the *rewired* constructor object (identity), not the replaced one.
+
+Two things this settled:
+
+1. **The carry composition.** The rewire phase already carries the `carryOnRewire` tier (`GET_SET_FIELD`), so the
+   outside carry must do the *derived* tier only — `ANALYZER_OUTPUT_ONLY ∧ ¬carryOnRewire` — or it double-sets and the
+   `setAll` overwrite-guard throws. Phase-carry + outside-carry together = the full analyzer output.
+2. **A `FieldReference` rewire canonicalises the scope** (`base` → explicit `this.base`), so a carried `LINKS`/`METHOD_LINKS`
+   *encodes* differently from the pre-reload value even though it is semantically identical — the carried type's
+   fingerprint is therefore not byte-identical to its original. This does **not** break the skip: a spared type keeps
+   its *prior* stored fingerprint and is never re-fingerprinted; only recomputed (freshly analysed) types are hashed.
+   A this-scope normalizer (sibling of the position one) would restore exact carry-stability if ever needed. Also
+   fixed here: `LinksImpl.rewire` now guards a null primary (the degenerate empty-links case, e.g. a constructor's
+   return-value links).
+
 ## The point: skip link + analyzer, not prepwork
 
 Prepwork is ~1/10 of the modification-analysis cost; **link + analyzer are the other 9/10**. So the prize is

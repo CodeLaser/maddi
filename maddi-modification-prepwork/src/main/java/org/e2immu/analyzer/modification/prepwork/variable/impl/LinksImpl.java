@@ -500,6 +500,9 @@ public class LinksImpl implements Links {
     @Override
     public Value rewire(InfoMapView infoMap) {
         // carryOnRewire (LINKS): re-point the primary and every from/to variable through the infoMap.
+        // A null primary is the degenerate empty-links case (e.g. a constructor's return-value links): nothing to
+        // re-point, and the non-null-primary constructor would reject it.
+        if (primary == null) return this;
         List<Link> rewiredLinks = linkSet.stream()
                 .map(l -> (Link) new LinkImpl(l.from().rewire(infoMap), l.linkNature(), l.to().rewire(infoMap)))
                 .toList();
