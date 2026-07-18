@@ -447,7 +447,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             boolean methodModified = false;
             boolean[] paramsModified = new boolean[methodInfo.parameters().size()];
             for (Variable v : modified) {
-                if (v instanceof This thisVar && thisVar.typeInfo().equals(methodInfo.typeInfo())
+                // ENCLOSING types count too: a modified Outer.this (explicit or implicit receiver of a
+                // modifying call) is reachable from the inner this via the synthetic outer reference, so it
+                // is part of this method's receiver object graph (semantic audit 2026-07-18: guava
+                // CompactHashMap.EntrySetView.remove was nonModifying while delegating to removeHelper)
+                if (v instanceof This thisVar && methodInfo.typeInfo().isEqualToOrInnerClassOf(thisVar.typeInfo())
                     || v instanceof FieldReference fr && fr.scopeIsRecursivelyThis()
                     || inClosure.contains(v)) {
                     methodModified = true;
