@@ -30,8 +30,12 @@ Engine, soundness/precision (from the semantic + precision audits):
 - StackEntry rule-2 miss (public final fields of mutable types accepted at level 2) — investigate,
   suspicion: cycle-breaking-era undecided field type.
 - Independence under cycle breaking: fernflower records storing ctor args verdicted INDEPENDENT
-  where the clean-path verdict is DEPENDENT/FF — suspicion: FieldAnalyzer breaking branch LINKS=EMPTY
-  erasure feeding independence.
+  where the clean-path verdict is DEPENDENT/FF. MECHANISM FOUND 2026-07-18 via the new
+  refused-downgrade counter: certification passes with 11 refused downgrades standing, 6 of them
+  independentType (@Independent(hc=true) frozen against @Dependent evidence, e.g.
+  FastFixedSetFactory.FastFixedSet) — the freeze class of PLAN-modification-reachability, not (only)
+  the LINKS=EMPTY erasure. STRICTCERT=1 now refuses such certifications; default surfaces an ERROR
+  with per-property counts.
 - Lambda promotion gap: stateless / read-only-capture lambdas never promoted past @FinalFields.
 - Constants-only interface verdicted @Mutable (interface default).
 - camel-api null cluster (246/787): abstract methods without hints stay NON_MODIFYING=null under the
@@ -42,15 +46,50 @@ Engine, soundness/precision (from the semantic + precision audits):
   unexplained).
 
 Engine, robustness/performance:
-- Per-method closure cost ceiling: one elasticsearch method ground a worker for ~30 minutes in
-  IncrementalFixpointEngine while 7 threads idled; add a fact-count/effort ceiling with the
-  throw-and-degrade-to-shallow design (same as cycle protection).
+- Per-method closure cost ceiling: DONE 2026-07-18 (edge-visit granularity, 10M default,
+  -Dmaddi.workCeiling, opt-out NOWORKCEILING; the per-pop first cut never tripped — the elasticsearch
+  monster burned 96 min inside single propagations). Gate: link 394/0, fernflower 0 trips + 0-diff.
 - Dual-identity family (source-scanned type also lazily loaded from bytecode): task #33 — member
   types of anonymous classes (prep repro @Disabled in TestAnonymousMemberRecord); plus the
   'Create multi' setInternal UOE (scoped around by dropping build-tooling source sets).
 - CompileListToSourceSets: two -d destinations for one module (generated-classes step) corrupt both
   the source-set name and its URI (elasticsearch libs/native); derive from the classes/java/<name>
   destination only. MRJAR overlay source sets are an open design question.
+
+Checkpoint/resume + incremental (session tasks #34/#35):
+- #34 checkpoint/resume v1: pass-boundary write via the AnalysisValueFeed seam (commit ec77f8bb),
+  restore = fingerprint check + LoadAnalysisResults preload + re-certification. Codec prerequisite
+  DONE (☷ pass-set round-trip, commit 0ae52f51).
+- #35 incremental v2 for the single-module 3M-line monorepo: giant cycle spans ~2/3 of the code, so
+  per-sourceset granularity (fingerprints on maddi-kotlin branch) and SCC-transitive invalidation are
+  useless — design: element-level fingerprints + optimistic preload of unchanged elements' values +
+  the verify-certify loop as the soundness net, invalidating via learned summary-consumption edges.
+
+Extract-interface consumer (../jfocus-refactor-service extractmodule; adequacy review 2026-07-18,
+session tasks #36-#39):
+- #36 DONE 2026-07-18 (commit 494cb2bb): DEGRADED_ANALYSIS_METHOD stamped at all three rungs
+  (shallow fallback, analyzer fault isolation, prep type isolation); ComputeCallGraph null-body
+  guard added en route. Consumer half (pessimistic per-type gate in ComputeReplaceTypesActions)
+  implemented in jfocus-refactor-service, UNCOMMITTED there for the owner thread; jfocus suite at
+  known baseline 176/1.
+- #37 VL2O nature tier: MEASURED 2026-07-18 (gate VL2OTIER=1, fernflower): assignment-tier adds
+  118,958 vs content-tier adds 2,285,123 — a 19:1 ratio; ~95% of the blast radius carries
+  shares-content semantics, confirming material over-rejection for extract-interface. NEXT: an
+  ADDITIVE second map (assignment-tier-only VL2O) so the consumer can switch without changing the
+  existing property; coordinate the switch with the jfocus thread (their suite is the gate).
+  Related: #38 CLOSED — the ≡ exclusion is deliberate and correct (separately-cast aliases are
+  type-DEcoupled; mediation semantics), pinned in TestVl2oAliases.
+- #38 targeted test for the ≡ exclusion corner (real-variable aliases expressed only as ≡ must still
+  reach VL2O, else missed rejection).
+- #39 ⚠ REIMPLEMENTATION — PREMISE REVISED 2026-07-18 after an attempted first slice: engine ←
+  links ERASE syntactic mediation (pattern bindings and casts both yield plain ←, and closure
+  composition spreads the blindness), while CommonAnalyze's walk computes DECLARED-TYPE coupling,
+  which mediation deliberately decouples. Slice reverted (jfocus baseline restored, 176/1-known).
+  Correct sequence: (1) engine adds mediation provenance to assignment-tier links (nature variant or
+  flag; sticky through composition), (2) then de-duplicate CommonAnalyze consuming unmediated ←
+  only. Maddi-internal same-disease siblings unaffected and still valid: WLAM's five mirror blocks,
+  iterateOverShared vs expandRepToMembers (==/.equals divergence),
+  ShallowMethodLinkComputer.correspondingTypeParameters vs hiddenContentHierarchy.
 
 Module organization (see org-review-2026-07-18.md for the full ranked plan):
 - Small/high-value items 1-6 (docs, dead code, codec ☷/$_v holes) — in progress 2026-07-18.

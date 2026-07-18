@@ -309,6 +309,14 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
             LOGGER.error("Caught exception processing {}", info, e);
             if (!faultTolerant) throw e;
             failed.add(info);
+            // degradation marker (task #36): consumers relying on per-call data must go pessimistic here
+            if (info instanceof org.e2immu.language.cst.api.info.MethodInfo mi) {
+                if (!mi.analysis().haveAnalyzedValueFor(
+                        org.e2immu.language.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD)) {
+                    mi.analysis().set(org.e2immu.language.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD,
+                            org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+                }
+            }
             messages.add(crashFinding(info, e));
         } finally {
             // under PARALLEL the delta can over-attribute (another thread's change lands in the window);
