@@ -139,9 +139,13 @@ session tasks #36-#39):
   variable-based scope as jfocus's own casts join. (c) codec persistence DONE same day: optional
   4th element on the [from, nature, to] wire format, appended only when mediated — unmediated
   output byte-identical, old 3-element files decode unmediated; single decoder funnel
-  (MethodLinkedVariablesImpl.decodeLink); pinned in TestWriteAnalysisMediated. REMAINING for
-  step 2 readiness: (a) chain-transitive taint (a link composed ACROSS a mediated hop is still
-  emitted unmediated — the reconstruction's reachable() chains and the closure's compositions).
+  (MethodLinkedVariablesImpl.decodeLink); pinned in TestWriteAnalysisMediated. (a) chain-transitive
+  taint DONE same day (commit 582fb564): two-pass reachability in assignmentEdgeStream — a chain
+  target is mediated only when NO unmediated path reaches it (coupling wins); summary-level pin
+  return<-jj<-ii<-(cast)o. ENGINE SIDE COMPLETE. Residuals: closure-composed engine facts (not
+  collapse chains) carry no taint; expression casts unflagged (variable-operand scope). NEXT =
+  step 2: de-duplicate CommonAnalyze in jfocus consuming unmediated <- only (coordinate with the
+  jfocus owner thread; their suite is the gate), after the owed 3-suite green confirmation.
   Maddi-internal same-disease siblings unaffected and still valid: WLAM's five mirror blocks,
   iterateOverShared vs expandRepToMembers (==/.equals divergence),
   ShallowMethodLinkComputer.correspondingTypeParameters vs hiddenContentHierarchy.
