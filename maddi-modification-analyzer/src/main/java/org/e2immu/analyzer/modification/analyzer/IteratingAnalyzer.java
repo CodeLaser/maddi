@@ -74,15 +74,16 @@ public interface IteratingAnalyzer {
      * container near-miss only when it has at least {@code minParameterSlots} parameter slots (one per parameter
      * of a non-private constructor/method), at most {@code maxBlockingSlots} of them are modified, and — for a
      * blocking slot on an <em>abstract</em> method — the modification is attributable to between 1 and
-     * {@code maxBlockingImplementations} implementations out of at least {@code minImplementations}. The absolute
-     * caps plus the surface floor keep this to the compelling "one culprit" cases; see the design note in
-     * {@code guard-mode-analysis.md}.
+     * {@code maxBlockingImplementations} implementations out of at least {@code minImplementations}. For the
+     * type-level {@code @Immutable}/{@code @Independent} near-misses, the surface is the field count (at least
+     * {@code minFields}) and {@code maxBlockingSlots} caps the blocking fields. The absolute caps plus the surface
+     * floors keep this to the compelling "one culprit" cases; see the design note in {@code guard-mode-analysis.md}.
      */
     record NearMissPolicy(int minParameterSlots, int maxBlockingSlots, int minImplementations,
-                          int maxBlockingImplementations) {
-        /** The strict defaults: a single blocking parameter, on a surface of at least 7 slots, attributable to a
-         *  single implementation out of at least 3. */
-        public static final NearMissPolicy STRICT = new NearMissPolicy(7, 1, 3, 1);
+                          int maxBlockingImplementations, int minFields) {
+        /** The strict defaults: a single blocking member, on a surface of at least 7 parameter slots / 3 fields,
+         *  attributable to a single implementation out of at least 3. */
+        public static final NearMissPolicy STRICT = new NearMissPolicy(7, 1, 3, 1, 3);
     }
 
     void analyze(List<Info> analysisOrder);
