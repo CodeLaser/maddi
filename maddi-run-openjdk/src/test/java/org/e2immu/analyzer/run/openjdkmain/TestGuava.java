@@ -30,11 +30,11 @@ public class TestGuava {
                 .getLogger("org.e2immu.analyzer.modification.link.impl.linkgraph.RedundantLinks")).setLevel(Level.ERROR);
     }
 
-    private static final String CONFIG = "/Users/bnaudts/git/test-oss/guava/inputConfiguration.json";
+    private static final Path CONFIG = TestOssCorpus.config("guava");
 
     @Test
     public void test() throws IOException, ParseException {
-        Assumptions.assumeTrue(Files.exists(Path.of(CONFIG)),
+        Assumptions.assumeTrue(Files.exists(CONFIG),
                 "requires the guava corpus checkout with its generated input configuration");
         int exitValue = Main.execute(new String[]{
                 "--input-configuration=" + CONFIG

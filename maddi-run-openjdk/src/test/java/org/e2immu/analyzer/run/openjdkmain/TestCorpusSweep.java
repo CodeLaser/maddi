@@ -14,14 +14,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Batch first-contact sweep over every corpus in ~/git/test-oss that carries an inputConfiguration.json.
+ * Batch first-contact sweep over every corpus under the test-oss root (see {@link TestOssCorpus}) that
+ * carries an inputConfiguration.json.
  * The bar per corpus: exit 0 (crash-free, certified fixpoint via the default worklist+parallel engine).
  * Gated on SWEEP=1 (this can run for hours); a corpus list via SWEEP=name1,name2 restricts the sweep.
  * A name may contain slashes to address a nested module (e.g. SWEEP=camel/core/camel-util).
  * Verdict baselines are NOT checked here — promote a corpus to its own pinned test for that.
  */
 public class TestCorpusSweep {
-    private static final Path CORPORA = Path.of("/Users/bnaudts/git/test-oss");
+    private static final Path CORPORA = TestOssCorpus.ROOT;
 
     @BeforeAll
     public static void beforeAll() {
