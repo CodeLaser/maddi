@@ -19,10 +19,17 @@
   debug args, getenv-per-lookup, scopeVariables), lock-clean. ASPROF env gate in run-openjdk.
 - javac parse flake root-caused and fixed (concurrent lazy getOrLoad into the live JavacTask +
   plain-HashMap registry); watch for recurrence.
-- Elasticsearch first contact IN PROGRESS: config via compile-log pipeline (server closure,
-  27 source sets after scoping); 5 scanner bugs fixed en route; prep isolated 4 known types out of
-  43k; modification analysis proceeds past isolated prep errors since today. Long-tail grind
-  observed (one method ~30 min in the closure) → per-method ceiling needed (below).
+- Elasticsearch first contact COMPLETED 2026-07-18 (attempt 11, 5h29m, 24G heap, work ceiling
+  active): **239,732 elements** — 152,210 methods (101,822 nonModifying / 48,537 modifying /
+  1,851 null = 99% decided), 41,717 fields (28,581/12,571/565), 45,805 types. Types:
+  **23,206 null (51%)** / 18,474 @Mutable / 1,368 @FF / 1,967 @ImmHC / 790 @Imm — the camel-api
+  null pattern AT SCALE (abstract/external supers without hints under the current breaking
+  strategy). Journey: 7 attempts — config pipeline (extra-jmod, native dual -d bug, MRJAR
+  overlays, build-tooling scoping), 5 scanner bugs fixed, prep isolation (4 types), 8G OOM,
+  96-min uncapped straggler (per-pop ceiling missed it), edge-visit ceiling → completion.
+  Dump preserved: build/imm-elasticsearch-2026-07-18.txt.gz. Sweep exit non-zero (isolated prep
+  errors reported) — bar for GREEN needs #33 fixed. The 5h29m runtime is the checkpoint
+  argument (#34) in numbers; the 51% type-null cluster is the breaking-strategy work item.
 
 ## OPEN ITEMS
 
