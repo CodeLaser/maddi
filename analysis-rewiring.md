@@ -140,6 +140,19 @@ with two design tasks that surfaced along the way:
    INVALID + fingerprint-dirty cone (the analyzer already supports subset analysis reading carried context via its
    worklist narrowing), clearing a dirty carried type first with `removeIf`; spared REWIRE types keep their carry.
 
+### The running skip, demonstrated with real saving (2026-07-18)
+
+`run-openjdk/TestEarlyCutoffSkip`: two source sets (`User` uses `Base`), analyse, edit `Base` with a comment, reload
+(`Base` INVALID, `User` REWIRE), then (1) carry `User`'s derived output onto the rewired object via the exposed view,
+and (2) **re-analyse only `Base`** (`prep().doPrimaryType(newBase)` + `analyze`). The assertion that makes it a skip:
+the re-analysis order contains `Base`'s members and **not** `User`'s — `User` is never re-prepped nor re-analysed, yet
+it keeps its carried type verdict and `METHOD_LINKS`. That is the saving, end to end.
+
+Prep runs on the INVALID set only, so it never touches the carried REWIRE types — which is why this demonstration
+does not yet need the tier flag. The general production version (arbitrary edit whose dirty cone runs deep through
+REWIRE chains, with the fingerprint deciding the frontier) is the `EarlyCutoffWorklist` driving prep+analyze over the
+dirty subset and `removeIf`-clearing a confirmed-dirty carried type; every piece it needs now exists and is tested.
+
 ### The outside-reload carry, demonstrated end to end (2026-07-18)
 
 `run-openjdk/TestOutsideReloadCarry`: two source sets (dependent `User` uses `Base`), analyse, edit `Base`, reload so
