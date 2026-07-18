@@ -23,10 +23,11 @@ import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
-import org.junit.Test;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Live (headless) check that {@link MaddiEclipseConfigBuilder} maps a real JDT project model to an
@@ -39,6 +40,7 @@ public class MaddiEclipseConfigBuilderTest {
     private static final String JDK_HOME = "/opt/jdk-25";
 
     @Test
+    @DisplayName("a JDT source folder and its output dir map onto an AnalyzeConfig")
     public void sourceRootAndOutputDirBecomeConfig() throws Exception {
         IProject project = ResourcesPlugin.getWorkspace().getRoot().getProject("MaddiSample");
         if (!project.exists()) project.create(null);
@@ -57,18 +59,18 @@ public class MaddiEclipseConfigBuilderTest {
 
         AnalysisModel.AnalyzeConfig config = new MaddiEclipseConfigBuilder().build(javaProject, JDK_HOME);
 
-        assertEquals("the maddi JDK is the analysis SDK", JDK_HOME, config.sdkHome());
+        assertEquals(JDK_HOME, config.sdkHome(), "the maddi JDK is the analysis SDK");
         assertEquals("UTF-8", config.sourceEncoding());
-        assertTrue("java.base is always loaded", config.jmods().contains("java.base"));
-        assertTrue("whole-project analysis runs in parallel", config.parallel());
+        assertTrue(config.jmods().contains("java.base"), "java.base is always loaded");
+        assertTrue(config.parallel(), "whole-project analysis runs in parallel");
 
         String srcAbs = src.getLocation().toOSString();
-        assertTrue("the source folder maps to a main (non-test) source root",
-                config.sources().stream().anyMatch(s -> s.path().equals(srcAbs) && !s.test()));
+        assertTrue(config.sources().stream().anyMatch(s -> s.path().equals(srcAbs) && !s.test()),
+                "the source folder maps to a main (non-test) source root");
 
         String binAbs = bin.getLocation().toOSString();
-        assertTrue("the compiler output dir (hot class files) is a compile-scope classpath entry",
-                config.classpath().stream()
-                        .anyMatch(c -> c.path().equals(binAbs) && "compile".equals(c.scope())));
+        assertTrue(config.classpath().stream()
+                        .anyMatch(c -> c.path().equals(binAbs) && "compile".equals(c.scope())),
+                "the compiler output dir (hot class files) is a compile-scope classpath entry");
     }
 }
