@@ -91,6 +91,11 @@ tasks.test {
     // -PnoAssertions disables JVM -ea; the linking engine's debug sanity assertions (consistencyCheck,
     // checkDuplicateNames) are not production behaviour, so turn them off to benchmark production-like linking.
     enableAssertions = !project.hasProperty("noAssertions")
+    // test-oss corpus location override (see TestOssCorpus): forward -Dtest.oss.root to the forked
+    // test JVM, and pass an exported TEST_OSS_ROOT through, so a shell/Taskfile export reaches the
+    // worker even via a reused daemon. Unset -> the helper defaults to ../../test-oss.
+    System.getProperty("test.oss.root")?.let { systemProperty("test.oss.root", it) }
+    System.getenv("TEST_OSS_ROOT")?.let { environment("TEST_OSS_ROOT", it) }
     jvmArgs(
         // 6G showed heavy GC under PARALLEL=8 (8 threads allocating link graphs concurrently);
         // TESTXMX overrides for outsized corpora (elasticsearch server closure OOM'd at 8G)
