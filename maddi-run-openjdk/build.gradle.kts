@@ -99,4 +99,13 @@ tasks.test {
         "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
     )
+    // ASPROF=<agent options> attaches async-profiler to the test JVM, e.g.
+    //   ASPROF=start,event=cpu,file=/tmp/profile.collapsed  (format inferred from the extension)
+    // pair with -PnoAssertions for production-like profiles
+    System.getenv("ASPROF")?.let {
+        jvmArgs(
+            "-agentpath:/opt/homebrew/lib/libasyncProfiler.dylib=$it",
+            "-XX:+UnlockDiagnosticVMOptions", "-XX:+DebugNonSafepoints"
+        )
+    }
 }

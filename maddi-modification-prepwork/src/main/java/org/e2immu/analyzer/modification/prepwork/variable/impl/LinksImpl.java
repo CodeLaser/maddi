@@ -150,6 +150,20 @@ public class LinksImpl implements Links {
         private final Variable primary;
         private final List<Link> links = new ArrayList<>();
 
+        /*
+        contains() and containsPrimaryOf() were linear scans, called from interleaved filter->add stream
+        pipelines: O(edges x builder size) — a single guava method stalled the link phase for minutes.
+        The indexes are lazily built on first query, incrementally maintained on add (so those pipelines
+        stay O(1) per element), and invalidated on any removal/replacement. NOTE Link's own equality is
+        (from,to)-only and its constructor asserts on unrepresentable faces, so the triplet index uses
+        its own key record; addAllDistinct keeps Link's pair equality and stays as it was.
+         */
+        private record TripletKey(Variable from, LinkNature nature, Variable to) {
+        }
+
+        private Set<TripletKey> tripletIndex;
+        private Set<Variable> primaryToIndex;
+
         public Builder(Variable primary) {
             this.primary = primary;
         }
@@ -159,12 +173,27 @@ public class LinksImpl implements Links {
             existing.forEach(links::add);
         }
 
+        private void addToIndexes(Link link) {
+            if (tripletIndex != null) {
+                tripletIndex.add(new TripletKey(link.from(), link.linkNature(), link.to()));
+            }
+            if (primaryToIndex != null) {
+                primaryToIndex.add(Util.primary(link.to()));
+            }
+        }
+
+        private void invalidateIndexes() {
+            tripletIndex = null;
+            primaryToIndex = null;
+        }
+
         @Override
         public void replace(Link link, LinkNature newLinkNature) {
             links.replaceAll(l -> {
                 if (l.equals(link)) return new LinkImpl(l.from(), newLinkNature, l.to());
                 return l;
             });
+            invalidateIndexes();
         }
 
         @Override
@@ -172,49 +201,74 @@ public class LinksImpl implements Links {
             return primary;
         }
 
+        // funnel guard: closures can hand producers a stacked face (x.§m.§m — legal inside VMI/graph
+        // bookkeeping, not representable as a Link). All Builder adds skip such faces, per the
+        // constructor-assert policy; direct LinkImpl constructions keep the assert as a backstop.
+        private static boolean representable(Variable from, Variable to) {
+            return LinkImpl.doNotStackMOnTopOfVirtualField(from) && LinkImpl.doNotStackMOnTopOfVirtualField(to);
+        }
+
         @Override
         public Builder add(LinkNature linkNature, Variable to) {
-            links.add(new LinkImpl(primary, linkNature, to));
+            if (!representable(primary, to)) return this;
+            LinkImpl link = new LinkImpl(primary, linkNature, to);
+            links.add(link);
+            addToIndexes(link);
             return this;
         }
 
         @Override
         public Builder add(Variable from, LinkNature linkNature, Variable to) {
             assert primary instanceof This || Util.isPartOf(primary, from);
-            links.add(new LinkImpl(from, linkNature, to));
+            if (!representable(from, to)) return this;
+            LinkImpl link = new LinkImpl(from, linkNature, to);
+            links.add(link);
+            addToIndexes(link);
             return this;
         }
 
         @Override
         public void prepend(LinkNature linkNature, Variable to) {
-            links.addFirst(new LinkImpl(primary, linkNature, to));
+            if (!representable(primary, to)) return;
+            LinkImpl link = new LinkImpl(primary, linkNature, to);
+            links.addFirst(link);
+            addToIndexes(link);
         }
 
         @Override
         public Links.Builder addAllDistinct(Links other) {
             assert primary.equals(other.primary());
             other.stream()
-                    .filter(l -> !links.contains(l))
-                    .forEach(links::add);
+                    .filter(l -> !links.contains(l)) // Link's (from,to)-only equality, deliberately
+                    .forEach(l -> {
+                        links.add(l);
+                        addToIndexes(l);
+                    });
             return this;
         }
 
         @Override
         public boolean contains(Variable from, LinkNature reverse, Variable to) {
-            return this.links.stream().anyMatch(l -> l.from().equals(from)
-                                                     && l.linkNature().equals(reverse)
-                                                     && l.to().equals(to));
+            if (tripletIndex == null) {
+                tripletIndex = new HashSet<>();
+                for (Link l : links) {
+                    tripletIndex.add(new TripletKey(l.from(), l.linkNature(), l.to()));
+                }
+            }
+            return tripletIndex.contains(new TripletKey(from, reverse, to));
         }
 
         @Override
         public void removeIf(Predicate<Link> linkPredicate) {
             links.removeIf(linkPredicate);
+            invalidateIndexes();
         }
 
         @Override
         public void removeIfFromTo(Predicate<Variable> predicate) {
             links.removeIf(l -> Stream.concat(l.from().variableStreamDescend(),
                     l.to().variableStreamDescend()).anyMatch(predicate));
+            invalidateIndexes();
         }
 
         @Override
@@ -226,6 +280,7 @@ public class LinksImpl implements Links {
         public void replaceAll(List<Link> newLinks) {
             links.clear();
             links.addAll(newLinks);
+            invalidateIndexes();
         }
 
         @Override
@@ -251,8 +306,15 @@ public class LinksImpl implements Links {
         @Override
         public boolean containsPrimaryOf(Variable to) {
             Variable toPrimary = Util.primary(to);
-            // Util.primary is null for an array access on an EXPRESSION base (clone-bench shapes)
-            return links.stream().anyMatch(l -> Objects.equals(Util.primary(l.to()), toPrimary));
+            // Util.primary is null for an array access on an EXPRESSION base (clone-bench shapes);
+            // HashSet accepts the null element, matching the former Objects.equals-based scan
+            if (primaryToIndex == null) {
+                primaryToIndex = new HashSet<>();
+                for (Link l : links) {
+                    primaryToIndex.add(Util.primary(l.to()));
+                }
+            }
+            return primaryToIndex.contains(toPrimary);
         }
     }
 

@@ -245,11 +245,21 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         MethodLinkedVariables tlv;
         if (recursionPrevention.sourceAllowed(methodInfo)) {
             try {
-                tlv = new SourceMethodComputer(methodInfo).go();
-                if (write) {
-                    if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, tlv, methodInfo)) {
-                        propertiesChanged.incrementAndGet();
+                try {
+                    tlv = new SourceMethodComputer(methodInfo).go();
+                    if (write) {
+                        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, tlv, methodInfo)) {
+                            propertiesChanged.incrementAndGet();
+                        }
                     }
+                } catch (UnsupportedOperationException uoe) {
+                    if (!"cycle protection".equals(uoe.getMessage())) throw uoe;
+                    // a statement's link graph refused to settle (generated bulk-converter loaders,
+                    // camel-base): a SHALLOW summary beats both a dead element (the old behaviour) and the
+                    // minutes-long grind on the huge partial graph. The partially built per-method graph is
+                    // discarded with the SourceMethodComputer instance.
+                    LOGGER.warn("Cycle protection tripped in {}; falling back to shallow links", methodInfo);
+                    tlv = doMethod(methodInfo, true, write, writeShallow);
                 }
             } finally {
                 recursionPrevention.doneSource(methodInfo);
@@ -302,7 +312,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     // marker ('add[0] ∈ $_v' — a fresh unanalyzable value takes no derived content facts;
                     // the direct 'add ← $_v' edge itself stays)
                     v -> !(v instanceof ReturnVariable)
-                         && (System.getenv("NOACM") != null
+                         && (Gate.isSet("NOACM")
                              || !(v instanceof MarkerVariable mv && mv.isSomeValue())));
             Graph graph = new Graph(javaInspector.runtime(), engine);
             this.followGraph = new FollowGraph(graph);
@@ -362,7 +372,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                                   || !vd.isKnown(returnVariable.fullyQualifiedName())
                     ? LinksImpl.EMPTY
                     : emptyIfOnlySomeValue(vd.variableInfo(returnVariable).linkedVariables());
-            if (System.getenv("BTRACE") != null && methodInfo.name().contains(System.getenv("BTRACE"))) {
+            if (Gate.isSet("BTRACE") && methodInfo.name().contains(Gate.get("BTRACE"))) {
                 System.out.println("BTRACE go() raw=" + (vd == null || returnVariable == null
                                                          || !vd.isKnown(returnVariable.fullyQualifiedName())
                         ? "?" : vd.variableInfo(returnVariable).linkedVariables())
@@ -399,7 +409,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     .filter(v -> !(Util.primary(v) instanceof IntermediateVariable))
                     .collect(Collectors.toUnmodifiableSet());
             MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, summaryModified);
-            if (System.getenv("BTRACE") != null && methodInfo.name().contains(System.getenv("BTRACE"))) {
+            if (Gate.isSet("BTRACE") && methodInfo.name().contains(Gate.get("BTRACE"))) {
                 System.out.println("BTRACE go() mlv=" + mlv);
             }
             copyModificationsIntoMethod(allModified, inClosure, mlv);
@@ -437,7 +447,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             boolean methodModified = false;
             boolean[] paramsModified = new boolean[methodInfo.parameters().size()];
             for (Variable v : modified) {
-                if (v instanceof This thisVar && thisVar.typeInfo().equals(methodInfo.typeInfo())
+                // ENCLOSING types count too: a modified Outer.this (explicit or implicit receiver of a
+                // modifying call) is reachable from the inner this via the synthetic outer reference, so it
+                // is part of this method's receiver object graph (semantic audit 2026-07-18: guava
+                // CompactHashMap.EntrySetView.remove was nonModifying while delegating to removeHelper)
+                if (v instanceof This thisVar && methodInfo.typeInfo().isEqualToOrInnerClassOf(thisVar.typeInfo())
                     || v instanceof FieldReference fr && fr.scopeIsRecursivelyThis()
                     || inClosure.contains(v)) {
                     methodModified = true;
@@ -640,7 +654,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 Links rvLinks = new LinksImpl.Builder(returnVariable)
                         .add(LinkNatureImpl.IS_ASSIGNED_FROM, destination)
                         .build();
-                if (System.getenv("RVTRACE") != null) {
+                if (Gate.isSet("RVTRACE")) {
                     System.out.println("RVTRACE stmt " + statement.source().index() + " dest=" + destination
                                        + " rLinks=" + r.links());
                 }
@@ -735,14 +749,21 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
         private void writeOutMethodCallAnalysis(List<ExpressionVisitor.WriteMethodCall> writeMethodCalls,
                                                 VariableData vd) {
+            // per-primary VL2O contributions are identical for every method call of this statement (the
+            // follow graph and vd are fixed here), and broker-style chained calls repeat the same primaries:
+            // uncached, the full-graph probe + rep expansion ran per call x per primary — the activemq
+            // first-contact stall. Replayed with the original put (stored pass) / putIfAbsent (probe pass)
+            // semantics, in the original per-primary order.
+            Map<Variable, Vl2oContribution> contributionCache = new HashMap<>();
             for (ExpressionVisitor.WriteMethodCall wmc : writeMethodCalls) {
                 // rather than taking the links in wmc, we want the fully expanded links
                 // (after running copyEvalIntoVariableData)
                 Map<Variable, Boolean> variablesLinkedToObject = new HashMap<>();
                 for (Link l : wmc.linksFromObject()) {
-                    addToVariablesLinkedToObject(vd, l.to(), variablesLinkedToObject);
+                    addToVariablesLinkedToObject(vd, l.to(), variablesLinkedToObject, contributionCache);
                 }
-                addToVariablesLinkedToObject(vd, wmc.linksFromObject().primary(), variablesLinkedToObject);
+                addToVariablesLinkedToObject(vd, wmc.linksFromObject().primary(), variablesLinkedToObject,
+                        contributionCache);
                 if (!variablesLinkedToObject.isEmpty()
                     // only write once, no point because actual variables in links will not change
                     && !wmc.methodCall().analysis().haveAnalyzedValueFor(VARIABLES_LINKED_TO_OBJECT)) {
@@ -762,23 +783,34 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
         }
 
+        private record Vl2oContribution(Map<Variable, Boolean> stored, Map<Variable, Boolean> probe) {
+        }
+
         private void addToVariablesLinkedToObject(VariableData vd,
                                                   Variable sub,
-                                                  Map<Variable, Boolean> variablesLinkedToObject) {
+                                                  Map<Variable, Boolean> variablesLinkedToObject,
+                                                  Map<Variable, Vl2oContribution> contributionCache) {
             Variable primary = Util.primary(sub);
             if (primary != null && vd.isKnown(primary.fullyQualifiedName())) {
                 variablesLinkedToObject.put(primary, true);
-                VariableInfo viPrimary = vd.variableInfo(primary);
-                // two sources, both needed:
-                // 1. the stored, fully reconstructed links — a raw followGraph(variable) probe misses everything
-                //    of a COLLAPSED variable (no translateForward, no shared-variable reconstruction; the VL2O
-                //    map lost 'ii2 ← 0:o');
-                // 2. the graph probe — collapsed groups hold facts the printed links deliberately suppress
-                //    (the slot alias 'ii[j]' behind "NOT: ii[j]∈ii"), with rep names EXPANDED to their real
-                //    members instead of leaking ('$__sv_ii[j]'). putIfAbsent: the stored pass is authoritative.
-                addVL2O(viPrimary.linkedVariablesOrEmpty(), null, variablesLinkedToObject);
-                Links probe = followGraph.followGraph(virtualFieldComputer, viPrimary.variable()).build();
-                addVL2O(probe, followGraph.graph(), variablesLinkedToObject);
+                Vl2oContribution contribution = contributionCache.computeIfAbsent(primary, p -> {
+                    VariableInfo viPrimary = vd.variableInfo(p);
+                    // two sources, both needed:
+                    // 1. the stored, fully reconstructed links — a raw followGraph(variable) probe misses everything
+                    //    of a COLLAPSED variable (no translateForward, no shared-variable reconstruction; the VL2O
+                    //    map lost 'ii2 ← 0:o');
+                    // 2. the graph probe — collapsed groups hold facts the printed links deliberately suppress
+                    //    (the slot alias 'ii[j]' behind "NOT: ii[j]∈ii"), with rep names EXPANDED to their real
+                    //    members instead of leaking ('$__sv_ii[j]'). putIfAbsent: the stored pass is authoritative.
+                    Map<Variable, Boolean> stored = new LinkedHashMap<>();
+                    addVL2O(viPrimary.linkedVariablesOrEmpty(), null, stored);
+                    Map<Variable, Boolean> probeMap = new LinkedHashMap<>();
+                    Links probe = followGraph.followGraph(virtualFieldComputer, viPrimary.variable()).build();
+                    addVL2O(probe, followGraph.graph(), probeMap);
+                    return new Vl2oContribution(stored, probeMap);
+                });
+                variablesLinkedToObject.putAll(contribution.stored()); // stored pass: put semantics
+                contribution.probe().forEach(variablesLinkedToObject::putIfAbsent); // probe pass
             }
         }
 

@@ -461,8 +461,13 @@ public class VirtualFieldComputer {
             // Affected pins re-baselined (the old engine emitted these only modification-coupled, at the
             // modifying statement; eager emission is finer, verdict-neutral).
             Value.Immutable immutableFrom = new AnalysisHelper().typeImmutable(from.parameterizedType());
-            Value.Immutable worst = immutableFrom.min(immutableTo);
-            if (worst.isMutable()) {
+            // NO_VALUE = undecided for this type (camel first contact, TopicLoadBalancer.State): the
+            // conservative direction for modification tracking is MUTABLE — emit the §m pair, later
+            // refinement absorbs it. min() asserts on NO_VALUE, so short-circuit before it.
+            boolean worstMutable = immutableFrom == ValueImpl.ImmutableImpl.NO_VALUE
+                                   || immutableTo == ValueImpl.ImmutableImpl.NO_VALUE
+                                   || immutableFrom.min(immutableTo).isMutable();
+            if (worstMutable) {
                 FieldInfo f1 = newMField(VariableTranslationMap.owner(runtime, from.parameterizedType()));
                 FieldReference m1 = runtime.newFieldReference(f1, runtime.newVariableExpression(from), f1.type());
                 FieldInfo f2 = newMField(VariableTranslationMap.owner(runtime, to.parameterizedType()));

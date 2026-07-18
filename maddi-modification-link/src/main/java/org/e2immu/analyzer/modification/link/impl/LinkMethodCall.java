@@ -204,8 +204,11 @@ public record LinkMethodCall(JavaInspector javaInspector,
                         LinkAppliedFunctionalInterface handler = new LinkAppliedFunctionalInterface(javaInspector, runtime,
                                 linkComputerOptions, virtualFieldComputer, currentMethod, variableData, stage);
                         LinksImpl.Builder builder = new LinksImpl.Builder(links.primary());
+                        // index bound: the ParameterInfo may belong to a method with more parameters than
+                        // this call has arguments (varargs / cross-method summaries, guava first contact)
                         Function<Variable, List<Links>> paramProvider = v ->
-                                v instanceof ParameterInfo pi ? List.of(params.get(pi.index()).links()) : List.of();
+                                v instanceof ParameterInfo pi && pi.index() < params.size()
+                                        ? List.of(params.get(pi.index()).links()) : List.of();
                         handler.go(builder, paramProvider, applied, extraModified, null, link.linkNature(),
                                 null);
                         extra.merge(links.primary(), builder.build(), Links::merge);
@@ -232,7 +235,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
                         continue;
                     }
                     ParameterInfo fromCheck = methodInfo.parameters().get(i);
-                    if (!fromCheck.isVarArgs() && to.isVarArgs() && System.getenv("NOVARTO") == null) {
+                    if (!fromCheck.isVarArgs() && to.isVarArgs() && !Gate.isSet("NOVARTO")) {
                         // LEAF — the link's TARGET is the varargs parameter: fan the to-side out over every
                         // actual argument, with the same per-element weakening as the from-side fan-out.
                         // 'fillAll(Box<T> target, T... vs)' with 'target.t ∈ 1:vs' at 'fillAll(box,a,b)' ->
@@ -476,7 +479,11 @@ public record LinkMethodCall(JavaInspector javaInspector,
         // return-variable source (in which case a second, un-lifted link would be spurious).
         if (!extraTest || !isReturnVariable(Util.firstRealVariable(fromTranslated))) {
             Variable toTranslated = defaultTm.translateVariableRecursively(link.to());
-            if (Util.acceptModificationLink(fromTranslated, toTranslated)) {
+            // the translation can hand back a 'from' that does not belong under this builder's primary
+            // (hints-era FI shapes, timefold constraint streams): such a link cannot be attributed here —
+            // drop it rather than trip the builder's ownership assert and lose the whole element
+            if (Util.acceptModificationLink(fromTranslated, toTranslated)
+                && (builder.primary() instanceof This || Util.isPartOf(builder.primary(), fromTranslated))) {
                 builder.add(fromTranslated, linkNature, toTranslated);
             }
         }
@@ -631,7 +638,11 @@ public record LinkMethodCall(JavaInspector javaInspector,
                     toAdd.forEach(t -> {
                         Variable from = vtm.translateVariableRecursively(t.from());
                         Variable to = t.to();
-                        if (Util.acceptModificationLink(from, to)) {
+                        if (Util.acceptModificationLink(from, to)
+                            // skip faces that cannot be represented as a Link (same treatment as
+                            // VirtualModificationIdenticals.expand; activemq: '§m on this.transactionStore.§…')
+                            && LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(from)
+                            && LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(to)) {
                             builder.add(from, t.linkNature(), to);
                         }
                     });
