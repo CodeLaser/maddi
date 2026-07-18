@@ -34,12 +34,18 @@ maddi-eclipse/
     daemon/                                     # generated: bin/ + lib/ of the daemon installDist
   io.codelaser.maddi.eclipse.tests/             # packaging: eclipse-test-plugin
     src/.../tests/MaddiEclipseConfigBuilderTest.java
+  io.codelaser.maddi.eclipse.feature/           # packaging: eclipse-feature (what a user installs)
+    feature.xml                                 # plugin unpack="true" — the daemon must be on disk
+  io.codelaser.maddi.eclipse.repository/        # packaging: eclipse-repository (the p2 update site)
+    category.xml
 ```
 
 - **Target platform**: no `.target` file. The parent pom points a p2 `<repository>` straight at
   `https://download.eclipse.org/releases/2025-09/`; `target-platform-configuration` pins
   `executionEnvironment` to `JavaSE-21`. Bumping that one URL moves the baseline.
-- **No feature, no category.xml, no `eclipse-repository`** module — the build emits bundle jars only.
+- **Installable**: the reactor builds a p2 update site at
+  `io.codelaser.maddi.eclipse.repository/target/repository` (and the same zipped). See
+  `maddi-eclipse/README.md`.
 - `MANIFEST.MF`: `singleton:=true`, `Eclipse-BundleShape: dir` (so the bundled daemon can be launched
   from disk), lazy activation, `Bundle-ClassPath: ., lib/maddi-ide-client.jar, lib/jackson-*.jar`.
 
@@ -133,24 +139,28 @@ in the pom comments and currently satisfied:
    with the root `gradle.properties` `version=`.
 2. `./gradlew :maddi-ide-daemon:installDist`.
 
-The build passes: both `target/` dirs hold built jars plus p2 metadata, and the surefire report records
-`Tests run: 1, Failures: 0, Errors: 0, Skipped: 0`. The one fragility is that resolution needs network
-access to the 2025-09 p2 release train on a cold `~/.m2/repository/.cache/tycho`.
+The build passes, tests included, and ends with a p2 site under
+`io.codelaser.maddi.eclipse.repository/target/`. The one fragility is that resolution needs network access
+to the 2025-09 p2 release train on a cold `~/.m2/repository/.cache/tycho`.
+
+Two install-time facts worth not rediscovering: the bundle **must** be installed unpacked (it carries the
+daemon distribution, whose launch script has to be a real file), which is why the manifest says
+`Eclipse-BundleShape: dir` *and* the feature says `unpack="true"`; and **p2 does not preserve the executable
+bit** on that script, so `DaemonLauncher.setExecutable` is what makes an installed plugin able to start its
+analyser at all.
 
 ## 7. Gaps
 
 No `TODO`/`FIXME` markers anywhere — the gaps are structural, not annotated.
 
-1. **Not installable.** No feature, no update site, no p2 repository module; nothing an end user can
-   point Eclipse at.
-2. **No builder, no nature** — analysis is a listener, so there is no delta scoping. Every trigger is a
+1. **No builder, no nature** — analysis is a listener, so there is no delta scoping. Every trigger is a
    whole-project run that deletes and rebuilds *all* markers at `DEPTH_INFINITE` from the workspace root.
-3. **Coalesced triggers are dropped silently.** `MaddiAnalysis.RUNNING` is a bare `AtomicBoolean`; a
+2. **Coalesced triggers are dropped silently.** `MaddiAnalysis.RUNNING` is a bare `AtomicBoolean`; a
    build finishing mid-run is never computed. Needs a pending/re-run flag.
-4. **Progress and cancel are dead.** `daemon.analyze(..., status -> { })` discards the
+3. **Progress and cancel are dead.** `daemon.analyze(..., status -> { })` discards the
    phase/typesDone/typesTotal frames; the `IProgressMonitor` is unused, and `cancel` is defined in the
    protocol but never sent.
-5. **Parity vs IntelliJ.** Inline hints now exist on both sides (code minings in Eclipse). Still missing
+4. **Parity vs IntelliJ.** Inline hints now exist on both sides (code minings in Eclipse). Still missing
    in Eclipse: quick fixes, and any hover richer than the marker message.
 
 Minor: `MaddiPreferenceInitializer`'s javadoc says "only the daemon heap has one" but it seeds three
@@ -164,6 +174,9 @@ inline/above hints, gutter markers, the findings view, and the guard-violation u
 - *`--warn-near-misses` was unreachable from either IDE (the daemon's port of `RunAnalyzer` had dropped
   the `setWarnNearMisses` line) — `warnNearMisses` now runs from a setting in both front-ends through
   `AnalyzeConfig` to the analyzer;*
+- *the plugin was not installable — there is now a feature and a p2 update site
+  (`io.codelaser.maddi.eclipse.repository/target/repository`), verified by installing it with the p2
+  director into a clean Eclipse and starting the daemon from the result; see `maddi-eclipse/README.md`;*
 - *inline hints were thought to need an internal-API spike — they don't. `AbstractTextEditor`
   `.installCodeMiningProviders()` reads the `org.eclipse.ui.workbench.texteditor.codeMiningProviders`
   registry, and JDT registers its own minings through that same public point, so `MaddiCodeMiningProvider`
