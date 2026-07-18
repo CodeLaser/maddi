@@ -98,12 +98,27 @@ public class ScanCompilationUnits {
         trees = Trees.instance(task);
         sourcePositions = trees.getSourcePositions();
         types = Types.instance(((BasicJavacTask) task).getContext());
+        assert nameTableIsNotShared(task) : "-XDuseUnsharedTable=true passed but NOT honored: javac is using "
+                + "the process-wide SharedNameTable freelist (the 'tree.starImportScope is null' family)";
         Elements elements = task.getElements();
         computeMethodOverrides = new ComputeMethodOverrides(types, elements);
         flagHelper = new FlagHelper(runtime);
         classSymbolScanner = new ClassSymbolScanner(runtime, inputConfiguration, infoByFqn, sourceSet,
                 flagHelper, types, elements, diagnosticCollector, parameterNameIndex, jdkInternals, syntheticListField);
         resolveJavaDoc = new ResolveJavaDoc(runtime, classSymbolScanner);
+    }
+
+    // -XDuseUnsharedTable=true must be HONORED, not merely passed (task #40 lead): with the shared table,
+    // name bytes come from a process-wide freelist and repeated parsing intermittently corrupts. Assert-only
+    // diagnostic; tolerant of future javac internals changes.
+    private static boolean nameTableIsNotShared(JavacTask task) {
+        try {
+            com.sun.tools.javac.util.Names names =
+                    com.sun.tools.javac.util.Names.instance(((BasicJavacTask) task).getContext());
+            return !"SharedNameTable".equals(names.table.getClass().getSimpleName());
+        } catch (RuntimeException e) {
+            return true;
+        }
     }
 
     public Result scan() throws IOException {
