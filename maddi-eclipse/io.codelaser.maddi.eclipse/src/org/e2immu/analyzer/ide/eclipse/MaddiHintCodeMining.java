@@ -14,19 +14,22 @@
 
 package org.e2immu.analyzer.ide.eclipse;
 
-import org.eclipse.core.runtime.preferences.AbstractPreferenceInitializer;
-import org.eclipse.jface.preference.IPreferenceStore;
+import org.eclipse.jface.text.Position;
+import org.eclipse.jface.text.codemining.ICodeMiningProvider;
+import org.eclipse.jface.text.codemining.LineContentCodeMining;
 
-/** Seeds preference defaults; the JDK/install paths have none, being required input. */
-public class MaddiPreferenceInitializer extends AbstractPreferenceInitializer {
+/**
+ * One inline annotation label, drawn in the line's content at the declaration it belongs to — the closest
+ * Eclipse equivalent of an IntelliJ inline inlay.
+ * <p>
+ * The label is known at construction (it is computed from an analysis result already in memory), so there is
+ * no deferred work: {@code AbstractCodeMining.doResolve} defaults to a completed future, which is what we
+ * want. Resolving lazily would only matter if the text were expensive to produce.
+ */
+public class MaddiHintCodeMining extends LineContentCodeMining {
 
-    @Override
-    public void initializeDefaultPreferences() {
-        IPreferenceStore store = MaddiEclipsePlugin.get().getPreferenceStore();
-        store.setDefault(MaddiPreferences.DAEMON_XMX_MB, MaddiPreferences.DEFAULT_XMX_MB);
-        store.setDefault(MaddiPreferences.HINT_FILTER, MaddiPreferences.DEFAULT_HINT_FILTER.name());
-        store.setDefault(MaddiPreferences.AUTO_ANALYZE_ON_BUILD, false);
-        store.setDefault(MaddiPreferences.WARN_NEAR_MISSES, false);
-        store.setDefault(MaddiPreferences.INLINE_HINTS, true);
+    public MaddiHintCodeMining(Position position, ICodeMiningProvider provider, String label) {
+        super(position, provider);
+        setLabel(label);
     }
 }

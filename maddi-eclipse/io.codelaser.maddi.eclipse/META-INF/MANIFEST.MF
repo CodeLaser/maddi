@@ -17,7 +17,10 @@ Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.jface,
  org.eclipse.swt,
  org.eclipse.core.commands,
- org.eclipse.core.expressions
+ org.eclipse.core.expressions,
+ org.eclipse.jface.text,
+ org.eclipse.ui.workbench.texteditor,
+ org.eclipse.ui.editors
 Bundle-ClassPath: .,
  lib/maddi-ide-client.jar,
  lib/jackson-databind.jar,

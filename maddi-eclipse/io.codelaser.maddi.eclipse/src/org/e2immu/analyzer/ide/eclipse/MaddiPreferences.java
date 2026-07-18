@@ -29,6 +29,7 @@ public final class MaddiPreferences {
     public static final String HINT_FILTER = "maddi.hintFilter";
     public static final String AUTO_ANALYZE_ON_BUILD = "maddi.autoAnalyzeOnBuild";
     public static final String WARN_NEAR_MISSES = "maddi.warnNearMisses";
+    public static final String INLINE_HINTS = "maddi.inlineHints";
 
     public static final int DEFAULT_XMX_MB = 4096;
     public static final HintFilter DEFAULT_HINT_FILTER = HintFilter.HIDE_CONTEXT_DEFAULTS;
@@ -74,6 +75,15 @@ public final class MaddiPreferences {
      */
     public static boolean warnNearMisses() {
         return store().getBoolean(WARN_NEAR_MISSES);
+    }
+
+    /**
+     * Show the computed annotations inline in the Java editor (code minings), as well as in the gutter.
+     * Note that Eclipse also requires <em>Java &gt; Editor &gt; Code Minings &gt; Enable code minings</em>:
+     * JDT gates every provider in its editor, ours included, behind that one.
+     */
+    public static boolean inlineHints() {
+        return store().getBoolean(INLINE_HINTS);
     }
 
     private static String resolve(String prefKey, String systemProperty, String envVar) {

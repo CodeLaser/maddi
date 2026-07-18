@@ -150,9 +150,8 @@ No `TODO`/`FIXME` markers anywhere — the gaps are structural, not annotated.
 4. **Progress and cancel are dead.** `daemon.analyze(..., status -> { })` discards the
    phase/typesDone/typesTotal frames; the `IProgressMonitor` is unused, and `cancel` is defined in the
    protocol but never sent.
-5. **Parity vs IntelliJ.** IntelliJ has an external annotator, a line-marker provider, and declarative
-   inlay hints; Eclipse approximates with plain text markers only — no inlays, no quick fixes, no hover
-   beyond the marker message.
+5. **Parity vs IntelliJ.** Inline hints now exist on both sides (code minings in Eclipse). Still missing
+   in Eclipse: quick fixes, and any hover richer than the marker message.
 
 Minor: `MaddiPreferenceInitializer`'s javadoc says "only the daemon heap has one" but it seeds three
 defaults (stale comment).
@@ -161,4 +160,9 @@ defaults (stale comment).
 - *the test bundle ran on JUnit 4 while the rest of the repo is on Jupiter — migrated to JUnit 5;*
 - *`--warn-near-misses` was unreachable from either IDE (the daemon's port of `RunAnalyzer` had dropped
   the `setWarnNearMisses` line) — `warnNearMisses` now runs from a setting in both front-ends through
-  `AnalyzeConfig` to the analyzer.*
+  `AnalyzeConfig` to the analyzer;*
+- *inline hints were thought to need an internal-API spike — they don't. `AbstractTextEditor`
+  `.installCodeMiningProviders()` reads the `org.eclipse.ui.workbench.texteditor.codeMiningProviders`
+  registry, and JDT registers its own minings through that same public point, so `MaddiCodeMiningProvider`
+  is an ordinary EP client. Caveat: JDT gates every provider in its editor, ours included, on
+  Java > Editor > Code Minings > Enable code minings.*
