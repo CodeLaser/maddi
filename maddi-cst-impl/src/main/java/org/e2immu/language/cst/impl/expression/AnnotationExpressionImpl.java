@@ -17,6 +17,7 @@ package org.e2immu.language.cst.impl.expression;
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
@@ -134,7 +135,7 @@ public class AnnotationExpressionImpl extends ExpressionImpl implements Annotati
         }
 
         @Override
-        public KV rewire(InfoMap infoMap) {
+        public KV rewire(InfoMapView infoMap) {
             return new KVI(key, value.rewire(infoMap));
         }
     }
@@ -285,7 +286,7 @@ public class AnnotationExpressionImpl extends ExpressionImpl implements Annotati
     }
 
     @Override
-    public Expression rewire(InfoMap infoMap) {
+    public Expression rewire(InfoMapView infoMap) {
         return new AnnotationExpressionImpl(comments(), source(), infoMap.typeInfo(typeInfo),
                 keyValuePairs.stream().map(kv -> kv.rewire(infoMap)).toList());
     }

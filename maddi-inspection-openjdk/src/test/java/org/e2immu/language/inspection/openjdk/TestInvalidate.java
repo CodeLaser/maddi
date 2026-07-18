@@ -176,6 +176,31 @@ public class TestInvalidate {
         }
     }
 
+    @DisplayName("the reload exposes its rewire as a read-only InfoMapView, mapping old REWIRE objects to new")
+    @Test
+    public void testInfoMapViewExposed() {
+        ParseResult pr1 = parseAll();
+        TypeInfo user1 = pr1.findType(USER_FQN);
+        assertNotNull(user1);
+
+        ParseResult pr2 = reparse(ti -> switch (ti.simpleName()) {
+            case "Base" -> INVALID;
+            case "Helper" -> UNCHANGED;
+            case "User" -> REWIRE;
+            default -> throw new UnsupportedOperationException(ti.fullyQualifiedName());
+        });
+        TypeInfo user2 = pr2.findType(USER_FQN);
+        assertNotSame(user1, user2);
+
+        org.e2immu.language.cst.api.info.InfoMapView view = javaInspector.lastRewireInfoMap();
+        assertNotNull(view, "User was rewired, so the reload must expose a view");
+        assertSame(user2, view.typeInfo(user1), "the exposed view maps the old User to the rewired one");
+        assertTrue(view.rewiredTypes().contains(user2), "rewiredTypes includes the rewired User");
+        // the view maps members too, which is what an outside-reload analysis carry needs
+        assertSame(user2.findUniqueMethod("use", 1),
+                view.methodInfo(user1.findUniqueMethod("use", 1)), "the view maps members");
+    }
+
     @DisplayName("Base INVALID, User REWIRE: main is re-scanned, dependent is rewired, and Helper is rebuilt with it")
     @Test
     public void testInvalidAndRewire() {

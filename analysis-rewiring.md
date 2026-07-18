@@ -109,17 +109,18 @@ phase; the derived tier via the implemented `Value.rewire`; the analyzer-output 
 them together. The remaining gap is purely the **production wiring of the per-type recompute-against-carried-deps**,
 and it has a specific, documented blocker:
 
-- **The reload exposes no `InfoMap`.** `JavaInspector.reloadSources` / `parse(Invalidated)` rewire REWIRE types
-  internally and discard the old→new map, so a spared type's analysis cannot be carried from *outside* the reload.
-  Carrying it therefore has to happen *inside* the rewire phase — which means the analyzer-output properties must be
-  carried there (a property-level classification, since `cst-impl`'s rewire phase cannot see the prepwork predicate),
-  gated so it does not change the default REWIRE behaviour.
-- **Monotonic overwrite.** A REWIRE type that is carried optimistically but turns out dirty must have its analysis
-  *cleared* before recompute, or the monotonic-overwrite guard rejects a lowered value (`setLinkedVariables`, the
-  verdict lattices). So the worklist's "recompute a confirmed-dirty type" step needs a clear-first.
-
-These two are the production build that turns the proven decision into a running skip; the algorithm and every
-substrate piece are in place for it.
+- **The reload exposes no `InfoMap` — RESOLVED (2026-07-18).** It now does. `InfoMapView` is the read-only lookup
+  facet of `InfoMap` (`InfoMap extends InfoMapView`); every `rewire(...)` was widened from `InfoMap` to `InfoMapView`
+  (a backward-compatible type-widening — an `InfoMap` is one — across 128 declarations, `rewirePhase*` excepted since
+  it mutates). `JavaInspector.lastRewireInfoMap()` returns the completed view of the last re-parse's rewire (openjdk
+  sets it in `reparse`; `null` when no rewiring happened). So a spared REWIRE type's analysis can be carried from
+  *outside* the reload — `newType.analysis().setAll(oldType.analysis().rewire(view, ANALYZER_OUTPUT_ONLY))` — no
+  in-rewire-phase surgery, no property re-classification. Test `openjdk/TestInvalidate.testInfoMapViewExposed`: the
+  exposed view maps the old REWIRE `User` (and its members) to the rewired ones.
+- **Monotonic overwrite — remaining.** A REWIRE type that is carried optimistically but turns out dirty must have its
+  analysis *cleared* before recompute, or the monotonic-overwrite guard rejects a lowered value (`setLinkedVariables`,
+  the verdict lattices). So the worklist's "recompute a confirmed-dirty type" step needs a clear-first. This is the
+  last piece; the carry it guards is now a plain `rewire(view, …)` call.
 
 ## The point: skip link + analyzer, not prepwork
 

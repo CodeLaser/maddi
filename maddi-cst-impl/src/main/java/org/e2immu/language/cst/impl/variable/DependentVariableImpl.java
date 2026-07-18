@@ -22,6 +22,7 @@ import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -214,7 +215,7 @@ public class DependentVariableImpl extends VariableImpl implements DependentVari
     }
 
     @Override
-    public Variable rewire(InfoMap infoMap) {
+    public Variable rewire(InfoMapView infoMap) {
         return new DependentVariableImpl(arrayExpression.rewire(infoMap),
                 arrayVariable == null ? null : arrayVariable.rewire(infoMap),
                 indexExpression.rewire(infoMap),

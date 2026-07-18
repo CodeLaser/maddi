@@ -16,6 +16,7 @@ package org.e2immu.language.cst.impl.element;
 
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.translate.TranslationMap;
@@ -161,7 +162,7 @@ public class RecordPatternImpl extends ElementImpl implements RecordPattern {
     }
 
     @Override
-    public Element rewire(InfoMap infoMap) {
+    public Element rewire(InfoMapView infoMap) {
         if (localVariable != null) {
             return new RecordPatternImpl(comments, source, false,
                     (LocalVariable) localVariable.rewire(infoMap), null, null);

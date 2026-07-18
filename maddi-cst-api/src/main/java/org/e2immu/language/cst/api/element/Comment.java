@@ -15,6 +15,7 @@
 package org.e2immu.language.cst.api.element;
 
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 
 /**
@@ -33,7 +34,7 @@ public interface Comment extends Element {
     /** Returns the raw text of the comment as it appears in source. */
     String comment();
 
-    default Comment rewire(InfoMap infoMap) {
+    default Comment rewire(InfoMapView infoMap) {
         return this;
     }
 

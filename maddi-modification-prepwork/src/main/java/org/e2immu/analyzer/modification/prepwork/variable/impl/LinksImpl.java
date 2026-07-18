@@ -9,6 +9,7 @@ import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -497,7 +498,7 @@ public class LinksImpl implements Links {
     recomputed rather than carried; hence not implemented. See rewiring.md.
      */
     @Override
-    public Value rewire(InfoMap infoMap) {
+    public Value rewire(InfoMapView infoMap) {
         // carryOnRewire (LINKS): re-point the primary and every from/to variable through the infoMap.
         List<Link> rewiredLinks = linkSet.stream()
                 .map(l -> (Link) new LinkImpl(l.from().rewire(infoMap), l.linkNature(), l.to().rewire(infoMap)))

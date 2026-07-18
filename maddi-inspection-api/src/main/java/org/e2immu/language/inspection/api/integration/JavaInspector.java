@@ -250,4 +250,14 @@ public interface JavaInspector {
     }
 
     ReloadResult reloadSources(InputConfiguration inputConfiguration, Map<String, String> sourcesByTestProtocolURIString) throws IOException;
+
+    /**
+     * The read-only {@link org.e2immu.language.cst.api.info.InfoMapView} of the most recent re-parse's rewire (old
+     * object → new object), or {@code null} if the last parse did no rewiring. Lets a caller carry a spared REWIRE
+     * type's analysis onto its new object <em>outside</em> the reload, via the {@code rewire(InfoMapView, …)} path —
+     * see {@code analysis-rewiring.md}. Valid until the next parse.
+     */
+    default org.e2immu.language.cst.api.info.InfoMapView lastRewireInfoMap() {
+        return null;
+    }
 }

@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.statement.Block;
@@ -126,7 +127,7 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
         }
 
         @Override
-        public SwitchLabel rewire(InfoMap infoMap) {
+        public SwitchLabel rewire(InfoMapView infoMap) {
             return new SwitchLabelImpl(literal.rewire(infoMap), startFromPosition,
                     patternVariable == null ? null : (RecordPattern) patternVariable.rewire(infoMap),
                     whenExpression == null ? null : whenExpression.rewire(infoMap));
@@ -337,7 +338,7 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
     }
 
     @Override
-    public Statement rewire(InfoMap infoMap) {
+    public Statement rewire(InfoMapView infoMap) {
         return new SwitchStatementOldStyleImpl(comments(), source(), rewireAnnotations(infoMap), label(),
                 selector.rewire(infoMap), block.rewire(infoMap),
                 switchLabels.stream().map(sl -> sl.rewire(infoMap)).toList());

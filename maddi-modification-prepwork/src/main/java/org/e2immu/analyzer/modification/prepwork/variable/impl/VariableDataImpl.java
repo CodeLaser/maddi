@@ -19,6 +19,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.VariableInfoContainer;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
@@ -71,7 +72,7 @@ public class VariableDataImpl implements VariableData {
         }
 
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             throw new UnsupportedOperationException("Builder cannot be rewired, must be built first");
         }
 
@@ -104,7 +105,7 @@ public class VariableDataImpl implements VariableData {
     change -- so this is the place to start when that is taken on. See rewiring.md.
      */
     @Override
-    public Value rewire(InfoMap infoMap) {
+    public Value rewire(InfoMapView infoMap) {
         throw new UnsupportedOperationException("NYI");
     }
 

@@ -23,6 +23,7 @@ import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.Precedence;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
@@ -272,7 +273,7 @@ public class AssignmentImpl extends ExpressionImpl implements Assignment {
     }
 
     @Override
-    public Expression rewire(InfoMap infoMap) {
+    public Expression rewire(InfoMapView infoMap) {
         return new AssignmentImpl(comments(), source(), (VariableExpression) target.rewire(infoMap),
                 value.rewire(infoMap), assignmentOperator, assignmentOperatorIsPlus, binaryOperator,
                 prefixPrimitiveOperator);

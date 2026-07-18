@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.statement.Block;
@@ -259,7 +260,7 @@ public class BlockImpl extends StatementImpl implements Block {
     }
 
     @Override
-    public Block rewire(InfoMap infoMap) {
+    public Block rewire(InfoMapView infoMap) {
         return new BlockImpl(comments(), source(), rewireAnnotations(infoMap), label(),
                 statements.stream().map(s -> s.rewire(infoMap)).toList(), trailingComments);
     }
