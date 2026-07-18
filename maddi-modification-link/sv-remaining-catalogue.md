@@ -4,6 +4,20 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-18c — PROFILING ROUND 1 (async-profiler, CPU, fernflower): -26% CPU
+
+Harness: ASPROF=<agent opts> env gate in maddi-run-openjdk test task attaches
+/opt/homebrew/lib/libasyncProfiler.dylib (+DebugNonSafepoints); pair with -PnoAssertions.
+Baseline (10ms sampling, whole JVM): 61022 samples; attribution link 43% / cst 35% /
+prepwork 9%. Single dominant finding: WriteLinksAndModification.dedupReversePairs built its
+dedup keys by string-concatenating Variables — Variable.toString runs the FULL CST printer —
+22.6% of the entire run's CPU. Fix: LinkKey record (Variable objects + nature symbol);
+link suite green (order-asserted), fernflower FPDUMP A/B clean (EdgeType oscillator only).
+After: 45102 samples (-26% CPU), gradle wall 3m22s -> 2m23s; dedup now 1.9%.
+NEXT hot spots (round-4 candidates): variable-keyed HashMap churn (getNode 8.5%,
+VariableImpl.equals+hashCode ~6%, cache candidate: precomputed hash in VariableImpl),
+Util.isPartOf 2.9%, itable/vtable stubs ~7% (megamorphic call sites).
+
 ## UPDATE 2026-07-18b — IMMUTABILITY PRECISION AUDIT (fernflower, 144 verdicts) + 4-fix round
 
 Broad re-test under the new defaults (hints + cycle breaking): activemq, jenkins and all 8

@@ -400,31 +400,38 @@ class WriteLinksAndModification {
      the element wins over '∋' keyed on the container; 's.r.j → s.k' wins over 's.k ← s.r.j'). Survivors keep
      their insertion order (output order is asserted by the tests).
      */
+    // key by the Variable OBJECTS (fqn-based equality), not their printed form: the previous string key
+    // concatenated the variables, and Variable.toString runs the full CST printer — 22.6% of the fernflower
+    // run's CPU was inside dedupReversePairs building these keys (async-profiler round 1). The nature stays
+    // keyed on its symbol so pass-variants compare exactly as the old string key did.
+    private record LinkKey(Variable from, String nature, Variable to) {
+    }
+
     private void dedupReversePairs(Links.Builder builder) {
         List<Link> links = new ArrayList<>(builder.linkSet());
         // removals tracked BY INDEX: Link is a record with value equality, so equal duplicates would otherwise
         // all be swept by one removal (that bug dropped both ∈ copies while keeping the ∋)
         boolean[] removed = new boolean[links.size()];
-        Set<String> seen = new HashSet<>();
-        String[] keys = new String[links.size()];
+        Set<LinkKey> seen = new HashSet<>();
+        LinkKey[] keys = new LinkKey[links.size()];
         for (int i = 0; i < links.size(); i++) {
             Link link = links.get(i);
-            String key = link.from() + "|" + link.linkNature() + "|" + link.to();
+            LinkKey key = new LinkKey(link.from(), link.linkNature().toString(), link.to());
             keys[i] = key;
             if (!seen.add(key)) removed[i] = true; // exact duplicate: keep the first
         }
         // reverse-pair detection via a key index: the reverse-pair predicate is exactly "key(j) == revKey(i)"
-        // (pass 1 above already relies on the same toString-keyed identity), so only true candidates are
+        // (pass 1 above already relies on the same keyed identity), so only true candidates are
         // visited, in the same ascending index order as the former all-pairs scan — which was O(n^2) in
         // Variable.equals and the analysis-wide hot spot after the RedundantLinks fix (fernflower reorderIf).
-        Map<String, List<Integer>> byKey = new HashMap<>();
+        Map<LinkKey, List<Integer>> byKey = new HashMap<>();
         for (int i = 0; i < links.size(); i++) {
             if (!removed[i]) byKey.computeIfAbsent(keys[i], _ -> new ArrayList<>()).add(i);
         }
         for (int i = 0; i < links.size(); i++) {
             if (removed[i]) continue;
             Link a = links.get(i);
-            String revKey = a.to() + "|" + a.linkNature().reverse() + "|" + a.from();
+            LinkKey revKey = new LinkKey(a.to(), a.linkNature().reverse().toString(), a.from());
             List<Integer> candidates = byKey.get(revKey);
             if (candidates == null) continue;
             for (int j : candidates) {
