@@ -50,6 +50,7 @@ public class Main {
     public static final String PARALLEL = "parallel";
     public static final String SOURCE_ENCODING = "source-encoding";
     public static final String INCREMENTAL_ANALYSIS = "incremental-analysis";
+    public static final String WARN_NEAR_MISSES = "warn-near-misses";
     public static final String ANALYSIS_STEPS = "analysis-steps";
 
     public static final String AS_NONE = "none";
@@ -206,6 +207,8 @@ public class Main {
         options.addOption("i", INCREMENTAL_ANALYSIS, false, "Incremental analysis mode.");
         options.addOption("p", PARALLEL, false, "Parallelize as much as possible.");
         options.addOption("q", QUIET, false, "Silent mode. Do not write warnings, errors, etc. to stdout.");
+        options.addOption(null, WARN_NEAR_MISSES, false, "Emit advisory warnings for types/methods that narrowly "
+                + "miss a property (e.g. would be @Container but for a single modifying parameter). Off by default.");
     }
 
     public static GeneralConfiguration generalConfiguration(Map<String, String> kvMap) {
@@ -213,6 +216,7 @@ public class Main {
         setBooleanProperty(kvMap, QUIET, builder::setQuiet);
         setBooleanProperty(kvMap, PARALLEL, builder::setParallel);
         setBooleanProperty(kvMap, INCREMENTAL_ANALYSIS, builder::setIncrementalAnalysis);
+        setBooleanProperty(kvMap, WARN_NEAR_MISSES, builder::setWarnNearMisses);
         setSplitStringProperty(kvMap, COMMA, DEBUG, builder::addDebugTargets);
         setSplitStringProperty(kvMap, COMMA, ANALYSIS_STEPS, builder::addAnalysisSteps);
         setStringProperty(kvMap, ANALYSIS_RESULTS_DIR, builder::setAnalysisResultsDir);
@@ -225,6 +229,7 @@ public class Main {
         builder.setParallel(cmd.hasOption(PARALLEL));
         builder.setQuiet(cmd.hasOption(QUIET));
         builder.setIncrementalAnalysis(cmd.hasOption(INCREMENTAL_ANALYSIS));
+        builder.setWarnNearMisses(cmd.hasOption(WARN_NEAR_MISSES));
 
         String[] analysisSteps = cmd.getOptionValues(ANALYSIS_STEPS);
         splitAndAdd(analysisSteps, COMMA, builder::addAnalysisSteps);

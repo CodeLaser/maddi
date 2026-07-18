@@ -24,7 +24,8 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
                                    List<String> debugTargets,
                                    boolean quiet,
                                    boolean parallel,
-                                   boolean jdkInternals) {
+                                   boolean jdkInternals,
+                                   boolean warnNearMisses) {
 
     public static class Builder {
         private boolean incrementalAnalysis;
@@ -33,6 +34,7 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
         private boolean quiet;
         private boolean parallel;
         private boolean jdkInternals;
+        private boolean warnNearMisses;
         private String analysisResultsDir;
 
         public Builder setIncrementalAnalysis(boolean incrementalAnalysis) {
@@ -65,6 +67,11 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
             return this;
         }
 
+        public Builder setWarnNearMisses(boolean warnNearMisses) {
+            this.warnNearMisses = warnNearMisses;
+            return this;
+        }
+
         public Builder setAnalysisResultsDir(String analysisResultsDir) {
             this.analysisResultsDir = analysisResultsDir;
             return this;
@@ -72,7 +79,7 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
 
         public GeneralConfiguration build() {
             return new GeneralConfiguration(incrementalAnalysis, analysisResultsDir, List.copyOf(analysisSteps),
-                    List.copyOf(debugTargets), quiet, parallel, jdkInternals);
+                    List.copyOf(debugTargets), quiet, parallel, jdkInternals, warnNearMisses);
         }
     }
 }

@@ -56,6 +56,7 @@
         <parameter><name>incrementalAnalysis</name><type>boolean</type><required>false</required><editable>true</editable><description>Enable the analyzer's incremental mode.</description></parameter>
         <parameter><name>parallel</name><type>boolean</type><required>false</required><editable>true</editable><description>Parallelize the analysis.</description></parameter>
         <parameter><name>quiet</name><type>boolean</type><required>false</required><editable>true</editable><description>Suppress the warning/error summary on stdout.</description></parameter>
+        <parameter><name>warnNearMisses</name><type>boolean</type><required>false</required><editable>true</editable><description>Emit advisory warnings for near-misses (e.g. would be @Container but for one modifying parameter).</description></parameter>
         <parameter><name>debug</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma-separated debug targets.</description></parameter>
         <parameter><name>preloadAnalysisResultsDirs</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Directories of precomputed analysis hints to preload.</description></parameter>
         <parameter><name>analysisResultsTargetDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write analyzed AnalysisHints files.</description></parameter>
@@ -78,6 +79,7 @@
         <incrementalAnalysis implementation="boolean" default-value="false">${incrementalAnalysis}</incrementalAnalysis>
         <parallel implementation="boolean" default-value="true">${parallel}</parallel>
         <quiet implementation="boolean" default-value="false">${quiet}</quiet>
+        <warnNearMisses implementation="boolean" default-value="false">${warnNearMisses}</warnNearMisses>
         <debug implementation="java.lang.String" default-value="">${debug}</debug>
         <preloadAnalysisResultsDirs implementation="java.lang.String" default-value="">${preloadAnalysisResultsDirs}</preloadAnalysisResultsDirs>
         <analysisResultsTargetDir implementation="java.lang.String" default-value="">${analysisResultsTargetDir}</analysisResultsTargetDir>
@@ -124,6 +126,7 @@
         <parameter><name>incrementalAnalysis</name><type>boolean</type><required>false</required><editable>true</editable><description>Enable the analyzer's incremental mode.</description></parameter>
         <parameter><name>parallel</name><type>boolean</type><required>false</required><editable>true</editable><description>Parallelize the analysis.</description></parameter>
         <parameter><name>quiet</name><type>boolean</type><required>false</required><editable>true</editable><description>Suppress the warning/error summary on stdout.</description></parameter>
+        <parameter><name>warnNearMisses</name><type>boolean</type><required>false</required><editable>true</editable><description>Emit advisory warnings for near-misses (e.g. would be @Container but for one modifying parameter).</description></parameter>
         <parameter><name>debug</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma-separated debug targets.</description></parameter>
         <parameter><name>preloadAnalysisResultsDirs</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Directories of precomputed analysis hints to preload.</description></parameter>
         <parameter><name>analysisResultsTargetDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write analyzed AnalysisHints files.</description></parameter>
@@ -147,6 +150,7 @@
         <incrementalAnalysis implementation="boolean" default-value="false">${incrementalAnalysis}</incrementalAnalysis>
         <parallel implementation="boolean" default-value="true">${parallel}</parallel>
         <quiet implementation="boolean" default-value="false">${quiet}</quiet>
+        <warnNearMisses implementation="boolean" default-value="false">${warnNearMisses}</warnNearMisses>
         <debug implementation="java.lang.String" default-value="">${debug}</debug>
         <preloadAnalysisResultsDirs implementation="java.lang.String" default-value="">${preloadAnalysisResultsDirs}</preloadAnalysisResultsDirs>
         <analysisResultsTargetDir implementation="java.lang.String" default-value="">${analysisResultsTargetDir}</analysisResultsTargetDir>
@@ -194,6 +198,7 @@
         <parameter><name>incrementalAnalysis</name><type>boolean</type><required>false</required><editable>true</editable><description>Enable the analyzer's incremental mode.</description></parameter>
         <parameter><name>parallel</name><type>boolean</type><required>false</required><editable>true</editable><description>Parallelize the analysis.</description></parameter>
         <parameter><name>quiet</name><type>boolean</type><required>false</required><editable>true</editable><description>Suppress the warning/error summary on stdout.</description></parameter>
+        <parameter><name>warnNearMisses</name><type>boolean</type><required>false</required><editable>true</editable><description>Emit advisory warnings for near-misses (e.g. would be @Container but for one modifying parameter).</description></parameter>
         <parameter><name>debug</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma-separated debug targets.</description></parameter>
         <parameter><name>preloadAnalysisResultsDirs</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Directories of precomputed analysis hints to preload.</description></parameter>
         <parameter><name>analysisResultsTargetDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write analyzed AnalysisHints files.</description></parameter>
@@ -222,6 +227,7 @@
         <incrementalAnalysis implementation="boolean" default-value="false">${incrementalAnalysis}</incrementalAnalysis>
         <parallel implementation="boolean" default-value="true">${parallel}</parallel>
         <quiet implementation="boolean" default-value="false">${quiet}</quiet>
+        <warnNearMisses implementation="boolean" default-value="false">${warnNearMisses}</warnNearMisses>
         <debug implementation="java.lang.String" default-value="">${debug}</debug>
         <preloadAnalysisResultsDirs implementation="java.lang.String" default-value="">${preloadAnalysisResultsDirs}</preloadAnalysisResultsDirs>
         <analysisResultsTargetDir implementation="java.lang.String" default-value="">${analysisResultsTargetDir}</analysisResultsTargetDir>
@@ -274,6 +280,7 @@
         <parameter><name>incrementalAnalysis</name><type>boolean</type><required>false</required><editable>true</editable><description>Enable the analyzer's incremental mode.</description></parameter>
         <parameter><name>parallel</name><type>boolean</type><required>false</required><editable>true</editable><description>Parallelize the analysis.</description></parameter>
         <parameter><name>quiet</name><type>boolean</type><required>false</required><editable>true</editable><description>Suppress the warning/error summary on stdout.</description></parameter>
+        <parameter><name>warnNearMisses</name><type>boolean</type><required>false</required><editable>true</editable><description>Emit advisory warnings for near-misses (e.g. would be @Container but for one modifying parameter).</description></parameter>
         <parameter><name>debug</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma-separated debug targets.</description></parameter>
         <parameter><name>preloadAnalysisResultsDirs</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Directories of precomputed analysis hints to preload.</description></parameter>
         <parameter><name>analysisResultsTargetDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write analyzed AnalysisHints files.</description></parameter>
@@ -298,6 +305,7 @@
         <incrementalAnalysis implementation="boolean" default-value="false">${incrementalAnalysis}</incrementalAnalysis>
         <parallel implementation="boolean" default-value="true">${parallel}</parallel>
         <quiet implementation="boolean" default-value="false">${quiet}</quiet>
+        <warnNearMisses implementation="boolean" default-value="false">${warnNearMisses}</warnNearMisses>
         <debug implementation="java.lang.String" default-value="">${debug}</debug>
         <preloadAnalysisResultsDirs implementation="java.lang.String" default-value="">${preloadAnalysisResultsDirs}</preloadAnalysisResultsDirs>
         <analysisResultsTargetDir implementation="java.lang.String" default-value="">${analysisResultsTargetDir}</analysisResultsTargetDir>
@@ -346,6 +354,7 @@
         <parameter><name>incrementalAnalysis</name><type>boolean</type><required>false</required><editable>true</editable><description>Enable the analyzer's incremental mode.</description></parameter>
         <parameter><name>parallel</name><type>boolean</type><required>false</required><editable>true</editable><description>Parallelize the analysis.</description></parameter>
         <parameter><name>quiet</name><type>boolean</type><required>false</required><editable>true</editable><description>Suppress the warning/error summary on stdout.</description></parameter>
+        <parameter><name>warnNearMisses</name><type>boolean</type><required>false</required><editable>true</editable><description>Emit advisory warnings for near-misses (e.g. would be @Container but for one modifying parameter).</description></parameter>
         <parameter><name>debug</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Comma-separated debug targets.</description></parameter>
         <parameter><name>preloadAnalysisResultsDirs</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Directories of precomputed analysis hints to preload.</description></parameter>
         <parameter><name>analysisResultsTargetDir</name><type>java.lang.String</type><required>false</required><editable>true</editable><description>Where to write analyzed AnalysisHints files.</description></parameter>
@@ -371,6 +380,7 @@
         <incrementalAnalysis implementation="boolean" default-value="false">${incrementalAnalysis}</incrementalAnalysis>
         <parallel implementation="boolean" default-value="true">${parallel}</parallel>
         <quiet implementation="boolean" default-value="false">${quiet}</quiet>
+        <warnNearMisses implementation="boolean" default-value="false">${warnNearMisses}</warnNearMisses>
         <debug implementation="java.lang.String" default-value="">${debug}</debug>
         <preloadAnalysisResultsDirs implementation="java.lang.String" default-value="">${preloadAnalysisResultsDirs}</preloadAnalysisResultsDirs>
         <analysisResultsTargetDir implementation="java.lang.String" default-value="">${analysisResultsTargetDir}</analysisResultsTargetDir>
