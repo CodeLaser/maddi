@@ -414,10 +414,17 @@ regardless.)
   types are simply kept with their owner. No new hazard, but a test should cover an INVALID type with anonymous classes
   next to an UNCHANGED sibling.
 
-### Recommendation
+### Recommendation — DEFERRED behind the analysis layer (2026-07-18)
 
-Do it — it is the single change that most improves the early-cutoff skip's yield, and its soundness rests on the call
-graph the reload already trusts. Sequence: (a) make `reparse` invalidate per type and seed `rebuilt` from the INVALID
+Worth doing, but **not first**. The reason it looked urgent was that a coarse `RESCAN` rebuilds an UNCHANGED sibling
+as a new object with empty analysis — which, left alone, forces the *expensive* tier (analysis recompute) for that
+sibling. But the analysis layer can absorb that: the reload's `InfoMap` is seeded with the whole rebuilt set
+(`view.rewiredTypes()`), so the early-cutoff carry can carry **every rebuilt-stable type**, not only the REWIRE ones —
+a cheap carry instead of a recompute (see `analysis-rewiring.md`, "the analysis layer first"). With that, coarse
+parsing costs only CST rebuild + carries, never a recompute, and this refinement drops to a second-order CST-cost
+optimisation (and javac time is not saved by it anyway).
+
+When it is picked up, the sequence is: (a) make `reparse` invalidate per type and seed `rebuilt` from the INVALID
 set; (b) teach `ScanCompilationUnits` file-granular CST skipping with registry resolution to kept objects; (c) a
 2-source-set + same-package test (edit one of two types in a package, assert the sibling keeps its object and only the
 call-graph dependents are rewired). Kept behind the existing `Invalidated` API, so it is transparent to callers.
