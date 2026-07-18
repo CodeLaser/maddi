@@ -282,6 +282,21 @@ carried non-null would fight the link re-run rather than be replaced.
 4. Tests both halves: a rewired method's `VARIABLE_DATA` survives with re-pointed variables; its link-written
    fields (`linkedVariables`, `UNMODIFIED_VARIABLE`, `LINKS`, `METHOD_LINKS`) come back empty.
 
+**Resumed (2026-07-18, flake fixed → validatable).** Done:
+
+- **The Info-level carry is wired.** `MethodInfoImpl`/`FieldInfoImpl`/`TypeInfoImpl.rewirePhase3` now call
+  `rewiredInfo.analysis().setAll(analysis().rewire(infoMap))` (methods also carry each parameter's analysis by index,
+  correspondence being structural). This fills the bare `// analysis?`. It is inert for any property that opts out
+  (`PropertyValueMap.rewire` filters on `carryOnRewire`), so nothing changed for the non-opted properties.
+- **`GET_SET_FIELD` opted in** (item 2, the correctness leg): parse-time, lost on a never-re-parsed REWIRE type
+  otherwise; `GetSetValueImpl.rewire` re-points the field through the `InfoMap`. Test
+  `prepwork/TestGetSetFieldRewire` (record accessor's `GET_SET_FIELD` survives, pointing at the *rewired* field).
+
+Still to do: `VARIABLE_DATA` (items 1 + 3 — `VariableDataImpl`/`VariableInfoImpl.rewire` and statement-level
+`Statement.rewireAnalysis`, minding the two traps), and the plain intrinsics. Note the analysis-rewiring
+reprioritisation (`analysis-rewiring.md`): prepwork `VARIABLE_DATA` is the *cheap* tier, so it is no longer the
+priority — the analyzer-output early-cutoff is. This carry substrate underpins both.
+
 **Blocker — RESOLVED (2026-07-18, sv-integration `eca429e0`, merged into kotlin `8a79b12c`).** The intermittent
 javac NPE (`com.sun.tools.javac.code.Scope$StarImportScope.isFilled() ... tree.starImportScope is null`, thrown in
 `task.analyze()` at the parse phase, ~1 run in 4–5 across `modification-link` / `-analyzer` / `java-openjdk`) was

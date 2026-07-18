@@ -892,6 +892,8 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         }
         TypeInfo rewiredType = infoMap.typeInfo(this);
         rewiredType.builder().commit();
+        // carry the opted-in analysis (see Property.carryOnRewire); inert until a property opts in
+        rewiredType.analysis().setAll(analysis().rewire(infoMap));
     }
 
     @Override
