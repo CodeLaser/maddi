@@ -130,18 +130,11 @@ public class TestOutsideReloadCarry {
         return ccg;
     }
 
-    // the DERIVED analyzer output: verdicts + link summaries, excluding VARIABLE_DATA (recomputed) and the
-    // carryOnRewire properties the rewire phase already carried onto the rewired object (e.g. GET_SET_FIELD) -- so the
-    // outside carry does not double-set them. Together, phase-carry + this = the full analyzer output.
+    // the DERIVED (cross-type) analyzer output: verdicts + link summaries. Precisely the CROSS_TYPE_DERIVED tier --
+    // excludes both the parse-time tier the rewire phase already carried (GET_SET_FIELD) and the intrinsic tier
+    // prepwork re-derives (VARIABLE_DATA, PART_OF_CONSTRUCTION, ...). Together, phase-carry + prep + this = full output.
     private static final java.util.function.Predicate<org.e2immu.language.cst.api.analysis.Property> DERIVED_OUTPUT =
-            p -> AnalysisFingerprint.ANALYZER_OUTPUT_ONLY.test(p) && !p.carryOnRewire();
-
-    private static boolean containsIdentity(Iterable<? extends Info> set, Info target) {
-        for (Info i : set) {
-            if (i == target) return true;
-        }
-        return false;
-    }
+            AnalysisFingerprint.CROSS_TYPE_DERIVED_ONLY;
 
     /** Carry a type's derived analyzer output onto its rewired copy, via the read-only view. */
     private static void carryAnalyzerOutput(TypeInfo oldType, InfoMapView view) {
@@ -202,16 +195,12 @@ public class TestOutsideReloadCarry {
         assertNotNull(newGet.analysis().getOrNull(MethodLinkedVariablesImpl.METHOD_LINKS,
                 MethodLinkedVariablesImpl.class), "METHOD_LINKS was carried onto the rewired get()");
 
-        // re-pointed: PART_OF_CONSTRUCTION holds the rewired constructor object, not the one it replaced
-        MethodInfo newCtor = oldUser.constructorAndMethodStream().filter(MethodInfo::isConstructor)
-                .map(view::methodInfo).findFirst().orElseThrow();
-        MethodInfo oldCtor = oldUser.constructorAndMethodStream().filter(MethodInfo::isConstructor)
-                .findFirst().orElseThrow();
-        assertNotSame(oldCtor, newCtor);
+        // the tier boundary: PART_OF_CONSTRUCTION is INTRINSIC (prepwork re-derives it from the type's own body), so
+        // the cross-type-derived carry deliberately leaves it absent -- carrying it would double-set against a re-prep.
+        // Its re-pointing through the InfoMapView is exercised for the cross-type-derived SetOfInfo tier in
+        // TestDerivedRewire (IMPLEMENTATIONS).
         Value.SetOfInfo poc = newUser.analysis()
                 .getOrNull(ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION, ValueImpl.SetOfInfoImpl.class);
-        assertNotNull(poc, "PART_OF_CONSTRUCTION was carried");
-        assertTrue(containsIdentity(poc.infoSet(), newCtor), "carried PART_OF_CONSTRUCTION points at the rewired ctor");
-        assertFalse(containsIdentity(poc.infoSet(), oldCtor), "not the replaced ctor");
+        assertNull(poc, "PART_OF_CONSTRUCTION is intrinsic, not part of the derived carry");
     }
 }

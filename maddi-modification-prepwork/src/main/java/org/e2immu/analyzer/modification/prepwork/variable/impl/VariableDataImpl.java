@@ -17,6 +17,7 @@ package org.e2immu.analyzer.modification.prepwork.variable.impl;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfoContainer;
 import org.e2immu.language.cst.api.analysis.Codec;
+import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.InfoMapView;
@@ -31,8 +32,9 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 public class VariableDataImpl implements VariableData {
+    // INTRINSIC: prepwork rebuilds the per-variable/per-statement data from the method body on every run.
     public static final PropertyImpl VARIABLE_DATA = new PropertyImpl("variableData",
-            new VariableDataImpl(new LinkedHashMap<>()));
+            new VariableDataImpl(new LinkedHashMap<>()), Property.AnalysisTier.INTRINSIC);
 
     public static class Builder implements VariableData {
         // we employ a linkedHashMap to keep the order of creation, with this first, then fields, then parameters,

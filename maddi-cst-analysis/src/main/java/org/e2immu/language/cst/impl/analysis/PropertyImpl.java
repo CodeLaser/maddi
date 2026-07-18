@@ -15,6 +15,7 @@
 package org.e2immu.language.cst.impl.analysis;
 
 import org.e2immu.language.cst.api.analysis.Property;
+import org.e2immu.language.cst.api.analysis.Property.AnalysisTier;
 import org.e2immu.language.cst.api.analysis.Value;
 
 public class PropertyImpl implements Property {
@@ -82,7 +83,9 @@ public class PropertyImpl implements Property {
             ValueImpl.VariableToTypeInfoSetImpl.EMPTY);
 
     // field
-    public static final Property FINAL_FIELD = new PropertyImpl("finalField");
+    // INTRINSIC: prepwork's ComputePartOfConstructionFinalField re-derives this from the type's own body every run.
+    public static final Property FINAL_FIELD = new PropertyImpl("finalField", ValueImpl.BoolImpl.FALSE,
+            AnalysisTier.INTRINSIC);
     public static final Property NOT_NULL_FIELD = new PropertyImpl("notNullField", ValueImpl.NotNullImpl.NULLABLE);
     public static final Property IGNORE_MODIFICATIONS_FIELD = new PropertyImpl("ignoreModificationsField");
     public static final Property UNMODIFIED_FIELD = new PropertyImpl("unmodifiedField");
@@ -94,7 +97,9 @@ public class PropertyImpl implements Property {
     //public static final Property DOWNCAST_FIELD = new PropertyImpl("downcastField", ValueImpl.SetOfTypeInfoImpl.EMPTY);
 
     // statement
-    public static final Property ALWAYS_ESCAPES = new PropertyImpl("statementAlwaysEscapes");
+    // INTRINSIC: prepwork's ComputeAlwaysEscapes re-derives this per statement every run.
+    public static final Property ALWAYS_ESCAPES = new PropertyImpl("statementAlwaysEscapes",
+            ValueImpl.BoolImpl.FALSE, AnalysisTier.INTRINSIC);
 
     // any element
     public static final Property DEFAULTS_ANALYZER = new PropertyImpl("defaultsAnalyzer");
@@ -106,11 +111,14 @@ public class PropertyImpl implements Property {
             ValueImpl.IndependentImpl.DEPENDENT);
 
     // instanceof
-    public static final Property INSTANCEOF_SCOPE = new PropertyImpl("instanceOfScope", ValueImpl.ScopeImpl.EMPTY);
+    // INTRINSIC: prepwork's MethodAnalyzer re-derives the instanceof-pattern scope from the method body every run.
+    public static final Property INSTANCEOF_SCOPE = new PropertyImpl("instanceOfScope", ValueImpl.ScopeImpl.EMPTY,
+            AnalysisTier.INTRINSIC);
 
     private final String key;
     private final Value defaultValue;
     private final boolean carryOnRewire;
+    private final AnalysisTier analysisTier;
 
     public PropertyImpl(String key) {
         this(key, ValueImpl.BoolImpl.FALSE);
@@ -121,14 +129,30 @@ public class PropertyImpl implements Property {
     }
 
     public PropertyImpl(String key, Value defaultValue, boolean carryOnRewire) {
+        this(key, defaultValue, carryOnRewire,
+                carryOnRewire ? AnalysisTier.PARSE_TIME : AnalysisTier.CROSS_TYPE_DERIVED);
+    }
+
+    /** Explicit tier — used by the intrinsic (prepwork-recomputed) properties. */
+    public PropertyImpl(String key, Value defaultValue, AnalysisTier analysisTier) {
+        this(key, defaultValue, false, analysisTier);
+    }
+
+    private PropertyImpl(String key, Value defaultValue, boolean carryOnRewire, AnalysisTier analysisTier) {
         this.key = key;
         this.defaultValue = defaultValue;
         this.carryOnRewire = carryOnRewire;
+        this.analysisTier = analysisTier;
     }
 
     @Override
     public boolean carryOnRewire() {
         return carryOnRewire;
+    }
+
+    @Override
+    public AnalysisTier analysisTier() {
+        return analysisTier;
     }
 
     @Override
