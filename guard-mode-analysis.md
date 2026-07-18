@@ -494,3 +494,24 @@ silent (undecided-discipline test); toggle off → nothing; existing guard suite
 
 Performance is negligible: same decided values, one post-fixpoint pass, no extra iteration. The main
 risk is noise, targeted by floor + single-blocker + undecided-discipline + ranking + default-off.
+
+### Implemented
+
+- **Phase A — `@Container` near-miss (2026-07-18, commit `1b2c8776`).** `IteratingAnalyzer` gained
+  `warnNearMisses()` (default false) and the `NearMissPolicy` record (strict defaults 7/1/3/1);
+  `GuardAnalyzerImpl.go()` splits by flag and the guard now runs when
+  `guardContracts() || warnNearMisses()`. `nearMissPass` ranks findings most-compelling-first and
+  reuses `blameParameterModified` verbatim; a concrete blocking slot gets the direct-site blame, an
+  abstract one the 1-of-N implementation gate. Undecided discipline enforced (any undecided slot, or
+  undecided implementation when counting, suppresses the finding). Test `TestNearMissContainer`, 7/7.
+- **Phase B — method-level `@NotModified` / `@Independent` near-miss (2026-07-18).** `methodNearMisses`
+  handles abstract methods in the same pass: an abstract method one implementation short of being
+  contractable `@NotModified` (no implementation modifies its receiver) or `@Independent` (no
+  implementation exposes state), driven off the implementations' computed values — never the abstract
+  method's own, which may be a `ShallowMethodAnalyzer` default. Skipped when the user already contracted
+  the property (the guard polices those). Reuses `blameMethodModifying` / `blameMethodDependent`, names
+  the single culprit, categories `near-miss-not-modified` / `near-miss-independent`. Test
+  `TestNearMissMethod`, 5/5. A method can yield both a `@NotModified` and an `@Independent` near-miss.
+
+Deferred (Phase C): `@Immutable` / `@Independent` type-level near-misses (rarer, noisier), and wiring
+`warnNearMisses` through the run drivers / plugins so it can be enabled from the CLI.
