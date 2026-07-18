@@ -21,6 +21,11 @@ public record FlagHelper(Runtime runtime) {
         if ((flags & Flags.STATIC) != 0) builder.addFieldModifier(runtime.fieldModifierStatic());
         if ((flags & Flags.VOLATILE) != 0) builder.addFieldModifier(runtime.fieldModifierVolatile());
         if ((flags & Flags.TRANSIENT) != 0) builder.addFieldModifier(runtime.fieldModifierTransient());
+        // An enum constant is an ordinary static-final field to javac, but the in-house parser marks it synthetic
+        // (ParseTypeDeclaration: "to distinguish them from normal, non-enum fields") and the type printer relies on
+        // isSynthetic() to list enum constants (TypePrinterImpl.enumConstantStream). Regular fields of an enum (e.g.
+        // a `static final String S`) carry no ENUM flag, so they are unaffected.
+        if ((flags & Flags.ENUM) != 0) builder.setSynthetic(true);
     }
 
     public void method(long flags, MethodInfo.Builder builder) {
