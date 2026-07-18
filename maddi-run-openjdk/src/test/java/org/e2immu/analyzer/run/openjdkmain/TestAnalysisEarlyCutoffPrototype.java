@@ -19,8 +19,11 @@ import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
+import org.e2immu.analyzer.modification.prepwork.callgraph.EarlyCutoffWorklist;
 import org.e2immu.analyzer.modification.prepwork.callgraph.PrimaryTypeUseGraph;
 import org.e2immu.analyzer.modification.prepwork.io.AnalysisFingerprint;
+import org.e2immu.util.internal.graph.G;
+import org.e2immu.util.internal.graph.V;
 import org.e2immu.language.cst.api.element.FingerPrint;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
@@ -227,5 +230,49 @@ public class TestAnalysisEarlyCutoffPrototype {
         System.out.println("=== reload-path blast radius (comment edit) === " + diff);
         assertTrue(diff.isEmpty(),
                 "a comment edit through the real reload path changes no analyzer output; moved: " + diff);
+    }
+
+    @DisplayName("the WORKLIST on real fingerprints: a comment edit recomputes only the seed, sparing its dependents")
+    @Test
+    public void testWorklistCommentEditSparesDependents() throws IOException {
+        write(DATA_V1);
+        JavaInspector javaInspector = new JavaInspectorImpl(true, false);
+        javaInspector.initialize(inputConfiguration());
+        ParseResult pr0 = javaInspector.parse(java.util.Map.of(), JavaInspectorImpl.DETAILED_SOURCES).parseResult();
+        ComputeCallGraph ccg0 = prepAndAnalyze(javaInspector, pr0);
+        TreeMap<String, FingerPrint> before = fingerprintAll(javaInspector, pr0);
+
+        Files.writeString(sourceDir.resolve("x/Data.java"), "// a leading comment\n\n" + DATA_V1);
+        JavaInspector.ReloadResult rr = javaInspector.reloadSources(inputConfiguration(), java.util.Map.of());
+        Set<TypeInfo> changed = rr.sourceHasChanged();
+        Set<TypeInfo> dependents = new PrimaryTypeUseGraph(ccg0.graph()).dependentsOf(changed);
+        JavaInspector.Invalidated invalidated = ti ->
+                changed.contains(ti) ? INVALID : dependents.contains(ti) ? REWIRE : UNCHANGED;
+        ParseResult pr1 = javaInspector.parse(new JavaInspector.ParseOptions.Builder()
+                .setDetailedSources(true).setFailFast(true).setInvalidated(invalidated).build()).parseResult();
+        prepAndAnalyze(javaInspector, pr1);
+        TreeMap<String, FingerPrint> after = fingerprintAll(javaInspector, pr1);
+
+        // one-hop dependents from the run-0 use graph (edge t -> Y means Y uses t), keyed by fqn
+        G<TypeInfo> useGraph = new PrimaryTypeUseGraph(ccg0.graph()).graph();
+        java.util.Map<String, TypeInfo> byFqn = new java.util.HashMap<>();
+        pr0.primaryTypes().forEach(t -> byFqn.put(t.fullyQualifiedName(), t));
+        java.util.function.Function<String, Set<String>> immediateDependents = fqn -> {
+            TypeInfo t = byFqn.get(fqn);
+            V<TypeInfo> v = t == null ? null : useGraph.vertex(t);
+            if (v == null) return Set.of();
+            return useGraph.edges(v).keySet().stream().map(V::t)
+                    .map(TypeInfo::fullyQualifiedName).collect(java.util.stream.Collectors.toSet());
+        };
+        Set<String> seed = changed.stream().map(TypeInfo::fullyQualifiedName)
+                .collect(java.util.stream.Collectors.toSet());
+
+        // recompute = look up the post-edit fingerprint (a stand-in for actually re-analysing t; the real per-type
+        // recompute against carried dependencies is the documented production-integration gap, analysis-rewiring.md)
+        EarlyCutoffWorklist.Result<String> result = EarlyCutoffWorklist.run(
+                seed, immediateDependents, before::get, after::get);
+        System.out.println("=== worklist recomputed (comment edit) === " + result.recomputed());
+        assertEquals(Set.of("x.Data"), result.recomputed(),
+                "the seed's analysis output is unchanged, so the worklist cuts off: User and Holder are spared");
     }
 }
