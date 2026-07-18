@@ -17,8 +17,8 @@ package org.e2immu.analyzer.ide.plugin.ui;
 import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase;
 import com.intellij.testFramework.utils.inlays.declarative.DeclarativeInlayHintsProviderTestCase;
-import org.e2immu.analyzer.ide.plugin.analysis.MaddiAnalysisService;
 import org.e2immu.analyzer.ide.client.AnalysisModel;
+import org.e2immu.analyzer.ide.plugin.analysis.MaddiAnalysisService;
 import org.e2immu.analyzer.ide.plugin.settings.HintPlacement;
 import org.e2immu.analyzer.ide.plugin.settings.InlineHintsMode;
 import org.e2immu.analyzer.ide.plugin.settings.MaddiSettings;
@@ -28,14 +28,15 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Live inlay-filter test: renders {@link MaddiInlayProvider} through the real declarative-inlay pass and
- * asserts that the {@link InlineHintsMode} filter decides which annotations appear inline. A canned result
- * (three annotations spanning the polarity/context-default axes) is injected into {@link MaddiAnalysisService}
- * via the daemon-free {@code applyResult} seam; the gutter is unaffected (it always shows the full set).
+ * Where the hints land. The default ({@link HintPlacement#ABOVE_DECLARATION}) gives each declaration a line
+ * of its own, so the result reads like hand-written annotated API source; a parameter's annotations stay
+ * inline in both modes, because a parameter has no line of its own to use.
+ * <p>
+ * Renders through the real declarative-inlay pass: a block hint above a line and an inline one after a name
+ * are different {@code InlayPosition} types, and only the platform's own rendering shows which was produced.
  */
-public class MaddiInlayFilterTest extends DeclarativeInlayHintsProviderTestCase {
+public class MaddiInlayPlacementTest extends DeclarativeInlayHintsProviderTestCase {
 
-    // Clean source; the fixture is configured with this, then hints are dumped into it and compared.
     private static final String SOURCE = """
             public class Box {
                 public int get() { return 0; }
@@ -43,13 +44,10 @@ public class MaddiInlayFilterTest extends DeclarativeInlayHintsProviderTestCase 
             }
             """;
 
-    /** @Container on the type — POSITIVE, informative (proven, not context-implied). */
     private static final AnalysisModel.Annotation CONTAINER =
             new AnalysisModel.Annotation("@Container", "POSITIVE", false);
-    /** @NotModified on a read-only method — POSITIVE but a context default (implied by @Container). */
     private static final AnalysisModel.Annotation NOT_MODIFIED =
-            new AnalysisModel.Annotation("@NotModified", "POSITIVE", true);
-    /** @Modified on the parameter — NEGATIVE and NOT a context default (the signal, always worth showing). */
+            new AnalysisModel.Annotation("@NotModified", "POSITIVE", false);
     private static final AnalysisModel.Annotation MODIFIED =
             new AnalysisModel.Annotation("@Modified", "NEGATIVE", false);
 
@@ -69,44 +67,29 @@ public class MaddiInlayFilterTest extends DeclarativeInlayHintsProviderTestCase 
         }
     }
 
-    public void testAllShowsEverything() {
-        doFilterTest(InlineHintsMode.ALL, """
-                public class Box/*<# @Container #>*/ {
-                    public int get/*<# @NotModified #>*/() { return 0; }
-                    public void set(Mutable m/*<# @Modified #>*/) { }
-                }
-                """);
-    }
-
-    public void testHideContextDefaultsDropsImpliedPositive() {
-        // @NotModified (context default) is dropped; the informative @Container and the @Modified signal stay.
-        doFilterTest(InlineHintsMode.HIDE_CONTEXT_DEFAULTS, """
-                public class Box/*<# @Container #>*/ {
-                    public int get() { return 0; }
-                    public void set(Mutable m/*<# @Modified #>*/) { }
-                }
-                """);
-    }
-
-    public void testPositiveOnlyDropsTheModifiedSignal() {
-        doFilterTest(InlineHintsMode.POSITIVE_ONLY, """
-                public class Box/*<# @Container #>*/ {
-                    public int get/*<# @NotModified #>*/() { return 0; }
-                    public void set(Mutable m) { }
-                }
-                """);
-    }
-
-    public void testNegativeOnlyKeepsOnlyTheModifiedSignal() {
-        doFilterTest(InlineHintsMode.NEGATIVE_ONLY, """
+    public void testAboveDeclarationPutsTypeAndMethodHintsOnTheirOwnLine() {
+        // note the indentation of the method's hint: it lines up with the declaration it describes, which is
+        // what AboveLineIndentedPosition buys over a plain block inlay. The parameter stays inline.
+        doPlacementTest(HintPlacement.ABOVE_DECLARATION, """
+                /*<# block [@Container] #>*/
                 public class Box {
+                    /*<# block [@NotModified] #>*/
                     public int get() { return 0; }
                     public void set(Mutable m/*<# @Modified #>*/) { }
                 }
                 """);
     }
 
-    private void doFilterTest(InlineHintsMode mode, String expected) {
+    public void testInlinePutsEveryHintAfterTheName() {
+        doPlacementTest(HintPlacement.INLINE, """
+                public class Box/*<# @Container #>*/ {
+                    public int get/*<# @NotModified #>*/() { return 0; }
+                    public void set(Mutable m/*<# @Modified #>*/) { }
+                }
+                """);
+    }
+
+    private void doPlacementTest(HintPlacement placement, String expected) {
         myFixture.configureByText("Box.java", SOURCE);
         String path = myFixture.getFile().getVirtualFile().getPath();
 
@@ -119,15 +102,12 @@ public class MaddiInlayFilterTest extends DeclarativeInlayHintsProviderTestCase 
         AnalysisModel.ElementAnnotation param = new AnalysisModel.ElementAnnotation(
                 path, 3, 1, 3, 40, "PARAMETER", "Box.set.m",
                 List.of(MODIFIED.text()), List.of(MODIFIED), Map.of());
-        AnalysisModel.Result result = new AnalysisModel.Result(
-                "test", List.of(), List.of(type, method, param), List.of(), 0, 0, 0);
-        MaddiAnalysisService.getInstance(getProject()).applyResult(result);
+        MaddiAnalysisService.getInstance(getProject()).applyResult(new AnalysisModel.Result(
+                "test", List.of(), List.of(type, method, param), List.of(), 0, 0, 0));
 
         MaddiSettings.State state = MaddiSettings.getInstance().getState();
-        state.inlineHintsMode = mode;
-        // this suite is about the filter, not the placement: pin every hint inline so the expectations
-        // read as one annotated line per declaration. Placement itself is MaddiInlayPlacementTest.
-        state.hintPlacement = HintPlacement.INLINE;
+        state.inlineHintsMode = InlineHintsMode.ALL; // placement is the variable here, not the filter
+        state.hintPlacement = placement;
 
         doTestProviderWithConfigured(SOURCE, expected, new MaddiInlayProvider(), Map.of(), null, false,
                 DeclarativeInlayHintsProviderTestCase.ProviderTestMode.SIMPLE);

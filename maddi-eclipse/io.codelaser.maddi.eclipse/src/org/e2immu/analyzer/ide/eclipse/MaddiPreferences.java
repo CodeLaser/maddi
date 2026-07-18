@@ -30,9 +30,11 @@ public final class MaddiPreferences {
     public static final String AUTO_ANALYZE_ON_BUILD = "maddi.autoAnalyzeOnBuild";
     public static final String WARN_NEAR_MISSES = "maddi.warnNearMisses";
     public static final String INLINE_HINTS = "maddi.inlineHints";
+    public static final String HINT_PLACEMENT = "maddi.hintPlacement";
 
     public static final int DEFAULT_XMX_MB = 4096;
     public static final HintFilter DEFAULT_HINT_FILTER = HintFilter.HIDE_CONTEXT_DEFAULTS;
+    public static final HintPlacement DEFAULT_HINT_PLACEMENT = HintPlacement.ABOVE_DECLARATION;
 
     private MaddiPreferences() {
     }
@@ -84,6 +86,17 @@ public final class MaddiPreferences {
      */
     public static boolean inlineHints() {
         return store().getBoolean(INLINE_HINTS);
+    }
+
+    /** Where a declaration's hints are drawn; parameters are always inline regardless. */
+    public static HintPlacement hintPlacement() {
+        String v = store().getString(HINT_PLACEMENT);
+        if (isBlank(v)) return DEFAULT_HINT_PLACEMENT;
+        try {
+            return HintPlacement.valueOf(v);
+        } catch (IllegalArgumentException e) {
+            return DEFAULT_HINT_PLACEMENT;
+        }
     }
 
     private static String resolve(String prefKey, String systemProperty, String envVar) {

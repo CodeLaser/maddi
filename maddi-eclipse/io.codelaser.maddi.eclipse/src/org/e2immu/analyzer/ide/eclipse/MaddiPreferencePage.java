@@ -51,8 +51,11 @@ public class MaddiPreferencePage extends FieldEditorPreferencePage implements IW
                 "Hints show:", hintFilterChoices(), getFieldEditorParent()));
 
         addField(new BooleanFieldEditor(MaddiPreferences.INLINE_HINTS,
-                "Show hints inline in the editor (needs Java > Editor > Code Minings enabled)",
+                "Show hints in the editor (needs Java > Editor > Code Minings enabled)",
                 getFieldEditorParent()));
+
+        addField(new ComboFieldEditor(MaddiPreferences.HINT_PLACEMENT,
+                "Declaration hints go:", hintPlacementChoices(), getFieldEditorParent()));
 
         addField(new BooleanFieldEditor(MaddiPreferences.AUTO_ANALYZE_ON_BUILD,
                 "Re-analyze automatically after a build", getFieldEditorParent()));
@@ -64,6 +67,17 @@ public class MaddiPreferencePage extends FieldEditorPreferencePage implements IW
     /** {label, stored-value} pairs for the hint-filter combo, straight from the enum. */
     private static String[][] hintFilterChoices() {
         HintFilter[] values = HintFilter.values();
+        String[][] choices = new String[values.length][2];
+        for (int i = 0; i < values.length; i++) {
+            choices[i][0] = values[i].label();
+            choices[i][1] = values[i].name();
+        }
+        return choices;
+    }
+
+    /** {label, stored-value} pairs for the placement combo. */
+    private static String[][] hintPlacementChoices() {
+        HintPlacement[] values = HintPlacement.values();
         String[][] choices = new String[values.length][2];
         for (int i = 0; i < values.length; i++) {
             choices[i][0] = values[i].label();
