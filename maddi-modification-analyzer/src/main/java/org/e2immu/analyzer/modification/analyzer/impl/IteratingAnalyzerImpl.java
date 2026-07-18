@@ -197,6 +197,16 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
 
     @Override
     public void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph) {
+        analyze(analysisOrder, dependencyGraph, null);
+    }
+
+    @Override
+    public void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph,
+                        java.util.Set<Info> initialDirty) {
+        // incremental (early-cutoff) mode: seed the worklist with initialDirty and stop the moment it runs dry,
+        // WITHOUT the full verification / cycle-breaking passes — those re-touch the untouched (carried) elements
+        // and would defeat the skip. See analysis-rewiring.md and IteratingAnalyzer#analyze(List,G,Set).
+        boolean incremental = initialDirty != null;
         int iterations = 0;
         SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
         this.lastRun = singleIterationAnalyzer;
@@ -230,12 +240,12 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         } else {
             dependersOf = null;
         }
-        java.util.Set<Info> dirty = null; // null = analyze everything
+        java.util.Set<Info> dirty = initialDirty; // null = analyze everything; a seed = incremental early-cutoff
         java.util.Set<Info> orderSet = java.util.Set.copyOf(analysisOrder);
         boolean verifying = false; // worklist ran dry -> one full pass certifies (0 changes = true fixpoint)
         // strata-parallel first iteration (PARALLEL=n): dependency waves from the same call graph
         java.util.List<java.util.List<java.util.List<Info>>> firstIterationWaves;
-        if (SingleIterationAnalyzerImpl.PARALLEL_THREADS > 1 && dependencyGraph != null
+        if (!incremental && SingleIterationAnalyzerImpl.PARALLEL_THREADS > 1 && dependencyGraph != null
             && analysisOrder.size() >= SingleIterationAnalyzerImpl.MIN_ELEMENTS_FOR_PARALLEL) {
             firstIterationWaves = org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder
                     .waves(dependencyGraph);
@@ -284,7 +294,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             // that will never arrive (external supers without values, call cycles): activate cycle breaking
             // for the remaining rounds and run one more full pass, so the fixpoint we certify includes the
             // broken-cycle conclusions. Opt-out NOCYCLEBREAKING=1.
-            if (done && !cycleBreakingActive && System.getenv("NOCYCLEBREAKING") == null) {
+            if (done && !cycleBreakingActive && !incremental && System.getenv("NOCYCLEBREAKING") == null) {
                 long undecided = analysisOrder.stream()
                         .filter(i -> i instanceof org.e2immu.language.cst.api.info.TypeInfo t
                                      && t.analysis().getOrNull(
@@ -391,6 +401,19 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                             .reduce((a, b) -> a + ", " + b).orElse("-"));
                     verifying = false;
                 } else if (dirty.isEmpty() || propertiesChanged == 0) {
+                    if (incremental) {
+                        // incremental early-cutoff: the seeded worklist is dry. STOP here, trusting the elements it
+                        // never reached to keep their carried values — a full verification pass would re-analyze
+                        // them (and hit the carried-value monotonic guards), defeating the skip. Correctness rests
+                        // on the carried elements being fingerprint-stable, established before this call.
+                        LOGGER.info("Incremental worklist dry after {} iterations; stopping (carried elements spared)",
+                                iterations);
+                        logVerdictFingerprint(analysisOrder);
+                        if (configuration.guardContracts() || configuration.warnNearMisses()) {
+                            new GuardAnalyzerImpl(javaInspector.runtime(), configuration, guardMessages).go(analysisOrder);
+                        }
+                        return;
+                    }
                     // worklist dry (or a zero-change subset round): do NOT stop yet — run one full pass to
                     // certify (or catch missed dependencies)
                     LOGGER.info("Worklist empty/quiet after {} iterations; running a full verification pass", iterations);
