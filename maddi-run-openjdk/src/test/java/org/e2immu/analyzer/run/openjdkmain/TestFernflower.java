@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -30,15 +29,15 @@ public class TestFernflower {
     }
 
     private static void assumeCorpus() {
-        Assumptions.assumeTrue(Files.exists(Path.of("/Users/bnaudts/git/test-oss/fernflower")),
-                "requires the fernflower corpus checkout (paths baked into the input configuration)");
+        Assumptions.assumeTrue(Files.exists(TestOssCorpus.config("fernflower")),
+                "requires the fernflower corpus checkout with its locally generated input configuration");
     }
 
     @Test
     public void test() throws IOException, ParseException {
         assumeCorpus();
         int exitValue = Main.execute(new String[]{
-                "--input-configuration=./src/test/resources/inputConfiguration/fernflower.json"
+                "--input-configuration=" + TestOssCorpus.config("fernflower")
                 , "--analysis-steps=modification"
                 , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk"
         });
