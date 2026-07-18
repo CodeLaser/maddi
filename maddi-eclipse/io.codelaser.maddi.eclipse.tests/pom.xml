@@ -2,6 +2,11 @@
 <!--
   Headless Tycho test bundle: runs MaddiEclipseConfigBuilder against a real workspace IJavaProject inside an
   Equinox runtime (JDT + core.resources), the Eclipse analog of the IntelliJ MaddiConfigBuilderTest. No UI.
+
+  JUnit 5 (Jupiter), matching the rest of the repo. tycho-surefire picks the junit5 provider automatically
+  from the MANIFEST's Require-Bundle. Note the bundle names there: Orbit ships the JUnit 5 jars under their
+  Maven artifact ids (junit-jupiter-api / junit-jupiter-params, NOT org.junit.jupiter.*), so those are the
+  symbolic names that resolve against the release train (5.13.4 in 2025-09).
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
