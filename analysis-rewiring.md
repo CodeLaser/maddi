@@ -61,6 +61,31 @@ yet: the reload flow must actually *run analysis* (today `RunRewireTests` reload
 graph but does **not** analyse, so post-reload there is nothing to compare), and the parked `carryOnRewire` must land
 so a spared type comes back with its analysis rather than empty. Test `TestAnalysisFingerprint.testSourceSetRollupAndStore`.
 
+### Compare half — prototype (2026-07-18)
+
+`run-openjdk/TestAnalysisEarlyCutoffPrototype` prototypes the compare *decision* (not yet the saving): analyse a
+tiny project, snapshot per-type fingerprints, edit a file, analyse again, diff. The diff is exactly the set of types
+whose analyzer output moved — the blast radius a real incremental run must recompute; everything else is what the
+cutoff would spare. It lives in `run-openjdk` because that is the only module with the analyzer, the openjdk
+front-end, and the fingerprint on one path (`run-rewire` cannot see `modification.analyzer`). Both runs are full,
+clean analyses on a fresh inspector — so it shows the decision, not the reload/skip wiring.
+
+Two findings, both instructive:
+
+1. **A comment-only edit moves nothing** — the whole run would be cut off. This is the headline win, and it is what
+   the position normalizer buys (without it, the shifted line:col in link encodings would have moved everything).
+2. **The blast radius is output-based, far tighter than structural reachability.** Making `Data` mutable moved only
+   `x.Data`'s fingerprint; the dependents `User` (exposes the field either way) and `Holder` (public `Data` field)
+   both *use* Data but neither's output moved on this analyzer, so both are spared. A structural "reaches Data" rule —
+   which is what the parser rewiring's REWIRE state uses — would have recomputed both. This is precisely why the
+   compare half is worth building: it prunes the REWIRE cone down to the types whose output actually changed.
+   (Open question flagged: whether `Holder`'s immutability *should* have moved is an analyzer-propagation matter,
+   separate from the compare mechanism; not presumed by the prototype.)
+
+**Next, to turn the decision into the saving:** run analysis inside the reload flow, hash each recomputed type's
+output, diff against the stored fingerprint, and for a set/type whose fingerprint is unchanged, skip its dependents'
+recomputation and carry their prior analysis (the `carryOnRewire` substrate, now resumed — `rewiring.md`).
+
 ## The point: skip link + analyzer, not prepwork
 
 Prepwork is ~1/10 of the modification-analysis cost; **link + analyzer are the other 9/10**. So the prize is
