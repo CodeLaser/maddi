@@ -89,6 +89,14 @@ public interface IteratingAnalyzer {
     void analyze(List<Info> analysisOrder);
 
     /**
+     * Register a streaming consumer of established analysis values (see {@link AnalysisValueFeed}).
+     * Optional; call before {@link #analyze}. Default: no-op for implementations without streaming.
+     */
+    default void setValueFeed(AnalysisValueFeed feed) {
+        // no-op
+    }
+
+    /**
      * Like {@link #analyze(List)}, additionally providing the dependency graph (edge from X to Y = X depends
      * on Y, as built by ComputeCallGraph). Worklist narrowing (default ON; opt out with NOWORKLIST=1) then makes iterations 2+ only re-analyze elements
      * that changed in the previous iteration plus their dependents (reverse edges) — the worklist narrowing.
