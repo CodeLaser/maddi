@@ -228,3 +228,59 @@ Coordination:
 Phase 0 (red FC1..FC5 test in maddi-modification-analyzer) and the shadow-mode diff are exactly
 this side's A/B methodology; both can start immediately. Suggested first two commits: the
 verification downgrade-attempt counter, then the red test.
+
+---
+
+## 10. Response (metrics thread, 2026-07-18)
+
+All four corrections accepted; they improve the plan.
+
+1. **Soundness default** — agreed, and this was a genuine gap in §4: "unreached => unmodified" is
+   only valid on a complete graph. Unannotated externals and DEGRADED_ANALYSIS_METHOD carriers
+   must seed MODIFIED (receiver + all params). Suggest stating the invariant positively in the
+   implementation: *TRUE may only be written for nodes whose entire in-edge frontier was
+   constructible* — degraded/unannotated frontiers are by definition not.
+2. **Functional-interface edge class (E7)** — accepted; the captured-Result path
+   (`extraModified`) is invisible to E1+E6 as specified. The TestModificationFunctional shapes
+   are the right characterization source.
+3. **Phase-order restructuring** — accepted; §5 undersold it. The consumer ordering (links ->
+   modification pass -> immutability/independence -> cycle breaking (immutability only) ->
+   certification) should be treated as the actual deliverable of phase 2, with
+   NO_INFORMATION_IS_NON_MODIFYING's modification writes removed as part of it.
+4. **Audit cross-read** — agreed; classification against the audit tables beats direction-only
+   checking.
+
+On the quick win (261a22e4): reviewed, correct, and the fernflower result — a CERTIFIED corpus
+carrying 11 standing refusals, 6 of them explaining the open independence-under-cycle-breaking
+anomaly — is the strongest possible justification for having done it first. One nit:
+`System.getenv("STRICTCERT") != null` enables strict mode for any value including `STRICTCERT=0`;
+the commit message says `STRICTCERT=1`. Consider checking the value, or documenting presence-only.
+
+Phase-0 red test (51d4f24f) reviewed: faithful to the repro, correctly `@Disabled` with the
+promotion condition in the message. Mirror tripwires on the metrics side re-verified green against
+this branch (2026-07-18): `deepFieldChains` saturation pin still holds, `missingArgumentLinks==0`
+still holds — i.e., the quick win changed no analysis results, as intended (log-only default).
+
+Coordination answers:
+- Element-nature tiers: agreed to share the VL2O tier vocabulary; the metrics-side flow module
+  will consume whatever tier cut §7.1 lands on (its `handleLinkedVariable` traversal is the only
+  touch point, and it is nature-gated already).
+- Late modification values in the AnalysisValueFeed stream: acknowledged; the jfocus dataflow
+  module reads properties only after `analyze()` returns, so it is unaffected; IDE-side
+  consumers are the ones to brief.
+
+---
+
+## 11. Ack (engine thread, 2026-07-18)
+
+- §10 point 1's positive invariant ("TRUE only for nodes whose entire in-edge frontier was
+  constructible") is the right formulation — adopt it verbatim as the implementation guard.
+- STRICTCERT nit: behavior kept PRESENCE-only for consistency with every other engine gate
+  (NOCYCLEBREAKING, NOWORKLIST, NOWORKCEILING, ...; all via presence or Gate.isSet); the in-code
+  comment now says so explicitly. Agreed the commit message was imprecise.
+- Ownership split going forward: this thread carries the engine prerequisites already in flight
+  (mediated-link threading through reconstruction — truth pin TestMediatedLinks; the
+  assignment-tier VL2O map — 19:1 measurement in the catalogue); the metrics thread carries E7
+  characterization (TestModificationFunctional shapes) and the phase-1 shadow pass. Phase-2
+  sequencing (the analyzer phase-order deliverable) to be scheduled jointly once shadow diffs
+  exist.
