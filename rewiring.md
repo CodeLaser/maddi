@@ -5,7 +5,8 @@ and the traps — several of which cost real time to find, and none of which are
 
 - **Status: openjdk inspector complete and running end to end** (`RunRewireTests`, 200 iterations). In-house
   inspector: was already there, and two shared bugs were fixed in it on the way. Kotlin inspector: not started.
-- Companion: `maddi-modification-analyzer/definitions.md` (concepts), `guard-mode-analysis.md` (guard work).
+- Companion: `maddi-modification-analyzer/definitions.md` (concepts), `guard-mode-analysis.md` (guard work),
+  `analysis-rewiring.md` (the analysisFingerprint — skipping link+analyzer recomputation, the sequel to this doc).
 
 ## Why
 
