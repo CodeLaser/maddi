@@ -73,12 +73,15 @@ session tasks #36-#39):
   then tier-filter.
 - #38 targeted test for the ≡ exclusion corner (real-variable aliases expressed only as ≡ must still
   reach VL2O, else missed rejection).
-- #39 ⚠ REIMPLEMENTATION: CommonAnalyze (773 lines) re-derives statement-level value flow the
-  engine's VariableData links already carry (assignments/ternaries/array-init/record patterns +
-  collision-prone simpleName@source local keys) — strategic fix: build candidate edges from engine
-  statement links. Same-disease siblings inside maddi: WLAM's five mirror blocks, iterateOverShared
-  vs expandRepToMembers (==/.equals divergence), ShallowMethodLinkComputer.correspondingTypeParameters
-  vs hiddenContentHierarchy.
+- #39 ⚠ REIMPLEMENTATION — PREMISE REVISED 2026-07-18 after an attempted first slice: engine ←
+  links ERASE syntactic mediation (pattern bindings and casts both yield plain ←, and closure
+  composition spreads the blindness), while CommonAnalyze's walk computes DECLARED-TYPE coupling,
+  which mediation deliberately decouples. Slice reverted (jfocus baseline restored, 176/1-known).
+  Correct sequence: (1) engine adds mediation provenance to assignment-tier links (nature variant or
+  flag; sticky through composition), (2) then de-duplicate CommonAnalyze consuming unmediated ←
+  only. Maddi-internal same-disease siblings unaffected and still valid: WLAM's five mirror blocks,
+  iterateOverShared vs expandRepToMembers (==/.equals divergence),
+  ShallowMethodLinkComputer.correspondingTypeParameters vs hiddenContentHierarchy.
 
 Module organization (see org-review-2026-07-18.md for the full ranked plan):
 - Small/high-value items 1-6 (docs, dead code, codec ☷/$_v holes) — in progress 2026-07-18.
