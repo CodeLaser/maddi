@@ -114,6 +114,9 @@ public class WarmAnalysisService implements AnalyzeHandler {
                 .setWarnNearMisses(request.config().warnNearMisses())
                 .build();
         IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(inspector, modConfig);
+        // Stream what each pass established, so the IDE can annotate the file on screen long before the run
+        // ends: the first pass decides most of the output, and the tail is long but decides little.
+        analyzer.setValueFeed(new StreamingValueFeed(status, requestId, collector));
         // analyze() is one long blocking step with no sub-progress; run it on a worker and heartbeat so the
         // client's socket read never times out on a large project. A throw propagates: DaemonMain turns it into
         // an error{}, the daemon survives.

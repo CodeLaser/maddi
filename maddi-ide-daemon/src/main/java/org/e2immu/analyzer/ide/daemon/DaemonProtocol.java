@@ -38,6 +38,12 @@ public final class DaemonProtocol {
     public static final String T_HANDSHAKE_ACK = "handshakeAck";
     public static final String T_ANALYZE_PROJECT = "analyzeProject";
     public static final String T_STATUS = "status";
+    /**
+     * Values established so far, sent zero or more times before the terminal {@link #T_RESULT}. Deliberately
+     * NOT a repeatable {@code result}: clients loop until a terminal frame, so a new non-terminal type reaches
+     * them as an ordinary streamed frame, while a second {@code result} would be mistaken for the whole run.
+     */
+    public static final String T_PARTIAL_RESULT = "partialResult";
     public static final String T_RESULT = "result";
     public static final String T_ERROR = "error";
     public static final String T_PING = "ping";
@@ -122,5 +128,25 @@ public final class DaemonProtocol {
                          int parseErrorCount,
                          int hintsLoaded,
                          long elapsedMillis) {
+    }
+
+    /**
+     * Analysis values established after one pass of the fixpoint iteration, for display before the run ends.
+     * Safe to show: values are write-once and refine monotonically, so nothing here is ever retracted — a
+     * later frame (or the terminal {@code result}) can only strengthen what a previous one said.
+     * <p>
+     * Carries annotations only, no findings: guard findings are computed once, after the fixpoint, so there
+     * is nothing partial to report about them.
+     * <p>
+     * {@code elements} over-approximates what changed — the whole analysis order on the first pass, the
+     * shrinking dirty set afterwards — so a consumer merges by element rather than treating a frame as a
+     * complete picture. {@code certain} marks the run's values as final (the fixpoint was certified); until
+     * then a displayed value is established but may still strengthen.
+     */
+    public record PartialResult(String requestId,
+                                int iteration,
+                                boolean fullPass,
+                                boolean certain,
+                                List<ElementAnnotation> elements) {
     }
 }
