@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.Precedence;
 import org.e2immu.language.cst.api.expression.Product;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
@@ -61,7 +62,7 @@ public class ProductImpl extends BinaryOperatorImpl implements Product {
     }
 
     @Override
-    public Expression rewire(InfoMap infoMap) {
+    public Expression rewire(InfoMapView infoMap) {
         return new ProductImpl(comments(), source(), operator, precedence, lhs.rewire(infoMap), rhs.rewire(infoMap),
                 parameterizedType);
     }

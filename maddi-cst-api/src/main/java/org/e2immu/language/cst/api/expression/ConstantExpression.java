@@ -15,6 +15,7 @@
 package org.e2immu.language.cst.api.expression;
 
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 
 /**
  * A compile-time constant expression wrapping a value of type {@code T}. Implemented by the literal
@@ -39,7 +40,7 @@ public interface ConstantExpression<T> extends Expression {
      * Constants are self-contained, so rewiring returns the same instance.
      */
     @Override
-    default Expression rewire(InfoMap infoMap) {
+    default Expression rewire(InfoMapView infoMap) {
         return this;
     }
 }

@@ -17,6 +17,7 @@ package org.e2immu.language.cst.api.statement;
 import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.LocalVariable;
@@ -47,7 +48,7 @@ public interface TryStatement extends Statement {
          */
         boolean isFinal();
 
-        CatchClause rewire(InfoMap infoMap);
+        CatchClause rewire(InfoMapView infoMap);
 
         CatchClause translate(TranslationMap translationMap);
 

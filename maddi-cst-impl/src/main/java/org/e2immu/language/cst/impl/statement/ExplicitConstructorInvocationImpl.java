@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
@@ -211,7 +212,7 @@ public class ExplicitConstructorInvocationImpl extends StatementImpl implements 
     }
 
     @Override
-    public Statement rewire(InfoMap infoMap) {
+    public Statement rewire(InfoMapView infoMap) {
         return new ExplicitConstructorInvocationImpl(comments(), source(), rewireAnnotations(infoMap), label(), isSuper,
                 infoMap.methodInfo(methodInfo), synthetic,
                 parameterExpressions.stream().map(e -> e.rewire(infoMap)).toList());

@@ -23,6 +23,7 @@ import org.e2immu.language.cst.api.expression.InlineConditional;
 import org.e2immu.language.cst.api.expression.Negation;
 import org.e2immu.language.cst.api.expression.Precedence;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.runtime.Factory;
@@ -219,7 +220,7 @@ public class InlineConditionalImpl extends ExpressionImpl implements InlineCondi
     }
 
     @Override
-    public Expression rewire(InfoMap infoMap) {
+    public Expression rewire(InfoMapView infoMap) {
         return new InlineConditionalImpl(comments(), source(), condition.rewire(infoMap), ifTrue.rewire(infoMap),
                 ifFalse.rewire(infoMap), commonType.rewire(infoMap));
     }

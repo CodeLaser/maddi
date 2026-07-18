@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.statement.ContinueStatement;
@@ -88,7 +89,7 @@ public class ContinueStatementImpl extends BreakOrContinueStatementImpl implemen
     }
 
     @Override
-    public Statement rewire(InfoMap infoMap) {
+    public Statement rewire(InfoMapView infoMap) {
         return new ContinueStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(), goToLabel());
     }
 }

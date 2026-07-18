@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.statement.AssertStatement;
@@ -166,7 +167,7 @@ public class AssertStatementImpl extends StatementImpl implements AssertStatemen
     }
 
     @Override
-    public Statement rewire(InfoMap infoMap) {
+    public Statement rewire(InfoMapView infoMap) {
         return new AssertStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
                 expression.rewire(infoMap), message.rewire(infoMap));
     }

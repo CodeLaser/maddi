@@ -71,4 +71,38 @@ public class TestImmutableHiddenContent extends CommonTest {
         Value.Immutable pair = immutable(X.findSubType("Pair"));
         assertTrue(pair.isImmutableHC(), "type parameters are hidden content, have " + pair);
     }
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            class X {
+                static final class Mut {
+                    int i;
+                    void inc() { i++; }
+                }
+                // private, effectively final, never-modified, never-exposed field of a mutable type: that field
+                // is hidden content, not absence of content -> at most @Immutable(hc=true), never deeply
+                // immutable. The field is created here (not injected) to keep the type independent: injection
+                // would make the constructor dependent and cap the type at @FinalFields for a different reason.
+                static final class Holder {
+                    private final Mut mut = new Mut();
+                    int read() { return mut.i; }
+                }
+            }
+            """;
+
+    @DisplayName("a never-modified private field of a mutable type is hidden content, not deep immutability")
+    @Test
+    public void test2() {
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
+        List<Info> ao = prepWork(X);
+        analyzer.go(ao);
+
+        Value.Immutable mut = immutable(X.findSubType("Mut"));
+        assertTrue(mut.isMutable(), "inc() assigns the field, have " + mut);
+
+        Value.Immutable holder = immutable(X.findSubType("Holder"));
+        assertTrue(holder.isImmutableHC(), "the Mut field is hidden content, have " + holder);
+        assertFalse(holder.isImmutable(), "must not be promoted to deep immutability, have " + holder);
+    }
 }

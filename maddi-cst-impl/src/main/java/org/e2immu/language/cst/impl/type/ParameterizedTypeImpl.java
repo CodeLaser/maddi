@@ -17,6 +17,7 @@ package org.e2immu.language.cst.impl.type;
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
@@ -812,7 +813,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     }
 
     @Override
-    public ParameterizedType rewire(InfoMap infoMap, Map<TypeParameter, TypeParameter> rewiredTypeParameters) {
+    public ParameterizedType rewire(InfoMapView infoMap, Map<TypeParameter, TypeParameter> rewiredTypeParameters) {
         if (typeInfo != null) {
             TypeInfo rewired = infoMap.typeInfo(typeInfo);
             List<ParameterizedType> rewiredParameters = parameters.stream()

@@ -19,6 +19,7 @@ import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.translate.TranslationMap;
@@ -142,7 +143,7 @@ public class LocalVariableImpl extends VariableImpl implements LocalVariable {
     }
 
     @Override
-    public Variable rewire(InfoMap infoMap) {
+    public Variable rewire(InfoMapView infoMap) {
         return new LocalVariableImpl(name, parameterizedType().rewire(infoMap), assignmentExpression == null ? null
                 : assignmentExpression.rewire(infoMap));
     }

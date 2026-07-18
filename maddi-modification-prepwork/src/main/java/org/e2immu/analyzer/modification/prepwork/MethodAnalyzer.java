@@ -27,6 +27,7 @@ import org.e2immu.language.cst.api.element.RecordPattern;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -68,7 +69,7 @@ public class MethodAnalyzer {
 
         // wraps a VariableData, so it inherits its problem; see VariableDataImpl.rewire
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             throw new UnsupportedOperationException("NYI");
         }
 

@@ -263,7 +263,7 @@ public class ParameterInfoImpl implements ParameterInfo {
     }
 
     @Override
-    public Variable rewire(InfoMap infoMap) {
+    public Variable rewire(InfoMapView infoMap) {
         return infoMap.parameterInfo(this);
     }
 

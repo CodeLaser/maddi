@@ -19,6 +19,7 @@ import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.expression.util.OneVariable;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 
 import java.util.function.Predicate;
@@ -103,7 +104,7 @@ public interface Variable extends Comparable<Variable>, Element, OneVariable {
      * Returns a copy of this variable with all cross-references rewritten through {@code infoMap}.
      * Used during the rewiring phase when types and members are cloned.
      */
-    Variable rewire(InfoMap infoMap);
+    Variable rewire(InfoMapView infoMap);
 
     @Override
     default Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {

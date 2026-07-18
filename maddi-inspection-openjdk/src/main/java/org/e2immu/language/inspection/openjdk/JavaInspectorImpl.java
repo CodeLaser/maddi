@@ -68,6 +68,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private final Map<SourceFile, List<TypeInfo>> sourceFiles = new HashMap<>();
     private CompiledTypesManager compiledTypesManager;
     private InputConfiguration inputConfiguration; // kept for tests
+    private org.e2immu.language.cst.api.info.InfoMapView lastRewireInfoMap; // the last re-parse's rewire, read-only
     private final boolean computeFingerPrints;
     private final boolean allowCreationOfStubTypes;
     private final JavaCompiler javaCompiler;
@@ -276,6 +277,7 @@ public class JavaInspectorImpl implements JavaInspector {
                          ParseOptions parseOptions,
                          List<SourceSet> linearization,
                          Invalidated invalidated) {
+        this.lastRewireInfoMap = null; // reset: a parse with no rewiring exposes no map
         // snapshot: a RESCAN re-records sourceFiles for its own set as it goes
         Map<SourceSet, List<TypeInfo>> typesBySourceSet = typesBySourceSet();
         Set<TypeInfo> toRewire = new LinkedHashSet<>();
@@ -311,6 +313,8 @@ public class JavaInspectorImpl implements JavaInspector {
                 .collect(Collectors.toUnmodifiableSet());
         InfoMap infoMap = runtime.newInfoMap(toRewire, rebuilt);
         Set<TypeInfo> rewired = infoMap.rewireAll();
+        this.lastRewireInfoMap = infoMap; // expose the completed map (read-only view) for an outside-reload carry
+
         // every type it built, not just the primary ones: subtypes, and the anonymous/local/lambda types phase 3
         // rewires on demand. Registering only the primary types leaves the rest answering with stale objects.
         infoMap.rewiredTypes().forEach(compiledTypesManager::setRewiredType);
@@ -449,7 +453,24 @@ public class JavaInspectorImpl implements JavaInspector {
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                 javacTask, sourceSet, infoByFqn, true, diagnostics, preload, pni, jdkInternals,
                 computeFingerPrints, syntheticListField);
-        ScanCompilationUnits.Result scanned = scanCompilationUnits.scan();
+        ScanCompilationUnits.Result scanned;
+        try {
+            scanned = scanCompilationUnits.scan();
+        } catch (RuntimeException re) {
+            if (!lombok || !lombokFailure(re)) throw re;
+            // The Lombok processor itself crashed inside javac -- typically a corpus pins a lombok version too
+            // old for the embedded compiler (langchain4j's 1.18.30 reflects on TypeTag.UNKNOWN, gone in recent
+            // JDKs). Degrade to the pre-processor behavior: parse without Lombok; its generated members are then
+            // partially re-synthesized by the in-house support, as before the real-processor integration.
+            LOGGER.warn("Lombok processor failed for source set {}; retrying without Lombok. Cause: {}",
+                    sourceSet.name(), String.valueOf(re.getCause()));
+            diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
+            javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, false);
+            scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration, javacTask, sourceSet,
+                    infoByFqn, true, diagnostics, preload, pni, jdkInternals, computeFingerPrints,
+                    syntheticListField);
+            scanned = scanCompilationUnits.scan();
+        }
         this.lastScanUnits = scanCompilationUnits; // keep the live task for on-demand getOrLoad
 
         // copy from scanned into summary
@@ -692,12 +713,16 @@ public class JavaInspectorImpl implements JavaInspector {
             // "tree.starImportScope is null" during task.analyze(). maddi keys its CST by FQN strings, not javac
             // Names, so not sharing names across compilations is safe here.
             List<String> options = new ArrayList<>(List.of("-parameters", "-XDuseUnsharedTable=true"));
-            if (lombok) {
+            // The lombok flag is configuration-global (InputConfiguration.containsLombok()), but the processor can
+            // only run for a source set that actually has the lombok jar among its own dependencies: javac discovers
+            // -processor classes on this task's class path, and requesting a processor that is not there is a hard
+            // error that aborts ENTER (seen on timefold-solver, where lombok sits in a single module's test deps).
+            boolean lombokOnClassPath = lombok && sourceSet.dependencies().stream()
+                    .anyMatch(d -> d.externalLibrary() && d.name().startsWith("lombok-"));
+            if (lombokOnClassPath) {
                 // Run the real Lombok annotation processor inside javac: it mutates the AST (generating getters,
                 // setters, constructors, @Builder, loggers, ...) and the scanner then reads those members into the
                 // CST like hand-written code -- full fidelity, unlike the in-house parser's partial re-synthesis.
-                // The lombok-*.jar is on the compile classpath (that is how InputConfiguration.containsLombok()
-                // detected it), so javac finds the processor on the default (class-path) processor path.
                 options.add("-processor");
                 options.add("lombok.launch.AnnotationProcessorHider$AnnotationProcessor");
             } else {
@@ -712,6 +737,16 @@ public class JavaInspectorImpl implements JavaInspector {
             }
             return (JavacTask) javaCompiler.getTask(null, fm, diagnostics, options, null, allCompilationUnits);
         }
+    }
+
+    // does the cause chain point into Lombok's own code? (processor init/handler crash, not a source problem)
+    private static boolean lombokFailure(Throwable t) {
+        for (Throwable c = t; c != null; c = c.getCause() == c ? null : c.getCause()) {
+            for (StackTraceElement ste : c.getStackTrace()) {
+                if (ste.getClassName().startsWith("lombok.")) return true;
+            }
+        }
+        return false;
     }
 
     private static @NotNull Iterable<? extends JavaFileObject> computeCompilationUnits
@@ -819,6 +854,11 @@ public class JavaInspectorImpl implements JavaInspector {
     @Override
     public Set<SourceFile> sourceFiles() {
         return sourceFiles.keySet();
+    }
+
+    @Override
+    public org.e2immu.language.cst.api.info.InfoMapView lastRewireInfoMap() {
+        return lastRewireInfoMap;
     }
 
     /*

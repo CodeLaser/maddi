@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.output.element.Symbol;
@@ -241,7 +242,7 @@ public class GreaterThanZeroImpl extends ExpressionImpl implements GreaterThanZe
     }
 
     @Override
-    public Expression rewire(InfoMap infoMap) {
+    public Expression rewire(InfoMapView infoMap) {
         return new GreaterThanZeroImpl(comments(), source(), booleanPt, expression.rewire(infoMap), allowEquals);
     }
 }

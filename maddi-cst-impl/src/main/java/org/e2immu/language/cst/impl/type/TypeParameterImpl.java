@@ -83,11 +83,11 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
     }
 
     @Override
-    public TypeParameter rewire(InfoMap infoMap) {
+    public TypeParameter rewire(InfoMapView infoMap) {
         return rewire(infoMap, new HashMap<>());
     }
 
-    public TypeParameter rewire(InfoMap infoMap, Map<TypeParameter, TypeParameter> done) {
+    public TypeParameter rewire(InfoMapView infoMap, Map<TypeParameter, TypeParameter> done) {
         Either<TypeInfo, MethodInfo> rewiredOwner = owner.isLeft()
                 ? Either.left(infoMap.typeInfo(owner.getLeft()))
                 : Either.right(infoMap.methodInfo(owner.getRight()));

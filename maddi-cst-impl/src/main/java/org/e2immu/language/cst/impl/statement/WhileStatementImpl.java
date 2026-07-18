@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.statement.Block;
@@ -165,7 +166,7 @@ public class WhileStatementImpl extends StatementImpl implements WhileStatement 
     }
 
     @Override
-    public Statement rewire(InfoMap infoMap) {
+    public Statement rewire(InfoMapView infoMap) {
         return new WhileStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
                 expression.rewire(infoMap), block.rewire(infoMap));
     }

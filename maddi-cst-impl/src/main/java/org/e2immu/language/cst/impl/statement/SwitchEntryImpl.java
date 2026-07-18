@@ -17,6 +17,7 @@ package org.e2immu.language.cst.impl.statement;
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.statement.Block;
@@ -155,7 +156,7 @@ public class SwitchEntryImpl implements SwitchEntry {
     }
 
     @Override
-    public SwitchEntry rewire(InfoMap infoMap) {
+    public SwitchEntry rewire(InfoMapView infoMap) {
         return new SwitchEntryImpl(comments, source,
                 conditions.stream().map(e -> e.rewire(infoMap)).toList(),
                 patternVariable == null ? null : (RecordPattern) patternVariable.rewire(infoMap),

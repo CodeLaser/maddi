@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.statement.Block;
@@ -111,7 +112,7 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
         }
 
         @Override
-        public CatchClause rewire(InfoMap infoMap) {
+        public CatchClause rewire(InfoMapView infoMap) {
             return new CatchClauseImpl(comments, source,
                     annotations.stream().map(ae -> (AnnotationExpression) ae.rewire(infoMap)).toList(),
                     exceptionTypes.stream().map(et -> et.rewire(infoMap)).toList(),
@@ -453,7 +454,7 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
     }
 
     @Override
-    public Statement rewire(InfoMap infoMap) {
+    public Statement rewire(InfoMapView infoMap) {
         return new TryStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
                 resources.stream().map(s -> s.rewire(infoMap)).toList(),
                 block.rewire(infoMap),

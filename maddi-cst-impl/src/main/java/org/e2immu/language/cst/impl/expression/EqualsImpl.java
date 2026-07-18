@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.expression.Equals;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.Precedence;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
@@ -58,7 +59,7 @@ public class EqualsImpl extends BinaryOperatorImpl implements Equals {
     }
 
     @Override
-    public Expression rewire(InfoMap infoMap) {
+    public Expression rewire(InfoMapView infoMap) {
         return new EqualsImpl(comments(), source(), operator, precedence, lhs.rewire(infoMap), rhs.rewire(infoMap),
                 parameterizedType);
     }

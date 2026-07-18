@@ -116,7 +116,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             return this; // an int
         }
     }
@@ -145,7 +145,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             return this; // a string
         }
     }
@@ -170,7 +170,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             return this; // a string
         }
     }
@@ -203,7 +203,7 @@ public abstract class ValueImpl implements Value {
         Not implemented rather than silently wrong: see the note on Value.rewire.
          */
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             throw new UnsupportedOperationException("NYI");
         }
     }
@@ -229,7 +229,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             return this; // three strings
         }
     }
@@ -358,7 +358,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             return this; // an int
         }
     }
@@ -584,7 +584,7 @@ public abstract class ValueImpl implements Value {
         source type. Empty is the overwhelmingly common case, and returning this keeps the singletons intact.
          */
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             if (dependentExceptions.isEmpty()) return this;
             return new IndependentImpl(value, linkToParametersReturnValue,
                     dependentExceptions.stream().map(infoMap::methodInfo).toList());
@@ -658,7 +658,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             return new GetSetValueImpl(infoMap.fieldInfo(field), setter, parameterIndexOfIndex, list);
         }
     }
@@ -704,7 +704,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             return new FieldBooleanMapImpl(map.entrySet().stream().collect(Collectors.toUnmodifiableMap(
                     e -> infoMap.fieldInfo(e.getKey()), Map.Entry::getValue)));
         }
@@ -759,7 +759,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             return new VariableBooleanMapImpl(map.entrySet().stream().collect(Collectors.toUnmodifiableMap(
                     e -> e.getKey().rewire(infoMap), Map.Entry::getValue)));
         }
@@ -793,7 +793,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             return new AssignedToFieldImpl(fields.stream().map(infoMap::fieldInfo)
                     .collect(Collectors.toUnmodifiableSet()));
         }
@@ -826,7 +826,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             return new PostConditionsImpl(byIndex.entrySet().stream().collect(Collectors
                     .toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().rewire(infoMap))));
         }
@@ -856,7 +856,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             return new PreconditionImpl(expression.rewire(infoMap));
         }
     }
@@ -883,7 +883,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             return this; // statement indices, i.e. strings
         }
     }
@@ -916,7 +916,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             return new GetSetEquivalentImpl(convertToGetSet.stream().map(infoMap::parameterInfo)
                     .collect(Collectors.toUnmodifiableSet()), infoMap.methodInfo(methodWithoutParameters));
         }
@@ -985,7 +985,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             return this; // an int
         }
     }
@@ -1018,7 +1018,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public Value rewire(InfoMap infoMap) {
+        public Value rewire(InfoMapView infoMap) {
             return this; // strings
         }
     }
@@ -1065,9 +1065,16 @@ public abstract class ValueImpl implements Value {
             return new SetOfInfoImpl(set);
         }
 
+        // carryOnRewire (e.g. PART_OF_CONSTRUCTION): re-point each Info through the infoMap, dispatching by kind.
         @Override
-        public Value rewire(InfoMap infoMap) {
-            throw new UnsupportedOperationException("NYI");
+        public Value rewire(InfoMapView infoMap) {
+            return new SetOfInfoImpl(infoSet.stream().<Info>map(i -> switch (i) {
+                case TypeInfo t -> infoMap.typeInfo(t);
+                case MethodInfo m -> infoMap.methodInfo(m);
+                case FieldInfo f -> infoMap.fieldInfo(f);
+                case ParameterInfo p -> infoMap.parameterInfo(p);
+                default -> throw new UnsupportedOperationException();
+            }).collect(Collectors.toUnmodifiableSet()));
         }
     }
 
@@ -1126,9 +1133,13 @@ public abstract class ValueImpl implements Value {
             return true;
         }
 
+        // carryOnRewire (DOWNCAST_PARAMETER): re-point each variable key and each TypeInfo value through the infoMap.
         @Override
-        public Value rewire(InfoMap infoMap) {
-            throw new UnsupportedOperationException("NYI");
+        public Value rewire(InfoMapView infoMap) {
+            Map<Variable, Set<TypeInfo>> rewired = new HashMap<>();
+            variableToTypeInfoSet.forEach((v, ts) -> rewired.put(v.rewire(infoMap),
+                    ts.stream().map(infoMap::typeInfo).collect(Collectors.toUnmodifiableSet())));
+            return new VariableToTypeInfoSetImpl(Map.copyOf(rewired));
         }
     }
 
@@ -1164,9 +1175,11 @@ public abstract class ValueImpl implements Value {
             return typeInfoSet.stream().map(Object::toString).sorted().collect(Collectors.joining(", "));
         }
 
+        // carryOnRewire: re-point each TypeInfo through the infoMap.
         @Override
-        public Value rewire(InfoMap infoMap) {
-            throw new UnsupportedOperationException("NYI");
+        public Value rewire(InfoMapView infoMap) {
+            return new SetOfTypeInfoImpl(typeInfoSet.stream().map(infoMap::typeInfo)
+                    .collect(Collectors.toUnmodifiableSet()));
         }
 
         @Override
@@ -1241,9 +1254,12 @@ public abstract class ValueImpl implements Value {
             return !present;
         }
 
+        // carryOnRewire (IMPLEMENTATIONS): re-point each implementation method through the infoMap. Needed to carry
+        // a stable type's analysis across a rewire; see analysis-rewiring.md.
         @Override
-        public Value rewire(InfoMap infoMap) {
-            throw new UnsupportedOperationException("NYI");
+        public Value rewire(InfoMapView infoMap) {
+            return new SetOfMethodInfoImpl(methodInfoSet.stream()
+                    .map(infoMap::methodInfo).collect(Collectors.toCollection(HashSet::new)));
         }
     }
 

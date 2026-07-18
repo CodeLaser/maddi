@@ -23,6 +23,7 @@ import org.e2immu.analyzer.modification.common.AnalyzerException;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
+import org.e2immu.analyzer.modification.prepwork.io.AnalysisFingerprint;
 import org.e2immu.analyzer.run.rewire.RunRewireTests;
 import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
 import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
@@ -129,20 +130,7 @@ public class RunAnalyzer implements Runnable {
 
         List<String> analysisSteps = configuration.generalConfiguration().analysisSteps();
         boolean modification = analysisSteps.contains(Main.AS_MODIFICATION);
-        if (modification) {
-            SourceSet sourceSetOfRequest = javaInspector.mainSources();
-            if (sourceSetOfRequest == null) {
-                sourceSetOfRequest = inputConfiguration.sourceSets().stream().findAny().orElse(null);
-                LOGGER.info("Cannot find a 'main' source set, default to {}", sourceSetOfRequest);
-            }
-            // use case 1: load pre-analyzed analysis-hints (analysis results) results for library types, so their
-            // annotations are available to the modification analysis
-            List<String> preloadAnalysisResultsDirs = ac == null ? List.of() : ac.preloadAnalysisResultsDirs();
-            if (!preloadAnalysisResultsDirs.isEmpty()) {
-                LOGGER.info("Loading analyzed analysis hints from {}", preloadAnalysisResultsDirs);
-                new LoadAnalysisResults(javaInspector.runtime(), sourceSetOfRequest).go(preloadAnalysisResultsDirs);
-            }
-        } else {
+        if (!modification) {
             LOGGER.info("Skip loading analyzed package files, modification analysis disabled.");
         }
 
@@ -174,6 +162,23 @@ public class RunAnalyzer implements Runnable {
                 .flatMap(TypeInfo::recursiveSubTypeStream)
                 .noneMatch(ti -> ti.simpleName().endsWith("$"))
                 : "It looks like the analysis hints types are part of the primary types of the parse result";
+
+        if (modification) {
+            // use case 1: load pre-analyzed analysis-hints (analysis results) for library types, so their
+            // annotations are available to the modification analysis. AFTER the parse: only then has the
+            // compiled-types manager been populated — loading earlier resolved 0 of the hint types
+            // ("module not on the classpath" for java.lang.Object; semantic audit 2026-07-18, task #29).
+            List<String> preloadAnalysisResultsDirs = ac == null ? List.of() : ac.preloadAnalysisResultsDirs();
+            if (!preloadAnalysisResultsDirs.isEmpty()) {
+                SourceSet sourceSetOfRequest = javaInspector.mainSources();
+                if (sourceSetOfRequest == null) {
+                    sourceSetOfRequest = inputConfiguration.sourceSets().stream().findAny().orElse(null);
+                    LOGGER.info("Cannot find a 'main' source set, default to {}", sourceSetOfRequest);
+                }
+                LOGGER.info("Loading analyzed analysis hints from {}", preloadAnalysisResultsDirs);
+                new LoadAnalysisResults(javaInspector.runtime(), sourceSetOfRequest).go(preloadAnalysisResultsDirs);
+            }
+        }
 
         boolean printMemory = configuration.generalConfiguration().debugTargets().contains("memory");
         if (printMemory) {
@@ -212,10 +217,9 @@ public class RunAnalyzer implements Runnable {
                             cause.getClass().getName(), cause.getMessage());
                 }
                 exitValue = Main.EXIT_ANALYSER_ERROR;
-                if (modification) {
-                    LOGGER.error("Skipping modification analysis: prep analysis had errors.");
-                    return;
-                }
+                // do NOT skip modification: the offending types were isolated by prep itself, and a handful
+                // of isolated types must not deny analysis to a corpus (elasticsearch: 4 of 43k). The exit
+                // code still reports the errors.
             }
 
             if (printMemory) {
@@ -256,6 +260,10 @@ public class RunAnalyzer implements Runnable {
                 return;
             }
             analysisMessages.addAll(analyzer.messages());
+            // analysisFingerprint: store each source set's rollup for incremental early-cutoff (analysis-rewiring.md)
+            int fpSets = AnalysisFingerprint.storePerSourceSet(javaInspector.runtime(),
+                    summary.parseResult().primaryTypes()).size();
+            LOGGER.info("Stored analysis fingerprints for {} source set(s)", fpSets);
             if (analysisMessages.stream().anyMatch(m -> m.level().isError())) {
                 exitValue = Main.EXIT_ANALYSER_ERROR;
             }

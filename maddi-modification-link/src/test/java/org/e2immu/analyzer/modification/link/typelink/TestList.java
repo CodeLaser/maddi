@@ -86,7 +86,7 @@ public class TestList extends CommonTest {
     }
 
 
-    @DisplayName("shallow get/multiplicity 1 instead of 2")
+    @DisplayName("shallow get, multiplicity")
     @Test
     public void testShallow1() {
         TypeInfo X = javaInspector.parse("a.b.X", INPUT1);

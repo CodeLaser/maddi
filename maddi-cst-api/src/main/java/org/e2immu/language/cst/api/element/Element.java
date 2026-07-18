@@ -21,6 +21,7 @@ import org.e2immu.annotation.rare.IgnoreModifications;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
@@ -57,9 +58,9 @@ public interface Element {
     @NotNull
     List<Comment> comments();
 
-    Element rewire(InfoMap infoMap);
+    Element rewire(InfoMapView infoMap);
 
-    default List<Comment> rewireComments(InfoMap infoMap) {
+    default List<Comment> rewireComments(InfoMapView infoMap) {
         return comments().stream().map(c -> c.rewire(infoMap)).toList();
     }
 
