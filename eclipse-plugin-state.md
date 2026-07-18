@@ -156,6 +156,9 @@ No `TODO`/`FIXME` markers anywhere — the gaps are structural, not annotated.
 Minor: `MaddiPreferenceInitializer`'s javadoc says "only the daemon heap has one" but it seeds three
 defaults (stale comment).
 
+*All display surfaces have since been verified live, in a running workbench and a running IDEA (2026-07-18):
+inline/above hints, gutter markers, the findings view, and the guard-violation underline.*
+
 *Resolved since this survey:*
 - *the test bundle ran on JUnit 4 while the rest of the repo is on Jupiter — migrated to JUnit 5;*
 - *`--warn-near-misses` was unreachable from either IDE (the daemon's port of `RunAnalyzer` had dropped
