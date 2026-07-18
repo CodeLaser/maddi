@@ -190,7 +190,7 @@ class WriteLinksAndModification {
                 VariableTranslationMap vtm = new VariableTranslationMap(runtime);
                 vtm.put(toFollow, variable);
                 Link translated = link.translateFrom(vtm);
-                builder2.add(translated.from(), translated.linkNature(), translated.to());
+                builder2.add(translated.from(), translated.linkNature(), translated.to(), translated.mediated());
             });
         } else {
             builder2 = builder1;
@@ -216,7 +216,10 @@ class WriteLinksAndModification {
                         //     part of the container; drop the expansion when that does not hold.
                         if (!isInternalSelfFieldLink(from, to)
                             && !isInvalidFieldContainment(from, link.linkNature(), to)) {
-                            builder.add(from, link.linkNature(), to);
+                            // mediation provenance: the flag is erased inside the engine/collapse; recover it
+                            // from the graph's direct-pair registry at this final emission point (task #39)
+                            builder.add(from, link.linkNature(), to,
+                                    link.mediated() || followGraph.graph().isMediatedPair(from, to));
                         }
                     }));
         }
@@ -232,7 +235,8 @@ class WriteLinksAndModification {
                                 // builder, do not also add the reconstructed 's.k ← s.r.j'
                                 && !builder.contains(link.to(), link.linkNature().reverse(), link.from()))
                 .forEach(link -> {
-                    builder.add(link.from(), link.linkNature(), link.to());
+                    builder.add(link.from(), link.linkNature(), link.to(),
+                            link.mediated() || followGraph.graph().isMediatedPair(link.from(), link.to()));
                     // a real assignment graph edge gets its §m modification-equivalence generated in FollowGraph;
                     // a reconstructed intra-group edge bypasses it, so add it here too (this.list ← 0:l yields
                     // 0:l.§m ≡ this.list.§m). Same guards as FollowGraph: skip return values and virtual fields.

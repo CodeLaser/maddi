@@ -18,11 +18,37 @@
 - Profiling rounds 1-3 done: -26% CPU (dedup keys ran the CST printer), -37% allocations (eager
   debug args, getenv-per-lookup, scopeVariables), lock-clean. ASPROF env gate in run-openjdk.
 - javac parse flake root-caused and fixed (concurrent lazy getOrLoad into the live JavacTask +
-  plain-HashMap registry); watch for recurrence.
-- Elasticsearch first contact IN PROGRESS: config via compile-log pipeline (server closure,
-  27 source sets after scoping); 5 scanner bugs fixed en route; prep isolated 4 known types out of
-  43k; modification analysis proceeds past isolated prep errors since today. Long-tail grind
-  observed (one method ~30 min in the closure) → per-method ceiling needed (below).
+  plain-HashMap registry). The 2026-07-18 18:41 recurrence was REDIAGNOSED same day: overlapping
+  suite timestamps prove 3-4 fork JVMs failed SIMULTANEOUSLY — not in-JVM corruption but a
+  CROSS-PROCESS race: a second gradle invocation in the same repo recompiling (locally modified)
+  sources and rewriting class files/jars while live test forks read them. Explains the
+  starImportScope NPEs (javac on half-written classpath entries), the garbled XML filename (JUnit
+  discovery on a half-written class file), and the morning maddi-graph unreadable-jar race.
+  PROTOCOL: do not run gradle in ~/git/maddi from two threads concurrently (task #40). CAUGHT
+  RED-HANDED 21:39:08 same day: soak run 3 (of 3; runs 1-2 quiet + 0 flakes) had 4 classpath jars
+  (cst-impl, graph, util, inspection-openjdk) rewritten by a sibling process mid-run — the failing
+  suite's XML timestamp matches the jar mtimes to the second, and the garbled discovery filename
+  reappeared. Mechanical fix: bin/gradle-locked.sh (stale-proof lock in build/), MANDATORY per
+  CLAUDE.md. In-JVM
+  leads (owner-thread assertion, one-lock-per-JavacTask) stay relevant for analyzer-PARALLEL
+  corpus runs only. SECOND ROOT CAUSE FOUND 2026-07-18 (lead from the flakiness thread, confirmed
+  + fixed here): createTask returned the JavacTask from INSIDE try-with-resources on its
+  StandardJavaFileManager — every parse/analyze/lazy-load ran against a CLOSED file manager.
+  Use-after-close: mostly self-healing (closed containers lazily re-created) but intermittently
+  corrupting mid-read — the historical low-victim-count flakes that no locking could cure. Fix:
+  fm outlives the task (openFileManagers, closed in invalidateAllSources). Plus an assert that
+  -XDuseUnsharedTable is HONORED (Names.table is not SharedNameTable), ScanCompilationUnits.
+- Elasticsearch first contact COMPLETED 2026-07-18 (attempt 11, 5h29m, 24G heap, work ceiling
+  active): **239,732 elements** — 152,210 methods (101,822 nonModifying / 48,537 modifying /
+  1,851 null = 99% decided), 41,717 fields (28,581/12,571/565), 45,805 types. Types:
+  **23,206 null (51%)** / 18,474 @Mutable / 1,368 @FF / 1,967 @ImmHC / 790 @Imm — the camel-api
+  null pattern AT SCALE (abstract/external supers without hints under the current breaking
+  strategy). Journey: 7 attempts — config pipeline (extra-jmod, native dual -d bug, MRJAR
+  overlays, build-tooling scoping), 5 scanner bugs fixed, prep isolation (4 types), 8G OOM,
+  96-min uncapped straggler (per-pop ceiling missed it), edge-visit ceiling → completion.
+  Dump preserved: build/imm-elasticsearch-2026-07-18.txt.gz. Sweep exit non-zero (isolated prep
+  errors reported) — bar for GREEN needs #33 fixed. The 5h29m runtime is the checkpoint
+  argument (#34) in numbers; the 51% type-null cluster is the breaking-strategy work item.
 
 ## OPEN ITEMS
 
@@ -87,7 +113,27 @@ session tasks #36-#39):
   which mediation deliberately decouples. Slice reverted (jfocus baseline restored, 176/1-known).
   Correct sequence: (1) engine adds mediation provenance to assignment-tier links (nature variant or
   flag; sticky through composition), (2) then de-duplicate CommonAnalyze consuming unmediated ←
-  only. Maddi-internal same-disease siblings unaffected and still valid: WLAM's five mirror blocks,
+  only. STEP 1 DONE 2026-07-18: Link.mediated() flag (LinkImpl 4th component, EXCLUDED from
+  equals/hashCode/toString — provenance, not identity) + a direct-pair registry on Graph
+  (mediatedPairs, populated at simpleAddToGraph from the produced link, pruned on clear/remove)
+  consulted at WLAM's two final emission points; the flag ALSO flows through LinkImpl
+  translate/translateFrom and the Builder 4-arg add. Design finding: the pattern-binding '→' never
+  enters the SharedVariables collapse (collapse fires on ← only) — the stored ii←0:o comes from the
+  ENGINE's symmetric edge via FollowGraph, whose facts carry no flag; hence the out-of-band pair
+  registry covering BOTH paths, not an Assignment-record thread. Pinned in TestMediatedLinks
+  (enabled, green). (b) cast-mediated assignments DONE same day: both assignment producers
+  (ExpressionVisitor.assignment, handleSingleLvc initializer) flag mediated when the RHS primary is
+  in Result.casts — the cast itself is link-transparent, so provenance comes from the side-record;
+  covers the COLLAPSE path too (the ← does enter SharedVariables, and the registry recovers it);
+  pinned in TestMediatedLinks.testCast + testPlain negative control. Residual: an EXPRESSION cast
+  ('x = (II) o.bar()') records no cast side-band (addCast fires for variable operands only) — same
+  variable-based scope as jfocus's own casts join. (c) codec persistence DONE same day: optional
+  4th element on the [from, nature, to] wire format, appended only when mediated — unmediated
+  output byte-identical, old 3-element files decode unmediated; single decoder funnel
+  (MethodLinkedVariablesImpl.decodeLink); pinned in TestWriteAnalysisMediated. REMAINING for
+  step 2 readiness: (a) chain-transitive taint (a link composed ACROSS a mediated hop is still
+  emitted unmediated — the reconstruction's reachable() chains and the closure's compositions).
+  Maddi-internal same-disease siblings unaffected and still valid: WLAM's five mirror blocks,
   iterateOverShared vs expandRepToMembers (==/.equals divergence),
   ShallowMethodLinkComputer.correspondingTypeParameters vs hiddenContentHierarchy.
 
