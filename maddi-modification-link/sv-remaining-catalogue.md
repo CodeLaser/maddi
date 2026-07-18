@@ -4,6 +4,42 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## CURRENT STATE 2026-07-18 + NEXT ACTIONS (semantic-audit follow-up)
+
+State: branch sv-integration @ 7d255f00, clean, suites green (link 393/0, analyzer 143/0).
+Proving ground: timefold/langchain4j/fernflower/guava/activemq/jenkins-core + 8 camel-core
+modules, all certified & crash-free on defaults (worklist ON, PARALLEL ON min(8,cores-2),
+TestCorpusSweep gate SWEEP=name for the rest). Semantic audit done:
+**semantic-audit-2026-07-18.md** (modification 86/11.5/2; immutability structurally blocked).
+
+NEXT ACTIONS (in order):
+1. **Task #28 — Outer.this modification propagation (UNSOUND).** Repro: guava
+   CompactHashMap.EntrySetView.remove → CompactHashMap.this.removeHelper (modifying) but
+   view method stays nonModifying=true. Plan: failing suite test first (inner class calls
+   Outer.this.modifyingMethod()); then trace where receiver-modification → caller
+   nonModifying attribution loses the qualified-outer This (likely
+   copyModificationsIntoMethod / the modified-set → NON_MODIFYING_METHOD decision treating
+   only the inner 'this'; the outer This IS reachable via the synthetic outer field).
+2. **Task #29 — analysis-hints preload resolves 0/249 types.** Trace:
+   RunAnalyzer passes sourceSetOfRequest = javaInspector.mainSources(); PrepWorkCodec
+   typeProvider = runtime.getFullyQualified(fqn, false, sourceSetOfRequest) returns null
+   even for java.lang.Object although jmod:java.base is scanned. Read
+   inspection-openjdk RuntimeWithCompiledTypesManager.getFullyQualified:53 (and the
+   integration variant) — likely sourceSet-dependency visibility filtering or a
+   typesLoaded-population gap. Fix, verify: fernflower run with
+   --preload-analysis-results-dirs .../analyzedPackageFiles/jdk must (a) log 0 skipped,
+   (b) move the immutability distribution (Object=@ImmutableHC, String=@Immutable attach).
+3. **Cycle-breaking activation (TODO in IteratingAnalyzerImpl.analyze).** After #29, many
+   nulls resolve via hints; for the rest: activate cycle breaking for one extra round when
+   the worklist is quiet but undecided types remain, BEFORE certification. A/B with FPDUMP
+   equivalence on fernflower+timefold; verdicts may legitimately move (new positive
+   immutability) — re-pin baselines then.
+4. Re-measure immutability distributions on all corpora + re-run the audit's immutability
+   leg (UnsignedInteger etc. must conclude).
+Also parked: aliased-static-singleton unsoundness (DUMMY; ties to tier-3 canonicalization);
+constructor non-confluence (parallel side violates 'non-trivial ctors are modifying');
+doc note on unmodifiedField = content-only.
+
 ## UPDATE 2026-07-18 — SEMANTIC VERIFICATION ROUND: see semantic-audit-2026-07-18.md
 
 96-element stratified sample over 4 corpora, judged against the road-to-immutability spec:
