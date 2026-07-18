@@ -46,10 +46,28 @@ public final class AnalysisModel {
 
     // ---- result ----
 
+    /**
+     * A located finding. {@code severity} is only ERROR or WARN; {@code category} is the analyzer's
+     * free-form kebab-case discriminator ({@code contract-violation}, {@code near-miss-container},
+     * {@code parse}, …) and is what tells apart findings that share a severity — see {@link #isNearMiss}.
+     */
     public record Finding(String uri,
                           Integer beginLine, Integer beginCol, Integer endLine, Integer endCol,
                           String severity, String category, String message,
                           List<Finding> causes) {
+    }
+
+    /** Category prefix of the analyzer's advisory near-miss warnings ({@code near-miss-container}, …). */
+    public static final String NEAR_MISS_PREFIX = "near-miss-";
+
+    /**
+     * Is this an advisory near-miss ("one member away from @Container") rather than a defect? These arrive
+     * as WARN, like other warnings, so only the category separates them; front-ends render them at their
+     * platform's weakest level so a suggestion never looks like a problem.
+     */
+    public static boolean isNearMiss(Finding finding) {
+        return finding != null && finding.category() != null
+               && finding.category().startsWith(NEAR_MISS_PREFIX);
     }
 
     /** One rendered annotation with polarity (POSITIVE/NEGATIVE/NEUTRAL) and context-default-ness. */

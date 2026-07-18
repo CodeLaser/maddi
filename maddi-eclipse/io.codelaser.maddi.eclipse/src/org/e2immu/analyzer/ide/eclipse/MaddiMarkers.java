@@ -27,8 +27,9 @@ import java.util.List;
 /**
  * Turns a maddi result into editor markers, two flavours:
  * <ul>
- *   <li><b>Contract violations</b> ({@link #VIOLATION_TYPE}, a problem marker) — the guard findings; these
- *       show in the Problems view and on the editor ruler, with the why-chain in the message.</li>
+ *   <li><b>Findings</b> ({@link #VIOLATION_TYPE}, a problem marker) — guard contract violations (Error) and
+ *       advisory near misses (Info); these show in the Problems view and on the editor ruler, with the
+ *       why-chain in the message.</li>
  *   <li><b>Analysis hints</b> ({@link #HINT_TYPE}, a plain text marker) — the computed annotations
  *       ({@code @Container}, {@code @NotModified}, …) on each declaration; these show as a gutter icon +
  *       hover in the editor (mapped to an annotation type in plugin.xml) and stay OUT of the Problems view,
@@ -81,7 +82,7 @@ public final class MaddiMarkers {
 
     private static void createViolation(IFile file, AnalysisModel.Finding finding) throws CoreException {
         IMarker marker = file.createMarker(VIOLATION_TYPE);
-        marker.setAttribute(IMarker.SEVERITY, severity(finding.severity()));
+        marker.setAttribute(IMarker.SEVERITY, severity(finding));
         marker.setAttribute(IMarker.MESSAGE, message(finding));
         if (finding.beginLine() != null) marker.setAttribute(IMarker.LINE_NUMBER, finding.beginLine());
     }
@@ -93,8 +94,14 @@ public final class MaddiMarkers {
         if (element.beginLine() != null) marker.setAttribute(IMarker.LINE_NUMBER, element.beginLine());
     }
 
-    private static int severity(String severity) {
-        return "ERROR".equals(severity) ? IMarker.SEVERITY_ERROR : IMarker.SEVERITY_WARNING;
+    /**
+     * Near misses are advisory — a suggestion to consider an annotation, not a defect — so they show as
+     * Info; everything else follows the finding's own severity. They stay in the Problems view (unlike the
+     * hint markers), since they are things to act on, just not problems.
+     */
+    private static int severity(AnalysisModel.Finding finding) {
+        if (AnalysisModel.isNearMiss(finding)) return IMarker.SEVERITY_INFO;
+        return "ERROR".equals(finding.severity()) ? IMarker.SEVERITY_ERROR : IMarker.SEVERITY_WARNING;
     }
 
     /** Message with a compact why-chain appended, one cause per line for readable tooltips. */
