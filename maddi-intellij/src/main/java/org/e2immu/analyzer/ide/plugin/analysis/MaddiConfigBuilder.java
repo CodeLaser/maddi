@@ -44,10 +44,11 @@ public final class MaddiConfigBuilder {
             "java.desktop", "java.management", "java.net.http", "java.compiler");
 
     /**
-     * @param jdkHome home of the maddi JDK (25+); becomes both the run JDK and the analysis SDK — NOT the
-     *                project SDK, which may target an older release maddi cannot read java.base from.
+     * @param jdkHome        home of the maddi JDK (25+); becomes both the run JDK and the analysis SDK — NOT the
+     *                       project SDK, which may target an older release maddi cannot read java.base from.
+     * @param warnNearMisses ask the analyzer for advisory near-miss warnings (opt-in; noisy by nature)
      */
-    public AnalysisModel.AnalyzeConfig build(Project project, String jdkHome) {
+    public AnalysisModel.AnalyzeConfig build(Project project, String jdkHome, boolean warnNearMisses) {
         List<AnalysisModel.SourceRoot> sources = new ArrayList<>();
         // path -> scope, deduplicated and order-preserving
         Map<String, String> classpath = new LinkedHashMap<>();
@@ -85,7 +86,8 @@ public final class MaddiConfigBuilder {
                 sources,
                 classpathEntries,
                 List.of(),
-                true);
+                true,
+                warnNearMisses);
     }
 
     /** A library root VirtualFile inside a jar reports {@code /abs/foo.jar!/}; strip to the real jar path. */

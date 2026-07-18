@@ -47,11 +47,13 @@ public final class MaddiEclipseConfigBuilder {
     private static final String JRE_CONTAINER = "org.eclipse.jdt.launching.JRE_CONTAINER";
 
     /**
-     * @param javaProject the JDT project to analyze
-     * @param jdkHome     home of the maddi JDK (25+); the analysis SDK AND the daemon's run JDK — NOT the
-     *                    project's JRE, which may target an older release maddi cannot read java.base from
+     * @param javaProject    the JDT project to analyze
+     * @param jdkHome        home of the maddi JDK (25+); the analysis SDK AND the daemon's run JDK — NOT the
+     *                       project's JRE, which may target an older release maddi cannot read java.base from
+     * @param warnNearMisses ask the analyzer for advisory near-miss warnings (opt-in; noisy by nature)
      */
-    public AnalysisModel.AnalyzeConfig build(IJavaProject javaProject, String jdkHome) throws CoreException {
+    public AnalysisModel.AnalyzeConfig build(IJavaProject javaProject, String jdkHome, boolean warnNearMisses)
+            throws CoreException {
         IProject project = javaProject.getProject();
 
         List<AnalysisModel.SourceRoot> sources = new ArrayList<>();
@@ -77,7 +79,8 @@ public final class MaddiEclipseConfigBuilder {
                 sources,
                 classpathEntries,
                 List.of(),
-                true);
+                true,
+                warnNearMisses);
     }
 
     private void addEntry(IJavaProject javaProject, IClasspathEntry entry, String defaultOutput,

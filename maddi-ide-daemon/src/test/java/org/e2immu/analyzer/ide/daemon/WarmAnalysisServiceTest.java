@@ -85,6 +85,48 @@ public class WarmAnalysisServiceTest {
         assertTrue(notModified.contextDefault());
     }
 
+    /**
+     * A class one modifying parameter short of {@code @Container}: seven read-only slots and one that appends.
+     * Mirrors the analyzer's own {@code TestNearMissContainer} surface, but driven through the daemon's
+     * {@code AnalyzeConfig}, so it proves the flag reaches {@code IteratingAnalyzer.Configuration}.
+     */
+    private static final String NEAR_MISS_SURFACE = """
+            package x;
+            public class Surface {
+                public int read0(StringBuilder sb) { return sb.length(); }
+                public int read1(StringBuilder sb) { return sb.length(); }
+                public int read2(StringBuilder sb) { return sb.length(); }
+                public int read3(StringBuilder sb) { return sb.length(); }
+                public int read4(StringBuilder sb) { return sb.length(); }
+                public int read5(StringBuilder sb) { return sb.length(); }
+                public int read6(StringBuilder sb) { return sb.length(); }
+                public void bang(StringBuilder sb) { sb.append('!'); } // the only modifier: blocks @Container
+            }
+            """;
+
+    @Test
+    public void nearMissesAreOffByDefault(@TempDir Path projectDir) throws Exception {
+        DaemonProtocol.Result r = analyze(projectDir, "x/Surface.java", NEAR_MISS_SURFACE);
+        assertEquals(0, r.parseErrorCount(), "unexpected parse errors");
+        assertTrue(finding(r, "near-miss-container").isEmpty(),
+                "near-miss warnings must be opt-in, as they are on the CLI");
+    }
+
+    @Test
+    public void nearMissIsReportedWhenRequested(@TempDir Path projectDir) throws Exception {
+        DaemonProtocol.Result r = analyze(projectDir, "x/Surface.java", NEAR_MISS_SURFACE, true);
+        assertEquals(0, r.parseErrorCount(), "unexpected parse errors");
+
+        DaemonProtocol.Finding nearMiss = finding(r, "near-miss-container").orElse(null);
+        assertTrue(nearMiss != null, "expected a near-miss-container finding once the flag is set");
+        assertEquals("WARN", nearMiss.severity(), "near misses are advisory, never errors");
+        assertTrue(nearMiss.uri() != null && nearMiss.beginLine() != null, "near miss should be located");
+        assertTrue(nearMiss.message().contains("@Container"), nearMiss.message());
+        // the why-chain names the statement that blocks the annotation
+        assertFalse(nearMiss.causes() == null || nearMiss.causes().isEmpty(),
+                "the near miss should carry the blame for the blocking parameter");
+    }
+
     /** JDK hints are preloaded and make library-dependent analysis correct (List.size() is @NotModified). */
     @Test
     public void jdkHintsMakeReadOnlyMethodNotModified(@TempDir Path projectDir) throws Exception {

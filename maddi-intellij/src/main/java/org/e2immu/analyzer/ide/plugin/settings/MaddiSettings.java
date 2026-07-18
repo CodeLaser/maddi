@@ -43,6 +43,8 @@ public final class MaddiSettings implements PersistentStateComponent<MaddiSettin
         public boolean showGuardFindings = true;
         public InlineHintsMode inlineHintsMode = InlineHintsMode.HIDE_CONTEXT_DEFAULTS;
         public boolean showGutterIcons = true;
+        /** Advisory "one member away from @Container/@Immutable/…" warnings; off, as on the CLI. */
+        public boolean warnNearMisses = false;
     }
 
     private State state = new State();

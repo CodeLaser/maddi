@@ -65,6 +65,18 @@ public class DaemonAnalyzeRoundTripTest {
                     @Override
                     public void add(Mutable m) { m.set(3); } // violates @Container
                 }
+
+                // one modifying slot short of @Container: only reported when warnNearMisses crosses the wire
+                class Surface {
+                    public int read0(StringBuilder sb) { return sb.length(); }
+                    public int read1(StringBuilder sb) { return sb.length(); }
+                    public int read2(StringBuilder sb) { return sb.length(); }
+                    public int read3(StringBuilder sb) { return sb.length(); }
+                    public int read4(StringBuilder sb) { return sb.length(); }
+                    public int read5(StringBuilder sb) { return sb.length(); }
+                    public int read6(StringBuilder sb) { return sb.length(); }
+                    public void bang(StringBuilder sb) { sb.append('!'); }
+                }
                 """);
 
         AnalysisModel.AnalyzeConfig config = new AnalysisModel.AnalyzeConfig(
@@ -75,7 +87,9 @@ public class DaemonAnalyzeRoundTripTest {
                 List.of(new AnalysisModel.SourceRoot("main", "src", false)),
                 List.of(), // no user classpath: the e2immu annotations come from the daemon's own classpath
                 List.of(),
-                false);
+                false,
+                true); // warnNearMisses: the client and daemon declare AnalyzeConfig separately, matched only
+                       // by field name over JSON, so a skew here would silently drop the flag
 
         DaemonLauncher launcher = new DaemonLauncher();
         Path logFile = projectDir.resolve("daemon.log");
@@ -100,6 +114,13 @@ public class DaemonAnalyzeRoundTripTest {
             assertNotNull(violation.uri());
             assertNotNull(violation.beginLine());
             assertFalse(violation.causes() == null || violation.causes().isEmpty(), "expected a why-chain");
+
+            // proves warnNearMisses survived the JSON hop into the daemon's analyzer configuration
+            AnalysisModel.Finding nearMiss = result.findings().stream()
+                    .filter(f -> "near-miss-container".equals(f.category()))
+                    .findFirst().orElse(null);
+            assertNotNull(nearMiss, "expected a near-miss-container: the warnNearMisses flag must cross the wire");
+            assertEquals("WARN", nearMiss.severity());
 
             boolean containerShown = result.elementAnnotations().stream()
                     .flatMap(e -> e.displayAnnotations().stream())

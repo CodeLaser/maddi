@@ -80,7 +80,8 @@ public final class DaemonProtocol {
                                 List<SourceRoot> sources,
                                 List<ClasspathEntry> classpath,
                                 List<String> restrictToPackages,
-                                boolean parallel) {
+                                boolean parallel,
+                                boolean warnNearMisses) {
     }
 
     public record AnalyzeProject(String requestId, AnalyzeConfig config) {

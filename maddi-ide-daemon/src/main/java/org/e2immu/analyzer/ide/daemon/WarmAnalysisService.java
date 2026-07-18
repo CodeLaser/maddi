@@ -109,6 +109,9 @@ public class WarmAnalysisService implements AnalyzeHandler {
                 .setMaxIterations(10)
                 .setTrackObjectCreations(false)
                 .setFaultTolerant(true) // isolate a crash on one element into a finding; don't abort the run
+                // advisory "you are one member away from @Container/@Immutable/..." warnings; opt-in, as in
+                // RunAnalyzer, because they are noisy on a codebase that has not been curated for them
+                .setWarnNearMisses(request.config().warnNearMisses())
                 .build();
         IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(inspector, modConfig);
         // analyze() is one long blocking step with no sub-progress; run it on a worker and heartbeat so the

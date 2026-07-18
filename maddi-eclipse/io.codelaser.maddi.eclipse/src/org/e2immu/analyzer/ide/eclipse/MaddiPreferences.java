@@ -28,6 +28,7 @@ public final class MaddiPreferences {
     public static final String DAEMON_XMX_MB = "maddi.daemonXmxMb";
     public static final String HINT_FILTER = "maddi.hintFilter";
     public static final String AUTO_ANALYZE_ON_BUILD = "maddi.autoAnalyzeOnBuild";
+    public static final String WARN_NEAR_MISSES = "maddi.warnNearMisses";
 
     public static final int DEFAULT_XMX_MB = 4096;
     public static final HintFilter DEFAULT_HINT_FILTER = HintFilter.HIDE_CONTEXT_DEFAULTS;
@@ -64,6 +65,15 @@ public final class MaddiPreferences {
     /** Re-analyze a project automatically after Eclipse builds it. */
     public static boolean autoAnalyzeOnBuild() {
         return store().getBoolean(AUTO_ANALYZE_ON_BUILD);
+    }
+
+    /**
+     * Ask the analyzer for advisory near-miss warnings: types and methods that narrowly miss a property,
+     * e.g. one modifying method away from {@code @Container}. Opt-in, as on the CLI, because they are
+     * noisy on code that has not been curated for them.
+     */
+    public static boolean warnNearMisses() {
+        return store().getBoolean(WARN_NEAR_MISSES);
     }
 
     private static String resolve(String prefKey, String systemProperty, String envVar) {

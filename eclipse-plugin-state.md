@@ -143,23 +143,22 @@ No `TODO`/`FIXME` markers anywhere — the gaps are structural, not annotated.
 
 1. **Not installable.** No feature, no update site, no p2 repository module; nothing an end user can
    point Eclipse at.
-2. **`--warn-near-misses` is unreachable from either IDE.** HEAD commit `520ca3f7` wired it "through
-   the CLI and plugins", but grepping for `earMiss` across the daemon protocol, `maddi-ide-client`,
-   IntelliJ, and Eclipse returns nothing; `AnalyzeConfig` is still the 8-field record. The newest guard
-   feature stops at the CLI.
-3. **No builder, no nature** — analysis is a listener, so there is no delta scoping. Every trigger is a
+2. **No builder, no nature** — analysis is a listener, so there is no delta scoping. Every trigger is a
    whole-project run that deletes and rebuilds *all* markers at `DEPTH_INFINITE` from the workspace root.
-4. **Coalesced triggers are dropped silently.** `MaddiAnalysis.RUNNING` is a bare `AtomicBoolean`; a
+3. **Coalesced triggers are dropped silently.** `MaddiAnalysis.RUNNING` is a bare `AtomicBoolean`; a
    build finishing mid-run is never computed. Needs a pending/re-run flag.
-5. **Progress and cancel are dead.** `daemon.analyze(..., status -> { })` discards the
+4. **Progress and cancel are dead.** `daemon.analyze(..., status -> { })` discards the
    phase/typesDone/typesTotal frames; the `IProgressMonitor` is unused, and `cancel` is defined in the
    protocol but never sent.
-6. **Parity vs IntelliJ.** IntelliJ has an external annotator, a line-marker provider, and declarative
+5. **Parity vs IntelliJ.** IntelliJ has an external annotator, a line-marker provider, and declarative
    inlay hints; Eclipse approximates with plain text markers only — no inlays, no quick fixes, no hover
    beyond the marker message.
 
 Minor: `MaddiPreferenceInitializer`'s javadoc says "only the daemon heap has one" but it seeds three
 defaults (stale comment).
 
-*Resolved since this survey: the test bundle ran on JUnit 4 while the rest of the repo is on Jupiter —
-migrated to JUnit 5.*
+*Resolved since this survey:*
+- *the test bundle ran on JUnit 4 while the rest of the repo is on Jupiter — migrated to JUnit 5;*
+- *`--warn-near-misses` was unreachable from either IDE (the daemon's port of `RunAnalyzer` had dropped
+  the `setWarnNearMisses` line) — `warnNearMisses` now runs from a setting in both front-ends through
+  `AnalyzeConfig` to the analyzer.*

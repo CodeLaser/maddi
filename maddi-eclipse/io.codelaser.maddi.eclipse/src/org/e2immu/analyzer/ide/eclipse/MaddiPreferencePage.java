@@ -52,6 +52,9 @@ public class MaddiPreferencePage extends FieldEditorPreferencePage implements IW
 
         addField(new BooleanFieldEditor(MaddiPreferences.AUTO_ANALYZE_ON_BUILD,
                 "Re-analyze automatically after a build", getFieldEditorParent()));
+
+        addField(new BooleanFieldEditor(MaddiPreferences.WARN_NEAR_MISSES,
+                "Warn about near misses (types/methods that narrowly miss a property)", getFieldEditorParent()));
     }
 
     /** {label, stored-value} pairs for the hint-filter combo, straight from the enum. */

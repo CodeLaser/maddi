@@ -77,7 +77,7 @@ public class MaddiConfigBuilderTest extends LightJavaCodeInsightFixtureTestCase 
     }
 
     private AnalysisModel.AnalyzeConfig build() {
-        return ReadAction.compute(() -> new MaddiConfigBuilder().build(getProject(), JDK_HOME));
+        return ReadAction.compute(() -> new MaddiConfigBuilder().build(getProject(), JDK_HOME, false));
     }
 
     private Module module() {
