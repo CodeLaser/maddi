@@ -92,11 +92,34 @@ reparse → re-prep → re-analyze — again yields a blast radius of `[]`. Two 
    without a clean inspector.
 2. The fingerprint decision holds on the real path, not only on two clean analyses.
 
-**Next, to turn the decision into the saving:** the pieces are now proven separately — run analysis inside the reload
-flow (works), hash each recomputed type's output (works), diff against the stored/prior fingerprint (works). What
-remains is the actual *skip*: when a recomputed type's fingerprint is unchanged, stop propagating to its dependents
-and carry their prior analysis instead of recomputing (the `carryOnRewire` substrate, now resumed — `rewiring.md`).
-That is a worklist over the use graph seeded by the fingerprint-changed types, and it is the next build.
+### The orchestration — the red-green worklist (2026-07-18)
+
+`prepwork/callgraph/EarlyCutoffWorklist` is the orchestration algorithm: seed with the source-changed types,
+recompute a type, hash its output, and propagate to its one-hop dependents **only if the fingerprint changed**; a
+type whose output is unchanged is a firewall and its dependents are spared. Chaotic iteration with per-node
+last-fingerprint tracking, so it converges on a cyclic use graph. Generic over node/fingerprint/recompute, so the
+algorithm is unit-tested without the analyzer (`TestEarlyCutoffWorklist`: on a chain `A<-B<-C<-D`, a change that
+stabilises at C spares D; a cycle converges). Integration `TestAnalysisEarlyCutoffPrototype.testWorklistCommentEdit…`
+drives it on **real** fingerprints and the **real** use graph: a comment edit yields `recomputed = {x.Data}` — the
+seed's output is unchanged, so `User` and `Holder` are spared.
+
+**What is proven, and the one gap that remains.** Every ingredient now exists and is tested: the decision
+(fingerprint diff), the fingerprint (output, normalised, stored/persisted), the carry (intrinsic via the wired rewire
+phase; the derived tier via the implemented `Value.rewire`; the analyzer-output filter), and the worklist that ties
+them together. The remaining gap is purely the **production wiring of the per-type recompute-against-carried-deps**,
+and it has a specific, documented blocker:
+
+- **The reload exposes no `InfoMap`.** `JavaInspector.reloadSources` / `parse(Invalidated)` rewire REWIRE types
+  internally and discard the old→new map, so a spared type's analysis cannot be carried from *outside* the reload.
+  Carrying it therefore has to happen *inside* the rewire phase — which means the analyzer-output properties must be
+  carried there (a property-level classification, since `cst-impl`'s rewire phase cannot see the prepwork predicate),
+  gated so it does not change the default REWIRE behaviour.
+- **Monotonic overwrite.** A REWIRE type that is carried optimistically but turns out dirty must have its analysis
+  *cleared* before recompute, or the monotonic-overwrite guard rejects a lowered value (`setLinkedVariables`, the
+  verdict lattices). So the worklist's "recompute a confirmed-dirty type" step needs a clear-first.
+
+These two are the production build that turns the proven decision into a running skip; the algorithm and every
+substrate piece are in place for it.
 
 ## The point: skip link + analyzer, not prepwork
 
