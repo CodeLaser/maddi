@@ -1016,7 +1016,7 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
     }
 
     @Override
-    public Element rewire(InfoMap infoMap) {
+    public Element rewire(InfoMapView infoMap) {
         throw new UnsupportedOperationException("Must use one of the infoMap methods");
     }
 

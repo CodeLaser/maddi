@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 
 import java.util.List;
@@ -165,12 +166,12 @@ public interface Statement extends Element {
      * @param infoMap maps old {@code Info} objects to their replacements
      * @return the rewired statement
      */
-    Statement rewire(InfoMap infoMap);
+    Statement rewire(InfoMapView infoMap);
 
     /**
      * Helper for implementations: rewire this statement's annotations through the supplied map.
      */
-    default List<AnnotationExpression> rewireAnnotations(InfoMap infoMap) {
+    default List<AnnotationExpression> rewireAnnotations(InfoMapView infoMap) {
         return annotations().stream().map(ae -> (AnnotationExpression) ae.rewire(infoMap)).toList();
     }
 }

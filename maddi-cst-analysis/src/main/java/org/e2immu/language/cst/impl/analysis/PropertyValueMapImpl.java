@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,13 +46,13 @@ public class PropertyValueMapImpl implements PropertyValueMap {
      * on a rewired method.
      */
     @Override
-    public synchronized PropertyValueMap rewire(InfoMap infoMap) {
+    public synchronized PropertyValueMap rewire(InfoMapView infoMap) {
         return rewire(infoMap, Property::carryOnRewire);
     }
 
     // filtered carry (analysis-rewiring.md): the fingerprint-gated skip passes the analyzer-output predicate
     @Override
-    public synchronized PropertyValueMap rewire(InfoMap infoMap, java.util.function.Predicate<Property> filter) {
+    public synchronized PropertyValueMap rewire(InfoMapView infoMap, java.util.function.Predicate<Property> filter) {
         PropertyValueMapImpl rewiredMap = new PropertyValueMapImpl();
         map.forEach((key, value) -> {
             if (filter.test(key)) rewiredMap.set(key, value.rewire(infoMap));

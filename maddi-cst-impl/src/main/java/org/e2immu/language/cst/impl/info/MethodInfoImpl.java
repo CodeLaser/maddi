@@ -708,7 +708,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     }
 
     @Override
-    public Element rewire(InfoMap infoMap) {
+    public Element rewire(InfoMapView infoMap) {
         throw new UnsupportedOperationException("Must use the infoMap.methodInfo() method");
     }
 }

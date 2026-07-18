@@ -22,6 +22,7 @@ import org.e2immu.language.cst.api.expression.CommaExpression;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.Precedence;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.translate.TranslationMap;
@@ -163,7 +164,7 @@ public class CommaExpressionImpl extends ExpressionImpl implements CommaExpressi
     }
 
     @Override
-    public Expression rewire(InfoMap infoMap) {
+    public Expression rewire(InfoMapView infoMap) {
         return new CommaExpressionImpl(comments(), source(),
                 expressions.stream().map(e -> e.rewire(infoMap)).toList());
     }

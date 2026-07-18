@@ -16,6 +16,7 @@ package org.e2immu.language.cst.impl.element;
 
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
@@ -165,7 +166,7 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
     }
 
     @Override
-    public Element rewire(InfoMap infoMap) {
+    public Element rewire(InfoMapView infoMap) {
         CompilationUnitImpl copy = new CompilationUnitImpl(sourceSet, uri, comments,
                 source, importStatements, packageName, fingerPrint.getOrDefaultNull(), trailingComments);
         copy.setTypes(types().stream().map(infoMap::typeInfo).toList());

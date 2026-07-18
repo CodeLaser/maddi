@@ -17,6 +17,7 @@ package org.e2immu.language.cst.api.type;
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.output.OutputBuilder;
@@ -51,9 +52,9 @@ public interface ParameterizedType {
 
     boolean isReferenceType();
 
-    ParameterizedType rewire(InfoMap infoMap, Map<TypeParameter, TypeParameter> rewiredTypeParameters);
+    ParameterizedType rewire(InfoMapView infoMap, Map<TypeParameter, TypeParameter> rewiredTypeParameters);
 
-    default ParameterizedType rewire(InfoMap infoMap) {
+    default ParameterizedType rewire(InfoMapView infoMap) {
         return rewire(infoMap, Map.of());
     }
 

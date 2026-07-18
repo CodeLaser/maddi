@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.statement.Block;
@@ -287,7 +288,7 @@ public class LocalVariableCreationImpl extends StatementImpl implements LocalVar
     }
 
     @Override
-    public Statement rewire(InfoMap infoMap) {
+    public Statement rewire(InfoMapView infoMap) {
         return new LocalVariableCreationImpl(rewireComments(infoMap), source(), rewireAnnotations(infoMap), label(),
                 (LocalVariable) localVariable.rewire(infoMap),
                 otherLocalVariables.stream().map(lv -> (LocalVariable) lv.rewire(infoMap)).toList(),

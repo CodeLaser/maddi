@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.info.Access;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
@@ -135,7 +136,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
-        public Element rewire(InfoMap infoMap) {
+        public Element rewire(InfoMapView infoMap) {
             return null;
         }
 
@@ -187,7 +188,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
-        public Element rewire(InfoMap infoMap) {
+        public Element rewire(InfoMapView infoMap) {
             return null;
         }
 
@@ -239,7 +240,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
-        public Element rewire(InfoMap infoMap) {
+        public Element rewire(InfoMapView infoMap) {
             return null;
         }
 
@@ -322,7 +323,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
-        public Element rewire(InfoMap infoMap) {
+        public Element rewire(InfoMapView infoMap) {
             return null;
         }
 
@@ -430,7 +431,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
-        public Element rewire(InfoMap infoMap) {
+        public Element rewire(InfoMapView infoMap) {
             return null;
         }
 
@@ -548,7 +549,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
     }
 
     @Override
-    public Element rewire(InfoMap infoMap) {
+    public Element rewire(InfoMapView infoMap) {
         throw new UnsupportedOperationException("To implement!");
     }
 

@@ -17,6 +17,7 @@ package org.e2immu.language.cst.api.statement;
 import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 
 import java.util.List;
 
@@ -115,5 +116,5 @@ public interface Block extends Statement {
     Statement findStatementByIndex(String index);
 
     @Override
-    Block rewire(InfoMap infoMap);
+    Block rewire(InfoMapView infoMap);
 }

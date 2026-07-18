@@ -17,6 +17,7 @@ package org.e2immu.language.cst.impl.element;
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.Formatter;
 import org.e2immu.language.cst.api.output.OutputBuilder;
@@ -91,7 +92,7 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
         }
 
         @Override
-        public Tag rewire(InfoMap infoMap) {
+        public Tag rewire(InfoMapView infoMap) {
             if (resolvedReference == null) return this;
             return new TagImpl(tagIdentifier, content, resolvedReference.rewire(infoMap), source,
                     sourceOfReference, blockTag);
@@ -169,7 +170,7 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
     }
 
     @Override
-    public JavaDoc rewire(InfoMap infoMap) {
+    public JavaDoc rewire(InfoMapView infoMap) {
         return new JavaDocImpl(source(), super.comment(), tags.stream().map(t -> t.rewire(infoMap)).toList());
     }
 

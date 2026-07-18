@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.OutputElement;
@@ -133,7 +134,7 @@ public class ThisImpl extends VariableImpl implements This {
     }
 
     @Override
-    public Variable rewire(InfoMap infoMap) {
+    public Variable rewire(InfoMapView infoMap) {
         return new ThisImpl(parameterizedType().rewire(infoMap),
                 explicitlyWriteType == null ? null : infoMap.typeInfo(explicitlyWriteType),
                 writeSuper);

@@ -15,6 +15,7 @@
 package org.e2immu.language.cst.api.analysis;
 
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -23,7 +24,7 @@ public interface PropertyValueMap {
 
     boolean isEmpty();
 
-    PropertyValueMap rewire(InfoMap infoMap);
+    PropertyValueMap rewire(InfoMapView infoMap);
 
     /**
      * A filtered carry: keep only the properties matching {@code filter}, re-pointing their values through the
@@ -32,7 +33,7 @@ public interface PropertyValueMap {
      * {@code VARIABLE_DATA}, which is recomputed anyway) — see {@code analysis-rewiring.md}. Requires each kept
      * property's value to implement {@code rewire}.
      */
-    PropertyValueMap rewire(InfoMap infoMap, java.util.function.Predicate<Property> filter);
+    PropertyValueMap rewire(InfoMapView infoMap, java.util.function.Predicate<Property> filter);
 
     record PropertyValue(Property property, Value value) {
 

@@ -54,7 +54,7 @@ public interface Value extends Comparable<Value> {
      * {@code return this} when the value is plain (ints, strings), a real mapping when it is not, or throw when the
      * mapping has not been written yet.
      */
-    default Value rewire(InfoMap infoMap) {
+    default Value rewire(InfoMapView infoMap) {
         throw new UnsupportedOperationException("No rewire() on " + getClass());
     }
 

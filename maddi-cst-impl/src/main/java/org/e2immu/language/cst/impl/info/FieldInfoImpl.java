@@ -320,7 +320,7 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
     }
 
     @Override
-    public Element rewire(InfoMap infoMap) {
+    public Element rewire(InfoMapView infoMap) {
         throw new UnsupportedOperationException("Must use the infoMap.fieldInfo() method");
     }
 }

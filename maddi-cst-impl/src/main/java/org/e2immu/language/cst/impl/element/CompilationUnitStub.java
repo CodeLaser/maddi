@@ -16,6 +16,7 @@ package org.e2immu.language.cst.impl.element;
 
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
@@ -136,7 +137,7 @@ public class CompilationUnitStub implements CompilationUnit {
     }
 
     @Override
-    public Element rewire(InfoMap infoMap) {
+    public Element rewire(InfoMapView infoMap) {
         return this;
     }
 

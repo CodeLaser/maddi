@@ -68,6 +68,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private final Map<SourceFile, List<TypeInfo>> sourceFiles = new HashMap<>();
     private CompiledTypesManager compiledTypesManager;
     private InputConfiguration inputConfiguration; // kept for tests
+    private org.e2immu.language.cst.api.info.InfoMapView lastRewireInfoMap; // the last re-parse's rewire, read-only
     private final boolean computeFingerPrints;
     private final boolean allowCreationOfStubTypes;
     private final JavaCompiler javaCompiler;
@@ -276,6 +277,7 @@ public class JavaInspectorImpl implements JavaInspector {
                          ParseOptions parseOptions,
                          List<SourceSet> linearization,
                          Invalidated invalidated) {
+        this.lastRewireInfoMap = null; // reset: a parse with no rewiring exposes no map
         // snapshot: a RESCAN re-records sourceFiles for its own set as it goes
         Map<SourceSet, List<TypeInfo>> typesBySourceSet = typesBySourceSet();
         Set<TypeInfo> toRewire = new LinkedHashSet<>();
@@ -311,6 +313,8 @@ public class JavaInspectorImpl implements JavaInspector {
                 .collect(Collectors.toUnmodifiableSet());
         InfoMap infoMap = runtime.newInfoMap(toRewire, rebuilt);
         Set<TypeInfo> rewired = infoMap.rewireAll();
+        this.lastRewireInfoMap = infoMap; // expose the completed map (read-only view) for an outside-reload carry
+
         // every type it built, not just the primary ones: subtypes, and the anonymous/local/lambda types phase 3
         // rewires on demand. Registering only the primary types leaves the rest answering with stale objects.
         infoMap.rewiredTypes().forEach(compiledTypesManager::setRewiredType);
@@ -850,6 +854,11 @@ public class JavaInspectorImpl implements JavaInspector {
     @Override
     public Set<SourceFile> sourceFiles() {
         return sourceFiles.keySet();
+    }
+
+    @Override
+    public org.e2immu.language.cst.api.info.InfoMapView lastRewireInfoMap() {
+        return lastRewireInfoMap;
     }
 
     /*

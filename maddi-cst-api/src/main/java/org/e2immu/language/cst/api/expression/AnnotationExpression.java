@@ -18,6 +18,7 @@ import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 
@@ -45,7 +46,7 @@ public interface AnnotationExpression extends Expression {
          */
         boolean keyIsDefault();
 
-        KV rewire(InfoMap infoMap);
+        KV rewire(InfoMapView infoMap);
 
         KV translate(TranslationMap translationMap);
 

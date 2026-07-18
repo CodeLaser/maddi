@@ -17,6 +17,7 @@ package org.e2immu.analyzer.modification.prepwork.variable.impl;
 import org.e2immu.analyzer.modification.prepwork.variable.ObjectCreationVariable;
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
@@ -148,7 +149,7 @@ public class ObjectCreationVariableImpl implements ObjectCreationVariable {
     }
 
     @Override
-    public Variable rewire(InfoMap infoMap) {
+    public Variable rewire(InfoMapView infoMap) {
         return new ObjectCreationVariableImpl(infoMap.methodInfo(methodInfo),
                 index, parameterizedType().rewire(infoMap));
     }
