@@ -4,6 +4,19 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-18 — SEMANTIC VERIFICATION ROUND: see semantic-audit-2026-07-18.md
+
+96-element stratified sample over 4 corpora, judged against the road-to-immutability spec:
+**86% correct, 11.5% over-conservative, 2% unsound.** Two unsound mechanisms (tasks #28/#29
+area): modification lost through Outer.this calls (guava CompactHashMap views), and aliased
+static-singleton content mutation missed (fernflower BytecodeMappingTracer.DUMMY — the
+same-object-multiple-places phenomenon). unmodifiedField is CONTENT-only by design
+(assignment lives in setField/effectively-final) — doc phrasing diverges, engine internally
+consistent. IMMUTABILITY IS STRUCTURALLY BLOCKED at corpus scale: zero positive conclusions
+anywhere — TypeImmutableAnalyzer's stopExternal wait + cycle-breaking never activated +
+analysis-hints preload resolving 0/249 types (task #29). Full report + degradation map:
+**semantic-audit-2026-07-18.md**.
+
 ## UPDATE 2026-07-18 — CAMEL CORE GREEN (8 modules swept): NO_VALUE guard + cycle-protection shallow fallback
 
 camel-core is an aggregator (0 sources) — the reported linking asserts live in the real
