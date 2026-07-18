@@ -140,6 +140,11 @@ public class PropertyValueMapImpl implements PropertyValueMap {
     }
 
     @Override
+    public synchronized void removeIf(java.util.function.Predicate<Property> filter) {
+        map.keySet().removeIf(filter);
+    }
+
+    @Override
     public synchronized boolean isEmpty() {
         return map.isEmpty();
     }

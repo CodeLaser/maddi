@@ -35,6 +35,13 @@ public interface PropertyValueMap {
      */
     PropertyValueMap rewire(InfoMapView infoMap, java.util.function.Predicate<Property> filter);
 
+    /**
+     * Remove every property matching {@code filter}. The early-cutoff skip's clear-before-recompute: a type carried
+     * optimistically but found dirty by the worklist must have its carried (possibly-stale) analyzer output cleared,
+     * or re-analysis hits the monotonic-overwrite guard when it lowers a value. See {@code analysis-rewiring.md}.
+     */
+    void removeIf(java.util.function.Predicate<Property> filter);
+
     record PropertyValue(Property property, Value value) {
 
     }
