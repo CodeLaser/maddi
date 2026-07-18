@@ -65,3 +65,31 @@ Docs/process:
 ## JOURNAL
 
 New dated entries land here and are periodically moved to `sv-journal.md`.
+
+### 2026-07-18g — why the link computation has single-thread phases (analysis, keep for reference)
+
+Observed live on elasticsearch attempt 8: one worker grinding ~30 min while 7 idled. Three distinct
+mechanisms produce single-thread stretches:
+
+1. **Wave barriers on iteration 1.** The first pass is scheduled as call-graph strata
+   (`ComputeAnalysisOrder.waves`); each wave fans out over the pool and `joinAll` barriers before the
+   next wave ("the next wave's callees are complete", SingleIterationAnalyzerImpl ~178). The barrier
+   buys PRECISION (callee summaries exist when callers run → most verdicts decide in pass 1) and
+   BOUNDS NONDETERMINISM (the non-confluence window; EdgeType.<init> is what leaks through even so).
+   Cost: tail latency — a wave finishes at its slowest element, and method cost is heavily
+   long-tailed, so idle-7-drain-1 is the barrier draining to a straggler, not a bug.
+2. **Per-method grain.** No intra-method parallelism by design: one IncrementalFixpointEngine per
+   method, densely mutable (closure, witness index, queue); fine locking would cost more than it buys
+   on the 99% of methods finishing in ms. A pathological method therefore rides one thread — now
+   capped by the work ceiling (2M facts → "cycle protection" → shallow summary).
+3. **Genuinely serial sections.** javac parse (thread-hostile); coordinator work between passes
+   (cheap); iterations 2+ run a plain parallel loop over the dirty subset (no waves) — utilization
+   drops there because the worklist got SMALL, not because anything blocks.
+
+Improvement candidates, in order:
+- Cost-descending launch order within a wave (biggest first): shrinks the drain window, zero risk.
+- True dataflow scheduling (element starts when ITS deps are done, no wave barrier): maximizes
+  utilization but widens the non-confluence window — do not trade before the constructor-confluence
+  item is fixed.
+- Giant-SCC corpora (the 3M-line monorepo): waves inside the big cycle are mostly flat (cycles cannot
+  be stratified); iterations-to-converge dominates there → task #35 territory, not scheduling.
