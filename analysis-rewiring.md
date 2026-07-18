@@ -117,10 +117,28 @@ and it has a specific, documented blocker:
   *outside* the reload — `newType.analysis().setAll(oldType.analysis().rewire(view, ANALYZER_OUTPUT_ONLY))` — no
   in-rewire-phase surgery, no property re-classification. Test `openjdk/TestInvalidate.testInfoMapViewExposed`: the
   exposed view maps the old REWIRE `User` (and its members) to the rewired ones.
-- **Monotonic overwrite — remaining.** A REWIRE type that is carried optimistically but turns out dirty must have its
-  analysis *cleared* before recompute, or the monotonic-overwrite guard rejects a lowered value (`setLinkedVariables`,
-  the verdict lattices). So the worklist's "recompute a confirmed-dirty type" step needs a clear-first. This is the
-  last piece; the carry it guards is now a plain `rewire(view, …)` call.
+- **Monotonic overwrite — RESOLVED (2026-07-18).** `PropertyValueMap.removeIf(Predicate<Property>)` is the
+  clear-before-recompute primitive: a REWIRE type carried optimistically but found dirty has its carried analysis
+  cleared before re-analysis, so the strictly-increasing overwrite guard no longer rejects a lowered value. Test
+  `analyzer/rewire/TestClearBeforeRecompute`: a carried `@Immutable` blocks a `MUTABLE` re-analysis via the guard;
+  after `removeIf`, the correct lower value sets cleanly.
+
+### All primitives are in place; what remains is the orchestration wiring
+
+Every building block is now implemented and tested: the decision (fingerprint diff), the fingerprint, the exposed
+read-only `InfoMapView`, the outside-reload carry (`rewire(view, …)`), the derived-tier `Value.rewire`s, the worklist
+(`EarlyCutoffWorklist`), and the clear (`removeIf`). Assembling them into a production skip is the final integration,
+with two design tasks that surfaced along the way:
+
+1. **A property-tier classification.** The outside carry must carry only the *cross-type-derived* tier
+   (`IMMUTABLE_*`, `CONTAINER_TYPE`, `INDEPENDENT_*`, `NON_MODIFYING_METHOD`, `UNMODIFIED_*`, `METHOD_LINKS`, `LINKS`,
+   `IMPLEMENTATIONS`), **not** the intrinsic-prepwork tier (`VARIABLE_DATA`, `PART_OF_CONSTRUCTION`, `FINAL_FIELD`, …),
+   because prep re-runs and would double-set the latter. Today the demonstration approximates this with
+   `ANALYZER_OUTPUT_ONLY ∧ ¬carryOnRewire`; the production version wants an explicit per-`Property` tier flag (which
+   would also let the fingerprint and the carry agree by construction rather than by two overlapping predicates).
+2. **The worklist ↔ analyzer wiring.** Carry the derived tier onto all REWIRE types; re-run prep + analyze only the
+   INVALID + fingerprint-dirty cone (the analyzer already supports subset analysis reading carried context via its
+   worklist narrowing), clearing a dirty carried type first with `removeIf`; spared REWIRE types keep their carry.
 
 ### The outside-reload carry, demonstrated end to end (2026-07-18)
 
