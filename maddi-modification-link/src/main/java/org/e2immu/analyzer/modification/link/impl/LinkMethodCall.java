@@ -479,7 +479,11 @@ public record LinkMethodCall(JavaInspector javaInspector,
         // return-variable source (in which case a second, un-lifted link would be spurious).
         if (!extraTest || !isReturnVariable(Util.firstRealVariable(fromTranslated))) {
             Variable toTranslated = defaultTm.translateVariableRecursively(link.to());
-            if (Util.acceptModificationLink(fromTranslated, toTranslated)) {
+            // the translation can hand back a 'from' that does not belong under this builder's primary
+            // (hints-era FI shapes, timefold constraint streams): such a link cannot be attributed here —
+            // drop it rather than trip the builder's ownership assert and lose the whole element
+            if (Util.acceptModificationLink(fromTranslated, toTranslated)
+                && (builder.primary() instanceof This || Util.isPartOf(builder.primary(), fromTranslated))) {
                 builder.add(fromTranslated, linkNature, toTranslated);
             }
         }

@@ -201,8 +201,16 @@ public class LinksImpl implements Links {
             return primary;
         }
 
+        // funnel guard: closures can hand producers a stacked face (x.§m.§m — legal inside VMI/graph
+        // bookkeeping, not representable as a Link). All Builder adds skip such faces, per the
+        // constructor-assert policy; direct LinkImpl constructions keep the assert as a backstop.
+        private static boolean representable(Variable from, Variable to) {
+            return LinkImpl.doNotStackMOnTopOfVirtualField(from) && LinkImpl.doNotStackMOnTopOfVirtualField(to);
+        }
+
         @Override
         public Builder add(LinkNature linkNature, Variable to) {
+            if (!representable(primary, to)) return this;
             LinkImpl link = new LinkImpl(primary, linkNature, to);
             links.add(link);
             addToIndexes(link);
@@ -212,6 +220,7 @@ public class LinksImpl implements Links {
         @Override
         public Builder add(Variable from, LinkNature linkNature, Variable to) {
             assert primary instanceof This || Util.isPartOf(primary, from);
+            if (!representable(from, to)) return this;
             LinkImpl link = new LinkImpl(from, linkNature, to);
             links.add(link);
             addToIndexes(link);
@@ -220,6 +229,7 @@ public class LinksImpl implements Links {
 
         @Override
         public void prepend(LinkNature linkNature, Variable to) {
+            if (!representable(primary, to)) return;
             LinkImpl link = new LinkImpl(primary, linkNature, to);
             links.addFirst(link);
             addToIndexes(link);

@@ -4,6 +4,87 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-18b — IMMUTABILITY PRECISION AUDIT (fernflower, 144 verdicts) + 4-fix round
+
+Broad re-test under the new defaults (hints + cycle breaking): activemq, jenkins and all 8
+camel-core modules green first try (TestCorpusSweep now accepts SWEEP=camel/core/<module>
+slash paths). Corpus-wide immutability is live, e.g. guava 253 @Imm / 200 @ImmHC / 593 @FF /
+1057 @Mut (null 32); jenkins 147/480/1457/1558 (null 58). Anomaly: camel-api keeps 246/787
+null — interface-heavy, abstract methods w/o hints stay NON_MODIFYING=null and the current
+breaking strategy doesn't force them.
+
+Precision audit (4 parallel agents over the fernflower tiers):
+- **@Immutable 66: 54 OK / 12 WRONG** — all one pattern: data-carrier records/holders whose
+  components are mutable engine types (Exprent/Statement/StatEdge/collections) promoted to
+  hc-FREE level 3. Root cause: computeImmutableType granted L3 on independence+extensibility
+  alone, never checking field types' deep immutability. **FIXED**: instanceFieldTypesDeeplyImmutable
+  gate (static fields skipped per spec); undecided → wait, under breaking → HC floor.
+- **@ImmutableHC 50: 42 OK / 5 wrong / 3 borderline** — 1 UNSOUND: ClassesProcessor.Inner's
+  non-final fields are reassigned by the ENCLOSING class; effectively-final detection only
+  looked at owner methods (call-graph edges) + types enclosed IN the owner. **FIXED**:
+  ComputePartOfConstructionFinalField loop 2 now scans every method of the primary type
+  (enclosing + sibling types can assign a nested type's private fields). Repros in
+  TestFinalFieldBranchAssignment. Remaining wrong: StackEntry (public final fields of mutable
+  types accepted at L2 — rule-2 check exists at loopOverFieldsAndMethods:145, suspicion:
+  cycle-breaking-era undecided field type; investigate) + 3 hc-bit over-set on anonymous
+  enum-constant bodies (conservative, minor).
+- **@FinalFields 20-of-231 sample: 0 unsound / 11 conservative** — dominant gap: capture-free
+  or read-only-capture lambdas never promoted past L1 (open, precision-only).
+- **@Mutable 8-of-159 sample: 6 OK / 2 conservative** — constants-only interface @Mutable
+  (interface default?); lambda captured-content modification conflated with reassignment.
+
+Corpus regressions triaged in the same round:
+- **timefold+langchain4j exit 2**: main's 2026-07-17 lombok commit (b75683e2) passes
+  -processor for EVERY source set when containsLombok() (config-GLOBAL) is true; source sets
+  without the lombok jar on their classpath abort ENTER ("processor not found" →
+  Elements.getTypeElement ISE in indexJavaLangForJavaDocParsing). **FIXED**: per-source-set
+  lombokOnClassPath check in JavaInspectorImpl.createTask.
+- **guava exit 5**: AssertionError in LinkAppliedFunctionalInterface.replaceParametersByEvalInApplied
+  — links can point to CAPTURED parameters of the enclosing method (AtomicDouble.accumulateAndGet's
+  x inside 'oldValue -> f.applyAsDouble(oldValue, x)'), out of range for the SAM's argument
+  list. Latent forever; exposed by hints giving java.util.function methods link info.
+  **FIXED**: isSamParameter guard (not currentMethod's param + index in range), pass-through
+  otherwise.
+
+Suites green after the round: prepwork 199/0, link 393/0, analyzer 145/0 (+3 repro tests).
+Verification: fernflower re-run confirmed the audit arithmetic exactly — @Immutable 66→54
+(the 12 flagged over-promotions, all moved to @ImmutableHC 50→62), @Mutable 159→161 (the
+enclosing-assignment hole; 1 in-sample + 1 outside). Guava green (18755 elements).
+
+Hints-exposed latent link crashes, chased over verification rounds 2-3 (each fix suite-green,
+fernflower A/B zero-line):
+- timefold: '§m stacked on virtual field' assert — TWO link-producing sites missing the
+  designed doNotStackMOnTopOfVirtualField skip (LinkImpl's own comment names the policy):
+  Graph.vmiDirectionalFacts and both mirror-producers in Graph.sharedAssignmentEdgeStream.
+  Timefold's constraint-stream core (3793 caught exceptions) was the trigger; corpus now
+  analyzes 50k elements (test-classes parse since lombok processing).
+- langchain4j: lombok 1.18.30 pinned by the corpus crashes under the embedded javac
+  (TypeTag.UNKNOWN reflection). Added per-source-set degrade in JavaInspectorImpl: on a
+  lombok-frame RuntimeException the scan retries without the processor (pre-b75683e2
+  behavior). Corpus went 0 → 53644 elements analyzed. Second latent:
+  LinkFunctionalInterface.correspondingField threw UOE when the container type has no field
+  of the requested type — now degrades to the untouched translation.
+- timefold rounds 4-5: a THIRD stacking producer (FollowGraph via the Builder funnel) →
+  moved the skip INTO LinksImpl.Builder (add/add/prepend guard 'representable'; direct
+  LinkImpl constructions keep the assert as backstop). Error lines 69234 → 1386. The next
+  layer was a different assert: translateHandleFunctional produced a fromTranslated not
+  part-of the builder's primary (400 catches / 12 constraint-stream types) → ownership
+  pre-check at the LinkMethodCall call site (drop the one unattributable link, not the
+  element).
+- **javac parse flake ESCALATED to watch-item**: 'StarImportScope NPE' (the old
+  tree.starImportScope symptom, supposedly fixed by -XDuseUnsharedTable=true) hit 4 suite
+  runs today with random victims (11, then 7, then 2 tests; each green in isolation/rerun;
+  also one TestFaultIsolation CompilationProblems). Environmental timing (many back-to-back
+  suite+corpus runs, several live gradle daemons) makes it more likely — but the flag
+  evidently does not cover all shared javac state. Investigate: which JavacTask paths skip
+  the flag, and whether the getOrLoad live-task (lastScanUnits) shares state across tests.
+OPEN (this round): StackEntry L2 investigation; independence-under-cycle-breaking (fernflower
+records that store ctor args verdicted INDEPENDENT — clean unit test says DEPENDENT/FF;
+suspicion: FieldAnalyzer breaking branch LINKS=EMPTY erasure feeding independence);
+lambda-promotion precision gap; constants-interface @Mutable default; camel-api null cluster;
+WHY do stacked §m.§m faces exist in VMI groups at all (producers now skip at Link creation,
+but the stacked variables' origin is unexplained).
+
 ## UPDATE 2026-07-18 — AUDIT ISSUES ATTACKED: Outer.this fixed, hints unblocked, cycle breaking live
 
 All three semantic-audit engine actions landed (suites green throughout):
