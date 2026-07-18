@@ -108,4 +108,30 @@ public class TestAnalysisFingerprint extends CommonTest {
         FingerPrint fMut = AnalysisFingerprint.of(mut.runtime(), mut.typeInfo());
         assertNotEquals(fImm, fMut, "the verdicts differ, so the fingerprints must differ");
     }
+
+    @Language("java")
+    private static final String IMMUTABLE_SHIFTED = """
+            package a.b;
+            // a leading comment that shifts every line down: the analysis is identical, only positions move
+            public class X {
+                private final int x;
+                public X(int x) { this.x = x; }
+                public int x() { return x; }
+            }
+            """;
+
+    @DisplayName("a line-shifting edit does not change the position-normalized fingerprint")
+    @Test
+    public void testLineShiftInvariant() throws IOException {
+        Analyzed base = analyze("a.b.X", IMMUTABLE);
+        Analyzed shifted = analyze("a.b.X", IMMUTABLE_SHIFTED);
+        // raw dumps differ only in the embedded source positions...
+        assertNotEquals(AnalysisFingerprint.of(base.runtime(), base.typeInfo(), AnalysisFingerprint.RAW),
+                AnalysisFingerprint.of(shifted.runtime(), shifted.typeInfo(), AnalysisFingerprint.RAW),
+                "raw (un-normalized) fingerprints differ because link encodings embed source positions");
+        // ... which the default (position-normalized) fingerprint erases.
+        assertEquals(AnalysisFingerprint.of(base.runtime(), base.typeInfo()),
+                AnalysisFingerprint.of(shifted.runtime(), shifted.typeInfo()),
+                "the analysis is identical; only positions moved, so the normalized fingerprint must match");
+    }
 }

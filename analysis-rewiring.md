@@ -23,13 +23,28 @@ exactly as intended — type verdicts (`containerType/immutableType/independentT
    and the codec does not serialise `VARIABLE_DATA` even there — so excluding it is a no-op today. `ANALYZER_OUTPUT_ONLY`
    keeps the guard anyway (future-proofing + `VARIABLES_OF_ENCLOSING_METHOD`), but the "exclude VARIABLE_DATA" concern
    is moot until/unless it starts being serialised.
-2. **Link encodings embed source positions — a precision leak.** A field/return link serialises its scope expression
-   with its line:col, e.g. `["variableExpression","4-23:4-26",["T",["a.b.X"]]]`. So an edit that merely *shifts lines*
-   (a comment added above, a reformat) changes the embedded positions and therefore the fingerprint of an otherwise
-   unchanged type — spurious dirtiness. Safe (it over-recomputes, never under), but it defeats much of the point.
-   **Position normalisation on the fingerprint path is the next fix** (strip/blank source coordinates from the encoded
-   value before hashing) — a concrete instance of the canonicalisation audit below, and a prerequisite for the v2
-   comment/whitespace-invariance to mean anything.
+2. **Link encodings embed source positions — a precision leak, now normalised out.** A field/return link serialises
+   its scope expression with its line:col, e.g. `["variableExpression","4-23:4-26",["T",["a.b.X"]]]`. So an edit that
+   merely *shifts lines* changed the embedded positions and flipped the fingerprint of an otherwise-unchanged type.
+   **Fixed** by a normalizer pipeline (below); `testLineShiftInvariant` confirms a leading-comment edit leaves the
+   default fingerprint unchanged while the RAW fingerprint differs.
+
+### The normalizer pipeline (extensible by design)
+
+The fingerprint is `MD5(normalize(dump))`, where `normalize` is an ordered pipeline of `FingerprintNormalizer`s —
+each erases from the serialised dump some detail a *dependent* cannot read, widening the class of edits the
+fingerprint ignores. Many are expected (the reason for the abstraction): positions now, variable-name blanking for
+rename-invariance later, ordering canonicalisation, etc. Substrate is the serialised dump (`String`) — the one
+representation every normalizer shares; a structural one may parse/re-serialise internally.
+
+- `FingerprintNormalizer{ name(); normalize(String); }` with a stated **soundness contract**: a normalizer may
+  only erase detail a dependent cannot read (erasing positions is sound; erasing a verdict would not be — it would
+  hash two different results equal and skip a needed recomputation).
+- `SourcePositionNormalizer` — the first: strips the quoted `compact2` coordinate (`"\d+-\d+:\d+-\d+"`), anchored on
+  its distinctive shape (no collision with statement indices / fqns / link markers).
+- `AnalysisFingerprint`: profiles `RAW` (none) and `DEFAULT` (positions); `of(runtime, type)` uses `DEFAULT`,
+  `of(runtime, type, profile)` takes a custom list. Position-invariance is on by default because it is sound and
+  only improves precision.
 
 ## The point: skip link + analyzer, not prepwork
 
@@ -180,8 +195,8 @@ An **`AnalysisFingerprint` utility + a measurement harness**, no behaviour chang
    position-free* bytes. Two sub-parts: (a) sorted maps/sets — `MethodLinkedVariablesImpl.encode` sorts `modified`;
    confirm `LinksImpl`, `VariableBooleanMapImpl`, `VariableToTypeInfoSetImpl` do likewise (determinism across runs
    held in the test, so this is likely already fine on the analyzer-output path); (b) **strip source positions** —
-   confirmed leaking into link encodings (First results, finding 2). The fingerprint must normalise line:col out of
-   the encoded value before hashing, or line-shifting edits cause spurious dirtiness.
+   DONE via `SourcePositionNormalizer` (First results). Remaining audit item: confirm no *other* position encodings
+   (detailed sources, statement sources) leak onto the analyzer-output path beyond `compact2`.
 2. **What exactly is "the analysis output" — SETTLED for v1: analyzer output only, `VARIABLE_DATA` excluded** (see
    above). The hash covers the cross-type-observable outputs (verdicts + `METHOD_LINKS`/`LINKS`), which is what a
    dependent can read, and drops the internal prepwork detail (recomputed anyway, and rename-noisy). Implemented as a

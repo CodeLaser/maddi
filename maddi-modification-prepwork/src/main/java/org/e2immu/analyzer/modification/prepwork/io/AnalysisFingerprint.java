@@ -27,6 +27,7 @@ import org.e2immu.language.inspection.api.resource.MD5FingerPrint;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -53,6 +54,16 @@ public class AnalysisFingerprint {
     public static final Predicate<Property> ANALYZER_OUTPUT_ONLY =
             p -> !EXCLUDED_PROPERTY_KEYS.contains(p.key());
 
+    /** No normalization: hash the dump verbatim. */
+    public static final List<FingerprintNormalizer> RAW = List.of();
+
+    /**
+     * The default profile. An ordered pipeline of {@link FingerprintNormalizer}s applied to the dump before hashing;
+     * each widens the class of edits the fingerprint ignores. More are expected over time (rename-invariance, …) —
+     * add them here, or pass a custom list to {@link #of(Runtime, TypeInfo, List)}.
+     */
+    public static final List<FingerprintNormalizer> DEFAULT = List.of(new SourcePositionNormalizer());
+
     private AnalysisFingerprint() {
     }
 
@@ -71,8 +82,22 @@ public class AnalysisFingerprint {
         return sw.toString();
     }
 
-    /** The v1 analysisFingerprint of a primary type: analyzer output only ({@code VARIABLE_DATA} excluded). */
+    /** Apply a normalizer pipeline to a dump. */
+    public static String normalize(String dump, List<FingerprintNormalizer> normalizers) {
+        String result = dump;
+        for (FingerprintNormalizer normalizer : normalizers) {
+            result = normalizer.normalize(result);
+        }
+        return result;
+    }
+
+    /** The analysisFingerprint of a primary type: analyzer output only, with the {@link #DEFAULT} normalizers. */
     public static FingerPrint of(Runtime runtime, TypeInfo primaryType) {
-        return MD5FingerPrint.compute(dump(runtime, primaryType, ANALYZER_OUTPUT_ONLY));
+        return of(runtime, primaryType, DEFAULT);
+    }
+
+    /** The analysisFingerprint of a primary type with an explicit normalizer profile (e.g. {@link #RAW}). */
+    public static FingerPrint of(Runtime runtime, TypeInfo primaryType, List<FingerprintNormalizer> normalizers) {
+        return MD5FingerPrint.compute(normalize(dump(runtime, primaryType, ANALYZER_OUTPUT_ONLY), normalizers));
     }
 }
