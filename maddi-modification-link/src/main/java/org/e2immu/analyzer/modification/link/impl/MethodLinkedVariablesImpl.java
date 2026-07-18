@@ -88,7 +88,20 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
                                    LinksImpl.Builder builder) {
         List<Codec.EncodedValue> list = codec.decodeList(context, ev);
         Variable from = codec.decodeVariable(context, list.getFirst());
-        LinkNature linkNature = LinkNatureImpl.decode(codec.decodeString(context, list.get(1)));
+        LinkNature linkNature;
+        Codec.EncodedValue natureEv = list.get(1);
+        if (codec.isList(natureEv)) {
+            // pass-carrying ≡ variant (☷): [symbol, methodInfo...] — see LinksImpl.encodeLink
+            List<Codec.EncodedValue> natureList = codec.decodeList(context, natureEv);
+            assert "☷".equals(codec.decodeString(context, natureList.getFirst()));
+            java.util.Set<org.e2immu.language.cst.api.info.MethodInfo> pass = new java.util.HashSet<>();
+            for (int i = 1; i < natureList.size(); i++) {
+                pass.add(codec.decodeMethodInfo(context, natureList.get(i)));
+            }
+            linkNature = LinkNatureImpl.makeIdenticalTo(pass);
+        } else {
+            linkNature = LinkNatureImpl.decode(codec.decodeString(context, natureEv));
+        }
         Variable to = codec.decodeVariable(context, list.getLast());
         builder.add(from, linkNature, to);
     }

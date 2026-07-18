@@ -94,15 +94,25 @@ public class LinksImpl implements Links {
     }
 
     private Codec.EncodedValue encodeLink(Codec codec, Codec.Context context, Link link) {
-        // natures are encoded by symbol only. A pass-carrying ≡ variant (☷, e.g. Iterator.remove-style
-        // annotations) loses its method set and its symbol is not decodable — fail HERE, at the cause,
-        // rather than with a delayed "Unknown symbol ☷" on decode. Full pass-set encoding is an open item
-        // (org-review 2026-07-18, item 5).
-        assert link.linkNature().pass() == null || link.linkNature().pass().isEmpty()
-                : "pass-carrying link nature cannot be persisted yet: " + link;
+        // a plain nature encodes as its symbol string; the pass-carrying ≡ variant (☷, e.g.
+        // Iterator.remove-style annotations) additionally carries its method set, so it encodes as a list
+        // [symbol, methodInfo...] — the decoder branches on isList. Deterministic order for stable output.
+        Codec.EncodedValue natureEv;
+        java.util.Set<org.e2immu.language.cst.api.info.MethodInfo> pass = link.linkNature().pass();
+        if (pass == null || pass.isEmpty()) {
+            natureEv = codec.encodeString(context, link.linkNature().toString());
+        } else {
+            List<Codec.EncodedValue> natureList = new java.util.ArrayList<>();
+            natureList.add(codec.encodeString(context, link.linkNature().toString()));
+            pass.stream()
+                    .sorted(java.util.Comparator.comparing(
+                            org.e2immu.language.cst.api.info.MethodInfo::fullyQualifiedName))
+                    .forEach(mi -> natureList.add(codec.encodeMethodInfo(context, mi)));
+            natureEv = codec.encodeList(context, natureList);
+        }
         return codec.encodeList(context, List.of(
                 codec.encodeVariable(context, link.from()),
-                codec.encodeString(context, link.linkNature().toString()),
+                natureEv,
                 codec.encodeVariable(context, link.to())
         ));
     }
