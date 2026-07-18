@@ -282,15 +282,14 @@ carried non-null would fight the link re-run rather than be replaced.
 4. Tests both halves: a rewired method's `VARIABLE_DATA` survives with re-pointed variables; its link-written
    fields (`linkedVariables`, `UNMODIFIED_VARIABLE`, `LINKS`, `METHOD_LINKS`) come back empty.
 
-**Blocker — validation deferred to a pristine Gradle host.** The full suite is currently flaky: an intermittent
-javac NPE, `com.sun.tools.javac.code.Scope$StarImportScope.isFilled() ... tree.starImportScope is null`, thrown
-inside `task.analyze()` at `ScanCompilationUnits.scan:110` — the **parse** phase, ~1 run in 4–5, across
-`modification-link` / `-analyzer` / `java-openjdk`. **Not caused by the carry work**: an analysis-map filter cannot
-crash javac's enter phase, and it still reproduced with the `carryOnRewire` change present *and* the openjdk lazy
-loader (`setLazyLoader`) disabled. It is almost certainly the shared build host running several threads' Gradle
-daemons at once (contention on javac state); `sv-integration` on Fable never sees it, and that branch has **no**
-lazy-loader wiring at all. Diagnosis parked until the host is quiet — re-run the modification suites there before
-reading any red as real, and before trusting the carry work green.
+**Blocker — RESOLVED (2026-07-18, sv-integration `eca429e0`, merged into kotlin `8a79b12c`).** The intermittent
+javac NPE (`com.sun.tools.javac.code.Scope$StarImportScope.isFilled() ... tree.starImportScope is null`, thrown in
+`task.analyze()` at the parse phase, ~1 run in 4–5 across `modification-link` / `-analyzer` / `java-openjdk`) was
+**not** Gradle-daemon contention as this note previously guessed — it was a genuine data race. `CompiledTypesManagerImpl.typesLoaded`
+was a plain `HashMap` read and written by the PARALLEL analyzer worker threads, and `getOrLoad`'s miss path drove the
+live, thread-hostile `JavacTask` concurrently. Fixed with a `ConcurrentHashMap` + a `synchronized` double-checked
+miss path (`CompiledTypesManagerImpl:19,99-107`): two consecutive full triple-suite runs went 737/0 where every recent
+run had ~10 random victims. **The carry work can now be validated on a normal run** — red is real again.
 
 ## Not done
 
