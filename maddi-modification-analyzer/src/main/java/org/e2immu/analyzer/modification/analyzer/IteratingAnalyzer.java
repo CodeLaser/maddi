@@ -102,7 +102,20 @@ public interface IteratingAnalyzer {
      * that changed in the previous iteration plus their dependents (reverse edges) — the worklist narrowing.
      */
     default void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph) {
-        analyze(analysisOrder);
+        analyze(analysisOrder, dependencyGraph, null);
+    }
+
+    /**
+     * Incremental entry point for the early-cutoff skip (analysis-rewiring.md). When {@code initialDirty} is
+     * non-null, iteration 1 analyses only those elements (instead of the whole order), the worklist propagates from
+     * them through the dependency graph on summary change, and — crucially — the run <em>stops when the worklist is
+     * dry</em>, with no full verification/cycle-breaking pass (which would re-touch the carried, untouched elements
+     * and defeat the skip). Elements the worklist never reaches keep whatever analysis they already hold (their
+     * carried values). {@code null} ⇒ the normal full analysis.
+     */
+    default void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph,
+                         java.util.Set<Info> initialDirty) {
+        analyze(analysisOrder, dependencyGraph);
     }
 
     /** Findings (warnings/errors about the analyzed code) collected across all iterations; empty before analyze(). */

@@ -143,10 +143,17 @@ no separate link-side plumbing needed.
 
 So the wiring is:
 
-1. **Seed `dirty` with the INVALID set** via a new `analyze(order, graph, Set<Info> initialDirty)` overload
-   (`dirty = initialDirty` instead of `null`). Iteration 1 then analyses only the seed; the existing narrowing
-   propagates to a dependent only when a dependency's *summary changed* — which **is** the early cutoff. Everything
-   the worklist never reaches keeps its carried analysis and is never touched by link or analyzer.
+1. **Seed `dirty` with the INVALID set** — **DONE (2026-07-18).** `IteratingAnalyzer.analyze(order, graph,
+   Set<Info> initialDirty)` (impl in `IteratingAnalyzerImpl`): `dirty = initialDirty` instead of `null`, so iteration 1
+   analyses only the seed; the existing narrowing propagates to a dependent only when a dependency's *summary changed* —
+   which **is** the early cutoff. Everything the worklist never reaches keeps its carried analysis and is never touched
+   by link or analyzer. **Essential companion:** in this `incremental` mode the run **stops the moment the worklist is
+   dry, and the full verification / cycle-breaking passes are suppressed** — a normal run appends a full pass to certify
+   the fixpoint, but that pass would re-analyse the carried (untouched) elements and hit their monotonic guards,
+   defeating the skip. Correctness therefore rests on the carried elements being fingerprint-stable, established before
+   the call. Verified by `modification-analyzer/integration/TestSeededIncrementalAnalysis`: seeding a converged order
+   with one element analyses exactly that element and stops — no pass ever covers the whole order. The full
+   (`initialDirty == null`) path is byte-for-byte the old behaviour (analyzer suite green).
 2. **Clear-before-recompute for a carried type when it is first dirtied.** A carried type pulled into `dirty` must
    have its carry-tier `removeIf`'d before re-analysis, or the monotonic guard rejects a lowered value (unlike a
    normal run, where iteration 1 computed the value fresh and iteration 2 only refines it upward). Pass the carried
