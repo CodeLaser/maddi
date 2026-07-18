@@ -460,7 +460,10 @@ public record ExpressionVisitor(Runtime runtime,
         Result rTarget = visit(a.target(), variableData, stage);
         Links.Builder builder = new LinksImpl.Builder(((VariableExpression) rTarget.getEvaluated()).variable());
         if (rValue.links() != null && rValue.links().primary() != null) {
-            builder.add(LinkNatureImpl.IS_ASSIGNED_FROM, rValue.links().primary());
+            // cast-mediated assignment 'x = (II) o' (task #39): the cast is link-transparent, so the
+            // mediation provenance is recovered from the casts side-record of the value's evaluation
+            boolean mediated = rValue.casts().containsKey(rValue.links().primary());
+            ((LinksImpl.Builder) builder).add(LinkNatureImpl.IS_ASSIGNED_FROM, rValue.links().primary(), mediated);
         }
         Result result = new Result(builder.build(), LinkedVariablesImpl.EMPTY);
         result.addErase(a.variableTarget());
