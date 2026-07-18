@@ -61,6 +61,17 @@ public class AnalysisFingerprint {
     public static final Predicate<Property> ANALYZER_OUTPUT_ONLY =
             p -> !EXCLUDED_PROPERTY_KEYS.contains(p.key());
 
+    /**
+     * The tier the early-cutoff skip <em>carries</em> onto a fingerprint-stable rewired type: exactly the
+     * cross-type-derived properties (the expensive link/analyzer output), leaving out both the parse-time tier (the
+     * rewire phase already carried it) and the intrinsic tier (prepwork re-derives it, so carrying it would double-set
+     * against a re-prep). This is the precise replacement for the earlier {@code ANALYZER_OUTPUT_ONLY ∧ ¬carryOnRewire}
+     * approximation, which still carried the intrinsic {@code partOfConstructionType} / {@code finalField} /
+     * {@code instanceOfScope} / {@code statementAlwaysEscapes}. See {@link Property#analysisTier()}.
+     */
+    public static final Predicate<Property> CROSS_TYPE_DERIVED_ONLY =
+            p -> p.analysisTier() == Property.AnalysisTier.CROSS_TYPE_DERIVED;
+
     /** No normalization: hash the dump verbatim. */
     public static final List<FingerprintNormalizer> RAW = List.of();
 

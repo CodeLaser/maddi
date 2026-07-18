@@ -162,14 +162,29 @@ So the wiring is:
    analysisFingerprint differs from the carried/prior one — the `EarlyCutoffWorklist` logic, here realised *inside*
    the analyzer's own summary-change propagation rather than as a separate loop.
 
-### The remaining design task: a property-tier flag
+### The property-tier flag — DONE (2026-07-18)
 
-The carry must carry the *cross-type-derived* tier (`IMMUTABLE_*`, `CONTAINER_TYPE`, `INDEPENDENT_*`,
-`NON_MODIFYING_METHOD`, `UNMODIFIED_*`, `METHOD_LINKS`, `LINKS`, `IMPLEMENTATIONS`) and **not** the intrinsic-prepwork
-tier (`VARIABLE_DATA`, `PART_OF_CONSTRUCTION`, `FINAL_FIELD`, …), which prep re-runs and would double-set. Today the
-demonstration approximates this with `ANALYZER_OUTPUT_ONLY ∧ ¬carryOnRewire`; the production version wants an explicit
-per-`Property` tier (`parse-time` / `intrinsic` / `cross-type-derived`), which then serves the fingerprint, the carry,
-and the clear from one classification instead of three overlapping predicates.
+`Property.analysisTier()` returns an explicit `AnalysisTier` — `PARSE_TIME` / `INTRINSIC` / `CROSS_TYPE_DERIVED` —
+the one classification that serves the carry, the clear, and (later) the fingerprint, replacing the three overlapping
+predicates. The default classifies by `carryOnRewire()` (parse-time when true, cross-type-derived otherwise), so only
+the six intrinsic properties declare their tier explicitly:
+
+| tier | who recomputes on reload | members |
+|------|--------------------------|---------|
+| `PARSE_TIME` | rewire phase carries it, or it is lost | `GET_SET_FIELD` (`carryOnRewire`) |
+| `INTRINSIC` | prepwork re-derives from the type's own body | `VARIABLE_DATA`, `VARIABLES_OF_ENCLOSING_METHOD`, `PART_OF_CONSTRUCTION`, `FINAL_FIELD`, `INSTANCEOF_SCOPE`, `ALWAYS_ESCAPES` |
+| `CROSS_TYPE_DERIVED` | the early-cutoff skip carries it (the expensive tier) | everything else: `IMMUTABLE_*`, `CONTAINER_*`, `INDEPENDENT_*`, `NON_MODIFYING_METHOD`, `UNMODIFIED_*`, `METHOD_LINKS`, `LINKS`, `IMPLEMENTATIONS`, … |
+
+The skip carry is now the precise `AnalysisFingerprint.CROSS_TYPE_DERIVED_ONLY` (`analysisTier() == CROSS_TYPE_DERIVED`),
+replacing the `ANALYZER_OUTPUT_ONLY ∧ ¬carryOnRewire` approximation that still carried the intrinsic
+`partOfConstructionType` / `finalField` / `instanceOfScope` / `statementAlwaysEscapes`. Both skip demonstrations
+(`TestEarlyCutoffSkip`, `TestOutsideReloadCarry`) switched to it and stay green; `TestOutsideReloadCarry` now asserts
+the tier boundary directly (an intrinsic property is *not* in the derived carry — prep's job). `IMPLEMENTATIONS` is
+cross-type-derived (carried) yet prepwork also populates it via `getOrCreate`+add; its carried value is a mutable set,
+so a later re-prep of a dirtied type adds idempotently rather than conflicting.
+
+This unblocks the clear-before-recompute (clear `INTRINSIC` before a re-prep, `CROSS_TYPE_DERIVED` before a
+re-analyze) and lets a future fingerprint variant exclude the intrinsic tier from one classification.
 
 ### The running skip, demonstrated with real saving (2026-07-18)
 

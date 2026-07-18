@@ -92,8 +92,9 @@ public class MethodAnalyzer {
     }
 
     public static final VariableInfoMap EMPTY_VARIABLE_INFO_MAP = new VariableInfoMap(Set.of(), null);
+    // INTRINSIC: prepwork rebuilds the enclosing-method local-variable map from the body on every run.
     public static final Property VARIABLES_OF_ENCLOSING_METHOD = new PropertyImpl("localVariablesOfEnclosingMethod",
-            EMPTY_VARIABLE_INFO_MAP);
+            EMPTY_VARIABLE_INFO_MAP, Property.AnalysisTier.INTRINSIC);
 
     private final Runtime runtime;
     private final PrepAnalyzer prepAnalyzer;

@@ -91,9 +91,9 @@ public class TestEarlyCutoffSkip {
             }
             """;
 
-    // the derived (cross-type) tier: analyzer output minus the carryOnRewire tier the rewire phase already carried.
-    private static final Predicate<Property> DERIVED_OUTPUT =
-            p -> AnalysisFingerprint.ANALYZER_OUTPUT_ONLY.test(p) && !p.carryOnRewire();
+    // the derived (cross-type) tier: exactly Property.AnalysisTier.CROSS_TYPE_DERIVED -- analyzer output minus both
+    // the parse-time tier (rewire-carried) and the intrinsic tier (prepwork-recomputed).
+    private static final Predicate<Property> DERIVED_OUTPUT = AnalysisFingerprint.CROSS_TYPE_DERIVED_ONLY;
 
     @TempDir
     Path root;
