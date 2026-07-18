@@ -1255,7 +1255,7 @@ public abstract class ValueImpl implements Value {
         }
 
         // carryOnRewire (IMPLEMENTATIONS): re-point each implementation method through the infoMap. Needed to carry
-        // a stable type's analysis across a rewire; see analysis-rewiring.md.
+        // a stable type's analysis across a rewire; see docs/analysis-rewiring.md.
         @Override
         public Value rewire(InfoMapView infoMap) {
             return new SetOfMethodInfoImpl(methodInfoSet.stream()

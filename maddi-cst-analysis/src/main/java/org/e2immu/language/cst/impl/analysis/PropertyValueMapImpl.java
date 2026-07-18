@@ -41,7 +41,7 @@ public class PropertyValueMapImpl implements PropertyValueMap {
 
     /**
      * Carries only the properties that declare {@link Property#carryOnRewire()}; the rest are dropped, which for
-     * anything derived across types is the correct answer rather than a lossy one (see {@code rewiring.md}).
+     * anything derived across types is the correct answer rather than a lossy one (see {@code docs/rewiring.md}).
      * Applies to expressions as much as to Info: a stale value is no more welcome inside a rewired MethodCall than
      * on a rewired method.
      */
@@ -50,7 +50,7 @@ public class PropertyValueMapImpl implements PropertyValueMap {
         return rewire(infoMap, Property::carryOnRewire);
     }
 
-    // filtered carry (analysis-rewiring.md): the fingerprint-gated skip passes the analyzer-output predicate
+    // filtered carry (docs/analysis-rewiring.md): the fingerprint-gated skip passes the analyzer-output predicate
     @Override
     public synchronized PropertyValueMap rewire(InfoMapView infoMap, java.util.function.Predicate<Property> filter) {
         PropertyValueMapImpl rewiredMap = new PropertyValueMapImpl();

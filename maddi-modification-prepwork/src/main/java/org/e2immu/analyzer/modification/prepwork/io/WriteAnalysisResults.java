@@ -41,7 +41,7 @@ public class WriteAnalysisResults {
 
     private final Runtime runtime;
     private final Predicate<TypeInfo> typePredicate;
-    // which analysis properties to serialise; the analysisFingerprint (analysis-rewiring.md) passes a predicate
+    // which analysis properties to serialise; the analysisFingerprint (docs/analysis-rewiring.md) passes a predicate
     // that keeps only the analyzer output. Default true = write everything, the production behaviour.
     private final Predicate<Property> propertyPredicate;
 
@@ -195,7 +195,7 @@ public class WriteAnalysisResults {
     /**
      * Encode a single primary type's analysis to a {@link Codec.EncodedValue}, honouring the type and property
      * predicates. Shared by the file writer ({@link #writePrimary}) and the analysisFingerprint (which serialises
-     * this and hashes it); see {@code analysis-rewiring.md}.
+     * this and hashes it); see {@code docs/analysis-rewiring.md}.
      */
     public Codec.EncodedValue encodePrimaryType(Codec codec, Codec.Context context, TypeInfo primaryType) {
         context.push(primaryType);

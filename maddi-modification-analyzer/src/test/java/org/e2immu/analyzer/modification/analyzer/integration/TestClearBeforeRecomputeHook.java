@@ -39,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * the worklist pulls a carried type into the dirty frontier only when a dependency's summary changes, and the hook
  * fires once for each such element — before its first re-analysis — so the driver can clear its stale
  * cross-type-derived values (else the monotonic guard would reject a lowered value). The seed itself is fresh
- * (INVALID) source, never carried, so the hook never fires for it. See analysis-rewiring.md.
+ * (INVALID) source, never carried, so the hook never fires for it. See docs/analysis-rewiring.md.
  */
 public class TestClearBeforeRecomputeHook extends CommonTest {
 

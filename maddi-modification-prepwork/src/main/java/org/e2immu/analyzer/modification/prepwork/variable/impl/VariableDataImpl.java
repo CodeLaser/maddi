@@ -104,7 +104,7 @@ public class VariableDataImpl implements VariableData {
     The map keys are fully qualified names and survive, but every VariableInfoContainer underneath holds Variable
     objects (and its own analysis), so a rewire has to descend into all of them. This is the one value worth
     carrying across a rewire -- it is computed from the type's own body, which a REWIRE type by definition did not
-    change -- so this is the place to start when that is taken on. See rewiring.md.
+    change -- so this is the place to start when that is taken on. See docs/rewiring.md.
      */
     @Override
     public Value rewire(InfoMapView infoMap) {

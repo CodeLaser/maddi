@@ -42,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * The derived-tier {@code Value.rewire} implementations (previously NYI): {@code IMPLEMENTATIONS}
  * ({@code SetOfMethodInfoImpl}), field {@code LINKS} ({@code LinksImpl}), and {@code METHOD_LINKS}
  * ({@code MethodLinkedVariablesImpl}). These are what a fingerprint-stable type's <em>full</em> analysis carry needs
- * (analysis-rewiring.md); the parked {@code carryOnRewire} only reached the parse-time/intrinsic tier. Here we take
+ * (docs/analysis-rewiring.md); the parked {@code carryOnRewire} only reached the parse-time/intrinsic tier. Here we take
  * the real analyzed values and rewire them directly (they are not opted into {@code carryOnRewire}, so the rewire
  * phase would filter them out — the point is that the value-level rewire re-points references and does not throw).
  */

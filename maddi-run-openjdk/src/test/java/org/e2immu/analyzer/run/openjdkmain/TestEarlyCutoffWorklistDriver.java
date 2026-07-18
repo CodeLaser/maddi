@@ -73,7 +73,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * recompute genuinely re-preps and re-analyses the type, and a type the worklist never reaches is <em>never</em>
  * re-prepped nor re-analysed — it returns with its optimistically-carried cross-type-derived output. A comment edit at
  * {@code Base} recomputes only {@code Base} (its output is unchanged, so the frontier cuts off) and spares the whole
- * tail; a semantic edit propagates along the chain. See analysis-rewiring.md.
+ * tail; a semantic edit propagates along the chain. See docs/analysis-rewiring.md.
  */
 public class TestEarlyCutoffWorklistDriver {
 
@@ -89,7 +89,7 @@ public class TestEarlyCutoffWorklistDriver {
             """;
     // a semantic edit that changes Base's own analyzer output: a mutable reference-typed field + a modifying method,
     // which flips Base off immutable and moves its verdicts/links. Exercises the fingerprint over a MODIFIABLE field
-    // whose links reference the link engine's virtual field (§m); handled by the codec (see analysis-rewiring.md).
+    // whose links reference the link engine's virtual field (§m); handled by the codec (see docs/analysis-rewiring.md).
     private static final String BASE_SEMANTIC = """
             package a.b;
             public class Base {

@@ -214,7 +214,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                         java.util.Set<Info> initialDirty, java.util.function.Consumer<Info> beforeFirstRecompute) {
         // incremental (early-cutoff) mode: seed the worklist with initialDirty and stop the moment it runs dry,
         // WITHOUT the full verification / cycle-breaking passes — those re-touch the untouched (carried) elements
-        // and would defeat the skip. See analysis-rewiring.md and IteratingAnalyzer#analyze(List,G,Set).
+        // and would defeat the skip. See docs/analysis-rewiring.md and IteratingAnalyzer#analyze(List,G,Set).
         boolean incremental = initialDirty != null;
         // clear-before-recompute: elements already analysed (never to be re-cleared). Seeded with the seed itself,
         // which is fresh (INVALID) source, never carried — so the hook fires only for elements the worklist later
