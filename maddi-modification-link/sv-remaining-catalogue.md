@@ -4,6 +4,26 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-18 — AUDIT ISSUES ATTACKED: Outer.this fixed, hints unblocked, cycle breaking live
+
+All three semantic-audit engine actions landed (suites green throughout):
+1. **Outer.this (unsound, #28)**: modified enclosing-This now counts via
+   isEqualToOrInnerClassOf in copyModificationsIntoMethod. Repro TestModificationOuterThis;
+   guava A/B corrected 161 method verdicts (incl. CompactHashMap.EntrySetView.remove).
+2. **Analysis-hints ordering (#29)**: the preload ran BEFORE parse → resolved 0/249 types.
+   Moved post-parse: 0 skipped; all proving-ground tests + the sweep now preload the jdk
+   hints by default.
+3. **Cycle breaking at the certification point** (opt-out NOCYCLEBREAKING=1): when
+   certified-but-undecided types remain, one more full pass runs with breaking active and
+   re-certifies. FieldAnalyzer's breaking branch made idempotent (assert-write + null
+   fall-through crashed 200+ elements on first activation).
+**Fernflower immutability: 380 null / 0 positive → 1 null / 66 @Immutable + 50 @ImmutableHC
++ 231 @FinalFields + 159 @Mutable — certified, crash-free.** All corpus FPDUMP baselines
+are superseded (verdict-changing fixes, correct direction) — re-pin on next runs.
+REMAINING from the audit: aliased-static-singleton unsoundness (DUMMY; tier-3
+canonicalization); constructor non-confluence under PARALLEL (spec says ctors modifying);
+unmodifiedField doc note; immutability PRECISION audit now that the positive side exists.
+
 ## CURRENT STATE 2026-07-18 + NEXT ACTIONS (semantic-audit follow-up)
 
 State: branch sv-integration @ 7d255f00, clean, suites green (link 393/0, analyzer 143/0).
