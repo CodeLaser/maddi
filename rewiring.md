@@ -299,8 +299,16 @@ carried non-null would fight the link re-run rather than be replaced.
   opposed to the always-safe intrinsic carry. Test `analyzer/rewire/TestDerivedRewire` rewires the real analyzed
   values directly (they are not opted into `carryOnRewire`, so the rewire phase filters them — the test exercises the
   value-level rewire): `IMPLEMENTATIONS` re-points precisely, `LINKS`/`METHOD_LINKS` rewire without a synthetic-var NYI.
-  Not yet done: the remaining NYI tier (`VariableToTypeInfoSetImpl`, `ParameterParSeqImpl`, `SetOfInfoImpl`, …) and a
-  full-carry path (`carry all` vs the `carryOnRewire` filter) that the fingerprint-gated skip will drive.
+  Then extended: `SetOfInfoImpl` (`PART_OF_CONSTRUCTION`, dispatching each `Info` by kind), `SetOfTypeInfoImpl`, and
+  `VariableToTypeInfoSetImpl` (`DOWNCAST_PARAMETER`). Only `ParameterParSeqImpl` (`PARALLEL_PARAMETER_GROUPS`, rare,
+  complex `ParSeq` mapping) stays NYI.
+- **The filtered-carry path exists.** `PropertyValueMap.rewire(InfoMap, Predicate<Property>)` carries only the
+  properties matching the predicate (`rewire(InfoMap)` is this with `Property::carryOnRewire`). The fingerprint-gated
+  skip passes the *analyzer-output* predicate (`AnalysisFingerprint.ANALYZER_OUTPUT_ONLY`) — verdicts + link
+  summaries, **excluding** prepwork-internal `VARIABLE_DATA` (recomputed anyway, and its `rewire` is still NYI). Test
+  `TestDerivedRewire.testFullCarry`: the analyzer-output rewire of a method carries `METHOD_LINKS` + `IMPLEMENTATIONS`
+  (re-pointed) and strictly more than the `carryOnRewire`-filtered rewire, without an NYI. This is the carry the skip
+  will apply to a fingerprint-stable REWIRE type.
 
 Still to do: `VARIABLE_DATA` (items 1 + 3 — `VariableDataImpl`/`VariableInfoImpl.rewire` and statement-level
 `Statement.rewireAnalysis`, minding the two traps), and the plain intrinsics. Note the analysis-rewiring

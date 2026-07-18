@@ -17,6 +17,7 @@ package org.e2immu.analyzer.modification.analyzer.rewire;
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
 import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
+import org.e2immu.analyzer.modification.prepwork.io.AnalysisFingerprint;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -116,6 +117,42 @@ public class TestDerivedRewire extends CommonTest {
                 .getOrNull(MethodLinkedVariablesImpl.METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertNotNull(methodLinks, "the getter must carry METHOD_LINKS");
         assertDoesNotThrow(() -> methodLinks.rewire(infoMap));
+    }
+
+    @DisplayName("the analyzer-output filtered rewire carries verdicts + links, unlike the carryOnRewire rewire")
+    @Test
+    public void testFullCarry() throws IOException {
+        TypeInfo x = analyze();
+        MethodInfo getMethod = x.findUniqueMethod("get", 0);
+        MethodInfo abstractM = subType(x, "I").findUniqueMethod("m", 0);
+
+        InfoMap infoMap = bundle.javaInspector().runtime().newInfoMap(Set.of(x));
+        infoMap.rewireAll();
+
+        // the analyzer-output rewire must not throw (every kept property implements rewire) and carries strictly more than
+        // the carryOnRewire-filtered rewire.
+        org.e2immu.language.cst.api.analysis.PropertyValueMap full =
+                assertDoesNotThrow(() -> getMethod.analysis().rewire(infoMap, AnalysisFingerprint.ANALYZER_OUTPUT_ONLY));
+        org.e2immu.language.cst.api.analysis.PropertyValueMap filtered = getMethod.analysis().rewire(infoMap);
+        assertTrue(full.propertyValueStream().count() > filtered.propertyValueStream().count(),
+                "the analyzer-output rewire carries verdicts + links; the plain rewire keeps only carryOnRewire");
+
+        // METHOD_LINKS is carried by the analyzer-output rewire (re-pointed) but dropped by the plain rewire
+        assertNotNull(full.getOrNull(MethodLinkedVariablesImpl.METHOD_LINKS, MethodLinkedVariablesImpl.class),
+                "the analyzer-output rewire carries METHOD_LINKS");
+        assertNull(filtered.getOrNull(MethodLinkedVariablesImpl.METHOD_LINKS, MethodLinkedVariablesImpl.class),
+                "rewire drops METHOD_LINKS (not carryOnRewire)");
+
+        // the abstract method's IMPLEMENTATIONS survive a full carry, re-pointed to the rewired implementation
+        org.e2immu.language.cst.api.analysis.PropertyValueMap abstractFull =
+                assertDoesNotThrow(() -> abstractM.analysis().rewire(infoMap, AnalysisFingerprint.ANALYZER_OUTPUT_ONLY));
+        ValueImpl.SetOfMethodInfoImpl impls = abstractFull
+                .getOrNull(PropertyImpl.IMPLEMENTATIONS, ValueImpl.SetOfMethodInfoImpl.class);
+        assertNotNull(impls, "the analyzer-output rewire carries IMPLEMENTATIONS");
+        MethodInfo implM2 = infoMap.methodInfo(subType(x, "Impl").findUniqueMethod("m", 0));
+        Set<MethodInfo> set = new HashSet<>();
+        impls.methodInfoSet().forEach(set::add);
+        assertTrue(set.stream().anyMatch(mi -> mi == implM2), "carried IMPLEMENTATIONS points at the rewired Impl.m");
     }
 
     private static boolean contains(Value.SetOfMethodInfo set, MethodInfo methodInfo) {
