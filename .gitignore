@@ -9,6 +9,7 @@ bazel-*
 **/out/
 .idea
 **/.idea
+*.iml
 */.kotlin
 
 # IntelliJ Platform Gradle Plugin runIde sandbox
