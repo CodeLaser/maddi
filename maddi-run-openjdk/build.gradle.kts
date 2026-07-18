@@ -92,7 +92,9 @@ tasks.test {
     // checkDuplicateNames) are not production behaviour, so turn them off to benchmark production-like linking.
     enableAssertions = !project.hasProperty("noAssertions")
     jvmArgs(
-        "-Xmx8G", // 6G showed heavy GC under PARALLEL=8 (8 threads allocating link graphs concurrently)
+        // 6G showed heavy GC under PARALLEL=8 (8 threads allocating link graphs concurrently);
+        // TESTXMX overrides for outsized corpora (elasticsearch server closure OOM'd at 8G)
+        "-Xmx" + (System.getenv("TESTXMX") ?: "8G"),
         "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",

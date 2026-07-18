@@ -37,6 +37,20 @@ public final class TolerantWrite {
 
     public static void resetChangeCounts() {
         CHANGES.clear();
+        REFUSED_DOWNGRADES.clear();
+    }
+
+    // certification blind spot (PLAN-modification-reachability §9): a REFUSED downgrade returns false =
+    // "no change" = invisible to the verification passes, so a fixpoint can certify prematurely-frozen
+    // optimistic values. Count refusals per property so the iterating analyzer can surface (and, under
+    // STRICTCERT=1, refuse) such a certification.
+    private static final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.LongAdder>
+            REFUSED_DOWNGRADES = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public static java.util.Map<String, Long> refusedDowngrades() {
+        java.util.Map<String, Long> result = new java.util.TreeMap<>();
+        REFUSED_DOWNGRADES.forEach((k, v) -> result.put(k, v.sum()));
+        return result;
     }
 
     /** convergence diagnosis for write sites that do not go through this class (plain set() + counter) */
@@ -129,6 +143,8 @@ public final class TolerantWrite {
                         return downgraded;
                     }
                     LOGGER.warn("Keeping {}={}, refusing downgrade to {} on {}", property.key(), current, value, context);
+                    REFUSED_DOWNGRADES.computeIfAbsent(property.key(),
+                            _ -> new java.util.concurrent.atomic.LongAdder()).increment();
                     return false;
                 }
             }
