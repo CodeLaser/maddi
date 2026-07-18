@@ -2,7 +2,6 @@ package org.e2immu.analyzer.modification.prepwork;
 
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -37,13 +36,20 @@ public class TestAnonymousMemberRecord extends CommonTest {
             }
             """;
 
-    @Disabled("OPEN BUG (task #33): forward reference resolves the record via the lazy class-symbol path; "
-            + "the later source visit rebuilds members on the same TypeInfo. See sv-remaining-catalogue.md.")
     @DisplayName("prep over a forward-referenced member record of an anonymous class")
     @Test
     public void test() {
         TypeInfo X = javaInspector.parse("a.b.X", INPUT);
+        // the member record must be fully source-built: body present on make(), Cmp under the anonymous type
+        var make = X.findUniqueMethod("make", 0);
+        assertNotNull(make.methodBody(), "make()'s body must survive the member-record parse");
+        var rs = (org.e2immu.language.cst.api.statement.ReturnStatement) make.methodBody().statements().getFirst();
+        var cc = (org.e2immu.language.cst.api.expression.ConstructorCall) rs.expression();
+        TypeInfo anon = cc.anonymousClass();
+        assertNotNull(anon);
+        TypeInfo cmp = anon.findSubType("Cmp");
+        cmp.constructorAndMethodStream().forEach(mi ->
+                assertNotNull(mi.methodBody(), "source-built member method must have a body: " + mi));
         new PrepAnalyzer(runtime).doPrimaryType(X);
-        assertNotNull(X);
     }
 }

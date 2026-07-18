@@ -89,8 +89,18 @@ Engine, robustness/performance:
 - Per-method closure cost ceiling: DONE 2026-07-18 (edge-visit granularity, 10M default,
   -Dmaddi.workCeiling, opt-out NOWORKCEILING; the per-pop first cut never tripped — the elasticsearch
   monster burned 96 min inside single propagations). Gate: link 394/0, fernflower 0 trips + 0-diff.
-- Dual-identity family (source-scanned type also lazily loaded from bytecode): task #33 — member
-  types of anonymous classes (prep repro @Disabled in TestAnonymousMemberRecord); plus the
+- Dual-identity family (source-scanned type also lazily loaded from bytecode): task #33 has TWO
+  fronts. IN-HOUSE PARSER FRONT FIXED 2026-07-18: ParseTypeDeclaration could not declare a member
+  type inside an anonymous/local body AT ALL — the bySimpleName lambda resolves members by
+  scan-phase FQN lookup, but an anonymous enclosing ($0) is never in the type context
+  ('Cannot find type a.b.X.$0'). Fix: create-or-reuse the member TypeInfo directly (+
+  handleTypeModifiers, as parseLocal does); forward references then resolve free of charge via
+  parseBody's subtypes-first ordering. TestAnonymousMemberRecord ENABLED (asserts full source
+  build). TestDegradedAnalysisMarker's trigger became obsolete by this fix and was replaced with a
+  SYNTHETIC one (committed non-abstract method without body + source-set-carrying CU — the
+  half-built shape the lazy class-scanner path presents). OPENJDK FRONT still open: the
+  visitClass/continueType convergence on a lazily-committed member type (the elasticsearch
+  4-isolated-types shape) — THIS is what gates the elasticsearch sweep-green bar; plus the
   'Create multi' setInternal UOE (scoped around by dropping build-tooling source sets).
 - CompileListToSourceSets: two -d destinations for one module (generated-classes step) corrupt both
   the source-set name and its URI (elasticsearch libs/native); derive from the classes/java/<name>
