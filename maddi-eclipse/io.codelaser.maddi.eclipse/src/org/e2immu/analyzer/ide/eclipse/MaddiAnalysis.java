@@ -74,7 +74,8 @@ public final class MaddiAnalysis {
         MaddiDaemonProcess daemon = MaddiEclipsePlugin.get().daemon();
         daemon.ensureStarted(install, Path.of(jdkHome), MaddiPreferences.daemonXmxMb(), null);
 
-        AnalysisModel.AnalyzeConfig config = new MaddiEclipseConfigBuilder().build(javaProject, jdkHome);
+        AnalysisModel.AnalyzeConfig config = new MaddiEclipseConfigBuilder()
+                .build(javaProject, jdkHome, MaddiPreferences.warnNearMisses());
         JsonNode node = daemon.analyze("req-" + System.nanoTime(), config, status -> { });
         if ("error".equals(node.path("type").asText())) {
             MaddiEclipsePlugin.error("daemon error: " + node.path("message").asText(), null);

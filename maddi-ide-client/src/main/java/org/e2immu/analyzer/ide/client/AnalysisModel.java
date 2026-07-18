@@ -40,7 +40,8 @@ public final class AnalysisModel {
                                 List<SourceRoot> sources,
                                 List<ClasspathEntry> classpath,
                                 List<String> restrictToPackages,
-                                boolean parallel) {
+                                boolean parallel,
+                                boolean warnNearMisses) {
     }
 
     // ---- result ----

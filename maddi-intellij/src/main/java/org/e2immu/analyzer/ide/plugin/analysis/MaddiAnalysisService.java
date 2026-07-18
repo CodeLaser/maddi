@@ -114,8 +114,9 @@ public final class MaddiAnalysisService implements Disposable {
 
         indicator.setText("maddi: building configuration");
         String resolvedJdkHome = jdkHome;
-        AnalysisModel.AnalyzeConfig config =
-                ReadAction.compute(() -> new MaddiConfigBuilder().build(project, resolvedJdkHome));
+        boolean warnNearMisses = settings.warnNearMisses;
+        AnalysisModel.AnalyzeConfig config = ReadAction.compute(
+                () -> new MaddiConfigBuilder().build(project, resolvedJdkHome, warnNearMisses));
         String requestId = "req-" + requestCounter.incrementAndGet();
 
         JsonNode node = daemon.analyze(requestId, config,

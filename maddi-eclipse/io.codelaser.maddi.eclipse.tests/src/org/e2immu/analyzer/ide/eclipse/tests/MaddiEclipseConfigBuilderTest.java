@@ -57,7 +57,7 @@ public class MaddiEclipseConfigBuilderTest {
         javaProject.setRawClasspath(new IClasspathEntry[]{JavaCore.newSourceEntry(src.getFullPath())}, null);
         javaProject.setOutputLocation(bin.getFullPath(), null);
 
-        AnalysisModel.AnalyzeConfig config = new MaddiEclipseConfigBuilder().build(javaProject, JDK_HOME);
+        AnalysisModel.AnalyzeConfig config = new MaddiEclipseConfigBuilder().build(javaProject, JDK_HOME, false);
 
         assertEquals(JDK_HOME, config.sdkHome(), "the maddi JDK is the analysis SDK");
         assertEquals("UTF-8", config.sourceEncoding());
