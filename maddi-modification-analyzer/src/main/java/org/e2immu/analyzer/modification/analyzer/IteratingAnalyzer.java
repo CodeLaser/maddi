@@ -44,6 +44,22 @@ public interface IteratingAnalyzer {
         boolean guardContracts();
 
         /**
+         * When true, emit advisory WARN findings for types that narrowly miss a property — e.g. a type that
+         * would satisfy {@code @Container} but for a single modifying parameter. The mirror image of the guard:
+         * no contract is written, the computed property is decided FALSE, but one culprit away from holding.
+         * Off by default (opt-in for refactoring surveys), so ordinary runs are unaffected. See
+         * {@link GuardAnalyzer} and {@link #nearMissPolicy()}.
+         */
+        default boolean warnNearMisses() {
+            return false;
+        }
+
+        /** Thresholds gating {@link #warnNearMisses()}; only consulted when that is true. */
+        default NearMissPolicy nearMissPolicy() {
+            return NearMissPolicy.STRICT;
+        }
+
+        /**
          * When true, a failure (exception, assertion, stack overflow) while analyzing one {@code Info} is recorded
          * as an ERROR finding — category {@code analyzer-crash} / {@code link-crash} — and analysis continues with
          * the remaining {@code Info}s, instead of aborting the whole run. The offending {@code Info} is not retried
@@ -51,6 +67,22 @@ public interface IteratingAnalyzer {
          * production runners and the real-code survey turn it on. Mirrors {@code PrepAnalyzer.Options.faultTolerant}.
          */
         boolean faultTolerant();
+    }
+
+    /**
+     * Thresholds gating container near-miss warnings ({@link Configuration#warnNearMisses()}). A type is a
+     * container near-miss only when it has at least {@code minParameterSlots} parameter slots (one per parameter
+     * of a non-private constructor/method), at most {@code maxBlockingSlots} of them are modified, and — for a
+     * blocking slot on an <em>abstract</em> method — the modification is attributable to between 1 and
+     * {@code maxBlockingImplementations} implementations out of at least {@code minImplementations}. The absolute
+     * caps plus the surface floor keep this to the compelling "one culprit" cases; see the design note in
+     * {@code guard-mode-analysis.md}.
+     */
+    record NearMissPolicy(int minParameterSlots, int maxBlockingSlots, int minImplementations,
+                          int maxBlockingImplementations) {
+        /** The strict defaults: a single blocking parameter, on a surface of at least 7 slots, attributable to a
+         *  single implementation out of at least 3. */
+        public static final NearMissPolicy STRICT = new NearMissPolicy(7, 1, 3, 1);
     }
 
     void analyze(List<Info> analysisOrder);

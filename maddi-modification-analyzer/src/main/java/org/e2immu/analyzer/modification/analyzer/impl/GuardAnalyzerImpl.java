@@ -46,9 +46,12 @@ import org.e2immu.annotation.Independent;
 import org.e2immu.language.cst.impl.analysis.MessageImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
@@ -72,6 +75,7 @@ import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
  */
 public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyzer {
     public static final String CONTRACT_VIOLATION = "contract-violation";
+    public static final String NEAR_MISS_CONTAINER = "near-miss-container";
 
     private final ContractReader contractReader;
     private final AnalysisHelper analysisHelper = new AnalysisHelper();
@@ -83,14 +87,134 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
 
     @Override
     public void go(List<Info> analysisOrder) {
-        for (Info info : analysisOrder) {
-            if (info instanceof TypeInfo typeInfo) {
-                guardType(typeInfo);
-            } else if (info instanceof MethodInfo methodInfo) {
-                guardMethod(methodInfo);
-                guardOverride(methodInfo);
+        if (configuration.guardContracts()) {
+            for (Info info : analysisOrder) {
+                if (info instanceof TypeInfo typeInfo) {
+                    guardType(typeInfo);
+                } else if (info instanceof MethodInfo methodInfo) {
+                    guardMethod(methodInfo);
+                    guardOverride(methodInfo);
+                }
             }
         }
+        if (configuration.warnNearMisses()) {
+            nearMissPass(analysisOrder);
+        }
+    }
+
+    // ---- near-miss warnings: the mirror image of the guard (no contract written, one culprit short) ----
+
+    /** A single parameter of a non-private constructor/method — the unit the container rule quantifies over. */
+    private record Slot(MethodInfo method, ParameterInfo parameter, int index) {
+    }
+
+    /** A finding plus the keys it is ranked by, so the most compelling suggestions survive a capped display. */
+    private record RankedFinding(Message message, int blocking, int totalSlots) {
+    }
+
+    /**
+     * Container near-misses over the whole analysis order, ranked most-compelling first (fewest blocking slots,
+     * then largest surface) before they join the shared message list.
+     */
+    private void nearMissPass(List<Info> analysisOrder) {
+        IteratingAnalyzer.NearMissPolicy policy = configuration.nearMissPolicy();
+        List<RankedFinding> findings = new ArrayList<>();
+        for (Info info : analysisOrder) {
+            if (info instanceof TypeInfo typeInfo) {
+                RankedFinding f = containerNearMiss(typeInfo, policy);
+                if (f != null) findings.add(f);
+            }
+        }
+        findings.sort(Comparator.comparingInt(RankedFinding::blocking)
+                .thenComparing(Comparator.comparingInt(RankedFinding::totalSlots).reversed()));
+        for (RankedFinding f : findings) analyzerMessages.add(f.message());
+    }
+
+    /**
+     * Is {@code typeInfo} one culprit short of {@code @Container}? Only when it wrote no {@code @Container}, its
+     * computed {@code CONTAINER_TYPE} is decided FALSE, every parameter slot is decided (else we could not claim
+     * "all the others are fine"), and the blocking slots — at most {@code maxBlockingSlots}, on a surface of at
+     * least {@code minParameterSlots} — each pass their gate (a slot on an abstract method must be attributable to
+     * a single implementation out of many). Mirrors {@link TypeContainerAnalyzerImpl}'s parameter enumeration.
+     *
+     * @return the ranked finding, or {@code null} when it is not a near-miss.
+     */
+    private RankedFinding containerNearMiss(TypeInfo typeInfo, IteratingAnalyzer.NearMissPolicy policy) {
+        // the user contracted @Container (the guard polices it), or it already is one: nothing to suggest.
+        if (contractReader.contracts(typeInfo).get(CONTAINER_TYPE) instanceof Value.Bool contracted
+            && contracted.isTrue()) {
+            return null;
+        }
+        Value.Bool computed = typeInfo.analysis().getOrNull(CONTAINER_TYPE, ValueImpl.BoolImpl.class);
+        if (computed == null || computed.isTrue()) return null; // undecided, or already a container
+
+        List<MethodInfo> methods = typeInfo.constructorAndMethodStream()
+                .filter(mi -> !mi.access().isPrivate()).toList();
+        List<Slot> blocking = new ArrayList<>();
+        int totalSlots = 0;
+        for (MethodInfo mi : methods) {
+            List<ParameterInfo> parameters = mi.parameters();
+            for (int i = 0; i < parameters.size(); i++) {
+                ParameterInfo pi = parameters.get(i);
+                Value.Bool unmodified = pi.analysis().getOrNull(UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.class);
+                if (unmodified == null) return null; // undecided discipline: cannot claim the near-miss
+                totalSlots++;
+                if (unmodified.isFalse()) blocking.add(new Slot(mi, pi, i));
+            }
+        }
+        if (totalSlots < policy.minParameterSlots()) return null;
+        if (blocking.isEmpty() || blocking.size() > policy.maxBlockingSlots()) return null;
+
+        List<Message> causes = new ArrayList<>();
+        for (Slot slot : blocking) {
+            Message cause = slot.method().isAbstract() ? abstractSlotCause(slot, policy) : concreteSlotCause(slot);
+            if (cause == null) return null; // a blocking slot that does not pass its gate: not a near-miss
+            causes.add(cause);
+        }
+        String slotList = blocking.stream()
+                .map(s -> "parameter '" + s.parameter().simpleName() + "' of " + s.method().fullyQualifiedName())
+                .collect(Collectors.joining(", "));
+        String message = typeInfo.fullyQualifiedName() + " would satisfy @Container but for " + blocking.size()
+                         + " of its " + totalSlots + " parameter slots (" + slotList + " modified); consider @Container";
+        Message warning = MessageImpl.warn(typeInfo, NEAR_MISS_CONTAINER, message, causes.toArray(new Message[0]));
+        return new RankedFinding(warning, blocking.size(), totalSlots);
+    }
+
+    /** A concrete method modifying its own parameter: the direct-site blame walk is the cause (or a plain note). */
+    private Message concreteSlotCause(Slot slot) {
+        Message blame = blameParameterModified(slot.method(), slot.parameter());
+        return blame != null ? blame : MessageImpl.cause(slot.parameter(), "parameter '"
+                + slot.parameter().simpleName() + "' of " + slot.method().fullyQualifiedName() + " is modified");
+    }
+
+    /**
+     * An abstract method whose parameter aggregate is modified: the "1 of N" gate. Attribute the modification to
+     * the implementations that cause it; a near-miss only when at least {@code minImplementations} exist and at
+     * most {@code maxBlockingImplementations} of them modify. Returns {@code null} (suppressing the whole finding)
+     * when the modification is widespread, when there are too few implementations, or when any implementation's
+     * value is undecided (then the count cannot be trusted).
+     */
+    private Message abstractSlotCause(Slot slot, IteratingAnalyzer.NearMissPolicy policy) {
+        int total = 0;
+        List<MethodInfo> modifying = new ArrayList<>();
+        for (MethodInfo impl : implementationsOf(slot.method())) {
+            total++;
+            if (slot.index() >= impl.parameters().size()) return null; // defensive: signature shape mismatch
+            ParameterInfo implPi = impl.parameters().get(slot.index());
+            Value.Bool unmodified = implPi.analysis().getOrNull(UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.class);
+            if (unmodified == null) return null; // an undecided implementation: cannot attribute "1 of N"
+            if (unmodified.isFalse()) modifying.add(impl);
+        }
+        if (total < policy.minImplementations()) return null;
+        if (modifying.isEmpty() || modifying.size() > policy.maxBlockingImplementations()) return null;
+
+        MethodInfo culprit = modifying.getFirst();
+        Message blame = blameParameterModified(culprit, culprit.parameters().get(slot.index()));
+        String attribution = culprit.fullyQualifiedName() + " modifies parameter '" + slot.parameter().simpleName()
+                             + "' — the only " + modifying.size() + " of " + total + " implementations of "
+                             + slot.method().fullyQualifiedName() + " that does";
+        return blame != null ? MessageImpl.cause(culprit, attribution, blame)
+                : MessageImpl.cause(culprit, attribution);
     }
 
     private void guardType(TypeInfo typeInfo) {

@@ -47,7 +47,9 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                                     CycleBreakingStrategy cycleBreakingStrategy,
                                     boolean trackObjectCreations,
                                     boolean guardContracts,
-                                    boolean faultTolerant) implements Configuration {
+                                    boolean faultTolerant,
+                                    boolean warnNearMisses,
+                                    NearMissPolicy nearMissPolicy) implements Configuration {
     }
 
     public static class ConfigurationBuilder {
@@ -56,6 +58,8 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         private boolean trackObjectCreations;
         private boolean guardContracts = true;
         private boolean faultTolerant;
+        private boolean warnNearMisses;
+        private NearMissPolicy nearMissPolicy = NearMissPolicy.STRICT;
         private CycleBreakingStrategy cycleBreakingStrategy = CycleBreakingStrategy.NONE;
 
         public ConfigurationBuilder setCycleBreakingStrategy(CycleBreakingStrategy cycleBreakingStrategy) {
@@ -88,9 +92,19 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             return this;
         }
 
+        public ConfigurationBuilder setWarnNearMisses(boolean warnNearMisses) {
+            this.warnNearMisses = warnNearMisses;
+            return this;
+        }
+
+        public ConfigurationBuilder setNearMissPolicy(NearMissPolicy nearMissPolicy) {
+            this.nearMissPolicy = nearMissPolicy;
+            return this;
+        }
+
         public Configuration build() {
             return new ConfigurationImpl(maxIterations, stopWhenCycleDetectedAndNoImprovements, cycleBreakingStrategy,
-                    trackObjectCreations, guardContracts, faultTolerant);
+                    trackObjectCreations, guardContracts, faultTolerant, warnNearMisses, nearMissPolicy);
         }
     }
 
@@ -254,8 +268,8 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                 LOGGER.info("Stop iterating after {} iterations, done? {}{}", iterations, done,
                         plateau ? " (plateau: " + propertiesChanged + " vs " + previousPropertiesChanged + ")" : "");
                 logVerdictFingerprint(analysisOrder);
-                if (configuration.guardContracts()) {
-                    // values are final now: verify user-written contracts, emit explanatory findings
+                if (configuration.guardContracts() || configuration.warnNearMisses()) {
+                    // values are final now: verify user-written contracts, and/or warn on near-misses
                     new GuardAnalyzerImpl(javaInspector.runtime(), configuration, guardMessages).go(analysisOrder);
                 }
                 return;
@@ -304,7 +318,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                         LOGGER.info("Stop iterating after {} iterations: worklist dry + full verification pass clean",
                                 iterations);
                         logVerdictFingerprint(analysisOrder);
-                        if (configuration.guardContracts()) {
+                        if (configuration.guardContracts() || configuration.warnNearMisses()) {
                             new GuardAnalyzerImpl(javaInspector.runtime(), configuration, guardMessages).go(analysisOrder);
                         }
                         return;

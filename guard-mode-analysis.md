@@ -410,3 +410,87 @@ defaults, above).
 5. Surface findings in the gradle/maven plugins (currently only run-main/run-openjdk).
 6. Consider deduplication policy when both an interface contract and a subtype contract are
    violated by the same parameter.
+
+## Near-miss warnings (planned, 2026-07-18)
+
+The guard so far runs in one direction: the user *wrote* a contract, the analyzer verifies the
+computed values against it, a shortfall is an ERROR (`contract-violation`). **Near-miss** is the
+mirror image: the user wrote **no** contract, the computed property is decided FALSE, but it is
+FALSE by a hair — remove one culprit and the type would earn the property. That is a WARN
+suggesting a refactor ("this type would be `@Container` but for one parameter"), not an ERROR
+policing a promise. It reuses the guard's blame walkers verbatim, so the "why" comes for free, and
+it needs nothing new downstream: `messages()` already carries guard messages, `ErrorReport` already
+prints WARN findings (capped at 50, with cause chains), the IDE daemon's `ResultCollector` already
+maps WARN + category + causes to findings.
+
+**Decisions (user, 2026-07-18): Container only for v1; strict thresholds; `warnNearMisses` off by
+default (opt-in via config/builder, so every existing test and default run stays untouched).**
+`@NotModified`/`@Independent`-on-abstract-method and `@Immutable`/`@Independent`-on-type near-misses
+are deferred (same shape, lower yield, noisier).
+
+### The counting model
+
+Container is the exact handle: `TypeContainerAnalyzerImpl` decides a type a container iff **every
+parameter of every non-private constructor/method is unmodified**. Define a **parameter slot** = one
+parameter of one non-private ctor/method (an abstract method's parameter counts once, as its
+cross-implementation `UNMODIFIED_PARAMETER` aggregate). Then a type is a **container near-miss** iff:
+
+- it carries no `@Container` annotation, and its `CONTAINER_TYPE` is decided FALSE;
+- **every** slot is *decided* (see the undecided discipline below);
+- the number of **blocking slots** (decided-FALSE `UNMODIFIED_PARAMETER`) is within `maxBlockingSlots`;
+- the surface is at least `minParameterSlots`.
+
+Second granularity — the "1 of 10" story. When a blocking slot belongs to an *abstract* method, its
+aggregate is FALSE because some subset of `IMPLEMENTATIONS` modifies. Mirroring `guardContainer`'s
+existing implementation loop, attribute the miss to specific implementations and only call it a
+near-miss when **one** implementation (out of ≥ `minImplementations`) is responsible — naming the
+exact culprit method.
+
+Defaults (strict), held in a `NearMissPolicy` record on `IteratingAnalyzer.Configuration`:
+
+| Knob | Default | Rationale |
+|---|---|---|
+| `minParameterSlots` | 7 | Below ~7, one modified slot is >14% — "not a container", not a near-miss. |
+| `maxBlockingSlots` | 1 | The literal "single culprit". |
+| `minImplementations` | 3 | "1 of 2" is not compelling; "1 of ≥3" is the "1 out of 10" shape. |
+| `maxBlockingImplementations` | 1 | The single offending implementation. |
+| `maxBlockingRatio` (over slots) | 1.0 (off) | Defense knob; floor+absolute is the primary gate. |
+
+**Undecided discipline (load-bearing, stricter than the guard's).** A near-miss asserts "*all the
+other slots are fine*". If any slot is undecided (delay/cycle/external), we cannot conclude that —
+stay silent. Emit only when every slot is decided and exactly the blocking ones are FALSE. (The
+guard can report a single decided-FALSE and ignore the rest; near-miss cannot.)
+
+### Message shape
+
+One warning **per (type, property)**, never per blocking slot (per-slot explodes on a real codebase).
+Category `near-miss-container`, WARN. The blocking members and the 1-of-N attribution go in
+`causes()`, built by the existing `blameParameterModified` / `blameMethodModifying`:
+
+> WARN `near-miss-container` on `a.b.ErrorRegistry`: would satisfy `@Container` but for 1 of its 12
+> parameter slots — parameter `message` of `add(ErrorMessage)` is modified.
+> causes: [ `BadRegistry.add` modifies it (`message.setMsg(...)`, Bad.java:34) — the only 1 of 4
+> implementations that does ]
+
+### Where the code goes (v1)
+
+In `GuardAnalyzerImpl`, gated separately: add near-miss methods that reuse the existing *private*
+blame walkers directly (zero drift, single definition preserved trivially). `IteratingAnalyzerImpl`
+constructs/runs the guard when `guardContracts() || warnNearMisses()`; inside `go()`, contract checks
+run under the former, near-miss under the latter. New config: `boolean warnNearMisses()` (default
+false) + `NearMissPolicy nearMissPolicy()`, builder setters paralleling `guardContracts()`. A peer
+`NearMissAnalyzerImpl` + extracted shared `Blame` helper is the cleaner long-term home, deferred until
+a third consumer of the blame walkers appears.
+
+### Scale, ranking, tests
+
+Collect all near-misses, then **sort before the `ErrorReport` cap bites**: fewest blocking slots
+first, then largest surface — so the 50 shown are the most deserving. New tests in `analyzer/guard`
+(or a `nearmiss` package), seeded by taking `TestGuardContainer`'s shapes and **dropping the
+annotation**: interface with 4 implementations, one modifying → exactly one `near-miss-container`
+WARN naming that implementation, "1 of 4" asserted; two blocking implementations → no warning (proves
+the threshold); a genuine container and a sub-`minParameterSlots` type → silent; one undecided slot →
+silent (undecided-discipline test); toggle off → nothing; existing guard suite unaffected.
+
+Performance is negligible: same decided values, one post-fixpoint pass, no extra iteration. The main
+risk is noise, targeted by floor + single-blocker + undecided-discipline + ranking + default-off.
