@@ -1003,9 +1003,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 Expression e = javaInspector.runtime().sortAndSimplify(true, lv.assignmentExpression());
                 r = expressionVisitor.visit(e, previousVd, stageOfPrevious);
                 if (r.links().primary() != null) {
-                    // make sure that we link the variables with '==', as we do in ExpressionVisitor.assignment
+                    // make sure that we link the variables with '==', as we do in ExpressionVisitor.assignment;
+                    // cast-mediated initializer 'II ii = (II) o' carries the provenance flag (task #39)
                     Links newLinks = new LinksImpl.Builder(lv)
-                            .add(LinkNatureImpl.IS_ASSIGNED_FROM, r.links().primary())
+                            .add(LinkNatureImpl.IS_ASSIGNED_FROM, r.links().primary(),
+                                    r.casts().containsKey(r.links().primary()))
                             .build();
                     linkedVariables.merge(lv, newLinks, Links::merge);
                 }

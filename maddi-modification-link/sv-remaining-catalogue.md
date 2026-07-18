@@ -106,10 +106,16 @@ session tasks #36-#39):
   enters the SharedVariables collapse (collapse fires on ← only) — the stored ii←0:o comes from the
   ENGINE's symmetric edge via FollowGraph, whose facts carry no flag; hence the out-of-band pair
   registry covering BOTH paths, not an Assignment-record thread. Pinned in TestMediatedLinks
-  (enabled, green). REMAINING for step 2 readiness: (a) chain-transitive taint (a link composed
-  ACROSS a mediated hop is still emitted unmediated — the reconstruction's reachable() chains and
-  the closure's compositions); (b) cast-mediated assignments (Result.casts join) not yet flagged at
-  production; (c) codec does not persist mediated (checkpoint restore loses provenance).
+  (enabled, green). (b) cast-mediated assignments DONE same day: both assignment producers
+  (ExpressionVisitor.assignment, handleSingleLvc initializer) flag mediated when the RHS primary is
+  in Result.casts — the cast itself is link-transparent, so provenance comes from the side-record;
+  covers the COLLAPSE path too (the ← does enter SharedVariables, and the registry recovers it);
+  pinned in TestMediatedLinks.testCast + testPlain negative control. Residual: an EXPRESSION cast
+  ('x = (II) o.bar()') records no cast side-band (addCast fires for variable operands only) — same
+  variable-based scope as jfocus's own casts join. REMAINING for step 2 readiness: (a)
+  chain-transitive taint (a link composed ACROSS a mediated hop is still emitted unmediated — the
+  reconstruction's reachable() chains and the closure's compositions); (c) codec does not persist
+  mediated (checkpoint restore loses provenance).
   Maddi-internal same-disease siblings unaffected and still valid: WLAM's five mirror blocks,
   iterateOverShared vs expandRepToMembers (==/.equals divergence),
   ShallowMethodLinkComputer.correspondingTypeParameters vs hiddenContentHierarchy.
