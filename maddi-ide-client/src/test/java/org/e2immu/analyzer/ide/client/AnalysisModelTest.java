@@ -18,7 +18,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -55,5 +57,78 @@ public class AnalysisModelTest {
     public void nullsAreSafe() {
         assertFalse(AnalysisModel.isNearMiss(withCategory(null)));
         assertFalse(AnalysisModel.isNearMiss(null));
+    }
+
+    // ---- merging streamed passes ----
+
+    private static AnalysisModel.ElementAnnotation element(String kind, String fqn, String... shown) {
+        return new AnalysisModel.ElementAnnotation("file:///X.java", 1, 1, 1, 2, kind, fqn,
+                List.of(shown), List.of(), Map.of());
+    }
+
+    private static AnalysisModel.PartialResult pass(int iteration, AnalysisModel.ElementAnnotation... elements) {
+        return new AnalysisModel.PartialResult("req", iteration, iteration == 1, false, List.of(elements));
+    }
+
+    @DisplayName("the first streamed pass becomes the displayed result")
+    @Test
+    public void mergeFromNothing() {
+        AnalysisModel.Result r = AnalysisModel.merge(null, pass(1, element("TYPE", "x.Box", "@Container")));
+        assertEquals(1, r.elementAnnotations().size());
+        assertEquals("req", r.requestId());
+        assertTrue(r.findings().isEmpty(), "a partial frame never carries findings");
+    }
+
+    @DisplayName("a later pass updates the elements it mentions and leaves the rest standing")
+    @Test
+    public void mergeKeepsUnmentionedElements() {
+        AnalysisModel.Result first = AnalysisModel.merge(null, pass(1,
+                element("TYPE", "x.Box", "@Container"),
+                element("METHOD", "x.Box.get", "@NotModified")));
+        // pass 2 is a worklist subset: it says nothing about Box.get, which must not disappear
+        AnalysisModel.Result second = AnalysisModel.merge(first, pass(2,
+                element("TYPE", "x.Box", "@ImmutableContainer")));
+
+        assertEquals(2, second.elementAnnotations().size(), "the unmentioned method must survive");
+        assertEquals(List.of("@ImmutableContainer"), byFqn(second, "x.Box").displayAnnotations(),
+                "the type strengthened");
+        assertEquals(List.of("@NotModified"), byFqn(second, "x.Box.get").displayAnnotations());
+    }
+
+    @DisplayName("elements are identified by kind and name, not position, so edits do not duplicate them")
+    @Test
+    public void mergeIdentifiesByKindAndName() {
+        AnalysisModel.Result first = AnalysisModel.merge(null, pass(1, element("TYPE", "x.Box", "@Container")));
+        // same element, moved down the file by an edit
+        AnalysisModel.ElementAnnotation moved = new AnalysisModel.ElementAnnotation(
+                "file:///X.java", 40, 1, 40, 2, "TYPE", "x.Box", List.of("@Container"), List.of(), Map.of());
+        AnalysisModel.Result second = AnalysisModel.merge(first,
+                new AnalysisModel.PartialResult("req", 2, false, false, List.of(moved)));
+
+        assertEquals(1, second.elementAnnotations().size(), "must replace, not add a second entry");
+        assertEquals(40, second.elementAnnotations().getFirst().beginLine());
+    }
+
+    @DisplayName("a method and a type of the same name stay distinct")
+    @Test
+    public void mergeDoesNotConflateKinds() {
+        AnalysisModel.Result r = AnalysisModel.merge(null, pass(1,
+                element("TYPE", "x.Box", "@Container"),
+                element("METHOD", "x.Box", "@NotModified")));
+        assertEquals(2, r.elementAnnotations().size());
+    }
+
+    @DisplayName("merging preserves the findings already on screen")
+    @Test
+    public void mergeKeepsFindings() {
+        AnalysisModel.Result withFinding = new AnalysisModel.Result("req", List.of(withCategory("contract-violation")),
+                List.of(), List.of(), 0, 7, 123L);
+        AnalysisModel.Result merged = AnalysisModel.merge(withFinding, pass(2, element("TYPE", "x.Box", "@Container")));
+        assertEquals(1, merged.findings().size(), "a partial frame must not drop existing findings");
+        assertEquals(7, merged.hintsLoaded(), "nor the rest of the result's context");
+    }
+
+    private static AnalysisModel.ElementAnnotation byFqn(AnalysisModel.Result r, String fqn) {
+        return r.elementAnnotations().stream().filter(e -> e.fqn().equals(fqn)).findFirst().orElseThrow();
     }
 }

@@ -76,7 +76,11 @@ public final class MaddiAnalysis {
 
         AnalysisModel.AnalyzeConfig config = new MaddiEclipseConfigBuilder()
                 .build(javaProject, jdkHome, MaddiPreferences.warnNearMisses());
-        JsonNode node = daemon.analyze("req-" + System.nanoTime(), config, status -> { });
+        // Streamed frames land here: values established by each analysis pass, so the editor is annotated
+        // while the run continues rather than only when it ends. Everything that is not the terminal frame
+        // arrives through this consumer.
+        JsonNode node = daemon.analyze("req-" + System.nanoTime(), config,
+                frame -> onStreamedFrame(daemon, frame));
         if ("error".equals(node.path("type").asText())) {
             MaddiEclipsePlugin.error("daemon error: " + node.path("message").asText(), null);
             return;
@@ -92,6 +96,27 @@ public final class MaddiAnalysis {
             MaddiEclipsePlugin.log(IStatus.INFO,
                     "maddi: " + result.findings().size() + " finding(s), " + result.hintsLoaded() + " hints",
                     null);
+        }
+    }
+
+    /**
+     * A non-terminal frame from the daemon. Only {@code partialResult} carries anything to display; status
+     * frames are progress, and are ignored here.
+     * <p>
+     * Merged into what is already shown rather than replacing it: one frame is the elements of one analysis
+     * pass. Markers are deliberately left alone — {@link MaddiMarkers#apply} rebuilds the whole workspace's
+     * markers, which is far too heavy to do per pass, and findings are not partial anyway. Hints update,
+     * because they read {@link MaddiResults} through the code-mining provider.
+     */
+    private static void onStreamedFrame(MaddiDaemonProcess daemon, JsonNode frame) {
+        if (!AnalysisModel.PARTIAL_RESULT.equals(frame.path("type").asText())) return;
+        try {
+            AnalysisModel.PartialResult partial =
+                    daemon.client().objectMapper().treeToValue(frame, AnalysisModel.PartialResult.class);
+            MaddiResults.get().mergePartial(partial);
+        } catch (Exception e) {
+            // a frame we could not read costs the user an early glimpse, never the run
+            MaddiEclipsePlugin.log(IStatus.WARNING, "maddi: could not read a streamed result", e);
         }
     }
 

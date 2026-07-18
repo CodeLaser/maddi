@@ -21,6 +21,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -98,8 +99,20 @@ public class DaemonAnalyzeRoundTripTest {
 
             assertEquals("handshakeAck", client.handshake(1).path("type").asText());
 
-            JsonNode resultNode = client.analyze("req-1", config, status ->
-                    System.out.println("status: " + status.path("phase").asText()));
+            // partialResult frames are non-terminal, so they reach the client through this consumer, exactly
+            // as an IDE sees them
+            List<AnalysisModel.PartialResult> streamed = new ArrayList<>();
+            JsonNode resultNode = client.analyze("req-1", config, frame -> {
+                if (AnalysisModel.PARTIAL_RESULT.equals(frame.path("type").asText())) {
+                    try {
+                        streamed.add(client.objectMapper().treeToValue(frame, AnalysisModel.PartialResult.class));
+                    } catch (Exception e) {
+                        throw new AssertionError("a streamed frame did not map onto PartialResult: " + frame, e);
+                    }
+                } else {
+                    System.out.println("status: " + frame.path("phase").asText());
+                }
+            });
             assertEquals("result", resultNode.path("type").asText(),
                     "expected a result, got: " + resultNode);
 
@@ -121,6 +134,17 @@ public class DaemonAnalyzeRoundTripTest {
                     .findFirst().orElse(null);
             assertNotNull(nearMiss, "expected a near-miss-container: the warnNearMisses flag must cross the wire");
             assertEquals("WARN", nearMiss.severity());
+
+            // values were streamed while the run was in progress, and merging them gives a view the IDE could
+            // have shown before the terminal frame arrived
+            assertFalse(streamed.isEmpty(), "expected partialResult frames over the socket");
+            AnalysisModel.Result progressive = null;
+            for (AnalysisModel.PartialResult partial : streamed) {
+                progressive = AnalysisModel.merge(progressive, partial);
+            }
+            assertNotNull(progressive);
+            assertFalse(progressive.elementAnnotations().isEmpty(),
+                    "the streamed frames should have carried annotations to display");
 
             boolean containerShown = result.elementAnnotations().stream()
                     .flatMap(e -> e.displayAnnotations().stream())
