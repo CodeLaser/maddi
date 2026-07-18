@@ -1241,9 +1241,12 @@ public abstract class ValueImpl implements Value {
             return !present;
         }
 
+        // carryOnRewire (IMPLEMENTATIONS): re-point each implementation method through the infoMap. Needed to carry
+        // a stable type's analysis across a rewire; see analysis-rewiring.md.
         @Override
         public Value rewire(InfoMap infoMap) {
-            throw new UnsupportedOperationException("NYI");
+            return new SetOfMethodInfoImpl(methodInfoSet.stream()
+                    .map(infoMap::methodInfo).collect(Collectors.toCollection(HashSet::new)));
         }
     }
 

@@ -166,6 +166,11 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
      */
     @Override
     public Value rewire(InfoMap infoMap) {
-        throw new UnsupportedOperationException("NYI");
+        // carryOnRewire (METHOD_LINKS): re-point the return-value links, the per-parameter links (positional), and
+        // the modified-variable set through the infoMap.
+        return new MethodLinkedVariablesImpl(
+                (Links) ofReturnValue.rewire(infoMap),
+                ofParameters.stream().map(l -> (Links) l.rewire(infoMap)).toList(),
+                modified.stream().map(v -> v.rewire(infoMap)).collect(Collectors.toUnmodifiableSet()));
     }
 }
