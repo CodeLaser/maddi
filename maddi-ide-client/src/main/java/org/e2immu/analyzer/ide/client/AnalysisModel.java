@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.ide.client;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -111,4 +112,41 @@ public final class AnalysisModel {
 
     /** Frame type of a streamed {@link PartialResult}, as it appears in the status consumer. */
     public static final String PARTIAL_RESULT = "partialResult";
+
+    /**
+     * Fold a streamed pass into what is on screen, giving the result a front-end should now display.
+     * <p>
+     * Merges by element rather than replacing: a frame carries the elements of one pass, so replacing would
+     * make everything the previous passes established disappear. An element is identified by {@code kind} +
+     * {@code fqn} — its position can move as the user types, its identity cannot. Existing entries are
+     * updated in place so the display order stays stable across frames, and unseen elements are kept:
+     * values are write-once and only strengthen, so a pass that did not mention an element says nothing
+     * against it.
+     * <p>
+     * Findings are carried over untouched; partial frames never contain any (guard findings are computed
+     * after the fixpoint).
+     *
+     * @param current the result being displayed, or null before the first frame
+     * @return a new result; neither argument is modified
+     */
+    public static Result merge(Result current, PartialResult partial) {
+        Map<String, ElementAnnotation> byIdentity = new LinkedHashMap<>();
+        if (current != null && current.elementAnnotations() != null) {
+            for (ElementAnnotation e : current.elementAnnotations()) byIdentity.put(identity(e), e);
+        }
+        if (partial.elements() != null) {
+            for (ElementAnnotation e : partial.elements()) byIdentity.put(identity(e), e);
+        }
+        List<ElementAnnotation> merged = List.copyOf(byIdentity.values());
+        if (current == null) {
+            return new Result(partial.requestId(), List.of(), merged, List.of(), 0, 0, 0L);
+        }
+        return new Result(current.requestId(), current.findings(), merged,
+                current.initializationProblems(), current.parseErrorCount(), current.hintsLoaded(),
+                current.elapsedMillis());
+    }
+
+    private static String identity(ElementAnnotation e) {
+        return e.kind() + " " + e.fqn();
+    }
 }

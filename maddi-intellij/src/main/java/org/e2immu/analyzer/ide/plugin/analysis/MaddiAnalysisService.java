@@ -119,8 +119,7 @@ public final class MaddiAnalysisService implements Disposable {
                 () -> new MaddiConfigBuilder().build(project, resolvedJdkHome, warnNearMisses));
         String requestId = "req-" + requestCounter.incrementAndGet();
 
-        JsonNode node = daemon.analyze(requestId, config,
-                status -> indicator.setText("maddi: " + status.path("phase").asText("analyzing")));
+        JsonNode node = daemon.analyze(requestId, config, frame -> onStreamedFrame(indicator, frame));
         if ("error".equals(node.path("type").asText())) {
             notifyUser("Daemon error: " + node.path("message").asText(), NotificationType.ERROR);
             return;
@@ -128,6 +127,27 @@ public final class MaddiAnalysisService implements Disposable {
         AnalysisModel.Result result =
                 daemon.client().objectMapper().treeToValue(node, AnalysisModel.Result.class);
         applyResult(result);
+    }
+
+    /**
+     * A non-terminal frame from the daemon: either progress, or values the analysis has established so far.
+     * The latter are displayed immediately, so a large project annotates the editor while it is still
+     * running instead of staying blank until the end.
+     */
+    private void onStreamedFrame(ProgressIndicator indicator, JsonNode frame) {
+        if (AnalysisModel.PARTIAL_RESULT.equals(frame.path("type").asText())) {
+            try {
+                AnalysisModel.PartialResult partial =
+                        daemon.client().objectMapper().treeToValue(frame, AnalysisModel.PartialResult.class);
+                // merged, not replaced: one frame is one analysis pass, and values only ever strengthen
+                applyResult(AnalysisModel.merge(latest, partial));
+            } catch (Exception e) {
+                // losing a streamed frame costs an early glimpse, never the run
+                LOG.warn("could not read a streamed result", e);
+            }
+            return;
+        }
+        indicator.setText("maddi: " + frame.path("phase").asText("analyzing"));
     }
 
     /**
