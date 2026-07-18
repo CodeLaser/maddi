@@ -2270,11 +2270,16 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
         if (mr.sym instanceof Symbol.MethodSymbol ms) {
             if (ms.isConstructor() && "Array".equals(ms.owner.getQualifiedName().toString())) {
-                // array construction
-                concreteReturnType = evaluatedScope.parameterizedType().copyWithArrays(1);
+                // array construction. For a primitive component ('byte[]::new', elasticsearch zstd) the
+                // qualifier scan yields no expression: derive the array type from javac's own type instead.
+                if (evaluatedScope == null) {
+                    concreteReturnType = convertType.convert(((JCTree) mr.getQualifierExpression()).type);
+                } else {
+                    concreteReturnType = evaluatedScope.parameterizedType().copyWithArrays(1);
+                }
                 scope = runtime.newTypeExpressionBuilder().setDiamond(runtime.diamondNo())
-                        .setSource(evaluatedScope.source())
-                        .addComments(evaluatedScope.comments())
+                        .setSource(evaluatedScope == null ? sourceForNode(node, dsb) : evaluatedScope.source())
+                        .addComments(evaluatedScope == null ? List.of() : evaluatedScope.comments())
                         .setParameterizedType(concreteReturnType).build();
                 method = runtime.newArrayCreationConstructor(concreteReturnType);
                 TypeElement typeElement = elements.getTypeElement(IntFunction.class.getCanonicalName());
@@ -2284,7 +2289,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             } else {
                 method = typeData.getOrLoadMethod(ms);
                 concreteFunctionalType = convertType.convert(mr.type);
-                Type.MethodType instantiatedSam = (Type.MethodType) types.findDescriptorType(mr.type);
+                // a generic SAM ('<T> T sam(...)') yields a ForAll; unwrap to the underlying method type,
+                // same idiom as ClassSymbolScanner.methodType (elasticsearch TransportService)
+                Type descriptorType = types.findDescriptorType(mr.type);
+                Type.MethodType instantiatedSam = descriptorType instanceof Type.ForAll forAll
+                        ? (Type.MethodType) forAll.qtype
+                        : (Type.MethodType) descriptorType;
                 Type returnType = instantiatedSam.getReturnType();
                 List<Type> paramTypes = instantiatedSam.getParameterTypes();
                 // Thrown types: List<Type> thrownTypes = instantiatedSam.getThrownTypes();

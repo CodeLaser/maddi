@@ -37,6 +37,24 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
     private SingleIterationAnalyzer lastRun;
     private final List<Message> guardMessages = new ArrayList<>();
 
+    private org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed valueFeed;
+
+    @Override
+    public void setValueFeed(org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed feed) {
+        this.valueFeed = feed;
+    }
+
+    // feed exceptions must never disturb the analysis
+    private void feed(java.util.function.Consumer<org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed> action) {
+        if (valueFeed != null) {
+            try {
+                action.accept(valueFeed);
+            } catch (RuntimeException re) {
+                LOGGER.warn("AnalysisValueFeed threw; ignoring", re);
+            }
+        }
+    }
+
     public IteratingAnalyzerImpl(JavaInspector javaInspector, Configuration configuration) {
         super(configuration, null, null);
         this.javaInspector = javaInspector;
@@ -246,6 +264,12 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             LOGGER.info("Duration of single iteration: {} min {} sec {} ms", duration.toMinutesPart(),
                     duration.toSecondsPart(), duration.toMillisPart());
             int propertiesChanged = singleIterationAnalyzer.propertiesChanged();
+            {
+                boolean fullPass = dirty == null;
+                List<Info> analyzed = subset;
+                int it = iterations;
+                feed(f -> f.passCompleted(it, fullPass, analyzed));
+            }
             // convergence diagnosis: which properties are still moving? (value-changing writes per property)
             String topChanges = TolerantWrite.changeCounts().entrySet().stream()
                     .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
@@ -271,6 +295,11 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                     LOGGER.info("Certification point, but {} types immutability-undecided: activating cycle breaking",
                             undecided);
                     cycleBreakingActive = true;
+                    {
+                        int it = iterations;
+                        feed(f -> f.phase(org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase
+                                .CYCLE_BREAKING_ACTIVATED, it));
+                    }
                     dirty = null; // one more FULL pass, now with cycle breaking
                     if (dependersOf != null) verifying = true;
                     previousPropertiesChanged = propertiesChanged;
@@ -288,6 +317,15 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             if (iterations == configuration.maxIterations() || done || plateau) {
                 LOGGER.info("Stop iterating after {} iterations, done? {}{}", iterations, done,
                         plateau ? " (plateau: " + propertiesChanged + " vs " + previousPropertiesChanged + ")" : "");
+                {
+                    var terminal = done
+                            ? org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_CERTIFIED
+                            : plateau
+                            ? org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_PLATEAU
+                            : org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_MAX_ITERATIONS;
+                    int it = iterations;
+                    feed(f -> f.phase(terminal, it));
+                }
                 logVerdictFingerprint(analysisOrder);
                 if (configuration.guardContracts() || configuration.warnNearMisses()) {
                     // values are final now: verify user-written contracts, and/or warn on near-misses

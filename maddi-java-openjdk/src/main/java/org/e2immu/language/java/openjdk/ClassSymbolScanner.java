@@ -176,6 +176,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 TypeInfo inMap = owner.findSubType(simpleName, false);
                 if (inMap == null) {
                     TypeInfo enclosed = runtime.newTypeInfo(owner, simpleName);
+                    // a member type of an ANONYMOUS class can arrive here through a stub owner (the anonymous
+                    // symbol resolves before its declaration is linked), so findSubType misses even though the
+                    // source scan already registered the member under the same derived FQN (elasticsearch
+                    // BinaryFieldMapperTests.$13.BytesCompareUnsigned). Reuse the registered type instead of
+                    // colliding in InfoByFqn ('Duplicating type').
+                    TypeInfo registered = getType(enclosed.fullyQualifiedName());
+                    if (registered != null) return registered;
                     // note: first put the type in typeData, only then load it... self-references are common!
                     put(enclosed);
                     loadType(cs, enclosed, LoadMode.LAZILY);
@@ -1322,6 +1329,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     @Override
     public void put(String anonymousTypeName, TypeInfo typeInfo) {
         infoByFqn.put(anonymousTypeName, typeInfo, sourceSetOfCurrentTask);
+        // the source scan builds this anonymous type itself (parent/interfaces added in visitNewClass). A lazy
+        // resolution of one of its MEMBER types during body scanning (Cmp::new before 'record Cmp' is visited,
+        // elasticsearch BinaryFieldMapperTests.$13) reaches loadType on this same TypeInfo; without the mark,
+        // the class-symbol setup would append its interfaces a second time ('Extending multiple identical
+        // interfaces' at commit).
+        infoByFqn.markClassScannerSetupDone(typeInfo);
     }
 
     @Override

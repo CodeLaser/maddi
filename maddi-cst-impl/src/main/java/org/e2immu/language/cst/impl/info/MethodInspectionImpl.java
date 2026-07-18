@@ -271,7 +271,14 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
 
         @Override
         public Builder commitParameters() {
-            fullyQualifiedName.set(computeFQN());
+            // idempotent for an unchanged FQN: a still-open method builder can be re-committed when a type is
+            // both source-scanned and lazily COMPLETE-loaded from bytecode by a later source set (elasticsearch
+            // build-tools ReaperService.Params, a compiled dependency of build-tools-internal). A DIFFERENT
+            // recomputed FQN still trips the SetOnce, as it should.
+            String fqn = computeFQN();
+            if (!fullyQualifiedName.isSet() || !fullyQualifiedName.get().equals(fqn)) {
+                fullyQualifiedName.set(fqn);
+            }
             return this;
         }
 
