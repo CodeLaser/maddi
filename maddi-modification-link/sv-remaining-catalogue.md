@@ -4,6 +4,28 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-18d — PROFILING ROUND 2 (alloc, timefold): -37% allocations; javac flake ROOT-CAUSED
+
+Alloc profile (timefold, 76% of allocations in link) found three sinks, all fixed:
+1. slf4j eager-argument trap: IncrementalFixpointEngine's LOGGER.debug calls evaluate
+   fact.print(vertexPrinter) args even at INFO — ~21% of ALL allocations. isDebugEnabled guards.
+2. System.getenv(String) allocates per lookup; the NOACM gate ran per graph vertex (7.8%
+   incl. all gates). New Gate class (one Map.copyOf(System.getenv())); mechanical sweep of
+   all 37 link-module gates.
+3. Util.scopeVariables: stream-concat + toUnmodifiableSet per scope level (11.7%) →
+   iterative HashSet build (3.0% after).
+Timefold: allocation weight -37% (3.25M→2.06M), wall 3m33s→2m53s (-19%), FPDUMP A/B 0-diff
+on 50464 elements. Suites green.
+
+**javac StarImportScope flake root-caused** (was a watch-item): CompiledTypesManagerImpl —
+typesLoaded was a plain HashMap read/written by PARALLEL analyzer threads, and getOrLoad's
+miss path drove the live JavacTask concurrently (lazyLoader → loadCompiledTypeOrNull, doc
+says "single-threaded" but nothing enforced it). Corruption surfaced in LATER parses of the
+same JVM = random victims. Fix: concurrent collections + synchronized double-checked miss
+path. Evidence: 2 consecutive full triple-suite runs 737/0 (previously ~10 victims per run),
+fernflower A/B 0-diff. Process note: a suite-gate must grep BUILD SUCCESSFUL — a compile
+failure with tail -1 read STALE test XMLs as green.
+
 ## UPDATE 2026-07-18c — PROFILING ROUND 1 (async-profiler, CPU, fernflower): -26% CPU
 
 Harness: ASPROF=<agent opts> env gate in maddi-run-openjdk test task attaches

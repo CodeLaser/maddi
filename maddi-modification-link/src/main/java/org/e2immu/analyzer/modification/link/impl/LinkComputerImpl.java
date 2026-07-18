@@ -312,7 +312,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     // marker ('add[0] ∈ $_v' — a fresh unanalyzable value takes no derived content facts;
                     // the direct 'add ← $_v' edge itself stays)
                     v -> !(v instanceof ReturnVariable)
-                         && (System.getenv("NOACM") != null
+                         && (Gate.isSet("NOACM")
                              || !(v instanceof MarkerVariable mv && mv.isSomeValue())));
             Graph graph = new Graph(javaInspector.runtime(), engine);
             this.followGraph = new FollowGraph(graph);
@@ -372,7 +372,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                                   || !vd.isKnown(returnVariable.fullyQualifiedName())
                     ? LinksImpl.EMPTY
                     : emptyIfOnlySomeValue(vd.variableInfo(returnVariable).linkedVariables());
-            if (System.getenv("BTRACE") != null && methodInfo.name().contains(System.getenv("BTRACE"))) {
+            if (Gate.isSet("BTRACE") && methodInfo.name().contains(Gate.get("BTRACE"))) {
                 System.out.println("BTRACE go() raw=" + (vd == null || returnVariable == null
                                                          || !vd.isKnown(returnVariable.fullyQualifiedName())
                         ? "?" : vd.variableInfo(returnVariable).linkedVariables())
@@ -409,7 +409,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     .filter(v -> !(Util.primary(v) instanceof IntermediateVariable))
                     .collect(Collectors.toUnmodifiableSet());
             MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, summaryModified);
-            if (System.getenv("BTRACE") != null && methodInfo.name().contains(System.getenv("BTRACE"))) {
+            if (Gate.isSet("BTRACE") && methodInfo.name().contains(Gate.get("BTRACE"))) {
                 System.out.println("BTRACE go() mlv=" + mlv);
             }
             copyModificationsIntoMethod(allModified, inClosure, mlv);
@@ -654,7 +654,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 Links rvLinks = new LinksImpl.Builder(returnVariable)
                         .add(LinkNatureImpl.IS_ASSIGNED_FROM, destination)
                         .build();
-                if (System.getenv("RVTRACE") != null) {
+                if (Gate.isSet("RVTRACE")) {
                     System.out.println("RVTRACE stmt " + statement.source().index() + " dest=" + destination
                                        + " rLinks=" + r.links());
                 }

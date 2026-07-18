@@ -56,7 +56,7 @@ class WriteLinksAndModification {
         Set<Variable> unmarkedModifications = new HashSet<>(modifiedDuringEvaluation.keySet());
         Map<Variable, Links.Builder> newLinkedVariables = new HashMap<>();
         List<Link> toRemove = new ArrayList<>();
-        if (System.getenv("SVDUMP") != null) {
+        if (Gate.isSet("SVDUMP")) {
             System.out.println("SVDUMP stmt " + statement.source().index() + "\n"
                                + followGraph.graph().printShared(Object::toString));
             System.out.println("SVDUMP-MOD stmt " + statement.source().index() + " "
@@ -99,7 +99,7 @@ class WriteLinksAndModification {
             // gate NOFLIPSAME: raw edges inserted at THIS statement are the post-state of the modifying call
             // itself and survive the ⊇→~ rewrite (see replaceReturnAffected); NOFLIPSAME=1 restores the
             // unconditional rewrite
-            String skipStatementIndex = System.getenv("NOFLIPSAME") == null ? statement.source().index() : null;
+            String skipStatementIndex = !Gate.isSet("NOFLIPSAME") ? statement.source().index() : null;
             Set<Variable> affected = new HashSet<>();
             for (Link link : toRemove) {
                 // gate NOFLIPOWN: a composite ⊆/⊇ entailed by intact raw edges is not invalidated by the
@@ -108,7 +108,7 @@ class WriteLinksAndModification {
                 // unmodified) because the iterator's derived ⊆ descended to it (TestMap test2Reverse0).
                 Variable owner = flipOwner.get(link);
                 java.util.function.Predicate<Fact<Variable, LinkNature>> acceptRaw =
-                        owner == null || System.getenv("NOFLIPOWN") != null
+                        owner == null || Gate.isSet("NOFLIPOWN")
                                 ? _ -> true
                                 : fact -> ownsFact(owner, fact);
                 Set<Variable> set = followGraph.graph()
@@ -257,7 +257,7 @@ class WriteLinksAndModification {
                 .filter(link -> !builder.contains(link.from(), link.linkNature(), link.to()))
                 .forEach(link -> builder.add(link.from(), link.linkNature(), link.to()));
 
-        if (System.getenv("RVTRACE") != null && variable instanceof ReturnVariable) {
+        if (Gate.isSet("RVTRACE") && variable instanceof ReturnVariable) {
             System.out.println("RVTRACE b1=" + builder1.linkSet() + " b2=" + builder2.linkSet()
                                + " b=" + builder.linkSet());
         }
@@ -278,7 +278,7 @@ class WriteLinksAndModification {
             // because 'stream.§xs⊆0:in.§xs' was already emitted for an earlier variable of this statement).
             // Returns stay complete (handled above); in the last statement, parameters stay complete too — the
             // method summary reads them there.
-            if (System.getenv("NORL") == null
+            if (!Gate.isSet("NORL")
                 && (!lastStatement || !(variable instanceof org.e2immu.language.cst.api.info.ParameterInfo))) {
                 redundantLinks.redundantLinks(builder);
             }
@@ -312,11 +312,11 @@ class WriteLinksAndModification {
             // engine's behavior, needed there because its per-statement graph rebuild resurrected ⊆/⊇) would
             // permanently destroy containment knowledge that this evaluation did not invalidate.
             // Gate NOFLIPSAME=1 restores the old re-flip.
-            if (!unmodified && (modifiedInEval || System.getenv("NOFLIPSAME") != null)) {
+            if (!unmodified && (modifiedInEval || Gate.isSet("NOFLIPSAME"))) {
                 // ⊆, ⊇ become ~ after a modification
                 builder.linkSet().forEach(link -> {
                     if (link.linkNature() == IS_SUBSET_OF || link.linkNature() == IS_SUPERSET_OF) {
-                        if (System.getenv("FLIPTRACE") != null) {
+                        if (Gate.isSet("FLIPTRACE")) {
                             System.out.println("FLIPTRACE owner=" + variable + " link=" + link
                                                + " builder=" + builder.linkSet());
                         }
@@ -333,7 +333,7 @@ class WriteLinksAndModification {
         // ⊇→~ flip at TestStaticValuesRecord test4b:357 was the previouslyModified re-flip destroying
         // same-statement containment in the persistent graph (fixed above, gate NOFLIPSAME), present in
         // every run context — not a class-vs-full-suite difference.
-        if (System.getenv("NOVMIDIR") == null) {
+        if (!Gate.isSet("NOVMIDIR")) {
             for (Link l : followGraph.graph().vmiDirectionalFacts(variable)) {
                 if (!builder.contains(l.from(), l.linkNature(), l.to())
                     && !builder.contains(l.to(), l.linkNature().reverse(), l.from())) {
@@ -346,7 +346,7 @@ class WriteLinksAndModification {
         // return's face ('l1.§m ≡ method.§m' — the view chain's §m reaches the summary endpoint). Inherently
         // statement-scoped: the return group only exists from the return statement on, and views are written
         // forward — the leak-to-earlier-views that killed the naive graph-side rehoming cannot occur here.
-        if (System.getenv("NORVEQ") == null && !(variable instanceof ReturnVariable) && virtualFieldComputer != null) {
+        if (!Gate.isSet("NORVEQ") && !(variable instanceof ReturnVariable) && virtualFieldComputer != null) {
             List<Link> toAddRv = new ArrayList<>();
             for (Link l : builder.linkSet()) {
                 if (l.linkNature().isIdenticalTo()
@@ -370,7 +370,7 @@ class WriteLinksAndModification {
                 if (!present) builder.add(l.from(), l.linkNature(), l.to());
             }
         }
-        if (System.getenv("BTRACE") != null && variable.toString().contains(System.getenv("BTRACE"))) {
+        if (Gate.isSet("BTRACE") && variable.toString().contains(Gate.get("BTRACE"))) {
             System.out.println("BTRACE stmt " + statement.source().index() + " var=" + variable
                                + " builder=" + builder.linkSet());
         }
@@ -554,7 +554,7 @@ class WriteLinksAndModification {
        'method ∩ 0:in.§$s' + 'method.§$s ∩ 0:in' give 'method.§m ≡ 0:in.§m'.
      */
     private void returnSideModificationCompanions(ReturnVariable rv, Links.Builder builder) {
-        if (virtualFieldComputer == null || System.getenv("NORVM") != null) return;
+        if (virtualFieldComputer == null || Gate.isSet("NORVM")) return;
         List<Link> links = new ArrayList<>(builder.linkSet());
         List<Link> toAdd = new ArrayList<>();
         for (Link link : links) {
@@ -695,7 +695,7 @@ class WriteLinksAndModification {
         // §m-equivalence ('identical except via remove()', Iterable.iterator()) propagates a member's modification
         // only when the modifying method is in the pass set. E.g. iterating a collection modifies the ITERATOR
         // (next()), which must not mark the collection modified; remove() would.
-        if (System.getenv("NOPASSFIX") != null) {
+        if (Gate.isSet("NOPASSFIX")) {
             return followGraph.graph().eqVariables(variable).noneMatch(modifiedVariablesAndTheirCause::containsKey);
         }
         return followGraph.graph().eqGroups(variable).noneMatch(group ->

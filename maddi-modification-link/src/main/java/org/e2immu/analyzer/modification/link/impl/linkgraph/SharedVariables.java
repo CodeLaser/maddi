@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
+import org.e2immu.analyzer.modification.link.impl.Gate;
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
@@ -96,7 +97,7 @@ public class SharedVariables {
 
     private SharedVariable groupOfWithSiblingSpelling(Variable v) {
         SharedVariable direct = memberToGroup.get(v);
-        if (direct != null || System.getenv("NOSIBFACE") != null) return direct;
+        if (direct != null || Gate.isSet("NOSIBFACE")) return direct;
         if (v instanceof FieldReference fr && fr.scopeVariable() != null) {
             SharedVariable scopeGroup = memberToGroup.get(fr.scopeVariable());
             if (scopeGroup != null) {
@@ -188,7 +189,7 @@ public class SharedVariables {
                         instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable
                         // parameters are summary endpoints too: '0:in → v → this.f' must reach the
                         // field for the parameter's summary (var-transparency). Gate NOPDEEP.
-                        || System.getenv("NOPDEEP") == null
+                        || !Gate.isSet("NOPDEEP")
                            && Util.primary(emitM) instanceof org.e2immu.language.cst.api.info.ParameterInfo;
                 for (Variable t : reachable(m, fwd, deep)) {
                     if (!emitM.equals(t)) {
@@ -230,7 +231,7 @@ public class SharedVariables {
                         // from params mentioned in the return value; the old engine printed the box spelling.
                         // FIELD FACES only — for the WHOLE return, group siblings are multi-source could-be
                         // aliases (switch arms yielding list1/list2/list3: no flow between co-sources).
-                        if (System.getenv("NORVSP") == null
+                        if (!Gate.isSet("NORVSP")
                             && t instanceof FieldReference
                             && Util.primary(t) instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable) {
                             for (Variable sib : allShared(t)) {
@@ -249,7 +250,7 @@ public class SharedVariables {
                     // received the same source's value ('method ← y' and 'this.ys[1] ← y' ⟹
                     // 'method → this.ys[1]': the returned value was also stored in the slot). Dying faces
                     // among the siblings are filtered downstream as usual.
-                    if (System.getenv("NOSIBR") == null) {
+                    if (!Gate.isSet("NOSIBR")) {
                         java.util.Set<Variable> sources = reachable(m, fwd, deep);
                         for (Variable src : sources) {
                             for (Variable sib : bwd.getOrDefault(src, java.util.List.of())) {
@@ -266,7 +267,7 @@ public class SharedVariables {
                             }
                         }
                     }
-                } else if (System.getenv("NOSIBEQ") == null) {
+                } else if (!Gate.isSet("NOSIBEQ")) {
                     // CO-RECIPIENT IDENTITY (gate NOSIBEQ), per-statement views: two members DIRECTLY assigned
                     // the same source's value hold the same object — 'ii = (II)o' + 'ii2 = (II)o' ⟹ 'ii2 ≡ ii'
                     // (the §m companion follows in the fold). Direct records only (no chaining: a transitive
@@ -337,7 +338,7 @@ public class SharedVariables {
     // (pf ← s; assignmentSources), mirroring the memberFieldsOf projection: source knowledge flows to the
     // recipient, never the reverse.
     private Variable derivedFaceKeyed(Variable m, Variable primary) {
-        if (System.getenv("NODF") != null) return null;
+        if (Gate.isSet("NODF")) return null;
         for (Variable pf : memberToGroup.keySet()) {
             if (pf.equals(primary) || !Util.isPartOf(primary, pf)) continue;
             for (Variable s : assignmentSources(pf)) {
@@ -381,7 +382,7 @@ public class SharedVariables {
     // ($__rv124.variables[1]) and return THEIR groups' members ({matrix, 0:ld.variables[1], ...}): they denote the
     // same runtime slot, so a modification of the key is a modification of each of them.
     public java.util.Set<Variable> derivedShared(Variable key) {
-        if (System.getenv("NODF") != null) return java.util.Set.of();
+        if (Gate.isSet("NODF")) return java.util.Set.of();
         if (memberToGroup.containsKey(key)) return java.util.Set.of(); // allShared covers group members
         java.util.Set<Variable> result = new java.util.LinkedHashSet<>();
         for (Variable pf : memberToGroup.keySet()) {
