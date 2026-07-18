@@ -29,6 +29,7 @@ public class AnalyzerExtension {
     public boolean parallel;
     public String analysisSteps;
     public boolean quiet;
+    public boolean warnNearMisses;
     public String debugTargets;
 
     /* InputConfiguration */

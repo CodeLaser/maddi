@@ -84,6 +84,9 @@ public abstract class CommonMojo extends AbstractMojo {
     @Parameter(property = "quiet", defaultValue = "false")
     private boolean quiet;
 
+    @Parameter(property = "warnNearMisses", defaultValue = "false")
+    private boolean warnNearMisses;
+
     @Parameter(property = "debug", defaultValue = "")
     private String debug;
 
@@ -134,6 +137,7 @@ public abstract class CommonMojo extends AbstractMojo {
         if (analysisSteps != null && !analysisSteps.isBlank()) generalMap.put(Main.ANALYSIS_STEPS, analysisSteps);
         if (debug != null && !debug.isBlank()) generalMap.put(Main.DEBUG, debug);
         generalMap.put(Main.QUIET, "" + quiet);
+        generalMap.put(Main.WARN_NEAR_MISSES, "" + warnNearMisses);
         return generalMap;
     }
 

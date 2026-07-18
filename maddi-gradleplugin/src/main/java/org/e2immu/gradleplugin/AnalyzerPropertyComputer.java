@@ -232,6 +232,7 @@ public record AnalyzerPropertyComputer(
         generalMap.put(Main.ANALYSIS_STEPS, extension.analysisSteps);
         generalMap.put(Main.DEBUG, extension.debugTargets);
         generalMap.put(Main.QUIET, "" + extension.quiet);
+        generalMap.put(Main.WARN_NEAR_MISSES, "" + extension.warnNearMisses);
         return generalMap;
     }
 

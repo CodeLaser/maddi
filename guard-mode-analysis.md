@@ -525,5 +525,12 @@ risk is noise, targeted by floor + single-blocker + undecided-discipline + ranki
   `near-miss-immutable`; type independence reuses `near-miss-independent`. `NearMissPolicy` gained `minFields`
   (STRICT = 7/1/3/1/3). Test `TestNearMissType`, 5/5.
 
-Deferred: wiring `warnNearMisses` through the run drivers / plugins so it can be enabled from the CLI for a survey
-(the analyzer supports it today via the builder; only the config plumbing is missing).
+- **CLI / plugin wiring (2026-07-18).** `warnNearMisses` now threads from the command line to the analyzer:
+  `GeneralConfiguration` (run-config) gained the field; both `Main`s (run-main, run-openjdk) parse `--warn-near-misses`
+  (and the `warn-near-misses` kvMap key); both `RunAnalyzer`s pass it into the `IteratingAnalyzer` builder. The
+  Maven plugin exposes it as `<warnNearMisses>` / `-DwarnNearMisses=true` (parameter added to `CommonMojo` and the
+  hand-maintained `plugin.xml`), the Gradle plugin as the `warnNearMisses` extension property. Off by default
+  everywhere. End-to-end verified: `--warn-near-misses` on a 3-implementation source prints
+  `[near-miss-not-modified] ... would satisfy @NotModified but for 1 of its 3 implementations (...)` with the
+  located cause chain via `ErrorReport`; silent without the flag. Near-misses are WARN-level, so they never affect
+  exit codes.
