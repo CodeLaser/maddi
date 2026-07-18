@@ -82,9 +82,21 @@ Two findings, both instructive:
    (Open question flagged: whether `Holder`'s immutability *should* have moved is an analyzer-propagation matter,
    separate from the compare mechanism; not presumed by the prototype.)
 
-**Next, to turn the decision into the saving:** run analysis inside the reload flow, hash each recomputed type's
-output, diff against the stored fingerprint, and for a set/type whose fingerprint is unchanged, skip its dependents'
-recomputation and carry their prior analysis (the `carryOnRewire` substrate, now resumed — `rewiring.md`).
+**Validated on the real reload path** (`testReloadPathCommentEditCutsOff`). The same comment edit driven through the
+actual incremental machinery — `reloadSources` → `Invalidated` (INVALID/REWIRE/UNCHANGED via `PrimaryTypeUseGraph`) →
+reparse → re-prep → re-analyze — again yields a blast radius of `[]`. Two things this de-risks for the real skip:
+
+1. **Re-analysing after a reload does not crash.** Re-running prep + analyzer over a mix of freshly-parsed (INVALID)
+   and kept (UNCHANGED, already-analysed) types is tolerated: prep skips re-deriving `VARIABLE_DATA` where present,
+   and the analyzer's monotonic-overwrite guard accepts a recomputed-identical value. So the flow can re-analyse
+   without a clean inspector.
+2. The fingerprint decision holds on the real path, not only on two clean analyses.
+
+**Next, to turn the decision into the saving:** the pieces are now proven separately — run analysis inside the reload
+flow (works), hash each recomputed type's output (works), diff against the stored/prior fingerprint (works). What
+remains is the actual *skip*: when a recomputed type's fingerprint is unchanged, stop propagating to its dependents
+and carry their prior analysis instead of recomputing (the `carryOnRewire` substrate, now resumed — `rewiring.md`).
+That is a worklist over the use graph seeded by the fingerprint-changed types, and it is the next build.
 
 ## The point: skip link + analyzer, not prepwork
 
