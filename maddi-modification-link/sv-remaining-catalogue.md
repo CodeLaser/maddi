@@ -42,15 +42,43 @@ Engine, soundness/precision (from the semantic + precision audits):
   unexplained).
 
 Engine, robustness/performance:
-- Per-method closure cost ceiling: one elasticsearch method ground a worker for ~30 minutes in
-  IncrementalFixpointEngine while 7 threads idled; add a fact-count/effort ceiling with the
-  throw-and-degrade-to-shallow design (same as cycle protection).
+- Per-method closure cost ceiling: DONE 2026-07-18 (edge-visit granularity, 10M default,
+  -Dmaddi.workCeiling, opt-out NOWORKCEILING; the per-pop first cut never tripped — the elasticsearch
+  monster burned 96 min inside single propagations). Gate: link 394/0, fernflower 0 trips + 0-diff.
 - Dual-identity family (source-scanned type also lazily loaded from bytecode): task #33 — member
   types of anonymous classes (prep repro @Disabled in TestAnonymousMemberRecord); plus the
   'Create multi' setInternal UOE (scoped around by dropping build-tooling source sets).
 - CompileListToSourceSets: two -d destinations for one module (generated-classes step) corrupt both
   the source-set name and its URI (elasticsearch libs/native); derive from the classes/java/<name>
   destination only. MRJAR overlay source sets are an open design question.
+
+Checkpoint/resume + incremental (session tasks #34/#35):
+- #34 checkpoint/resume v1: pass-boundary write via the AnalysisValueFeed seam (commit ec77f8bb),
+  restore = fingerprint check + LoadAnalysisResults preload + re-certification. Codec prerequisite
+  DONE (☷ pass-set round-trip, commit 0ae52f51).
+- #35 incremental v2 for the single-module 3M-line monorepo: giant cycle spans ~2/3 of the code, so
+  per-sourceset granularity (fingerprints on maddi-kotlin branch) and SCC-transitive invalidation are
+  useless — design: element-level fingerprints + optimistic preload of unchanged elements' values +
+  the verify-certify loop as the soundness net, invalidating via learned summary-consumption edges.
+
+Extract-interface consumer (../jfocus-refactor-service extractmodule; adequacy review 2026-07-18,
+session tasks #36-#39):
+- #36 HIGHEST VALUE: degradation visibility. VL2O is only written on the SOURCE path; every
+  degradation rung (containment, cycle protection, work ceiling, prep isolation) silently produces
+  EMPTY VL2O inside the method → missed rejections → potentially BROKEN refactorings. Engine: stamp a
+  DEGRADED_ANALYSIS marker at the shallow fallback; consumer: reject candidates touched in degraded
+  methods.
+- #37 VL2O nature tier: addVL2O accepts every nature except ≡, so content-tier links (∈ ~ ∩ ...)
+  inherit modification semantics into a type-aliasing question → over-rejection. Measure first,
+  then tier-filter.
+- #38 targeted test for the ≡ exclusion corner (real-variable aliases expressed only as ≡ must still
+  reach VL2O, else missed rejection).
+- #39 ⚠ REIMPLEMENTATION: CommonAnalyze (773 lines) re-derives statement-level value flow the
+  engine's VariableData links already carry (assignments/ternaries/array-init/record patterns +
+  collision-prone simpleName@source local keys) — strategic fix: build candidate edges from engine
+  statement links. Same-disease siblings inside maddi: WLAM's five mirror blocks, iterateOverShared
+  vs expandRepToMembers (==/.equals divergence), ShallowMethodLinkComputer.correspondingTypeParameters
+  vs hiddenContentHierarchy.
 
 Module organization (see org-review-2026-07-18.md for the full ranked plan):
 - Small/high-value items 1-6 (docs, dead code, codec ☷/$_v holes) — in progress 2026-07-18.
