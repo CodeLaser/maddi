@@ -31,6 +31,10 @@ public class PropertyImpl implements Property {
 
     // method
     public static final Property NON_MODIFYING_METHOD = new PropertyImpl("nonModifyingMethod");
+    /** the source-level analysis of this method was abandoned (cycle protection, work ceiling, fault
+     * isolation) and its values come from the SHALLOW summary. Consumers that rely on per-call data
+     * (e.g. VARIABLES_LINKED_TO_OBJECT for extract-interface) must treat such methods pessimistically. */
+    public static final Property DEGRADED_ANALYSIS_METHOD = new PropertyImpl("degradedAnalysisMethod");
     public static final Property FLUENT_METHOD = new PropertyImpl("fluentMethod");
     public static final Property IDENTITY_METHOD = new PropertyImpl("identityMethod");
     public static final Property NOT_NULL_METHOD = new PropertyImpl("notNullMethod", ValueImpl.NotNullImpl.NULLABLE);
