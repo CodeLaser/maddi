@@ -123,22 +123,46 @@ and it has a specific, documented blocker:
   `analyzer/rewire/TestClearBeforeRecompute`: a carried `@Immutable` blocks a `MUTABLE` re-analysis via the guard;
   after `removeIf`, the correct lower value sets cleanly.
 
-### All primitives are in place; what remains is the orchestration wiring
+### Decision (2026-07-18): the analysis layer first, and it absorbs the coarse parser
 
-Every building block is now implemented and tested: the decision (fingerprint diff), the fingerprint, the exposed
-read-only `InfoMapView`, the outside-reload carry (`rewire(view, …)`), the derived-tier `Value.rewire`s, the worklist
-(`EarlyCutoffWorklist`), and the clear (`removeIf`). Assembling them into a production skip is the final integration,
-with two design tasks that surfaced along the way:
+Do the call-graph-granular rewiring for the **analysis results** before the parser (`rewiring.md` records why the
+parser layer is deferred). The parser today coarsens to the source set — an edit re-scans the whole set, so an
+UNCHANGED sibling of the edited type comes back a *new object with empty analysis*. That would force a *recompute*
+(the expensive tier) unless the analysis carry covers it. It can: the exposed `InfoMap` is seeded with the whole
+rebuilt set (`view.rewiredTypes()`), so **carry every rebuilt-stable type, not only the REWIRE ones** — a cheap carry
+instead of a recompute. That decouples the analysis win from parser granularity: a coarse `RESCAN` costs carries, not
+recomputes.
 
-1. **A property-tier classification.** The outside carry must carry only the *cross-type-derived* tier
-   (`IMMUTABLE_*`, `CONTAINER_TYPE`, `INDEPENDENT_*`, `NON_MODIFYING_METHOD`, `UNMODIFIED_*`, `METHOD_LINKS`, `LINKS`,
-   `IMPLEMENTATIONS`), **not** the intrinsic-prepwork tier (`VARIABLE_DATA`, `PART_OF_CONSTRUCTION`, `FINAL_FIELD`, …),
-   because prep re-runs and would double-set the latter. Today the demonstration approximates this with
-   `ANALYZER_OUTPUT_ONLY ∧ ¬carryOnRewire`; the production version wants an explicit per-`Property` tier flag (which
-   would also let the fingerprint and the carry agree by construction rather than by two overlapping predicates).
-2. **The worklist ↔ analyzer wiring.** Carry the derived tier onto all REWIRE types; re-run prep + analyze only the
-   INVALID + fingerprint-dirty cone (the analyzer already supports subset analysis reading carried context via its
-   worklist narrowing), clearing a dirty carried type first with `removeIf`; spared REWIRE types keep their carry.
+### How to restrict the link computer and analyzer to the new-to-compute types
+
+The analyzer *already* has the mechanism — its worklist narrowing. `IteratingAnalyzerImpl.analyze(order, graph)`
+keeps a `dirty : Set<Info>` (`null` ⇒ analyse everything); each iteration analyses `order.filter(dirty)` and grows
+`dirty` from `summaryChangedInfos()` through the reverse adjacency `dependersOf`. `SingleIterationAnalyzerImpl.go`
+runs the **link computer per element of that subset**, so restricting the subset restricts link and verdicts alike —
+no separate link-side plumbing needed.
+
+So the wiring is:
+
+1. **Seed `dirty` with the INVALID set** via a new `analyze(order, graph, Set<Info> initialDirty)` overload
+   (`dirty = initialDirty` instead of `null`). Iteration 1 then analyses only the seed; the existing narrowing
+   propagates to a dependent only when a dependency's *summary changed* — which **is** the early cutoff. Everything
+   the worklist never reaches keeps its carried analysis and is never touched by link or analyzer.
+2. **Clear-before-recompute for a carried type when it is first dirtied.** A carried type pulled into `dirty` must
+   have its carry-tier `removeIf`'d before re-analysis, or the monotonic guard rejects a lowered value (unlike a
+   normal run, where iteration 1 computed the value fresh and iteration 2 only refines it upward). Pass the carried
+   set; on first dirtying of a carried element, clear it and drop it from the set (clear once).
+3. **The frontier is the fingerprint.** A recomputed type propagates to its dependents only if its fresh
+   analysisFingerprint differs from the carried/prior one — the `EarlyCutoffWorklist` logic, here realised *inside*
+   the analyzer's own summary-change propagation rather than as a separate loop.
+
+### The remaining design task: a property-tier flag
+
+The carry must carry the *cross-type-derived* tier (`IMMUTABLE_*`, `CONTAINER_TYPE`, `INDEPENDENT_*`,
+`NON_MODIFYING_METHOD`, `UNMODIFIED_*`, `METHOD_LINKS`, `LINKS`, `IMPLEMENTATIONS`) and **not** the intrinsic-prepwork
+tier (`VARIABLE_DATA`, `PART_OF_CONSTRUCTION`, `FINAL_FIELD`, …), which prep re-runs and would double-set. Today the
+demonstration approximates this with `ANALYZER_OUTPUT_ONLY ∧ ¬carryOnRewire`; the production version wants an explicit
+per-`Property` tier (`parse-time` / `intrinsic` / `cross-type-derived`), which then serves the fingerprint, the carry,
+and the clear from one classification instead of three overlapping predicates.
 
 ### The running skip, demonstrated with real saving (2026-07-18)
 
