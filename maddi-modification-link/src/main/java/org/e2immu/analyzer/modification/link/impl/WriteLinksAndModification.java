@@ -118,7 +118,6 @@ class WriteLinksAndModification {
                 affected.add(link.to());
                 updateNewLinks(newLinkedVariables, link);
             }
-            // assert !affected.isEmpty();
             followGraph.graph().recompute(affected, statement.source().index(), this::acceptRemoval);
         }
         Map<Variable, Links> builtNewLinkedVariables = new HashMap<>();

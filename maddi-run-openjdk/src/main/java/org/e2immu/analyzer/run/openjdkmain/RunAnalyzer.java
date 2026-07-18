@@ -216,10 +216,9 @@ public class RunAnalyzer implements Runnable {
                             cause.getClass().getName(), cause.getMessage());
                 }
                 exitValue = Main.EXIT_ANALYSER_ERROR;
-                if (modification) {
-                    LOGGER.error("Skipping modification analysis: prep analysis had errors.");
-                    return;
-                }
+                // do NOT skip modification: the offending types were isolated by prep itself, and a handful
+                // of isolated types must not deny analysis to a corpus (elasticsearch: 4 of 43k). The exit
+                // code still reports the errors.
             }
 
             if (printMemory) {

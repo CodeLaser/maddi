@@ -165,17 +165,9 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
                 Result result = params.get(pi.index());
                 Variable primary = Objects.requireNonNullElse(result.links().primary(), link.to());
                 if (primary instanceof LocalVariable) {
-                    // see TestStaticBiFunction,6: no direct mapping
-
-                    // this is the old "join" of previous implementations; we should call expand now
-                    // FIXME
-                  /*  Timer timer = new Timer();
-                    Graph graph = new Graph(engine);
-                    Links ls = new LinkGraph(javaInspector, runtime, linkComputerOptions.checkDuplicateNames(),
-                            graph, new FollowGraph(graph))
-                            .indirect(links.primary(), link, result.links());
-                    if (ls != null) builder.addAllDistinct(ls);
-                    */
+                    // see TestStaticBiFunction,6: no direct mapping exists — deliberately emit nothing.
+                    // (A pre-sv "join" through a private graph was tried and removed; if a legitimate
+                    // case surfaces, route it through the sv expansion, not a side graph.)
                 } else {
                     builder.add(link.from(), link.linkNature(), runtime.newFieldReference(fr.fieldInfo(),
                             runtime.newVariableExpression(primary), fr.fieldInfo().type()));
