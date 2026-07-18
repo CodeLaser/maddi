@@ -53,7 +53,8 @@ public class TestCorpusSweep {
                 try {
                     exitValue = Main.execute(new String[]{
                             "--input-configuration=" + config,
-                            "--analysis-steps=modification"
+                            "--analysis-steps=modification",
+                            "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk"
                     });
                 } catch (Throwable t) {
                     exitValue = -1;

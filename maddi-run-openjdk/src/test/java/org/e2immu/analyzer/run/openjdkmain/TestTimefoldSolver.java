@@ -37,6 +37,7 @@ public class TestTimefoldSolver {
         int exitValue = Main.execute(new String[]{
                 "--input-configuration=./src/test/resources/inputConfiguration/timefold-solver.json"
                 , "--analysis-steps=modification"
+                , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk"
         });
         assertEquals(Main.EXIT_OK, exitValue);
     }
@@ -48,6 +49,7 @@ public class TestTimefoldSolver {
         int exitValue = Main.execute(new String[]{
                 "--input-configuration=./src/test/resources/inputConfiguration/timefold-solver2.json"
                 , "--analysis-steps=modification"
+                , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk"
         });
         assertEquals(Main.EXIT_OK, exitValue);
     }
