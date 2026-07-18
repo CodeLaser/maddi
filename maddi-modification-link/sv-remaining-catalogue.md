@@ -63,11 +63,11 @@ Checkpoint/resume + incremental (session tasks #34/#35):
 
 Extract-interface consumer (../jfocus-refactor-service extractmodule; adequacy review 2026-07-18,
 session tasks #36-#39):
-- #36 HIGHEST VALUE: degradation visibility. VL2O is only written on the SOURCE path; every
-  degradation rung (containment, cycle protection, work ceiling, prep isolation) silently produces
-  EMPTY VL2O inside the method → missed rejections → potentially BROKEN refactorings. Engine: stamp a
-  DEGRADED_ANALYSIS marker at the shallow fallback; consumer: reject candidates touched in degraded
-  methods.
+- #36 DONE 2026-07-18 (commit 494cb2bb): DEGRADED_ANALYSIS_METHOD stamped at all three rungs
+  (shallow fallback, analyzer fault isolation, prep type isolation); ComputeCallGraph null-body
+  guard added en route. Consumer half (pessimistic per-type gate in ComputeReplaceTypesActions)
+  implemented in jfocus-refactor-service, UNCOMMITTED there for the owner thread; jfocus suite at
+  known baseline 176/1.
 - #37 VL2O nature tier: addVL2O accepts every nature except ≡, so content-tier links (∈ ~ ∩ ...)
   inherit modification semantics into a type-aliasing question → over-rejection. Measure first,
   then tier-filter.
