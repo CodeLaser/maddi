@@ -4,6 +4,15 @@
 > direction rules, open shapes): **`sv-reconstruction-techniques.md`** — read it before
 > extending the reconstruction machinery.
 
+## UPDATE 2026-07-18e — PROFILING ROUND 3 (lock, jenkins-core): NO contention bottleneck
+
+Lock profile under PARALLEL=8 (jenkins-core, 28k elements, green): total lock-wait weight
+negligible — 2565 sampled units vs ~45-60k CPU samples on comparable runs. Largest monitor:
+the synchronized set in TolerantWrite.setAllowControlledOverwrite (55% of that trivial
+total); the new synchronized getOrLoad miss path does not register at all. Verdict: the
+parallel engine is compute-bound, not lock-bound; no action. Profiling harness (ASPROF gate)
++ per-round findings: rounds 1 (CPU, -26%), 2 (alloc, -37%), 3 (lock, no-op) all catalogued.
+
 ## UPDATE 2026-07-18d — PROFILING ROUND 2 (alloc, timefold): -37% allocations; javac flake ROOT-CAUSED
 
 Alloc profile (timefold, 76% of allocations in link) found three sinks, all fixed:
