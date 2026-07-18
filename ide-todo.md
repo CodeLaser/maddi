@@ -61,7 +61,53 @@ progress listener — analyzer work, not IDE plumbing. Do (b) first; it may be e
 
 ---
 
-## 3. Smaller, independent of the above
+## 3. Stream early results, instead of waiting for the run to finish
+
+Better than a progress bar, and the same analyzer hook pays for both.
+
+**The observation.** The analyzer is incremental, and the *shape* of the run is lopsided: the majority of the
+output is hard-decided in the first iteration, and the tail is long in duration but short in number of
+decisions. `IteratingAnalyzer.analyze`'s own javadoc says as much — worklist narrowing (default on) makes
+"iterations 2+ only re-analyze elements that changed in the previous iteration plus their dependents". So a
+user waiting for the terminal `result` is waiting mostly for decisions that were already made, about elements
+they are probably not even looking at.
+
+**The idea.** Emit decisions to the IDE as they harden, so hints and findings appear early and the tail merely
+refines them. On a large project this changes the feel completely: the file on screen is annotated in seconds
+rather than after the whole run.
+
+**The design question to settle first — are early decisions final?** Streaming is only honest if a value
+emitted in iteration 1 cannot later be contradicted; otherwise the UI has to *retract*, and a hint that
+appears and then changes is worse than one that appears late. Two possible answers, and which one holds
+decides the whole shape:
+
+- values are monotonic / hardened once decided → stream freely, later frames only add;
+- values can be revised → stream only the subset provably stable after iteration 1, or make the wire carry
+  revisions and have the front-ends replace by element.
+
+Worth answering in the analyzer before designing anything in the IDE.
+
+**What it needs, assuming it holds.**
+
+- *Analyzer*: a callback from `analyze(order)` as decisions harden — the same hook (c) wants for counting, so
+  build it once, shaped for results rather than counts.
+- *Protocol*: `status` is progress-only and there is exactly one terminal `result`. Prefer a **new
+  `partialResult` frame** over making `result` repeatable, and not only on taste: `DaemonClient.analyze`
+  loops until it sees `result` or `error` and hands every *other* frame to the `onStatus` consumer. So a new
+  non-terminal type flows through the existing client untouched, and old clients ignore it; a repeatable
+  `result` would make them return on the first one and treat a partial answer as the whole run.
+- *Both front-ends*: results are currently replaced wholesale (`MaddiResults.update`,
+  `MaddiAnalysisService.applyResult`), and Eclipse rewrites every marker in the workspace per run. Incremental
+  arrival means merging by element and updating markers/hints additively — the same work item 4 lists under
+  marker churn, and another reason to do it.
+
+Note this composes with partial re-analysis (item 1) rather than competing: that one shrinks *what* is
+analysed, this one shortens *when you see it*. Either helps alone; together a small edit should show revised
+hints almost immediately.
+
+---
+
+## 4. Smaller, independent of the above
 
 - **Coalesced triggers are dropped silently.** Both front-ends guard with a bare `AtomicBoolean`
   (`MaddiAnalysis.RUNNING`), so a build finishing while a run is in flight is simply never computed. Needs a
