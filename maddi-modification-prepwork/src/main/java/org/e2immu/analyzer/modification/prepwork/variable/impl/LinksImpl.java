@@ -226,8 +226,13 @@ public class LinksImpl implements Links {
 
         @Override
         public Builder add(LinkNature linkNature, Variable to) {
+            return add(linkNature, to, false);
+        }
+
+        /** mediated=true: the link was produced through a cast / pattern binding (see Link.mediated()) */
+        public Builder add(LinkNature linkNature, Variable to, boolean mediated) {
             if (!representable(primary, to)) return this;
-            LinkImpl link = new LinkImpl(primary, linkNature, to);
+            LinkImpl link = new LinkImpl(primary, linkNature, to, mediated);
             links.add(link);
             addToIndexes(link);
             return this;
@@ -335,7 +340,11 @@ public class LinksImpl implements Links {
     }
 
     // private so that we can ensure that only the links builder can make link objects
-    public record LinkImpl(Variable from, LinkNature linkNature, Variable to) implements Link {
+    public record LinkImpl(Variable from, LinkNature linkNature, Variable to, boolean mediated) implements Link {
+
+        public LinkImpl(Variable from, LinkNature linkNature, Variable to) {
+            this(from, linkNature, to, false);
+        }
 
         public LinkImpl {
             assert from != null;

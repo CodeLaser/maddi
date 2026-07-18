@@ -191,7 +191,8 @@ public record ExpressionVisitor(Runtime runtime,
                 if (instanceOf.patternVariable().localVariable() != null) {
                     LocalVariable lv = instanceOf.patternVariable().localVariable();
                     if (!lv.isUnnamed()) {
-                        linksBuilder.add(LinkNatureImpl.IS_ASSIGNED_TO, lv);
+                        // MEDIATED: the pattern binding re-mediates the declared type (task #39)
+                        ((LinksImpl.Builder) linksBuilder).add(LinkNatureImpl.IS_ASSIGNED_TO, lv, true);
                         // 'o instanceof Set set' where o is itself a bound deconstruction component: the cast
                         // alias is the same object, hence a component of o's containers too
                         sourceMethodComputer.followGraph.graph().markPatternBindingAlias(ve.variable(), lv);
