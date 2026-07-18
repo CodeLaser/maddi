@@ -78,6 +78,7 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
     public static final String NEAR_MISS_CONTAINER = "near-miss-container";
     public static final String NEAR_MISS_NOT_MODIFIED = "near-miss-not-modified";
     public static final String NEAR_MISS_INDEPENDENT = "near-miss-independent";
+    public static final String NEAR_MISS_IMMUTABLE = "near-miss-immutable";
 
     private final ContractReader contractReader;
     private final AnalysisHelper analysisHelper = new AnalysisHelper();
@@ -123,8 +124,9 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
         List<RankedFinding> findings = new ArrayList<>();
         for (Info info : analysisOrder) {
             if (info instanceof TypeInfo typeInfo) {
-                RankedFinding f = containerNearMiss(typeInfo, policy);
-                if (f != null) findings.add(f);
+                RankedFinding container = containerNearMiss(typeInfo, policy);
+                if (container != null) findings.add(container);
+                typeImmutabilityNearMisses(typeInfo, policy, findings);
             } else if (info instanceof MethodInfo methodInfo) {
                 methodNearMisses(methodInfo, policy, findings);
             }
@@ -301,6 +303,107 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
                 dependent.size(), total);
     }
 
+    /**
+     * Type-level immutability near-misses. {@code @Immutable} subsumes {@code @Independent} (its rule 3), so an
+     * immutable near-miss suppresses the independence one for the same type — reporting both would name the same
+     * dependent field twice, exactly the noise {@code guardIndependentType} avoids on the contract side.
+     */
+    private void typeImmutabilityNearMisses(TypeInfo typeInfo, IteratingAnalyzer.NearMissPolicy policy,
+                                            List<RankedFinding> findings) {
+        RankedFinding immutable = immutableNearMiss(typeInfo, policy);
+        if (immutable != null) {
+            findings.add(immutable);
+            return;
+        }
+        RankedFinding independent = independentTypeNearMiss(typeInfo, policy);
+        if (independent != null) findings.add(independent);
+    }
+
+    /**
+     * {@code @Immutable} near-miss: a type one field short of immutability. Skipped when the user contracted
+     * {@code @Immutable} (the guard polices it), when the type is eventually immutable, or when its computed
+     * {@code IMMUTABLE_TYPE} is undecided or already at-least-immutable-HC. Counts fields failing an immutability
+     * rule via the same {@link #immutableFieldFailingRule} the guard uses; a type whose non-immutability comes from
+     * something other than a field (e.g. a modifying abstract method) has no blocking field and stays silent.
+     */
+    private RankedFinding immutableNearMiss(TypeInfo typeInfo, IteratingAnalyzer.NearMissPolicy policy) {
+        if (contractReader.contracts(typeInfo).get(IMMUTABLE_TYPE) instanceof Value.Immutable contracted
+            && contracted.isAtLeastImmutableHC()) {
+            return null;
+        }
+        if (isEventual(typeInfo)) return null;
+        Value.Immutable computed = typeInfo.analysis().getOrNull(IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.class);
+        if (computed == null || computed.isAtLeastImmutableHC()) return null; // undecided, or already immutable
+
+        List<FieldInfo> fields = typeInfo.fields();
+        if (fields.size() < policy.minFields()) return null;
+        List<Message> causes = new ArrayList<>();
+        int blocking = 0;
+        for (FieldInfo fieldInfo : fields) {
+            int rule = immutableFieldFailingRule(fieldInfo);
+            if (rule < 0) continue;
+            if (++blocking > policy.maxBlockingSlots()) return null;
+            Message blame = rule == 3 ? blameFieldDependent(fieldInfo) : null;
+            String description = "field '" + fieldInfo.name() + "' " + immutableRuleFragment(rule, fieldInfo);
+            causes.add(blame != null ? MessageImpl.cause(fieldInfo, description, blame)
+                    : MessageImpl.cause(fieldInfo, description));
+        }
+        if (blocking == 0) return null;
+        String message = typeInfo.fullyQualifiedName() + " would satisfy @Immutable but for " + blocking + " of its "
+                         + fields.size() + " fields; consider @Immutable";
+        return new RankedFinding(MessageImpl.warn(typeInfo, NEAR_MISS_IMMUTABLE, message, causes.toArray(new Message[0])),
+                blocking, fields.size());
+    }
+
+    /** A short human fragment naming the immutability rule a field fails, for near-miss causes. */
+    private static String immutableRuleFragment(int rule, FieldInfo fieldInfo) {
+        return switch (rule) {
+            case 0 -> "is assignable after construction (rule 0: all fields effectively final)";
+            case 1 -> "is modified (rule 1: all fields @NotModified)";
+            case 2 -> "is not private, and its type " + fieldInfo.type().detailedString()
+                      + " is not immutable (rule 2)";
+            default -> "is dependent: exposed to, or shared with, the outside world (rule 3)";
+        };
+    }
+
+    /**
+     * {@code @Independent} near-miss on a type: one field short of independence. Skipped when the user wrote
+     * {@code @Independent} (the guard polices it) or the type is contracted/near {@code @Immutable} (that subsumes
+     * independence — handled by {@code typeImmutabilityNearMisses}), and when the computed {@code INDEPENDENT_TYPE}
+     * is undecided or already at-least-independent-HC. Fields only, exactly as {@code guardIndependentType}: an
+     * abstract method's independence may be a {@code ShallowMethodAnalyzer} default rather than a computation.
+     */
+    private RankedFinding independentTypeNearMiss(TypeInfo typeInfo, IteratingAnalyzer.NearMissPolicy policy) {
+        if (hasExplicitIndependentAnnotation(typeInfo)) return null;
+        if (contractReader.contracts(typeInfo).get(IMMUTABLE_TYPE) instanceof Value.Immutable contracted
+            && contracted.isAtLeastImmutableHC()) {
+            return null;
+        }
+        Value.Independent computed = typeInfo.analysis().getOrNull(INDEPENDENT_TYPE, ValueImpl.IndependentImpl.class);
+        if (computed == null || computed.isAtLeastIndependentHc()) return null; // undecided, or already independent
+
+        List<FieldInfo> fields = typeInfo.fields();
+        if (fields.size() < policy.minFields()) return null;
+        List<Message> causes = new ArrayList<>();
+        int blocking = 0;
+        for (FieldInfo fieldInfo : fields) {
+            Value.Independent independent = fieldInfo.analysis().getOrNull(INDEPENDENT_FIELD,
+                    ValueImpl.IndependentImpl.class);
+            if (independent == null || !independent.isDependent()) continue;
+            if (++blocking > policy.maxBlockingSlots()) return null;
+            Message blame = blameFieldDependent(fieldInfo);
+            String description = "field '" + fieldInfo.name() + "' is dependent: external modifications can reach the"
+                                 + " accessible content of the type";
+            causes.add(blame != null ? MessageImpl.cause(fieldInfo, description, blame)
+                    : MessageImpl.cause(fieldInfo, description));
+        }
+        if (blocking == 0) return null;
+        String message = typeInfo.fullyQualifiedName() + " would satisfy @Independent but for " + blocking + " of its "
+                         + fields.size() + " fields; consider @Independent";
+        return new RankedFinding(MessageImpl.warn(typeInfo, NEAR_MISS_INDEPENDENT, message, causes.toArray(new Message[0])),
+                blocking, fields.size());
+    }
+
     private void guardType(TypeInfo typeInfo) {
         Map<Property, Value> contracts = contractReader.contracts(typeInfo);
         if (contracts.get(CONTAINER_TYPE) instanceof Value.Bool container && container.isTrue()) {
@@ -399,45 +502,49 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
     }
 
     private void guardImmutableField(TypeInfo contractHolder, FieldInfo fieldInfo, Message contractLocation) {
+        int rule = immutableFieldFailingRule(fieldInfo);
+        if (rule < 0) return;
         String prefix = "field '" + fieldInfo.name() + "' of " + contractHolder.fullyQualifiedName();
         String suffix = " of the @Immutable contract on " + contractHolder.fullyQualifiedName();
+        String core = switch (rule) {
+            case 0 -> " is assignable after construction, violating rule 0 (all fields effectively final)";
+            case 1 -> " is modified, violating rule 1 (all fields @NotModified)";
+            case 2 -> " is not private, and its type " + fieldInfo.type().detailedString()
+                      + " is not immutable, violating rule 2 (fields private, or of immutable type)";
+            default -> " is dependent: it is exposed to, or shared with, the outside world, violating rule 3"
+                       + " (no parameter or return value dependent on the fields)";
+        };
+        Message blame = rule == 3 ? blameFieldDependent(fieldInfo) : null;
+        reportViolation(fieldInfo, blame, contractLocation, prefix + core + suffix);
+    }
 
-        // rule 0: all fields effectively final. Not isPropertyFinal(): that reads FINAL_FIELD with getOrDefault, so an
-        // undecided field would read as "not final" and we would blame on incomplete information.
+    /**
+     * The first immutability rule a field <em>decidedly</em> fails, or {@code -1} if it passes every decided rule.
+     * Shared by {@code guardImmutableField} (contract violation) and {@code immutableNearMiss} (advisory). Reads
+     * only decided values (never {@code isPropertyFinal()}, whose {@code getOrDefault} would read an undecided
+     * field as "not final"), so an undecided rule counts as "passes here" — the guard's decided-only discipline.
+     * <ul>
+     *   <li>rule 0 — all fields effectively final;</li>
+     *   <li>rule 1 — all fields {@code @NotModified};</li>
+     *   <li>rule 2 — fields private, or of immutable type;</li>
+     *   <li>rule 3 — nothing dependent on the accessible part of the fields.</li>
+     * </ul>
+     */
+    private int immutableFieldFailingRule(FieldInfo fieldInfo) {
         if (!fieldInfo.isFinal()) {
             Value.Bool finalField = fieldInfo.analysis().getOrNull(FINAL_FIELD, ValueImpl.BoolImpl.class);
-            if (finalField != null && finalField.isFalse()) {
-                reportViolation(fieldInfo, null, contractLocation,
-                        prefix + " is assignable after construction, violating rule 0 (all fields effectively final)"
-                        + suffix);
-                return;
-            }
+            if (finalField != null && finalField.isFalse()) return 0;
         }
-        // rule 1: all fields @NotModified
         Value.Bool unmodified = fieldInfo.analysis().getOrNull(UNMODIFIED_FIELD, ValueImpl.BoolImpl.class);
-        if (unmodified != null && unmodified.isFalse()) {
-            reportViolation(fieldInfo, null, contractLocation,
-                    prefix + " is modified, violating rule 1 (all fields @NotModified)" + suffix);
-            return;
-        }
-        // rule 2: all fields private, or of immutable type
+        if (unmodified != null && unmodified.isFalse()) return 1;
         if (!fieldInfo.access().isPrivate() && isNotSelf(fieldInfo)) {
             Value.Immutable fieldTypeImmutable = analysisHelper.typeImmutableNullIfUndecided(fieldInfo.type());
-            if (fieldTypeImmutable != null && !fieldTypeImmutable.isAtLeastImmutableHC()) {
-                reportViolation(fieldInfo, null, contractLocation,
-                        prefix + " is not private, and its type " + fieldInfo.type().detailedString()
-                        + " is not immutable, violating rule 2 (fields private, or of immutable type)" + suffix);
-                return;
-            }
+            if (fieldTypeImmutable != null && !fieldTypeImmutable.isAtLeastImmutableHC()) return 2;
         }
-        // rule 3: nothing dependent on the accessible part of the fields
         Value.Independent independent = fieldInfo.analysis().getOrNull(INDEPENDENT_FIELD,
                 ValueImpl.IndependentImpl.class);
-        if (independent != null && independent.isDependent()) {
-            reportViolation(fieldInfo, blameFieldDependent(fieldInfo), contractLocation,
-                    prefix + " is dependent: it is exposed to, or shared with, the outside world, violating rule 3"
-                    + " (no parameter or return value dependent on the fields)" + suffix);
-        }
+        if (independent != null && independent.isDependent()) return 3;
+        return -1;
     }
 
     /** A field of the type it is declared in does not have to be immutable for rule 2 (cf. TypeImmutableAnalyzerImpl). */

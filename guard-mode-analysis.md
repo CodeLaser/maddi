@@ -513,5 +513,17 @@ risk is noise, targeted by floor + single-blocker + undecided-discipline + ranki
   the single culprit, categories `near-miss-not-modified` / `near-miss-independent`. Test
   `TestNearMissMethod`, 5/5. A method can yield both a `@NotModified` and an `@Independent` near-miss.
 
-Deferred (Phase C): `@Immutable` / `@Independent` type-level near-misses (rarer, noisier), and wiring
-`warnNearMisses` through the run drivers / plugins so it can be enabled from the CLI.
+- **Phase C — type-level `@Immutable` / `@Independent` near-miss (2026-07-18).** `typeImmutabilityNearMisses`
+  handles both in the type loop. `@Immutable`: a type one field short of immutability — the guard's per-field
+  rule check was extracted into `immutableFieldFailingRule` (returning the first decided-failing rule 0–3,
+  byte-identical guard messages preserved), and the near-miss counts failing fields, requiring at least
+  `minFields` (default 3) and at most `maxBlockingSlots` blockers. A type whose non-immutability comes from
+  something other than a field (e.g. a modifying abstract method) has no blocking field and stays silent — the
+  conservative default. `@Independent`: a type one dependent field short, reusing `blameFieldDependent`. Crucially,
+  `@Immutable` **subsumes** `@Independent` (its rule 3), so an immutable near-miss suppresses the independence one
+  for the same type — mirroring `guardIndependentType`'s "only in the absence of an @Immutable contract". Category
+  `near-miss-immutable`; type independence reuses `near-miss-independent`. `NearMissPolicy` gained `minFields`
+  (STRICT = 7/1/3/1/3). Test `TestNearMissType`, 5/5.
+
+Deferred: wiring `warnNearMisses` through the run drivers / plugins so it can be enabled from the CLI for a survey
+(the analyzer supports it today via the builder; only the config plumbing is missing).

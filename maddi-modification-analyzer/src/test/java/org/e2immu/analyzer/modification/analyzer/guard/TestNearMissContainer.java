@@ -138,7 +138,7 @@ public class TestNearMissContainer extends CommonTest {
     // minParameterSlots=1 to exercise the implementation-attribution gate directly (minImplementations/max stay
     // at the strict defaults). The interface's own container value already folds every implementation.
 
-    private static final NearMissPolicy SINGLE_SLOT = new NearMissPolicy(1, 1, 3, 1);
+    private static final NearMissPolicy SINGLE_SLOT = new NearMissPolicy(1, 1, 3, 1, 3);
 
     private static String sink(String clean1Body, String clean2Body, String badBody, boolean includeClean2) {
         return "package a.b;\n"
