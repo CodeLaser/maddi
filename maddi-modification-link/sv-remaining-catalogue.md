@@ -18,11 +18,15 @@
 - Profiling rounds 1-3 done: -26% CPU (dedup keys ran the CST printer), -37% allocations (eager
   debug args, getenv-per-lookup, scopeVariables), lock-clean. ASPROF env gate in run-openjdk.
 - javac parse flake root-caused and fixed (concurrent lazy getOrLoad into the live JavacTask +
-  plain-HashMap registry); RECURRED 2026-07-18 18:41 despite the fix — 10 victims in ONE link-suite
-  fork JVM, including a garbled test-results XML filename (name-table string corruption made
-  visible) and a downstream CompilationProblems casualty. -XDuseUnsharedTable confirmed present;
-  conclusion: a SECOND unsynchronized path into the live JavacTask exists (task #40). Mitigation:
-  -PforkEvery=1.
+  plain-HashMap registry). The 2026-07-18 18:41 recurrence was REDIAGNOSED same day: overlapping
+  suite timestamps prove 3-4 fork JVMs failed SIMULTANEOUSLY — not in-JVM corruption but a
+  CROSS-PROCESS race: a second gradle invocation in the same repo recompiling (locally modified)
+  sources and rewriting class files/jars while live test forks read them. Explains the
+  starImportScope NPEs (javac on half-written classpath entries), the garbled XML filename (JUnit
+  discovery on a half-written class file), and the morning maddi-graph unreadable-jar race.
+  PROTOCOL: do not run gradle in ~/git/maddi from two threads concurrently (task #40). In-JVM
+  leads (owner-thread assertion, one-lock-per-JavacTask) stay relevant for analyzer-PARALLEL
+  corpus runs only.
 - Elasticsearch first contact COMPLETED 2026-07-18 (attempt 11, 5h29m, 24G heap, work ceiling
   active): **239,732 elements** — 152,210 methods (101,822 nonModifying / 48,537 modifying /
   1,851 null = 99% decided), 41,717 fields (28,581/12,571/565), 45,805 types. Types:
