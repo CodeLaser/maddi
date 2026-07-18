@@ -79,3 +79,21 @@ So immutability attribution is currently: sound but only one-sided. Fixing the h
   method-side soundness baseline is strong.
 
 Artifacts: scratchpad sem-*.txt dumps, sample-*.txt, semantic_audit.py, ff-hints-run.log.
+
+## ADDENDUM 2026-07-18b — immutability precision audit (positive side unlocked)
+
+With #29 + cycle breaking live, the positive side exists and was audited on fernflower
+(all 66 @Immutable, all 50 @ImmutableHC, 20-of-231 @FinalFields, 8-of-159 @Mutable):
+- @Immutable: 54/66 correct. The 12 wrong shared one shape — records/holders of mutable
+  engine types at hc-free L3 — traced to a missing deep-immutability check over instance
+  field types in TypeImmutableAnalyzerImpl (fixed; TestImmutableHiddenContent.test2).
+- @ImmutableHC: 42/50 correct; 1 unsound (ClassesProcessor.Inner — fields reassigned by the
+  ENCLOSING class, invisible to effectively-final detection; fixed in
+  ComputePartOfConstructionFinalField + repros in TestFinalFieldBranchAssignment); StackEntry
+  rule-2 miss still open; 3 minor hc-bit over-sets.
+- @FinalFields sample: zero unsoundness; 11/20 conservative (lambda promotion gap).
+- @Mutable sample: 6/8 correct; 2 conservative (constants-only interface; captured-content
+  conflation on a lambda).
+Headline: the level attribution errors cluster in exactly two engine defects (both fixed);
+the sampled tiers show NO remaining soundness holes besides StackEntry (under investigation).
+Full detail: sv-remaining-catalogue.md UPDATE 2026-07-18b.

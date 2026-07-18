@@ -125,14 +125,16 @@ public class ComputePartOfConstructionFinalField {
                 }
             }
 
-            // a field can also be assigned from a method declared in a lambda / anonymous / local type enclosed
-            // by the field's owner; such a method has no field->method edge (its typeInfo is not the owner), so
-            // we check it directly. isAssigned returns false when the method does not assign the field.
+            // a field can also be assigned from a method declared in ANY other type of the same primary type:
+            // a lambda / anonymous / local type enclosed by the owner, but equally the ENCLOSING type of a nested
+            // owner or a sibling nested type -- Java grants the whole compilation unit access to a nested type's
+            // private fields (fernflower's ClassesProcessor reassigns ClassesProcessor.Inner's fields). Such methods
+            // have no field->method edge (their typeInfo is not the owner), so we check them directly. isAssigned
+            // returns false when the method does not assign the field.
             if (effectivelyFinalFieldMap.get(fieldInfo)) {
                 for (MethodInfo methodInfo : constructorsAndMethodsOfPrimaryType) {
                     TypeInfo methodType = methodInfo.typeInfo();
                     if (methodType != fieldInfo.owner()
-                        && methodType.isEnclosedIn(fieldInfo.owner())
                         && notInConstructionOfSameStaticType(methodInfo, fieldInfo, partOfConstruction)
                         && isAssigned(methodInfo, fieldInfo)) {
                         effectivelyFinalFieldMap.put(fieldInfo, false);

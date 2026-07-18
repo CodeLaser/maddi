@@ -114,8 +114,27 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         Boolean immFromField = loopOverFieldsAndMethods(typeInfo, true);
         if (immFromField == null) return null;
         if (!immFromField) return FINAL_FIELDS;
-        if (independent.isIndependentHc()) return IMMUTABLE_HC;
-        return typeInfo.isExtensible() ? IMMUTABLE_HC : IMMUTABLE;
+        if (independent.isIndependentHc() || typeInfo.isExtensible()) return IMMUTABLE_HC;
+        // the hidden-content-free level requires every instance field's type to be deeply immutable itself:
+        // a private, never-modified field of a mutable type (fernflower's records of Exprent/Statement) is
+        // hidden content, not absence of content
+        Boolean noHiddenContent = instanceFieldTypesDeeplyImmutable(typeInfo);
+        if (noHiddenContent == null) return activateCycleBreaking ? IMMUTABLE_HC : null;
+        return noHiddenContent ? IMMUTABLE : IMMUTABLE_HC;
+    }
+
+    private Boolean instanceFieldTypesDeeplyImmutable(TypeInfo typeInfo) {
+        boolean undecided = false;
+        for (FieldInfo fieldInfo : typeInfo.fields()) {
+            if (fieldInfo.isStatic()) continue; // instance content only; static state belongs to the class
+            Immutable immutable = analysisHelper.typeImmutableNullIfUndecided(fieldInfo.type());
+            if (immutable == null) {
+                undecided = true;
+            } else if (!immutable.isImmutable()) {
+                return false; // includes NO_VALUE: no proof of deep immutability, no hc-free promotion
+            }
+        }
+        return undecided ? null : true;
     }
 
     private Immutable immutableSuper(TypeInfo typeInfo) {
