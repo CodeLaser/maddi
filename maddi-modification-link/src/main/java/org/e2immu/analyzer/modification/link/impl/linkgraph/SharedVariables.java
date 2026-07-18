@@ -151,7 +151,8 @@ public class SharedVariables {
      directed link (reversed when 'primary' owns the to-side, so a parameter reads as '→' and a field as '←').
      Mirrors Graph.virtualModificationEdgeStream for the ≡ groups.
      */
-    public Stream<Link> assignmentEdgeStream(Variable primary) {
+    public Stream<Link> assignmentEdgeStream(Variable primary,
+                                             java.util.function.BiPredicate<Variable, Variable> mediatedHop) {
         Stream.Builder<Link> builder = Stream.builder();
         // The primary's faces: the primary plus its whole-object shared-group siblings. A collapsed 'return p'
         // groups the return with 'p', so a field assignment keyed on the sibling ('p.f ← 0:x') belongs to the
@@ -163,9 +164,18 @@ public class SharedVariables {
             // So follow the chain transitively: emit 'm ← t' for every t reachable from m along ←, and its reverse.
             java.util.Map<Variable, java.util.List<Variable>> fwd = new java.util.HashMap<>();
             java.util.Map<Variable, java.util.List<Variable>> bwd = new java.util.HashMap<>();
+            // unmediated-only adjacency for the chain-taint rule (task #39): a chain target is emitted
+            // MEDIATED only when NO unmediated path reaches it — an unmediated path is genuine declared-type
+            // coupling, and coupling (the consumer's conservative side) must win over provenance
+            java.util.Map<Variable, java.util.List<Variable>> fwdU = new java.util.HashMap<>();
+            java.util.Map<Variable, java.util.List<Variable>> bwdU = new java.util.HashMap<>();
             for (SharedVariable.Assignment a : sv.assignments()) {
                 fwd.computeIfAbsent(a.from(), k -> new java.util.ArrayList<>()).add(a.to());
                 bwd.computeIfAbsent(a.to(), k -> new java.util.ArrayList<>()).add(a.from());
+                if (!mediatedHop.test(a.from(), a.to())) {
+                    fwdU.computeIfAbsent(a.from(), k -> new java.util.ArrayList<>()).add(a.to());
+                    bwdU.computeIfAbsent(a.to(), k -> new java.util.ArrayList<>()).add(a.from());
+                }
             }
             for (Variable m : sv.variables()) {
                 // emitM is 'm' keyed onto the primary: 'm' itself when part of the primary, or the sibling-rehomed
@@ -191,9 +201,11 @@ public class SharedVariables {
                         // field for the parameter's summary (var-transparency). Gate NOPDEEP.
                         || !Gate.isSet("NOPDEEP")
                            && Util.primary(emitM) instanceof org.e2immu.language.cst.api.info.ParameterInfo;
+                java.util.Set<Variable> fwdReachU = reachable(m, fwdU, deep);
                 for (Variable t : reachable(m, fwd, deep)) {
                     if (!emitM.equals(t)) {
-                        builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_FROM, t));
+                        boolean mediatedT = !fwdReachU.contains(t);
+                        builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_FROM, t, mediatedT));
                         // alias a to-side ELEMENT face onto its base's assignment sources: 'm ← r[0]' with the
                         // for-each row 'r ← g[0]' equally holds as 'm ← 0:g[0][0]' — the local face (r) dies at
                         // summary time, the parameter face survives. Sources only: a recipient sibling of the
@@ -205,7 +217,8 @@ public class SharedVariables {
                                 aliasTm.put(dvT.arrayVariable(), src);
                                 Variable tAlt = aliasTm.translateVariableRecursively(t);
                                 if (!tAlt.equals(t) && !emitM.equals(tAlt)) {
-                                    builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_FROM, tAlt));
+                                    builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_FROM, tAlt,
+                                            mediatedT));
                                 }
                             }
                         }
@@ -221,9 +234,11 @@ public class SharedVariables {
                         }
                     }
                 }
+                java.util.Set<Variable> bwdReachU = reachable(m, bwdU, deep);
                 for (Variable t : reachable(m, bwd, deep)) {
                     if (!emitM.equals(t)) {
-                        builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_TO, t));
+                        boolean mediatedT = !bwdReachU.contains(t);
+                        builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_TO, t, mediatedT));
                         // RETURN-SPELLING SIBLINGS (gate NORVSP): when the recipient is a RETURN's FIELD FACE
                         // ('x → writeReturn.t' for a fluent mutator), the same slot's non-return spellings hold
                         // the same fact ('x → 0:box.t' — slot group {writeReturn.t, box.t, x}). The return
@@ -239,7 +254,8 @@ public class SharedVariables {
                                     && !(Util.primary(sib) instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable)
                                     && !(Util.firstRealVariable(sib) instanceof IntermediateVariable)
                                     && sib instanceof FieldReference) {
-                                    builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_TO, sib));
+                                    builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_TO, sib,
+                                            mediatedT));
                                 }
                             }
                         }
