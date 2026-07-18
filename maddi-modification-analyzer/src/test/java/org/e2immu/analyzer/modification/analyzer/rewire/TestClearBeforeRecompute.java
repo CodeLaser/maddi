@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * The early-cutoff skip's <em>clear-before-recompute</em> primitive ({@code PropertyValueMap.removeIf}). When the
  * worklist carries a REWIRE type optimistically and then finds it dirty, re-analysis may need to <em>lower</em> a
  * carried verdict — which the monotonic-overwrite guard rejects. Clearing the carried value first unblocks it. See
- * {@code analysis-rewiring.md}.
+ * {@code docs/analysis-rewiring.md}.
  */
 public class TestClearBeforeRecompute {
 

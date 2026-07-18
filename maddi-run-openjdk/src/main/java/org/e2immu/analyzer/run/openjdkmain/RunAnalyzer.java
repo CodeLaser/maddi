@@ -260,7 +260,7 @@ public class RunAnalyzer implements Runnable {
                 return;
             }
             analysisMessages.addAll(analyzer.messages());
-            // analysisFingerprint: store each source set's rollup for incremental early-cutoff (analysis-rewiring.md)
+            // analysisFingerprint: store each source set's rollup for incremental early-cutoff (docs/analysis-rewiring.md)
             int fpSets = AnalysisFingerprint.storePerSourceSet(javaInspector.runtime(),
                     summary.parseResult().primaryTypes()).size();
             LOGGER.info("Stored analysis fingerprints for {} source set(s)", fpSets);

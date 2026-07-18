@@ -178,7 +178,7 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
     /*
     Holds Links (for the return value and per parameter) and a set of modified Variables. Like LinksImpl, this is
     derived across types, so a REWIRE type's method links are stale by construction and should be recomputed rather
-    than carried; hence not implemented. See rewiring.md.
+    than carried; hence not implemented. See docs/rewiring.md.
      */
     @Override
     public Value rewire(InfoMapView infoMap) {

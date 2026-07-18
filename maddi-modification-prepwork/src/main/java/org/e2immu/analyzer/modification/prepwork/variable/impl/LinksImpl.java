@@ -528,7 +528,7 @@ public class LinksImpl implements Links {
     /*
     Holds the primary Variable and a Link per entry, each with a from and a to Variable, so a rewire has to map all
     of them. Links are derived across types, so a REWIRE type's links are stale by construction and should be
-    recomputed rather than carried; hence not implemented. See rewiring.md.
+    recomputed rather than carried; hence not implemented. See docs/rewiring.md.
      */
     @Override
     public Value rewire(InfoMapView infoMap) {

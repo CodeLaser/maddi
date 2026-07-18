@@ -22,7 +22,7 @@ public interface Property {
     String key();
 
     /**
-     * Whether this property's value survives a rewire (see {@code rewiring.md}).
+     * Whether this property's value survives a rewire (see {@code docs/rewiring.md}).
      * <p>
      * A rewired type is one whose own source did not change, but which reaches a type that did — so anything
      * <em>derived across types</em> (links, immutability, independence) was computed against source that no longer
@@ -43,7 +43,7 @@ public interface Property {
 
     /**
      * Which stage produces this property's value — the classification the incremental early-cutoff skip is built on
-     * (see {@code analysis-rewiring.md}). Three tiers, by <em>who recomputes the value on a reload</em>:
+     * (see {@code docs/analysis-rewiring.md}). Three tiers, by <em>who recomputes the value on a reload</em>:
      * <ul>
      *   <li>{@link AnalysisTier#PARSE_TIME} — written when the source is parsed. A rewired type is never re-parsed,
      *       so the value is carried by the rewire phase or lost. Equivalent to {@link #carryOnRewire()}.</li>

@@ -70,7 +70,7 @@ occasional red in that suite as a real failure without re-running the specific t
 
 Guidance: keep a single `JavaInspector` (and its javac task) to one thread; run inspector-heavy suites
 serially / single-fork if you need determinism. A proper fix is a parallel-mode audit of the shared javac
-usage (related: the shared-`MethodAnalyzer` / non-atomic-counter notes in `prep-analyzer hardening.md` §8).
+usage (related: the shared-`MethodAnalyzer` / non-atomic-counter notes in `docs/prep-analyzer hardening.md` §8).
 
 ### 2. Tests need the javac `--add-exports` JVM flags
 

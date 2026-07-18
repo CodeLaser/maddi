@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
  * This is the reverse-reachability the reload flow runs on: changed types become {@code INVALID}, everything
  * {@link #dependentsOf} returns becomes {@code REWIRE}, the rest stays {@code UNCHANGED}. Note the closure property
  * that follows from the definition: an {@code UNCHANGED} type cannot reach an {@code INVALID} one, or it would have
- * been reachable here and hence {@code REWIRE}. See {@code rewiring.md}.
+ * been reachable here and hence {@code REWIRE}. See {@code docs/rewiring.md}.
  */
 public class PrimaryTypeUseGraph {
 

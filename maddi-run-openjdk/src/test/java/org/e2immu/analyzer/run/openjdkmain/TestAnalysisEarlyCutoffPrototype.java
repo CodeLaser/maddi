@@ -50,7 +50,7 @@ import static org.e2immu.language.inspection.api.integration.JavaInspector.Inval
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Prototype of the early-cutoff <em>compare half</em> (analysis-rewiring.md). We analyse a tiny project, snapshot the
+ * Prototype of the early-cutoff <em>compare half</em> (docs/analysis-rewiring.md). We analyse a tiny project, snapshot the
  * per-type analysisFingerprint, edit a source file, analyse again, and diff the snapshots. The diff is exactly the
  * set of types whose analyzer output actually moved — the blast radius a real incremental run would have to
  * recompute; everything else is what the cutoff would spare.
@@ -268,7 +268,7 @@ public class TestAnalysisEarlyCutoffPrototype {
                 .collect(java.util.stream.Collectors.toSet());
 
         // recompute = look up the post-edit fingerprint (a stand-in for actually re-analysing t; the real per-type
-        // recompute against carried dependencies is the documented production-integration gap, analysis-rewiring.md)
+        // recompute against carried dependencies is the documented production-integration gap, docs/analysis-rewiring.md)
         EarlyCutoffWorklist.Result<String> result = EarlyCutoffWorklist.run(
                 seed, immediateDependents, before::get, after::get);
         System.out.println("=== worklist recomputed (comment edit) === " + result.recomputed());

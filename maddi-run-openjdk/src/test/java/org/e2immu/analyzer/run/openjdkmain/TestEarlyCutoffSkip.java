@@ -66,7 +66,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * analysis order fed to the analyzer contains {@code Base}'s members and not {@code User}'s.
  * <p>
  * Prep runs on the INVALID set only, so it never touches the carried REWIRE types (no double-set); this is why the
- * demonstration does not yet need the per-Property tier flag (see {@code analysis-rewiring.md}).
+ * demonstration does not yet need the per-Property tier flag (see {@code docs/analysis-rewiring.md}).
  */
 public class TestEarlyCutoffSkip {
 

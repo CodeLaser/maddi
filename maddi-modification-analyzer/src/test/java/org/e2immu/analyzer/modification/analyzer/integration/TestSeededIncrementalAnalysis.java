@@ -38,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * dirty subset, iteration 1 analyses only that subset (not the whole order), the worklist propagates from it, and
  * the run stops the moment the worklist is dry — <em>without</em> the full verification / cycle-breaking pass that
  * a normal run appends. Elements the worklist never reaches keep their (carried) values untouched. Here we observe
- * the analysed set directly through {@link AnalysisValueFeed}. See analysis-rewiring.md.
+ * the analysed set directly through {@link AnalysisValueFeed}. See docs/analysis-rewiring.md.
  */
 public class TestSeededIncrementalAnalysis extends CommonTest {
 

@@ -41,7 +41,7 @@ import java.util.function.Predicate;
 /**
  * The <em>analysisFingerprint</em>: an MD5 over the canonical cst-io codec dump of a primary type's <em>analyzer
  * output</em>. Two analyses whose fingerprints match produced the same cross-type-observable result, so a dependent
- * need not be recomputed (early cutoff). See {@code analysis-rewiring.md}.
+ * need not be recomputed (early cutoff). See {@code docs/analysis-rewiring.md}.
  * <p>
  * v1 hashes only the analyzer output: {@link WriteAnalysisResults} already walks Info-level analysis (type / method /
  * field / parameter) in canonical sorted order with fqn/index-stable references and no source positions, which is
@@ -138,7 +138,7 @@ public class AnalysisFingerprint {
      * {@link SourceSet#analysisFingerPrintOrNull()} hook; the value persists via the analysis-results JSON. Returns
      * the per-set fingerprints for logging. This is the <em>storage</em> half of early cutoff; the compare half
      * (skip re-analysis of a set whose stored fingerprint is unchanged) follows once carry lands. See
-     * {@code analysis-rewiring.md}.
+     * {@code docs/analysis-rewiring.md}.
      */
     public static Map<SourceSet, FingerPrint> storePerSourceSet(Runtime runtime, Collection<TypeInfo> primaryTypes) {
         Map<SourceSet, List<TypeInfo>> bySet = new HashMap<>();

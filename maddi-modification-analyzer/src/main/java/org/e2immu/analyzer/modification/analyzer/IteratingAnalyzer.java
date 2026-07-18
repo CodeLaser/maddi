@@ -77,7 +77,7 @@ public interface IteratingAnalyzer {
      * {@code maxBlockingImplementations} implementations out of at least {@code minImplementations}. For the
      * type-level {@code @Immutable}/{@code @Independent} near-misses, the surface is the field count (at least
      * {@code minFields}) and {@code maxBlockingSlots} caps the blocking fields. The absolute caps plus the surface
-     * floors keep this to the compelling "one culprit" cases; see the design note in {@code guard-mode-analysis.md}.
+     * floors keep this to the compelling "one culprit" cases; see the design note in {@code docs/guard-mode-analysis.md}.
      */
     record NearMissPolicy(int minParameterSlots, int maxBlockingSlots, int minImplementations,
                           int maxBlockingImplementations, int minFields) {
@@ -106,7 +106,7 @@ public interface IteratingAnalyzer {
     }
 
     /**
-     * Incremental entry point for the early-cutoff skip (analysis-rewiring.md). When {@code initialDirty} is
+     * Incremental entry point for the early-cutoff skip (docs/analysis-rewiring.md). When {@code initialDirty} is
      * non-null, iteration 1 analyses only those elements (instead of the whole order), the worklist propagates from
      * them through the dependency graph on summary change, and — crucially — the run <em>stops when the worklist is
      * dry</em>, with no full verification/cycle-breaking pass (which would re-touch the carried, untouched elements

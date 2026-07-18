@@ -33,7 +33,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * First cut of the analysisFingerprint (analysis-rewiring.md): compute it over REAL analyzer output and check the
+ * First cut of the analysisFingerprint (docs/analysis-rewiring.md): compute it over REAL analyzer output and check the
  * mechanism — the dump is deterministic across two independent analyses of the same source, it carries the analyzer
  * verdicts, it excludes the prepwork-internal {@code VARIABLE_DATA}, and a semantic change flips it.
  */
