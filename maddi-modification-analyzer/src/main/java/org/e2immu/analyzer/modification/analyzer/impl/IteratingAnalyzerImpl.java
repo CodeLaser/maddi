@@ -138,6 +138,9 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             counts.merge(key, 1, Integer::sum);
         }
         LOGGER.info("Verdict fingerprint: {}", counts);
+        if (System.getenv("VL2OTIER") != null) {
+            LOGGER.info(org.e2immu.analyzer.modification.link.impl.LinkComputerImpl.vl2oTierStats());
+        }
         String dump = System.getenv("FPDUMP");
         if (dump != null) {
             try (java.io.PrintWriter pw = new java.io.PrintWriter(dump)) {

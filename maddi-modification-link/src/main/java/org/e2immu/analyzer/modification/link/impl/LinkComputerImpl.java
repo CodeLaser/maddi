@@ -65,6 +65,20 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
     public static final PropertyImpl VARIABLES_LINKED_TO_OBJECT = new PropertyImpl("variablesLinkedToObject",
             ValueImpl.VariableBooleanMapImpl.EMPTY);
+
+    // task #37 measurement (gate VL2OTIER=1): how much of the VL2O blast radius comes from
+    // content-tier links (∈ ∋ ~ ⊆ ⊇ ≤ ≥ ∩ ...) vs the assignment tier (← →)? Content-tier
+    // inclusion inherits modification semantics into a type-aliasing question (over-rejection
+    // in extract-interface); measure before filtering.
+    static final boolean VL2O_TIER = Gate.isSet("VL2OTIER");
+    static final java.util.concurrent.atomic.LongAdder VL2O_ASSIGNMENT_TIER = new java.util.concurrent.atomic.LongAdder();
+    static final java.util.concurrent.atomic.LongAdder VL2O_CONTENT_TIER = new java.util.concurrent.atomic.LongAdder();
+
+    public static String vl2oTierStats() {
+        return "VL2O tier stats: assignment=" + VL2O_ASSIGNMENT_TIER.sum()
+               + ", content-only-adds=" + VL2O_CONTENT_TIER.sum();
+    }
+
     public static final PropertyImpl LINKED_VARIABLES_ARGUMENTS = new PropertyImpl("linkedVariablesArguments",
             ListOfLinksImpl.EMPTY);
 
@@ -823,6 +837,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         private void addVL2O(Links links, Graph expandWith, Map<Variable, Boolean> variablesLinkedToObject) {
             for (Link link : links) {
                 if (!link.linkNature().isIdenticalTo()) {
+                    if (VL2O_TIER) {
+                        // isIdenticalToOrAssignedFromTo minus ≡ (already excluded above) = the ← → tier
+                        boolean assignmentTier = link.linkNature().isIdenticalToOrAssignedFromTo();
+                        (assignmentTier ? VL2O_ASSIGNMENT_TIER : VL2O_CONTENT_TIER).increment();
+                    }
                     for (Variable side : expand(link.from(), expandWith)) {
                         for (Variable v : Util.goUp(side)) {
                             if (acceptForVL2O(v)) {

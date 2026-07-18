@@ -72,9 +72,13 @@ session tasks #36-#39):
   guard added en route. Consumer half (pessimistic per-type gate in ComputeReplaceTypesActions)
   implemented in jfocus-refactor-service, UNCOMMITTED there for the owner thread; jfocus suite at
   known baseline 176/1.
-- #37 VL2O nature tier: addVL2O accepts every nature except ≡, so content-tier links (∈ ~ ∩ ...)
-  inherit modification semantics into a type-aliasing question → over-rejection. Measure first,
-  then tier-filter.
+- #37 VL2O nature tier: MEASURED 2026-07-18 (gate VL2OTIER=1, fernflower): assignment-tier adds
+  118,958 vs content-tier adds 2,285,123 — a 19:1 ratio; ~95% of the blast radius carries
+  shares-content semantics, confirming material over-rejection for extract-interface. NEXT: an
+  ADDITIVE second map (assignment-tier-only VL2O) so the consumer can switch without changing the
+  existing property; coordinate the switch with the jfocus thread (their suite is the gate).
+  Related: #38 CLOSED — the ≡ exclusion is deliberate and correct (separately-cast aliases are
+  type-DEcoupled; mediation semantics), pinned in TestVl2oAliases.
 - #38 targeted test for the ≡ exclusion corner (real-variable aliases expressed only as ≡ must still
   reach VL2O, else missed rejection).
 - #39 ⚠ REIMPLEMENTATION — PREMISE REVISED 2026-07-18 after an attempted first slice: engine ←
