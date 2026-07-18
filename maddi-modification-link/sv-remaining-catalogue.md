@@ -98,10 +98,16 @@ Engine, robustness/performance:
   parseBody's subtypes-first ordering. TestAnonymousMemberRecord ENABLED (asserts full source
   build). TestDegradedAnalysisMarker's trigger became obsolete by this fix and was replaced with a
   SYNTHETIC one (committed non-abstract method without body + source-set-carrying CU — the
-  half-built shape the lazy class-scanner path presents). OPENJDK FRONT still open: the
-  visitClass/continueType convergence on a lazily-committed member type (the elasticsearch
-  4-isolated-types shape) — THIS is what gates the elasticsearch sweep-green bar; plus the
-  'Create multi' setInternal UOE (scoped around by dropping build-tooling source sets).
+  half-built shape the lazy class-scanner path presents). OPENJDK FRONT FIXED same day, three
+  layers: (1) anonymous-body member types get the local-type recursivelyCommit treatment (field
+  initializers defaulted + committed — they are invisible to the end-of-scan commit walk);
+  (2) ClassSymbolScanner.primary() now hops METHOD/initializer owners, so isSourceSymbol correctly
+  claims members of anonymous/local classes and the class-file path no longer double-loads their
+  interfaces/annotations ('Extending multiple identical interfaces'); (3) with both, prep runs
+  clean. Pinned in TestAnonymousMemberRecordOpenJdk (link module = openjdk inspector). Gates:
+  5 suites green certified-quiet, fernflower A/B 0-diff EXACT. #33 CLOSED except the 'Create
+  multi' setInternal UOE (build-tooling source sets, scoped around — separate small item).
+  Elasticsearch sweep-green re-run queued overnight 2026-07-18→19.
 - CompileListToSourceSets: two -d destinations for one module (generated-classes step) corrupt both
   the source-set name and its URI (elasticsearch libs/native); derive from the classes/java/<name>
   destination only. MRJAR overlay source sets are an open design question.
