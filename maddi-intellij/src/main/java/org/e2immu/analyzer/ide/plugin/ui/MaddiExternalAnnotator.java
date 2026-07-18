@@ -61,13 +61,21 @@ public class MaddiExternalAnnotator
         for (AnalysisModel.Finding f : findings) {
             TextRange range = MaddiPositions.range(doc, f.beginLine(), f.beginCol(), f.endLine(), f.endCol());
             if (range == null) continue;
-            HighlightSeverity severity = "ERROR".equals(f.severity())
-                    ? HighlightSeverity.ERROR : HighlightSeverity.WARNING;
+            HighlightSeverity severity = severityOf(f);
             holder.newAnnotation(severity, f.message())
                     .range(range)
                     .tooltip(tooltip(f))
                     .create();
         }
+    }
+
+    /**
+     * Near misses are advisory — a suggestion to consider an annotation, not a defect — so they get the
+     * weakest highlight the platform offers; everything else follows the finding's own severity.
+     */
+    private static HighlightSeverity severityOf(AnalysisModel.Finding f) {
+        if (AnalysisModel.isNearMiss(f)) return HighlightSeverity.WEAK_WARNING;
+        return "ERROR".equals(f.severity()) ? HighlightSeverity.ERROR : HighlightSeverity.WARNING;
     }
 
     private static String tooltip(AnalysisModel.Finding f) {
