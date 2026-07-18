@@ -649,7 +649,13 @@ public class CodecImpl implements Codec {
             }
             case FieldInfo fieldInfo -> {
                 prev = encodeInfoOutOfContextStream(context, typeAndSorted, fieldInfo.owner());
-                s = "F" + fieldInfo.name() + "(" + typeAndSorted.fieldIndex(fieldInfo) + ")";
+                int idx = typeAndSorted.fieldIndexOrNegative(fieldInfo);
+                // A detached field — a virtual field (§…) the link engine created for a shallow/JDK type's hidden
+                // content, never attached to its owner's fields() — has no index; identify it by its (deterministic)
+                // name. The decoder already reserves the 'V' tag as a stop marker. See virtual-fields.md. (The
+                // LinkCodec subclass additionally serialises the field type for round-trip; the base needs only a
+                // deterministic key, since this path is encode-only for the analysisFingerprint.)
+                s = idx >= 0 ? "F" + fieldInfo.name() + "(" + idx + ")" : "V" + fieldInfo.name();
             }
             case ParameterInfo pi -> {
                 prev = encodeInfoOutOfContextStream(context, typeAndSorted, pi.methodInfo());

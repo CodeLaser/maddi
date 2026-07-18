@@ -175,12 +175,20 @@ So the wiring is:
    1–2 (which restricts a single `analyze` call at method/field granularity). Both are valid orchestrations; the
    per-type driver is the one that gets the true fingerprint frontier.
 
-   **Known gap (codec).** Fingerprinting a per-type-recomputed type whose links reference a **modifiable field**
-   throws `UnsupportedOperationException` from `Codec$TypeAndSorted.fieldIndex`: after a single-type re-analysis the
-   field carried in the link is not `==`-identical to the one in the owner's `fields()`, so the out-of-context field
-   encoding cannot index it. Full-analysis fingerprinting (all types in one pass) does not hit this. The capstone's
-   semantic case is deliberately fieldless to sidestep it; closing it needs the field-reference encoding to resolve by
-   fqn/index rather than identity (or the per-type recompute to canonicalise field references against the owner).
+   **Codec gap — CLOSED (2026-07-18).** Fingerprinting a type whose links reference a **modifiable reference-typed
+   field** threw `UnsupportedOperationException` from `Codec$TypeAndSorted.fieldIndex`. The root cause was not object
+   identity but a **virtual field**: the link engine represents a shallow/JDK type's modifiability with a detached
+   `FieldInfo` named `§m` (owned by e.g. `java.lang.String`, of type `AtomicBoolean`, and *never* attached to the
+   type's `fields()` — see `maddi-modification-link/.../vf/virtual-fields.md`). The out-of-context field encoder in
+   `CodecImpl` assumed a real declared field and indexed into `fields()`; the `LinkCodec` subclass already handled
+   virtual fields (`"V" + name`), but the fingerprint runs through `PrepWorkCodec`/`CodecImpl`, which did not. Fix:
+   `TypeAndSorted.fieldIndexOrNegative` returns -1 for a detached field, and the base encoder emits `"V" + name` (a
+   deterministic key; the decoder already reserved the `V` tag) instead of throwing. This affects only the
+   previously-failing detached-field case — real fields still encode by index, so serialization round-trip is
+   unchanged. Verified: the capstone's semantic case is now a real mutable-field edit, and it (plus the reproduction
+   across `int`/`String` fields) fingerprints cleanly. Only genuinely nested *container-type* virtual fields
+   (`Map<K,V>`'s synthetic `§KV`) remain unhandled by the base encoder; they do not arise on the plain-field shapes
+   the fingerprint has met, and `LinkCodec` handles them where full link serialization needs them.
 
 ### The property-tier flag — DONE (2026-07-18)
 

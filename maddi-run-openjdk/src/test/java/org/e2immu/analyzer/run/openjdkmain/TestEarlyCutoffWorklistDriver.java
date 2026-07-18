@@ -87,15 +87,15 @@ public class TestEarlyCutoffWorklistDriver {
                 public String name() { return "base"; }
             }
             """;
-    // a semantic edit that changes Base's own analyzer output: a new method brings new verdicts (parameter
-    // independence, method links) into Base's fingerprint. Kept fieldless on purpose — fingerprinting a
-    // per-type-recomputed type whose links reference a MODIFIABLE field hits a codec identity limitation (the field
-    // is not ==-identical in the single-type-analysed context); see analysis-rewiring.md.
+    // a semantic edit that changes Base's own analyzer output: a mutable reference-typed field + a modifying method,
+    // which flips Base off immutable and moves its verdicts/links. Exercises the fingerprint over a MODIFIABLE field
+    // whose links reference the link engine's virtual field (§m); handled by the codec (see analysis-rewiring.md).
     private static final String BASE_SEMANTIC = """
             package a.b;
             public class Base {
-                public String name() { return "base"; }
-                public String tag(String s) { return s; }
+                private String n = "base";
+                public String name() { return n; }
+                public void rename(String x) { this.n = x; }
             }
             """;
     private static final String MID = """
