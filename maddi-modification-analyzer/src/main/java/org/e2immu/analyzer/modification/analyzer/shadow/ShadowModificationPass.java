@@ -77,7 +77,8 @@ public class ShadowModificationPass {
                          Map<Object, String> seedOrigin,
                          int methods, int methodsWithoutLinks, int seeds, int edgeCount,
                          int callSitesWithoutArgumentLinks, int unprojectedReceivers,
-                         Map<String, Integer> missingArgLinkAnalyzedCallees) {
+                         Map<String, Integer> missingArgLinkAnalyzedCallees,
+                         Set<Object> frontierIncomplete) {
 
         /** the BFS chain from a reached node back to its seed, for divergence classification */
         public String explain(Object node) {
@@ -110,7 +111,8 @@ public class ShadowModificationPass {
                    + divergences.size() + " divergences, " + reverseDivergences.size() + " REVERSE divergences; "
                    + callSitesWithoutArgumentLinks + " call sites without argument links ("
                    + atAnalyzed + " at analyzed callees, top: " + top + "), "
-                   + unprojectedReceivers + " unprojected receivers";
+                   + unprojectedReceivers + " unprojected receivers; "
+                   + frontierIncomplete.size() + " frontier-incomplete nodes (no TRUE at cutover)";
         }
 
         public List<String> sortedDivergenceStrings() {
@@ -123,6 +125,11 @@ public class ShadowModificationPass {
     private final Map<Object, String> seedOrigin = new HashMap<>();
     private final Map<Object, Object> cause = new HashMap<>();
     private final Map<String, Integer> missingArgLinkAnalyzedCallees = new TreeMap<>();
+    // §10.1 invariant support for the cutover writer (PLAN §14 P2.3): nodes whose in-edge frontier
+    // could NOT be fully constructed. "Unreached" is only evidence of "unmodified" when every
+    // potential in-edge was built; the cutover pass must not write TRUE for tainted nodes (it
+    // leaves the existing value). Tainted-and-reached is fine — FALSE needs no complete frontier.
+    private final Set<Object> frontierIncomplete = new HashSet<>();
     private int methods, methodsWithoutLinks, edgeCount, callSitesWithoutArgumentLinks, unprojectedReceivers;
 
     public Report go(List<Info> analysisOrder) {
@@ -152,7 +159,7 @@ public class ShadowModificationPass {
                 Map.copyOf(cause), Map.copyOf(seedOrigin),
                 methods, methodsWithoutLinks, seeds.size(), edgeCount,
                 callSitesWithoutArgumentLinks, unprojectedReceivers,
-                Map.copyOf(missingArgLinkAnalyzedCallees));
+                Map.copyOf(missingArgLinkAnalyzedCallees), Set.copyOf(frontierIncomplete));
         LOGGER.debug("{}", report.summary());
         return report;
     }
@@ -192,6 +199,7 @@ public class ShadowModificationPass {
                 MethodLinkedVariablesImpl.class);
         if (mlv == null) {
             methodsWithoutLinks++;
+            taintUnprojected(mi); // no summary at all: no evidence for this method's own nodes (§10.1)
             return;
         }
         if (mi.isAbstract()) {
@@ -306,21 +314,22 @@ public class ShadowModificationPass {
             statement.visit(e -> {
                 if (e instanceof Block) return false; // nested statements handled with their own vd
                 if (e instanceof MethodCall mc) {
-                    handleCallSite(mi, vd, mc.methodInfo(), mc.analysis());
+                    handleCallSite(mi, vd, mc.methodInfo(), mc.analysis(), mc.parameterExpressions());
                     // E2: callee receiver -> caller-side receiver nodes (chained receivers resolved
                     // through the inner callee's return-value summary, P2.2a)
                     for (Object node : projectReceiverChain(mi, vd, mc.object())) {
                         addEdge(mc.methodInfo(), node);
                     }
                 } else if (e instanceof ConstructorCall cc && cc.constructor() != null) {
-                    handleCallSite(mi, vd, cc.constructor(), cc.analysis());
+                    handleCallSite(mi, vd, cc.constructor(), cc.analysis(), cc.parameterExpressions());
                 }
                 return true;
             });
         }
     }
 
-    private void handleCallSite(MethodInfo mi, VariableData vd, MethodInfo callee, PropertyValueMap analysis) {
+    private void handleCallSite(MethodInfo mi, VariableData vd, MethodInfo callee, PropertyValueMap analysis,
+                                List<org.e2immu.language.cst.api.expression.Expression> argumentExpressions) {
         if (callee == null || callee.parameters().isEmpty()) return;
         LinkComputer.ListOfLinks list = analysis.getOrNull(LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS,
                 LinkComputerImpl.ListOfLinksImpl.class);
@@ -330,8 +339,13 @@ public class ShadowModificationPass {
             // their annotated/unioned argument modification into the caller's own summary, which
             // seeds); a missing-link site at an ANALYZED callee is a genuine E1 coverage hole —
             // pass-discovered parameter modifications cannot propagate to this caller's nodes.
+            // The syntactically projectable argument nodes get an incomplete frontier: they must
+            // not receive an optimistic TRUE at cutover (§10.1).
             if (callee.methodBody() != null && !callee.methodBody().isEmpty() && !callee.isAbstract()) {
                 missingArgLinkAnalyzedCallees.merge(callee.fullyQualifiedName(), 1, Integer::sum);
+                for (org.e2immu.language.cst.api.expression.Expression arg : argumentExpressions) {
+                    frontierIncomplete.addAll(projectReceiverChain(mi, vd, arg));
+                }
             }
             return;
         }
@@ -384,6 +398,7 @@ public class ShadowModificationPass {
                         MethodLinkedVariablesImpl.class);
                 if (mlv == null) {
                     unprojectedReceivers++;
+                    taintUnprojected(mi);
                     return Set.of();
                 }
                 Set<Object> out = new LinkedHashSet<>();
@@ -420,6 +435,7 @@ public class ShadowModificationPass {
                         MethodLinkedVariablesImpl.class);
                 if (mlv == null) {
                     unprojectedReceivers++;
+                    taintUnprojected(mi);
                     return Set.of();
                 }
                 Set<Object> out = new LinkedHashSet<>();
@@ -496,6 +512,17 @@ public class ShadowModificationPass {
 
     private static void push(Deque<Variable> todo, Variable v) {
         if (v != null) todo.add(v);
+    }
+
+    /**
+     * A receiver chain we could not resolve (missing inner summary): we cannot name the nodes the
+     * chain would have implicated, so conservatively give the OBSERVING method's receiver and
+     * parameters an incomplete frontier — cheap over-taint at the measured 1-5 occurrences per
+     * corpus (post-P2.2a).
+     */
+    private void taintUnprojected(MethodInfo mi) {
+        frontierIncomplete.add(mi);
+        frontierIncomplete.addAll(mi.parameters());
     }
 
     private void addEdge(Object from, Object to) {
