@@ -8,6 +8,31 @@
 
 ## HANDOFF (2026-07-19 evening) — mechanical steps anyone (or any session) can run
 
+### UPDATE (early evening): SHADOW-PASS PRECISION — the divergence economy re-partitioned (8821a434)
+
+Fable-session deep dive (cause-chain forensics on the fernflower cascades): the dominant
+"union conservatism" reading was WRONG for the biggest family. The engine was RIGHT to keep the
+frozen TRUEs in the gatherGenerics family — the SHADOW over-approximated, twice:
+(1) E3 built field->param edges for ALL link natures; the content-tier chain upper ∋ left ∈
+this.args (element read OUT of the parameter, stored in the field, field cleared) widened the
+destination container's modification back to the source — precisely what the engine's own
+relevantLinkForModification rule refuses. Fixed: E3 mirrors that rule verbatim.
+(2) The closure propagated THROUGH immutable-typed nodes (String params/fields) which cannot
+transmit modification. Fixed: closure cuts at immutable-typed nodes.
+TestElementFlowWidening pins the precise behavior in three escalating shapes (all green — the
+engine's linking was precise on all of them; the defect was shadow-only).
+NUMBERS: fernflower 971 -> 452 divergences (53% artifacts), immutable-guarded 178 -> 17,
+0 reverse throughout; clonebench seed class UNTOUCHED at 212, propagated 71 -> 12, re-pinned.
+CONSEQUENCE FOR THE ROLLOUT TABLE: the MODREACH downgrades measured earlier (ff 793, guava 5935,
+amq 823, jenkins 2893, camel 88/650) include artifact downgrades — RE-MEASURE all corpora with
+the precise pass before the default-ON decision (same one-command legs).
+FERNFLOWER RE-MEASURED (precise pass): **432 downgrades** (was 793; 45% artifacts), 0 reverse
+kept, joint fixpoint in 2 rounds — and the 18 type-immutability corrections are the IDENTICAL
+18 types as before (verified set-equal): the artifact downgrades were scattered and never
+immutability-load-bearing; the genuine core (FastFixedSetFactory & co) is robust to the
+precision fixes. Strong signal that the corrected corpus table will keep the type-level story
+while shrinking the member-level churn.
+
 ### UPDATE (late afternoon): #35 phases B/C/D delivered
 
 - IncrementalState (prepwork io): per-primary-type SOURCE + OUTPUT fingerprints + consumption
