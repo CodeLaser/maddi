@@ -25,6 +25,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.*;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -230,6 +233,29 @@ public class ResourcesImpl implements Resources {
                 });
         if (errors.get() > 0) {
             throw new IOException("Got " + errors.get() + " errors while adding from jar to classpath");
+        }
+        return entries.get();
+    }
+
+    // .jmod-free JDK (e.g. Eclipse Temurin ships lib/modules but no jmods/): read a module's classes from the
+    // runtime image via the jrt filesystem. Each class is registered with its jrt:/<module>/<path> URI, which
+    // loadBytes reads through the JDK's built-in jrt URL handler exactly like a jar entry. Running JDK only.
+    @Override
+    public int addModuleFromRuntimeImage(SourceFile moduleSourceFile) throws IOException {
+        String moduleName = moduleSourceFile.path();
+        FileSystem jrt = FileSystems.getFileSystem(URI.create("jrt:/"));
+        Path moduleRoot = jrt.getPath("/modules/" + moduleName);
+        if (!Files.isDirectory(moduleRoot)) {
+            throw new IOException("Module " + moduleName + " not found in the runtime image (jrt:/modules/" + moduleName + ")");
+        }
+        AtomicInteger entries = new AtomicInteger();
+        try (Stream<Path> stream = Files.walk(moduleRoot)) {
+            stream.filter(Files::isRegularFile).forEach(p -> {
+                String realName = moduleRoot.relativize(p).toString(); // e.g. java/lang/String.class
+                String[] split = realName.split("/");
+                data.add(split, moduleSourceFile.withPathURI(realName, p.toUri()));
+                entries.incrementAndGet();
+            });
         }
         return entries.get();
     }

@@ -749,11 +749,27 @@ public class JavaInspectorImpl implements JavaInspector {
                 // No Lombok on the classpath: disable all annotation processing (faster, avoids surprises).
                 options.add("-proc:none");
             }
+            // Platform (java.*) types come from the JDK running the analyzer by default: --release is derived from
+            // the runtime feature version (Runtime.version().feature()), so a new JDK (27, ...) needs no code change
+            // here, and --enable-preview stays valid (it requires --release to equal the running version). When an
+            // alternative JRE is configured (InputConfiguration.alternativeJREDirectory / the --jre option), point
+            // javac's system modules at that JDK with --system instead, so types removed in a newer JDK (e.g.
+            // java.applet.Applet, gone in JDK 26) remain resolvable. --system replaces --release; --enable-preview
+            // does not apply to a fixed older platform image.
+            Path altJre = inputConfiguration == null ? null : inputConfiguration.alternativeJREDirectory();
             if (jdkInternals) {
+                if (altJre != null) {
+                    LOGGER.warn("Ignoring alternative JRE {} while compiling {} against JDK internals: internals are" +
+                                " opened on the running JDK.", altJre, sourceSet.name());
+                }
                 options.addAll(jdkInternalsJavacOptions(sourceSet));
+            } else if (altJre != null) {
+                options.add("--system");
+                options.add(altJre.toString());
             } else {
                 options.add("--enable-preview");
-                options.add("--release=26");
+                // java.lang.Runtime: the maddi CST 'Runtime' is imported in this file and would shadow it
+                options.add("--release=" + java.lang.Runtime.version().feature());
             }
             return (JavacTask) javaCompiler.getTask(null, fm, diagnostics, options, null, allCompilationUnits);
         }

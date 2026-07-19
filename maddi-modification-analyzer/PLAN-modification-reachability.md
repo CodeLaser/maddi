@@ -284,3 +284,97 @@ Coordination answers:
   characterization (TestModificationFunctional shapes) and the phase-1 shadow pass. Phase-2
   sequencing (the analyzer phase-order deliverable) to be scheduled jointly once shadow diffs
   exist.
+
+---
+
+## 12. E7 characterization delivered (metrics thread, 2026-07-19)
+
+`TestModificationFunctionalE7`, 8 shapes, **all green against the current engine** — so E7 is a
+regression-preservation suite, not a bug list: no realistic functional shape was found where the
+current captured-Result machinery loses modification. Findings that constrain the E7 edge class:
+
+1. **Creation-site attribution, and it is eager** (shapes 1, 7, 8). Captured non-local writes are
+   charged where the lambda is created/passed — even when the callee provably ignores the FI
+   (shape 8: run's modified set is empty, go is modifying regardless). E7 can therefore encode
+   *unconditional* edges from a lambda body's modification nodes to the translated captured targets
+   at the creation site; no application-site reachability guard is needed to match today's
+   (sound, over-approximate) behavior.
+2. **Captured-target filtering** (shapes 2, 3): enclosing-method parameters propagate
+   (`go:0:out` modified), locals are correctly dropped (`acceptForExtra`). The E7 translation must
+   keep exactly this filter.
+3. **Field-stored callbacks** (shape 7): the application site (`trigger`) does NOT surface the
+   captured write; it only marks the FI-holding field's object graph (`this.callback`) modified.
+   The captured write lives on the creation site (`register`). An application-site-only E7 would
+   leave it unattributed.
+4. **Opaque-application fallback** (shape 4, no @GetSet): the callee marks its whole FI-carrying
+   parameter modified; at the caller, the modified object holds the fiv and the captured Result
+   surfaces. The precise `$_afi` path (shape 6) survives forwarding hops via mlv marker
+   propagation. Both routes end at the same properties; the reachability pass needs the
+   conservative route only when the precise one cannot resolve.
+5. **External application sites** (shape 5, `List.forEach`): annotated-API callees have no analyzed
+   body; the fiv's captured Result is the only carrier, attributed at the call site.
+
+Location: `maddi-modification-analyzer/src/test/java/org/e2immu/analyzer/modification/analyzer/modification/TestModificationFunctionalE7.java`,
+committed on branch `kotlin` (metrics thread's dedicated checkout). Next from this side: the
+phase-1 shadow pass.
+
+---
+
+## 13. Phase-1 shadow pass delivered (metrics thread, 2026-07-19)
+
+`ShadowModificationPass` (maddi-modification-analyzer, `shadow` package) + `TestShadowModificationPass`
+(unit validation) + `TestShadowCloneBench` (corpus diff). No property is written; the pass runs after
+`analyze()` on the converged artifacts.
+
+**Construction** (per §4, with phase-1 adaptations):
+- Nodes: ParameterInfo, FieldInfo, MethodInfo-as-receiver.
+- Seeds = the converged `METHOD_LINKS.modified()` sets — everything the current analysis believes
+  modified, which embeds the E7 creation-site attributions for free (§12). Abstract methods seed
+  only from frozen FALSE properties (their shallow mlv is conservative where the frozen property is
+  the precise union-over-implementations value). Closure-captured LocalVariables seed the enclosing
+  receiver (the `inClosure` rule of copyModificationsIntoMethod); the `$_fi`/`$_ce` markers are
+  LocalVariables too and are deliberately excluded. DEGRADED_ANALYSIS_METHOD seeds receiver+params
+  (§9.1).
+- Edges: E1 from `LINKED_VARIABLES_ARGUMENTS` (requires trackObjectCreations; per-call-site,
+  callee param -> caller-side projection of the argument), E2 variable receivers, E3 from
+  `ofParameters` links to fields, E4/E5 as projection rules (this-scoped FieldReference implicates
+  field + scope chain + receiver), E6 impl->abstract for params and receivers. Element natures off
+  (§7.1); local links followed IS_ASSIGNED_FROM-only at exact-variable granularity — links on
+  component faces (td.f <- ...) must NOT widen "object modified" to "field modified".
+- Every reached node carries a BFS cause chain (`Report.explain`) for classification.
+
+**Validation** (TestShadowModificationPass): on the FC chain the shadow flags exactly the frozen-TRUE
+downgrades — under trackObjectCreations that is FC1..FC4 (only the sink-adjacent FC5 is decided
+correctly; one level SHALLOWER than the §1 depth-2 repro under the default configuration), every
+cause chain tracing to the single true seed FC5.pass()-modifies-this.f. The functional shapes diff
+clean in both directions.
+
+**Corpus run** (TestShadowCloneBench, testarchive 'analyzed', 9306 types / 19949 methods, ~34s
+analysis+shadow at parallelism 4):
+
+- **279 divergences, all in the sound direction; 0 reverse divergences** (reverse = frozen modified
+  but shadow-unreached = shadow bug; asserted zero).
+- By property: 272 unmodifiedParameter, 6 unmodifiedField, 1 nonModifyingMethod.
+- By class: **208 "seed"** — the frozen TRUE is contradicted by the SAME method's own converged
+  modified summary (mlv says modified, property froze TRUE): the refused-downgrade class the
+  STRICTCERT counter measures, now enumerable with names attached. **71 "propagated"** — multi-hop
+  reachability (field -> ctor-param -> caller-field chains, e.g. ArrayList_AddAt.TestCase: all four
+  ctor params frozen TRUE while $5.apply/$6.execute modify the fields they initialize): the
+  deep-capture-chain class in the wild.
+- Coverage caveats, logged not silent: 650 call sites without argument links (LINKED_VARIABLES_ARGUMENTS
+  absent), 3068 unprojected receivers (chained-call receivers, no E2 edge) — both mean the 279 is a
+  LOWER bound on what phase-2 will surface.
+- Baseline pinned in the test (engine at kotlin `fba60b23`): a change in these numbers signals
+  engine movement — re-baseline and reclassify.
+
+**Shadow-pass bugs found while validating** (all fixed, each was caught by a reverse divergence or a
+false divergence with a cause chain): abstract-mlv conservative seeding, object->component-face
+projection widening (twice: in local-link following and in call-site argument projection), marker
+LocalVariables spuriously seeding receivers, DependentVariable (a[i]) seeds dropped, null array
+variables in projection.
+
+**Handoff to phase 2**: the 208 seed-class divergences should cross-read against the immutability
+precision audit (§9.4) — many are the standing refusals made concrete. The 71 propagated ones are
+pure wins of the one-shot pass. Suggested next joint step per §11: schedule the phase-2 analyzer
+sequencing (links -> modification pass -> immutability/independence -> cycle breaking -> certification)
+now that shadow diffs exist and are classified.
