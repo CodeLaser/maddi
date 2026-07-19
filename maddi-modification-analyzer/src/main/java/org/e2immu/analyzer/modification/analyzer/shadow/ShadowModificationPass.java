@@ -79,7 +79,8 @@ public class ShadowModificationPass {
                          int methods, int methodsWithoutLinks, int seeds, int edgeCount,
                          int callSitesWithoutArgumentLinks, int unprojectedReceivers,
                          Map<String, Integer> missingArgLinkAnalyzedCallees,
-                         Set<Object> frontierIncomplete) {
+                         Set<Object> frontierIncomplete,
+                         int immutableGuardedDivergences) {
 
         /** the BFS chain from a reached node back to its seed, for divergence classification */
         public String explain(Object node) {
@@ -109,7 +110,8 @@ public class ShadowModificationPass {
                     .reduce((a, b) -> a + ", " + b).orElse("-");
             return "shadow: " + methods + " methods (" + methodsWithoutLinks + " without links), "
                    + seeds + " seeds, " + edgeCount + " edges, " + reached.size() + " reached; "
-                   + divergences.size() + " divergences, " + reverseDivergences.size() + " REVERSE divergences; "
+                   + divergences.size() + " divergences (" + immutableGuardedDivergences
+                   + " immutable-guarded), " + reverseDivergences.size() + " REVERSE divergences; "
                    + callSitesWithoutArgumentLinks + " call sites without argument links ("
                    + atAnalyzed + " at analyzed callees, top: " + top + "), "
                    + unprojectedReceivers + " unprojected receivers; "
@@ -126,6 +128,8 @@ public class ShadowModificationPass {
     private final Map<Object, String> seedOrigin = new HashMap<>();
     private final Map<Object, Object> cause = new HashMap<>();
     private final Map<String, Integer> missingArgLinkAnalyzedCallees = new TreeMap<>();
+    private final AnalysisHelper analysisHelper = new AnalysisHelper();
+    private int immutableGuardedDivergences;
     // §10.1 invariant support for the cutover writer (PLAN §14 P2.3): nodes whose in-edge frontier
     // could NOT be fully constructed. "Unreached" is only evidence of "unmodified" when every
     // potential in-edge was built; the cutover pass must not write TRUE for tainted nodes (it
@@ -160,7 +164,8 @@ public class ShadowModificationPass {
                 Map.copyOf(cause), Map.copyOf(seedOrigin),
                 methods, methodsWithoutLinks, seeds.size(), edgeCount,
                 callSitesWithoutArgumentLinks, unprojectedReceivers,
-                Map.copyOf(missingArgLinkAnalyzedCallees), Set.copyOf(frontierIncomplete));
+                Map.copyOf(missingArgLinkAnalyzedCallees), Set.copyOf(frontierIncomplete),
+                immutableGuardedDivergences);
         LOGGER.debug("{}", report.summary());
         return report;
     }
@@ -173,6 +178,16 @@ public class ShadowModificationPass {
         // for all three properties, TRUE is the optimistic "unmodified"/"non-modifying" value
         if (frozen.isTrue() && reached) {
             divergences.add(new Divergence(propertyName, info, detail));
+            // union over-approximation can reach immutable-typed nodes (int params via E6 position
+            // alignment, String fields via projection); the cutover writer refuses to downgrade
+            // those, so under MODREACH the promoted-baseline invariant is:
+            // 0 reverse AND divergences == immutableGuarded (frozen == pass output otherwise)
+            boolean immutableTyped = switch (info) {
+                case ParameterInfo pi -> analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
+                case FieldInfo fi -> analysisHelper.typeImmutable(fi.type()).isImmutable();
+                default -> false;
+            };
+            if (immutableTyped) immutableGuardedDivergences++;
         } else if (frozen.isFalse() && !reached) {
             reverse.add(new Divergence(propertyName, info, detail));
         }
