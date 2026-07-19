@@ -107,6 +107,12 @@ public class CodecImpl implements Codec {
         return sb.toString();
     }
 
+    // checkpoint-restore mode (task #34): when true, decode skips properties that already carry a value
+    // instead of tripping the write-once set. Override in a restore codec; default is strict.
+    protected boolean skipExistingValues() {
+        return false;
+    }
+
     @Override
     public void decode(Context context,
                        PropertyValueMap pvm,
@@ -121,6 +127,9 @@ public class CodecImpl implements Codec {
             Value value = decoder.apply(new DII(this, context), d);
             return new PropertyValue(property, value);
         }).forEach(pv -> {
+            // checkpoint-restore mode (task #34): values already present (recomputed, e.g. by prep) win;
+            // the decode fills the gaps. Generalizes the GET_SET_FIELD special case below.
+            if (skipExistingValues() && pvm.haveAnalyzedValueFor(pv.property())) return;
             // the GET_SET_FIELD property can already be set (by GetSetUtil) at byte-code loading
             if (!pv.property().equals(PropertyImpl.GET_SET_FIELD) || !pvm.haveAnalyzedValueFor(PropertyImpl.GET_SET_FIELD)) {
                 pvm.set(pv.property(), pv.value());

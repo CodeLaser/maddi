@@ -121,9 +121,17 @@ Engine, robustness/performance:
   destination only. MRJAR overlay source sets are an open design question.
 
 Checkpoint/resume + incremental (session tasks #34/#35):
-- #34 checkpoint/resume v1: pass-boundary write via the AnalysisValueFeed seam (commit ec77f8bb),
-  restore = fingerprint check + LoadAnalysisResults preload + re-certification. Codec prerequisite
-  DONE (☷ pass-set round-trip, commit 0ae52f51).
+- #34 checkpoint/resume v1 CORE DONE 2026-07-19 (~04:45): CheckpointWriter (analyzer module)
+  implements AnalysisValueFeed — delta writes at every pass boundary (only primary types touched
+  that pass; file-per-type = idempotent; IO failures logged, never fatal; terminal marker file).
+  Restore = LoadAnalysisResults.goDir with LinkCodec.restoreCodec() — a decode mode where
+  ALREADY-PRESENT values win (generalizes the GET_SET_FIELD special case in CodecImpl; needed
+  because prep recomputes partOfConstructionType etc. before the preload) — then re-running the
+  analyzer, whose verify-certify sweep is the soundness net. Round-trip pinned in
+  TestCheckpointResume (analyze → checkpoint → invalidate+reparse → restore → identical verdicts,
+  TERMINAL_CERTIFIED). Deliberately out of v1: source-change detection (per-sourceset fingerprints
+  live on the maddi-kotlin branch); resume assumes unchanged sources. REMAINING: production wiring
+  (env gate in the run harness) so corpus runs checkpoint by default.
 - #35 incremental v2 for the single-module 3M-line monorepo: giant cycle spans ~2/3 of the code, so
   per-sourceset granularity (fingerprints on maddi-kotlin branch) and SCC-transitive invalidation are
   useless — design: element-level fingerprints + optimistic preload of unchanged elements' values +
