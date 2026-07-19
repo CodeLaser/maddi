@@ -187,12 +187,18 @@ public class TestShadowCloneBench extends CommonTest {
         // UNMODIFIED_VARIABLE read, closing the 8 fernflower reverse divergences): +2 fields
         // (TestData.expected/.other modified via a local in an anonymous execute()) +2 downstream
         // constructor parameters, all classified seed = refused downgrades.
+        // Re-baselined AGAIN 2026-07-19 (precision fixes, TestElementFlowWidening diagnosis): E3
+        // now uses the engine's own nature filter (relevantLinkForModification — content-tier
+        // element flow is not modification transfer) and the closure no longer propagates THROUGH
+        // immutable-typed nodes. The seed class was untouched (212 = genuine refused downgrades,
+        // each in the method's own summary); the propagated class collapsed 71 -> 12 (59 were
+        // shadow artifacts). Fernflower: 971 -> 452 divergences, 0 reverse throughout.
         org.junit.jupiter.api.Assertions.assertEquals(0, totalRev,
                 "reverse divergences are shadow-pass bugs (incomplete seeds or edges)");
         org.junit.jupiter.api.Assertions.assertEquals(
-                Map.of("nonModifyingMethod", 1, "unmodifiedField", 8, "unmodifiedParameter", 274),
+                Map.of("nonModifyingMethod", 1, "unmodifiedField", 8, "unmodifiedParameter", 215),
                 byProperty);
-        org.junit.jupiter.api.Assertions.assertEquals(Map.of("propagated", 71, "seed", 212), byClass);
+        org.junit.jupiter.api.Assertions.assertEquals(Map.of("propagated", 12, "seed", 212), byClass);
     }
 
     private volatile int totalMethods, totalSeeds, totalEdges, totalMissingArgLinks, totalUnprojectedReceivers;
