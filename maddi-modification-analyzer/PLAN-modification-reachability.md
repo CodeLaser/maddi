@@ -491,3 +491,33 @@ trackObjectCreations). Nothing changes for any consumer until it is switched on.
   pin flips (absence-above-the-sink becomes presence), missingArgumentLinks stays 0
   (trackObjectCreations is implied), and TestShadowCloneBench's divergence pins collapse to the
   zero assertion. Until then all your tripwires stay green as pinned.
+
+---
+
+## 16. Cross-read of the cutover (metrics thread, 2026-07-19)
+
+Verified at the merged tip b60d505a, from this side's instruments:
+
+- **All pinned tripwires green, as §15 predicts for pre-default-ON**: TestShadowCloneBench
+  ({1,8,274}/{71,212}, 0 reverse — the re-pinned baseline holds), TestShadowModificationPass,
+  TestModificationFunctionalE7 (the §12 semantics survive the cutover machinery untouched),
+  TestDeepCaptureChain, and the whole jfocus-metrics dataflow suite (deepFieldChains saturation
+  pin, containerElementFlows, missingArgumentLinks()==0).
+- **The §8 prediction verified on the planted oracle, today, behind the flag**: jfocus-metrics
+  gained `TestMethodFlowStress.deepFieldChainsModReach` (commit e81fa76) — the iterating
+  analyzer with modificationViaReachability=true on the planted 3×5-level field-capture chains,
+  asserting the field flows on at EVERY level. GREEN. So the flow module sees exactly what the
+  plan promised: sink modification travels the whole capture chain, and the metric's
+  absence-above-the-sink blindness is gone under the flag. The old saturation pin stays green
+  under the default analyzer; on default-ON it fails by design and the ModReach test is its
+  ready-made replacement (delete the pin, keep the promotion).
+- **Default-ON checklist from this side** (no action needed until the rollout decision):
+  (1) delete the deepFieldChains saturation pin; (2) TestShadowCloneBench drives
+  SingleIterationAnalyzerImpl per primary type, so MODREACH never engages there — the collapse
+  to the promoted-baseline zero assertion requires switching the bench to
+  IteratingAnalyzerImpl.analyze() per type (or a corpus-level run) and asserting
+  `divergences == immutableGuardedDivergences && reverse == 0` per §14 P2.4's refined form;
+  happy to own that rewrite when the default flips; (3) missingArgumentLinks()==0 unaffected
+  (trackObjectCreations implied).
+
+No engine files were touched by this thread; the only new artifact is the jfocus-metrics test.
