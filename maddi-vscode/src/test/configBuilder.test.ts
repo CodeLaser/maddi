@@ -23,7 +23,12 @@ function jdtls(responses: Record<string, unknown>) {
         calls.push(delegate);
         if (command !== 'java.execute.workspaceCommand') throw new Error(`unexpected bridge ${command}`);
         if (delegate === 'java.project.getClasspaths') {
-            const scope = (args[2] as { scope: string }).scope;
+            // jdt.ls deserializes this argument with JSONUtility.toModel, which accepts a JsonElement or a
+            // String and yields null for anything else — so an object here means a server-side NPE. The
+            // harness insists on the string to keep that contract, having already been fooled by it once.
+            assert.strictEqual(typeof args[2], 'string',
+                'the classpath options must be passed as a JSON string, not an object');
+            const scope = (JSON.parse(args[2] as string) as { scope: string }).scope;
             return responses[`getClasspaths:${scope}`];
         }
         return responses[delegate];
