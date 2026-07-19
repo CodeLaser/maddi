@@ -90,6 +90,17 @@ Modification-as-reachability (PLAN-modification-reachability; §11 ownership spl
   when the callee provably ignores the FI); enclosing-method parameters propagate, locals filter
   (acceptForExtra); field-stored callbacks charge at REGISTER, not trigger (application-site-only
   would drop them); opaque whole-object fallback + $_afi marker survive forwarding hops.
+- §9.4 CROSS-READ EXECUTED 2026-07-19 (SHADOWDIFF gate in RunAnalyzer, forces
+  trackObjectCreations, diagnostic runs only): fernflower under the FULL iterating analyzer =
+  **836 divergences** (539 unmodifiedParameter / 193 unmodifiedField / 104 nonModifyingMethod;
+  list in scratchpad shadow-ff-divs.txt) vs 279 on testarchive single-iteration — cycle breaking
+  freezes optimistic values by design, and the shadow now names them. DIRECT HIT: FastFixedSetFactory
+  (the audit's flagship independence anomaly) appears with 4 entries incl. iterator() and
+  colValuesInternal — the two independent evidence lines indict the same structures. BUT: **8
+  REVERSE divergences** in the full-iterating context (their single-iteration corpus had 0) =
+  shadow-pass gaps by its own contract; triage-to-zero is the FIRST phase-2 sub-task, since the
+  836 is untrustworthy as a bound while the pass under-reaches. Caveats scale up too: 180 call
+  sites without argument links, 2,597 unprojected receivers.
 - PHASE 2 IS MINE (metrics thread has stopped engine work). Acceptance contract on landing:
   TestDeepCaptureChain (my @Disabled pin) goes green; promoted shadow baseline = second gate;
   EXPECT TestShadowCloneBench pinned counts + metrics deepFieldChains tripwire to fire — both are

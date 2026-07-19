@@ -248,7 +248,10 @@ public class RunAnalyzer implements Runnable {
                     .setMaxIterations(30) // safety net only: the loop exits on convergence/certification/plateau
                     // (timefold PARALLEL=8 certified exactly at 20 — late worklist iterations cost ~3s, so headroom is free)
                     .setStopWhenCycleDetectedAndNoImprovements(true) // plateau early-exit, see IteratingAnalyzerImpl
-                    .setTrackObjectCreations(false)
+                    // SHADOWDIFF (phase-1 reachability diff, PLAN §13) needs LINKED_VARIABLES_ARGUMENTS,
+                    // which only trackObjectCreations produces; note track-on shifts some verdicts
+                    // (saturation boundary, see the metrics thread's FC-chain note) — diagnostic runs only
+                    .setTrackObjectCreations(System.getenv("SHADOWDIFF") != null)
                     .setFaultTolerant(true) // isolate a crash on one element; report it, don't abort the whole run
                     .setWarnNearMisses(configuration.generalConfiguration().warnNearMisses())
                     .build();
@@ -281,6 +284,21 @@ public class RunAnalyzer implements Runnable {
                 terminalError = analyzerError;
                 exitValue = Main.EXIT_ANALYSER_ERROR;
                 return;
+            }
+            // phase-1 shadow diff (PLAN §13): one-shot reachability over the converged artifacts,
+            // no writes; names the frozen optimistic values the evidence contradicts (§9.4 cross-read)
+            if (System.getenv("SHADOWDIFF") != null) {
+                try {
+                    var report = new org.e2immu.analyzer.modification.analyzer.shadow.ShadowModificationPass()
+                            .go(order);
+                    LOGGER.info("SHADOWDIFF {}", report.summary());
+                    report.sortedDivergenceStrings().forEach(s -> LOGGER.info("SHADOWDIFF DIV {}", s));
+                    // reverse = the pass missed something frozen-modified: a shadow-pass gap, must be
+                    // triaged to zero before the pass can gate phase 2 (its own soundness contract)
+                    report.reverseDivergences().forEach(d -> LOGGER.info("SHADOWDIFF REV {}", d));
+                } catch (RuntimeException | AssertionError e) {
+                    LOGGER.error("SHADOWDIFF failed: {}", e.toString());
+                }
             }
             analysisMessages.addAll(analyzer.messages());
             // analysisFingerprint: store each source set's rollup for incremental early-cutoff (docs/analysis-rewiring.md)
