@@ -110,9 +110,15 @@ Three things it imposes on a consumer:
   position), never replaced — one frame is one pass. Eclipse deliberately does not rebuild markers per frame
   (`MaddiMarkers.apply` rewrites the whole workspace); hints update because they read `MaddiResults`.
 
-Not done: the provisional → quiet → final status ladder. `certain` rides on the frame but no front-end
-distinguishes established from final, so a user cannot yet tell an early value from a certified one — which
-matters most for type `@Immutable`, since it typically only resolves in the last pass.
+The certainty ladder is in: the terminal `result` now carries an `outcome` (CERTIFIED / MAX_ITERATIONS /
+PLATEAU / UNKNOWN), and `AnalysisModel.certaintyOf` turns it into PROVISIONAL / FINAL / BEST_AVAILABLE /
+UNKNOWN for the front-ends. A missing outcome reads as UNKNOWN, never as final, so an older daemon cannot
+have its values presented as certified.
+
+Deliberately two rungs, not three: the feed's docs also describe a *quiet* state (an element that stops being
+re-analysed). Tracking it means per-element last-seen bookkeeping in every front-end, and it buys little now
+that the progress line reports the pass and the count — the distinction that actually misleads is a finished
+run that never certified, because those annotations look exactly like certified ones.
 
 Note this composes with partial re-analysis (item 1) rather than competing: that one shrinks *what* is
 analysed, this one shortens *when you see it*. Either helps alone; together a small edit should show revised

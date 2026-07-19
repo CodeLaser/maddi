@@ -101,8 +101,12 @@ public final class MaddiAnalysis {
         MaddiResults.get().update(result);
         if (reveal) {
             revealFindingsView();
+            // say how the run ended: a run that stopped at the iteration cap produces annotations that look
+            // exactly like certified ones, and nothing else on screen would give that away
+            String certainty = AnalysisModel.certaintyLabel(AnalysisModel.certaintyOf(result));
             MaddiEclipsePlugin.log(IStatus.INFO,
-                    "maddi: " + result.findings().size() + " finding(s), " + result.hintsLoaded() + " hints",
+                    "maddi: " + result.findings().size() + " finding(s), " + result.hintsLoaded() + " hints"
+                    + (certainty == null ? "" : " — " + certainty),
                     null);
         }
     }

@@ -88,8 +88,10 @@ public class WarmAnalysisService implements AnalyzeHandler {
         // sees them, and full analysis resumes once the user fixes the sources.
         if (summary.haveErrors()) {
             LOGGER.info("parse produced {} error(s); returning findings-only", summary.parseExceptions().size());
+            // no analysis ran, so there is no fixpoint outcome to report — UNKNOWN, not "not certified"
             return new DaemonProtocol.Result(requestId, collector.parseFindings(summary), List.of(),
-                    initProblems, summary.parseExceptions().size(), hints, System.currentTimeMillis() - start);
+                    initProblems, summary.parseExceptions().size(), hints, System.currentTimeMillis() - start,
+                    DaemonProtocol.OUTCOME_UNKNOWN);
         }
 
         ParseResult parseResult = summary.parseResult();
@@ -116,7 +118,8 @@ public class WarmAnalysisService implements AnalyzeHandler {
         IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(inspector, modConfig);
         // Stream what each pass established, so the IDE can annotate the file on screen long before the run
         // ends: the first pass decides most of the output, and the tail is long but decides little.
-        analyzer.setValueFeed(new StreamingValueFeed(status, requestId, collector));
+        StreamingValueFeed valueFeed = new StreamingValueFeed(status, requestId, collector);
+        analyzer.setValueFeed(valueFeed);
         // analyze() is one long blocking step with no sub-progress; run it on a worker and heartbeat so the
         // client's socket read never times out on a large project. A throw propagates: DaemonMain turns it into
         // an error{}, the daemon survives.
@@ -129,10 +132,11 @@ public class WarmAnalysisService implements AnalyzeHandler {
                 collector.collectElementAnnotations(parseResult.primaryTypes());
 
         long elapsed = System.currentTimeMillis() - start;
-        LOGGER.info("analysis complete in {} ms: {} findings, {} element annotations",
-                elapsed, findings.size(), elementAnnotations.size());
+        String outcome = valueFeed.outcome();
+        LOGGER.info("analysis complete in {} ms ({}): {} findings, {} element annotations",
+                elapsed, outcome, findings.size(), elementAnnotations.size());
         return new DaemonProtocol.Result(requestId, findings, elementAnnotations, initProblems,
-                summary.parseExceptions().size(), hints, elapsed);
+                summary.parseExceptions().size(), hints, elapsed, outcome);
     }
 
     /**

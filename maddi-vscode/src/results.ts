@@ -5,7 +5,7 @@
  */
 
 import * as vscode from 'vscode';
-import { ElementAnnotation, Finding, Result } from './analysisModel';
+import { Certainty, ElementAnnotation, Finding, Result, certaintyOf } from './analysisModel';
 
 /**
  * The latest analysis result, indexed for the display surfaces — the counterpart of `MaddiResults`
@@ -17,18 +17,37 @@ import { ElementAnnotation, Finding, Result } from './analysisModel';
 export class ResultStore {
     private latest: Result | undefined;
     private annotations = new Map<string, ElementAnnotation[]>();
+    /** True while what is held came from a streamed pass rather than a finished run. */
+    private provisional = false;
 
     private readonly changed = new vscode.EventEmitter<void>();
     /** Fires when the surfaces should re-read; also drives inlay-hint refresh. */
     readonly onDidChange = this.changed.event;
 
+    /** A finished run: its outcome decides whether the values are final or merely the best available. */
     set(result: Result): void {
+        this.provisional = false;
+        this.replace(result);
+    }
+
+    /**
+     * A view merged from streamed passes, mid-run. Held separately from a finished result because the
+     * annotations look identical: without this, a hint shown after two passes would read exactly like one
+     * from a certified fixpoint.
+     */
+    setPartial(result: Result): void {
+        this.provisional = true;
+        this.replace(result);
+    }
+
+    private replace(result: Result): void {
         this.latest = result;
         this.annotations = index(result.elementAnnotations ?? []);
         this.changed.fire();
     }
 
     clear(): void {
+        this.provisional = false;
         this.latest = undefined;
         this.annotations = new Map();
         this.changed.fire();
@@ -40,6 +59,15 @@ export class ResultStore {
 
     findings(): Finding[] {
         return this.latest?.findings ?? [];
+    }
+
+    /**
+     * How settled what is on screen is. A merged mid-run view carries no outcome, so it reads as UNKNOWN
+     * rather than as final — which is what makes a streamed hint honest about still being able to strengthen.
+     */
+    certainty(): Certainty {
+        if (this.provisional) return 'PROVISIONAL';
+        return certaintyOf(this.latest);
     }
 
     annotationsFor(uri: vscode.Uri): ElementAnnotation[] {

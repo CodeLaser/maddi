@@ -90,7 +90,53 @@ public final class AnalysisModel {
                          List<String> initializationProblems,
                          int parseErrorCount,
                          int hintsLoaded,
-                         long elapsedMillis) {
+                         long elapsedMillis,
+                         String outcome) {
+    }
+
+    /**
+     * How settled the values on screen are — the rung of the ladder a front-end should tell the user about.
+     * <p>
+     * The distinction is not cosmetic. Values refine monotonically, so nothing shown is ever wrong, but a
+     * value can still <em>strengthen</em>: positive type-immutability in particular typically only resolves
+     * in the analyzer's last (cycle-breaking) pass. So a partially-streamed view systematically understates
+     * {@code @Immutable} on types, and a run that stopped at the iteration cap may understate anything —
+     * neither of which is visible from the annotations themselves.
+     */
+    public enum Certainty {
+        /** Streamed mid-run: established, but the analysis may still strengthen it. */
+        PROVISIONAL,
+        /** The fixpoint was certified: these values are final. */
+        FINAL,
+        /** The run stopped at the iteration cap or on a plateau: best available, not certified. */
+        BEST_AVAILABLE,
+        /** No fixpoint ran at all (e.g. the parse failed), so there is nothing to be certain about. */
+        UNKNOWN,
+    }
+
+    public static final String OUTCOME_CERTIFIED = "CERTIFIED";
+    public static final String OUTCOME_UNKNOWN = "UNKNOWN";
+
+    /**
+     * The certainty of a completed result. {@code null}/absent outcome is treated as UNKNOWN rather than
+     * assumed final: an older daemon that does not send the field must not have its values presented as
+     * certified.
+     */
+    public static Certainty certaintyOf(Result result) {
+        if (result == null || result.outcome() == null || OUTCOME_UNKNOWN.equals(result.outcome())) {
+            return Certainty.UNKNOWN;
+        }
+        return OUTCOME_CERTIFIED.equals(result.outcome()) ? Certainty.FINAL : Certainty.BEST_AVAILABLE;
+    }
+
+    /** A short phrase for a status line or tooltip; null when there is nothing worth saying. */
+    public static String certaintyLabel(Certainty certainty) {
+        return switch (certainty) {
+            case PROVISIONAL -> "provisional — the analysis is still running";
+            case FINAL -> null; // the normal case; saying so on every hint would be noise
+            case BEST_AVAILABLE -> "best available — the analysis did not reach a fixpoint";
+            case UNKNOWN -> "no completed analysis";
+        };
     }
 
     /**
@@ -139,11 +185,12 @@ public final class AnalysisModel {
         }
         List<ElementAnnotation> merged = List.copyOf(byIdentity.values());
         if (current == null) {
-            return new Result(partial.requestId(), List.of(), merged, List.of(), 0, 0, 0L);
+            // a run in progress has no outcome yet: UNKNOWN, so certaintyOf never calls it final
+            return new Result(partial.requestId(), List.of(), merged, List.of(), 0, 0, 0L, OUTCOME_UNKNOWN);
         }
         return new Result(current.requestId(), current.findings(), merged,
                 current.initializationProblems(), current.parseErrorCount(), current.hintsLoaded(),
-                current.elapsedMillis());
+                current.elapsedMillis(), current.outcome());
     }
 
     private static String identity(ElementAnnotation e) {

@@ -118,11 +118,28 @@ public class StreamingValueFeedTest {
     @Test
     public void terminalPhaseIsReported(@TempDir Path projectDir) throws Exception {
         Capture capture = new Capture();
-        DaemonAnalysisFixture.analyze(projectDir, "x/Box.java", SOURCE, false, capture);
+        DaemonProtocol.Result result =
+                DaemonAnalysisFixture.analyze(projectDir, "x/Box.java", SOURCE, false, capture);
 
         assertEquals(1, capture.phaseMessages.size(),
                 () -> "expected exactly one terminal phase, got: " + capture.phaseMessages);
         assertTrue(capture.phaseMessages.getFirst().contains("TERMINAL_CERTIFIED"),
                 () -> "this small source should reach a certified fixpoint: " + capture.phaseMessages);
+
+        // and it must reach the front-end on the result, not only as a passing status line: a run that
+        // stopped at the iteration cap yields annotations indistinguishable from certified ones, so this
+        // field is the only thing that can tell them apart
+        assertEquals(DaemonProtocol.OUTCOME_CERTIFIED, result.outcome());
+    }
+
+    @DisplayName("a streamed frame never claims certainty: the terminal phase arrives after the last pass")
+    @Test
+    public void partialFramesAreNeverCertain(@TempDir Path projectDir) throws Exception {
+        Capture capture = new Capture();
+        DaemonAnalysisFixture.analyze(projectDir, "x/Box.java", SOURCE, false, capture);
+
+        assertFalse(capture.partials.isEmpty());
+        assertTrue(capture.partials.stream().noneMatch(DaemonProtocol.PartialResult::certain),
+                "values are still established, not final, while the run is in flight");
     }
 }

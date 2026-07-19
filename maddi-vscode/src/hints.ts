@@ -5,7 +5,7 @@
  */
 
 import * as vscode from 'vscode';
-import { ElementAnnotation } from './analysisModel';
+import { Certainty, ElementAnnotation, certaintyLabel } from './analysisModel';
 import { DEFAULT_HINT_FILTER, HintFilter, textFor } from './hintFilter';
 import { ResultStore } from './results';
 
@@ -39,6 +39,9 @@ export class MaddiInlayHintsProvider implements vscode.InlayHintsProvider {
 
         const filter = currentFilter();
         if (filter === 'none') return [];
+        // how settled these values are: the same annotations mean something different mid-run, or after a
+        // run that never reached a fixpoint, and only this says which
+        const certainty = this.store.certainty();
 
         const hints: vscode.InlayHint[] = [];
         for (const element of this.store.annotationsFor(document.uri)) {
@@ -50,7 +53,7 @@ export class MaddiInlayHintsProvider implements vscode.InlayHintsProvider {
 
             const hint = new vscode.InlayHint(position, text, kindOf(element));
             hint.paddingRight = true; // it precedes the declaration, so it must not touch it
-            hint.tooltip = tooltip(element);
+            hint.tooltip = tooltip(element, certainty);
             hints.push(hint);
         }
         return hints;
@@ -83,10 +86,12 @@ function kindOf(element: ElementAnnotation): vscode.InlayHintKind {
     return element.kind === 'PARAMETER' ? vscode.InlayHintKind.Parameter : vscode.InlayHintKind.Type;
 }
 
-/** The full computed picture on hover, including what the filter left out. */
-function tooltip(element: ElementAnnotation): vscode.MarkdownString {
+/** The full computed picture on hover, including what the filter left out and how settled it is. */
+function tooltip(element: ElementAnnotation, certainty: Certainty): vscode.MarkdownString {
     const md = new vscode.MarkdownString();
     md.appendMarkdown(`**${element.fqn}**\n\n`);
+    const caveat = certaintyLabel(certainty);
+    if (caveat) md.appendMarkdown(`_${caveat}_\n\n`);
     const all = element.displayAnnotations ?? [];
     if (all.length > 0) md.appendMarkdown(`${all.join(' ')}\n\n`);
     const properties = Object.entries(element.properties ?? {});

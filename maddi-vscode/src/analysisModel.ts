@@ -83,6 +83,40 @@ export interface Result {
     parseErrorCount: number;
     hintsLoaded: number;
     elapsedMillis: number;
+    /** How the fixpoint ended: CERTIFIED | MAX_ITERATIONS | PLATEAU | UNKNOWN. */
+    outcome?: string;
+}
+
+/**
+ * How settled the values on screen are.
+ *
+ * Not cosmetic: values refine monotonically so nothing shown is wrong, but a value can still STRENGTHEN.
+ * Positive type-immutability in particular typically resolves only in the analyzer's last (cycle-breaking)
+ * pass, so a mid-run view systematically understates `@Immutable` on types; and a run that stopped at the
+ * iteration cap may understate anything. Neither is visible from the annotations themselves.
+ */
+export type Certainty = 'PROVISIONAL' | 'FINAL' | 'BEST_AVAILABLE' | 'UNKNOWN';
+
+export const OUTCOME_CERTIFIED = 'CERTIFIED';
+export const OUTCOME_UNKNOWN = 'UNKNOWN';
+
+/**
+ * The certainty of a completed result. A missing outcome is UNKNOWN rather than assumed final: an older
+ * daemon that does not send the field must not have its values presented as certified.
+ */
+export function certaintyOf(result: Result | undefined): Certainty {
+    if (!result || !result.outcome || result.outcome === OUTCOME_UNKNOWN) return 'UNKNOWN';
+    return result.outcome === OUTCOME_CERTIFIED ? 'FINAL' : 'BEST_AVAILABLE';
+}
+
+/** A short phrase for a tooltip or status line; undefined when there is nothing worth saying. */
+export function certaintyLabel(certainty: Certainty): string | undefined {
+    switch (certainty) {
+        case 'PROVISIONAL': return 'provisional — the analysis is still running';
+        case 'FINAL': return undefined; // the normal case; repeating it on every hint would be noise
+        case 'BEST_AVAILABLE': return 'best available — the analysis did not reach a fixpoint';
+        case 'UNKNOWN': return 'no completed analysis';
+    }
 }
 
 /**
@@ -137,6 +171,8 @@ export function merge(current: Result | undefined, partial: PartialResult): Resu
             parseErrorCount: 0,
             hintsLoaded: 0,
             elapsedMillis: 0,
+            // a run in progress has no outcome yet, so certaintyOf never calls a streamed view final
+            outcome: OUTCOME_UNKNOWN,
         };
     }
     return { ...current, elementAnnotations };
