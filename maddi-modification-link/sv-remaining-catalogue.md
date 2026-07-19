@@ -206,6 +206,17 @@ session tasks #36-#39):
   collapse chains) carry no taint; expression casts unflagged (variable-operand scope). NEXT =
   step 2: de-duplicate CommonAnalyze in jfocus consuming unmediated <- only (coordinate with the
   jfocus owner thread; their suite is the gate), after the owed 3-suite green confirmation.
+  STEP 2 SHADOW MODE prepared 2026-07-19 (uncommitted in jfocus-refactor-service, owner-thread
+  convention like #36's consumer half): env gate EIDEDUP_SHADOW logs, per assignment-carrying
+  statement, (a) the ENGINE's assignment-tier view of the target (unmediated vs mediated split —
+  mediated must never couple) and (b) 'EIDEDUP syntactic' lines at every coupling site
+  (bidirectional + the three directional adds in linkAssignedValue). Divergence between the two
+  log streams is the evidence base for replacing linkAssignedValue's value-shape recursion.
+  DIRECTIONALITY is the known crux: stored ← does not distinguish method-return/identity flows
+  (directional in the rc-graph) from plain aliases (bidirectional) — the shadow data must answer
+  whether that distinction is recoverable or the replacement stays partial. CAVEAT: compile-
+  unverified (their composite build rebuilds maddi in place — blocked behind the live ES run);
+  owner thread: compile + run suite with EIDEDUP_SHADOW=1, share both log streams.
   Maddi-internal same-disease siblings unaffected and still valid: WLAM's five mirror blocks,
   iterateOverShared vs expandRepToMembers (==/.equals divergence),
   ShallowMethodLinkComputer.correspondingTypeParameters vs hiddenContentHierarchy.
