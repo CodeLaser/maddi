@@ -182,27 +182,22 @@ public class TestBridgeLinkDrop extends CommonTest {
                 + " INDEPENDENT=" + ctor.parameters().getFirst().analysis()
                 .getOrNull(PropertyImpl.INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.class));
 
-        // CHARACTERIZATION of the CURRENT, UNSOUND state (task #43) — these assertions pin the bug
-        // and must FLIP when the fix lands. Ground truth: parts[i] aliases the caller's c[i]
-        // (StringBuilder, mutable) — the field must be @Dependent and the type must NOT pass
-        // @FinalFields. Diagnosis (2026-07-19, hop probes above):
-        // 1. statement level: the links EXIST locally — `this.parts~c` at the write, and
-        //    `c.§$ ← 0:ld.§$` at the accessor call (the abstract interface callee weakens the
-        //    implementation's `ret ∈ this.data` to the some-value/hidden-content §$ face);
-        // 2. summary level: FieldAnalyzer.computeLinkedVariables drops links to LOCALS without
-        //    composing one hop (parts~c ∘ c.§$←ld.§$ never becomes parts~ld.§$), and
-        //    LinkComputer.filteredPi drops ld's local-target links — so METHOD_LINKS and the
-        //    field's LINKS both come out empty;
-        // 3. even composed, ld is a PRIVATE method's parameter: the exposure chain to the PUBLIC
-        //    ctor param c runs through the FI application (ld ≡ ldIn inside run) — private-param
-        //    dependence must propagate through the Λ application for independence.
-        // Fix design in immutability-transform-divergence.md / task #43.
-        assertEquals("@Immutable(hc=true)", String.valueOf(pointMT.analysis().getOrNull(
+        // SOUND verdicts (task #43 CLOSED 2026-07-19). Ground truth: parts[i] aliases the
+        // caller's c[i] (StringBuilder, mutable) — the field is @Dependent and the type must not
+        // pass @FinalFields. Three-part fix (immutability-transform-divergence.md):
+        // 1. FieldAnalyzerImpl.composeThroughLocal — one-hop local elimination
+        //    (parts~c ∘ c.§$←ld.§$ ⇒ parts~0:ld now in the field's LINKS);
+        // 2. computeIndependent exposure gate — a PRIVATE method's parameter counts as exposed
+        //    when the method escapes as a functional-interface capture (this::ctorBody), the
+        //    conservative consumer-side form of route A's eager capture-linking;
+        // 3. computeIndependent grading — dependence graded by the TRANSPORTED content type
+        //    (StringBuilder, mutable ⇒ @Dependent), not the @ImmutableHC-typed LoopData carrier.
+        assertEquals("@FinalFields", String.valueOf(pointMT.analysis().getOrNull(
                         PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.class)),
-                "CURRENT (unsound) verdict — flips to @FinalFields when #43 lands");
-        assertEquals("@Independent", String.valueOf(parts.analysis().getOrNull(
+                "sound verdict: element aliasing with the caller's mutable StringBuilder[]");
+        assertEquals("@Dependent", String.valueOf(parts.analysis().getOrNull(
                         PropertyImpl.INDEPENDENT_FIELD, ValueImpl.IndependentImpl.class)),
-                "CURRENT (unsound) verdict — flips to @Dependent when #43 lands");
+                "sound verdict: parts[i] aliases the caller's c[i]");
     }
 
     private static void assertEquals(Object expected, Object actual, String message) {

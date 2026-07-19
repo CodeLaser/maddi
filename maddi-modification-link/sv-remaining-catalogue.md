@@ -90,13 +90,18 @@ decisions. Exact commands (all from ~/git/maddi, all via bin/gradle-locked.sh):
    CHECKPOINT dogfood incl. wave-boundary deltas) LAUNCHED 2026-07-19 afternoon as a background
    run — results in build/es-checkpoint-2026-07-19 + the FPDUMP; the MODREACH ES leg is the one
    remaining big A/B (run it only at 33c9b8fc or later — the memoization commit).
-5. **NEW, HIGH PRIORITY — task #43 (link module, SOUNDNESS)**: the loop-transform bridge drops
+5. **task #43 (SOUNDNESS) — CLOSED 2026-07-19**: the loop-transform bridge dropped
    element-aliasing links (Object[] slot store + downcast + FI application) — transformed
-   reference-element containers promote unsoundly (PointM tripwire, confirmed by the transform
-   thread; adjudication + ownership ruling in
-   maddi-modification-analyzer/immutability-transform-divergence.md). The jfocus pipeline analyzes
-   TRANSFORMED code, so this is live risk; interim policy = MIN of both sides' verdicts.
-   Investigation order in the task; reproduce with an in-repo mini LoopData.
+   reference-element containers promoted unsoundly (PointM tripwire, confirmed by the transform
+   thread). Fixed in three parts, all in FieldAnalyzerImpl (no link-engine surface):
+   composeThroughLocal (one-hop local elimination, plain-face algebra), the private-param
+   exposure gate (a private method's parameter is exposed iff the method escapes as a
+   MethodReference capture — consumer-side form of route A's eager capture-linking), and
+   transported-content grading (dependence graded by the TRANSPORTED type when its immutability
+   is known non-immutable, not the carrier's). TestBridgeLinkDrop pins the sound verdicts
+   (@FinalFields/@Dependent); TestLoopTransformDivergence green both directions (int[] Point
+   still promotes). Full record in immutability-transform-divergence.md; interim MIN-of-both
+   policy retirable once the transform thread confirms their tripwire.
 6. Open engineering (designed, measured, not built): #35 frontier integration
    (DESIGN-incremental-v2.md + Phase A numbers: closure NO-GO, direct-edge GO); #39 step 2
    (awaits jfocus owner's EIDEDUP_SHADOW data); #42 refinement (compute 'wholly cast-mediated'

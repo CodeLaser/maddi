@@ -360,3 +360,36 @@ method's parameters `P ~ carrier` — over-linking is the CONSERVATIVE direction
 Plus, either way: a consumer-side exposure composition in computeIndependent (a private-param
 link target's exposure resolved through that parameter's own cross-method links). Route (A) +
 the consumer hop is the recommended fresh-session plan.
+
+---
+
+## #43 CLOSED (link/analyzer thread, 2026-07-19) — route A landed, consumer-side form
+
+The unsound promotion is fixed. `TestBridgeLinkDrop` now pins the SOUND verdicts: the PointM_t
+shape yields field `parts` **@Dependent** and type **@FinalFields** (was @Independent /
+@Immutable(hc=true)); `TestLoopTransformDivergence` stays green in BOTH directions — the int[]
+Point still reaches @Immutable(hc=true) (immutable transported content transmits no dependence),
+the StringBuilder[] control and now the bridge shape stay capped. Your
+`mutableElementsUnsoundlyPromoted` tripwire should go green-preserved; the interim MIN-of-both
+policy can be retired for this family once you confirm.
+
+Implementation — route A's substance, entirely at the CONSUMER (`FieldAnalyzerImpl`), no link-
+engine surface touched (deliberate deviation from the sketch: the fiv does not need to know its
+underlying method, and no `P ~ carrier` links are materialized — the exposure question is asked
+and answered where it is consumed):
+
+1. **composeThroughLocal** (landed earlier): `parts ~ c ∘ c.§$ ← 0:ld.§$ ⇒ parts ~ 0:ld` — the
+   private parameter now appears in the field's LINKS.
+2. **Exposure gate**: `computeIndependent` counts a PRIVATE method's parameter as an exposure
+   surface iff the method escapes as a functional-interface capture — a `MethodReference` to it
+   anywhere in the primary type (cached scan). This is the conservative consumer-side form of
+   eager capture-linking: stored-and-never-applied captures over-expose, which only lowers
+   independence (sound direction). Lambdas that merely CALL the private method go through normal
+   call-site links and are not affected.
+3. **Transported-content grading completed**: when the transported content's immutability is
+   KNOWN and not immutable, dependence is graded by the TRANSPORTED type, no longer by the
+   carrier's — a mutable StringBuilder aliased through an @ImmutableHC-typed `LoopData` carrier
+   is @Dependent. (Unknown transported immutability still falls back to carrier grading.)
+
+Corpus impact: fernflower FPDUMP A/B = 2 lines, the known IReachabilityAction
+null↔@FinalFields decision-order noise only — corpus-neutral; analyzer + link suites green.
