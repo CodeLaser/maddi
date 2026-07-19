@@ -30,8 +30,39 @@ public class EvalNegation {
         this.runtime = runtime;
     }
 
+    /*
+     Memoization, exact by purity of negation. The simplifier ASKS for negations far more often than it
+     needs new ones: isNegationOf(e1,e2) is implemented as e1.equals(negate(e2)) and sits inside anyMatch
+     loops over conjunct lists, so the same instances are negated over and over — and negating an And/Or
+     runs the full EvalAnd/EvalOr fixed point (De Morgan + re-simplification). VALUE keys, not identity:
+     the And/Or fixed point REBUILDS fresh instances every pass, so identity hits die immediately while
+     structurally-equal keys keep hitting (equality itself is cheap: cached hashCode + complexity
+     fast-path). The cache lives on THIS EvalNegation instance — one per Runtime — never static: a static
+     cache outlives the Runtime, and a structurally-equal key from a different Runtime would hand back a
+     negation built from foreign runtime objects. Concurrent (the analyzer evaluates in parallel); crude
+     clear-on-cap eviction.
+     */
+    private static final int CACHE_MIN_COMPLEXITY = 3;
+    private static final int CACHE_MAX_SIZE = 8192;
+    private final java.util.concurrent.ConcurrentHashMap<Expression, Expression> negationCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     public Expression eval(@NotNull Expression v) {
         Objects.requireNonNull(v);
+        if (v.complexity() < CACHE_MIN_COMPLEXITY) return compute(v);
+        Expression cached = negationCache.get(v);
+        if (cached != null) return cached;
+        Expression result = compute(v);
+        // an over-budget compute yields a DEGRADED (unsimplified) result — never memoize those, or budget
+        // state leaks nondeterministically across top-level operations (see EvalBudget.overBudget)
+        if (!EvalBudget.overBudget()) {
+            if (negationCache.size() >= CACHE_MAX_SIZE) negationCache.clear();
+            negationCache.put(v, result);
+        }
+        return result;
+    }
+
+    private Expression compute(@NotNull Expression v) {
         if (v instanceof BooleanConstant boolValue) {
             return boolValue.negate();
         }

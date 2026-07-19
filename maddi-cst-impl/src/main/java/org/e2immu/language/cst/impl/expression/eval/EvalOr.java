@@ -44,6 +44,15 @@ public class EvalOr {
     private static final R CHANGE = new R(true, null);
 
     public Expression eval(List<Expression> values) {
+        EvalBudget.enter();
+        try {
+            return evalGuarded(values);
+        } finally {
+            EvalBudget.exit();
+        }
+    }
+
+    private Expression evalGuarded(List<Expression> values) {
 
         // STEP 1: trivial reductions
 
@@ -98,6 +107,10 @@ public class EvalOr {
             boolean tooComplex = complexity >= maxAndOrComplexity;
             if (tooComplex) {
                 LOGGER.warn("Not analysing OR operation, complexity {}", complexity);
+                return runtime.newOrBuilder().addExpressions(concat).build();
+            }
+            if (EvalBudget.exhausted()) {
+                LOGGER.warn("Not analysing OR operation, evaluation budget exhausted");
                 return runtime.newOrBuilder().addExpressions(concat).build();
             }
 
