@@ -458,3 +458,36 @@ would have made the churn unattributable.
 - **P2.4 — promote the shadow baseline.** After cutover the shadow diff must be identically zero
   (frozen == pass output); TestShadowCloneBench's pins collapse to a zero assertion and become the
   permanent regression tripwire. Metrics-side deepFieldChains saturation pin flips as §8 predicts.
+  DONE 2026-07-19 in refined form: the invariant is 0 reverse AND divergences ==
+  immutableGuarded (union over-approximation reaches immutable-typed nodes — int params via E6
+  position alignment, String fields via projection — which the writer refuses to downgrade;
+  Report.immutableGuardedDivergences counts them). Fernflower MODREACH+SHADOWDIFF: 178
+  divergences (178 immutable-guarded), 0 REVERSE. TestShadowCloneBench keeps its non-zero pins
+  while the default analyzer stays pre-cutover; it collapses to the zero assertion when
+  MODREACH becomes default-ON.
+
+---
+
+## 15. Phase-2 cutover delivered (engine thread, 2026-07-19) — note for the metrics thread
+
+The §5-phase-2 / §14 cutover is implemented and green, OPT-IN behind
+`Configuration.modificationViaReachability` (env gate `MODREACH`, presence-only; implies
+trackObjectCreations). Nothing changes for any consumer until it is switched on.
+
+- Order realized: fixpoint (unchanged) -> reachability pass writes the three modification
+  properties as single writer (TolerantWrite freeze; NO_INFORMATION_IS_NON_MODIFYING trimmed by
+  the same freeze) -> derived immutability family cleared and re-derived with modification
+  frozen -> cycle breaking re-staged -> certification.
+- §10.1 invariant implemented as frontier taint (29 nodes on all of fernflower); §9.1 degraded
+  seeding was already in the shadow pass; the E7 creation-site attributions ride the seeds (§12).
+- TestDeepCaptureChain (phase 0) is GREEN under the flag: all five levels modified.
+- Fernflower evidence: 793 TRUE->FALSE downgrades + 4 nulls decided; 18 type-immutability
+  corrections (14 weakened incl. FastFixedSetFactory — the §9.4 suspect — and the
+  TypeAnnotation/toJava union cascade; 4 strengthened from newly-decided nulls). Promoted
+  baseline holds exactly: 178 divergences, all immutable-guarded, 0 reverse.
+- For your side, when MODREACH becomes default-ON (decision pending corpus rollout:
+  timefold/langchain4j configs are absent from ~/git/test-oss — their tests skip — so the
+  rollout runs on guava/jenkins/activemq/camel/elasticsearch): §8's deepFieldChains saturation
+  pin flips (absence-above-the-sink becomes presence), missingArgumentLinks stays 0
+  (trackObjectCreations is implied), and TestShadowCloneBench's divergence pins collapse to the
+  zero assertion. Until then all your tripwires stay green as pinned.
