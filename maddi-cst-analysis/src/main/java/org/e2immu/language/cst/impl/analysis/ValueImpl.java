@@ -1093,28 +1093,43 @@ public abstract class ValueImpl implements Value {
 
         @Override
         public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
-            Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap = variableToTypeInfoSet.entrySet().stream()
-                    .collect(Collectors.toUnmodifiableMap(
-                            e -> codec.encodeVariable(context, e.getKey()),
-                            e -> codec.encodeList(context, e.getValue().stream()
+            // NOT encodeMap: a JSON object cannot carry non-string keys, and a compound variable
+            // encodes as a LIST — the map form produced syntactically invalid JSON (task #34,
+            // checkpoint decode asymmetry). Sorted list of [variable, [typeFqn...]] pairs instead.
+            List<Codec.EncodedValue> pairs = variableToTypeInfoSet.entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey(Comparator.comparing(Variable::fullyQualifiedName)))
+                    .map(e -> codec.encodeList(context, List.of(
+                            codec.encodeVariable(context, e.getKey()),
+                            codec.encodeList(context, e.getValue().stream()
                                     .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
                                     .map(info -> codec.encodeString(context, info.fullyQualifiedName()))
-                                    .toList())));
-            return codec.encodeMap(context, encodedMap);
+                                    .toList()))))
+                    .toList();
+            return codec.encodeList(context, pairs);
         }
 
-        public static VariableToTypeInfoSet from(Codec codec, Codec.Context context, Codec.EncodedValue encodedMap) {
-            Map<Codec.EncodedValue, Codec.EncodedValue> map = codec.decodeMap(context, encodedMap);
-            Map<Variable, Set<TypeInfo>> decoded = map.entrySet().stream()
-                    .collect(Collectors.toUnmodifiableMap(
-                            e -> codec.decodeVariable(context, e.getKey()),
-                            e -> {
-                                List<Codec.EncodedValue> list = codec.decodeList(context, e.getValue());
-                                return list.stream()
-                                        .map(ev -> (TypeInfo) codec.decodeInfoOutOfContext(context, ev))
-                                        .collect(Collectors.toUnmodifiableSet());
-                            }));
-            return new VariableToTypeInfoSetImpl(decoded);
+        public static VariableToTypeInfoSet from(Codec codec, Codec.Context context, Codec.EncodedValue encodedValue) {
+            Map<Variable, Set<TypeInfo>> decoded = new HashMap<>();
+            if (codec.isList(encodedValue)) {
+                for (Codec.EncodedValue pairEv : codec.decodeList(context, encodedValue)) {
+                    List<Codec.EncodedValue> pair = codec.decodeList(context, pairEv);
+                    Variable variable = codec.decodeVariable(context, pair.getFirst());
+                    Set<TypeInfo> set = codec.decodeList(context, pair.get(1)).stream()
+                            .map(ev -> (TypeInfo) codec.decodeInfoOutOfContext(context, ev))
+                            .collect(Collectors.toUnmodifiableSet());
+                    decoded.put(variable, set);
+                }
+            } else {
+                // legacy map form (string-keyed variables only; pre-task-#34 files)
+                Map<Codec.EncodedValue, Codec.EncodedValue> map = codec.decodeMap(context, encodedValue);
+                for (Map.Entry<Codec.EncodedValue, Codec.EncodedValue> e : map.entrySet()) {
+                    decoded.put(codec.decodeVariable(context, e.getKey()),
+                            codec.decodeList(context, e.getValue()).stream()
+                                    .map(ev -> (TypeInfo) codec.decodeInfoOutOfContext(context, ev))
+                                    .collect(Collectors.toUnmodifiableSet()));
+                }
+            }
+            return new VariableToTypeInfoSetImpl(Map.copyOf(decoded));
         }
 
         public String nice() {

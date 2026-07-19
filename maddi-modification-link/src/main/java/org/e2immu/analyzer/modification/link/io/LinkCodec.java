@@ -401,7 +401,10 @@ public class LinkCodec {
     private static final Map<String, Property> PROPERTY_MAP = Map.of(
             PART_OF_CONSTRUCTION.key(), PART_OF_CONSTRUCTION,
             METHOD_LINKS.key(), METHOD_LINKS,
-            LinksImpl.LINKS.key(), LinksImpl.LINKS);
+            LinksImpl.LINKS.key(), LinksImpl.LINKS,
+            // prepwork call-graph property, present on checkpointed methods (task #34)
+            org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph.RECURSIVE_METHOD.key(),
+            org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph.RECURSIVE_METHOD);
 
     static class P implements Codec.PropertyProvider {
         @Override
