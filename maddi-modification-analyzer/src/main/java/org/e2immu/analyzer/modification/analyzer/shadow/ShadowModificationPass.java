@@ -398,7 +398,24 @@ public class ShadowModificationPass {
      * links the result to nothing caller-side (factories, defensive copies) correctly contributes
      * no nodes; only a missing summary counts as unprojected.
      */
+    // memoization is load-bearing: chained/nested receivers re-walk shared sub-expressions once
+    // per return-value link, which is EXPONENTIAL in nesting depth without a cache (jenkins-core
+    // hung >50 min in this recursion, thread-dump-confirmed 2026-07-19). Expressions are shared
+    // immutable CST nodes, each belonging to exactly one statement: identity keying is exact.
+    private final Map<org.e2immu.language.cst.api.expression.Expression, Set<Object>> receiverChainCache =
+            new IdentityHashMap<>();
+
     private Set<Object> projectReceiverChain(MethodInfo mi, VariableData vd,
+                                             org.e2immu.language.cst.api.expression.Expression receiver) {
+        if (receiver == null) return Set.of();
+        Set<Object> cached = receiverChainCache.get(receiver);
+        if (cached != null) return cached;
+        Set<Object> result = computeReceiverChain(mi, vd, receiver);
+        receiverChainCache.put(receiver, result);
+        return result;
+    }
+
+    private Set<Object> computeReceiverChain(MethodInfo mi, VariableData vd,
                                              org.e2immu.language.cst.api.expression.Expression receiver) {
         switch (receiver) {
             case null -> {
