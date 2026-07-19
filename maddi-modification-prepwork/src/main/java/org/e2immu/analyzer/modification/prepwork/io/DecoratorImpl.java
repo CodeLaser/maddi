@@ -149,6 +149,7 @@ public class DecoratorImpl implements Qualification.Decorator {
         Value.FieldValue fieldValue = null;
         Value.GetSetEquivalent getSetEquivalent = null;
         Property downcast = null;
+        Value.VariableToTypeInfoSet downcastValue = null;
         switch (info) {
             case MethodInfo methodInfo -> {
                 boolean noReturn = methodInfo.isConstructor() || !methodInfo.hasReturnValue();
@@ -205,7 +206,10 @@ public class DecoratorImpl implements Qualification.Decorator {
                 notNull = notNull(analysis.getOrDefault(NOT_NULL_PARAMETER, ValueImpl.NotNullImpl.NULLABLE), pi.parameterizedType());
                 propertyIgnoreModifications = pi.isIgnoreModifications() ? IGNORE_MODIFICATIONS_PARAMETER : null;
                 Value.VariableToTypeInfoSet casts = analysis.getOrDefault(DOWNCAST_PARAMETER, ValueImpl.VariableToTypeInfoSetImpl.EMPTY);
-                if (!casts.variableToTypeInfoSet().isEmpty() && !pi.isUnmodified()) downcast = DOWNCAST_PARAMETER;
+                if (!casts.variableToTypeInfoSet().isEmpty() && !pi.isUnmodified()) {
+                    downcast = DOWNCAST_PARAMETER;
+                    downcastValue = casts;
+                }
             }
             case TypeInfo typeInfo -> {
                 immutable = analysis.getOrDefault(IMMUTABLE_TYPE, MUTABLE);
@@ -358,9 +362,24 @@ public class DecoratorImpl implements Qualification.Decorator {
         }
         if (downcast != null) {
             importsNeeded.add(Modified.class);
-            AnnotationExpression modified = runtime.newAnnotationExpressionBuilder().setTypeInfo(modifiedTi)
-                    .addKeyValuePair("downcast", runtime.constantTrue()).build();
-            list.add(new AnnotationProperty(modified, downcast));
+            AnnotationExpression.Builder modified = runtime.newAnnotationExpressionBuilder().setTypeInfo(modifiedTi)
+                    .addKeyValuePair("downcast", runtime.constantTrue());
+            if (downcastValue != null) {
+                // task #42: name the cast targets — actionable for the caller (an argument that is
+                // none of these types is not modified by this method)
+                List<Expression> targets = downcastValue.variableToTypeInfoSet().values().stream()
+                        .flatMap(java.util.Set::stream)
+                        .map(TypeInfo::fullyQualifiedName)
+                        .distinct().sorted()
+                        .map(fqn -> (Expression) runtime.newStringConstant(fqn))
+                        .toList();
+                if (!targets.isEmpty()) {
+                    modified.addKeyValuePair("downcastTo", runtime.newArrayInitializerBuilder()
+                            .setCommonType(runtime.stringParameterizedType())
+                            .setExpressions(targets).build());
+                }
+            }
+            list.add(new AnnotationProperty(modified.build(), downcast));
         }
         return list;
     }
