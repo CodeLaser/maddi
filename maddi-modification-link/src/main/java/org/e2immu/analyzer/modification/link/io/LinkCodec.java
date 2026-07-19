@@ -67,6 +67,16 @@ public class LinkCodec {
         return new C();
     }
 
+    /** checkpoint-restore variant (task #34): already-present values win, decode fills the gaps */
+    public Codec restoreCodec() {
+        return new C() {
+            @Override
+            protected boolean skipExistingValues() {
+                return true;
+            }
+        };
+    }
+
     class C extends CodecImpl {
         public C() {
             super(runtime, propertyProvider, decoderProvider, typeProvider, sourceSetOfRequest);
