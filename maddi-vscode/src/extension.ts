@@ -11,7 +11,9 @@ import { buildConfig } from './configBuilder';
 import { DaemonClient, Frame } from './daemonClient';
 import { DaemonHandle, launchDaemon } from './daemonLauncher';
 import { toDiagnostics } from './diagnostics';
+import { MaddiInlayHintsProvider } from './hints';
 import { CompileStatus, compileWorkspace, waitForStandardServer } from './javaLanguageServer';
+import { ResultStore } from './results';
 
 /**
  * The maddi VS Code front-end.
@@ -25,17 +27,31 @@ import { CompileStatus, compileWorkspace, waitForStandardServer } from './javaLa
 let daemon: DaemonHandle | undefined;
 let diagnostics: vscode.DiagnosticCollection;
 let output: vscode.OutputChannel;
+let store: ResultStore;
 let running = false;
 
 export function activate(context: vscode.ExtensionContext): void {
     diagnostics = vscode.languages.createDiagnosticCollection('maddi');
     output = vscode.window.createOutputChannel('maddi');
-    context.subscriptions.push(diagnostics, output);
+    store = new ResultStore();
+    const hints = new MaddiInlayHintsProvider(store);
+
     context.subscriptions.push(
-        vscode.commands.registerCommand('maddi.analyze', () => analyzeCommand(context)));
+        diagnostics,
+        output,
+        store,
+        hints,
+        vscode.languages.registerInlayHintsProvider({ language: 'java' }, hints),
+        vscode.commands.registerCommand('maddi.analyze', () => analyzeCommand(context)),
+        // the daemon is a child process: it does not go away with the window unless it is killed
+        { dispose: () => stopDaemon() });
 }
 
 export function deactivate(): void {
+    stopDaemon();
+}
+
+function stopDaemon(): void {
     daemon?.process.kill();
     daemon = undefined;
 }
@@ -65,6 +81,10 @@ async function analyzeCommand(context: vscode.ExtensionContext): Promise<void> {
             { location: vscode.ProgressLocation.Notification, title: 'maddi', cancellable: false },
             (progress) => analyze(context, folder, jdkHome, settings, progress));
     } catch (e) {
+        // Drop what is on screen: it came from a run that did not finish, and stale findings presented as
+        // current are worse than none — they look like an answer.
+        diagnostics.clear();
+        store.clear();
         const message = e instanceof Error ? e.message : String(e);
         output.appendLine(`analysis failed: ${message}`);
         vscode.window.showErrorMessage(`maddi: ${message}`, 'Show log')
@@ -121,6 +141,9 @@ async function analyze(
         const frame = await client.analyze(`req-${Date.now()}`, config, (streamed: Frame) => {
             if (streamed.type === PARTIAL_RESULT) {
                 displayed = merge(displayed, streamed as unknown as PartialResult);
+                // show them as they arrive: on a large project this is the difference between an annotated
+                // file in seconds and a blank one until the last pass
+                store.set(displayed);
                 progress.report({ message: `analyzing (${displayed.elementAnnotations.length} elements so far)` });
             } else {
                 progress.report({ message: String(streamed.phase ?? 'analyzing') });
@@ -141,6 +164,7 @@ async function analyze(
 }
 
 function applyResult(result: Result): void {
+    store.set(result);
     diagnostics.clear();
     for (const [uri, list] of toDiagnostics(result.findings)) {
         diagnostics.set(vscode.Uri.parse(uri), list);

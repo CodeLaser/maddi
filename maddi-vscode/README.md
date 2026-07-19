@@ -1,7 +1,8 @@
 # maddi for VS Code
 
-**Status: scaffold.** The analysis runs end to end and findings appear as diagnostics; inline hints are not
-implemented yet, and none of it has been driven in a running VS Code. See *What is missing* below.
+**Status: working.** Analysis runs end to end and findings appear as diagnostics — verified in a running
+VS Code against a real project. Inline hints are implemented but have **not** been eyeballed yet. Packaging
+is not done. See *What is missing*.
 
 Third front-end after IntelliJ and Eclipse. Same architecture — the analyser runs out of process and is
 spoken to over a socket in plain JSON — with one thing that is genuinely different here.
@@ -73,10 +74,13 @@ error.
 
 ## What is missing
 
-- **inline hints** — the annotations are received and merged, but nothing renders them yet. VS Code has
-  `InlayHintsProvider`; the other two front-ends put declaration hints above the declaration and parameter
-  hints inline, and this should match.
-- **packaging** — no `.vsix` is produced, and the daemon is not yet copied in by a build step.
-- **never run** — no part of this has been exercised in a running VS Code. The jdt.ls command shapes are
-  taken from the installed server (1.59) and pinned by tests, but "the commands return what we expect" is
-  verified, while "the extension works" is not.
+- **packaging** — no `.vsix` is produced by this module's own scripts (the repo-root `Taskfile.yml` has a
+  `vscode:package` task that does it).
+- **hints are inline only, unlike the other two front-ends.** IntelliJ and Eclipse put a declaration's
+  annotations on a line of their own above it, which reads like hand-written annotated API source. VS Code
+  has no equivalent: an `InlayHint` is positioned at a `Position` and renders within the line, and nothing
+  in the API adds one. The only route is injecting `display: block` CSS through a decoration's
+  `textDecoration`, which is unsupported and version-fragile, so hints here are drawn immediately before the
+  declaration instead.
+- **no gutter or findings view** — the Problems panel covers the second, and VS Code has no real analogue of
+  the first.
