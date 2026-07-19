@@ -47,16 +47,33 @@ import java.util.TreeSet;
  * surfaces as a verification-pass change.
  */
 public record IncrementalState(Map<String, String> analysisFingerprints,
+                               Map<String, String> sourceFingerprints,
                                Map<String, Set<String>> consumers) {
     private static final Logger LOGGER = LoggerFactory.getLogger(IncrementalState.class);
 
     public static final String FILE_NAME = "incremental-state.json";
+
+    /** primary types whose CURRENT source fingerprint differs from the stored one (or is new/absent) */
+    public Set<String> changedTypes(Collection<TypeInfo> currentPrimaryTypes) {
+        Set<String> changed = new TreeSet<>();
+        for (TypeInfo pt : currentPrimaryTypes) {
+            String stored = sourceFingerprints.get(pt.fullyQualifiedName());
+            FingerPrint current = pt.compilationUnit() == null ? null
+                    : pt.compilationUnit().fingerPrintOrNull();
+            if (stored == null || current == null || current.isNoFingerPrint()
+                || !stored.equals(current.toString())) {
+                changed.add(pt.fullyQualifiedName());
+            }
+        }
+        return changed;
+    }
 
     /** lift the recorder's element-level edges (consumer -> consumed) to primary types, reversed */
     public static IncrementalState capture(Runtime runtime,
                                            Collection<TypeInfo> primaryTypes,
                                            Map<Info, Set<Info>> elementConsumerToConsumed) {
         Map<String, String> fingerprints = new TreeMap<>();
+        Map<String, String> sourceFps = new TreeMap<>();
         for (TypeInfo pt : primaryTypes) {
             try {
                 FingerPrint fp = AnalysisFingerprint.of(runtime, pt);
@@ -65,6 +82,11 @@ public record IncrementalState(Map<String, String> analysisFingerprints,
                 // the known codec tail (fieldIndex & friends): a type without a fingerprint is
                 // simply always-recomputed on resume — degraded, never wrong
                 LOGGER.debug("No fingerprint for {}: {}", pt, e.toString());
+            }
+            FingerPrint source = pt.compilationUnit() == null ? null
+                    : pt.compilationUnit().fingerPrintOrNull();
+            if (source != null && !source.isNoFingerPrint()) {
+                sourceFps.put(pt.fullyQualifiedName(), source.toString());
             }
         }
         Map<String, Set<String>> consumers = new TreeMap<>();
@@ -79,20 +101,27 @@ public record IncrementalState(Map<String, String> analysisFingerprints,
                         .add(consumerFqn);
             }
         });
-        return new IncrementalState(fingerprints, consumers);
+        return new IncrementalState(fingerprints, sourceFps, consumers);
     }
 
-    public void save(File directory) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\n \"fingerprints\": {");
+    private static void appendStringMap(StringBuilder sb, String name, Map<String, String> map) {
+        sb.append(" \"").append(name).append("\": {");
         boolean first = true;
-        for (Map.Entry<String, String> e : analysisFingerprints.entrySet()) {
+        for (Map.Entry<String, String> e : map.entrySet()) {
             if (!first) sb.append(',');
             first = false;
             sb.append("\n  \"").append(e.getKey()).append("\": \"").append(e.getValue()).append('"');
         }
-        sb.append("\n },\n \"consumers\": {");
-        first = true;
+        sb.append("\n },\n");
+    }
+
+    public void save(File directory) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\n");
+        appendStringMap(sb, "fingerprints", analysisFingerprints);
+        appendStringMap(sb, "sourceFingerprints", sourceFingerprints);
+        sb.append(" \"consumers\": {");
+        boolean first = true;
         for (Map.Entry<String, Set<String>> e : consumers.entrySet()) {
             if (!first) sb.append(',');
             first = false;
@@ -115,19 +144,18 @@ public record IncrementalState(Map<String, String> analysisFingerprints,
     public static IncrementalState load(File directory) {
         File file = new File(directory, FILE_NAME);
         Map<String, String> fingerprints = new TreeMap<>();
+        Map<String, String> sourceFps = new TreeMap<>();
         Map<String, Set<String>> consumers = new TreeMap<>();
-        if (!file.canRead()) return new IncrementalState(fingerprints, consumers);
+        if (!file.canRead()) return new IncrementalState(fingerprints, sourceFps, consumers);
         try {
             String json = Files.readString(file.toPath());
             // minimal parser for exactly the format save() writes: FQNs and base64 fingerprints
-            // contain neither quotes nor backslashes
+            // contain neither quotes nor backslashes; section headers ("name": {) never match the
+            // key-value pattern ("k": "v")
+            int src = json.indexOf("\"sourceFingerprints\"");
             int cs = json.indexOf("\"consumers\"");
-            String fpPart = json.substring(0, cs < 0 ? json.length() : cs);
-            java.util.regex.Matcher m = java.util.regex.Pattern
-                    .compile("\"([^\"]+)\":\\s*\"([^\"]*)\"").matcher(fpPart);
-            while (m.find()) {
-                if (!"fingerprints".equals(m.group(1))) fingerprints.put(m.group(1), m.group(2));
-            }
+            parseStringMap(json.substring(0, src < 0 ? (cs < 0 ? json.length() : cs) : src), fingerprints);
+            if (src >= 0) parseStringMap(json.substring(src, cs < 0 ? json.length() : cs), sourceFps);
             if (cs >= 0) {
                 java.util.regex.Matcher c = java.util.regex.Pattern
                         .compile("\"([^\"]+)\":\\s*\\[([^]]*)]").matcher(json.substring(cs));
@@ -142,8 +170,15 @@ public record IncrementalState(Map<String, String> analysisFingerprints,
         } catch (IOException | RuntimeException e) {
             LOGGER.warn("Cannot load incremental state from {}: {} — cold behavior", file, e.toString());
             fingerprints.clear();
+            sourceFps.clear();
             consumers.clear();
         }
-        return new IncrementalState(fingerprints, consumers);
+        return new IncrementalState(fingerprints, sourceFps, consumers);
+    }
+
+    private static void parseStringMap(String part, Map<String, String> target) {
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("\"([^\"]+)\":\\s*\"([^\"]*)\"").matcher(part);
+        while (m.find()) target.put(m.group(1), m.group(2));
     }
 }

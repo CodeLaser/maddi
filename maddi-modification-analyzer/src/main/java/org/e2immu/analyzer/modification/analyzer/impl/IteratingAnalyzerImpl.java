@@ -44,6 +44,18 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         this.valueFeed = feed;
     }
 
+    // task #35 phase C: consumption edges PERSISTED by a previous run (consumed element -> its
+    // consumers), unioned into the worklist's wake relation. They close the value-mediated-flow
+    // gap on resume: an edge discovered DURING the prior run (functional-interface application,
+    // no syntactic call edge) is not in the fresh call graph, and in incremental mode there is no
+    // verification pass to catch the resulting stale value — the persisted edge wakes the
+    // consumer directly.
+    private java.util.Map<Info, java.util.Set<Info>> externalWakeEdges;
+
+    public void setExternalWakeEdges(java.util.Map<Info, java.util.Set<Info>> externalWakeEdges) {
+        this.externalWakeEdges = externalWakeEdges;
+    }
+
     // feed exceptions must never disturb the analysis
     private void feed(java.util.function.Consumer<org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed> action) {
         if (valueFeed != null) {
@@ -315,6 +327,16 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                         dependersOf.computeIfAbsent(overridden, _ -> new java.util.HashSet<>()).add(mi);
                     }
                 }
+            }
+            if (externalWakeEdges != null) {
+                int added = 0;
+                for (var e : externalWakeEdges.entrySet()) {
+                    java.util.Set<Info> deps = dependersOf.computeIfAbsent(e.getKey(), _ -> new java.util.HashSet<>());
+                    for (Info consumer : e.getValue()) {
+                        if (deps.add(consumer)) added++;
+                    }
+                }
+                LOGGER.info("Unioned {} persisted consumption wake edge(s)", added);
             }
             LOGGER.info("Worklist narrowing ACTIVE; symmetric reverse adjacency for {} elements", dependersOf.size());
         } else {
