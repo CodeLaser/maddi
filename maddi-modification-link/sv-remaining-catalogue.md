@@ -52,6 +52,14 @@
   corrupting mid-read — the historical low-victim-count flakes that no locking could cure. Fix:
   fm outlives the task (openFileManagers, closed in invalidateAllSources). Plus an assert that
   -XDuseUnsharedTable is HONORED (Names.table is not SharedNameTable), ScanCompilationUnits.
+- Elasticsearch SWEEP GREEN 2026-07-19 04:12 (5h21m, 24G, post-#33): **BUILD SUCCESSFUL, zero
+  isolated types** — the sweep-green bar is MET. 239,741 elements (+9 = exactly the
+  BinaryFieldMapperTests.$13.BytesCompareUnsigned members, the #33 pin type, now fully analyzed).
+  A/B vs first contact: 466 lines (142 added / 133 removed) — the new members + formerly-degraded
+  neighborhoods re-analyzed. Distributions: methods 101,829 nonMod / 48,549 mod / 1,841 null
+  (10 fewer undecided); fields 28,586/12,569/562; types 798 @Imm (+8) / 1,975 @ImmHC (+8) /
+  1,367 @FF / 18,459 @Mutable / 23,206 null (the 51% cluster UNCHANGED — breaking-strategy item
+  stands). Dump: build/imm-elasticsearch-2-2026-07-19.txt.gz.
 - Elasticsearch first contact COMPLETED 2026-07-18 (attempt 11, 5h29m, 24G heap, work ceiling
   active): **239,732 elements** — 152,210 methods (101,822 nonModifying / 48,537 modifying /
   1,851 null = 99% decided), 41,717 fields (28,581/12,571/565), 45,805 types. Types:
