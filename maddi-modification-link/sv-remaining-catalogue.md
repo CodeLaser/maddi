@@ -19,8 +19,12 @@
   §9.4 cross-read executed (FastFixedSetFactory named by both evidence lines; 836 fernflower
   divergences via the new SHADOWDIFF gate).
 - NEXT, in rough order: (1) DONE 2026-07-19 — the 8 reverse shadow divergences triaged to zero
-  (see below); (2) rerun the ES verification overnight — ideally after the wave-boundary
-  checkpoint fix below; (3) phase-2 sequencing decision, then the reachability implementation
+  (see below); (2) rerun the ES verification overnight — the wave-boundary checkpoint fix is IN
+  (AnalysisValueFeed.waveCompleted default method; SingleIterationAnalyzerImpl fires it at each
+  strata-wave barrier via a callback wired by IteratingAnalyzerImpl; CheckpointWriter batches
+  wave primaries and flushes at most once per 60s — a cold first pass now checkpoints
+  continuously instead of nothing for 3-4h; interval is a ctor param, tests use 0/MAX);
+  (3) phase-2 sequencing decision, then the reachability implementation
   (acceptance: TestDeepCaptureChain green + promoted shadow baseline; expect TestShadowCloneBench
   pins + deepFieldChains tripwire to fire as re-baseline signals); (4) #39 step 2 activation data
   from the jfocus owner (EIDEDUP_SHADOW=1, their suite); (5) #35 frontier integration (their

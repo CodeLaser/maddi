@@ -230,6 +230,12 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         int iterations = 0;
         SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
         this.lastRun = singleIterationAnalyzer;
+        if (valueFeed != null && singleIterationAnalyzer instanceof SingleIterationAnalyzerImpl sia) {
+            // wave-barrier feed (first pass only): intra-pass checkpoint protection for the multi-hour
+            // cold first pass; the callback runs on the coordinator thread at the wave barrier
+            sia.setWaveCompletedCallback((waveElements, wave) ->
+                    feed(f -> f.waveCompleted(1, wave, waveElements)));
+        }
         boolean cycleBreakingActive = false;
         int previousPropertiesChanged = Integer.MAX_VALUE;
         // reverse adjacency: dependersOf(Y) = { X | X depends on Y } — the elements to re-analyze when Y changes
