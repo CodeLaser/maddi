@@ -121,13 +121,28 @@ public final class DaemonProtocol {
                                     Map<String, String> properties) {
     }
 
+    /**
+     * How the fixpoint iteration ended, which decides whether the values in a result are final.
+     * <ul>
+     *   <li>{@code CERTIFIED} — the fixpoint was reached: the values are final.</li>
+     *   <li>{@code MAX_ITERATIONS} — stopped at the iteration cap: best available, not certified.</li>
+     *   <li>{@code PLATEAU} — stopped on the oscillation plateau: best available, not certified.</li>
+     *   <li>{@code UNKNOWN} — the run produced no terminal phase (e.g. it ended at parse errors).</li>
+     * </ul>
+     * Worth surfacing rather than assuming: a value that stopped at the cap looks exactly like a certified
+     * one, and only this says otherwise.
+     */
+    public static final String OUTCOME_CERTIFIED = "CERTIFIED";
+    public static final String OUTCOME_UNKNOWN = "UNKNOWN";
+
     public record Result(String requestId,
                          List<Finding> findings,
                          List<ElementAnnotation> elementAnnotations,
                          List<String> initializationProblems,
                          int parseErrorCount,
                          int hintsLoaded,
-                         long elapsedMillis) {
+                         long elapsedMillis,
+                         String outcome) {
     }
 
     /**

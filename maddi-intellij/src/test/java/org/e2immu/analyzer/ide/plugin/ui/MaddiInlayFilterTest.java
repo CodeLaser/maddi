@@ -120,7 +120,7 @@ public class MaddiInlayFilterTest extends DeclarativeInlayHintsProviderTestCase 
                 path, 3, 1, 3, 40, "PARAMETER", "Box.set.m",
                 List.of(MODIFIED.text()), List.of(MODIFIED), Map.of());
         AnalysisModel.Result result = new AnalysisModel.Result(
-                "test", List.of(), List.of(type, method, param), List.of(), 0, 0, 0);
+                "test", List.of(), List.of(type, method, param), List.of(), 0, 0, 0, AnalysisModel.OUTCOME_CERTIFIED);
         MaddiAnalysisService.getInstance(getProject()).applyResult(result);
 
         MaddiSettings.State state = MaddiSettings.getInstance().getState();

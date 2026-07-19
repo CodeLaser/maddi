@@ -127,6 +127,14 @@ public final class MaddiAnalysisService implements Disposable {
         AnalysisModel.Result result =
                 daemon.client().objectMapper().treeToValue(node, AnalysisModel.Result.class);
         applyResult(result);
+        // Silence on a certified run; a run that stopped at the iteration cap or on a plateau produces
+        // annotations indistinguishable from final ones, so that is worth one line.
+        AnalysisModel.Certainty certainty = AnalysisModel.certaintyOf(result);
+        if (certainty == AnalysisModel.Certainty.BEST_AVAILABLE) {
+            notifyUser("Analysis finished without reaching a fixpoint: the results are the best available,"
+                       + " not certified. Some properties may be weaker than the code allows.",
+                    NotificationType.WARNING);
+        }
     }
 
     /**

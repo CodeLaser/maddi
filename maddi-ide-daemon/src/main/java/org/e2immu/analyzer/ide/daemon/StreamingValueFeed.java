@@ -53,10 +53,10 @@ class StreamingValueFeed implements AnalysisValueFeed {
     private final ResultCollector collector;
 
     /**
-     * Set once the fixpoint is certified: from then on the values are final rather than merely established.
-     * Only ever moves false → true, on the coordinator thread that also drives {@link #passCompleted}.
+     * How the run ended, or null while it is still going. Written on the coordinator thread that also drives
+     * {@link #passCompleted}; volatile because {@link #outcome()} is read afterwards from the analysis thread.
      */
-    private boolean certified;
+    private volatile Phase terminalPhase;
 
     StreamingValueFeed(StatusSink status, String requestId, ResultCollector collector) {
         this.status = status;
@@ -71,17 +71,30 @@ class StreamingValueFeed implements AnalysisValueFeed {
         if (elements.isEmpty()) return; // the pass touched nothing worth displaying
         LOGGER.debug("pass {} ({}): streaming {} element(s)", iteration,
                 fullPass ? "full" : "worklist", elements.size());
+        // always false in practice: the terminal phases arrive AFTER the last passCompleted, so certainty
+        // reaches the front-end on the terminal result (see outcome()) rather than on a partial frame. The
+        // field stays because a future engine that certified mid-run would have somewhere to say so.
         status.partialResult(new DaemonProtocol.PartialResult(
-                requestId, iteration, fullPass, certified, elements));
+                requestId, iteration, fullPass, terminalPhase == Phase.TERMINAL_CERTIFIED, elements));
     }
 
     @Override
     public void phase(Phase phase, int iteration) {
-        if (phase == Phase.TERMINAL_CERTIFIED) certified = true;
-        // The terminal phases arrive after the last passCompleted, so the certainty they establish reaches the
-        // front-end on the terminal result rather than on a partial frame. Surfaced as status so a UI can say
-        // which way the run ended: certified, or stopped at the cap / on a plateau with best-available values.
+        if (phase != Phase.CYCLE_BREAKING_ACTIVATED) terminalPhase = phase;
+        // Surfaced as status too, so a progress line can show the run ending as it happens.
         status.status(new DaemonProtocol.Status(requestId, "analyze",
                 "pass " + iteration + ": " + phase, null, null));
+    }
+
+    /**
+     * How the run ended, for the terminal result: {@code CERTIFIED} means the values are final, the other
+     * outcomes mean best-available. {@code UNKNOWN} when no terminal phase arrived at all — which happens on
+     * a run that never got as far as the fixpoint, and is not the same as "not certified".
+     */
+    String outcome() {
+        Phase phase = terminalPhase;
+        if (phase == null) return DaemonProtocol.OUTCOME_UNKNOWN;
+        // the engine's "TERMINAL_" prefix is an artefact of the enum being shared with CYCLE_BREAKING_ACTIVATED
+        return phase.name().startsWith("TERMINAL_") ? phase.name().substring("TERMINAL_".length()) : phase.name();
     }
 }

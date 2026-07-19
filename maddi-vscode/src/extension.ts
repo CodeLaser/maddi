@@ -144,7 +144,7 @@ async function analyze(
                 displayed = merge(displayed, partial);
                 // show them as they arrive: on a large project this is the difference between an annotated
                 // file in seconds and a blank one until the last pass
-                store.set(displayed);
+                store.setPartial(displayed);
                 // what has been decided, not a percentage: the run is a fixpoint iteration whose length is
                 // not known in advance, so a fraction would be invented
                 progress.report({

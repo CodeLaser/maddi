@@ -22,6 +22,8 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -122,7 +124,7 @@ public class AnalysisModelTest {
     @Test
     public void mergeKeepsFindings() {
         AnalysisModel.Result withFinding = new AnalysisModel.Result("req", List.of(withCategory("contract-violation")),
-                List.of(), List.of(), 0, 7, 123L);
+                List.of(), List.of(), 0, 7, 123L, AnalysisModel.OUTCOME_CERTIFIED);
         AnalysisModel.Result merged = AnalysisModel.merge(withFinding, pass(2, element("TYPE", "x.Box", "@Container")));
         assertEquals(1, merged.findings().size(), "a partial frame must not drop existing findings");
         assertEquals(7, merged.hintsLoaded(), "nor the rest of the result's context");
@@ -130,5 +132,49 @@ public class AnalysisModelTest {
 
     private static AnalysisModel.ElementAnnotation byFqn(AnalysisModel.Result r, String fqn) {
         return r.elementAnnotations().stream().filter(e -> e.fqn().equals(fqn)).findFirst().orElseThrow();
+    }
+
+    // ---- the certainty ladder ----
+
+    private static AnalysisModel.Result withOutcome(String outcome) {
+        return new AnalysisModel.Result("req", List.of(), List.of(), List.of(), 0, 0, 0L, outcome);
+    }
+
+    @DisplayName("a certified run is final; anything else is best-available, not final")
+    @Test
+    public void certaintyFromOutcome() {
+        assertEquals(AnalysisModel.Certainty.FINAL,
+                AnalysisModel.certaintyOf(withOutcome(AnalysisModel.OUTCOME_CERTIFIED)));
+        assertEquals(AnalysisModel.Certainty.BEST_AVAILABLE,
+                AnalysisModel.certaintyOf(withOutcome("MAX_ITERATIONS")));
+        assertEquals(AnalysisModel.Certainty.BEST_AVAILABLE,
+                AnalysisModel.certaintyOf(withOutcome("PLATEAU")));
+    }
+
+    @DisplayName("a missing outcome is never presented as final")
+    @Test
+    public void unknownOutcomeIsNotFinal() {
+        // an older daemon sends no outcome at all; presenting its values as certified would be a lie
+        assertEquals(AnalysisModel.Certainty.UNKNOWN, AnalysisModel.certaintyOf(withOutcome(null)));
+        assertEquals(AnalysisModel.Certainty.UNKNOWN,
+                AnalysisModel.certaintyOf(withOutcome(AnalysisModel.OUTCOME_UNKNOWN)));
+        assertEquals(AnalysisModel.Certainty.UNKNOWN, AnalysisModel.certaintyOf(null));
+    }
+
+    @DisplayName("a view merged from streamed passes is not final either")
+    @Test
+    public void mergedStreamIsNotFinal() {
+        AnalysisModel.Result streamed = AnalysisModel.merge(null, pass(1, element("TYPE", "x.Box", "@Container")));
+        assertEquals(AnalysisModel.Certainty.UNKNOWN, AnalysisModel.certaintyOf(streamed),
+                "a run still in flight has no outcome, so its values must not read as certified");
+    }
+
+    @DisplayName("only the states worth reporting carry a label")
+    @Test
+    public void onlyNoteworthyStatesAreLabelled() {
+        // saying "final" on every hint of a normal run would be noise; the others change how it should be read
+        assertNull(AnalysisModel.certaintyLabel(AnalysisModel.Certainty.FINAL));
+        assertNotNull(AnalysisModel.certaintyLabel(AnalysisModel.Certainty.PROVISIONAL));
+        assertNotNull(AnalysisModel.certaintyLabel(AnalysisModel.Certainty.BEST_AVAILABLE));
     }
 }
