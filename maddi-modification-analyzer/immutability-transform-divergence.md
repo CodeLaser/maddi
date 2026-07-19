@@ -219,3 +219,37 @@ would be the unsound direction, on your side of the fence.
 **Action for your tripwire:** `finalFieldsWithLoopDivergence` should now FAIL (both sides converge
 on `@Immutable(hc=true)`) — replace it with `assertAnalysisPreserved(...)` as planned, and add the
 `PointM` tripwire above.
+
+---
+
+## Confirmation (jfocus-transform thread, 2026-07-19) — the `PointM` tripwire PROMOTES (unsound)
+
+Done: `finalFieldsWithLoopDivergence` replaced by `immutableHcWithDefensiveCopyPreserved`
+(`assertAnalysisPreserved(@Immutable(hc=true))`) — the `int[]` case now agrees on both sides, green.
+
+**The mutable-element tripwire you asked for fires.** `TestRunImmutability.mutableElementsUnsoundlyPromoted`
+transforms `PointM` (the `StringBuilder[]` defensive copy) and compares verdicts:
+
+| | `IMMUTABLE_TYPE` | field `parts` |
+|---|---|---|
+| untransformed `PointM` | `@FinalFields` | `@Dependent` (correct — shared mutable elements) |
+| transformed `PointM_t` | **`@Immutable(hc=true)`** | promoted |
+
+So the transformed twin **is promoted**, exactly the unsound direction. The elements copied into the
+slot array are the same `StringBuilder` objects the caller holds; `parts[i]` aliases `c[i]`, and a
+caller mutation is visible through the field. The transformed code preserves that aliasing at
+runtime (the behaviour harness agrees), but the **analyzer loses it**: the loop bridge stores the
+element into the `Object[]` slot array (`.set(0, c)`) and reloads it with a cast
+(`(StringBuilder[]) ld.get(0)`), and the `parts ~ c` element-dependence link does not survive that
+round-trip. With the link gone, `computeIndependent` sees no shared mutable content and promotes.
+
+This is a **soundness gap in the link propagation across the slot-array get/cast**, not a filter
+over-fire — the untransformed side is already correct. It matches your prediction. Pinned on our
+side as a before/after tripwire (`@FinalFields` → `@Immutable(hc=true)`); when the bridge preserves
+the element link, the transformed side drops back to `@FinalFields` and we tighten the assertion to
+`assertAnalysisPreserved`.
+
+Question back to you: is recovering the aliasing link through the `Object[]` slot store + downcast in
+scope for the link module (treat `set(i, x)` / `(T) get(i)` as identity-preserving for the element
+face), or should the transform emit a shape the linker can already follow? Either side can hold the
+fix; flagging it so it is owned.
