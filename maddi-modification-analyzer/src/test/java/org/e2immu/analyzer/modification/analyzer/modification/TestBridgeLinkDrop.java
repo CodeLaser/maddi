@@ -142,6 +142,26 @@ public class TestBridgeLinkDrop extends CommonTest {
             });
         });
 
+        // hop 1c: who feeds the private ctorBody:0:ld? Statement-level links in run and the ctor
+        for (MethodInfo mi : new MethodInfo[]{pointMT.findUniqueMethod("run", 1), pointMT.constructors().getFirst()}) {
+            mi.methodBody().statements().forEach(stmt -> {
+                var vd = org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl.of(stmt);
+                if (vd == null) return;
+                vd.variableInfoStream().forEach(vi -> {
+                    var links = vi.linkedVariables();
+                    if (links != null && !links.isEmpty()) {
+                        String s = String.valueOf(links);
+                        if (s.contains("ctorBody") || s.contains("ldIn") || s.contains("0:c")
+                            || vi.variable().simpleName().equals("ldIn")
+                            || vi.variable().simpleName().equals("current")) {
+                            System.out.println("BRIDGE-" + mi.name().toUpperCase() + " " + stmt.source().index()
+                                               + " " + vi.variable().simpleName() + " :: " + s);
+                        }
+                    }
+                });
+            });
+        }
+
         // hop 2: Builder.set — does the parameter o link into this.data?
         TypeInfo builder = pointMT.findSubType("LoopDataImpl").findSubType("Builder");
         MethodInfo set = builder.findUniqueMethod("set", 2);

@@ -323,3 +323,26 @@ private-param hop: either compose exposure transitively through call-site argume
 propagate parameter-dependence along the Λ `apply` identity the same way E7 propagates
 modification. Statement-level face-bridging (fix at the root, in the link engine) is the
 alternative to (i) with wider blast radius; measure either with the FPDUMP A/B ladder.
+
+### Progress (same evening): fix (i) LANDED; the (ii) seam mapped to the exact loss
+
+**(i) is in** (`FieldAnalyzerImpl.composeThroughLocal`): one-hop local elimination in the field's
+link computation, plain-face algebra only (a first attempt emitting on §m faces tripped the
+engine's mixed-face invariant — the composition now skips §-faced from-sides and emits
+`field ~ primary(target)`, the weakest whole-face claim, deduplicated, no self-links). The
+reproducer now carries `this.parts ~ 0:ld` in the field's LINKS. Analyzer + link suites green.
+
+**(ii), the remaining hop, empirically mapped** (probes in TestBridgeLinkDrop): the capture side
+is HEALTHY — the ctor's statement data has `0:c ∈ ldIn.data` (public param into slot content) and
+`ldIn.body ← Λ$_fi10` (the captured method reference). The run side is HEALTHY statement-level —
+`ld ← 0:ldIn`, `current ≡ ld`, apply mediated by `$_afi1` markers. The LOSS: `run`'s summary
+`ofParameters(ldIn)` is `[-]` — the Λ-decoration (`0:ldIn ↖ Λ$_afi1.body`) and the local-target
+identities do not survive `LinkComputer.filteredPi`, so the ctor's call site can never
+reconstruct "run applies ldIn's own body to ldIn", and `ctorBody:0:ld` is never fed. This is the
+FI-IN-CARRIED-OBJECT seam (the 'interface in between' family, TestStaticValuesRecord): expandParams
+expands FI-typed ARGUMENTS, but here the FI travels inside a field of the argument. The precise
+(ii) fix: preserve the parameter's Λ-decoration links in the summary (they are the FI-application
+contract of the method) and, at call sites of methods whose parameter is Λ-decorated-and-applied,
+expand the carried FI: link the underlying method's parameters to the argument (the apply-identity
+analog of E7's creation-site attribution). Until then the reproducer's characterization pins keep
+asserting the unsound verdicts.
