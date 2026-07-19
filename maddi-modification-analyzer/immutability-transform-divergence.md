@@ -346,3 +346,17 @@ contract of the method) and, at call sites of methods whose parameter is Λ-deco
 expand the carried FI: link the underlying method's parameters to the argument (the apply-identity
 analog of E7's creation-site attribution). Until then the reproducer's characterization pins keep
 asserting the unsound verdicts.
+
+Final scoping detail (checked): `Result.expandFunctionalInterfaceVariables` — whose trigger DOES
+fire at the `run(ldIn)` call site (run's return targets `$_afi1`) — expands only DIRECT FI
+arguments (primary is a FunctionalInterfaceVariable, or directly assigned-from one); a carrier
+with the FI on a field face (`ldIn.body ← Λ$_fi10`) falls through untouched. Two implementation
+routes, both with house precedent:
+(A) EAGER CAPTURE-LINKING (the E7 precedent — attribute at the creation site, no application-site
+knowledge needed): when a fiv is linked into a field face of a carrier, link the underlying
+method's parameters `P ~ carrier` — over-linking is the CONSERVATIVE direction for independence
+(lowers it), so this is sound and simple; imprecision limited to stored-and-never-applied FIs.
+(B) decoration-preserving summaries + carrier-aware expansion at call sites — precise, larger.
+Plus, either way: a consumer-side exposure composition in computeIndependent (a private-param
+link target's exposure resolved through that parameter's own cross-method links). Route (A) +
+the consumer hop is the recommended fresh-session plan.
