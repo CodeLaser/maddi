@@ -2655,6 +2655,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 }
                 typeStack.removeLast();
                 currentMethod = enclosingMethod;
+                // member types of the anonymous body (e.g. a member record, task #33) are, like local
+                // types, invisible to the end-of-scan commit walk — they are not in the named subtype
+                // tree, and a forward-reference registration bypasses the typeData walk. Default their
+                // fields' initializers and commit, exactly as handleLocalType does.
+                anonymousType.subTypes().stream()
+                        .filter(st -> !st.hasBeenInspected())
+                        .forEach(this::recursivelyCommit);
                 builder.setSource(sourceForNode(node)).commit();
             } else {
                 throw new UnsupportedOperationException();

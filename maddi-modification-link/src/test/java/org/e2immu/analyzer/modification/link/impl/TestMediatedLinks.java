@@ -93,6 +93,68 @@ public class TestMediatedLinks extends CommonTest {
                 "a plain assignment carries no mediation: " + pairLinks);
     }
 
+    @Language("java")
+    private static final String INPUT_CHAIN = """
+            package a.b.ii;
+            class C4 {
+                // two abstract methods: NOT a functional interface (FI values ride the Λ machinery
+                // and have no plain return summary)
+                interface II { void method1(String s); void method2(); }
+                II m(Object o) {
+                    II ii = (II) o;
+                    II jj = ii;
+                    return jj;
+                }
+            }
+            """;
+
+    @DisplayName("a chain across a mediated hop taints the summary link (return<-jj<-ii<-(cast)o)")
+    @Test
+    public void testChain() {
+        Link l = returnToParameterLink("a.b.ii.C4", INPUT_CHAIN);
+        assertTrue(l.mediated(), "every path from the return to 0:o crosses the cast hop: " + l);
+    }
+
+    @Language("java")
+    private static final String INPUT_CHAIN_PLAIN = """
+            package a.b.ii;
+            class C5 {
+                interface II { void method1(String s); void method2(); }
+                II m(II o) {
+                    II ii = o;
+                    II jj = ii;
+                    return jj;
+                }
+            }
+            """;
+
+    @DisplayName("an unmediated chain stays unmediated at the summary")
+    @Test
+    public void testChainPlain() {
+        Link l = returnToParameterLink("a.b.ii.C5", INPUT_CHAIN_PLAIN);
+        assertFalse(l.mediated(), "no hop is mediated, the summary link must not be: " + l);
+    }
+
+    private Link returnToParameterLink(String fqn, String input) {
+        TypeInfo typeInfo = javaInspector.parse(fqn, input);
+        new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build()).doPrimaryType(typeInfo);
+        LinkComputer lc = new LinkComputerImpl(javaInspector);
+        MethodInfo m = typeInfo.findUniqueMethod("m", 1);
+        var mlv = m.analysis().getOrCreate(METHOD_LINKS, () -> lc.doMethod(m));
+        return mlv.ofReturnValue().stream()
+                .filter(l -> "o".equals(l.to().simpleName()))
+                .findFirst()
+                .orElseThrow(() -> {
+                    var lastVd = VariableDataImpl.of(m.methodBody().statements().getLast());
+                    StringBuilder sb = new StringBuilder();
+                    lastVd.variableInfoIterable(org.e2immu.analyzer.modification.prepwork.variable.Stage.MERGE)
+                            .forEach(vi -> sb.append(vi.variable().simpleName()).append("=")
+                                    .append(vi.linkedVariables()).append("; "));
+                    return new AssertionError("expected a return<-0:o summary link; mlv=" + mlv
+                            + "; last statement links: " + sb);
+                });
+    }
+
     // stored statement-level links between 'o' and 'ii' at the given statement, in whichever direction
     private List<Link> mediatedPairLinks(TypeInfo typeInfo, int statementIndex) {
         new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build()).doPrimaryType(typeInfo);

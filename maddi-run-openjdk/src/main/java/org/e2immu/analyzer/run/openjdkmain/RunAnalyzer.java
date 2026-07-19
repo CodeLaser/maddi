@@ -44,6 +44,7 @@ import org.e2immu.util.internal.util.Trie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
@@ -252,6 +253,29 @@ public class RunAnalyzer implements Runnable {
                     .setWarnNearMisses(configuration.generalConfiguration().warnNearMisses())
                     .build();
             IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(javaInspector, modConfig);
+            // task #34: CHECKPOINT=<dir> writes pass-boundary deltas so a crashed multi-hour run can
+            // resume; CHECKPOINT_RESTORE (presence, with CHECKPOINT set) preloads the directory first —
+            // the verify-certify sweep of the resumed run is the soundness net. Value-carrying gates,
+            // FPDUMP convention.
+            String checkpointDir = System.getenv("CHECKPOINT");
+            if (checkpointDir != null && !checkpointDir.isBlank()) {
+                if (System.getenv("CHECKPOINT_RESTORE") != null) {
+                    try {
+                        int loaded = new org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults(
+                                javaInspector.runtime(), javaInspector.mainSources())
+                                .goDirTolerant(new org.e2immu.analyzer.modification.link.io.LinkCodec(javaInspector)
+                                        .restoreCodec(), new File(checkpointDir));
+                        LOGGER.info("CHECKPOINT_RESTORE: preloaded {} primary types from {}", loaded, checkpointDir);
+                    } catch (IOException | RuntimeException e) {
+                        LOGGER.error("CHECKPOINT_RESTORE failed, continuing cold: {}", e.toString());
+                    }
+                }
+                analyzer.setValueFeed(new org.e2immu.analyzer.modification.analyzer.CheckpointWriter(
+                        javaInspector.runtime(),
+                        new org.e2immu.analyzer.modification.link.io.LinkCodec(javaInspector).codec(),
+                        new File(checkpointDir)));
+                LOGGER.info("CHECKPOINT: writing pass-boundary deltas to {}", checkpointDir);
+            }
             try {
                 analyzer.analyze(order, ccg.graph()); // graph enables worklist narrowing (default ON, NOWORKLIST=1 opts out)
             } catch (RuntimeException | AssertionError analyzerError) {

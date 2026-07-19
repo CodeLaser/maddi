@@ -1,6 +1,10 @@
-package org.e2immu.analyzer.modification.prepwork;
+package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.link.CommonTest;
+import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -8,12 +12,12 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * elasticsearch first contact: a member record of an anonymous class, forward-referenced from a sibling
- * method (BinaryFieldMapperTests.$13.BytesCompareUnsigned). The scanner-side duplicate was fixed; this
- * pins the PREP side, which crashed on the record's component field ('analysisOfInitializer' UOE /
- * 'has a null initializer' assert) because the field builders were never committed.
+ * Task #33, OPENJDK front (this module's CommonTest uses the openjdk inspector): the elasticsearch
+ * shape — a member record of an anonymous class, forward-referenced from a sibling method. The
+ * javac-side scanner must deliver a fully source-built member (bodies present), and prep must run
+ * clean over it. Twin of prepwork's TestAnonymousMemberRecord (in-house parser front).
  */
-public class TestAnonymousMemberRecord extends CommonTest {
+public class TestAnonymousMemberRecordOpenJdk extends CommonTest {
 
     @Language("java")
     private static final String INPUT = """
@@ -36,20 +40,19 @@ public class TestAnonymousMemberRecord extends CommonTest {
             }
             """;
 
-    @DisplayName("prep over a forward-referenced member record of an anonymous class")
+    @DisplayName("openjdk scan + prep over a forward-referenced member record of an anonymous class")
     @Test
     public void test() {
         TypeInfo X = javaInspector.parse("a.b.X", INPUT);
-        // the member record must be fully source-built: body present on make(), Cmp under the anonymous type
         var make = X.findUniqueMethod("make", 0);
-        assertNotNull(make.methodBody(), "make()'s body must survive the member-record parse");
-        var rs = (org.e2immu.language.cst.api.statement.ReturnStatement) make.methodBody().statements().getFirst();
-        var cc = (org.e2immu.language.cst.api.expression.ConstructorCall) rs.expression();
+        assertNotNull(make.methodBody(), "make()'s body must survive");
+        var rs = (ReturnStatement) make.methodBody().statements().getFirst();
+        var cc = (ConstructorCall) rs.expression();
         TypeInfo anon = cc.anonymousClass();
         assertNotNull(anon);
         TypeInfo cmp = anon.findSubType("Cmp");
         cmp.constructorAndMethodStream().forEach(mi ->
                 assertNotNull(mi.methodBody(), "source-built member method must have a body: " + mi));
-        new PrepAnalyzer(runtime).doPrimaryType(X);
+        new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build()).doPrimaryType(X);
     }
 }
