@@ -67,6 +67,15 @@ public class FieldInspectionImpl extends InspectionImpl implements FieldInspecti
            this.fieldInfo = fieldInfo;
            this.initializer = fi.initializer();
            this.fieldModifiers.addAll(fi.fieldModifiers());
+           // copy the rest of the inspection state, or it is silently reset to defaults on the new field.
+           // synthetic in particular distinguishes an enum constant (see TypePrinterImpl.enumConstantStream),
+           // so dropping it makes a translated enum print as 'static final E X = new E()' instead of 'X'.
+           setAccess(fi.access());
+           setSynthetic(fi.isSynthetic());
+           setSource(fi.source());
+           if (fi.comments() != null) addComments(fi.comments());
+           if (fi.annotations() != null) addAnnotations(fi.annotations());
+           setJavaDoc(fi.javaDoc());
         }
 
         @Override
