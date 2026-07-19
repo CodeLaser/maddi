@@ -112,6 +112,39 @@ public class TestCheckpointResume extends CommonTest {
         assertEquals(before, after, "restored + re-certified verdicts must be identical");
     }
 
+    @DisplayName("wave-boundary delta writes during the first pass (checkpoint granularity gap)")
+    @Test
+    public void testWaveBoundary() throws IOException {
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT);
+        List<Info> analysisOrder = prepWork(X);
+        IteratingAnalyzer iterating = new IteratingAnalyzerImpl(javaInspector,
+                new IteratingAnalyzerImpl.ConfigurationBuilder().setMaxIterations(10).build());
+        iterating.analyze(analysisOrder);
+
+        // throttled: within the interval, waves only accumulate — nothing on disk
+        File throttledDir = new File("build/json-checkpoint-wave-throttled");
+        deleteJsonFiles(throttledDir);
+        LinkCodec linkCodec = new LinkCodec(javaInspector);
+        CheckpointWriter throttled = new CheckpointWriter(runtime, linkCodec::codec, throttledDir, Long.MAX_VALUE);
+        throttled.waveCompleted(1, 1, analysisOrder);
+        assertEquals(0, throttled.typesWritten(), "within the interval, the wave must only accumulate");
+
+        // interval 0: every wave flushes immediately
+        File waveDir = new File("build/json-checkpoint-wave");
+        deleteJsonFiles(waveDir);
+        CheckpointWriter perWave = new CheckpointWriter(runtime, linkCodec::codec, waveDir, 0);
+        perWave.waveCompleted(1, 1, analysisOrder);
+        assertTrue(perWave.typesWritten() > 0, "interval 0 must flush the wave delta");
+        File[] json = waveDir.listFiles((_, name) -> name.endsWith(".json"));
+        assertNotNull(json);
+        assertTrue(json.length > 0, "the wave delta must be on disk");
+    }
+
+    private static void deleteJsonFiles(File dir) {
+        File[] files = dir.listFiles((_, name) -> name.endsWith(".json"));
+        if (files != null) for (File f : files) assertTrue(f.delete());
+    }
+
     private Map<String, String> verdicts(TypeInfo typeInfo) {
         Map<String, String> map = new LinkedHashMap<>();
         typeInfo.recursiveSubTypeStream().forEach(ti -> {
