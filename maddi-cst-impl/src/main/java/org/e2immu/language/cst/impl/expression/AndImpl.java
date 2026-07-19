@@ -82,12 +82,22 @@ public class AndImpl extends ExpressionImpl implements And {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         And andValue = (And) o;
+        // complexity is a structural invariant cached at construction: an exact O(1) reject before the
+        // recursive descent — the boolean simplifier compares big conjunctions constantly
+        if (complexity() != andValue.complexity()) return false;
         return expressions.equals(andValue.expressions());
     }
 
+    private int hash; // lazily cached; the CST is immutable, and the recursive recompute dominated profiles
+
     @Override
     public int hashCode() {
-        return Objects.hash(expressions);
+        int h = hash;
+        if (h == 0) {
+            h = Objects.hash(expressions);
+            hash = h;
+        }
+        return h;
     }
 
     @Override

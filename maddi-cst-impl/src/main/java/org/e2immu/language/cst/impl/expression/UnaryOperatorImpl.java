@@ -62,6 +62,9 @@ public class UnaryOperatorImpl extends ExpressionImpl implements UnaryOperator {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         UnaryOperatorImpl that = (UnaryOperatorImpl) o;
+        // complexity is a structural invariant cached at construction: an exact O(1) reject before the
+        // recursive descent (negations wrap whole conjunctions in the boolean simplifier's hot path)
+        if (complexity() != that.complexity()) return false;
         return expression.equals(that.expression) &&
                operator.equals(that.operator);
     }
@@ -75,9 +78,16 @@ public class UnaryOperatorImpl extends ExpressionImpl implements UnaryOperator {
         return operator;
     }
 
+    private int hash; // lazily cached; the CST is immutable, and the recursive recompute dominated profiles
+
     @Override
     public int hashCode() {
-        return Objects.hash(expression, operator);
+        int h = hash;
+        if (h == 0) {
+            h = Objects.hash(expression, operator);
+            hash = h;
+        }
+        return h;
     }
 
 

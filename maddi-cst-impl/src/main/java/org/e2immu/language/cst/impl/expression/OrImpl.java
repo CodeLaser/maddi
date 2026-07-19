@@ -82,12 +82,22 @@ public class OrImpl extends ExpressionImpl implements Or {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Or or = (Or) o;
+        // complexity is a structural invariant cached at construction: an exact O(1) reject before the
+        // recursive descent — the boolean simplifier compares big disjunctions constantly
+        if (complexity() != or.complexity()) return false;
         return expressions.equals(or.expressions());
     }
 
+    private int hash; // lazily cached; the CST is immutable, and the recursive recompute dominated profiles
+
     @Override
     public int hashCode() {
-        return Objects.hash(expressions);
+        int h = hash;
+        if (h == 0) {
+            h = Objects.hash(expressions);
+            hash = h;
+        }
+        return h;
     }
 
     @Override
