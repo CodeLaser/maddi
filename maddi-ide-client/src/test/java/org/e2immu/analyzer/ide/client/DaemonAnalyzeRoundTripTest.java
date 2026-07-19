@@ -21,6 +21,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -65,6 +66,18 @@ public class DaemonAnalyzeRoundTripTest {
                     @Override
                     public void add(Mutable m) { m.set(3); } // violates @Container
                 }
+
+                // one modifying slot short of @Container: only reported when warnNearMisses crosses the wire
+                class Surface {
+                    public int read0(StringBuilder sb) { return sb.length(); }
+                    public int read1(StringBuilder sb) { return sb.length(); }
+                    public int read2(StringBuilder sb) { return sb.length(); }
+                    public int read3(StringBuilder sb) { return sb.length(); }
+                    public int read4(StringBuilder sb) { return sb.length(); }
+                    public int read5(StringBuilder sb) { return sb.length(); }
+                    public int read6(StringBuilder sb) { return sb.length(); }
+                    public void bang(StringBuilder sb) { sb.append('!'); }
+                }
                 """);
 
         AnalysisModel.AnalyzeConfig config = new AnalysisModel.AnalyzeConfig(
@@ -75,7 +88,9 @@ public class DaemonAnalyzeRoundTripTest {
                 List.of(new AnalysisModel.SourceRoot("main", "src", false)),
                 List.of(), // no user classpath: the e2immu annotations come from the daemon's own classpath
                 List.of(),
-                false);
+                false,
+                true); // warnNearMisses: the client and daemon declare AnalyzeConfig separately, matched only
+                       // by field name over JSON, so a skew here would silently drop the flag
 
         DaemonLauncher launcher = new DaemonLauncher();
         Path logFile = projectDir.resolve("daemon.log");
@@ -84,8 +99,20 @@ public class DaemonAnalyzeRoundTripTest {
 
             assertEquals("handshakeAck", client.handshake(1).path("type").asText());
 
-            JsonNode resultNode = client.analyze("req-1", config, status ->
-                    System.out.println("status: " + status.path("phase").asText()));
+            // partialResult frames are non-terminal, so they reach the client through this consumer, exactly
+            // as an IDE sees them
+            List<AnalysisModel.PartialResult> streamed = new ArrayList<>();
+            JsonNode resultNode = client.analyze("req-1", config, frame -> {
+                if (AnalysisModel.PARTIAL_RESULT.equals(frame.path("type").asText())) {
+                    try {
+                        streamed.add(client.objectMapper().treeToValue(frame, AnalysisModel.PartialResult.class));
+                    } catch (Exception e) {
+                        throw new AssertionError("a streamed frame did not map onto PartialResult: " + frame, e);
+                    }
+                } else {
+                    System.out.println("status: " + frame.path("phase").asText());
+                }
+            });
             assertEquals("result", resultNode.path("type").asText(),
                     "expected a result, got: " + resultNode);
 
@@ -100,6 +127,24 @@ public class DaemonAnalyzeRoundTripTest {
             assertNotNull(violation.uri());
             assertNotNull(violation.beginLine());
             assertFalse(violation.causes() == null || violation.causes().isEmpty(), "expected a why-chain");
+
+            // proves warnNearMisses survived the JSON hop into the daemon's analyzer configuration
+            AnalysisModel.Finding nearMiss = result.findings().stream()
+                    .filter(f -> "near-miss-container".equals(f.category()))
+                    .findFirst().orElse(null);
+            assertNotNull(nearMiss, "expected a near-miss-container: the warnNearMisses flag must cross the wire");
+            assertEquals("WARN", nearMiss.severity());
+
+            // values were streamed while the run was in progress, and merging them gives a view the IDE could
+            // have shown before the terminal frame arrived
+            assertFalse(streamed.isEmpty(), "expected partialResult frames over the socket");
+            AnalysisModel.Result progressive = null;
+            for (AnalysisModel.PartialResult partial : streamed) {
+                progressive = AnalysisModel.merge(progressive, partial);
+            }
+            assertNotNull(progressive);
+            assertFalse(progressive.elementAnnotations().isEmpty(),
+                    "the streamed frames should have carried annotations to display");
 
             boolean containerShown = result.elementAnnotations().stream()
                     .flatMap(e -> e.displayAnnotations().stream())

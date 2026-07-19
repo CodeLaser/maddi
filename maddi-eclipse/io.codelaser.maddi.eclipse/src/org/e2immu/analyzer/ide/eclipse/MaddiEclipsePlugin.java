@@ -35,6 +35,7 @@ public class MaddiEclipsePlugin extends AbstractUIPlugin {
     private static MaddiEclipsePlugin instance;
     private final MaddiDaemonProcess daemon = new MaddiDaemonProcess();
     private final MaddiBuildListener buildListener = new MaddiBuildListener();
+    private final MaddiCodeMiningRefresher miningRefresher = new MaddiCodeMiningRefresher();
 
     @Override
     public void start(BundleContext context) throws Exception {
@@ -43,10 +44,13 @@ public class MaddiEclipsePlugin extends AbstractUIPlugin {
         // Always listen; the listener itself checks the auto-analyze preference, so toggling it needs no
         // re-registration and costs nothing while off.
         ResourcesPlugin.getWorkspace().addResourceChangeListener(buildListener, IResourceChangeEvent.POST_BUILD);
+        // an analysis changes no document, so nothing else would re-query the editors' code minings
+        MaddiResults.get().addListener(miningRefresher);
     }
 
     @Override
     public void stop(BundleContext context) throws Exception {
+        MaddiResults.get().removeListener(miningRefresher);
         ResourcesPlugin.getWorkspace().removeResourceChangeListener(buildListener);
         daemon.close();
         instance = null;

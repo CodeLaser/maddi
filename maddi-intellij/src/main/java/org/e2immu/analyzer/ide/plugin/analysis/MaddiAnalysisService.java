@@ -114,12 +114,12 @@ public final class MaddiAnalysisService implements Disposable {
 
         indicator.setText("maddi: building configuration");
         String resolvedJdkHome = jdkHome;
-        AnalysisModel.AnalyzeConfig config =
-                ReadAction.compute(() -> new MaddiConfigBuilder().build(project, resolvedJdkHome));
+        boolean warnNearMisses = settings.warnNearMisses;
+        AnalysisModel.AnalyzeConfig config = ReadAction.compute(
+                () -> new MaddiConfigBuilder().build(project, resolvedJdkHome, warnNearMisses));
         String requestId = "req-" + requestCounter.incrementAndGet();
 
-        JsonNode node = daemon.analyze(requestId, config,
-                status -> indicator.setText("maddi: " + status.path("phase").asText("analyzing")));
+        JsonNode node = daemon.analyze(requestId, config, frame -> onStreamedFrame(indicator, frame));
         if ("error".equals(node.path("type").asText())) {
             notifyUser("Daemon error: " + node.path("message").asText(), NotificationType.ERROR);
             return;
@@ -127,6 +127,43 @@ public final class MaddiAnalysisService implements Disposable {
         AnalysisModel.Result result =
                 daemon.client().objectMapper().treeToValue(node, AnalysisModel.Result.class);
         applyResult(result);
+        // Silence on a certified run; a run that stopped at the iteration cap or on a plateau produces
+        // annotations indistinguishable from final ones, so that is worth one line.
+        AnalysisModel.Certainty certainty = AnalysisModel.certaintyOf(result);
+        if (certainty == AnalysisModel.Certainty.BEST_AVAILABLE) {
+            notifyUser("Analysis finished without reaching a fixpoint: the results are the best available,"
+                       + " not certified. Some properties may be weaker than the code allows.",
+                    NotificationType.WARNING);
+        }
+    }
+
+    /**
+     * A non-terminal frame from the daemon: either progress, or values the analysis has established so far.
+     * The latter are displayed immediately, so a large project annotates the editor while it is still
+     * running instead of staying blank until the end.
+     */
+    private void onStreamedFrame(ProgressIndicator indicator, JsonNode frame) {
+        if (AnalysisModel.PARTIAL_RESULT.equals(frame.path("type").asText())) {
+            try {
+                AnalysisModel.PartialResult partial =
+                        daemon.client().objectMapper().treeToValue(frame, AnalysisModel.PartialResult.class);
+                // merged, not replaced: one frame is one analysis pass, and values only ever strengthen
+                AnalysisModel.Result merged = AnalysisModel.merge(latest, partial);
+                applyResult(merged);
+                // what has been decided, not a percentage: the run is a fixpoint iteration whose length is
+                // not known in advance, so a fraction would be invented
+                indicator.setText2("pass " + partial.iteration() + ", "
+                                   + merged.elementAnnotations().size() + " element(s) so far");
+            } catch (Exception e) {
+                // losing a streamed frame costs an early glimpse, never the run
+                LOG.warn("could not read a streamed result", e);
+            }
+            return;
+        }
+        indicator.setText("maddi: " + frame.path("phase").asText("analyzing"));
+        String message = frame.path("message").asText("");
+        // the heartbeat carries the message during the long analysis phase; it is what shows the run is alive
+        if (!message.isEmpty()) indicator.setText2(message);
     }
 
     /**

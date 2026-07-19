@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feature
+      id="io.codelaser.maddi.eclipse.feature"
+      label="maddi"
+      version="0.1.0.qualifier"
+      provider-name="CodeLaser">
+
+   <description url="https://github.com/CodeLaser/maddi">
+      maddi analyses Java sources for modification, immutability and independence, and shows the results in
+      the editor: computed annotations as hints, and violations of contracts you have written (@Container,
+      @NotModified, @Immutable, @Independent) as problems with the reasoning that led to them.
+
+      Requires a JDK 25 or later to run the analysis on; set it in Preferences &gt; maddi. The analyser itself
+      is bundled and runs out of process, so it does not have to match the JDK Eclipse runs on.
+   </description>
+
+   <copyright>
+      Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+   </copyright>
+
+   <license url="https://www.gnu.org/licenses/lgpl-3.0.html">
+      This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+      Lesser General Public License as published by the Free Software Foundation, either version 3 of the
+      License, or (at your option) any later version.
+
+      This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even
+      the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General
+      Public License for more details.
+
+      You should have received a copy of the GNU Lesser General Public License along with this program. If
+      not, see &lt;https://www.gnu.org/licenses/&gt;.
+   </license>
+
+   <!-- unpack="true": the bundle ships the analysis daemon as a distribution under daemon/, and its launch
+        script has to be a real file on disk to be executed. Installed as a jar it could not run. This is the
+        p2-side counterpart of Eclipse-BundleShape: dir in the bundle manifest. -->
+   <plugin
+         id="io.codelaser.maddi.eclipse"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="true"/>
+
+</feature>

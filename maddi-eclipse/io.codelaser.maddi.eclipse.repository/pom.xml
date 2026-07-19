@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The p2 update site. Produces target/repository/ (a directory a user can point Help > Install New Software
+  at) and target/*.zip (the same, archived, for an offline install or a GitHub release asset).
+
+  The site deliberately does NOT mirror its dependencies: it contains maddi only, and resolves everything else
+  against the running Eclipse. Bundling the platform would make the artifact enormous and would fight the
+  user's own install.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.codelaser.maddi.eclipse</groupId>
+        <artifactId>maddi-eclipse-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>io.codelaser.maddi.eclipse.repository</artifactId>
+    <packaging>eclipse-repository</packaging>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.eclipse.tycho</groupId>
+                <artifactId>tycho-p2-repository-plugin</artifactId>
+                <version>${tycho.version}</version>
+                <configuration>
+                    <includeAllDependencies>false</includeAllDependencies>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

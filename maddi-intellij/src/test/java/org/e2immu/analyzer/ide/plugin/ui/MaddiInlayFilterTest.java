@@ -19,6 +19,7 @@ import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase;
 import com.intellij.testFramework.utils.inlays.declarative.DeclarativeInlayHintsProviderTestCase;
 import org.e2immu.analyzer.ide.plugin.analysis.MaddiAnalysisService;
 import org.e2immu.analyzer.ide.client.AnalysisModel;
+import org.e2immu.analyzer.ide.plugin.settings.HintPlacement;
 import org.e2immu.analyzer.ide.plugin.settings.InlineHintsMode;
 import org.e2immu.analyzer.ide.plugin.settings.MaddiSettings;
 import org.jetbrains.annotations.NotNull;
@@ -60,7 +61,9 @@ public class MaddiInlayFilterTest extends DeclarativeInlayHintsProviderTestCase 
     @Override
     protected void tearDown() throws Exception {
         try {
-            MaddiSettings.getInstance().getState().inlineHintsMode = InlineHintsMode.HIDE_CONTEXT_DEFAULTS;
+            MaddiSettings.State state = MaddiSettings.getInstance().getState();
+            state.inlineHintsMode = InlineHintsMode.HIDE_CONTEXT_DEFAULTS;
+            state.hintPlacement = HintPlacement.ABOVE_DECLARATION;
         } finally {
             super.tearDown();
         }
@@ -117,10 +120,14 @@ public class MaddiInlayFilterTest extends DeclarativeInlayHintsProviderTestCase 
                 path, 3, 1, 3, 40, "PARAMETER", "Box.set.m",
                 List.of(MODIFIED.text()), List.of(MODIFIED), Map.of());
         AnalysisModel.Result result = new AnalysisModel.Result(
-                "test", List.of(), List.of(type, method, param), List.of(), 0, 0, 0);
+                "test", List.of(), List.of(type, method, param), List.of(), 0, 0, 0, AnalysisModel.OUTCOME_CERTIFIED);
         MaddiAnalysisService.getInstance(getProject()).applyResult(result);
 
-        MaddiSettings.getInstance().getState().inlineHintsMode = mode;
+        MaddiSettings.State state = MaddiSettings.getInstance().getState();
+        state.inlineHintsMode = mode;
+        // this suite is about the filter, not the placement: pin every hint inline so the expectations
+        // read as one annotated line per declaration. Placement itself is MaddiInlayPlacementTest.
+        state.hintPlacement = HintPlacement.INLINE;
 
         doTestProviderWithConfigured(SOURCE, expected, new MaddiInlayProvider(), Map.of(), null, false,
                 DeclarativeInlayHintsProviderTestCase.ProviderTestMode.SIMPLE);

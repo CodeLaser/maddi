@@ -112,10 +112,10 @@
 
 {"name": "Tjava.awt.Component", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "SBaselineResizeBehavior(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "FCENTER_OFFSET(0)", "data":{"annotatedApi":1,"finalField":1}},
-  {"name": "FCONSTANT_ASCENT(1)", "data":{"annotatedApi":1,"finalField":1}},
-  {"name": "FCONSTANT_DESCENT(2)", "data":{"annotatedApi":1,"finalField":1}},
-  {"name": "FOTHER(3)", "data":{"annotatedApi":1,"finalField":1}},
+  {"name": "FCENTER_OFFSET(0)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FCONSTANT_ASCENT(1)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FCONSTANT_DESCENT(2)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FOTHER(3)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
   {"name": "MvalueOf(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "Mvalues(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1}}]},

@@ -153,11 +153,24 @@ public final class DaemonMain {
         }
         String requestId = request.requestId();
         try {
-            DaemonProtocol.Result result = handler.analyze(request, status -> {
-                try {
-                    send(out, DaemonProtocol.T_STATUS, status);
-                } catch (IOException io) {
-                    LOGGER.warn("failed to send status: {}", io.toString());
+            DaemonProtocol.Result result = handler.analyze(request, new AnalyzeHandler.StatusSink() {
+                @Override
+                public void status(DaemonProtocol.Status status) {
+                    try {
+                        send(out, DaemonProtocol.T_STATUS, status);
+                    } catch (IOException io) {
+                        LOGGER.warn("failed to send status: {}", io.toString());
+                    }
+                }
+
+                @Override
+                public void partialResult(DaemonProtocol.PartialResult partial) {
+                    try {
+                        send(out, DaemonProtocol.T_PARTIAL_RESULT, partial);
+                    } catch (IOException io) {
+                        // the run itself is unaffected; the client just waits for the terminal result
+                        LOGGER.warn("failed to send partial result: {}", io.toString());
+                    }
                 }
             });
             send(out, DaemonProtocol.T_RESULT, result);

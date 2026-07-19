@@ -40,6 +40,22 @@ public final class MaddiResults {
 
     public void update(AnalysisModel.Result result) {
         this.latest = result;
+        notifyListeners();
+    }
+
+    /**
+     * Fold in values the daemon streamed mid-run, so hints appear before the analysis finishes. Merges by
+     * element (see {@link AnalysisModel#merge}) — a frame is one pass, not a complete picture — and nothing
+     * is ever retracted, so what is on screen only gets more complete.
+     */
+    public AnalysisModel.Result mergePartial(AnalysisModel.PartialResult partial) {
+        AnalysisModel.Result merged = AnalysisModel.merge(this.latest, partial);
+        this.latest = merged;
+        notifyListeners();
+        return merged; // so the caller can report how much is established without re-reading the field
+    }
+
+    private void notifyListeners() {
         for (Runnable listener : listeners) {
             listener.run();
         }

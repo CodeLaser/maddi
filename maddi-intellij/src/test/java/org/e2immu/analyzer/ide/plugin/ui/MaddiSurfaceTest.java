@@ -85,6 +85,6 @@ public class MaddiSurfaceTest extends LightJavaCodeInsightFixtureTestCase {
 
     private static AnalysisModel.Result result(List<AnalysisModel.Finding> findings,
                                                List<AnalysisModel.ElementAnnotation> annotations) {
-        return new AnalysisModel.Result("test", findings, annotations, List.of(), 0, 0, 0);
+        return new AnalysisModel.Result("test", findings, annotations, List.of(), 0, 0, 0, AnalysisModel.OUTCOME_CERTIFIED);
     }
 }

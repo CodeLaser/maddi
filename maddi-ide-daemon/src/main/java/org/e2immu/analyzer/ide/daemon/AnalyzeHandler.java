@@ -23,6 +23,15 @@ public interface AnalyzeHandler {
     /** Sink for coarse progress messages emitted during a long analysis. */
     interface StatusSink {
         void status(DaemonProtocol.Status status);
+
+        /**
+         * Values established so far, emitted at analysis pass boundaries so a front-end can display them
+         * before the run finishes. Default no-op: a transport that does not want them pays nothing, and
+         * this stays a functional interface for the callers that only care about status.
+         */
+        default void partialResult(DaemonProtocol.PartialResult partial) {
+            // ignored
+        }
     }
 
     /**

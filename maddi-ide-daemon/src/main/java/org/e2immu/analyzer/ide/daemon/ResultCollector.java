@@ -117,6 +117,26 @@ public class ResultCollector {
         return out;
     }
 
+    /**
+     * Annotations for exactly the elements given, as delivered by {@code AnalysisValueFeed} — which hands
+     * over the elements analyzed in a pass, not primary types. A method brings its parameters along: their
+     * values are computed with the method but they are separate {@code Info}s, and the feed does not list
+     * them.
+     * <p>
+     * Must be called while the analysis workers are quiescent (the feed's pass boundary): it reads
+     * {@code info.analysis()} live.
+     */
+    public List<DaemonProtocol.ElementAnnotation> collectForElements(Collection<Info> infos) {
+        List<DaemonProtocol.ElementAnnotation> out = new ArrayList<>();
+        for (Info info : infos) {
+            addElement(out, info);
+            if (info instanceof MethodInfo method) {
+                for (var parameter : method.parameters()) addElement(out, parameter);
+            }
+        }
+        return out;
+    }
+
     private void addElement(List<DaemonProtocol.ElementAnnotation> out, Info info) {
         if (info.isSynthetic()) return;
         Source source = info.source();
