@@ -18,7 +18,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.e2immu.analyzer.ide.client.AnalysisModel;
 import org.e2immu.analyzer.ide.client.MaddiDaemonProcess;
 import org.eclipse.core.resources.ResourcesPlugin;
+import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jdt.core.IJavaProject;
@@ -50,7 +52,7 @@ public final class MaddiAnalysis {
         Job job = Job.create("maddi: analyzing " + javaProject.getElementName(), monitor -> {
             if (!RUNNING.compareAndSet(false, true)) return Status.OK_STATUS; // one at a time
             try {
-                analyze(javaProject, reveal);
+                analyze(javaProject, reveal, monitor);
             } catch (Exception e) {
                 MaddiEclipsePlugin.error("maddi analysis failed", e);
             } finally {
@@ -62,7 +64,12 @@ public final class MaddiAnalysis {
         job.schedule();
     }
 
-    private static void analyze(IJavaProject javaProject, boolean reveal) throws Exception {
+    private static void analyze(IJavaProject javaProject, boolean reveal, IProgressMonitor monitor)
+            throws Exception {
+        // The total is not knowable up front — the analysis is a fixpoint iteration, not a fixed number of
+        // steps — so the task is indeterminate and the phases arrive as subtasks.
+        SubMonitor progress = SubMonitor.convert(monitor, "maddi", IProgressMonitor.UNKNOWN);
+        progress.subTask("starting the analysis daemon");
         String jdkHome = MaddiPreferences.jdkHome();
         Path install = MaddiDaemonInstall.resolve(); // configured dir, else the copy bundled in the plugin
         if (jdkHome == null || install == null) {
@@ -77,10 +84,11 @@ public final class MaddiAnalysis {
         AnalysisModel.AnalyzeConfig config = new MaddiEclipseConfigBuilder()
                 .build(javaProject, jdkHome, MaddiPreferences.warnNearMisses());
         // Streamed frames land here: values established by each analysis pass, so the editor is annotated
-        // while the run continues rather than only when it ends. Everything that is not the terminal frame
-        // arrives through this consumer.
+        // while the run continues rather than only when it ends, and the progress text says what is
+        // happening. Everything that is not the terminal frame arrives through this consumer.
+        progress.subTask("building the project model");
         JsonNode node = daemon.analyze("req-" + System.nanoTime(), config,
-                frame -> onStreamedFrame(daemon, frame));
+                frame -> onStreamedFrame(daemon, frame, progress));
         if ("error".equals(node.path("type").asText())) {
             MaddiEclipsePlugin.error("daemon error: " + node.path("message").asText(), null);
             return;
@@ -100,20 +108,35 @@ public final class MaddiAnalysis {
     }
 
     /**
-     * A non-terminal frame from the daemon. Only {@code partialResult} carries anything to display; status
-     * frames are progress, and are ignored here.
+     * A non-terminal frame from the daemon: either progress, or values established so far.
      * <p>
-     * Merged into what is already shown rather than replacing it: one frame is the elements of one analysis
-     * pass. Markers are deliberately left alone — {@link MaddiMarkers#apply} rebuilds the whole workspace's
-     * markers, which is far too heavy to do per pass, and findings are not partial anyway. Hints update,
+     * Values are merged into what is already shown rather than replacing it — one frame is the elements of
+     * one analysis pass. Markers are deliberately left alone: {@link MaddiMarkers#apply} rebuilds the whole
+     * workspace's markers, far too heavy per pass, and findings are not partial anyway. Hints do update,
      * because they read {@link MaddiResults} through the code-mining provider.
+     * <p>
+     * Both kinds also move the progress text. Without it an analysis of a large project is a spinner with
+     * nothing behind it for minutes, which is indistinguishable from a hang.
      */
-    private static void onStreamedFrame(MaddiDaemonProcess daemon, JsonNode frame) {
-        if (!AnalysisModel.PARTIAL_RESULT.equals(frame.path("type").asText())) return;
+    private static void onStreamedFrame(MaddiDaemonProcess daemon, JsonNode frame, SubMonitor progress) {
+        if (!AnalysisModel.PARTIAL_RESULT.equals(frame.path("type").asText())) {
+            // a status frame: phase transitions, plus a heartbeat every couple of seconds during the long
+            // analysis phase, which is what makes "still running" visible at all
+            String phase = frame.path("phase").asText("");
+            String message = frame.path("message").asText("");
+            if (!phase.isEmpty() || !message.isEmpty()) {
+                progress.subTask(message.isEmpty() ? phase : phase + ": " + message);
+            }
+            return;
+        }
         try {
             AnalysisModel.PartialResult partial =
                     daemon.client().objectMapper().treeToValue(frame, AnalysisModel.PartialResult.class);
-            MaddiResults.get().mergePartial(partial);
+            AnalysisModel.Result merged = MaddiResults.get().mergePartial(partial);
+            // report what has been decided, not a percentage: the run is a fixpoint iteration whose length
+            // is not known in advance, so a fraction would be invented
+            progress.subTask("analyzing — pass " + partial.iteration() + ", "
+                             + merged.elementAnnotations().size() + " element(s) so far");
         } catch (Exception e) {
             // a frame we could not read costs the user an early glimpse, never the run
             MaddiEclipsePlugin.log(IStatus.WARNING, "maddi: could not read a streamed result", e);
