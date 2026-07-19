@@ -5,7 +5,6 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.Info;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -37,15 +36,20 @@ public class TestDeepCaptureChain extends CommonTest {
             }
             """;
 
-    @Disabled("RED by design (PLAN-modification-reachability phase 0): modification saturates two levels "
-            + "above the sink; the reachability pass must make every level's parameter and field modified. "
-            + "Verified red 2026-07-18: FC1.<init> parameter frozen unmodified. Enable when the pass lands.")
     @DisplayName("deep capture chain: modification must reach every level")
     @Test
     public void test() {
+        // GREEN since P2.3a (was RED by design, phase 0): under modificationViaReachability the
+        // post-convergence pass propagates the sink modification through every capture level,
+        // downgrading the frozen optimistic TRUEs the iterating fixpoint certified.
         TypeInfo X = javaInspector.parse("a.b.X", INPUT);
         List<Info> ao = prepWork(X);
-        analyzer.go(ao, 7); // plenty of iterations: the failure is NOT iteration count
+        var iterating = new org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl(javaInspector,
+                new org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl.ConfigurationBuilder()
+                        .setMaxIterations(10)
+                        .setModificationViaReachability(true) // implies trackObjectCreations
+                        .build());
+        iterating.analyze(ao);
         for (int i = 1; i <= 5; i++) {
             TypeInfo fc = X.findSubType("FC" + i);
             MethodInfo ctor = fc.constructors().getFirst();

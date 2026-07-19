@@ -69,7 +69,8 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                                     boolean guardContracts,
                                     boolean faultTolerant,
                                     boolean warnNearMisses,
-                                    NearMissPolicy nearMissPolicy) implements Configuration {
+                                    NearMissPolicy nearMissPolicy,
+                                    boolean modificationViaReachability) implements Configuration {
     }
 
     public static class ConfigurationBuilder {
@@ -79,6 +80,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         private boolean guardContracts = true;
         private boolean faultTolerant;
         private boolean warnNearMisses;
+        private boolean modificationViaReachability;
         private NearMissPolicy nearMissPolicy = NearMissPolicy.STRICT;
         private CycleBreakingStrategy cycleBreakingStrategy = CycleBreakingStrategy.NONE;
 
@@ -122,9 +124,16 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             return this;
         }
 
+        public ConfigurationBuilder setModificationViaReachability(boolean modificationViaReachability) {
+            this.modificationViaReachability = modificationViaReachability;
+            if (modificationViaReachability) this.trackObjectCreations = true; // E1 edges need it
+            return this;
+        }
+
         public Configuration build() {
             return new ConfigurationImpl(maxIterations, stopWhenCycleDetectedAndNoImprovements, cycleBreakingStrategy,
-                    trackObjectCreations, guardContracts, faultTolerant, warnNearMisses, nearMissPolicy);
+                    trackObjectCreations, guardContracts, faultTolerant, warnNearMisses, nearMissPolicy,
+                    modificationViaReachability);
         }
     }
 
@@ -223,6 +232,9 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         // WITHOUT the full verification / cycle-breaking passes — those re-touch the untouched (carried) elements
         // and would defeat the skip. See docs/analysis-rewiring.md and IteratingAnalyzer#analyze(List,G,Set).
         boolean incremental = initialDirty != null;
+        // the freeze is JVM-wide static state from a previous analyze() under modificationViaReachability
+        // (tests run several analyses per JVM): always start unfrozen
+        TolerantWrite.unfreezeModificationProperties();
         // clear-before-recompute: elements already analysed (never to be re-cleared). Seeded with the seed itself,
         // which is fresh (INVALID) source, never carried — so the hook fires only for elements the worklist later
         // pulls in, i.e. carried types entering the dirty frontier, exactly once each, before their first analysis.
@@ -375,19 +387,45 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             if (iterations == configuration.maxIterations() || done || plateau) {
                 LOGGER.info("Stop iterating after {} iterations, done? {}{}", iterations, done,
                         plateau ? " (plateau: " + propertiesChanged + " vs " + previousPropertiesChanged + ")" : "");
-                {
-                    var terminal = done
-                            ? org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_CERTIFIED
-                            : plateau
-                            ? org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_PLATEAU
-                            : org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_MAX_ITERATIONS;
-                    int it = iterations;
-                    feed(f -> f.phase(terminal, it));
+                if (configuration.modificationViaReachability()) {
+                    // PLAN §14 P2.3a: post-convergence single-writer cutover. One-shot reachability
+                    // over the converged link artifacts becomes the authority for the three
+                    // modification properties: frozen optimistic TRUEs downgrade, undecided nodes
+                    // decide (TRUE only with a constructible in-edge frontier, §10.1). Then FREEZE:
+                    // Bool's legal overwrite direction is FALSE->TRUE, so any later writer — incl.
+                    // cycle breaking's NO_INFORMATION_IS_NON_MODIFYING — could undo a downgrade.
+                    try {
+                        var pass = new org.e2immu.analyzer.modification.analyzer.shadow.ShadowModificationPass();
+                        var report = pass.go(analysisOrder);
+                        var counts = pass.writeVerdicts(analysisOrder, report);
+                        TolerantWrite.freezeModificationProperties();
+                        LOGGER.info("MODREACH {}", counts.summary());
+                        LOGGER.info("MODREACH {}", report.summary());
+                    } catch (RuntimeException | AssertionError e) {
+                        LOGGER.error("MODREACH pass failed; modification properties keep their "
+                                     + "fixpoint values (unfrozen)", e);
+                    }
                 }
-                logVerdictFingerprint(analysisOrder);
-                if (configuration.guardContracts() || configuration.warnNearMisses()) {
-                    // values are final now: verify user-written contracts, and/or warn on near-misses
-                    new GuardAnalyzerImpl(javaInspector.runtime(), configuration, guardMessages).go(analysisOrder);
+                try {
+                    {
+                        var terminal = done
+                                ? org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_CERTIFIED
+                                : plateau
+                                ? org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_PLATEAU
+                                : org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_MAX_ITERATIONS;
+                        int it = iterations;
+                        feed(f -> f.phase(terminal, it));
+                    }
+                    logVerdictFingerprint(analysisOrder);
+                    if (configuration.guardContracts() || configuration.warnNearMisses()) {
+                        // values are final now: verify user-written contracts, and/or warn on near-misses
+                        new GuardAnalyzerImpl(javaInspector.runtime(), configuration, guardMessages).go(analysisOrder);
+                    }
+                } finally {
+                    // the MODREACH freeze is analyze()-scoped: the values are final once we return, and the
+                    // static must not leak into other analyzer instances in this JVM (tests drive
+                    // SingleIterationAnalyzerImpl directly and never pass through analyze())
+                    TolerantWrite.unfreezeModificationProperties();
                 }
                 return;
             }

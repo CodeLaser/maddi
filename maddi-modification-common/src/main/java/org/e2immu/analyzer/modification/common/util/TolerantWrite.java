@@ -65,6 +65,7 @@ public final class TolerantWrite {
      */
     public static <V extends Value> void setOnce(PropertyValueMap analysis, Property property, V value,
                                                  Object context) {
+        if (MODIFICATION_FROZEN && MODIFICATION_PROPERTIES.contains(property.key())) return;
         analysis.set(property, value);
         CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder()).increment();
         if (context != null && !(context instanceof String) && !INTERNAL_PROPERTIES.contains(property.key())) {
@@ -105,6 +106,23 @@ public final class TolerantWrite {
     private static final java.util.Set<String> EVIDENCE_ACCUMULATING = java.util.Set.of(
             "unmodifiedVariable", "unmodifiedParameter", "unmodifiedField", "nonModifyingMethod");
 
+    // single-writer discipline for the modification reachability cutover (PLAN-modification-reachability
+    // §14 P2.3): once the pass has written its verdicts, no other writer may touch the three element-level
+    // modification properties — Bool's legal overwrite direction is FALSE->TRUE, so a re-derivation writer
+    // could silently undo a pass downgrade. Set by the iterating analyzer after the pass, RESET at the
+    // start of every analyze() (JVM-wide static; tests run several analyses per JVM).
+    private static volatile boolean MODIFICATION_FROZEN;
+    private static final java.util.Set<String> MODIFICATION_PROPERTIES = java.util.Set.of(
+            "unmodifiedParameter", "unmodifiedField", "nonModifyingMethod");
+
+    public static void freezeModificationProperties() {
+        MODIFICATION_FROZEN = true;
+    }
+
+    public static void unfreezeModificationProperties() {
+        MODIFICATION_FROZEN = false;
+    }
+
     public static <V extends Value> boolean setAllowControlledOverwrite(PropertyValueMap analysis,
                                                                         Property property,
                                                                         V value) {
@@ -115,6 +133,7 @@ public final class TolerantWrite {
                                                                         Property property,
                                                                         V value,
                                                                         Object context) {
+        if (MODIFICATION_FROZEN && MODIFICATION_PROPERTIES.contains(property.key())) return false;
         boolean changed;
         String traceBefore;
         // the check-then-act below must be atomic per element map: without the lock, a concurrent write between
