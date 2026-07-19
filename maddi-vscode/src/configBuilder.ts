@@ -111,8 +111,12 @@ export async function buildConfig(execute: ExecuteCommand, options: BuildOptions
 }
 
 async function classpathsOf(execute: ExecuteCommand, projectUri: string, scope: string): Promise<string[]> {
-    const result = (await execute(WORKSPACE_COMMAND, 'java.project.getClasspaths', projectUri, { scope })) as
-        ClasspathResult | undefined;
+    // The options go over as a JSON STRING, not as an object. jdt.ls deserializes this argument with
+    // JSONUtility.toModel, which handles a JsonElement or a String and returns null for anything else — and
+    // a plain object arrives as a Map, so it silently becomes null and the server throws an NPE on
+    // options.scope. vscode-java's own API does the same JSON.stringify; this is not optional.
+    const result = (await execute(WORKSPACE_COMMAND, 'java.project.getClasspaths', projectUri,
+        JSON.stringify({ scope }))) as ClasspathResult | undefined;
     if (!result) return [];
     // modulepaths matter as much as classpaths for a modular project: on one, the dependencies are on the
     // module path and `classpaths` alone would be nearly empty.

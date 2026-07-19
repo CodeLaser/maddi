@@ -31,27 +31,65 @@ export enum CompileStatus {
  * and returns `undefined`. Querying too early therefore yields an empty project model and an analysis of
  * nothing, with no error anywhere to explain it.
  */
-export async function waitForStandardServer(): Promise<void> {
+export async function waitForStandardServer(timeoutMs = 120_000): Promise<void> {
     const extension = vscode.extensions.getExtension(JAVA_EXTENSION_ID);
     if (!extension) {
         throw new Error(
             'maddi needs the Language Support for Java extension (redhat.java); it is not installed');
     }
+    // An untrusted workspace never gets a standard server: in Restricted Mode the Java extension runs the
+    // syntax server only, so the project model is not merely late, it is never coming. Say so now rather
+    // than waiting for a timeout to report something vaguer.
+    if (!vscode.workspace.isTrusted) {
+        throw new Error(
+            'this workspace is not trusted, so the Java language server runs in restricted mode and cannot ' +
+            'provide a project model. Trust the folder (Workspaces: Manage Workspace Trust) and try again');
+    }
+
     const api = extension.isActive ? extension.exports : await extension.activate();
     if (!api) return; // very old versions expose no API; the commands work once the server is up
 
     if (api.serverMode !== undefined && api.serverMode !== 'Standard') {
-        await new Promise<void>((resolve) => {
-            const subscription = api.onDidServerModeChange((mode: string) => {
-                if (mode === 'Standard') {
+        await withTimeout(
+            new Promise<void>((resolve) => {
+                // Subscribe BEFORE re-reading the mode: if it flipped between the check above and here, the
+                // event has already fired and waiting on it alone would hang forever.
+                const subscription = api.onDidServerModeChange((mode: string) => {
+                    if (mode === 'Standard') {
+                        subscription.dispose();
+                        resolve();
+                    }
+                });
+                if (api.serverMode === 'Standard') {
                     subscription.dispose();
                     resolve();
                 }
-            });
-        });
+            }),
+            timeoutMs,
+            'the Java language server did not reach standard mode. It may still be importing the project, ' +
+            'or java.server.launchMode may be set to LightWeight');
     }
     if (typeof api.serverReady === 'function') {
-        await api.serverReady();
+        await withTimeout(api.serverReady(), timeoutMs,
+            'the Java language server did not become ready. Check its output channel (Java: Show Server Log)');
+    }
+}
+
+/**
+ * Bound a wait on the language server. Without this a stuck server leaves the analysis spinning with no
+ * indication of what it is waiting for — which is worse than a failure, because it looks like progress.
+ */
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+    let timer: NodeJS.Timeout | undefined;
+    try {
+        return await Promise.race([
+            promise,
+            new Promise<never>((_, reject) => {
+                timer = setTimeout(() => reject(new Error(`${message} (waited ${timeoutMs / 1000}s)`)), timeoutMs);
+            }),
+        ]);
+    } finally {
+        if (timer) clearTimeout(timer);
     }
 }
 
