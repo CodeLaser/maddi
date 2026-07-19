@@ -35,9 +35,21 @@
   @ImmutableHC->@FinalFields incl. FastFixedSetFactory = the §9.4-named suspect; 4 STRENGTHENED
   from newly-decided nulls). P2.4 promoted-baseline invariant: under MODREACH the re-run diff
   shows 0 reverse + divergences == immutable-guarded count (union over-reach on int/String
-  nodes the writer refuses; Report.immutableGuardedDivergences counts them). REMAINING: corpus
-  rollout (timefold/langchain4j/guava A/B + audit cross-read), metrics-thread notification
-  (deepFieldChains saturation pin flips per §8), decision on default-ON.
+  nodes the writer refuses; Report.immutableGuardedDivergences counts them).
+- Corpus rollout leg 2 — GUAVA (baseline freshly pinned build/imm-guava-2026-07-19.txt.gz +
+  modreach dump alongside; both runs green): 5935 TRUE->FALSE + 13 null->FALSE + 61 null->TRUE,
+  0 frontier-skipped, 2 REVERSE KEPT (first nonzero — engine-FALSE/pass-unreached, a shadow-gap
+  channel guava exercises that fernflower didn't; writer keeps them conservatively but they need
+  NAMES — add logging — and a triage like the original 8). 38301 derived values cleared. FPDUMP
+  delta: 1971 methods + 410 fields + 157 types; type transitions: WEAKENED 98 (44 ImmHC->FF,
+  24 ImmHC->Mut, 13 FF->Mut, 17 Imm->lower), STRENGTHENED 57 (39 FF->ImmHC, 16 Mut->ImmHC) —
+  the pass's null-deciding makes re-derivation MORE decided in both directions. Caveat: A/B
+  conflates track-on churn with cutover churn (no separate track-only guava leg; ff evidence
+  says track-on churn is tiny). Note: timefold + langchain4j corpus tests SKIP — no locally
+  generated inputConfiguration.json in ~/git/test-oss for them.
+  REMAINING: name+triage the 2 guava reverse-kept; jenkins/activemq/camel legs (+ES MODREACH leg
+  overnight-sized); §9.4 audit cross-read of the guava strengthened/weakened sets; metrics-thread
+  notification delivered as PLAN §15; decision on default-ON (Bart's, once rollout evidence is in).
 - New task #42 queued by the user: DOWNCAST presentation (@Modified(downcast=...) design opinion
   delivered; DecoratorImpl already half-implements it; @Modified lacks the element declaration).
 
