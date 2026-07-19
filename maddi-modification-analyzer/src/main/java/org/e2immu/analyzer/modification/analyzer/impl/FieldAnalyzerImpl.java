@@ -259,8 +259,25 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                         // direct link
                         toIndependent = independentOfType;//already computed
                     } else if (!link.linkNature().isDecoration()) {
-                        // a part of the field is linked to a parameter or return value...
-                        toIndependent = analysisHelper.typeIndependentFromImmutableOrNull(link.to().parameterizedType());
+                        // a part of the field is linked to a parameter or return value. The
+                        // TRANSPORTED CONTENT decides dependence, not the container: a content-tier
+                        // link over IMMUTABLE elements (defensive copy `this.coords[i] = c[i]` of an
+                        // int[]) copies values — nothing is shared, no aliasing, no dependence.
+                        // Adjudicated in immutability-transform-divergence.md: this imprecision
+                        // capped Point at @FinalFields while its loop-desugared twin (whose bridge
+                        // drops the spurious link) correctly reached @Immutable(hc=true).
+                        org.e2immu.language.cst.api.type.ParameterizedType transported =
+                                link.from() instanceof org.e2immu.language.cst.api.variable.DependentVariable dv
+                                        ? dv.parameterizedType()
+                                        : fieldInfo.type().arrays() > 0
+                                        ? fieldInfo.type().copyWithOneFewerArrays()
+                                        : link.to().parameterizedType();
+                        Value.Immutable transportedImm = analysisHelper.typeImmutable(transported);
+                        if (transportedImm != null && transportedImm.isImmutable()) {
+                            toIndependent = null; // immutable content transmits no dependence
+                        } else {
+                            toIndependent = analysisHelper.typeIndependentFromImmutableOrNull(link.to().parameterizedType());
+                        }
                     } else {
                         toIndependent = null;
                     }
