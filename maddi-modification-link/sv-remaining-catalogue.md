@@ -74,6 +74,39 @@
 
 ## OPEN ITEMS
 
+Modification-as-reachability (PLAN-modification-reachability; §11 ownership split settled
+2026-07-19 — METRICS SIDE COMPLETE, engine work = THIS thread):
+- Incoming (metrics thread, ~/git/maddi-metrics kotlin branch, unpushed; Bart coordinates
+  delivery; purely additive): cb0eec9c E7 characterization (TestModificationFunctionalE7,
+  8 green shapes = PRESERVATION suite + PLAN §12) and 1aa8209e phase-1 ShadowModificationPass
+  (+ PLAN §13; no writes, diffs vs frozen properties with BFS cause chains).
+- Shadow corpus verdict (testarchive, 9,306 types, ~34s): 279 divergences, ALL sound-direction,
+  0 reverse. 208 "seed"-class = the refused-downgrade family NOW ENUMERABLE WITH NAMES (input for
+  the §9.4 cross-read vs the immutability audit); 71 "propagated" = deep-capture disease in the
+  wild. Lower bound (650 call sites without LINKED_VARIABLES_ARGUMENTS, 3,068 chained receivers
+  unprojected). Baseline pinned in TestShadowCloneBench vs kotlin fba60b23.
+- E7 edge-class constraints my implementation must honor (from the 8 shapes): attribution is
+  EAGER and CREATION-SITE (a capturing lambda charges captured targets where created/passed, even
+  when the callee provably ignores the FI); enclosing-method parameters propagate, locals filter
+  (acceptForExtra); field-stored callbacks charge at REGISTER, not trigger (application-site-only
+  would drop them); opaque whole-object fallback + $_afi marker survive forwarding hops.
+- §9.4 CROSS-READ EXECUTED 2026-07-19 (SHADOWDIFF gate in RunAnalyzer, forces
+  trackObjectCreations, diagnostic runs only): fernflower under the FULL iterating analyzer =
+  **836 divergences** (539 unmodifiedParameter / 193 unmodifiedField / 104 nonModifyingMethod;
+  list in scratchpad shadow-ff-divs.txt) vs 279 on testarchive single-iteration — cycle breaking
+  freezes optimistic values by design, and the shadow now names them. DIRECT HIT: FastFixedSetFactory
+  (the audit's flagship independence anomaly) appears with 4 entries incl. iterator() and
+  colValuesInternal — the two independent evidence lines indict the same structures. BUT: **8
+  REVERSE divergences** in the full-iterating context (their single-iteration corpus had 0) =
+  shadow-pass gaps by its own contract; triage-to-zero is the FIRST phase-2 sub-task, since the
+  836 is untrustworthy as a bound while the pass under-reaches. Caveats scale up too: 180 call
+  sites without argument links, 2,597 unprojected receivers.
+- PHASE 2 IS MINE (metrics thread has stopped engine work). Acceptance contract on landing:
+  TestDeepCaptureChain (my @Disabled pin) goes green; promoted shadow baseline = second gate;
+  EXPECT TestShadowCloneBench pinned counts + metrics deepFieldChains tripwire to fire — both are
+  re-baseline signals, not regressions; frozen-TRUE downgrades will shift corpus FPDUMPs (plan
+  the A/B story before landing). Sequencing decision (phase 2 scheduling) now schedulable per §11.
+
 Engine, soundness/precision (from the semantic + precision audits):
 - StackEntry rule-2 miss (public final fields of mutable types accepted at level 2) — investigate,
   suspicion: cycle-breaking-era undecided field type.
