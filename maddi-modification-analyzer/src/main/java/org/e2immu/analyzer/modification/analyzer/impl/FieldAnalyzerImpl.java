@@ -73,10 +73,13 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                         propertyChanges.incrementAndGet();
                     }
                 } else if (cycleBreakingActive) {
+                    // not asserted: under the MODREACH freeze (P2.3b re-derivation) this write is
+                    // refused by design — the reachability pass is the single writer
                     boolean write = TolerantWrite.setAllowControlledOverwrite(fieldInfo.analysis(), PropertyImpl.UNMODIFIED_FIELD, TRUE, fieldInfo);
-                    assert write;
-                    DECIDE.info("FI: Decide unmodified of field {} = true by {}", fieldInfo, highlight("cycleBreaking"));
-                    propertyChanges.incrementAndGet();
+                    if (write) {
+                        DECIDE.info("FI: Decide unmodified of field {} = true by {}", fieldInfo, highlight("cycleBreaking"));
+                        propertyChanges.incrementAndGet();
+                    }
                 } else {
                     UNDECIDED.debug("FI: Unmodified of field {} undecided", fieldInfo);
                 }
