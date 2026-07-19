@@ -49,6 +49,19 @@
           "default": 4096,
           "description": "Maximum heap for the analysis daemon, in MB."
         },
+        "maddi.hints": {
+          "type": "string",
+          "default": "hide-implied-defaults",
+          "enum": ["hide-implied-defaults", "all", "positive-only", "negative-only", "none"],
+          "enumDescriptions": [
+            "Hide annotations the enclosing declaration already implies; keep the surprises",
+            "Everything maddi computed",
+            "Only positive results (immutable, not-modified, …)",
+            "Only negative results (mutable, modifying, …)",
+            "No inline hints"
+          ],
+          "markdownDescription": "Which computed annotations appear as inline hints. Mirrors the same setting in the IntelliJ and Eclipse plugins."
+        },
         "maddi.warnNearMisses": {
           "type": "boolean",
           "default": false,
