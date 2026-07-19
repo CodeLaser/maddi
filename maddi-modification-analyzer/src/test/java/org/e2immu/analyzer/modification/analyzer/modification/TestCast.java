@@ -206,7 +206,7 @@ public class TestCast extends CommonTest {
                 @Independent
                 class B {
                     @NotModified
-                    void method(@Independent @Modified(downcast = true) Object object) {
+                    void method(@Independent @Modified(downcast = true, downcastTo = { "java.util.Set" }) Object object) {
                         if(object instanceof Set set) { set.add("ok"); }
                     }
                 }

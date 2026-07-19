@@ -19,6 +19,7 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 
 import java.util.ArrayList;
 import java.util.ArrayDeque;
+import java.util.HashMap;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
@@ -35,13 +36,21 @@ import java.util.concurrent.ConcurrentHashMap;
  * a small fraction of the corpus, invalidation over consumption edges beats SCC-transitive
  * invalidation by construction.
  *
- * <p>PRESENCE-only env gate CONSEDGES (house convention); zero overhead when off (static final
- * boolean, JIT-eliminable). Hooked at InfoImpl/ParameterInfoImpl.analysis() and armed around
- * SingleIterationAnalyzerImpl.processElement. Parameters normalize to their method, so edges live
- * at analysis-order granularity (type/method/field).
+ * <p>PRESENCE-only env gates CONSEDGES or CHECKPOINT (house convention) — a checkpointed run
+ * records so the NEXT run can wake direct consumers of changed elements (task #35 phase C; the
+ * Phase A measurement proved recording inert via a 0-diff FPDUMP A/B). Near-zero overhead when
+ * off (plain static boolean, effectively JIT-foldable; {@link #arm()} exists for in-JVM tests
+ * that cannot set the environment). Hooked at InfoImpl/ParameterInfoImpl.analysis() and armed
+ * around SingleIterationAnalyzerImpl.processElement. Parameters normalize to their method, so
+ * edges live at analysis-order granularity (type/method/field).
  */
 public class ConsumptionEdgeRecorder {
-    public static final boolean ENABLED = System.getenv("CONSEDGES") != null;
+    public static boolean ENABLED = System.getenv("CONSEDGES") != null || System.getenv("CHECKPOINT") != null;
+
+    /** for in-JVM tests; production arming is by environment at process start */
+    public static void arm() {
+        ENABLED = true;
+    }
 
     private static final ThreadLocal<Info> CURRENT = new ThreadLocal<>();
     private static final ConcurrentHashMap<Info, Set<Info>> EDGES = new ConcurrentHashMap<>();
@@ -73,6 +82,13 @@ public class ConsumptionEdgeRecorder {
 
     public static void reset() {
         EDGES.clear();
+    }
+
+    /** snapshot of the recorded edges (consumer -> consumed elements), for persistence (task #35 phase C) */
+    public static Map<Info, Set<Info>> edgesSnapshot() {
+        Map<Info, Set<Info>> copy = new HashMap<>();
+        EDGES.forEach((k, v) -> copy.put(k, Set.copyOf(v)));
+        return copy;
     }
 
     /** distribution report; sampled reverse-closure sizes are THE Phase A metric */

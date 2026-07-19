@@ -6,6 +6,108 @@
 > (sv-doc entry point), `linking-manual.md` (link module manual), `org-review-2026-07-18.md`
 > (module organization review + 13-point plan).
 
+## HANDOFF (2026-07-19 evening) — mechanical steps anyone (or any session) can run
+
+### UPDATE (early evening): SHADOW-PASS PRECISION — the divergence economy re-partitioned (8821a434)
+
+Fable-session deep dive (cause-chain forensics on the fernflower cascades): the dominant
+"union conservatism" reading was WRONG for the biggest family. The engine was RIGHT to keep the
+frozen TRUEs in the gatherGenerics family — the SHADOW over-approximated, twice:
+(1) E3 built field->param edges for ALL link natures; the content-tier chain upper ∋ left ∈
+this.args (element read OUT of the parameter, stored in the field, field cleared) widened the
+destination container's modification back to the source — precisely what the engine's own
+relevantLinkForModification rule refuses. Fixed: E3 mirrors that rule verbatim.
+(2) The closure propagated THROUGH immutable-typed nodes (String params/fields) which cannot
+transmit modification. Fixed: closure cuts at immutable-typed nodes.
+TestElementFlowWidening pins the precise behavior in three escalating shapes (all green — the
+engine's linking was precise on all of them; the defect was shadow-only).
+NUMBERS: fernflower 971 -> 452 divergences (53% artifacts), immutable-guarded 178 -> 17,
+0 reverse throughout; clonebench seed class UNTOUCHED at 212, propagated 71 -> 12, re-pinned.
+CONSEQUENCE FOR THE ROLLOUT TABLE: the MODREACH downgrades measured earlier (ff 793, guava 5935,
+amq 823, jenkins 2893, camel 88/650) include artifact downgrades — RE-MEASURE all corpora with
+the precise pass before the default-ON decision (same one-command legs).
+FERNFLOWER RE-MEASURED (precise pass): **432 downgrades** (was 793; 45% artifacts), 0 reverse
+kept, joint fixpoint in 2 rounds — and the 18 type-immutability corrections are the IDENTICAL
+18 types as before (verified set-equal): the artifact downgrades were scattered and never
+immutability-load-bearing; the genuine core (FastFixedSetFactory & co) is robust to the
+precision fixes. Strong signal that the corrected corpus table will keep the type-level story
+while shrinking the member-level churn.
+
+### UPDATE (late afternoon): #35 phases B/C/D delivered
+
+- IncrementalState (prepwork io): per-primary-type SOURCE + OUTPUT fingerprints + consumption
+  edges (type-lifted), one tolerant JSON next to the checkpoint; CHECKPOINT arms the recorder.
+- RunAnalyzer gate INCREMENTAL=<dir of prior CHECKPOINT run>: restore values, changed types by
+  source fingerprint, seed the early-cutoff worklist, persisted consumption edges unioned into
+  the wake relation (closes the value-mediated-flow gap on resume). INCREMENTAL_FILL opt-in
+  re-analyzes unrestored elements (measured: floods, slower than cold — default reports holes).
+- Fernflower smoke: cold+checkpoint 147s -> untouched resume **7s**; TestIncrementalConsumptionWake
+  green (comment edit cuts off, semantic edit wakes the consumer through the RECORDED edge).
+- #35 REMAINING: restore-coverage tail (the shared codec fix list — 72 fully-empty elements +
+  partial decodes = ~2.3k null verdicts on fernflower resumes); ES-scale touch-one-file
+  experiment; element-granularity fingerprints if type granularity proves too coarse on the
+  monorepo. The ES overnight run now ALSO writes incremental state: tonight's checkpoint dir is
+  directly usable for the first ES-scale INCREMENTAL experiment.
+
+The phase-2 cutover is COMPLETE and validated; what remains is evidence gathering and two
+decisions. Exact commands (all from ~/git/maddi, all via bin/gradle-locked.sh):
+
+0. **GOTCHA for every big-corpus run: TESTXMX=24G** (maddi-run-openjdk test JVM heap, default
+   8G — an 8G elasticsearch sweep dies OOM ~32 min in, and the sweep REPORTS exit=-1 without
+   failing the build; grep 'SWEEP SUMMARY'). All the ES commands below need the env.
+1. **Remaining corpus legs** (baseline first if no build/imm-<corpus>-*.txt.gz pin exists, then
+   MODREACH; diff the two FPDUMPs; expect: downgrades + null-decisions, type transitions in both
+   directions, 0-or-few reverse-kept — all four corpora so far fit this):
+   `FPDUMP=/tmp/imm-X-base.txt bin/gradle-locked.sh :maddi-run-openjdk:test --tests TestCamelCore --rerun -PskipCloneBench`
+   `MODREACH=1 FPDUMP=/tmp/imm-X-mr.txt bin/gradle-locked.sh :maddi-run-openjdk:test --tests TestCamelCore --rerun -PskipCloneBench`
+   Corpus test classes: TestCamelCore (8 modules), TestElasticsearch2 (5h+, overnight; baseline
+   already pinned build/imm-elasticsearch-2-2026-07-19.txt.gz). timefold/langchain4j SKIP until
+   their inputConfiguration.json is regenerated in ~/git/test-oss.
+2. **ES overnight verification** (pre-cutover measurements, unchanged command from the killed
+   run): plain run first (type-null verdict + CONSEDGES + CHECKPOINT=<dir> dogfood — wave-boundary
+   protection is now live), MODREACH leg after/separately.
+3. **Default-ON flip** (Bart's decision): set `modificationViaReachability` default true in
+   IteratingAnalyzer.Configuration + ConfigurationBuilder (or invert the RunAnalyzer gate);
+   expect suite golden churn in maddi-modification-analyzer (modification + immutability pins);
+   metrics thread then executes their §16 checklist (delete deepFieldChains saturation pin —
+   deepFieldChainsModReach is the replacement; rewrite TestShadowCloneBench to
+   IteratingAnalyzerImpl + assert divergences==immutableGuarded && reverse==0).
+4. **P2.5** is IMPLEMENTED AND VALIDATED (jenkins: round 1 = 2893 downgrades + 1016 decided,
+   round 2 = exactly the 2 drift downgrades, round 3 = 0 => joint fixpoint; final invariant
+   holds — 1001 divergences all immutable-guarded; 79 REV all frozen-FALSE conservative keeps).
+   NOTE the receiverChain memoization (33c9b8fc) is LOAD-BEARING: without it the chained-receiver
+   projection is exponential in expression nesting (jenkins hung >50 min, jstack-confirmed) —
+   any big-corpus MODREACH run needs that commit.
+   ROLLOUT TABLE (downgrades / nulls decided / type transitions weakened+strengthened /
+   reverse-kept): fernflower 793/4/14+4/0 · guava 5935/74/98+57/2 · activemq 823/58/9+13/0 ·
+   jenkins 2893/1016/47+82/9 (setter-family cluster named in the log + 2 test-mock primitives;
+   triage batch for the successor) · camel-util 88/13/-/0 · camel-support 650/31/-/2 (both joint
+   fixpoint in 2 rounds; dumps pinned in build/). Jenkins also shows 251 analyzed-callee
+   missing-arg-link sites (top: IconSet.addIcon=82) — a real E1 gap, honestly tainted (no
+   optimistic TRUE there). Consistent picture across all six corpora: corrections dominate on
+   well-decided corpora, null-deciding dominates on under-decided ones; both directions are the
+   pass being MORE decided. ES verification (plain leg: type-null vs 23206 baseline + CONSEDGES +
+   CHECKPOINT dogfood incl. wave-boundary deltas) LAUNCHED 2026-07-19 afternoon as a background
+   run — results in build/es-checkpoint-2026-07-19 + the FPDUMP; the MODREACH ES leg is the one
+   remaining big A/B (run it only at 33c9b8fc or later — the memoization commit).
+5. **task #43 (SOUNDNESS) — CLOSED 2026-07-19**: the loop-transform bridge dropped
+   element-aliasing links (Object[] slot store + downcast + FI application) — transformed
+   reference-element containers promoted unsoundly (PointM tripwire, confirmed by the transform
+   thread). Fixed in three parts, all in FieldAnalyzerImpl (no link-engine surface):
+   composeThroughLocal (one-hop local elimination, plain-face algebra), the private-param
+   exposure gate (a private method's parameter is exposed iff the method escapes as a
+   MethodReference capture — consumer-side form of route A's eager capture-linking), and
+   transported-content grading (dependence graded by the TRANSPORTED type when its immutability
+   is known non-immutable, not the carrier's). TestBridgeLinkDrop pins the sound verdicts
+   (@FinalFields/@Dependent); TestLoopTransformDivergence green both directions (int[] Point
+   still promotes). Full record in immutability-transform-divergence.md; interim MIN-of-both
+   policy retirable once the transform thread confirms their tripwire.
+6. Open engineering (designed, measured, not built): #35 frontier integration
+   (DESIGN-incremental-v2.md + Phase A numbers: closure NO-GO, direct-edge GO); #39 step 2
+   (awaits jfocus owner's EIDEDUP_SHADOW data); #42 refinement (compute 'wholly cast-mediated'
+   from Link.mediated() — the basic @Modified(downcast/downcastTo) annotation + decorator
+   emission are DONE).
+
 ## CURRENT STATE (2026-07-19, end of the post-merge session — read this first after compaction)
 
 ### UPDATE 2026-07-19 (phase-2 session, later same day) — at 5c880b3c
@@ -35,9 +137,32 @@
   @ImmutableHC->@FinalFields incl. FastFixedSetFactory = the §9.4-named suspect; 4 STRENGTHENED
   from newly-decided nulls). P2.4 promoted-baseline invariant: under MODREACH the re-run diff
   shows 0 reverse + divergences == immutable-guarded count (union over-reach on int/String
-  nodes the writer refuses; Report.immutableGuardedDivergences counts them). REMAINING: corpus
-  rollout (timefold/langchain4j/guava A/B + audit cross-read), metrics-thread notification
-  (deepFieldChains saturation pin flips per §8), decision on default-ON.
+  nodes the writer refuses; Report.immutableGuardedDivergences counts them).
+- Corpus rollout leg 2 — GUAVA (baseline freshly pinned build/imm-guava-2026-07-19.txt.gz +
+  modreach dump alongside; both runs green): 5935 TRUE->FALSE + 13 null->FALSE + 61 null->TRUE,
+  0 frontier-skipped, 2 REVERSE KEPT (first nonzero — engine-FALSE/pass-unreached, a shadow-gap
+  channel guava exercises that fernflower didn't; writer keeps them conservatively but they need
+  NAMES — add logging — and a triage like the original 8). 38301 derived values cleared. FPDUMP
+  delta: 1971 methods + 410 fields + 157 types; type transitions: WEAKENED 98 (44 ImmHC->FF,
+  24 ImmHC->Mut, 13 FF->Mut, 17 Imm->lower), STRENGTHENED 57 (39 FF->ImmHC, 16 Mut->ImmHC) —
+  the pass's null-deciding makes re-derivation MORE decided in both directions. Caveat: A/B
+  conflates track-on churn with cutover churn (no separate track-only guava leg; ff evidence
+  says track-on churn is tiny). Note: timefold + langchain4j corpus tests SKIP — no locally
+  generated inputConfiguration.json in ~/git/test-oss for them.
+  Reverse-kept NAMED (writer logs them now): RegularImmutableMultiset.hashCode + .size — lazy
+  primitive cache fields the engine holds FALSE on (an int field has no object graph; engine-side
+  quirk); kept conservatively, LOW priority.
+  POST-REDERIVATION DRIFT (guava MODREACH+SHADOWDIFF): the diagnostic pass AFTER re-derivation
+  sees 818 divergences (816 immutable-guarded, 2 NOT) + 42 diagnostic-REV (e.g.
+  SimpleStatsCounter.recordHits: LongAdder-field modification, engine-FALSE correct and KEPT —
+  the re-derived immutability suppressed the link that seeded it). Cause: re-derivation moves
+  METHOD_LINKS (immutability feeds linking), so the pass's input artifacts shift after the write.
+  No unsoundness (all frozen FALSE kept); magnitude of the residual: 2 would-be-downgrades /
+  13633 methods. Candidate P2.5: iterate pass <-> re-derivation to joint fixpoint; decide by
+  magnitude at corpus scale. Fernflower shows zero drift.
+  REMAINING: jenkins/activemq/camel legs (+ES MODREACH leg overnight-sized); §9.4 audit
+  cross-read of the guava strengthened/weakened sets; P2.5 decision; metrics-thread notification
+  delivered as PLAN §15; decision on default-ON (Bart's, once rollout evidence is in).
 - New task #42 queued by the user: DOWNCAST presentation (@Modified(downcast=...) design opinion
   delivered; DecoratorImpl already half-implements it; @Modified lacks the element declaration).
 

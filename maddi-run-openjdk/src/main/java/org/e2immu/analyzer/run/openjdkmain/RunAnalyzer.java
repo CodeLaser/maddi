@@ -282,8 +282,85 @@ public class RunAnalyzer implements Runnable {
                         javaInspector.runtime(), linkCodec::codec, new File(checkpointDir)));
                 LOGGER.info("CHECKPOINT: writing pass-boundary deltas to {}", checkpointDir);
             }
+            // task #35 phase C/D: INCREMENTAL=<dir of a prior CHECKPOINT run> — restore that run's
+            // values, detect changed primary types by SOURCE fingerprint, seed the early-cutoff
+            // worklist with the changed types' elements, and union the persisted consumption edges
+            // into the wake relation. Unchanged elements keep their carried (restored) values; the
+            // run stops when the worklist is dry. Value-carrying gate, FPDUMP convention.
+            java.util.Set<org.e2immu.language.cst.api.info.Info> initialDirty = null;
+            String incrementalDir = System.getenv("INCREMENTAL");
+            if (incrementalDir != null && !incrementalDir.isBlank()) {
+                try {
+                    var state = org.e2immu.analyzer.modification.prepwork.io.IncrementalState
+                            .load(new File(incrementalDir));
+                    if (state.sourceFingerprints().isEmpty()) {
+                        LOGGER.warn("INCREMENTAL: no usable state in {}; running cold", incrementalDir);
+                    } else {
+                        int loaded = new org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults(
+                                javaInspector.runtime(), javaInspector.mainSources())
+                                .goDirTolerant(new org.e2immu.analyzer.modification.link.io.LinkCodec(javaInspector)
+                                        .restoreCodec(), new File(incrementalDir));
+                        java.util.Set<String> changed = state.changedTypes(summary.parseResult().primaryTypes());
+                        initialDirty = new java.util.HashSet<>();
+                        int unrestored = 0;
+                        java.util.Map<String, org.e2immu.language.cst.api.info.TypeInfo> typesByFqn = new java.util.HashMap<>();
+                        for (var info : order) {
+                            var pt = info.typeInfo() == null ? null : info.typeInfo().primaryType();
+                            if (pt == null) continue;
+                            typesByFqn.putIfAbsent(pt.fullyQualifiedName(), pt);
+                            if (changed.contains(pt.fullyQualifiedName())) {
+                                initialDirty.add(info);
+                            } else if (info.analysis().isEmpty()) {
+                                // the restore's decode tail: an element with NO carried values stays
+                                // null (no verification pass in incremental mode). Re-analyzing them
+                                // (INCREMENTAL_FILL, presence gate) floods the worklist far past the
+                                // tail itself (measured: slower than a cold run on fernflower) — the
+                                // real fix is restore coverage (the shared codec fix list). Default:
+                                // fast resume, holes counted here and reported.
+                                unrestored++;
+                                if (System.getenv("INCREMENTAL_FILL") != null) initialDirty.add(info);
+                            }
+                        }
+                        java.util.Map<org.e2immu.language.cst.api.info.Info,
+                                java.util.Set<org.e2immu.language.cst.api.info.Info>> wake = new java.util.HashMap<>();
+                        state.consumers().forEach((consumedFqn, consumerFqns) -> {
+                            var consumedType = typesByFqn.get(consumedFqn);
+                            if (consumedType == null) return;
+                            java.util.Set<org.e2immu.language.cst.api.info.Info> consumers = new java.util.HashSet<>();
+                            for (String c : consumerFqns) {
+                                var t = typesByFqn.get(c);
+                                if (t != null) consumers.add(t);
+                            }
+                            if (!consumers.isEmpty()) wake.put(consumedType, consumers);
+                        });
+                        if (analyzer instanceof org.e2immu.analyzer.modification.analyzer.impl
+                                .IteratingAnalyzerImpl iai) {
+                            iai.setExternalWakeEdges(wake);
+                        }
+                        LOGGER.info("INCREMENTAL: restored {} type files, {} changed primary type(s), "
+                                    + "{} dirty seed element(s) ({} unrestored), {} wake-edge sources",
+                                loaded, changed.size(), initialDirty.size(), unrestored, wake.size());
+                    }
+                } catch (RuntimeException e) {
+                    LOGGER.error("INCREMENTAL setup failed; running cold: {}", e.toString());
+                    initialDirty = null;
+                }
+            }
             try {
-                analyzer.analyze(order, ccg.graph()); // graph enables worklist narrowing (default ON, NOWORKLIST=1 opts out)
+                if (initialDirty != null) {
+                    // clear-before-recompute: a dirtied element's carried cross-type-derived values
+                    // must not block the fresh, possibly-lowering re-analysis
+                    java.util.function.Consumer<org.e2immu.language.cst.api.info.Info> clearHook = info -> {
+                        info.analysis().removeIf(AnalysisFingerprint.CROSS_TYPE_DERIVED_ONLY);
+                        if (info instanceof org.e2immu.language.cst.api.info.MethodInfo mi) {
+                            mi.parameters().forEach(p ->
+                                    p.analysis().removeIf(AnalysisFingerprint.CROSS_TYPE_DERIVED_ONLY));
+                        }
+                    };
+                    analyzer.analyze(order, ccg.graph(), initialDirty, clearHook);
+                } else {
+                    analyzer.analyze(order, ccg.graph()); // graph enables worklist narrowing (default ON, NOWORKLIST=1 opts out)
+                }
             } catch (RuntimeException | AssertionError analyzerError) {
                 terminalError = analyzerError;
                 exitValue = Main.EXIT_ANALYSER_ERROR;
@@ -313,6 +390,19 @@ public class RunAnalyzer implements Runnable {
             int fpSets = AnalysisFingerprint.storePerSourceSet(javaInspector.runtime(),
                     summary.parseResult().primaryTypes()).size();
             LOGGER.info("Stored analysis fingerprints for {} source set(s)", fpSets);
+            // task #35 phase C: a checkpointed run leaves per-type OUTPUT fingerprints + the
+            // recorded consumption edges (CHECKPOINT arms the recorder) so the next run can seed
+            // the early-cutoff worklist with changed types + their DIRECT consumers
+            if (checkpointDir != null && !checkpointDir.isBlank()) {
+                try {
+                    org.e2immu.analyzer.modification.prepwork.io.IncrementalState
+                            .capture(javaInspector.runtime(), summary.parseResult().primaryTypes(),
+                                    org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.edgesSnapshot())
+                            .save(new File(checkpointDir));
+                } catch (IOException | RuntimeException e) {
+                    LOGGER.warn("Cannot save incremental state: {}", e.toString());
+                }
+            }
             if (analysisMessages.stream().anyMatch(m -> m.level().isError())) {
                 exitValue = Main.EXIT_ANALYSER_ERROR;
             }

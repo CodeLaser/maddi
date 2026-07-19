@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkVariable;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
+import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
@@ -240,14 +241,19 @@ public class ShadowModificationPass {
                         .forEach(sd -> seedOrigin.put(sd, mi.fullyQualifiedName() + " modified " + v));
             }
         }
-        // E3: field -> parameter linked to that field
+        // E3: field -> parameter linked to that field, with the ENGINE's OWN nature filter
+        // (TypeModIndyAnalyzerImpl.relevantLinkForModification): identicalTo with virtual-
+        // modification faces, or a non-virtual IS_ASSIGNED_TO. Without the filter, CONTENT-tier
+        // links (an element read out of the parameter and added to the field: upper ∋ left ∈
+        // this.args) created bogus wake edges — modification of the destination container
+        // widened back to the source, precisely what the engine's rule refuses (2026-07-19
+        // fernflower cause-chain diagnosis; TestElementFlowWidening pins the precise behavior).
         for (ParameterInfo pi : mi.parameters()) {
             Links links = mlv.ofParameters().get(pi.index());
-            links.stream().forEach(link -> link.to().variableStreamDescend().forEach(v -> {
-                if (v instanceof FieldReference fr) {
-                    addEdge(fr.fieldInfo(), pi);
-                }
-            }));
+            for (Link link : links) {
+                FieldReference fr = relevantLinkForModification(link);
+                if (fr != null) addEdge(fr.fieldInfo(), pi);
+            }
         }
         // E1/E2: call sites
         if (mi.methodBody() != null) {
@@ -398,7 +404,24 @@ public class ShadowModificationPass {
      * links the result to nothing caller-side (factories, defensive copies) correctly contributes
      * no nodes; only a missing summary counts as unprojected.
      */
+    // memoization is load-bearing: chained/nested receivers re-walk shared sub-expressions once
+    // per return-value link, which is EXPONENTIAL in nesting depth without a cache (jenkins-core
+    // hung >50 min in this recursion, thread-dump-confirmed 2026-07-19). Expressions are shared
+    // immutable CST nodes, each belonging to exactly one statement: identity keying is exact.
+    private final Map<org.e2immu.language.cst.api.expression.Expression, Set<Object>> receiverChainCache =
+            new IdentityHashMap<>();
+
     private Set<Object> projectReceiverChain(MethodInfo mi, VariableData vd,
+                                             org.e2immu.language.cst.api.expression.Expression receiver) {
+        if (receiver == null) return Set.of();
+        Set<Object> cached = receiverChainCache.get(receiver);
+        if (cached != null) return cached;
+        Set<Object> result = computeReceiverChain(mi, vd, receiver);
+        receiverChainCache.put(receiver, result);
+        return result;
+    }
+
+    private Set<Object> computeReceiverChain(MethodInfo mi, VariableData vd,
                                              org.e2immu.language.cst.api.expression.Expression receiver) {
         switch (receiver) {
             case null -> {
@@ -581,7 +604,7 @@ public class ShadowModificationPass {
             switch (info) {
                 case MethodInfo mi -> {
                     int r = write(mi.analysis(), PropertyImpl.NON_MODIFYING_METHOD,
-                            report.reached().contains(mi), report.frontierIncomplete().contains(mi), false);
+                            report.reached().contains(mi), report.frontierIncomplete().contains(mi), false, mi);
                     switch (r) {
                         case DOWNGRADED -> downgraded++;
                         case DECIDED_FALSE -> decidedFalse++;
@@ -594,7 +617,7 @@ public class ShadowModificationPass {
                     for (ParameterInfo pi : mi.parameters()) {
                         boolean immutable = analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
                         int rp = write(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER,
-                                report.reached().contains(pi), report.frontierIncomplete().contains(pi), immutable);
+                                report.reached().contains(pi), report.frontierIncomplete().contains(pi), immutable, pi);
                         switch (rp) {
                             case DOWNGRADED -> downgraded++;
                             case DECIDED_FALSE -> decidedFalse++;
@@ -609,7 +632,7 @@ public class ShadowModificationPass {
                 case FieldInfo fi -> {
                     boolean immutable = analysisHelper.typeImmutable(fi.type()).isImmutable();
                     int rf = write(fi.analysis(), PropertyImpl.UNMODIFIED_FIELD,
-                            report.reached().contains(fi), report.frontierIncomplete().contains(fi), immutable);
+                            report.reached().contains(fi), report.frontierIncomplete().contains(fi), immutable, fi);
                     switch (rf) {
                         case DOWNGRADED -> downgraded++;
                         case DECIDED_FALSE -> decidedFalse++;
@@ -631,7 +654,7 @@ public class ShadowModificationPass {
             LEFT_UNDECIDED = 4, REVERSE_KEPT = 5;
 
     private int write(PropertyValueMap analysis, org.e2immu.language.cst.api.analysis.Property property,
-                      boolean reached, boolean tainted, boolean immutableType) {
+                      boolean reached, boolean tainted, boolean immutableType, Object element) {
         Value.Bool current = analysis.getOrNull(property, ValueImpl.BoolImpl.class);
         if (reached) {
             if (immutableType) return NO_CHANGE; // an immutable object cannot be modified: union over-reach
@@ -652,7 +675,12 @@ public class ShadowModificationPass {
             }
             return LEFT_UNDECIDED;
         }
-        if (current.isFalse()) return REVERSE_KEPT; // engine knows more than the graph: keep, conservative
+        if (current.isFalse()) {
+            // engine knows more than the graph: keep, conservative — but each of these is a
+            // shadow-gap of the reverse-divergence family; named for triage (cf. the original 8)
+            LOGGER.warn("modreach reverse-kept: {} {}", property.key(), element);
+            return REVERSE_KEPT;
+        }
         return NO_CHANGE; // TRUE and unreached: agreement
     }
 
@@ -661,6 +689,11 @@ public class ShadowModificationPass {
         Deque<Object> todo = new ArrayDeque<>(seeds);
         while (!todo.isEmpty()) {
             Object node = todo.poll();
+            // an immutable-typed node cannot transmit modification: its object graph cannot change,
+            // so any edge out of it is vacuous. Without this cut, chains propagated THROUGH String
+            // parameters/fields (the writer's immutable guard stopped the WRITE but not the walk) —
+            // fernflower cause-chain diagnosis 2026-07-19.
+            if (immutableTyped(node)) continue;
             for (Object next : successors.getOrDefault(node, Set.of())) {
                 if (reached.add(next)) {
                     cause.put(next, node);
@@ -669,5 +702,30 @@ public class ShadowModificationPass {
             }
         }
         return reached;
+    }
+
+    private boolean immutableTyped(Object node) {
+        return switch (node) {
+            case ParameterInfo pi -> analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
+            case FieldInfo fi -> analysisHelper.typeImmutable(fi.type()).isImmutable();
+            default -> false;
+        };
+    }
+
+    /**
+     * The engine's own filter for "a modified field implicates this parameter"
+     * (TypeModIndyAnalyzerImpl.relevantLinkForModification, mirrored verbatim): an identicalTo
+     * link between virtual-modification faces, or a non-virtual IS_ASSIGNED_TO onto the field.
+     * Content-tier natures (∈ ∋ ~ ...) are excluded — element flow is not modification transfer.
+     */
+    private static FieldReference relevantLinkForModification(Link link) {
+        if (link.linkNature().isIdenticalTo()
+            && Util.isVirtualModification(link.from())
+            && Util.isVirtualModification(link.to())
+            && Util.firstRealVariable(link.to()) instanceof FieldReference fr) return fr;
+        if (LinkNatureImpl.IS_ASSIGNED_TO.equals(link.linkNature())
+            && !Util.virtual(link.from())
+            && !Util.virtual(link.to()) && link.to() instanceof FieldReference fr) return fr;
+        return null;
     }
 }

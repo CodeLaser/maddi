@@ -120,10 +120,27 @@ PERFORMANCE device; certification is the correctness device.
   invalidation-closure replaced by frontier propagation over direct edges.
 - **Phase B (fingerprints)**: element fingerprint computation + storage next to the checkpoint;
   A/B: fingerprint stability across two identical parses (must be 100%).
+  DELIVERED 2026-07-19 at TYPE granularity (sufficient v2): IncrementalState persists per-primary-
+  type SOURCE fingerprints (the parser's MD5, computeFingerPrints) + analysis OUTPUT fingerprints
+  + the recorder's consumption edges lifted to type level (one tolerant JSON next to the
+  checkpoint; CHECKPOINT arms the recorder).
 - **Phase C (resume path)**: wire §3.2+§3.3 into CHECKPOINT_RESTORE; acceptance: touch one method
   body in fernflower, resume, assert (a) verdicts equal the cold run's mod known non-confluence,
   (b) analyzed-element count ~ consumption closure size, not corpus size.
+  DELIVERED 2026-07-19: RunAnalyzer gate INCREMENTAL=<dir> — restore values, changedTypes by
+  source fingerprint, seed the in-analyzer early-cutoff worklist with the changed types' elements,
+  union the persisted consumption edges into the wake relation (setExternalWakeEdges: closes the
+  value-mediated-flow gap on resume — those edges are absent from the fresh call graph and
+  incremental mode has no verification pass to catch the stale value). Chain acceptance in
+  TestIncrementalConsumptionWake (comment edit cuts off, semantic edit wakes the consumer through
+  the RECORDED edge).
 - **Phase D (scale)**: elasticsearch — touch one file, measure wall-clock vs the 5h21m cold run.
+  FERNFLOWER SMOKE 2026-07-19: cold+checkpoint 147s -> untouched resume **7s** (0 changed, 0
+  seeds, worklist dry on arrival). KNOWN LIMIT: resume verdict completeness == restore coverage —
+  the decode tail leaves 72 fully-empty elements (+partial decodes, ~2.3k null verdicts of 9.8k
+  dump lines on fernflower); re-analyzing them (INCREMENTAL_FILL, opt-in) floods the worklist
+  past the tail and is SLOWER than cold — the fix is the shared codec fix list, not the worklist.
+  ES-scale touch-one-file remains for the successor (command shape in the catalogue HANDOFF).
 
 ## 5. Open questions (for the user)
 
