@@ -55,7 +55,14 @@ public class CheckpointWriter implements AnalysisValueFeed {
     private final Runtime runtime;
     private final java.util.function.Supplier<Codec> codecSupplier;
     private final File directory;
+    private final long waveFlushIntervalMillis;
     private int typesWritten;
+    // wave-boundary protection for the multi-hour FIRST pass (see waveCompleted): primaries of
+    // completed waves accumulate here and flush at most once per interval. Coordinator thread only.
+    private final Set<TypeInfo> pendingWavePrimaries = new LinkedHashSet<>();
+    private long lastWaveFlush = System.currentTimeMillis();
+
+    private static final long DEFAULT_WAVE_FLUSH_INTERVAL_MILLIS = 60_000;
 
     /**
      * codecSupplier: a FRESH codec per type-write. A codec instance registers marker-variable
@@ -64,9 +71,15 @@ public class CheckpointWriter implements AnalysisValueFeed {
      * ('Cannot find $_ce0M'). A fresh codec per file makes each file self-contained.
      */
     public CheckpointWriter(Runtime runtime, java.util.function.Supplier<Codec> codecSupplier, File directory) {
+        this(runtime, codecSupplier, directory, DEFAULT_WAVE_FLUSH_INTERVAL_MILLIS);
+    }
+
+    public CheckpointWriter(Runtime runtime, java.util.function.Supplier<Codec> codecSupplier, File directory,
+                            long waveFlushIntervalMillis) {
         this.runtime = runtime;
         this.codecSupplier = codecSupplier;
         this.directory = directory;
+        this.waveFlushIntervalMillis = waveFlushIntervalMillis;
         if (directory.mkdirs()) {
             LOGGER.debug("Created checkpoint directory {}", directory);
         }
@@ -74,12 +87,42 @@ public class CheckpointWriter implements AnalysisValueFeed {
 
     @Override
     public void passCompleted(int iteration, boolean fullPass, Collection<Info> analyzed) {
+        // the pass write covers everything analyzed this pass, so pending wave primaries are subsumed
+        pendingWavePrimaries.clear();
+        lastWaveFlush = System.currentTimeMillis();
+        Set<TypeInfo> primaries = primariesOf(analyzed);
+        if (primaries.isEmpty()) return;
+        write(primaries, "pass " + iteration);
+    }
+
+    /**
+     * Intra-pass crash protection (the checkpoint granularity gap, 2026-07-19): pass-boundary writes
+     * give NOTHING during a cold run's first pass, which at monorepo scale is the 3-4h+ stretch that
+     * most needs protecting. Wave barriers are safe emission points; a time throttle batches the
+     * (typically many, small) waves so a primary type whose elements span several waves is not
+     * rewritten per wave. Values are provisional but monotone; the pass-boundary write supersedes.
+     */
+    @Override
+    public void waveCompleted(int iteration, int wave, Collection<Info> analyzed) {
+        pendingWavePrimaries.addAll(primariesOf(analyzed));
+        long now = System.currentTimeMillis();
+        if (pendingWavePrimaries.isEmpty() || now - lastWaveFlush < waveFlushIntervalMillis) return;
+        Set<TypeInfo> toWrite = new LinkedHashSet<>(pendingWavePrimaries);
+        pendingWavePrimaries.clear();
+        lastWaveFlush = now;
+        write(toWrite, "wave " + wave + " (pass " + iteration + ")");
+    }
+
+    private static Set<TypeInfo> primariesOf(Collection<Info> analyzed) {
         Set<TypeInfo> primaries = new LinkedHashSet<>();
         for (Info info : analyzed) {
             TypeInfo primary = info.typeInfo() == null ? null : info.typeInfo().primaryType();
             if (primary != null) primaries.add(primary);
         }
-        if (primaries.isEmpty()) return;
+        return primaries;
+    }
+
+    private void write(Set<TypeInfo> primaries, String label) {
         // write PER TYPE so one unencodable type (mid-iteration values can trip codec asserts) costs
         // only itself, not the whole pass; and via a temp dir + atomic move, so a mid-encode crash
         // never leaves a truncated file in the checkpoint. Missing types are re-analyzed on resume.
@@ -101,7 +144,7 @@ public class CheckpointWriter implements AnalysisValueFeed {
                 ok++;
             } catch (IOException | RuntimeException | AssertionError e) {
                 failed++;
-                LOGGER.debug("Checkpoint skip {} after pass {}: {}", primary, iteration, e.toString());
+                LOGGER.debug("Checkpoint skip {} after {}: {}", primary, label, e.toString());
             } finally {
                 if (tmpDir != null) {
                     try (var leftovers = Files.walk(tmpDir).sorted(java.util.Comparator.reverseOrder())) {
@@ -113,8 +156,8 @@ public class CheckpointWriter implements AnalysisValueFeed {
             }
         }
         typesWritten += ok;
-        LOGGER.info("Checkpoint after pass {}: wrote {} primary type(s) ({} skipped), {} cumulative",
-                iteration, ok, failed, typesWritten);
+        LOGGER.info("Checkpoint after {}: wrote {} primary type(s) ({} skipped), {} cumulative",
+                label, ok, failed, typesWritten);
     }
 
     @Override

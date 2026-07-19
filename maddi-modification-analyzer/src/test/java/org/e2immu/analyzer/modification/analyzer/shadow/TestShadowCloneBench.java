@@ -178,16 +178,21 @@ public class TestShadowCloneBench extends CommonTest {
                            + ", " + totalRev + " reverse, in " + sorted.size() + " of " + counter.get() + " types");
 
         // the phase-1 baseline (2026-07-19, engine at kotlin fba60b23): every divergence is a
-        // frozen optimistic TRUE the reachability evidence contradicts — 208 directly in the frozen
+        // frozen optimistic TRUE the reachability evidence contradicts — directly in the frozen
         // method's own converged summary ("seed": the refused-downgrade class the STRICTCERT
-        // counter measures), 71 via multi-hop propagation (the deep-capture-chain class). A change
-        // in these numbers means the engine moved: re-baseline and reclassify, don't just bump.
+        // counter measures), or via multi-hop propagation (the deep-capture-chain class). A change
+        // in these numbers means the engine or the pass moved: re-baseline and reclassify, don't
+        // just bump. Re-baselined 2026-07-19 from {1,6,272}/{71,208} when the pass gained the
+        // statement-level field-modification seed channel (mirror of FieldAnalyzerImpl's
+        // UNMODIFIED_VARIABLE read, closing the 8 fernflower reverse divergences): +2 fields
+        // (TestData.expected/.other modified via a local in an anonymous execute()) +2 downstream
+        // constructor parameters, all classified seed = refused downgrades.
         org.junit.jupiter.api.Assertions.assertEquals(0, totalRev,
                 "reverse divergences are shadow-pass bugs (incomplete seeds or edges)");
         org.junit.jupiter.api.Assertions.assertEquals(
-                Map.of("nonModifyingMethod", 1, "unmodifiedField", 6, "unmodifiedParameter", 272),
+                Map.of("nonModifyingMethod", 1, "unmodifiedField", 8, "unmodifiedParameter", 274),
                 byProperty);
-        org.junit.jupiter.api.Assertions.assertEquals(Map.of("propagated", 71, "seed", 208), byClass);
+        org.junit.jupiter.api.Assertions.assertEquals(Map.of("propagated", 71, "seed", 212), byClass);
     }
 
     private volatile int totalMethods, totalSeeds, totalEdges, totalMissingArgLinks, totalUnprojectedReceivers;

@@ -82,6 +82,14 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final Set<Info> changedInfos = Collections.synchronizedSet(new HashSet<>());
     private final Set<Info> summaryChangedInfos = Collections.synchronizedSet(new HashSet<>());
 
+    // wave-barrier hook (AnalysisValueFeed.waveCompleted): fired on the coordinator thread after each
+    // strata wave's join, with that wave's element set. Set by IteratingAnalyzerImpl when a feed exists.
+    private java.util.function.ObjIntConsumer<java.util.Collection<Info>> waveCompletedCallback;
+
+    public void setWaveCompletedCallback(java.util.function.ObjIntConsumer<java.util.Collection<Info>> callback) {
+        this.waveCompletedCallback = callback;
+    }
+
     public static final String ANALYZER_CRASH = "analyzer-crash";
     public static final String LINK_CRASH = "link-crash";
 
@@ -166,7 +174,9 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                 linkComputer.setLockComputeDisabled(true);
                 try (java.util.concurrent.ExecutorService pool =
                              java.util.concurrent.Executors.newFixedThreadPool(PARALLEL_THREADS)) {
+                    int waveIndex = 0;
                     for (List<List<Info>> wave : firstIterationWaves) {
+                        waveIndex++;
                         List<java.util.concurrent.Future<?>> futures = new ArrayList<>(wave.size());
                         for (List<Info> unit : wave) {
                             futures.add(pool.submit(() -> {
@@ -176,6 +186,12 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                             }));
                         }
                         joinAll(futures); // barrier per wave: the next wave's callees are complete
+                        if (waveCompletedCallback != null) {
+                            // workers quiescent at the barrier; the callback (guarded by the iterating
+                            // analyzer's feed wrapper) must not slow the pass beyond its own throttle
+                            List<Info> waveElements = wave.stream().flatMap(List::stream).toList();
+                            waveCompletedCallback.accept(waveElements, waveIndex);
+                        }
                     }
                 } finally {
                     linkComputer.setLockComputeDisabled(false);

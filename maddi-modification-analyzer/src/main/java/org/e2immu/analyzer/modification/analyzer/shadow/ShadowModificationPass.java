@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.analyzer.shadow;
 
+import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkVariable;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
@@ -7,6 +8,7 @@ import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.ObjectCreationVariable;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.analysis.Value;
@@ -27,6 +29,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+
+import static org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.EMPTY_PART_OF_CONSTRUCTION;
+import static org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION;
 
 /**
  * PLAN-modification-reachability phase 1: the shadow pass. Computes modification as one-shot
@@ -72,7 +77,10 @@ public class ShadowModificationPass {
                          Map<Object, Object> cause,
                          Map<Object, String> seedOrigin,
                          int methods, int methodsWithoutLinks, int seeds, int edgeCount,
-                         int callSitesWithoutArgumentLinks, int unprojectedReceivers) {
+                         int callSitesWithoutArgumentLinks, int unprojectedReceivers,
+                         Map<String, Integer> missingArgLinkAnalyzedCallees,
+                         Set<Object> frontierIncomplete,
+                         int immutableGuardedDivergences) {
 
         /** the BFS chain from a reached node back to its seed, for divergence classification */
         public String explain(Object node) {
@@ -94,11 +102,20 @@ public class ShadowModificationPass {
             return node.toString();
         }
         public String summary() {
+            int atAnalyzed = missingArgLinkAnalyzedCallees.values().stream().mapToInt(Integer::intValue).sum();
+            String top = missingArgLinkAnalyzedCallees.entrySet().stream()
+                    .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                    .limit(5)
+                    .map(e -> e.getKey() + "=" + e.getValue())
+                    .reduce((a, b) -> a + ", " + b).orElse("-");
             return "shadow: " + methods + " methods (" + methodsWithoutLinks + " without links), "
                    + seeds + " seeds, " + edgeCount + " edges, " + reached.size() + " reached; "
-                   + divergences.size() + " divergences, " + reverseDivergences.size() + " REVERSE divergences; "
-                   + callSitesWithoutArgumentLinks + " call sites without argument links, "
-                   + unprojectedReceivers + " unprojected receivers";
+                   + divergences.size() + " divergences (" + immutableGuardedDivergences
+                   + " immutable-guarded), " + reverseDivergences.size() + " REVERSE divergences; "
+                   + callSitesWithoutArgumentLinks + " call sites without argument links ("
+                   + atAnalyzed + " at analyzed callees, top: " + top + "), "
+                   + unprojectedReceivers + " unprojected receivers; "
+                   + frontierIncomplete.size() + " frontier-incomplete nodes (no TRUE at cutover)";
         }
 
         public List<String> sortedDivergenceStrings() {
@@ -110,6 +127,14 @@ public class ShadowModificationPass {
     private final Set<Object> seeds = new HashSet<>();
     private final Map<Object, String> seedOrigin = new HashMap<>();
     private final Map<Object, Object> cause = new HashMap<>();
+    private final Map<String, Integer> missingArgLinkAnalyzedCallees = new TreeMap<>();
+    private final AnalysisHelper analysisHelper = new AnalysisHelper();
+    private int immutableGuardedDivergences;
+    // §10.1 invariant support for the cutover writer (PLAN §14 P2.3): nodes whose in-edge frontier
+    // could NOT be fully constructed. "Unreached" is only evidence of "unmodified" when every
+    // potential in-edge was built; the cutover pass must not write TRUE for tainted nodes (it
+    // leaves the existing value). Tainted-and-reached is fine — FALSE needs no complete frontier.
+    private final Set<Object> frontierIncomplete = new HashSet<>();
     private int methods, methodsWithoutLinks, edgeCount, callSitesWithoutArgumentLinks, unprojectedReceivers;
 
     public Report go(List<Info> analysisOrder) {
@@ -138,7 +163,9 @@ public class ShadowModificationPass {
         Report report = new Report(reached, List.copyOf(divergences), List.copyOf(reverse),
                 Map.copyOf(cause), Map.copyOf(seedOrigin),
                 methods, methodsWithoutLinks, seeds.size(), edgeCount,
-                callSitesWithoutArgumentLinks, unprojectedReceivers);
+                callSitesWithoutArgumentLinks, unprojectedReceivers,
+                Map.copyOf(missingArgLinkAnalyzedCallees), Set.copyOf(frontierIncomplete),
+                immutableGuardedDivergences);
         LOGGER.debug("{}", report.summary());
         return report;
     }
@@ -151,6 +178,16 @@ public class ShadowModificationPass {
         // for all three properties, TRUE is the optimistic "unmodified"/"non-modifying" value
         if (frozen.isTrue() && reached) {
             divergences.add(new Divergence(propertyName, info, detail));
+            // union over-approximation can reach immutable-typed nodes (int params via E6 position
+            // alignment, String fields via projection); the cutover writer refuses to downgrade
+            // those, so under MODREACH the promoted-baseline invariant is:
+            // 0 reverse AND divergences == immutableGuarded (frozen == pass output otherwise)
+            boolean immutableTyped = switch (info) {
+                case ParameterInfo pi -> analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
+                case FieldInfo fi -> analysisHelper.typeImmutable(fi.type()).isImmutable();
+                default -> false;
+            };
+            if (immutableTyped) immutableGuardedDivergences++;
         } else if (frozen.isFalse() && !reached) {
             reverse.add(new Divergence(propertyName, info, detail));
         }
@@ -178,6 +215,7 @@ public class ShadowModificationPass {
                 MethodLinkedVariablesImpl.class);
         if (mlv == null) {
             methodsWithoutLinks++;
+            taintUnprojected(mi); // no summary at all: no evidence for this method's own nodes (§10.1)
             return;
         }
         if (mi.isAbstract()) {
@@ -214,6 +252,38 @@ public class ShadowModificationPass {
         // E1/E2: call sites
         if (mi.methodBody() != null) {
             handleBlock(mi, mi.methodBody());
+        }
+        seedStatementLevelFieldModifications(mi);
+    }
+
+    /**
+     * Mirrors FieldAnalyzerImpl.computeUnmodified: modification of a field through a NON-this scope
+     * (local.field on a locally created/held object) never enters any method-level summary — the
+     * method's own receiver and parameters are not implicated — but the field analyzer reads it from
+     * the last statement's VariableData (UNMODIFIED_VARIABLE == FALSE) and decides
+     * UNMODIFIED_FIELD = FALSE. Same exclusions: constructors and part-of-construction methods
+     * (construction-time writes don't count), the field's own getter/setter, and only fields of this
+     * method's own primary type (the field analyzer scans just its primary type's methods).
+     */
+    private void seedStatementLevelFieldModifications(MethodInfo mi) {
+        if (mi.methodBody() == null || mi.methodBody().isEmpty()) return;
+        VariableData vd = VariableDataImpl.of(mi.methodBody().lastStatement());
+        if (vd == null) return;
+        Value.FieldValue getSet = mi.analysis().getOrDefault(PropertyImpl.GET_SET_FIELD,
+                ValueImpl.GetSetValueImpl.EMPTY);
+        for (VariableInfo vi : vd.variableInfoIterable()) {
+            if (!(vi.variable() instanceof FieldReference fr)) continue;
+            FieldInfo fieldInfo = fr.fieldInfo();
+            if (fieldInfo == getSet.field()) continue;
+            if (fieldInfo.owner().primaryType() != mi.typeInfo().primaryType()) continue;
+            Value.Bool unmodified = vi.analysis().getOrNull(VariableInfoImpl.UNMODIFIED_VARIABLE,
+                    ValueImpl.BoolImpl.class);
+            if (unmodified == null || !unmodified.isFalse()) continue;
+            if (mi.isConstructor()) continue;
+            Value.SetOfInfo poc = fieldInfo.owner().analysis().getOrDefault(PART_OF_CONSTRUCTION,
+                    EMPTY_PART_OF_CONSTRUCTION);
+            if (poc.infoSet().contains(mi)) continue;
+            seedWithOrigin(fieldInfo, mi, "statement-level unmodified FALSE on " + fr);
         }
     }
 
@@ -260,29 +330,39 @@ public class ShadowModificationPass {
             statement.visit(e -> {
                 if (e instanceof Block) return false; // nested statements handled with their own vd
                 if (e instanceof MethodCall mc) {
-                    handleCallSite(mi, vd, mc.methodInfo(), mc.analysis());
-                    if (mc.object() instanceof VariableExpression ve) {
-                        // E2: callee receiver -> caller-side receiver nodes
-                        for (Object node : project(mi, vd, ve.variable())) {
-                            addEdge(mc.methodInfo(), node);
-                        }
-                    } else if (mc.object() instanceof MethodCall || mc.object() instanceof ConstructorCall) {
-                        unprojectedReceivers++;
+                    handleCallSite(mi, vd, mc.methodInfo(), mc.analysis(), mc.parameterExpressions());
+                    // E2: callee receiver -> caller-side receiver nodes (chained receivers resolved
+                    // through the inner callee's return-value summary, P2.2a)
+                    for (Object node : projectReceiverChain(mi, vd, mc.object())) {
+                        addEdge(mc.methodInfo(), node);
                     }
                 } else if (e instanceof ConstructorCall cc && cc.constructor() != null) {
-                    handleCallSite(mi, vd, cc.constructor(), cc.analysis());
+                    handleCallSite(mi, vd, cc.constructor(), cc.analysis(), cc.parameterExpressions());
                 }
                 return true;
             });
         }
     }
 
-    private void handleCallSite(MethodInfo mi, VariableData vd, MethodInfo callee, PropertyValueMap analysis) {
+    private void handleCallSite(MethodInfo mi, VariableData vd, MethodInfo callee, PropertyValueMap analysis,
+                                List<org.e2immu.language.cst.api.expression.Expression> argumentExpressions) {
         if (callee == null || callee.parameters().isEmpty()) return;
         LinkComputer.ListOfLinks list = analysis.getOrNull(LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS,
                 LinkComputerImpl.ListOfLinksImpl.class);
         if (list == null) {
             callSitesWithoutArgumentLinks++;
+            // P2.2b classification: external/abstract callees carry no NEW facts (the engine folds
+            // their annotated/unioned argument modification into the caller's own summary, which
+            // seeds); a missing-link site at an ANALYZED callee is a genuine E1 coverage hole —
+            // pass-discovered parameter modifications cannot propagate to this caller's nodes.
+            // The syntactically projectable argument nodes get an incomplete frontier: they must
+            // not receive an optimistic TRUE at cutover (§10.1).
+            if (callee.methodBody() != null && !callee.methodBody().isEmpty() && !callee.isAbstract()) {
+                missingArgLinkAnalyzedCallees.merge(callee.fullyQualifiedName(), 1, Integer::sum);
+                for (org.e2immu.language.cst.api.expression.Expression arg : argumentExpressions) {
+                    frontierIncomplete.addAll(projectReceiverChain(mi, vd, arg));
+                }
+            }
             return;
         }
         for (ParameterInfo pi : callee.parameters()) {
@@ -303,6 +383,94 @@ public class ShadowModificationPass {
             }
             for (Object node : targets) {
                 addEdge(pi, node); // E1: callee parameter modified => argument's nodes modified
+            }
+        }
+    }
+
+    /**
+     * E2 receiver projection including CHAINED receivers (P2.2a — closes the 'unprojected
+     * receivers' coverage caveat of PLAN §13). A variable receiver projects directly. A method-call
+     * receiver {@code f(...).mutate()} is resolved through the inner callee's converged
+     * return-value summary: a fluent/identity return recurses into the inner receiver; a
+     * this-scoped field target implicates that field; a parameter target projects the caller-side
+     * argument. A constructor receiver {@code new X(a).mutate()} implicates the caller-side
+     * arguments its parameters capture into fields (the deep-capture shape). An empty summary that
+     * links the result to nothing caller-side (factories, defensive copies) correctly contributes
+     * no nodes; only a missing summary counts as unprojected.
+     */
+    private Set<Object> projectReceiverChain(MethodInfo mi, VariableData vd,
+                                             org.e2immu.language.cst.api.expression.Expression receiver) {
+        switch (receiver) {
+            case null -> {
+                return Set.of();
+            }
+            case VariableExpression ve -> {
+                return project(mi, vd, ve.variable());
+            }
+            case MethodCall mc -> {
+                MethodInfo callee = mc.methodInfo();
+                MethodLinkedVariables mlv = callee == null ? null
+                        : callee.analysis().getOrNull(MethodLinkedVariablesImpl.METHOD_LINKS,
+                        MethodLinkedVariablesImpl.class);
+                if (mlv == null) {
+                    unprojectedReceivers++;
+                    taintUnprojected(mi);
+                    return Set.of();
+                }
+                Set<Object> out = new LinkedHashSet<>();
+                mlv.ofReturnValue().stream().forEach(link -> link.to().variableStreamDescend().forEach(v -> {
+                    switch (v) {
+                        case This thisVar -> {
+                            if (callee.typeInfo().isEqualToOrInnerClassOf(thisVar.typeInfo())) {
+                                out.addAll(projectReceiverChain(mi, vd, mc.object()));
+                            }
+                        }
+                        case FieldReference fr -> {
+                            out.add(fr.fieldInfo());
+                            if (fr.scopeIsRecursivelyThis()) {
+                                out.addAll(projectReceiverChain(mi, vd, mc.object()));
+                            }
+                        }
+                        case ParameterInfo pi -> {
+                            if (pi.methodInfo() == callee && pi.index() < mc.parameterExpressions().size()) {
+                                out.addAll(projectReceiverChain(mi, vd, mc.parameterExpressions().get(pi.index())));
+                            }
+                        }
+                        default -> {
+                            // markers, locals of the callee: nothing caller-side
+                        }
+                    }
+                }));
+                return out;
+            }
+            case ConstructorCall cc when cc.constructor() != null -> {
+                // a fresh object: modification of its graph implicates the arguments its
+                // constructor captures into fields (IS_ASSIGNED_TO this-scoped targets)
+                MethodInfo ctor = cc.constructor();
+                MethodLinkedVariables mlv = ctor.analysis().getOrNull(MethodLinkedVariablesImpl.METHOD_LINKS,
+                        MethodLinkedVariablesImpl.class);
+                if (mlv == null) {
+                    unprojectedReceivers++;
+                    taintUnprojected(mi);
+                    return Set.of();
+                }
+                Set<Object> out = new LinkedHashSet<>();
+                for (ParameterInfo pi : ctor.parameters()) {
+                    if (pi.index() >= mlv.ofParameters().size()
+                        || pi.index() >= cc.parameterExpressions().size()) break;
+                    boolean captured = mlv.ofParameters().get(pi.index()).stream()
+                            .anyMatch(link -> link.to().variableStreamDescend()
+                                    .anyMatch(v -> v instanceof FieldReference fr && fr.scopeIsRecursivelyThis()));
+                    if (captured) {
+                        out.addAll(projectReceiverChain(mi, vd, cc.parameterExpressions().get(pi.index())));
+                    }
+                }
+                return out;
+            }
+            default -> {
+                // literals, casts of the above, arbitrary expressions: no resolution attempted here;
+                // count only genuinely call-shaped receivers we failed on (handled above)
+                return Set.of();
             }
         }
     }
@@ -362,9 +530,130 @@ public class ShadowModificationPass {
         if (v != null) todo.add(v);
     }
 
+    /**
+     * A receiver chain we could not resolve (missing inner summary): we cannot name the nodes the
+     * chain would have implicated, so conservatively give the OBSERVING method's receiver and
+     * parameters an incomplete frontier — cheap over-taint at the measured 1-5 occurrences per
+     * corpus (post-P2.2a).
+     */
+    private void taintUnprojected(MethodInfo mi) {
+        frontierIncomplete.add(mi);
+        frontierIncomplete.addAll(mi.parameters());
+    }
+
     private void addEdge(Object from, Object to) {
         if (from == to) return;
         if (successors.computeIfAbsent(from, k -> new HashSet<>()).add(to)) edgeCount++;
+    }
+
+    // ------------------------------------------------------------------ cutover writer (P2.3)
+
+    public record WriteCounts(int downgraded, int decidedFalse, int decidedTrue,
+                              int leftUndecided, int reverseKept) {
+        public String summary() {
+            return "modreach wrote: " + downgraded + " TRUE->FALSE downgrades, "
+                   + decidedFalse + " null->FALSE, " + decidedTrue + " null->TRUE, "
+                   + leftUndecided + " left undecided (frontier), " + reverseKept + " reverse kept";
+        }
+    }
+
+    /**
+     * PLAN §14 P2.3a: the single-writer cutover. Applies the reachability verdict to the three
+     * frozen properties, post-fixpoint:
+     * <ul>
+     * <li>reached and not currently FALSE: overwrite FALSE — every such write is exactly a
+     *     divergence (frozen optimistic TRUE) or an undecided null;</li>
+     * <li>unreached and currently null: TRUE if the node's in-edge frontier was constructible
+     *     (§10.1), otherwise left undecided (honest null beats optimistic TRUE);</li>
+     * <li>unreached and currently FALSE (the reverse-divergence class, zero on all corpora):
+     *     kept — the engine's value stands, conservative;</li>
+     * <li>immutable-typed parameters are never downgraded (their objects cannot be modified;
+     *     mirrors TypeModIndyAnalyzerImpl.handleParameter's immutability shortcut).</li>
+     * </ul>
+     * The caller must freeze the three properties against later writers (TolerantWrite) —
+     * Bool's legal overwrite direction is FALSE->TRUE, so any re-derivation writer could
+     * silently undo a downgrade.
+     */
+    public WriteCounts writeVerdicts(List<Info> analysisOrder, Report report) {
+        AnalysisHelper analysisHelper = new AnalysisHelper();
+        int downgraded = 0, decidedFalse = 0, decidedTrue = 0, leftUndecided = 0, reverseKept = 0;
+        for (Info info : analysisOrder) {
+            switch (info) {
+                case MethodInfo mi -> {
+                    int r = write(mi.analysis(), PropertyImpl.NON_MODIFYING_METHOD,
+                            report.reached().contains(mi), report.frontierIncomplete().contains(mi), false);
+                    switch (r) {
+                        case DOWNGRADED -> downgraded++;
+                        case DECIDED_FALSE -> decidedFalse++;
+                        case DECIDED_TRUE -> decidedTrue++;
+                        case LEFT_UNDECIDED -> leftUndecided++;
+                        case REVERSE_KEPT -> reverseKept++;
+                        default -> {
+                        }
+                    }
+                    for (ParameterInfo pi : mi.parameters()) {
+                        boolean immutable = analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
+                        int rp = write(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER,
+                                report.reached().contains(pi), report.frontierIncomplete().contains(pi), immutable);
+                        switch (rp) {
+                            case DOWNGRADED -> downgraded++;
+                            case DECIDED_FALSE -> decidedFalse++;
+                            case DECIDED_TRUE -> decidedTrue++;
+                            case LEFT_UNDECIDED -> leftUndecided++;
+                            case REVERSE_KEPT -> reverseKept++;
+                            default -> {
+                            }
+                        }
+                    }
+                }
+                case FieldInfo fi -> {
+                    boolean immutable = analysisHelper.typeImmutable(fi.type()).isImmutable();
+                    int rf = write(fi.analysis(), PropertyImpl.UNMODIFIED_FIELD,
+                            report.reached().contains(fi), report.frontierIncomplete().contains(fi), immutable);
+                    switch (rf) {
+                        case DOWNGRADED -> downgraded++;
+                        case DECIDED_FALSE -> decidedFalse++;
+                        case DECIDED_TRUE -> decidedTrue++;
+                        case LEFT_UNDECIDED -> leftUndecided++;
+                        case REVERSE_KEPT -> reverseKept++;
+                        default -> {
+                        }
+                    }
+                }
+                default -> {
+                }
+            }
+        }
+        return new WriteCounts(downgraded, decidedFalse, decidedTrue, leftUndecided, reverseKept);
+    }
+
+    private static final int NO_CHANGE = 0, DOWNGRADED = 1, DECIDED_FALSE = 2, DECIDED_TRUE = 3,
+            LEFT_UNDECIDED = 4, REVERSE_KEPT = 5;
+
+    private int write(PropertyValueMap analysis, org.e2immu.language.cst.api.analysis.Property property,
+                      boolean reached, boolean tainted, boolean immutableType) {
+        Value.Bool current = analysis.getOrNull(property, ValueImpl.BoolImpl.class);
+        if (reached) {
+            if (immutableType) return NO_CHANGE; // an immutable object cannot be modified: union over-reach
+            if (current == null) {
+                analysis.set(property, ValueImpl.BoolImpl.FALSE);
+                return DECIDED_FALSE;
+            }
+            if (current.isTrue()) {
+                analysis.overwrite(property, ValueImpl.BoolImpl.FALSE);
+                return DOWNGRADED;
+            }
+            return NO_CHANGE; // already FALSE: agreement
+        }
+        if (current == null) {
+            if (immutableType || !tainted) {
+                analysis.set(property, ValueImpl.BoolImpl.TRUE);
+                return DECIDED_TRUE;
+            }
+            return LEFT_UNDECIDED;
+        }
+        if (current.isFalse()) return REVERSE_KEPT; // engine knows more than the graph: keep, conservative
+        return NO_CHANGE; // TRUE and unreached: agreement
     }
 
     private Set<Object> closure() {
