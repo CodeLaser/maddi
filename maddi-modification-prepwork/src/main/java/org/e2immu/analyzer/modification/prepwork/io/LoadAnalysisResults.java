@@ -136,6 +136,31 @@ public class LoadAnalysisResults {
         }
     }
 
+    /**
+     * checkpoint-restore variant (task #34): an unparseable or undecodable file (crash mid-write,
+     * codec drift) is skipped and counted, never fatal — the resumed run re-analyzes what is missing.
+     */
+    public int goDirTolerant(Codec codec, File directory) throws IOException {
+        if (!directory.isDirectory()) throw new UnsupportedEncodingException(directory + " is not a directory");
+        try (Stream<Path> jsonFiles = Files.walk(directory.toPath(), 3)
+                .filter(p -> p.toString().endsWith(".json"))) {
+            int countPrimaryTypes = 0;
+            int skippedFiles = 0;
+            for (Path jsonFile : jsonFiles.toList()) {
+                try {
+                    countPrimaryTypes += go(codec, jsonFile);
+                } catch (IOException | RuntimeException | AssertionError e) {
+                    ++skippedFiles;
+                    LOGGER.warn("Skipping unreadable analysis file {}: {}", jsonFile, e.toString());
+                }
+            }
+            if (skippedFiles > 0) {
+                LOGGER.warn("Skipped {} unreadable analysis file(s) in {}", skippedFiles, directory);
+            }
+            return countPrimaryTypes;
+        }
+    }
+
     public int go(Codec codec, Path jsonFile) throws IOException {
         LOGGER.info("Parsing {}", jsonFile);
         String s = Files.readString(jsonFile);

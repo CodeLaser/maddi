@@ -29,7 +29,21 @@
   (cst-impl, graph, util, inspection-openjdk) rewritten by a sibling process mid-run — the failing
   suite's XML timestamp matches the jar mtimes to the second, and the garbled discovery filename
   reappeared. Mechanical fix: bin/gradle-locked.sh (stale-proof lock in build/), MANDATORY per
-  CLAUDE.md. In-JVM
+  CLAUDE.md. TRUE ROOT CAUSE FOUND 2026-07-18 22:3x after ~10 certified collision events (18:41 →
+  22:08): jfocus-standardize/settings.gradle.kts line 1 = includeBuild("../maddi") — the sibling
+  thread's compiles (run in ~/git/jfocus-standardize, believing they used maddi-kotlin) executed
+  maddi's OWN jar tasks via the composite build, rewriting ~/git/maddi/*/build outputs (incl.
+  maddi-support.jar, on the test inspector's javac classpath) while live test forks read them. No
+  protocol violation by any thread; the lock cannot see composite-build side doors. User repointed
+  the includeBuild. Note for the future: a "foreign" build-output write with no foreign gradle
+  process in the repo = look for includeBuild references from sibling repos. The chain-taint round
+  was committed on pins + certified 0-diff A/B; the owed link-suite green LANDED 2026-07-18 22:3x
+  after the repoint (prepwork/analyzer had passed repeatedly throughout) — the round is fully
+  gated, saga CLOSED. Gate runs now SELF-CERTIFY: touch a marker
+  before gradle, find-newer on build outputs (excluding own modules) after — red + foreign writes
+  = collision (rerun in a quiet window); red + certified-quiet = real bug, and would revive the
+  in-JVM residual hypothesis (the 21:48 event's causal chain via the aapi-parser CLASS DIR is the
+  least direct of the five — noted for honesty). In-JVM
   leads (owner-thread assertion, one-lock-per-JavacTask) stay relevant for analyzer-PARALLEL
   corpus runs only. SECOND ROOT CAUSE FOUND 2026-07-18 (lead from the flakiness thread, confirmed
   + fixed here): createTask returned the JavacTask from INSIDE try-with-resources on its
@@ -38,6 +52,14 @@
   corrupting mid-read — the historical low-victim-count flakes that no locking could cure. Fix:
   fm outlives the task (openFileManagers, closed in invalidateAllSources). Plus an assert that
   -XDuseUnsharedTable is HONORED (Names.table is not SharedNameTable), ScanCompilationUnits.
+- Elasticsearch SWEEP GREEN 2026-07-19 04:12 (5h21m, 24G, post-#33): **BUILD SUCCESSFUL, zero
+  isolated types** — the sweep-green bar is MET. 239,741 elements (+9 = exactly the
+  BinaryFieldMapperTests.$13.BytesCompareUnsigned members, the #33 pin type, now fully analyzed).
+  A/B vs first contact: 466 lines (142 added / 133 removed) — the new members + formerly-degraded
+  neighborhoods re-analyzed. Distributions: methods 101,829 nonMod / 48,549 mod / 1,841 null
+  (10 fewer undecided); fields 28,586/12,569/562; types 798 @Imm (+8) / 1,975 @ImmHC (+8) /
+  1,367 @FF / 18,459 @Mutable / 23,206 null (the 51% cluster UNCHANGED — breaking-strategy item
+  stands). Dump: build/imm-elasticsearch-2-2026-07-19.txt.gz.
 - Elasticsearch first contact COMPLETED 2026-07-18 (attempt 11, 5h29m, 24G heap, work ceiling
   active): **239,732 elements** — 152,210 methods (101,822 nonModifying / 48,537 modifying /
   1,851 null = 99% decided), 41,717 fields (28,581/12,571/565), 45,805 types. Types:
@@ -75,17 +97,51 @@ Engine, robustness/performance:
 - Per-method closure cost ceiling: DONE 2026-07-18 (edge-visit granularity, 10M default,
   -Dmaddi.workCeiling, opt-out NOWORKCEILING; the per-pop first cut never tripped — the elasticsearch
   monster burned 96 min inside single propagations). Gate: link 394/0, fernflower 0 trips + 0-diff.
-- Dual-identity family (source-scanned type also lazily loaded from bytecode): task #33 — member
-  types of anonymous classes (prep repro @Disabled in TestAnonymousMemberRecord); plus the
-  'Create multi' setInternal UOE (scoped around by dropping build-tooling source sets).
+- Dual-identity family (source-scanned type also lazily loaded from bytecode): task #33 has TWO
+  fronts. IN-HOUSE PARSER FRONT FIXED 2026-07-18: ParseTypeDeclaration could not declare a member
+  type inside an anonymous/local body AT ALL — the bySimpleName lambda resolves members by
+  scan-phase FQN lookup, but an anonymous enclosing ($0) is never in the type context
+  ('Cannot find type a.b.X.$0'). Fix: create-or-reuse the member TypeInfo directly (+
+  handleTypeModifiers, as parseLocal does); forward references then resolve free of charge via
+  parseBody's subtypes-first ordering. TestAnonymousMemberRecord ENABLED (asserts full source
+  build). TestDegradedAnalysisMarker's trigger became obsolete by this fix and was replaced with a
+  SYNTHETIC one (committed non-abstract method without body + source-set-carrying CU — the
+  half-built shape the lazy class-scanner path presents). OPENJDK FRONT FIXED same day, three
+  layers: (1) anonymous-body member types get the local-type recursivelyCommit treatment (field
+  initializers defaulted + committed — they are invisible to the end-of-scan commit walk);
+  (2) ClassSymbolScanner.primary() now hops METHOD/initializer owners, so isSourceSymbol correctly
+  claims members of anonymous/local classes and the class-file path no longer double-loads their
+  interfaces/annotations ('Extending multiple identical interfaces'); (3) with both, prep runs
+  clean. Pinned in TestAnonymousMemberRecordOpenJdk (link module = openjdk inspector). Gates:
+  5 suites green certified-quiet, fernflower A/B 0-diff EXACT. #33 CLOSED except the 'Create
+  multi' setInternal UOE (build-tooling source sets, scoped around — separate small item).
+  Elasticsearch sweep-green re-run queued overnight 2026-07-18→19.
 - CompileListToSourceSets: two -d destinations for one module (generated-classes step) corrupt both
   the source-set name and its URI (elasticsearch libs/native); derive from the classes/java/<name>
   destination only. MRJAR overlay source sets are an open design question.
 
 Checkpoint/resume + incremental (session tasks #34/#35):
-- #34 checkpoint/resume v1: pass-boundary write via the AnalysisValueFeed seam (commit ec77f8bb),
-  restore = fingerprint check + LoadAnalysisResults preload + re-certification. Codec prerequisite
-  DONE (☷ pass-set round-trip, commit 0ae52f51).
+- #34 checkpoint/resume v1 CORE DONE 2026-07-19 (~04:45): CheckpointWriter (analyzer module)
+  implements AnalysisValueFeed — delta writes at every pass boundary (only primary types touched
+  that pass; file-per-type = idempotent; IO failures logged, never fatal; terminal marker file).
+  Restore = LoadAnalysisResults.goDir with LinkCodec.restoreCodec() — a decode mode where
+  ALREADY-PRESENT values win (generalizes the GET_SET_FIELD special case in CodecImpl; needed
+  because prep recomputes partOfConstructionType etc. before the preload) — then re-running the
+  analyzer, whose verify-certify sweep is the soundness net. Round-trip pinned in
+  TestCheckpointResume (analyze → checkpoint → invalidate+reparse → restore → identical verdicts,
+  TERMINAL_CERTIFIED). Deliberately out of v1: source-change detection (per-sourceset fingerprints
+  live on the maddi-kotlin branch); resume assumes unchanged sources. PRODUCTION WIRING DONE same
+  night: CHECKPOINT=<dir> / CHECKPOINT_RESTORE gates in RunAnalyzer (FPDUMP value-convention);
+  crash-consistency hardened after live testing on fernflower — per-type atomic writes (temp dir +
+  ATOMIC_MOVE; an encode assert mid-stream had left truncated JSON), goDirTolerant restore
+  (skip-and-count unreadable files), feed guard now also catches AssertionError/SOE (an encode
+  assert had KILLED the analysis through the RuntimeException-only guard). Verified two-step on
+  fernflower: cold writes 150/227 primaries (codec asserts skip mid-iteration values), warm
+  preloads 82, both certify; cold-vs-baseline 0-diff mod oscillator. FOLLOW-UPS: (a) decode
+  asymmetry — 68 of 150 files encode fine but fail decode (restore coverage, not soundness;
+  missing types are re-analyzed); (b) resume-fixpoint non-confluence observed once:
+  TargetInfo.LocalvarTarget @FF(cold)→@ImmHC(warm) — the preload starts iteration from converged
+  values and certifies a (more precise) different fixpoint; same family as EdgeType.<init>.
 - #35 incremental v2 for the single-module 3M-line monorepo: giant cycle spans ~2/3 of the code, so
   per-sourceset granularity (fingerprints on maddi-kotlin branch) and SCC-transitive invalidation are
   useless — design: element-level fingerprints + optimistic preload of unchanged elements' values +
@@ -130,9 +186,13 @@ session tasks #36-#39):
   variable-based scope as jfocus's own casts join. (c) codec persistence DONE same day: optional
   4th element on the [from, nature, to] wire format, appended only when mediated — unmediated
   output byte-identical, old 3-element files decode unmediated; single decoder funnel
-  (MethodLinkedVariablesImpl.decodeLink); pinned in TestWriteAnalysisMediated. REMAINING for
-  step 2 readiness: (a) chain-transitive taint (a link composed ACROSS a mediated hop is still
-  emitted unmediated — the reconstruction's reachable() chains and the closure's compositions).
+  (MethodLinkedVariablesImpl.decodeLink); pinned in TestWriteAnalysisMediated. (a) chain-transitive
+  taint DONE same day (commit 582fb564): two-pass reachability in assignmentEdgeStream — a chain
+  target is mediated only when NO unmediated path reaches it (coupling wins); summary-level pin
+  return<-jj<-ii<-(cast)o. ENGINE SIDE COMPLETE. Residuals: closure-composed engine facts (not
+  collapse chains) carry no taint; expression casts unflagged (variable-operand scope). NEXT =
+  step 2: de-duplicate CommonAnalyze in jfocus consuming unmediated <- only (coordinate with the
+  jfocus owner thread; their suite is the gate), after the owed 3-suite green confirmation.
   Maddi-internal same-disease siblings unaffected and still valid: WLAM's five mirror blocks,
   iterateOverShared vs expandRepToMembers (==/.equals divergence),
   ShallowMethodLinkComputer.correspondingTypeParameters vs hiddenContentHierarchy.
@@ -144,7 +204,10 @@ Module organization (see org-review-2026-07-18.md for the full ranked plan):
 
 Docs/process:
 - unmodifiedField doc note in road-to-immutability 030-modification (content-only semantics).
-- Corpus FPDUMP baselines: superseded by the audit-round fixes; re-pin on next runs.
+- Corpus FPDUMP baselines: RE-PINNED 2026-07-19 04:26 post all of the day's fixes (mediation
+  provenance, #33 both fronts, fm lifetime): build/imm-{fernflower,timefold,langchain4j,
+  elasticsearch-2}-2026-07-19.txt.gz — fernflower 623,899 lines / timefold 50,464 /
+  langchain4j 53,644 / elasticsearch 239,741. Use these for all future A/Bs.
 - Suite gates must grep BUILD SUCCESSFUL (stale-XML trap, journal 2026-07-18d).
 
 ## JOURNAL

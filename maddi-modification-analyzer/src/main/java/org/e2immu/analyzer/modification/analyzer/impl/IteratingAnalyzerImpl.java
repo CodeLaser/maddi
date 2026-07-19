@@ -49,8 +49,10 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         if (valueFeed != null) {
             try {
                 action.accept(valueFeed);
-            } catch (RuntimeException re) {
-                LOGGER.warn("AnalysisValueFeed threw; ignoring", re);
+            } catch (RuntimeException | AssertionError | StackOverflowError t) {
+                // encoding mid-iteration values can trip codec asserts (partially converged natures);
+                // the checkpoint then simply lacks those types — resume re-analyzes them
+                LOGGER.warn("AnalysisValueFeed threw; ignoring", t);
             }
         }
     }

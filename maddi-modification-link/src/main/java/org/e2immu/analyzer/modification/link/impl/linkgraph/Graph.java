@@ -207,7 +207,7 @@ public class Graph {
 
     public Stream<Link> sharedAssignmentEdgeStream(Variable primary) {
         List<Link> result = new ArrayList<>();
-        sharedVariables.assignmentEdgeStream(primary).forEach(link -> {
+        sharedVariables.assignmentEdgeStream(primary, this::isMediatedPair).forEach(link -> {
             result.add(link);
             // Field-level mirrors of a reconstructed whole-object assignment: the collapse hides the ← edge from
             // the engine, so the field projections the old engine's sub-propagation derived (combine.§is ←
@@ -225,7 +225,8 @@ public class Graph {
                         // representable as a Link; skip (same policy as vmiDirectionalFacts)
                         if (LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(fromSub)
                             && LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(toSub)) {
-                            result.add(new LinksImpl.LinkImpl(fromSub, link.linkNature(), toSub));
+                            // a field-level mirror of a mediated whole-object link inherits the provenance
+                            result.add(new LinksImpl.LinkImpl(fromSub, link.linkNature(), toSub, link.mediated()));
                         }
                     }
                 }
@@ -238,7 +239,7 @@ public class Graph {
                         Variable rehomed = rehome(m, to, from);
                         if (LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(rehomed)
                             && LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(m)) {
-                            result.add(new LinksImpl.LinkImpl(rehomed, link.linkNature(), m));
+                            result.add(new LinksImpl.LinkImpl(rehomed, link.linkNature(), m, link.mediated()));
                         }
                     });
                 }
