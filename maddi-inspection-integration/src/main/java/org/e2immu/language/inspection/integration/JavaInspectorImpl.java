@@ -307,11 +307,28 @@ public class JavaInspectorImpl implements JavaInspector {
             }
             case "jmod" -> {
                 try {
-                    URL url = ResourcesImpl.constructJModURL(path, alternativeJREDirectory);
-                    FingerPrint fingerPrint = makeFingerPrint(url);
-                    sourceSet.setFingerPrint(fingerPrint);
-                    int entries = resources.addJmod(new SourceFile(path, url.toURI(), sourceSet, null));
-                    LOGGER.debug("Added {} entries for jmod {}", entries, path);
+                    Path jreDir = alternativeJREDirectory != null ? alternativeJREDirectory
+                            : Path.of(System.getProperty("java.home"));
+                    Path jmodFile = jreDir.resolve("jmods").resolve(path + ".jmod");
+                    if (Files.isRegularFile(jmodFile)) {
+                        URL url = ResourcesImpl.constructJModURL(path, alternativeJREDirectory);
+                        FingerPrint fingerPrint = makeFingerPrint(url);
+                        sourceSet.setFingerPrint(fingerPrint);
+                        int entries = resources.addJmod(new SourceFile(path, url.toURI(), sourceSet, null));
+                        LOGGER.debug("Added {} entries for jmod {}", entries, path);
+                    } else if (alternativeJREDirectory == null) {
+                        // A JDK without a jmods/ directory (e.g. Eclipse Temurin): read the module's classes from
+                        // the runtime image (lib/modules) via the jrt filesystem instead of a .jmod file.
+                        sourceSet.setFingerPrint(runtimeImageFingerPrint(path));
+                        int entries = resources.addModuleFromRuntimeImage(
+                                new SourceFile(path, URI.create("jrt:/" + path), sourceSet, null));
+                        LOGGER.debug("Added {} entries for module {} from the runtime image (no jmods/ dir)", entries, path);
+                    } else {
+                        String m = msg + " part '" + sourceSet.uri() + "': no " + path + ".jmod in alternative JRE "
+                                   + alternativeJREDirectory + " (a jmod-less non-running JDK is not supported)";
+                        LOGGER.warn(m);
+                        initializationProblems.add(new InitializationProblem(m, null));
+                    }
                 } catch (IOException e) {
                     throwable = e;
                 }
@@ -380,6 +397,15 @@ public class JavaInspectorImpl implements JavaInspector {
             }
         }
         return MD5FingerPrint.NO_FINGERPRINT;
+    }
+
+    // A .jmod-free JDK offers no jar to hash; fingerprint the module by JDK build version + module name, which is
+    // stable for a given JDK release (a module's classes change only when the JDK does). java.lang.Runtime is
+    // qualified because the maddi CST 'Runtime' is imported in this file.
+    private FingerPrint runtimeImageFingerPrint(String moduleName) {
+        if (!computeFingerPrints) return MD5FingerPrint.NO_FINGERPRINT;
+        return MD5FingerPrint.compute((java.lang.Runtime.version().toString() + ":" + moduleName)
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
 
