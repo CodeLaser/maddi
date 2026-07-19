@@ -15,6 +15,7 @@
 package org.e2immu.language.cst.impl.analysis;
 
 import org.e2immu.language.cst.api.analysis.Property;
+import org.e2immu.language.cst.api.analysis.Property.AnalysisTier;
 import org.e2immu.language.cst.api.analysis.Value;
 
 public class PropertyImpl implements Property {
@@ -31,6 +32,10 @@ public class PropertyImpl implements Property {
 
     // method
     public static final Property NON_MODIFYING_METHOD = new PropertyImpl("nonModifyingMethod");
+    /** the source-level analysis of this method was abandoned (cycle protection, work ceiling, fault
+     * isolation) and its values come from the SHALLOW summary. Consumers that rely on per-call data
+     * (e.g. VARIABLES_LINKED_TO_OBJECT for extract-interface) must treat such methods pessimistically. */
+    public static final Property DEGRADED_ANALYSIS_METHOD = new PropertyImpl("degradedAnalysisMethod");
     public static final Property FLUENT_METHOD = new PropertyImpl("fluentMethod");
     public static final Property IDENTITY_METHOD = new PropertyImpl("identityMethod");
     public static final Property NOT_NULL_METHOD = new PropertyImpl("notNullMethod", ValueImpl.NotNullImpl.NULLABLE);
@@ -59,7 +64,7 @@ public class PropertyImpl implements Property {
             ValueImpl.CommutableDataImpl.NONE);
     // carryOnRewire: GET_SET_FIELD is parse-time (record synthetics, KotlinScan via FactoryImpl.setGetSetField).
     // A REWIRE'd type is never re-parsed, so if not carried it is lost and prep does not re-derive it; carry it,
-    // GetSetValueImpl.rewire re-points the field through the infoMap. See analysis-rewiring.md / rewiring.md.
+    // GetSetValueImpl.rewire re-points the field through the infoMap. See docs/analysis-rewiring.md / docs/rewiring.md.
     public static final Property GET_SET_FIELD = new PropertyImpl("getSetField",
             ValueImpl.GetSetValueImpl.EMPTY, true);
     public static final Property GET_SET_EQUIVALENT = new PropertyImpl("getSetEquivalent",
@@ -82,7 +87,9 @@ public class PropertyImpl implements Property {
             ValueImpl.VariableToTypeInfoSetImpl.EMPTY);
 
     // field
-    public static final Property FINAL_FIELD = new PropertyImpl("finalField");
+    // INTRINSIC: prepwork's ComputePartOfConstructionFinalField re-derives this from the type's own body every run.
+    public static final Property FINAL_FIELD = new PropertyImpl("finalField", ValueImpl.BoolImpl.FALSE,
+            AnalysisTier.INTRINSIC);
     public static final Property NOT_NULL_FIELD = new PropertyImpl("notNullField", ValueImpl.NotNullImpl.NULLABLE);
     public static final Property IGNORE_MODIFICATIONS_FIELD = new PropertyImpl("ignoreModificationsField");
     public static final Property UNMODIFIED_FIELD = new PropertyImpl("unmodifiedField");
@@ -94,7 +101,9 @@ public class PropertyImpl implements Property {
     //public static final Property DOWNCAST_FIELD = new PropertyImpl("downcastField", ValueImpl.SetOfTypeInfoImpl.EMPTY);
 
     // statement
-    public static final Property ALWAYS_ESCAPES = new PropertyImpl("statementAlwaysEscapes");
+    // INTRINSIC: prepwork's ComputeAlwaysEscapes re-derives this per statement every run.
+    public static final Property ALWAYS_ESCAPES = new PropertyImpl("statementAlwaysEscapes",
+            ValueImpl.BoolImpl.FALSE, AnalysisTier.INTRINSIC);
 
     // any element
     public static final Property DEFAULTS_ANALYZER = new PropertyImpl("defaultsAnalyzer");
@@ -106,11 +115,14 @@ public class PropertyImpl implements Property {
             ValueImpl.IndependentImpl.DEPENDENT);
 
     // instanceof
-    public static final Property INSTANCEOF_SCOPE = new PropertyImpl("instanceOfScope", ValueImpl.ScopeImpl.EMPTY);
+    // INTRINSIC: prepwork's MethodAnalyzer re-derives the instanceof-pattern scope from the method body every run.
+    public static final Property INSTANCEOF_SCOPE = new PropertyImpl("instanceOfScope", ValueImpl.ScopeImpl.EMPTY,
+            AnalysisTier.INTRINSIC);
 
     private final String key;
     private final Value defaultValue;
     private final boolean carryOnRewire;
+    private final AnalysisTier analysisTier;
 
     public PropertyImpl(String key) {
         this(key, ValueImpl.BoolImpl.FALSE);
@@ -121,14 +133,30 @@ public class PropertyImpl implements Property {
     }
 
     public PropertyImpl(String key, Value defaultValue, boolean carryOnRewire) {
+        this(key, defaultValue, carryOnRewire,
+                carryOnRewire ? AnalysisTier.PARSE_TIME : AnalysisTier.CROSS_TYPE_DERIVED);
+    }
+
+    /** Explicit tier — used by the intrinsic (prepwork-recomputed) properties. */
+    public PropertyImpl(String key, Value defaultValue, AnalysisTier analysisTier) {
+        this(key, defaultValue, false, analysisTier);
+    }
+
+    private PropertyImpl(String key, Value defaultValue, boolean carryOnRewire, AnalysisTier analysisTier) {
         this.key = key;
         this.defaultValue = defaultValue;
         this.carryOnRewire = carryOnRewire;
+        this.analysisTier = analysisTier;
     }
 
     @Override
     public boolean carryOnRewire() {
         return carryOnRewire;
+    }
+
+    @Override
+    public AnalysisTier analysisTier() {
+        return analysisTier;
     }
 
     @Override

@@ -77,7 +77,7 @@ public interface IteratingAnalyzer {
      * {@code maxBlockingImplementations} implementations out of at least {@code minImplementations}. For the
      * type-level {@code @Immutable}/{@code @Independent} near-misses, the surface is the field count (at least
      * {@code minFields}) and {@code maxBlockingSlots} caps the blocking fields. The absolute caps plus the surface
-     * floors keep this to the compelling "one culprit" cases; see the design note in {@code guard-mode-analysis.md}.
+     * floors keep this to the compelling "one culprit" cases; see the design note in {@code docs/guard-mode-analysis.md}.
      */
     record NearMissPolicy(int minParameterSlots, int maxBlockingSlots, int minImplementations,
                           int maxBlockingImplementations, int minFields) {
@@ -102,7 +102,36 @@ public interface IteratingAnalyzer {
      * that changed in the previous iteration plus their dependents (reverse edges) — the worklist narrowing.
      */
     default void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph) {
-        analyze(analysisOrder);
+        analyze(analysisOrder, dependencyGraph, null);
+    }
+
+    /**
+     * Incremental entry point for the early-cutoff skip (docs/analysis-rewiring.md). When {@code initialDirty} is
+     * non-null, iteration 1 analyses only those elements (instead of the whole order), the worklist propagates from
+     * them through the dependency graph on summary change, and — crucially — the run <em>stops when the worklist is
+     * dry</em>, with no full verification/cycle-breaking pass (which would re-touch the carried, untouched elements
+     * and defeat the skip). Elements the worklist never reaches keep whatever analysis they already hold (their
+     * carried values). {@code null} ⇒ the normal full analysis.
+     */
+    default void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph,
+                         java.util.Set<Info> initialDirty) {
+        analyze(analysisOrder, dependencyGraph, initialDirty, null);
+    }
+
+    /**
+     * As {@link #analyze(List, org.e2immu.util.internal.graph.G, java.util.Set)}, with a clear-before-recompute hook.
+     * In incremental mode the worklist discovers the dirty frontier dynamically: a <em>carried</em> type is pulled in
+     * only when a dependency's summary changes. Before such a type is re-analysed, its carried cross-type-derived
+     * values must be cleared, or the monotonic overwrite guard rejects a value the fresh analysis <em>lowers</em>
+     * (unlike a normal run, where iteration 1 computes the value from nothing and later iterations only refine it
+     * upward). {@code beforeFirstRecompute} is invoked once per element, the first time it is about to be analysed
+     * <em>after</em> the seed round (the seed is fresh, never carried, so it is skipped). The driver's callback clears
+     * the {@code CROSS_TYPE_DERIVED} tier of a carried element (and drops it from its carried set). {@code null} ⇒ no
+     * hook. Only consulted when {@code initialDirty != null}.
+     */
+    default void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph,
+                         java.util.Set<Info> initialDirty, java.util.function.Consumer<Info> beforeFirstRecompute) {
+        analyze(analysisOrder, dependencyGraph);
     }
 
     /** Findings (warnings/errors about the analyzed code) collected across all iterations; empty before analyze(). */

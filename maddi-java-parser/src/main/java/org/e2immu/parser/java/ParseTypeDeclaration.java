@@ -64,6 +64,23 @@ public class ParseTypeDeclaration extends CommonParse {
         try {
             return internalParse(context, packageNameOrEnclosing,
                     simpleName -> {
+                        // a member of an ANONYMOUS or LOCAL enclosing type cannot have been pre-created in the
+                        // "scan" phase — its enclosing type only materializes during body parsing, and its
+                        // synthetic FQN ($0, $1, ...) is not in the type context ('Cannot find type a.b.X.$0',
+                        // task #33). Create it here (or reuse the forward-reference registration).
+                        if (packageNameOrEnclosing.isRight()
+                            && (packageNameOrEnclosing.getRight().isAnonymous()
+                                || packageNameOrEnclosing.getRight().enclosingMethod() != null)) {
+                            TypeInfo enclosing = packageNameOrEnclosing.getRight();
+                            TypeInfo existing = enclosing.findSubType(simpleName, false);
+                            if (existing != null) return existing;
+                            TypeInfo created = runtime.newTypeInfo(enclosing, simpleName);
+                            // modifiers + type nature normally come from the scan phase; here we must set
+                            // them ourselves, as parseLocal does
+                            handleTypeModifiers(td, created, context.isDetailedSources());
+                            enclosing.builder().addSubType(created);
+                            return created;
+                        }
                         // during the "scan" phase, we have already created all the TypeInfo objects
                         String fqn = fullyQualifiedName(packageNameOrEnclosing, simpleName);
                         List<? extends NamedType> nts = context.typeContext().getWithQualification(fqn, true);
@@ -74,11 +91,11 @@ public class ParseTypeDeclaration extends CommonParse {
         } catch (RuntimeException re) {
             Summary.ParseException parseException;
             if (packageNameOrEnclosing.isLeft()) {
-                LOGGER.error("Caught exception parsing type in {}", packageNameOrEnclosing.getLeft());
+                LOGGER.error("Caught exception parsing type in {}", packageNameOrEnclosing.getLeft(), re);
                 parseException = new Summary.ParseException(packageNameOrEnclosing.getLeft(),
                         packageNameOrEnclosing.getLeft(), re.getMessage(), re);
             } else {
-                LOGGER.error("Caught exception parsing type in {}", packageNameOrEnclosing.getRight());
+                LOGGER.error("Caught exception parsing type in {}", packageNameOrEnclosing.getRight(), re);
                 parseException = new Summary.ParseException(packageNameOrEnclosing.getRight().compilationUnit(),
                         packageNameOrEnclosing.getRight(), re.getMessage(), re);
             }

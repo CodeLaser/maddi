@@ -41,7 +41,7 @@ public class WriteAnalysisResults {
 
     private final Runtime runtime;
     private final Predicate<TypeInfo> typePredicate;
-    // which analysis properties to serialise; the analysisFingerprint (analysis-rewiring.md) passes a predicate
+    // which analysis properties to serialise; the analysisFingerprint (docs/analysis-rewiring.md) passes a predicate
     // that keeps only the analyzer output. Default true = write everything, the production behaviour.
     private final Predicate<Property> propertyPredicate;
 
@@ -117,11 +117,34 @@ public class WriteAnalysisResults {
         }
     }
 
+
+    // A value that cannot be encoded (codec gap, e.g. a link variable owned by an anonymous type) is
+    // SKIPPED with a warning instead of aborting the whole write: readers treat a missing property like
+    // any not-streamed one. Rides the existing null-skip pathway of the three property streams.
+    private int skippedValues;
+
+    private Codec.EncodedPropertyValue encodeOrSkip(Codec codec, Codec.Context context,
+                                                    org.e2immu.language.cst.api.analysis.PropertyValueMap.PropertyValue pv) {
+        try {
+            return codec.encode(context, pv.property(), pv.value());
+        } catch (RuntimeException | AssertionError e) {
+            ++skippedValues;
+            LOGGER.warn("Skipping unencodable value for property {} ({}): {}", pv.property().key(),
+                    pv.value().getClass().getSimpleName(), e.toString());
+            return null;
+        }
+    }
+
+    /** number of property values skipped because they could not be encoded */
+    public int skippedValues() {
+        return skippedValues;
+    }
+
     private Codec.EncodedValue write(Codec codec, Codec.Context context, Info info, int index) {
         Stream<Codec.EncodedPropertyValue> stream = info.analysis().propertyValueStream()
                 .filter(pv -> !pv.value().isDefault()) // not streaming default values
                 .filter(pv -> propertyPredicate.test(pv.property()))
-                .map(pv -> codec.encode(context, pv.property(), pv.value()))
+                .map(pv -> encodeOrSkip(codec, context, pv))
                 .filter(Objects::nonNull); // some properties will (temporarily) not be streamed
         return codec.encode(context, info, "" + index, stream, null);
     }
@@ -138,7 +161,7 @@ public class WriteAnalysisResults {
         Stream<Codec.EncodedPropertyValue> stream = methodInfo.analysis().propertyValueStream()
                 .filter(pv -> !pv.value().isDefault())
                 .filter(pv -> propertyPredicate.test(pv.property()))
-                .map(pv -> codec.encode(context, pv.property(), pv.value()))
+                .map(pv -> encodeOrSkip(codec, context, pv))
                 .filter(Objects::nonNull); // some properties will (temporarily) not be streamed
         return codec.encode(context, methodInfo, "" + index, stream, subs);
     }
@@ -187,7 +210,7 @@ public class WriteAnalysisResults {
         Stream<Codec.EncodedPropertyValue> stream = typeInfo.analysis().propertyValueStream()
                 .filter(pv -> !pv.value().isDefault())
                 .filter(pv -> propertyPredicate.test(pv.property()))
-                .map(pv -> codec.encode(context, pv.property(), pv.value()))
+                .map(pv -> encodeOrSkip(codec, context, pv))
                 .filter(Objects::nonNull); // some properties will (temporarily) not be streamed
         return codec.encode(context, typeInfo, "" + index, stream, subs);
     }
@@ -195,7 +218,7 @@ public class WriteAnalysisResults {
     /**
      * Encode a single primary type's analysis to a {@link Codec.EncodedValue}, honouring the type and property
      * predicates. Shared by the file writer ({@link #writePrimary}) and the analysisFingerprint (which serialises
-     * this and hashes it); see {@code analysis-rewiring.md}.
+     * this and hashes it); see {@code docs/analysis-rewiring.md}.
      */
     public Codec.EncodedValue encodePrimaryType(Codec codec, Codec.Context context, TypeInfo primaryType) {
         context.push(primaryType);

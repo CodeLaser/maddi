@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -27,10 +26,10 @@ public class TestLangchain4j {
 
     @Test
     public void test() throws IOException, ParseException {
-        Assumptions.assumeTrue(Files.exists(Path.of("/Users/bnaudts/git/test-oss/langchain4j")),
-                "requires the langchain4j corpus checkout (paths baked into the input configuration)");
+        Assumptions.assumeTrue(Files.exists(TestOssCorpus.config("langchain4j")),
+                "requires the langchain4j corpus checkout with its locally generated input configuration");
         int exitValue = Main.execute(new String[]{
-                "--input-configuration=./src/test/resources/inputConfiguration/langchain4j.json"
+                "--input-configuration=" + TestOssCorpus.config("langchain4j")
                 //,"--parallel"
                 , "--analysis-steps=modification"
                 , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk"

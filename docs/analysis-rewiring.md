@@ -143,26 +143,76 @@ no separate link-side plumbing needed.
 
 So the wiring is:
 
-1. **Seed `dirty` with the INVALID set** via a new `analyze(order, graph, Set<Info> initialDirty)` overload
-   (`dirty = initialDirty` instead of `null`). Iteration 1 then analyses only the seed; the existing narrowing
-   propagates to a dependent only when a dependency's *summary changed* — which **is** the early cutoff. Everything
-   the worklist never reaches keeps its carried analysis and is never touched by link or analyzer.
-2. **Clear-before-recompute for a carried type when it is first dirtied.** A carried type pulled into `dirty` must
-   have its carry-tier `removeIf`'d before re-analysis, or the monotonic guard rejects a lowered value (unlike a
-   normal run, where iteration 1 computed the value fresh and iteration 2 only refines it upward). Pass the carried
-   set; on first dirtying of a carried element, clear it and drop it from the set (clear once).
-3. **The frontier is the fingerprint.** A recomputed type propagates to its dependents only if its fresh
-   analysisFingerprint differs from the carried/prior one — the `EarlyCutoffWorklist` logic, here realised *inside*
-   the analyzer's own summary-change propagation rather than as a separate loop.
+1. **Seed `dirty` with the INVALID set** — **DONE (2026-07-18).** `IteratingAnalyzer.analyze(order, graph,
+   Set<Info> initialDirty)` (impl in `IteratingAnalyzerImpl`): `dirty = initialDirty` instead of `null`, so iteration 1
+   analyses only the seed; the existing narrowing propagates to a dependent only when a dependency's *summary changed* —
+   which **is** the early cutoff. Everything the worklist never reaches keeps its carried analysis and is never touched
+   by link or analyzer. **Essential companion:** in this `incremental` mode the run **stops the moment the worklist is
+   dry, and the full verification / cycle-breaking passes are suppressed** — a normal run appends a full pass to certify
+   the fixpoint, but that pass would re-analyse the carried (untouched) elements and hit their monotonic guards,
+   defeating the skip. Correctness therefore rests on the carried elements being fingerprint-stable, established before
+   the call. Verified by `modification-analyzer/integration/TestSeededIncrementalAnalysis`: seeding a converged order
+   with one element analyses exactly that element and stops — no pass ever covers the whole order. The full
+   (`initialDirty == null`) path is byte-for-byte the old behaviour (analyzer suite green).
+2. **Clear-before-recompute for a carried type when it is first dirtied** — **DONE (2026-07-18).**
+   `analyze(order, graph, initialDirty, Consumer<Info> beforeFirstRecompute)`: the worklist discovers the dirty
+   frontier dynamically, so the clear is a callback the analyzer fires **once per element, before its first
+   re-analysis, and only after the seed round** (the seed is fresh INVALID source, never carried — `everAnalyzed` is
+   pre-seeded with it). The driver's callback `removeIf`s the `CROSS_TYPE_DERIVED` tier of a carried element (and drops
+   it from its carried set), so the fresh, possibly-lowering re-analysis is not rejected by the monotonic guard.
+   Verified by `integration/TestClearBeforeRecomputeHook`: with the cross-type-derived tier dropped everywhere (a
+   stale-carry state), seeding one element fires the hook for each propagated element exactly once and **never for the
+   seed**; a converged seed propagates nothing and the hook stays silent.
+3. **The frontier is the fingerprint** — **DONE (2026-07-18), the capstone.** Realised as `EarlyCutoffWorklist`
+   driving a *real* per-type recompute at primary-type granularity, closing the gap the prototype's stand-in left:
+   `run-openjdk/TestEarlyCutoffWorklistDriver`, a three-source-set use chain `Top → Mid → Base`, through the actual
+   reload path. `recompute(t)` = clear the optimistic carry (`removeIf CROSS_TYPE_DERIVED`) → `prep().doPrimaryType(t)`
+   → `analyze(order)` → `AnalysisFingerprint.of(t)`; the worklist queues `t`'s dependents only when that fresh
+   fingerprint differs from the prior. A **comment edit at `Base` recomputes only `Base`** — its output is unchanged,
+   so the frontier cuts off and the whole `Mid`/`Top` tail is spared (never re-prepped nor re-analysed, returning with
+   their carried output). A **semantic edit propagates**: `Base`'s output moves, so `Mid` is pulled in and recomputed.
+   This is per-type granularity — distinct from, and complementary to, the *within-analyzer* seeded worklist of steps
+   1–2 (which restricts a single `analyze` call at method/field granularity). Both are valid orchestrations; the
+   per-type driver is the one that gets the true fingerprint frontier.
 
-### The remaining design task: a property-tier flag
+   **Codec gap — CLOSED (2026-07-18).** Fingerprinting a type whose links reference a **modifiable reference-typed
+   field** threw `UnsupportedOperationException` from `Codec$TypeAndSorted.fieldIndex`. The root cause was not object
+   identity but a **virtual field**: the link engine represents a shallow/JDK type's modifiability with a detached
+   `FieldInfo` named `§m` (owned by e.g. `java.lang.String`, of type `AtomicBoolean`, and *never* attached to the
+   type's `fields()` — see `maddi-modification-link/.../vf/virtual-fields.md`). The out-of-context field encoder in
+   `CodecImpl` assumed a real declared field and indexed into `fields()`; the `LinkCodec` subclass already handled
+   virtual fields (`"V" + name`), but the fingerprint runs through `PrepWorkCodec`/`CodecImpl`, which did not. Fix:
+   `TypeAndSorted.fieldIndexOrNegative` returns -1 for a detached field, and the base encoder emits `"V" + name` (a
+   deterministic key; the decoder already reserved the `V` tag) instead of throwing. This affects only the
+   previously-failing detached-field case — real fields still encode by index, so serialization round-trip is
+   unchanged. Verified: the capstone's semantic case is now a real mutable-field edit, and it (plus the reproduction
+   across `int`/`String` fields) fingerprints cleanly. Only genuinely nested *container-type* virtual fields
+   (`Map<K,V>`'s synthetic `§KV`) remain unhandled by the base encoder; they do not arise on the plain-field shapes
+   the fingerprint has met, and `LinkCodec` handles them where full link serialization needs them.
 
-The carry must carry the *cross-type-derived* tier (`IMMUTABLE_*`, `CONTAINER_TYPE`, `INDEPENDENT_*`,
-`NON_MODIFYING_METHOD`, `UNMODIFIED_*`, `METHOD_LINKS`, `LINKS`, `IMPLEMENTATIONS`) and **not** the intrinsic-prepwork
-tier (`VARIABLE_DATA`, `PART_OF_CONSTRUCTION`, `FINAL_FIELD`, …), which prep re-runs and would double-set. Today the
-demonstration approximates this with `ANALYZER_OUTPUT_ONLY ∧ ¬carryOnRewire`; the production version wants an explicit
-per-`Property` tier (`parse-time` / `intrinsic` / `cross-type-derived`), which then serves the fingerprint, the carry,
-and the clear from one classification instead of three overlapping predicates.
+### The property-tier flag — DONE (2026-07-18)
+
+`Property.analysisTier()` returns an explicit `AnalysisTier` — `PARSE_TIME` / `INTRINSIC` / `CROSS_TYPE_DERIVED` —
+the one classification that serves the carry, the clear, and (later) the fingerprint, replacing the three overlapping
+predicates. The default classifies by `carryOnRewire()` (parse-time when true, cross-type-derived otherwise), so only
+the six intrinsic properties declare their tier explicitly:
+
+| tier | who recomputes on reload | members |
+|------|--------------------------|---------|
+| `PARSE_TIME` | rewire phase carries it, or it is lost | `GET_SET_FIELD` (`carryOnRewire`) |
+| `INTRINSIC` | prepwork re-derives from the type's own body | `VARIABLE_DATA`, `VARIABLES_OF_ENCLOSING_METHOD`, `PART_OF_CONSTRUCTION`, `FINAL_FIELD`, `INSTANCEOF_SCOPE`, `ALWAYS_ESCAPES` |
+| `CROSS_TYPE_DERIVED` | the early-cutoff skip carries it (the expensive tier) | everything else: `IMMUTABLE_*`, `CONTAINER_*`, `INDEPENDENT_*`, `NON_MODIFYING_METHOD`, `UNMODIFIED_*`, `METHOD_LINKS`, `LINKS`, `IMPLEMENTATIONS`, … |
+
+The skip carry is now the precise `AnalysisFingerprint.CROSS_TYPE_DERIVED_ONLY` (`analysisTier() == CROSS_TYPE_DERIVED`),
+replacing the `ANALYZER_OUTPUT_ONLY ∧ ¬carryOnRewire` approximation that still carried the intrinsic
+`partOfConstructionType` / `finalField` / `instanceOfScope` / `statementAlwaysEscapes`. Both skip demonstrations
+(`TestEarlyCutoffSkip`, `TestOutsideReloadCarry`) switched to it and stay green; `TestOutsideReloadCarry` now asserts
+the tier boundary directly (an intrinsic property is *not* in the derived carry — prep's job). `IMPLEMENTATIONS` is
+cross-type-derived (carried) yet prepwork also populates it via `getOrCreate`+add; its carried value is a mutable set,
+so a later re-prep of a dirtied type adds idempotently rather than conflicting.
+
+This unblocks the clear-before-recompute (clear `INTRINSIC` before a re-prep, `CROSS_TYPE_DERIVED` before a
+re-analyze) and lets a future fingerprint variant exclude the intrinsic tier from one classification.
 
 ### The running skip, demonstrated with real saving (2026-07-18)
 

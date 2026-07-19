@@ -49,8 +49,10 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         if (valueFeed != null) {
             try {
                 action.accept(valueFeed);
-            } catch (RuntimeException re) {
-                LOGGER.warn("AnalysisValueFeed threw; ignoring", re);
+            } catch (RuntimeException | AssertionError | StackOverflowError t) {
+                // encoding mid-iteration values can trip codec asserts (partially converged natures);
+                // the checkpoint then simply lacks those types — resume re-analyzes them
+                LOGGER.warn("AnalysisValueFeed threw; ignoring", t);
             }
         }
     }
@@ -152,6 +154,14 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             counts.merge(key, 1, Integer::sum);
         }
         LOGGER.info("Verdict fingerprint: {}", counts);
+        if (System.getenv("VL2OTIER") != null) {
+            LOGGER.info(org.e2immu.analyzer.modification.link.impl.LinkComputerImpl.vl2oTierStats());
+        }
+        // task #35 Phase A: consumption-edge sparsity report (CONSEDGES gate; GO/NO-GO for the
+        // giant-SCC incremental design, see DESIGN-incremental-v2.md)
+        if (org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.ENABLED) {
+            LOGGER.info(org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.statistics());
+        }
         String dump = System.getenv("FPDUMP");
         if (dump != null) {
             try (java.io.PrintWriter pw = new java.io.PrintWriter(dump)) {
@@ -197,6 +207,26 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
 
     @Override
     public void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph) {
+        analyze(analysisOrder, dependencyGraph, null, null);
+    }
+
+    @Override
+    public void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph,
+                        java.util.Set<Info> initialDirty) {
+        analyze(analysisOrder, dependencyGraph, initialDirty, null);
+    }
+
+    @Override
+    public void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph,
+                        java.util.Set<Info> initialDirty, java.util.function.Consumer<Info> beforeFirstRecompute) {
+        // incremental (early-cutoff) mode: seed the worklist with initialDirty and stop the moment it runs dry,
+        // WITHOUT the full verification / cycle-breaking passes — those re-touch the untouched (carried) elements
+        // and would defeat the skip. See docs/analysis-rewiring.md and IteratingAnalyzer#analyze(List,G,Set).
+        boolean incremental = initialDirty != null;
+        // clear-before-recompute: elements already analysed (never to be re-cleared). Seeded with the seed itself,
+        // which is fresh (INVALID) source, never carried — so the hook fires only for elements the worklist later
+        // pulls in, i.e. carried types entering the dirty frontier, exactly once each, before their first analysis.
+        java.util.Set<Info> everAnalyzed = incremental ? new java.util.HashSet<>(initialDirty) : java.util.Set.of();
         int iterations = 0;
         SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
         this.lastRun = singleIterationAnalyzer;
@@ -230,12 +260,12 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         } else {
             dependersOf = null;
         }
-        java.util.Set<Info> dirty = null; // null = analyze everything
+        java.util.Set<Info> dirty = initialDirty; // null = analyze everything; a seed = incremental early-cutoff
         java.util.Set<Info> orderSet = java.util.Set.copyOf(analysisOrder);
         boolean verifying = false; // worklist ran dry -> one full pass certifies (0 changes = true fixpoint)
         // strata-parallel first iteration (PARALLEL=n): dependency waves from the same call graph
         java.util.List<java.util.List<java.util.List<Info>>> firstIterationWaves;
-        if (SingleIterationAnalyzerImpl.PARALLEL_THREADS > 1 && dependencyGraph != null
+        if (!incremental && SingleIterationAnalyzerImpl.PARALLEL_THREADS > 1 && dependencyGraph != null
             && analysisOrder.size() >= SingleIterationAnalyzerImpl.MIN_ELEMENTS_FOR_PARALLEL) {
             firstIterationWaves = org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder
                     .waves(dependencyGraph);
@@ -255,6 +285,14 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                 java.util.Set<Info> d = dirty;
                 subset = analysisOrder.stream().filter(d::contains).toList();
                 LOGGER.info("Worklist: {} of {} elements dirty", subset.size(), analysisOrder.size());
+            }
+            if (incremental && beforeFirstRecompute != null) {
+                // clear-before-recompute: newly-dirtied elements (never analysed before in this run) may be carried
+                // types whose stale cross-type-derived values must be cleared before the fresh, possibly-lowering
+                // re-analysis. Fire the hook once per element, before it enters go().
+                for (Info info : subset) {
+                    if (everAnalyzed.add(info)) beforeFirstRecompute.accept(info);
+                }
             }
             Instant start = Instant.now();
             singleIterationAnalyzer.go(subset, cycleBreakingActive, iterations == 1,
@@ -280,11 +318,25 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             // under an active worklist, a zero-change SUBSET iteration is not a fixpoint certificate — only a
             // zero-change FULL pass is; route through the verification branch below instead of stopping here
             boolean done = propertiesChanged == 0 && (dependersOf == null || verifying);
+            // certification blind spot (PLAN-modification-reachability §9): refused downgrades are invisible
+            // to the change count, so "no changes" can certify prematurely-frozen optimistic values. Surface
+            // them; setting STRICTCERT (PRESENCE-only, any value — house convention for all engine gates)
+            // additionally refuses certification (the run then ends at maxIterations, honestly uncertified).
+            java.util.Map<String, Long> refused = TolerantWrite.refusedDowngrades();
+            if (done && !refused.isEmpty()) {
+                LOGGER.error("Certification reached with {} refused downgrade attempt(s) — frozen optimistic "
+                             + "values survive the fixpoint (see PLAN-modification-reachability): {}",
+                        refused.values().stream().mapToLong(Long::longValue).sum(), refused);
+                if (System.getenv("STRICTCERT") != null) {
+                    LOGGER.error("STRICTCERT=1: refusing certification");
+                    done = false;
+                }
+            }
             // certification point. If types are still immutability-UNDECIDED, they are waiting on information
             // that will never arrive (external supers without values, call cycles): activate cycle breaking
             // for the remaining rounds and run one more full pass, so the fixpoint we certify includes the
             // broken-cycle conclusions. Opt-out NOCYCLEBREAKING=1.
-            if (done && !cycleBreakingActive && System.getenv("NOCYCLEBREAKING") == null) {
+            if (done && !cycleBreakingActive && !incremental && System.getenv("NOCYCLEBREAKING") == null) {
                 long undecided = analysisOrder.stream()
                         .filter(i -> i instanceof org.e2immu.language.cst.api.info.TypeInfo t
                                      && t.analysis().getOrNull(
@@ -391,6 +443,19 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                             .reduce((a, b) -> a + ", " + b).orElse("-"));
                     verifying = false;
                 } else if (dirty.isEmpty() || propertiesChanged == 0) {
+                    if (incremental) {
+                        // incremental early-cutoff: the seeded worklist is dry. STOP here, trusting the elements it
+                        // never reached to keep their carried values — a full verification pass would re-analyze
+                        // them (and hit the carried-value monotonic guards), defeating the skip. Correctness rests
+                        // on the carried elements being fingerprint-stable, established before this call.
+                        LOGGER.info("Incremental worklist dry after {} iterations; stopping (carried elements spared)",
+                                iterations);
+                        logVerdictFingerprint(analysisOrder);
+                        if (configuration.guardContracts() || configuration.warnNearMisses()) {
+                            new GuardAnalyzerImpl(javaInspector.runtime(), configuration, guardMessages).go(analysisOrder);
+                        }
+                        return;
+                    }
                     // worklist dry (or a zero-change subset round): do NOT stop yet — run one full pass to
                     // certify (or catch missed dependencies)
                     LOGGER.info("Worklist empty/quiet after {} iterations; running a full verification pass", iterations);

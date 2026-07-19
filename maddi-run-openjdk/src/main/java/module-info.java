@@ -2,6 +2,7 @@ module org.e2immu.analyzer.run.openjdkmain {
     requires org.e2immu.analyzer.aapi.parser;
     requires org.e2immu.analyzer.modification.analyzer;
     requires org.e2immu.analyzer.modification.common;
+    requires org.e2immu.analyzer.modification.link;
     requires org.e2immu.analyzer.modification.prepwork;
     requires org.e2immu.analyzer.run.config;
     requires org.e2immu.analyzer.run.rewire;

@@ -451,7 +451,10 @@ public class TestAnnotations extends CommonTest {
         assertTrue(at.typeNature().isEnum());
         assertEquals(2, at.fields().size());
         FieldInfo c = at.getFieldByName("CONTAINER", true);
-        assertFalse(c.isSynthetic());
+        // an enum constant is synthetic: consistent with the in-house parser (ParseTypeDeclaration marks them so
+        // "to distinguish them from normal, non-enum fields"), and the type printer lists enum constants via
+        // isSynthetic() (TypePrinterImpl.enumConstantStream).
+        assertTrue(c.isSynthetic());
         assertTrue(c.isStatic());
         assertTrue(c.isFinal());
 

@@ -107,6 +107,12 @@ public class CodecImpl implements Codec {
         return sb.toString();
     }
 
+    // checkpoint-restore mode (task #34): when true, decode skips properties that already carry a value
+    // instead of tripping the write-once set. Override in a restore codec; default is strict.
+    protected boolean skipExistingValues() {
+        return false;
+    }
+
     @Override
     public void decode(Context context,
                        PropertyValueMap pvm,
@@ -121,6 +127,9 @@ public class CodecImpl implements Codec {
             Value value = decoder.apply(new DII(this, context), d);
             return new PropertyValue(property, value);
         }).forEach(pv -> {
+            // checkpoint-restore mode (task #34): values already present (recomputed, e.g. by prep) win;
+            // the decode fills the gaps. Generalizes the GET_SET_FIELD special case below.
+            if (skipExistingValues() && pvm.haveAnalyzedValueFor(pv.property())) return;
             // the GET_SET_FIELD property can already be set (by GetSetUtil) at byte-code loading
             if (!pv.property().equals(PropertyImpl.GET_SET_FIELD) || !pvm.haveAnalyzedValueFor(PropertyImpl.GET_SET_FIELD)) {
                 pvm.set(pv.property(), pv.value());
@@ -649,7 +658,13 @@ public class CodecImpl implements Codec {
             }
             case FieldInfo fieldInfo -> {
                 prev = encodeInfoOutOfContextStream(context, typeAndSorted, fieldInfo.owner());
-                s = "F" + fieldInfo.name() + "(" + typeAndSorted.fieldIndex(fieldInfo) + ")";
+                int idx = typeAndSorted.fieldIndexOrNegative(fieldInfo);
+                // A detached field — a virtual field (§…) the link engine created for a shallow/JDK type's hidden
+                // content, never attached to its owner's fields() — has no index; identify it by its (deterministic)
+                // name. The decoder already reserves the 'V' tag as a stop marker. See virtual-fields.md. (The
+                // LinkCodec subclass additionally serialises the field type for round-trip; the base needs only a
+                // deterministic key, since this path is encode-only for the analysisFingerprint.)
+                s = idx >= 0 ? "F" + fieldInfo.name() + "(" + idx + ")" : "V" + fieldInfo.name();
             }
             case ParameterInfo pi -> {
                 prev = encodeInfoOutOfContextStream(context, typeAndSorted, pi.methodInfo());

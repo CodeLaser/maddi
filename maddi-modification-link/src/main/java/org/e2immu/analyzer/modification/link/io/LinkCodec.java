@@ -67,6 +67,16 @@ public class LinkCodec {
         return new C();
     }
 
+    /** checkpoint-restore variant (task #34): already-present values win, decode fills the gaps */
+    public Codec restoreCodec() {
+        return new C() {
+            @Override
+            protected boolean skipExistingValues() {
+                return true;
+            }
+        };
+    }
+
     class C extends CodecImpl {
         public C() {
             super(runtime, propertyProvider, decoderProvider, typeProvider, sourceSetOfRequest);
@@ -391,7 +401,10 @@ public class LinkCodec {
     private static final Map<String, Property> PROPERTY_MAP = Map.of(
             PART_OF_CONSTRUCTION.key(), PART_OF_CONSTRUCTION,
             METHOD_LINKS.key(), METHOD_LINKS,
-            LinksImpl.LINKS.key(), LinksImpl.LINKS);
+            LinksImpl.LINKS.key(), LinksImpl.LINKS,
+            // prepwork call-graph property, present on checkpointed methods (task #34)
+            org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph.RECURSIVE_METHOD.key(),
+            org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph.RECURSIVE_METHOD);
 
     static class P implements Codec.PropertyProvider {
         @Override

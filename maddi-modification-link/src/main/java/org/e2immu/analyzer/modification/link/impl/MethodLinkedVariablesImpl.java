@@ -89,9 +89,24 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
                                    LinksImpl.Builder builder) {
         List<Codec.EncodedValue> list = codec.decodeList(context, ev);
         Variable from = codec.decodeVariable(context, list.getFirst());
-        LinkNature linkNature = LinkNatureImpl.decode(codec.decodeString(context, list.get(1)));
-        Variable to = codec.decodeVariable(context, list.getLast());
-        builder.add(from, linkNature, to);
+        LinkNature linkNature;
+        Codec.EncodedValue natureEv = list.get(1);
+        if (codec.isList(natureEv)) {
+            // pass-carrying ≡ variant (☷): [symbol, methodInfo...] — see LinksImpl.encodeLink
+            List<Codec.EncodedValue> natureList = codec.decodeList(context, natureEv);
+            assert "☷".equals(codec.decodeString(context, natureList.getFirst()));
+            java.util.Set<org.e2immu.language.cst.api.info.MethodInfo> pass = new java.util.HashSet<>();
+            for (int i = 1; i < natureList.size(); i++) {
+                pass.add(codec.decodeMethodInfo(context, natureList.get(i)));
+            }
+            linkNature = LinkNatureImpl.makeIdenticalTo(pass);
+        } else {
+            linkNature = LinkNatureImpl.decode(codec.decodeString(context, natureEv));
+        }
+        Variable to = codec.decodeVariable(context, list.get(2));
+        // optional 4th element: mediation provenance (task #39); absent = unmediated (also old files)
+        boolean mediated = list.size() > 3 && codec.decodeBoolean(context, list.get(3));
+        builder.add(from, linkNature, to, mediated);
     }
 
     @Override
@@ -163,7 +178,7 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
     /*
     Holds Links (for the return value and per parameter) and a set of modified Variables. Like LinksImpl, this is
     derived across types, so a REWIRE type's method links are stale by construction and should be recomputed rather
-    than carried; hence not implemented. See rewiring.md.
+    than carried; hence not implemented. See docs/rewiring.md.
      */
     @Override
     public Value rewire(InfoMapView infoMap) {

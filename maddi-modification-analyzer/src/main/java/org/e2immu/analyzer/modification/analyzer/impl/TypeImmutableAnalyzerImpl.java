@@ -112,7 +112,16 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         // fields and abstract methods (those annotated by hand)
 
         Boolean immFromField = loopOverFieldsAndMethods(typeInfo, true);
-        if (immFromField == null) return null;
+        if (immFromField == null) {
+            // The 51% type-null cluster (elasticsearch first contact): a missing verdict here — a field's
+            // UNMODIFIED undecided, a NON-PRIVATE field's type immutability-undecided, or an abstract
+            // method's NON_MODIFYING undecided — roots in EXTERNAL unannotated types and CASCADES through
+            // field types (nullness is transitively closed over 'has a field of a null type'). Under the
+            // breaking pass, a verdict that will never arrive is pessimistic: the type is at most
+            // FINAL_FIELDS (field finality was established at the top of this method); upgrades in later
+            // verification passes remain allowed, downgrades are never needed. Without breaking: wait.
+            return activateCycleBreaking ? FINAL_FIELDS : null;
+        }
         if (!immFromField) return FINAL_FIELDS;
         if (independent.isIndependentHc() || typeInfo.isExtensible()) return IMMUTABLE_HC;
         // the hidden-content-free level requires every instance field's type to be deeply immutable itself:

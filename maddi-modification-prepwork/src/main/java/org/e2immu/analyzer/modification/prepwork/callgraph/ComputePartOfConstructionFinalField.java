@@ -42,7 +42,9 @@ public class ComputePartOfConstructionFinalField {
     private static final TimedLogger TIMED_LOGGER = new TimedLogger(LOGGER, 1000);
 
     public static final Value.SetOfInfo EMPTY_PART_OF_CONSTRUCTION = new ValueImpl.SetOfInfoImpl(Set.of());
-    public static final Property PART_OF_CONSTRUCTION = new PropertyImpl("partOfConstructionType", EMPTY_PART_OF_CONSTRUCTION);
+    // INTRINSIC: re-derived here from the type's own constructors/methods on every prepwork run.
+    public static final Property PART_OF_CONSTRUCTION = new PropertyImpl("partOfConstructionType",
+            EMPTY_PART_OF_CONSTRUCTION, Property.AnalysisTier.INTRINSIC);
 
     private final boolean parallel;
     private final AtomicInteger count = new AtomicInteger();

@@ -52,6 +52,23 @@ public final class IncrementalFixpointEngine<V, L> {
     private final Comparator<V> vertexComparator;
     private final Predicate<V> acceptForComposite;
 
+    // Per-method effort ceiling. The engine lives for ONE method (created in SourceMethodComputer);
+    // one pathological method must not consume minutes of CPU and gigabytes of closure (elasticsearch
+    // first contact: a single method ground a worker 30+ min and OOM'd the 8G heap; with a per-POP
+    // counter the same method then burned 96 min WITHOUT tripping — the explosion lives INSIDE one
+    // fact's propagation loops, so the ceiling counts per EDGE VISIT in propagateForward/Backward.
+    // Tripping throws the established "cycle protection" contract, which LinkComputerImpl catches and
+    // degrades to the method's shallow summary. Opt-out: NOWORKCEILING=1; tune with -Dmaddi.workCeiling=N.
+    private static final long WORK_CEILING = Long.getLong("maddi.workCeiling", 10_000_000L);
+    private static final boolean NO_WORK_CEILING = Gate.isSet("NOWORKCEILING");
+    private long work;
+
+    private void countWork() {
+        if (!NO_WORK_CEILING && ++work > WORK_CEILING) {
+            throw new UnsupportedOperationException("cycle protection");
+        }
+    }
+
     public IncrementalFixpointEngine(BinaryOperator<L> combine,
                                      BinaryOperator<L> best,
                                      Predicate<L> valid,
@@ -200,6 +217,7 @@ public final class IncrementalFixpointEngine<V, L> {
         Deque<Fact<V, L>> queueCopy = new ArrayDeque<>(queue);
 
         while (!queue.isEmpty()) {
+            countWork();
             Fact<V, L> fact = queue.removeFirst();
             if (LOGGER.isDebugEnabled()) LOGGER.debug("-- inference phase: process {}", fact.print(vertexPrinter));
             propagateForward(fact, queue, false, null);
@@ -208,6 +226,7 @@ public final class IncrementalFixpointEngine<V, L> {
         // see e.g. TestDependent,2,3 -- they need this optimization phase
         Set<Fact<V, L>> history = new HashSet<>();
         while (!queueCopy.isEmpty()) {
+            countWork();
             Fact<V, L> fact = queueCopy.removeFirst();
             if (history.add(fact)) {
                 if (LOGGER.isDebugEnabled()) LOGGER.debug("-- optimization phase: process {}", fact.print(vertexPrinter));
@@ -225,6 +244,7 @@ public final class IncrementalFixpointEngine<V, L> {
                 ? closure.successors(fact.target())
                 : graph.successors(fact.target());
         for (Map.Entry<V, L> edge : successors) {
+            countWork();
             L nextLabel = combine.apply(fact.label(), edge.getValue());
             V source = fact.source();
             V target = edge.getKey();
@@ -296,6 +316,7 @@ public final class IncrementalFixpointEngine<V, L> {
     private void propagateBackward(Fact<V, L> fact, Deque<Fact<V, L>> queue, boolean optimize, Set<Fact<V, L>> history) {
         V source = fact.source();
         for (Map.Entry<V, L> edge : closure.successors(source)) {
+            countWork();
             V p = edge.getKey();
             V target = fact.target();
             if (acceptForComposite.test(target) && !p.equals(source) && !p.equals(target)) {

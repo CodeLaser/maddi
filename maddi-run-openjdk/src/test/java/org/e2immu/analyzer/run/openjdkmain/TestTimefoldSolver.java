@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -27,15 +26,15 @@ public class TestTimefoldSolver {
     }
 
     private static void assumeCorpus() {
-        Assumptions.assumeTrue(Files.exists(Path.of("/Users/bnaudts/git/test-oss/timefold-solver")),
-                "requires the timefold-solver corpus checkout (paths baked into the input configuration)");
+        Assumptions.assumeTrue(Files.exists(TestOssCorpus.config("timefold-solver")),
+                "requires the timefold-solver corpus checkout with its locally generated input configuration");
     }
 
     @Test
     public void test() throws IOException, ParseException {
         assumeCorpus();
         int exitValue = Main.execute(new String[]{
-                "--input-configuration=./src/test/resources/inputConfiguration/timefold-solver.json"
+                "--input-configuration=" + TestOssCorpus.config("timefold-solver")
                 , "--analysis-steps=modification"
                 , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk"
         });
@@ -47,7 +46,7 @@ public class TestTimefoldSolver {
     public void test2() throws IOException, ParseException {
         assumeCorpus();
         int exitValue = Main.execute(new String[]{
-                "--input-configuration=./src/test/resources/inputConfiguration/timefold-solver2.json"
+                "--input-configuration=" + TestOssCorpus.ROOT.resolve("timefold-solver/inputConfiguration2.json")
                 , "--analysis-steps=modification"
                 , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk"
         });

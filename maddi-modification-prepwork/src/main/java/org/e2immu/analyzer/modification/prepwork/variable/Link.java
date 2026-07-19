@@ -18,6 +18,15 @@ public interface Link extends Comparable<Link> {
 
     Variable to();
 
+    /** true when this DIRECT link was produced through a declared-type mediator (a cast, or an
+     * instanceof/switch pattern binding). Runtime value flow holds; declared-type coupling does NOT
+     * (the mediator re-mediates the type) — declared-type consumers must skip mediated links.
+     * Provenance is only guaranteed on directly-produced links; closure/reconstruction products
+     * currently drop it (task #39 step 1; threading through reconstruction is the remaining step). */
+    default boolean mediated() {
+        return false;
+    }
+
     @NotNull String toString(Set<Variable> modified);
 
     @Override
