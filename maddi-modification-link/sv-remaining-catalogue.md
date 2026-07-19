@@ -6,7 +6,27 @@
 > (sv-doc entry point), `linking-manual.md` (link module manual), `org-review-2026-07-18.md`
 > (module organization review + 13-point plan).
 
-## CURRENT STATE (2026-07-18)
+## CURRENT STATE (2026-07-19, end of the post-merge session — read this first after compaction)
+
+- Branch `sv-integration` at e2797cdf, tree clean, merged BOTH ways with origin/kotlin (incl. the
+  metrics thread's E7 suite + ShadowModificationPass and the kotlin thread's early-cutoff
+  worklist). All suites green on the merged base.
+- DONE this session: #33 both fronts (elasticsearch SWEEP GREEN, first ever); #34 checkpoint v1
+  incl. production gates + decode fixes (85% restore coverage); #35 Phase A measured (closure
+  NO-GO, direct-edge frontier GO, median wake-set 5); #39 engine side complete + jfocus shadow
+  slice verified end-to-end (the original falsifier correctly classified); type-null breaking
+  fix (guava 100% coverage; ES verification PENDING RERUN — the run was killed externally);
+  §9.4 cross-read executed (FastFixedSetFactory named by both evidence lines; 836 fernflower
+  divergences via the new SHADOWDIFF gate).
+- NEXT, in rough order: (1) triage the 8 reverse shadow divergences to zero (SHADOWDIFF=1
+  fernflower; they gate phase 2's instrument); (2) rerun the ES verification overnight —
+  ideally after the wave-boundary checkpoint fix below; (3) phase-2 sequencing decision, then
+  the reachability implementation (acceptance: TestDeepCaptureChain green + promoted shadow
+  baseline; expect TestShadowCloneBench pins + deepFieldChains tripwire to fire as re-baseline
+  signals); (4) #39 step 2 activation data from the jfocus owner (EIDEDUP_SHADOW=1, their
+  suite); (5) #35 frontier integration (their worklist + consumption edges as wake relation).
+
+## PREVIOUS STATE (2026-07-18)
 
 - Branch `sv-integration`, suites green: java-openjdk, prepwork 199, link 393, analyzer 145.
 - Proving ground certified & crash-free on engine defaults (worklist ON, PARALLEL ON, hints
