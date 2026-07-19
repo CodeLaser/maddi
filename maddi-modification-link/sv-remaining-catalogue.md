@@ -52,6 +52,16 @@
   corrupting mid-read — the historical low-victim-count flakes that no locking could cure. Fix:
   fm outlives the task (openFileManagers, closed in invalidateAllSources). Plus an assert that
   -XDuseUnsharedTable is HONORED (Names.table is not SharedNameTable), ScanCompilationUnits.
+- CHECKPOINT GRANULARITY GAP (from the externally killed 2026-07-19 ES verification run, ~3.5h
+  in, 0 checkpoint files): pass-boundary writes give NO protection during a cold run's FIRST
+  pass — which at monorepo scale is 3-4h+, exactly the stretch that needs protecting. Fix
+  direction: iteration 1's strata waves are natural intra-pass boundaries — emit a
+  passCompleted-style delta per completed WAVE (the barrier already guarantees the wave's
+  elements are final for that pass). The ES type-null verification (null count, distribution,
+  CONSEDGES at scale) is PENDING RERUN, schedule overnight. Process note: 'clean tree ⇒
+  concurrent gradle safe' holds only while the tree STAYS clean — post-merge/post-edit rebuilds
+  rewrote jars under the live ES JVM (accepted silently; wrong). The lock exists so this never
+  needs per-case reasoning; bypass only for genuinely read-only overlaps.
 - Elasticsearch SWEEP GREEN 2026-07-19 04:12 (5h21m, 24G, post-#33): **BUILD SUCCESSFUL, zero
   isolated types** — the sweep-green bar is MET. 239,741 elements (+9 = exactly the
   BinaryFieldMapperTests.$13.BytesCompareUnsigned members, the #33 pin type, now fully analyzed).
