@@ -97,6 +97,19 @@ Cycle breaking is deliberately conservative about the _strength_ of what it conc
 deep immutability rests on a broken cycle is published at the hidden-content level rather than the full
 level, because the unbroken evidence is not there.
 
+The supertype path was, for a while, the only one the breaking pass resolved, and the elasticsearch
+first contact exposed what that left behind: 51% of its 45,000 types remained undecided.
+The mechanism was not a cycle at all but a verdict that _will never arrive_: an external, unannotated
+type has no immutability value, any type holding a non-private field of such a type cannot conclude,
+and — since "has a field of an undecided type" closes transitively — the undecidedness cascades through
+the field graph.
+Test code, which touches unannotated framework types most, made up the bulk of the cluster.
+The breaking pass now treats these the same way it treats blocked supertypes: a missing field or
+abstract-method verdict is resolved pessimistically, and the type concludes at final-fields level —
+field finality being the one thing the analysis has, at that point, already established on its own.
+The published result is deliberately weak, honestly arrived at, and — unlike an absent verdict —
+usable by every downstream consumer.
+
 == Annotated APIs as analysis hints
 
 The analyzer ships curated property sets for the JDK — `String` is deeply immutable, `Object` is

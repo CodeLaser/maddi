@@ -40,6 +40,9 @@ public abstract class InfoImpl implements Info {
 
     @Override
     public PropertyValueMap analysis() {
+        if (org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.ENABLED) {
+            org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.record(this);
+        }
         return propertyValueMap;
     }
 
