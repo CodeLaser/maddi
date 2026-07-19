@@ -21,10 +21,10 @@
  {"name": "FMODULE(5)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
  {"name": "FPACKAGE(6)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
  {"name": "FPARAMETER(7)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
- {"name": "FRECORD_COMPONENT(8)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FRECORD_COMPONENT(8)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"notNullField":1,"unmodifiedField":1}},
  {"name": "FTYPE(9)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
- {"name": "FTYPE_PARAMETER(10)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
- {"name": "FTYPE_USE(11)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FTYPE_PARAMETER(10)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"notNullField":1,"unmodifiedField":1}},
+ {"name": "FTYPE_USE(11)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"notNullField":1,"unmodifiedField":1}},
  {"name": "MvalueOf(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mvalues(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}}]},
@@ -37,7 +37,7 @@
  {"name": "MelementName(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}}]},
 
 {"name": "Tjava.lang.annotation.RetentionPolicy", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2}, "subs":[
- {"name": "FCLASS(0)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FCLASS(0)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"notNullField":1,"unmodifiedField":1}},
  {"name": "FRUNTIME(1)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
  {"name": "FSOURCE(2)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
  {"name": "MvalueOf(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":

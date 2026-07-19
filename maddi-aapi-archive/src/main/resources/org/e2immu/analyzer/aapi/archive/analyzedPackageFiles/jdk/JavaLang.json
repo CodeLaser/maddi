@@ -1968,13 +1968,13 @@
 {"name": "Tjava.lang.System", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":2}, "subs":[
  {"name": "SLogger(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":2}, "subs":[
   {"name": "SLevel(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-   {"name": "FALL(0)", "data":{"annotatedApi":1,"finalField":1}},
-   {"name": "FDEBUG(1)", "data":{"annotatedApi":1,"finalField":1}},
-   {"name": "FERROR(2)", "data":{"annotatedApi":1,"finalField":1}},
-   {"name": "FINFO(3)", "data":{"annotatedApi":1,"finalField":1}},
-   {"name": "FOFF(4)", "data":{"annotatedApi":1,"finalField":1}},
-   {"name": "FTRACE(5)", "data":{"annotatedApi":1,"finalField":1}},
-   {"name": "FWARNING(6)", "data":{"annotatedApi":1,"finalField":1}},
+   {"name": "FALL(0)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+   {"name": "FDEBUG(1)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+   {"name": "FERROR(2)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+   {"name": "FINFO(3)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+   {"name": "FOFF(4)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+   {"name": "FTRACE(5)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+   {"name": "FWARNING(6)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
    {"name": "MgetName(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
    {"name": "MgetSeverity(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
    {"name": "MvalueOf(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
@@ -2126,12 +2126,12 @@
   {"name": "Munstarted(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1}}}]},
  {"name": "SState(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "FBLOCKED(0)", "data":{"annotatedApi":1,"finalField":1}},
-  {"name": "FNEW(1)", "data":{"annotatedApi":1,"finalField":1}},
-  {"name": "FRUNNABLE(2)", "data":{"annotatedApi":1,"finalField":1}},
-  {"name": "FTERMINATED(3)", "data":{"annotatedApi":1,"finalField":1}},
-  {"name": "FTIMED_WAITING(4)", "data":{"annotatedApi":1,"finalField":1}},
-  {"name": "FWAITING(5)", "data":{"annotatedApi":1,"finalField":1}},
+  {"name": "FBLOCKED(0)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FNEW(1)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FRUNNABLE(2)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FTERMINATED(3)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FTIMED_WAITING(4)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FWAITING(5)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
   {"name": "MvalueOf(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "Mvalues(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1}}]},

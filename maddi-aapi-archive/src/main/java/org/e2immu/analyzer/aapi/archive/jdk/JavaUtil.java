@@ -3683,11 +3683,11 @@ public class JavaUtil {
         void addLast(/*@Independent(hc=true)[T] @NotModified[O]*/ E e) { }
         //override has frequency 351
         //@Independent(hc=true)[T]
-        E getFirst() { return null; }
+        @NotModified E getFirst() { return null; }
 
         //override has frequency 7
         //@Independent(hc=true)[T]
-        E getLast() { return null; }
+        @NotModified E getLast() { return null; }
 
         //@Independent(hc=true)[T]
         E removeFirst() { return null; }
