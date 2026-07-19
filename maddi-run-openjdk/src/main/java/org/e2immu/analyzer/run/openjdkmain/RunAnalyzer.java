@@ -250,8 +250,12 @@ public class RunAnalyzer implements Runnable {
                     .setStopWhenCycleDetectedAndNoImprovements(true) // plateau early-exit, see IteratingAnalyzerImpl
                     // SHADOWDIFF (phase-1 reachability diff, PLAN §13) needs LINKED_VARIABLES_ARGUMENTS,
                     // which only trackObjectCreations produces; note track-on shifts some verdicts
-                    // (saturation boundary, see the metrics thread's FC-chain note) — diagnostic runs only
+                    // (P2.1 measured: nil cost, 0.12% churn on fernflower)
                     .setTrackObjectCreations(System.getenv("SHADOWDIFF") != null)
+                    // MODREACH (PLAN §14 P2.3a, presence-only house convention): post-convergence
+                    // reachability pass becomes the single writer of the three modification
+                    // properties; implies trackObjectCreations
+                    .setModificationViaReachability(System.getenv("MODREACH") != null)
                     .setFaultTolerant(true) // isolate a crash on one element; report it, don't abort the whole run
                     .setWarnNearMisses(configuration.generalConfiguration().warnNearMisses())
                     .build();

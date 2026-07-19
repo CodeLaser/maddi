@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.analyzer.shadow;
 
+import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkVariable;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
@@ -528,6 +529,116 @@ public class ShadowModificationPass {
     private void addEdge(Object from, Object to) {
         if (from == to) return;
         if (successors.computeIfAbsent(from, k -> new HashSet<>()).add(to)) edgeCount++;
+    }
+
+    // ------------------------------------------------------------------ cutover writer (P2.3)
+
+    public record WriteCounts(int downgraded, int decidedFalse, int decidedTrue,
+                              int leftUndecided, int reverseKept) {
+        public String summary() {
+            return "modreach wrote: " + downgraded + " TRUE->FALSE downgrades, "
+                   + decidedFalse + " null->FALSE, " + decidedTrue + " null->TRUE, "
+                   + leftUndecided + " left undecided (frontier), " + reverseKept + " reverse kept";
+        }
+    }
+
+    /**
+     * PLAN §14 P2.3a: the single-writer cutover. Applies the reachability verdict to the three
+     * frozen properties, post-fixpoint:
+     * <ul>
+     * <li>reached and not currently FALSE: overwrite FALSE — every such write is exactly a
+     *     divergence (frozen optimistic TRUE) or an undecided null;</li>
+     * <li>unreached and currently null: TRUE if the node's in-edge frontier was constructible
+     *     (§10.1), otherwise left undecided (honest null beats optimistic TRUE);</li>
+     * <li>unreached and currently FALSE (the reverse-divergence class, zero on all corpora):
+     *     kept — the engine's value stands, conservative;</li>
+     * <li>immutable-typed parameters are never downgraded (their objects cannot be modified;
+     *     mirrors TypeModIndyAnalyzerImpl.handleParameter's immutability shortcut).</li>
+     * </ul>
+     * The caller must freeze the three properties against later writers (TolerantWrite) —
+     * Bool's legal overwrite direction is FALSE->TRUE, so any re-derivation writer could
+     * silently undo a downgrade.
+     */
+    public WriteCounts writeVerdicts(List<Info> analysisOrder, Report report) {
+        AnalysisHelper analysisHelper = new AnalysisHelper();
+        int downgraded = 0, decidedFalse = 0, decidedTrue = 0, leftUndecided = 0, reverseKept = 0;
+        for (Info info : analysisOrder) {
+            switch (info) {
+                case MethodInfo mi -> {
+                    int r = write(mi.analysis(), PropertyImpl.NON_MODIFYING_METHOD,
+                            report.reached().contains(mi), report.frontierIncomplete().contains(mi), false);
+                    switch (r) {
+                        case DOWNGRADED -> downgraded++;
+                        case DECIDED_FALSE -> decidedFalse++;
+                        case DECIDED_TRUE -> decidedTrue++;
+                        case LEFT_UNDECIDED -> leftUndecided++;
+                        case REVERSE_KEPT -> reverseKept++;
+                        default -> {
+                        }
+                    }
+                    for (ParameterInfo pi : mi.parameters()) {
+                        boolean immutable = analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
+                        int rp = write(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER,
+                                report.reached().contains(pi), report.frontierIncomplete().contains(pi), immutable);
+                        switch (rp) {
+                            case DOWNGRADED -> downgraded++;
+                            case DECIDED_FALSE -> decidedFalse++;
+                            case DECIDED_TRUE -> decidedTrue++;
+                            case LEFT_UNDECIDED -> leftUndecided++;
+                            case REVERSE_KEPT -> reverseKept++;
+                            default -> {
+                            }
+                        }
+                    }
+                }
+                case FieldInfo fi -> {
+                    boolean immutable = analysisHelper.typeImmutable(fi.type()).isImmutable();
+                    int rf = write(fi.analysis(), PropertyImpl.UNMODIFIED_FIELD,
+                            report.reached().contains(fi), report.frontierIncomplete().contains(fi), immutable);
+                    switch (rf) {
+                        case DOWNGRADED -> downgraded++;
+                        case DECIDED_FALSE -> decidedFalse++;
+                        case DECIDED_TRUE -> decidedTrue++;
+                        case LEFT_UNDECIDED -> leftUndecided++;
+                        case REVERSE_KEPT -> reverseKept++;
+                        default -> {
+                        }
+                    }
+                }
+                default -> {
+                }
+            }
+        }
+        return new WriteCounts(downgraded, decidedFalse, decidedTrue, leftUndecided, reverseKept);
+    }
+
+    private static final int NO_CHANGE = 0, DOWNGRADED = 1, DECIDED_FALSE = 2, DECIDED_TRUE = 3,
+            LEFT_UNDECIDED = 4, REVERSE_KEPT = 5;
+
+    private int write(PropertyValueMap analysis, org.e2immu.language.cst.api.analysis.Property property,
+                      boolean reached, boolean tainted, boolean immutableType) {
+        Value.Bool current = analysis.getOrNull(property, ValueImpl.BoolImpl.class);
+        if (reached) {
+            if (immutableType) return NO_CHANGE; // an immutable object cannot be modified: union over-reach
+            if (current == null) {
+                analysis.set(property, ValueImpl.BoolImpl.FALSE);
+                return DECIDED_FALSE;
+            }
+            if (current.isTrue()) {
+                analysis.overwrite(property, ValueImpl.BoolImpl.FALSE);
+                return DOWNGRADED;
+            }
+            return NO_CHANGE; // already FALSE: agreement
+        }
+        if (current == null) {
+            if (immutableType || !tainted) {
+                analysis.set(property, ValueImpl.BoolImpl.TRUE);
+                return DECIDED_TRUE;
+            }
+            return LEFT_UNDECIDED;
+        }
+        if (current.isFalse()) return REVERSE_KEPT; // engine knows more than the graph: keep, conservative
+        return NO_CHANGE; // TRUE and unreached: agreement
     }
 
     private Set<Object> closure() {
