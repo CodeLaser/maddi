@@ -18,13 +18,35 @@
   fix (guava 100% coverage; ES verification PENDING RERUN — the run was killed externally);
   §9.4 cross-read executed (FastFixedSetFactory named by both evidence lines; 836 fernflower
   divergences via the new SHADOWDIFF gate).
-- NEXT, in rough order: (1) triage the 8 reverse shadow divergences to zero (SHADOWDIFF=1
-  fernflower; they gate phase 2's instrument); (2) rerun the ES verification overnight —
-  ideally after the wave-boundary checkpoint fix below; (3) phase-2 sequencing decision, then
-  the reachability implementation (acceptance: TestDeepCaptureChain green + promoted shadow
-  baseline; expect TestShadowCloneBench pins + deepFieldChains tripwire to fire as re-baseline
-  signals); (4) #39 step 2 activation data from the jfocus owner (EIDEDUP_SHADOW=1, their
-  suite); (5) #35 frontier integration (their worklist + consumption edges as wake relation).
+- NEXT, in rough order: (1) DONE 2026-07-19 — the 8 reverse shadow divergences triaged to zero
+  (see below); (2) rerun the ES verification overnight — ideally after the wave-boundary
+  checkpoint fix below; (3) phase-2 sequencing decision, then the reachability implementation
+  (acceptance: TestDeepCaptureChain green + promoted shadow baseline; expect TestShadowCloneBench
+  pins + deepFieldChains tripwire to fire as re-baseline signals); (4) #39 step 2 activation data
+  from the jfocus owner (EIDEDUP_SHADOW=1, their suite); (5) #35 frontier integration (their
+  worklist + consumption edges as wake relation).
+- REVERSE-DIVERGENCE TRIAGE (2026-07-19, phase 2's opening move): all 8 were ONE mechanism —
+  modification of a field through a NON-this scope (local.field on a locally created object:
+  fernflower's AnnotationContainer via collectAllAnnotations' `result`, LabelSets via
+  processStatementLabel's `sets`, Root.firstExprents via an accessor alias). That evidence never
+  enters any method-level mlv.modified() summary (the observing method's receiver/params are not
+  implicated), but FieldAnalyzerImpl.computeUnmodified reads it from the last statement's
+  VariableData (UNMODIFIED_VARIABLE == FALSE) → UNMODIFIED_FIELD = FALSE, and the record/ctor
+  parameters inherit FALSE via the field link (handleParameter). The 3 parameter REVs were pure
+  E3-downstream of the 5 field REVs. Fix: ShadowModificationPass gained a
+  seedStatementLevelFieldModifications channel mirroring the field analyzer exactly (same
+  exclusions: constructors, part-of-construction, the field's own getter/setter, same primary
+  type only). Fernflower: 0 reverse. Clonebench re-baselined {1,6,272}/{71,208} →
+  {nonModifyingMethod=1, unmodifiedField=8, unmodifiedParameter=274}/{propagated=71, seed=212},
+  still 0 reverse — the 4 new forward divergences are genuine refused-downgrades
+  (TestData.expected/.other via a local in an anonymous execute(), + 2 downstream ctor params).
+  Channels inventoried but NOT yet mirrored (would appear as new REVs if a corpus exercises
+  them; add mirrors evidence-driven): (a) modifiableThroughInheritedDefaultMethod
+  (FieldAnalyzerImpl — inherited non-overridden modifying default method + overridden accessor,
+  see notes/default-method-modification-not-propagated-to-impl-field.md); (b) closure-captured
+  ENCLOSING-method parameters: copyModificationsIntoMethod counts inClosure modification as
+  methodModified, but the shadow's seedVariable routes a captured ParameterInfo to the parameter
+  case and never seeds the method node.
 
 ## PREVIOUS STATE (2026-07-18)
 
