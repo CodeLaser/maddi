@@ -6,6 +6,36 @@
 > (sv-doc entry point), `linking-manual.md` (link module manual), `org-review-2026-07-18.md`
 > (module organization review + 13-point plan).
 
+## HANDOFF (2026-07-19 evening) — mechanical steps anyone (or any session) can run
+
+The phase-2 cutover is COMPLETE and validated; what remains is evidence gathering and two
+decisions. Exact commands (all from ~/git/maddi, all via bin/gradle-locked.sh):
+
+1. **Remaining corpus legs** (baseline first if no build/imm-<corpus>-*.txt.gz pin exists, then
+   MODREACH; diff the two FPDUMPs; expect: downgrades + null-decisions, type transitions in both
+   directions, 0-or-few reverse-kept — all four corpora so far fit this):
+   `FPDUMP=/tmp/imm-X-base.txt bin/gradle-locked.sh :maddi-run-openjdk:test --tests TestCamelCore --rerun -PskipCloneBench`
+   `MODREACH=1 FPDUMP=/tmp/imm-X-mr.txt bin/gradle-locked.sh :maddi-run-openjdk:test --tests TestCamelCore --rerun -PskipCloneBench`
+   Corpus test classes: TestCamelCore (8 modules), TestElasticsearch2 (5h+, overnight; baseline
+   already pinned build/imm-elasticsearch-2-2026-07-19.txt.gz). timefold/langchain4j SKIP until
+   their inputConfiguration.json is regenerated in ~/git/test-oss.
+2. **ES overnight verification** (pre-cutover measurements, unchanged command from the killed
+   run): plain run first (type-null verdict + CONSEDGES + CHECKPOINT=<dir> dogfood — wave-boundary
+   protection is now live), MODREACH leg after/separately.
+3. **Default-ON flip** (Bart's decision): set `modificationViaReachability` default true in
+   IteratingAnalyzer.Configuration + ConfigurationBuilder (or invert the RunAnalyzer gate);
+   expect suite golden churn in maddi-modification-analyzer (modification + immutability pins);
+   metrics thread then executes their §16 checklist (delete deepFieldChains saturation pin —
+   deepFieldChainsModReach is the replacement; rewrite TestShadowCloneBench to
+   IteratingAnalyzerImpl + assert divergences==immutableGuarded && reverse==0).
+4. **P2.5** is IMPLEMENTED (bounded 3-round pass<->re-derivation joint fixpoint; jenkins run =
+   first corpus validation — check "MODREACH joint fixpoint after N round(s)" in the log).
+5. Open engineering (designed, measured, not built): #35 frontier integration
+   (DESIGN-incremental-v2.md + Phase A numbers: closure NO-GO, direct-edge GO); #39 step 2
+   (awaits jfocus owner's EIDEDUP_SHADOW data); #42 refinement (compute 'wholly cast-mediated'
+   from Link.mediated() — the basic @Modified(downcast/downcastTo) annotation + decorator
+   emission are DONE).
+
 ## CURRENT STATE (2026-07-19, end of the post-merge session — read this first after compaction)
 
 ### UPDATE 2026-07-19 (phase-2 session, later same day) — at 5c880b3c

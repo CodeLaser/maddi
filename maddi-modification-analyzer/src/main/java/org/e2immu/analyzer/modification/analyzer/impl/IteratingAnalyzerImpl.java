@@ -280,8 +280,8 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         // pulls in, i.e. carried types entering the dirty frontier, exactly once each, before their first analysis.
         java.util.Set<Info> everAnalyzed = incremental ? new java.util.HashSet<>(initialDirty) : java.util.Set.of();
         int iterations = 0;
-        int maxIterations = configuration.maxIterations(); // extended once by the MODREACH re-derivation
-        boolean modReachDone = false;
+        int maxIterations = configuration.maxIterations(); // extended per MODREACH re-derivation round
+        int modReachRounds = 0; // P2.5: pass <-> re-derivation to joint fixpoint, bounded
         SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
         this.lastRun = singleIterationAnalyzer;
         if (valueFeed != null && singleIterationAnalyzer instanceof SingleIterationAnalyzerImpl sia) {
@@ -429,22 +429,25 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             if (iterations == maxIterations || done || plateau) {
                 LOGGER.info("Stop iterating after {} iterations, done? {}{}", iterations, done,
                         plateau ? " (plateau: " + propertiesChanged + " vs " + previousPropertiesChanged + ")" : "");
-                if (configuration.modificationViaReachability() && !modReachDone) {
+                if (configuration.modificationViaReachability() && modReachRounds < 3) {
                     // PLAN §14 P2.3: post-convergence single-writer cutover. One-shot reachability
                     // over the converged link artifacts becomes the authority for the three
                     // modification properties: frozen optimistic TRUEs downgrade, undecided nodes
                     // decide (TRUE only with a constructible in-edge frontier, §10.1). Then FREEZE:
                     // Bool's legal overwrite direction is FALSE->TRUE, so any later writer — incl.
                     // cycle breaking's NO_INFORMATION_IS_NON_MODIFYING — could undo a downgrade.
-                    modReachDone = true;
+                    // P2.5: re-derivation moves METHOD_LINKS (immutability feeds linking), so the
+                    // pass re-runs after each re-derivation until a round writes nothing (joint
+                    // fixpoint; guava measured 2 second-round downgrades, fernflower 0), bounded.
+                    modReachRounds++;
                     try {
                         var pass = new org.e2immu.analyzer.modification.analyzer.shadow.ShadowModificationPass();
                         var report = pass.go(analysisOrder);
                         var counts = pass.writeVerdicts(analysisOrder, report);
                         TolerantWrite.freezeModificationProperties();
-                        LOGGER.info("MODREACH {}", counts.summary());
-                        LOGGER.info("MODREACH {}", report.summary());
-                        if (counts.downgraded() + counts.decidedFalse() > 0) {
+                        LOGGER.info("MODREACH round {}: {}", modReachRounds, counts.summary());
+                        LOGGER.info("MODREACH round {}: {}", modReachRounds, report.summary());
+                        if (counts.downgraded() + counts.decidedFalse() + counts.decidedTrue() > 0) {
                             // P2.3b: the immutability family was derived from the pre-pass optimistic
                             // values; clear it and re-derive with modification frozen. Cycle breaking
                             // re-stages at its own certification point; the terminal phase (and
@@ -459,6 +462,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                             maxIterations += configuration.maxIterations();
                             continue;
                         }
+                        LOGGER.info("MODREACH joint fixpoint after {} round(s)", modReachRounds);
                     } catch (RuntimeException | AssertionError e) {
                         LOGGER.error("MODREACH pass failed; modification properties keep their "
                                      + "fixpoint values (unfrozen)", e);
