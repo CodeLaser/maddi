@@ -176,7 +176,9 @@ public record ApplyGetSetTranslation(Runtime runtime) implements TranslationMap 
         // A qualified explicit constructor invocation 'outer.super(...)' (JLS 8.8.7.1) is represented as a MethodCall
         // whose methodInfo() is the superclass constructor. Get/set analysis is meaningless for a constructor, and
         // GetSetHelper.doGetSetAnalysis asserts against being given one, so exclude constructors here.
-        if (!methodInfo.isAbstract() && !methodInfo.isConstructor()) {
+        // A method resolved from a compiled (byte-code) type has no source body; get/set cannot be computed for it
+        // and doGetSetAnalysis asserts methodBody != null, so exclude those too.
+        if (!methodInfo.isAbstract() && !methodInfo.isConstructor() && methodInfo.methodBody() != null) {
             GetSetHelper.doGetSetAnalysis(methodInfo, methodInfo.methodBody());
         }
     }
