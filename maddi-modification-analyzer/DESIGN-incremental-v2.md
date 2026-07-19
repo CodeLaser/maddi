@@ -107,6 +107,17 @@ PERFORMANCE device; certification is the correctness device.
   run fernflower + elasticsearch, report edge-count distribution (per element: how many summaries
   consumed; per element: how many consumers). GO/NO-GO: if the median consumer closure of a
   random element is <5% of the codebase, the design wins big; if it approaches SCC size, stop.
+
+  **MEASURED 2026-07-19 (fernflower, ConsumptionEdgeRecorder, recorder proven inert by 0-diff
+  FPDUMP A/B)**: 4,598 consuming elements, 59,143 edges; out-degree median/p90/max 5/31/1517;
+  in-degree median/p90/max 5/23/927; sampled consumer-closure median/p90/max **3636/3688/4009 of
+  4598 (79%!)**. VERDICT: locally sparse, small-world — §3.3's TRANSITIVE-closure invalidation is
+  a **NO-GO** by this section's own criterion. The refined GO: use the edges as the
+  DIRECT-consumer wake relation for the early-cutoff worklist (§0) — each changed element wakes a
+  median of 5 consumers, and the output-fingerprint frontier kills propagation wherever verdicts
+  do not change (empirically almost everywhere: the elasticsearch resume re-certified with ~130
+  changed lines out of 239k). Closure is never computed. Phases B-D below stand, with §3.3's
+  invalidation-closure replaced by frontier propagation over direct edges.
 - **Phase B (fingerprints)**: element fingerprint computation + storage next to the checkpoint;
   A/B: fingerprint stability across two identical parses (must be 100%).
 - **Phase C (resume path)**: wire §3.2+§3.3 into CHECKPOINT_RESTORE; acceptance: touch one method

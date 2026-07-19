@@ -282,6 +282,8 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                                 Set<TypeInfo> abstractTypes) {
         if (faultTolerant && failed.contains(info)) return; // an earlier iteration already crashed on this one
         int changesBefore = propertiesChanged.get();
+        // task #35 Phase A: attribute all analysis() touches during this element to it (CONSEDGES gate)
+        org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.setCurrent(info);
         try {
             if (info instanceof MethodInfo methodInfo) {
                 if (firstIteration && methodInfo.isAbstract() && abstractTypes.add(info.typeInfo())) {
@@ -319,6 +321,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
             }
             messages.add(crashFinding(info, e));
         } finally {
+            org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.clearCurrent();
             // under PARALLEL the delta can over-attribute (another thread's change lands in the window);
             // a superset of changed elements is safe for the worklist
             if (propertiesChanged.get() > changesBefore) changedInfos.add(info);
