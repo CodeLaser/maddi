@@ -632,6 +632,18 @@ public class JavaInspectorImpl implements JavaInspector {
         return options;
     }
 
+    // true when 'jre' is the JDK this analyzer is itself running on. Then --system would merely reload the running
+    // platform via the full jimage (which, unlike --release/ct.sym, exposes jdk.internal.* the preload trips on),
+    // so the caller uses --release instead.
+    private static boolean isRunningJdk(Path jre) {
+        Path running = Path.of(System.getProperty("java.home"));
+        try {
+            return jre.toRealPath().equals(running.toRealPath());
+        } catch (IOException e) {
+            return jre.toAbsolutePath().normalize().equals(running.toAbsolutePath().normalize());
+        }
+    }
+
     private JavacTask createTask(SourceSet sourceSet,
                                  boolean ignoreModule,
                                  Map<String, String> sourcesByFqn,
@@ -751,12 +763,16 @@ public class JavaInspectorImpl implements JavaInspector {
             }
             // Platform (java.*) types come from the JDK running the analyzer by default: --release is derived from
             // the runtime feature version (Runtime.version().feature()), so a new JDK (27, ...) needs no code change
-            // here, and --enable-preview stays valid (it requires --release to equal the running version). When an
-            // alternative JRE is configured (InputConfiguration.alternativeJREDirectory / the --jre option), point
-            // javac's system modules at that JDK with --system instead, so types removed in a newer JDK (e.g.
-            // java.applet.Applet, gone in JDK 26) remain resolvable. --system replaces --release; --enable-preview
-            // does not apply to a fixed older platform image.
+            // here, and --enable-preview stays valid (it requires --release to equal the running version). An
+            // alternative JRE (InputConfiguration.alternativeJREDirectory / --jre) that is a DIFFERENT JDK is loaded
+            // with --system, so types removed in a newer JDK (e.g. java.applet.Applet, gone in JDK 26) stay
+            // resolvable. But when the alternative JRE IS the JDK we run on -- the IDE daemon runs on its configured
+            // sdkHome and passes it as the alternative JRE -- --system is redundant AND harmful: it serves the full
+            // runtime image, which (unlike --release/ct.sym) surfaces jdk.internal.* types the JDK preload cannot
+            // handle ("Type nature of jdk.internal.vm.ThreadContainer has not been set"). So fall back to --release
+            // when the alternative JRE resolves to the running JDK.
             Path altJre = inputConfiguration == null ? null : inputConfiguration.alternativeJREDirectory();
+            if (altJre != null && isRunningJdk(altJre)) altJre = null;
             if (jdkInternals) {
                 if (altJre != null) {
                     LOGGER.warn("Ignoring alternative JRE {} while compiling {} against JDK internals: internals are" +
