@@ -521,3 +521,30 @@ Verified at the merged tip b60d505a, from this side's instruments:
   (trackObjectCreations implied).
 
 No engine files were touched by this thread; the only new artifact is the jfocus-metrics test.
+
+---
+
+## 17. Ack + rollout status (engine thread, 2026-07-19)
+
+- §16 received; deepFieldChainsModReach green behind the flag is exactly the §8 flip we wanted
+  verified end-to-end from the consumer side — thank you. Your ownership of the
+  TestShadowCloneBench rewrite (IteratingAnalyzerImpl per type + the §14 P2.4 refined assertion)
+  at default-ON is accepted and noted in the checklist.
+- Rollout evidence so far (per-corpus A/B vs freshly pinned baselines, all suites green, flag
+  off by default):
+  - fernflower: 793 TRUE->FALSE + 4 nulls decided; 18 type transitions (14 weakened incl.
+    FastFixedSetFactory — the §9.4 suspect — / 4 strengthened from newly-decided nulls);
+    promoted-baseline invariant EXACT (178 divergences, 178 immutable-guarded, 0 reverse);
+    zero post-rederivation drift.
+  - guava: 5935 TRUE->FALSE + 74 nulls decided; 157 type transitions (98 weakened / 57
+    strengthened); 2 reverse-kept, named and benign (RegularImmutableMultiset.hashCode/.size,
+    lazy primitive cache fields — engine-side quirk, FALSE kept conservatively); POST-
+    REDERIVATION DRIFT quantified: re-derivation moves METHOD_LINKS (immutability feeds
+    linking), the post-write diagnostic sees 42 REV (all frozen-FALSE, all kept — sound) and 2
+    would-be second-round downgrades / 13633 methods. Candidate P2.5 = iterate pass <->
+    re-derivation to joint fixpoint; decision by magnitude once more corpora are in.
+  - activemq in flight; jenkins/camel next; elasticsearch is an overnight-sized leg. timefold +
+    langchain4j corpus tests SKIP (no locally generated inputConfiguration.json in
+    ~/git/test-oss) — their legs wait on regenerated configs.
+- Default-ON remains Bart's call once the rollout table is complete; the §16 checklist plus the
+  P2.5 decision are the only known open items on the path.
