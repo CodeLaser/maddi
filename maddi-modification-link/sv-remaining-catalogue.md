@@ -214,9 +214,16 @@ session tasks #36-#39):
   log streams is the evidence base for replacing linkAssignedValue's value-shape recursion.
   DIRECTIONALITY is the known crux: stored ← does not distinguish method-return/identity flows
   (directional in the rc-graph) from plain aliases (bidirectional) — the shadow data must answer
-  whether that distinction is recoverable or the replacement stays partial. CAVEAT: compile-
-  unverified (their composite build rebuilds maddi in place — blocked behind the live ES run);
-  owner thread: compile + run suite with EIDEDUP_SHADOW=1, share both log streams.
+  whether that distinction is recoverable or the replacement stays partial. VERIFIED same day
+  (clean-tree concurrent gradle is safe — up-to-date tasks write nothing): compiles; smoke on
+  TestReplaceTypeInstanceOf shows THE original falsifier correctly classified ('target ii
+  unmediated [] mediated [ii←0:o]' — the cast link is mediated-only, empty unmediated set =
+  must-not-couple; provenance works end-to-end in the consumer). NOTE for the owner thread:
+  their suite currently fails ~10 tests against maddi HEAD (splitclass output diffs, one AIOOBE
+  in TestMetricsAndExtractInterfaceComputer) — NOT from the sv-side changes (persist under
+  NOCYCLEBREAKING=1; mediated flag inert; shadow gated off) — most plausibly the kotlin-merge
+  printer changes (enum-constant listing) vs their pinned expected outputs, plus their own
+  in-flight edits (ExportedExtract, TestAddTypeSub modified in tree).
   Maddi-internal same-disease siblings unaffected and still valid: WLAM's five mirror blocks,
   iterateOverShared vs expandRepToMembers (==/.equals divergence),
   ShallowMethodLinkComputer.correspondingTypeParameters vs hiddenContentHierarchy.
