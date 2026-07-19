@@ -60,6 +60,24 @@ public class EvalImpl implements Eval {
         evalBoolean = new EvalBoolean(runtime);
     }
 
+    /**
+     * ONE budget for the whole recursive walk. The default method re-simplifies every subtree and combines
+     * with and()/or()/sum(); without this wrapper each nested combination opens a FRESH budget (enter() at
+     * depth 0 resets), so the recursion multiplies under-budget evaluations without ever tripping the
+     * limit — the last fernflower wedge (ConstantPool.constructorLoopBodyThrows) burned 30 s exactly there.
+     * The recursive self-calls inside the default method dispatch virtually, land back here, and share the
+     * budget via the depth counter.
+     */
+    @Override
+    public Expression sortAndSimplify(boolean recurse, Expression expression) {
+        EvalBudget.enter();
+        try {
+            return Eval.super.sortAndSimplify(recurse, expression);
+        } finally {
+            EvalBudget.exit();
+        }
+    }
+
     @Override
     public Expression cast(Expression evaluated, Cast cast) {
         return evalCast.eval(evaluated, cast);
