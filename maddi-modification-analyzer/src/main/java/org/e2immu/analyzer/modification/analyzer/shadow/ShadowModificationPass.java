@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkVariable;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
+import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
@@ -240,14 +241,19 @@ public class ShadowModificationPass {
                         .forEach(sd -> seedOrigin.put(sd, mi.fullyQualifiedName() + " modified " + v));
             }
         }
-        // E3: field -> parameter linked to that field
+        // E3: field -> parameter linked to that field, with the ENGINE's OWN nature filter
+        // (TypeModIndyAnalyzerImpl.relevantLinkForModification): identicalTo with virtual-
+        // modification faces, or a non-virtual IS_ASSIGNED_TO. Without the filter, CONTENT-tier
+        // links (an element read out of the parameter and added to the field: upper ∋ left ∈
+        // this.args) created bogus wake edges — modification of the destination container
+        // widened back to the source, precisely what the engine's rule refuses (2026-07-19
+        // fernflower cause-chain diagnosis; TestElementFlowWidening pins the precise behavior).
         for (ParameterInfo pi : mi.parameters()) {
             Links links = mlv.ofParameters().get(pi.index());
-            links.stream().forEach(link -> link.to().variableStreamDescend().forEach(v -> {
-                if (v instanceof FieldReference fr) {
-                    addEdge(fr.fieldInfo(), pi);
-                }
-            }));
+            for (Link link : links) {
+                FieldReference fr = relevantLinkForModification(link);
+                if (fr != null) addEdge(fr.fieldInfo(), pi);
+            }
         }
         // E1/E2: call sites
         if (mi.methodBody() != null) {
@@ -683,6 +689,11 @@ public class ShadowModificationPass {
         Deque<Object> todo = new ArrayDeque<>(seeds);
         while (!todo.isEmpty()) {
             Object node = todo.poll();
+            // an immutable-typed node cannot transmit modification: its object graph cannot change,
+            // so any edge out of it is vacuous. Without this cut, chains propagated THROUGH String
+            // parameters/fields (the writer's immutable guard stopped the WRITE but not the walk) —
+            // fernflower cause-chain diagnosis 2026-07-19.
+            if (immutableTyped(node)) continue;
             for (Object next : successors.getOrDefault(node, Set.of())) {
                 if (reached.add(next)) {
                     cause.put(next, node);
@@ -691,5 +702,30 @@ public class ShadowModificationPass {
             }
         }
         return reached;
+    }
+
+    private boolean immutableTyped(Object node) {
+        return switch (node) {
+            case ParameterInfo pi -> analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
+            case FieldInfo fi -> analysisHelper.typeImmutable(fi.type()).isImmutable();
+            default -> false;
+        };
+    }
+
+    /**
+     * The engine's own filter for "a modified field implicates this parameter"
+     * (TypeModIndyAnalyzerImpl.relevantLinkForModification, mirrored verbatim): an identicalTo
+     * link between virtual-modification faces, or a non-virtual IS_ASSIGNED_TO onto the field.
+     * Content-tier natures (∈ ∋ ~ ...) are excluded — element flow is not modification transfer.
+     */
+    private static FieldReference relevantLinkForModification(Link link) {
+        if (link.linkNature().isIdenticalTo()
+            && Util.isVirtualModification(link.from())
+            && Util.isVirtualModification(link.to())
+            && Util.firstRealVariable(link.to()) instanceof FieldReference fr) return fr;
+        if (LinkNatureImpl.IS_ASSIGNED_TO.equals(link.linkNature())
+            && !Util.virtual(link.from())
+            && !Util.virtual(link.to()) && link.to() instanceof FieldReference fr) return fr;
+        return null;
     }
 }
