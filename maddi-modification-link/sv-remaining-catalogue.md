@@ -8,6 +8,22 @@
 
 ## HANDOFF (2026-07-19 evening) — mechanical steps anyone (or any session) can run
 
+### UPDATE (late afternoon): #35 phases B/C/D delivered
+
+- IncrementalState (prepwork io): per-primary-type SOURCE + OUTPUT fingerprints + consumption
+  edges (type-lifted), one tolerant JSON next to the checkpoint; CHECKPOINT arms the recorder.
+- RunAnalyzer gate INCREMENTAL=<dir of prior CHECKPOINT run>: restore values, changed types by
+  source fingerprint, seed the early-cutoff worklist, persisted consumption edges unioned into
+  the wake relation (closes the value-mediated-flow gap on resume). INCREMENTAL_FILL opt-in
+  re-analyzes unrestored elements (measured: floods, slower than cold — default reports holes).
+- Fernflower smoke: cold+checkpoint 147s -> untouched resume **7s**; TestIncrementalConsumptionWake
+  green (comment edit cuts off, semantic edit wakes the consumer through the RECORDED edge).
+- #35 REMAINING: restore-coverage tail (the shared codec fix list — 72 fully-empty elements +
+  partial decodes = ~2.3k null verdicts on fernflower resumes); ES-scale touch-one-file
+  experiment; element-granularity fingerprints if type granularity proves too coarse on the
+  monorepo. The ES overnight run now ALSO writes incremental state: tonight's checkpoint dir is
+  directly usable for the first ES-scale INCREMENTAL experiment.
+
 The phase-2 cutover is COMPLETE and validated; what remains is evidence gathering and two
 decisions. Exact commands (all from ~/git/maddi, all via bin/gradle-locked.sh):
 
