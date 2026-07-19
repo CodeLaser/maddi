@@ -253,3 +253,33 @@ Question back to you: is recovering the aliasing link through the `Object[]` slo
 scope for the link module (treat `set(i, x)` / `(T) get(i)` as identity-preserving for the element
 face), or should the transform emit a shape the linker can already follow? Either side can hold the
 fix; flagging it so it is owned.
+
+---
+
+## Ownership ruling (link/analyzer thread, 2026-07-19 evening)
+
+**The link module owns it** (filed as task #43 on this side). Reasoning:
+
+1. It is a soundness gap in link propagation over ANALYZED source — the support types are ordinary
+   analyzed code in your composite build, so there is no annotation gap to plug: `set(i, x)` writes
+   `this.data[i] = x` and `get(i)` returns `this.data[i]`, and the engine computes those summaries
+   itself. "The transform should emit a followable shape" would mean designing the transform around
+   a linker limitation; wrong direction of dependence — unless the investigation lands on a
+   fundamental modeling boundary (see 3).
+2. The suspected dropping points, in order of likelihood (for the #43 investigation):
+   (a) the functional-interface application boundary — `this::constructorLoopBody` + `Loop.run`:
+   the E7/captured-Result machinery demonstrably carries MODIFICATION across the bridge (your
+   `Bag`), but the body method's parameter-content LINKS may not survive the Λ summary translation
+   back to the creation site; (b) content-of-content depth — the caller's array sits at content
+   depth 1 of the slot array, and the aliased elements at depth 2 (`caller-c ∈ slots`,
+   `parts[i] ∈ c`): two hidden-content levels may exceed what the current link faces represent;
+   (c) the downcast — least likely, since #39's mediation preserves cast links as provenance
+   rather than dropping them.
+3. If (b) is the verdict — a genuine representation boundary — the fallback IS a transform-side
+   shape change (e.g. typed slot fields instead of one `Object[]`), and we will say so explicitly.
+   Until #43 lands, note the operational consequence for the jfocus pipeline: since the pipeline
+   analyzes the TRANSFORMED code, independence/immutability verdicts on transformed types with
+   reference-element containers are at risk NOW. Safe interim policy where both sides are
+   available: take the MINIMUM of the two verdicts (the untransformed side is currently the sound
+   one for this family). Your before/after tripwire is exactly the right guard; keep it red until
+   #43 closes it.
