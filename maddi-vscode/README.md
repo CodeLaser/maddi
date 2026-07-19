@@ -1,8 +1,8 @@
 # maddi for VS Code
 
-**Status: working.** Analysis runs end to end and findings appear as diagnostics — verified in a running
-VS Code against a real project. Inline hints are implemented but have **not** been eyeballed yet. Packaging
-is not done. See *What is missing*.
+**Status: working.** Analysis runs end to end, findings appear as diagnostics and computed annotations as
+inline hints — all verified in a running VS Code against a real project. Packaging is not done. See
+*What is missing*.
 
 Third front-end after IntelliJ and Eclipse. Same architecture — the analyser runs out of process and is
 spoken to over a socket in plain JSON — with one thing that is genuinely different here.
@@ -76,11 +76,11 @@ error.
 
 - **packaging** — no `.vsix` is produced by this module's own scripts (the repo-root `Taskfile.yml` has a
   `vscode:package` task that does it).
-- **hints are inline only, unlike the other two front-ends.** IntelliJ and Eclipse put a declaration's
-  annotations on a line of their own above it, which reads like hand-written annotated API source. VS Code
-  has no equivalent: an `InlayHint` is positioned at a `Position` and renders within the line, and nothing
-  in the API adds one. The only route is injecting `display: block` CSS through a decoration's
-  `textDecoration`, which is unsupported and version-fragile, so hints here are drawn immediately before the
-  declaration instead.
+- **hints are inline only, unlike the other two front-ends** — and this is settled, not a gap to close.
+  IntelliJ and Eclipse put a declaration's annotations on a line of their own above it. VS Code has no
+  equivalent: an `InlayHint` is positioned at a `Position` and renders within the line, and nothing in the
+  API adds one. The only route is injecting `display: block` CSS through a decoration's `textDecoration`,
+  which is unsupported and version-fragile; inline was reviewed in situ and judged fine, so do not add the
+  hack.
 - **no gutter or findings view** — the Problems panel covers the second, and VS Code has no real analogue of
   the first.
