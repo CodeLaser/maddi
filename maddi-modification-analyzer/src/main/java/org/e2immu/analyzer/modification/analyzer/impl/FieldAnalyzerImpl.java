@@ -13,6 +13,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.expression.MethodReference;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -27,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.EMPTY_PART_OF_CONSTRUCTION;
@@ -294,7 +296,8 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
             if (independentOfType.isIndependent()) return INDEPENDENT;
             Value.Independent independent = INDEPENDENT;
             for (Link link : links) {
-                if (link.to() instanceof ParameterInfo pi && !pi.methodInfo().access().isPrivate()
+                if (link.to() instanceof ParameterInfo pi
+                    && (!pi.methodInfo().access().isPrivate() || escapesAsFunctionalInterface(pi.methodInfo()))
                     && owner.inHierarchyOf(pi.typeInfo())
                     || link.to() instanceof ReturnVariable rv && !rv.methodInfo().access().isPrivate()
                        && owner.inHierarchyOf(rv.methodInfo().typeInfo())) {
@@ -319,6 +322,12 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                         Value.Immutable transportedImm = analysisHelper.typeImmutable(transported);
                         if (transportedImm != null && transportedImm.isImmutable()) {
                             toIndependent = null; // immutable content transmits no dependence
+                        } else if (transportedImm != null) {
+                            // known non-immutable transported content: grade by what is
+                            // TRANSPORTED, not by the carrier — a mutable element aliased
+                            // through an @ImmutableHC-typed carrier still creates dependence
+                            // (the #43 bridge shape: StringBuilder[] elements via a LoopData).
+                            toIndependent = analysisHelper.typeIndependentFromImmutableOrNull(transported);
                         } else {
                             toIndependent = analysisHelper.typeIndependentFromImmutableOrNull(link.to().parameterizedType());
                         }
@@ -332,5 +341,35 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
             }
             return independentOfType.max(independent);
         }
+
+        /**
+         * Task #43, the consumer hop (route A implemented at the consumer): a PRIVATE method's
+         * parameter is an exposure surface when the method escapes as a functional-interface
+         * capture ({@code this::body} stored in a carrier and applied by machinery whose
+         * arguments the analyzer cannot trace back to this parameter). Over-approximation in the
+         * conservative direction for independence; a stored-and-never-applied capture is the
+         * accepted imprecision. Lambdas that merely CALL the private method are covered by the
+         * normal call-site links, not by this check.
+         */
+        private boolean escapesAsFunctionalInterface(MethodInfo privateMethod) {
+            return fiEscapeCache.computeIfAbsent(privateMethod, pm ->
+                    pm.typeInfo().primaryType().recursiveSubTypeStream()
+                            .flatMap(TypeInfo::constructorAndMethodStream)
+                            .anyMatch(mi -> {
+                                if (mi.methodBody().isEmpty()) return false;
+                                AtomicBoolean found = new AtomicBoolean();
+                                mi.methodBody().visit(e -> {
+                                    if (e instanceof MethodReference mr && mr.methodInfo() == pm) {
+                                        found.set(true);
+                                    }
+                                    return !found.get();
+                                });
+                                return found.get();
+                            }));
+        }
     }
+
+    // CST is stable for the analyzer run; safe to cache across iterations and fields
+    private final java.util.concurrent.ConcurrentHashMap<MethodInfo, Boolean> fiEscapeCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
 }
