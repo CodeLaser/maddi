@@ -8,6 +8,25 @@
 
 ## CURRENT STATE (2026-07-19, end of the post-merge session — read this first after compaction)
 
+### UPDATE 2026-07-19 (phase-2 session, later same day) — at 5c880b3c
+
+- Reverse-divergence triage DONE (2beee0f9): 8 -> 0, one mechanism (statement-level field
+  modification via non-this scopes), channel mirrored in the shadow pass; clonebench re-pinned
+  {1,8,274}/{71,212}, 0 reverse.
+- Wave-boundary checkpoint fix DONE (31a6e60c): waveCompleted feed + 60s-throttled deltas at the
+  strata barriers; the cold first pass now checkpoints continuously. ES verification rerun is
+  READY TO LAUNCH in the next quiet window (unchanged command; benefits from the wave fix).
+- Phase-2 sequencing DECIDED and written as PLAN §14: incremental cutover (fixpoint unchanged ->
+  post-convergence reachability pass with overwrite authority as single writer -> consumers
+  re-derived -> certification). P2.1 trackObjectCreations GO (cost nil, 0.12% churn); P2.2a
+  chained-receiver E2 DONE (clonebench 3068->5 unprojected/0 new divergences, fernflower 2597->1,
+  +136 all union-conservatism downstream of a few hub seeds — the cutover-churn map); P2.2b
+  measured tiny (27 analyzed-callee sites of 179). NEXT: P2.3 cutover (the pass writes, consumers
+  re-derive, NO_INFORMATION_IS_NON_MODIFYING trimmed, TestDeepCaptureChain enabled, goldens
+  refreshed vs the §9.4 audit tables), then P2.4 promote-the-shadow-baseline.
+- New task #42 queued by the user: DOWNCAST presentation (@Modified(downcast=...) design opinion
+  delivered; DecoratorImpl already half-implements it; @Modified lacks the element declaration).
+
 - Branch `sv-integration` at e2797cdf, tree clean, merged BOTH ways with origin/kotlin (incl. the
   metrics thread's E7 suite + ShadowModificationPass and the kotlin thread's early-cutoff
   worklist). All suites green on the merged base.
