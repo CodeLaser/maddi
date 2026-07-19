@@ -581,7 +581,7 @@ public class ShadowModificationPass {
             switch (info) {
                 case MethodInfo mi -> {
                     int r = write(mi.analysis(), PropertyImpl.NON_MODIFYING_METHOD,
-                            report.reached().contains(mi), report.frontierIncomplete().contains(mi), false);
+                            report.reached().contains(mi), report.frontierIncomplete().contains(mi), false, mi);
                     switch (r) {
                         case DOWNGRADED -> downgraded++;
                         case DECIDED_FALSE -> decidedFalse++;
@@ -594,7 +594,7 @@ public class ShadowModificationPass {
                     for (ParameterInfo pi : mi.parameters()) {
                         boolean immutable = analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
                         int rp = write(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER,
-                                report.reached().contains(pi), report.frontierIncomplete().contains(pi), immutable);
+                                report.reached().contains(pi), report.frontierIncomplete().contains(pi), immutable, pi);
                         switch (rp) {
                             case DOWNGRADED -> downgraded++;
                             case DECIDED_FALSE -> decidedFalse++;
@@ -609,7 +609,7 @@ public class ShadowModificationPass {
                 case FieldInfo fi -> {
                     boolean immutable = analysisHelper.typeImmutable(fi.type()).isImmutable();
                     int rf = write(fi.analysis(), PropertyImpl.UNMODIFIED_FIELD,
-                            report.reached().contains(fi), report.frontierIncomplete().contains(fi), immutable);
+                            report.reached().contains(fi), report.frontierIncomplete().contains(fi), immutable, fi);
                     switch (rf) {
                         case DOWNGRADED -> downgraded++;
                         case DECIDED_FALSE -> decidedFalse++;
@@ -631,7 +631,7 @@ public class ShadowModificationPass {
             LEFT_UNDECIDED = 4, REVERSE_KEPT = 5;
 
     private int write(PropertyValueMap analysis, org.e2immu.language.cst.api.analysis.Property property,
-                      boolean reached, boolean tainted, boolean immutableType) {
+                      boolean reached, boolean tainted, boolean immutableType, Object element) {
         Value.Bool current = analysis.getOrNull(property, ValueImpl.BoolImpl.class);
         if (reached) {
             if (immutableType) return NO_CHANGE; // an immutable object cannot be modified: union over-reach
@@ -652,7 +652,12 @@ public class ShadowModificationPass {
             }
             return LEFT_UNDECIDED;
         }
-        if (current.isFalse()) return REVERSE_KEPT; // engine knows more than the graph: keep, conservative
+        if (current.isFalse()) {
+            // engine knows more than the graph: keep, conservative — but each of these is a
+            // shadow-gap of the reverse-divergence family; named for triage (cf. the original 8)
+            LOGGER.warn("modreach reverse-kept: {} {}", property.key(), element);
+            return REVERSE_KEPT;
+        }
         return NO_CHANGE; // TRUE and unreached: agreement
     }
 

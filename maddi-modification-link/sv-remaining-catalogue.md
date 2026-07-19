@@ -47,9 +47,20 @@
   conflates track-on churn with cutover churn (no separate track-only guava leg; ff evidence
   says track-on churn is tiny). Note: timefold + langchain4j corpus tests SKIP — no locally
   generated inputConfiguration.json in ~/git/test-oss for them.
-  REMAINING: name+triage the 2 guava reverse-kept; jenkins/activemq/camel legs (+ES MODREACH leg
-  overnight-sized); §9.4 audit cross-read of the guava strengthened/weakened sets; metrics-thread
-  notification delivered as PLAN §15; decision on default-ON (Bart's, once rollout evidence is in).
+  Reverse-kept NAMED (writer logs them now): RegularImmutableMultiset.hashCode + .size — lazy
+  primitive cache fields the engine holds FALSE on (an int field has no object graph; engine-side
+  quirk); kept conservatively, LOW priority.
+  POST-REDERIVATION DRIFT (guava MODREACH+SHADOWDIFF): the diagnostic pass AFTER re-derivation
+  sees 818 divergences (816 immutable-guarded, 2 NOT) + 42 diagnostic-REV (e.g.
+  SimpleStatsCounter.recordHits: LongAdder-field modification, engine-FALSE correct and KEPT —
+  the re-derived immutability suppressed the link that seeded it). Cause: re-derivation moves
+  METHOD_LINKS (immutability feeds linking), so the pass's input artifacts shift after the write.
+  No unsoundness (all frozen FALSE kept); magnitude of the residual: 2 would-be-downgrades /
+  13633 methods. Candidate P2.5: iterate pass <-> re-derivation to joint fixpoint; decide by
+  magnitude at corpus scale. Fernflower shows zero drift.
+  REMAINING: jenkins/activemq/camel legs (+ES MODREACH leg overnight-sized); §9.4 audit
+  cross-read of the guava strengthened/weakened sets; P2.5 decision; metrics-thread notification
+  delivered as PLAN §15; decision on default-ON (Bart's, once rollout evidence is in).
 - New task #42 queued by the user: DOWNCAST presentation (@Modified(downcast=...) design opinion
   delivered; DecoratorImpl already half-implements it; @Modified lacks the element declaration).
 
