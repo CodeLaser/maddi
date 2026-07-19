@@ -157,6 +157,11 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         if (System.getenv("VL2OTIER") != null) {
             LOGGER.info(org.e2immu.analyzer.modification.link.impl.LinkComputerImpl.vl2oTierStats());
         }
+        // task #35 Phase A: consumption-edge sparsity report (CONSEDGES gate; GO/NO-GO for the
+        // giant-SCC incremental design, see DESIGN-incremental-v2.md)
+        if (org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.ENABLED) {
+            LOGGER.info(org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.statistics());
+        }
         String dump = System.getenv("FPDUMP");
         if (dump != null) {
             try (java.io.PrintWriter pw = new java.io.PrintWriter(dump)) {
