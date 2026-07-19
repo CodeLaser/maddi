@@ -439,6 +439,22 @@ would have made the churn unattributable.
 - **P2.3 — cutover.** The pass writes (overwrite-allowed set for the three properties), consumers
   re-derived, NO_INFORMATION_IS_NON_MODIFYING trimmed; TestDeepCaptureChain enabled; goldens
   refreshed with the diff classified against the §9.4 audit tables.
+  DONE 2026-07-19 behind Configuration.modificationViaReachability (env gate MODREACH; implies
+  trackObjectCreations). (a) The writer: reached => FALSE overwrite; unreached null => TRUE only
+  with constructible frontier; tainted => honest null; existing FALSE kept; immutable-typed
+  params/fields never downgraded (union over-reach guard — measured: the writer skips ~175
+  divergences the diff counts, all immutable-typed). Single-writer via a TolerantWrite freeze,
+  analyze()-scoped (a JVM-static freeze leaked into tests driving SingleIterationAnalyzerImpl
+  directly — fixed with finally). NO_INFORMATION_IS_NON_MODIFYING + FieldAnalyzer cycle-break
+  writes trimmed by the same freeze (assert relaxed). (b) Re-derivation: clear the derived
+  immutability family (9394 values on fernflower) and continue the loop to a fresh terminal,
+  modification frozen, cycle breaking re-staged; certification lands after. TestDeepCaptureChain
+  GREEN (all 5 levels). Fernflower A/B vs track-on baseline: 793 TRUE->FALSE / 3 null->FALSE /
+  1 null->TRUE / 0 frontier-skipped / 0 reverse-kept; FPDUMP delta = 156 fields + 118 methods +
+  18 types — 14 weakened @ImmutableHC->@FinalFields (incl. FastFixedSetFactory, the §9.4-named
+  suspect; TypeAnnotation of the toJava union cascade; ConstantPool), 4 STRENGTHENED
+  @FinalFields->@ImmutableHC (IReachabilityAction + anonymous impls: the pass decided their null
+  modification values, so re-derivation could conclude more). Both directions predicted (§6).
 - **P2.4 — promote the shadow baseline.** After cutover the shadow diff must be identically zero
   (frozen == pass output); TestShadowCloneBench's pins collapse to a zero assertion and become the
   permanent regression tripwire. Metrics-side deepFieldChains saturation pin flips as §8 predicts.

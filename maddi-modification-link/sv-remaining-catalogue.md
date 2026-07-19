@@ -21,9 +21,23 @@
   re-derived -> certification). P2.1 trackObjectCreations GO (cost nil, 0.12% churn); P2.2a
   chained-receiver E2 DONE (clonebench 3068->5 unprojected/0 new divergences, fernflower 2597->1,
   +136 all union-conservatism downstream of a few hub seeds — the cutover-churn map); P2.2b
-  measured tiny (27 analyzed-callee sites of 179). NEXT: P2.3 cutover (the pass writes, consumers
-  re-derive, NO_INFORMATION_IS_NON_MODIFYING trimmed, TestDeepCaptureChain enabled, goldens
-  refreshed vs the §9.4 audit tables), then P2.4 promote-the-shadow-baseline.
+  measured tiny (27 analyzed-callee sites of 179).
+- **P2.3 CUTOVER DONE 2026-07-19** behind Configuration.modificationViaReachability / env MODREACH
+  (implies trackObjectCreations; OFF by default, all suites green both ways). (a) writer:
+  reached=>FALSE overwrite, unreached-null=>TRUE only with constructible frontier (§10.1),
+  tainted=>honest null, existing FALSE kept, immutable-typed params/fields never downgraded;
+  single-writer via analyze()-scoped TolerantWrite freeze (trims NO_INFORMATION_IS_NON_MODIFYING
+  and FieldAnalyzer cycle-break writes for free). (b) re-derivation: clear derived immutability
+  family (9394 values on ff), continue loop to fresh terminal with modification frozen.
+  **TestDeepCaptureChain GREEN** (phase-0 acceptance, red since 2026-07-18). Fernflower A/B vs
+  track-on baseline: 793 TRUE->FALSE + 3 null->FALSE + 1 null->TRUE, 0 frontier-skipped, 0
+  reverse-kept; FPDUMP delta 156 fields + 118 methods + 18 types (14 weakened
+  @ImmutableHC->@FinalFields incl. FastFixedSetFactory = the §9.4-named suspect; 4 STRENGTHENED
+  from newly-decided nulls). P2.4 promoted-baseline invariant: under MODREACH the re-run diff
+  shows 0 reverse + divergences == immutable-guarded count (union over-reach on int/String
+  nodes the writer refuses; Report.immutableGuardedDivergences counts them). REMAINING: corpus
+  rollout (timefold/langchain4j/guava A/B + audit cross-read), metrics-thread notification
+  (deepFieldChains saturation pin flips per §8), decision on default-ON.
 - New task #42 queued by the user: DOWNCAST presentation (@Modified(downcast=...) design opinion
   delivered; DecoratorImpl already half-implements it; @Modified lacks the element declaration).
 
