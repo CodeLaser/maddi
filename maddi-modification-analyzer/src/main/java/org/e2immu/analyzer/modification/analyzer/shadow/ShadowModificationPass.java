@@ -76,7 +76,8 @@ public class ShadowModificationPass {
                          Map<Object, Object> cause,
                          Map<Object, String> seedOrigin,
                          int methods, int methodsWithoutLinks, int seeds, int edgeCount,
-                         int callSitesWithoutArgumentLinks, int unprojectedReceivers) {
+                         int callSitesWithoutArgumentLinks, int unprojectedReceivers,
+                         Map<String, Integer> missingArgLinkAnalyzedCallees) {
 
         /** the BFS chain from a reached node back to its seed, for divergence classification */
         public String explain(Object node) {
@@ -98,10 +99,17 @@ public class ShadowModificationPass {
             return node.toString();
         }
         public String summary() {
+            int atAnalyzed = missingArgLinkAnalyzedCallees.values().stream().mapToInt(Integer::intValue).sum();
+            String top = missingArgLinkAnalyzedCallees.entrySet().stream()
+                    .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                    .limit(5)
+                    .map(e -> e.getKey() + "=" + e.getValue())
+                    .reduce((a, b) -> a + ", " + b).orElse("-");
             return "shadow: " + methods + " methods (" + methodsWithoutLinks + " without links), "
                    + seeds + " seeds, " + edgeCount + " edges, " + reached.size() + " reached; "
                    + divergences.size() + " divergences, " + reverseDivergences.size() + " REVERSE divergences; "
-                   + callSitesWithoutArgumentLinks + " call sites without argument links, "
+                   + callSitesWithoutArgumentLinks + " call sites without argument links ("
+                   + atAnalyzed + " at analyzed callees, top: " + top + "), "
                    + unprojectedReceivers + " unprojected receivers";
         }
 
@@ -114,6 +122,7 @@ public class ShadowModificationPass {
     private final Set<Object> seeds = new HashSet<>();
     private final Map<Object, String> seedOrigin = new HashMap<>();
     private final Map<Object, Object> cause = new HashMap<>();
+    private final Map<String, Integer> missingArgLinkAnalyzedCallees = new TreeMap<>();
     private int methods, methodsWithoutLinks, edgeCount, callSitesWithoutArgumentLinks, unprojectedReceivers;
 
     public Report go(List<Info> analysisOrder) {
@@ -142,7 +151,8 @@ public class ShadowModificationPass {
         Report report = new Report(reached, List.copyOf(divergences), List.copyOf(reverse),
                 Map.copyOf(cause), Map.copyOf(seedOrigin),
                 methods, methodsWithoutLinks, seeds.size(), edgeCount,
-                callSitesWithoutArgumentLinks, unprojectedReceivers);
+                callSitesWithoutArgumentLinks, unprojectedReceivers,
+                Map.copyOf(missingArgLinkAnalyzedCallees));
         LOGGER.debug("{}", report.summary());
         return report;
     }
@@ -297,13 +307,10 @@ public class ShadowModificationPass {
                 if (e instanceof Block) return false; // nested statements handled with their own vd
                 if (e instanceof MethodCall mc) {
                     handleCallSite(mi, vd, mc.methodInfo(), mc.analysis());
-                    if (mc.object() instanceof VariableExpression ve) {
-                        // E2: callee receiver -> caller-side receiver nodes
-                        for (Object node : project(mi, vd, ve.variable())) {
-                            addEdge(mc.methodInfo(), node);
-                        }
-                    } else if (mc.object() instanceof MethodCall || mc.object() instanceof ConstructorCall) {
-                        unprojectedReceivers++;
+                    // E2: callee receiver -> caller-side receiver nodes (chained receivers resolved
+                    // through the inner callee's return-value summary, P2.2a)
+                    for (Object node : projectReceiverChain(mi, vd, mc.object())) {
+                        addEdge(mc.methodInfo(), node);
                     }
                 } else if (e instanceof ConstructorCall cc && cc.constructor() != null) {
                     handleCallSite(mi, vd, cc.constructor(), cc.analysis());
@@ -319,6 +326,13 @@ public class ShadowModificationPass {
                 LinkComputerImpl.ListOfLinksImpl.class);
         if (list == null) {
             callSitesWithoutArgumentLinks++;
+            // P2.2b classification: external/abstract callees carry no NEW facts (the engine folds
+            // their annotated/unioned argument modification into the caller's own summary, which
+            // seeds); a missing-link site at an ANALYZED callee is a genuine E1 coverage hole —
+            // pass-discovered parameter modifications cannot propagate to this caller's nodes.
+            if (callee.methodBody() != null && !callee.methodBody().isEmpty() && !callee.isAbstract()) {
+                missingArgLinkAnalyzedCallees.merge(callee.fullyQualifiedName(), 1, Integer::sum);
+            }
             return;
         }
         for (ParameterInfo pi : callee.parameters()) {
@@ -339,6 +353,92 @@ public class ShadowModificationPass {
             }
             for (Object node : targets) {
                 addEdge(pi, node); // E1: callee parameter modified => argument's nodes modified
+            }
+        }
+    }
+
+    /**
+     * E2 receiver projection including CHAINED receivers (P2.2a — closes the 'unprojected
+     * receivers' coverage caveat of PLAN §13). A variable receiver projects directly. A method-call
+     * receiver {@code f(...).mutate()} is resolved through the inner callee's converged
+     * return-value summary: a fluent/identity return recurses into the inner receiver; a
+     * this-scoped field target implicates that field; a parameter target projects the caller-side
+     * argument. A constructor receiver {@code new X(a).mutate()} implicates the caller-side
+     * arguments its parameters capture into fields (the deep-capture shape). An empty summary that
+     * links the result to nothing caller-side (factories, defensive copies) correctly contributes
+     * no nodes; only a missing summary counts as unprojected.
+     */
+    private Set<Object> projectReceiverChain(MethodInfo mi, VariableData vd,
+                                             org.e2immu.language.cst.api.expression.Expression receiver) {
+        switch (receiver) {
+            case null -> {
+                return Set.of();
+            }
+            case VariableExpression ve -> {
+                return project(mi, vd, ve.variable());
+            }
+            case MethodCall mc -> {
+                MethodInfo callee = mc.methodInfo();
+                MethodLinkedVariables mlv = callee == null ? null
+                        : callee.analysis().getOrNull(MethodLinkedVariablesImpl.METHOD_LINKS,
+                        MethodLinkedVariablesImpl.class);
+                if (mlv == null) {
+                    unprojectedReceivers++;
+                    return Set.of();
+                }
+                Set<Object> out = new LinkedHashSet<>();
+                mlv.ofReturnValue().stream().forEach(link -> link.to().variableStreamDescend().forEach(v -> {
+                    switch (v) {
+                        case This thisVar -> {
+                            if (callee.typeInfo().isEqualToOrInnerClassOf(thisVar.typeInfo())) {
+                                out.addAll(projectReceiverChain(mi, vd, mc.object()));
+                            }
+                        }
+                        case FieldReference fr -> {
+                            out.add(fr.fieldInfo());
+                            if (fr.scopeIsRecursivelyThis()) {
+                                out.addAll(projectReceiverChain(mi, vd, mc.object()));
+                            }
+                        }
+                        case ParameterInfo pi -> {
+                            if (pi.methodInfo() == callee && pi.index() < mc.parameterExpressions().size()) {
+                                out.addAll(projectReceiverChain(mi, vd, mc.parameterExpressions().get(pi.index())));
+                            }
+                        }
+                        default -> {
+                            // markers, locals of the callee: nothing caller-side
+                        }
+                    }
+                }));
+                return out;
+            }
+            case ConstructorCall cc when cc.constructor() != null -> {
+                // a fresh object: modification of its graph implicates the arguments its
+                // constructor captures into fields (IS_ASSIGNED_TO this-scoped targets)
+                MethodInfo ctor = cc.constructor();
+                MethodLinkedVariables mlv = ctor.analysis().getOrNull(MethodLinkedVariablesImpl.METHOD_LINKS,
+                        MethodLinkedVariablesImpl.class);
+                if (mlv == null) {
+                    unprojectedReceivers++;
+                    return Set.of();
+                }
+                Set<Object> out = new LinkedHashSet<>();
+                for (ParameterInfo pi : ctor.parameters()) {
+                    if (pi.index() >= mlv.ofParameters().size()
+                        || pi.index() >= cc.parameterExpressions().size()) break;
+                    boolean captured = mlv.ofParameters().get(pi.index()).stream()
+                            .anyMatch(link -> link.to().variableStreamDescend()
+                                    .anyMatch(v -> v instanceof FieldReference fr && fr.scopeIsRecursivelyThis()));
+                    if (captured) {
+                        out.addAll(projectReceiverChain(mi, vd, cc.parameterExpressions().get(pi.index())));
+                    }
+                }
+                return out;
+            }
+            default -> {
+                // literals, casts of the above, arbitrary expressions: no resolution attempted here;
+                // count only genuinely call-shaped receivers we failed on (handled above)
+                return Set.of();
             }
         }
     }

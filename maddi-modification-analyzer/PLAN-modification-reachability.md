@@ -378,3 +378,67 @@ precision audit (§9.4) — many are the standing refusals made concrete. The 71
 pure wins of the one-shot pass. Suggested next joint step per §11: schedule the phase-2 analyzer
 sequencing (links -> modification pass -> immutability/independence -> cycle breaking -> certification)
 now that shadow diffs exist and are classified.
+
+---
+
+## 14. Phase-2 sequencing decision (engine thread, 2026-07-19)
+
+Preconditions met: the shadow instrument is trustworthy (8 fernflower reverse divergences triaged
+to zero — one mechanism, the statement-level field-modification channel of FieldAnalyzerImpl, now
+mirrored; clonebench re-baselined {1,8,274}/{71,212}, 0 reverse).
+
+**Decision: incremental cutover, not a big-bang phase reorder.** The literal §5 order ("links
+converge -> modification pass -> ...") does not exist as a standalone stage: links and type
+immutability are mutually recursive (immutable types suppress links), so link convergence IS the
+existing fixpoint. The pass therefore runs POST-CONVERGENCE, pre-certification, as the single
+authoritative writer:
+
+1. existing iterating fixpoint, unchanged (mid-pass modification writes become provisional hints);
+2. **modification reachability pass** with overwrite authority: every TRUE-vs-reached difference
+   is a downgrade (the divergence classes); every undecided null is decided per the §10.1
+   invariant — TRUE only for nodes whose entire in-edge frontier was constructible;
+3. clear + re-iterate the consumers (immutability / independence / container) with the three
+   modification properties frozen — single-writer discipline; cycle breaking may run here but its
+   NO_INFORMATION_IS_NON_MODIFYING strategy must not touch modification properties;
+4. certification.
+
+Each step is separately observable via the FPDUMP 0-line-diff A/B workflow; the big-bang reorder
+would have made the churn unattributable.
+
+**Ordered work list (engine thread):**
+
+- **P2.1 — trackObjectCreations default-on.** E1 edges need LINKED_VARIABLES_ARGUMENTS, which only
+  exists under trackObjectCreations; production runs currently have it OFF, so the pass would be
+  blind at every call site. Measure cost + verdict delta (FPDUMP A/B, fernflower + timefold first).
+  MEASURED (fernflower, 2026-07-19): cost nil (4m50s ≈ baseline), verdict churn 6/4907 = 0.12% —
+  2 precision upgrades (modified→unmodified where fresh-object modification stopped being charged
+  outward: IfHelper.collapseElse, SwitchOnReferenceCandidate.myUppedDoStatement), 1 gained type
+  decision (IReachabilityAction null→@FinalFields), 3 decided→null (SwitchPatternHelper /
+  StructClass creation-heavy neighborhood; acceptable — the cutover pass is the null-decider).
+  Verdict: GO for default-on; confirm at timefold scale alongside P2.3.
+- **P2.2 — edge completion.** The §13 caveats are soundness holes once "unreached => TRUE" writes:
+  (a) unprojected chained-call receivers (2597 on fernflower) need E2 through the call's links;
+  (b) remaining call sites without argument links (180 on fernflower with trackObjectCreations)
+  need a conservative rule (unlinked call site + non-TRUE callee param => seed the projectable
+  argument nodes). Done in shadow mode first — the caveat counters and the divergence counts are
+  the progress metric.
+  (a) DONE 2026-07-19: chained receivers resolved through the inner callee's return-value summary
+  (fluent recurses into the inner receiver, this-scoped field targets implicate the field,
+  parameter targets project the argument; constructor receivers implicate captured arguments —
+  the deep-capture shape; empty summaries = factories/copies contribute nothing). Counters:
+  clonebench 3068 -> 5 unprojected with ZERO new divergences (pins {1,8,274}/{71,212} held);
+  fernflower 2597 -> 1, +136 new divergences (835 -> 971, 0 reverse). Fernflower sample
+  (TypeAnnotation.toString -> getAnnotationExpr().toJava chain): the new findings are dominated
+  by E2-at-call-sites-of-union-modified ABSTRACT callees — the §7.2 union-over-implementations
+  conservatism now consistently applied to receivers. That is the engine's own semantics (the
+  cutover pass will apply exactly this), but the union-vs-direct split must be quantified before
+  P2.3; cause chains added to the SHADOWDIFF output for that classification.
+  (b) measurement first: missing-arg-link sites now classified by callee kind (external/abstract
+  callees carry no NEW facts — their argument modification is already folded into caller
+  summaries; only ANALYZED callees are genuine E1 holes), top offenders in the summary line.
+- **P2.3 — cutover.** The pass writes (overwrite-allowed set for the three properties), consumers
+  re-derived, NO_INFORMATION_IS_NON_MODIFYING trimmed; TestDeepCaptureChain enabled; goldens
+  refreshed with the diff classified against the §9.4 audit tables.
+- **P2.4 — promote the shadow baseline.** After cutover the shadow diff must be identically zero
+  (frozen == pass output); TestShadowCloneBench's pins collapse to a zero assertion and become the
+  permanent regression tripwire. Metrics-side deepFieldChains saturation pin flips as §8 predicts.
