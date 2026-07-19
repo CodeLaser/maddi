@@ -53,13 +53,19 @@ public class CheckpointWriter implements AnalysisValueFeed {
     private static final Logger LOGGER = LoggerFactory.getLogger(CheckpointWriter.class);
 
     private final Runtime runtime;
-    private final Codec codec;
+    private final java.util.function.Supplier<Codec> codecSupplier;
     private final File directory;
     private int typesWritten;
 
-    public CheckpointWriter(Runtime runtime, Codec codec, File directory) {
+    /**
+     * codecSupplier: a FRESH codec per type-write. A codec instance registers marker-variable
+     * definitions once per instance; with per-type files, a shared instance puts the definition in
+     * whichever file first used the marker, and every other file's reference then fails decode
+     * ('Cannot find $_ce0M'). A fresh codec per file makes each file self-contained.
+     */
+    public CheckpointWriter(Runtime runtime, java.util.function.Supplier<Codec> codecSupplier, File directory) {
         this.runtime = runtime;
-        this.codec = codec;
+        this.codecSupplier = codecSupplier;
         this.directory = directory;
         if (directory.mkdirs()) {
             LOGGER.debug("Created checkpoint directory {}", directory);
@@ -84,7 +90,7 @@ public class CheckpointWriter implements AnalysisValueFeed {
             java.nio.file.Path tmpDir = null;
             try {
                 tmpDir = Files.createTempDirectory(directory.toPath(), ".w");
-                new WriteAnalysisResults(runtime).write(tmpDir.toFile(), trie, codec);
+                new WriteAnalysisResults(runtime).write(tmpDir.toFile(), trie, codecSupplier.get());
                 try (var files = Files.walk(tmpDir).filter(p -> p.toString().endsWith(".json"))) {
                     for (java.nio.file.Path p : files.toList()) {
                         Files.move(p, directory.toPath().resolve(p.getFileName()),

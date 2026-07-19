@@ -137,9 +137,15 @@ Checkpoint/resume + incremental (session tasks #34/#35):
   (skip-and-count unreadable files), feed guard now also catches AssertionError/SOE (an encode
   assert had KILLED the analysis through the RuntimeException-only guard). Verified two-step on
   fernflower: cold writes 150/227 primaries (codec asserts skip mid-iteration values), warm
-  preloads 82, both certify; cold-vs-baseline 0-diff mod oscillator. FOLLOW-UPS: (a) decode
-  asymmetry — 68 of 150 files encode fine but fail decode (restore coverage, not soundness;
-  missing types are re-analyzed); (b) resume-fixpoint non-confluence observed once:
+  preloads 82, both certify; cold-vs-baseline 0-diff mod oscillator. DECODE ASYMMETRY largely
+  FIXED same night (55%→85% restore coverage): (1) VariableToTypeInfoSetImpl encoded a map with
+  LIST-valued keys — syntactically invalid JSON (21 files); now a sorted list-of-pairs with
+  legacy-map decode fallback, cold-vs-baseline 0-diff EXACT; (2) recursiveMethod added to
+  LinkCodec's property provider (9 files); (3) marker-variable definitions were per-CODEC-INSTANCE
+  while files are per-type — a shared instance put the definition in whichever file used the
+  marker first ('Cannot find $_ce0M', 29 files); CheckpointWriter now takes a codec SUPPLIER,
+  fresh codec per file = self-contained. REMAINING TAIL: 19 NPE + 2 UOE + 1 stale-overload decode
+  skips (re-analyzed on resume; coverage, not soundness). (b) resume-fixpoint non-confluence observed once:
   TargetInfo.LocalvarTarget @FF(cold)→@ImmHC(warm) — the preload starts iteration from converged
   values and certifies a (more precise) different fixpoint; same family as EdgeType.<init>.
 - #35 incremental v2 for the single-module 3M-line monorepo: giant cycle spans ~2/3 of the code, so
