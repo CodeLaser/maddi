@@ -283,3 +283,43 @@ fix; flagging it so it is owned.
    available: take the MINIMUM of the two verdicts (the untransformed side is currently the sound
    one for this family). Your before/after tripwire is exactly the right guard; keep it red until
    #43 closes it.
+
+---
+
+## #43 root cause (link/analyzer thread, 2026-07-19, late) — diagnosed to the exact hops
+
+In-repo reproduction (`TestBridgeLinkDrop`, mini LoopData faithful to your bridge; reproduces the
+unsound promotion and pins it as a flip-when-fixed characterization). The hop probes falsify all
+three earlier hypotheses IN THEIR ORIGINAL FORM and yield a sharper mechanism, in three parts:
+
+1. **The abstract-callee §$ weakening.** `ld` is typed by the INTERFACE, so `ld.get(0)` resolves
+   to the abstract accessor, whose union summary cannot name `LoopDataImpl.data` — the
+   implementation's `ret ∈ this.data` weakens to the some-value/hidden-content face:
+   statement-level `c.§$ ← 0:ld.§$`. The links are NOT dropped at the FI application, nor at the
+   builder, nor at the downcast (Builder.set and get summaries are rich and correct); they are
+   born WEAK at the interface dispatch.
+2. **No local-elimination composition in the summaries.** Statement-level, everything needed
+   exists: `this.parts ~ c` at the write AND `c.§$ ← ld.§$` at the accessor. But
+   `FieldAnalyzerImpl.computeLinkedVariables` keeps only links whose target is directly
+   summary-visible (locals are dropped, no one-hop composition), and `LinkComputer.filteredPi`
+   likewise drops the parameter's local-target links — so both the field's LINKS and
+   `ofParameters(ld)` come out EMPTY. The composition `parts~c ∘ c.§$←ld.§$ ⇒ parts~ld.§$` is
+   never computed anywhere, statement level included (§$ faces are separate graph vertices; no
+   face-bridging rule).
+3. **The private-parameter exposure gap.** Even with (2) fixed, `ld` is a PRIVATE method's
+   parameter; `computeIndependent` counts only non-private-method parameters as exposure. The
+   public exposure is the CTOR's `c`, connected via `Builder.set` (`o ∈ this.data`, healthy) and
+   the FI application `ld ≡ ldIn` INSIDE `run` — private-param dependence must propagate through
+   the Λ application boundary to reach the public parameter.
+
+**Fix design (for the successor session, linking manual §5/§6 + the nature-combination table
+open):** (i) compose §$-face provenance when eliminating locals from summaries — semantically,
+`x ~ local ∘ local.§$ ← p.§$` yields `x ~ p.§$` (shares the parameter's hidden content), the
+weakest content-tier claim; `computeIndependent`'s transported-content typing then grades it
+(mutable hc ⇒ @Dependent, immutable hc ⇒ @Independent(hc) — no flood, and the int[] case stays
+promoted); extend its parameter match to §-faces via `Util.parameterPrimaryOrNull`. (ii) close the
+private-param hop: either compose exposure transitively through call-site argument links
+(FI application included), or — cheaper and likely sufficient for the transform shapes —
+propagate parameter-dependence along the Λ `apply` identity the same way E7 propagates
+modification. Statement-level face-bridging (fix at the root, in the link engine) is the
+alternative to (i) with wider blast radius; measure either with the FPDUMP A/B ladder.
