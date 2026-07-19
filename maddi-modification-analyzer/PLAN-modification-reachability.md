@@ -284,3 +284,36 @@ Coordination answers:
   characterization (TestModificationFunctional shapes) and the phase-1 shadow pass. Phase-2
   sequencing (the analyzer phase-order deliverable) to be scheduled jointly once shadow diffs
   exist.
+
+---
+
+## 12. E7 characterization delivered (metrics thread, 2026-07-19)
+
+`TestModificationFunctionalE7`, 8 shapes, **all green against the current engine** — so E7 is a
+regression-preservation suite, not a bug list: no realistic functional shape was found where the
+current captured-Result machinery loses modification. Findings that constrain the E7 edge class:
+
+1. **Creation-site attribution, and it is eager** (shapes 1, 7, 8). Captured non-local writes are
+   charged where the lambda is created/passed — even when the callee provably ignores the FI
+   (shape 8: run's modified set is empty, go is modifying regardless). E7 can therefore encode
+   *unconditional* edges from a lambda body's modification nodes to the translated captured targets
+   at the creation site; no application-site reachability guard is needed to match today's
+   (sound, over-approximate) behavior.
+2. **Captured-target filtering** (shapes 2, 3): enclosing-method parameters propagate
+   (`go:0:out` modified), locals are correctly dropped (`acceptForExtra`). The E7 translation must
+   keep exactly this filter.
+3. **Field-stored callbacks** (shape 7): the application site (`trigger`) does NOT surface the
+   captured write; it only marks the FI-holding field's object graph (`this.callback`) modified.
+   The captured write lives on the creation site (`register`). An application-site-only E7 would
+   leave it unattributed.
+4. **Opaque-application fallback** (shape 4, no @GetSet): the callee marks its whole FI-carrying
+   parameter modified; at the caller, the modified object holds the fiv and the captured Result
+   surfaces. The precise `$_afi` path (shape 6) survives forwarding hops via mlv marker
+   propagation. Both routes end at the same properties; the reachability pass needs the
+   conservative route only when the precise one cannot resolve.
+5. **External application sites** (shape 5, `List.forEach`): annotated-API callees have no analyzed
+   body; the fiv's captured Result is the only carrier, attributed at the call site.
+
+Location: `maddi-modification-analyzer/src/test/java/org/e2immu/analyzer/modification/analyzer/modification/TestModificationFunctionalE7.java`,
+committed on branch `kotlin` (metrics thread's dedicated checkout). Next from this side: the
+phase-1 shadow pass.
