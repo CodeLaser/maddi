@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.analyzer.FieldAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
+import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.impl.LinkVariable;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
@@ -19,6 +20,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.slf4j.Logger;
@@ -159,6 +161,17 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                                         // avoid duplicate links
                                         && !builder.contains(l.from(), l.linkNature(), l.to())) {
                                         builder.add(l.from(), l.linkNature(), l.to());
+                                    } else if (!LinkVariable.acceptForLinkedVariables(l.to())
+                                               && primary.equals(Util.primary(l.from()))
+                                               && !l.linkNature().isDecoration()) {
+                                        // task #43: ONE-HOP LOCAL ELIMINATION. A field linked to a
+                                        // LOCAL whose provenance is a parameter's/field's hidden
+                                        // content lost the link entirely (the transform-bridge
+                                        // unsoundness): field ~ local ∘ local.§$ ← p.§$ must
+                                        // compose to field ~ p.§$ — the weakest content-tier
+                                        // claim; a ∈ b ⊆ c ⇒ a ∈ c (README nature algebra).
+                                        // computeIndependent grades it by transported content.
+                                        composeThroughLocal(vd, builder, l);
                                     }
                                 }
                             }
@@ -169,6 +182,37 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
             return undecided ? null : builder.build();
         }
 
+
+        /**
+         * Task #43: compose {@code field REL local} with the local's own summary-visible provenance
+         * links into {@code field ~ target}. Only content-carrying provenance is followed (the
+         * local's whole-object or §-face links to accepted targets); the composed nature is the
+         * conservative "shares elements" {@code ~} — enough for computeIndependent's
+         * transported-content grading, never stronger than the evidence.
+         */
+        private void composeThroughLocal(VariableData vd, Links.Builder builder, Link fieldToLocal) {
+            // plain-face algebra only: §-faced from-sides (this.parts[i].§m ...) must not pair with
+            // plain targets (engine invariant), and the composed claim is emitted at the PRIMARY of
+            // the provenance target — 'field ~ p' (shares elements with the parameter's object
+            // graph), the weakest whole-face content claim
+            if (Util.virtual(fieldToLocal.from())) return;
+            Variable local = Util.primary(fieldToLocal.to());
+            if (local == null) return;
+            VariableInfoContainer vic = vd.variableInfoContainerOrNull(local.fullyQualifiedName());
+            if (vic == null) return;
+            Links localLinks = vic.best().linkedVariables();
+            if (localLinks == null) return;
+            Variable fieldPrimary = Util.primary(fieldToLocal.from());
+            for (Link ll : localLinks) {
+                if (ll.linkNature().isDecoration()) continue;
+                Variable target = Util.primary(ll.to());
+                if (target == null || !LinkVariable.acceptForLinkedVariables(target)
+                    || target.equals(local) || target.equals(fieldPrimary) || Util.virtual(target)) continue;
+                if (!builder.contains(fieldToLocal.from(), LinkNatureImpl.SHARES_ELEMENTS, target)) {
+                    builder.add(fieldToLocal.from(), LinkNatureImpl.SHARES_ELEMENTS, target);
+                }
+            }
+        }
 
         private Value.Bool computeUnmodified(FieldInfo fieldInfo, List<MethodInfo> methodsReferringToField) {
             Value.SetOfInfo poc = fieldInfo.owner().analysis().getOrDefault(PART_OF_CONSTRUCTION,
