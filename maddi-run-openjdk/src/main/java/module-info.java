@@ -7,6 +7,7 @@ module org.e2immu.analyzer.run.openjdkmain {
     requires org.e2immu.analyzer.run.config;
     requires org.e2immu.analyzer.run.rewire;
     requires org.e2immu.language.cst.api;
+    requires org.e2immu.language.cst.analysis;
     requires org.e2immu.language.cst.impl;
     requires org.e2immu.language.inspection.api;
     requires org.e2immu.language.inspection.openjdk;

@@ -313,6 +313,19 @@ public class RunAnalyzer implements Runnable {
             int fpSets = AnalysisFingerprint.storePerSourceSet(javaInspector.runtime(),
                     summary.parseResult().primaryTypes()).size();
             LOGGER.info("Stored analysis fingerprints for {} source set(s)", fpSets);
+            // task #35 phase C: a checkpointed run leaves per-type OUTPUT fingerprints + the
+            // recorded consumption edges (CHECKPOINT arms the recorder) so the next run can seed
+            // the early-cutoff worklist with changed types + their DIRECT consumers
+            if (checkpointDir != null && !checkpointDir.isBlank()) {
+                try {
+                    org.e2immu.analyzer.modification.prepwork.io.IncrementalState
+                            .capture(javaInspector.runtime(), summary.parseResult().primaryTypes(),
+                                    org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.edgesSnapshot())
+                            .save(new File(checkpointDir));
+                } catch (IOException | RuntimeException e) {
+                    LOGGER.warn("Cannot save incremental state: {}", e.toString());
+                }
+            }
             if (analysisMessages.stream().anyMatch(m -> m.level().isError())) {
                 exitValue = Main.EXIT_ANALYSER_ERROR;
             }
