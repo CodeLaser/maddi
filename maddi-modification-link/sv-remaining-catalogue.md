@@ -52,6 +52,9 @@ while shrinking the member-level churn.
 The phase-2 cutover is COMPLETE and validated; what remains is evidence gathering and two
 decisions. Exact commands (all from ~/git/maddi, all via bin/gradle-locked.sh):
 
+0. **GOTCHA for every big-corpus run: TESTXMX=24G** (maddi-run-openjdk test JVM heap, default
+   8G — an 8G elasticsearch sweep dies OOM ~32 min in, and the sweep REPORTS exit=-1 without
+   failing the build; grep 'SWEEP SUMMARY'). All the ES commands below need the env.
 1. **Remaining corpus legs** (baseline first if no build/imm-<corpus>-*.txt.gz pin exists, then
    MODREACH; diff the two FPDUMPs; expect: downgrades + null-decisions, type transitions in both
    directions, 0-or-few reverse-kept — all four corpora so far fit this):
