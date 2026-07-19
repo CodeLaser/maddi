@@ -200,9 +200,18 @@ public class ScanCompilationUnits {
                             throw cause instanceof RuntimeException re ? re : new RuntimeException(cause);
                         }
                         CompilationUnitTree failedUnit = e.getKey();
-                        LOGGER.warn("Detailed-source pre-scan failed for {}; continuing without detailed sources: {}",
-                                failedUnit.getSourceFile() == null ? "?" : failedUnit.getSourceFile().toUri(),
-                                cause.toString());
+                        URI failedUri = failedUnit.getSourceFile() == null ? null : failedUnit.getSourceFile().toUri();
+                        // The pre-scan fails both on constructs javac accepts but congocc's grammar chokes on (a
+                        // grammar gap -- keep the unit, detailed sources degrade) AND on genuinely unparseable source.
+                        // Tell them apart by javac: if javac ALSO reported an error for this file, the source is really
+                        // broken -- record it so the run exits non-zero (TestErrorReporting); otherwise it is a grammar
+                        // gap on valid code -- keep the unit with no scan result (TestDetailedSourcePreScanFailureDegrades).
+                        if (javacReportedErrorFor(failedUri)) {
+                            recordFailure(failures, failedUnit, cause);
+                        } else {
+                            LOGGER.warn("Detailed-source pre-scan failed for {}; continuing without detailed sources: {}",
+                                    failedUri == null ? "?" : failedUri, cause.toString());
+                        }
                     }
                 }
             }
@@ -295,6 +304,15 @@ public class ScanCompilationUnits {
             LOGGER.warn("Cannot compute fingerprint of {}: {}", unit.getSourceFile().toUri(), e.toString());
             return MD5FingerPrint.NO_FINGERPRINT;
         }
+    }
+
+    /** True when javac itself reported an error for this file: the source is genuinely broken, not merely beyond
+     * congocc's grammar (in which case javac would have parsed it cleanly). */
+    private boolean javacReportedErrorFor(URI uri) {
+        if (uri == null) return false;
+        return diagnosticCollector.diagnostics().stream()
+                .anyMatch(d -> d.diagnosticKind() == MaddiDiagnosticCollector.DiagnosticKind.ERROR
+                               && d.path() != null && d.path().equals(uri.getPath()));
     }
 
     /** Record a dropped compilation unit; an {@link UnresolvedSymbolException} cause is tolerable (→ warning). */

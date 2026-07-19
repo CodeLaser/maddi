@@ -1,0 +1,172 @@
+# Taskfile.yml — build & run maddi's IDE front-ends.
+#
+#   https://taskfile.dev   (install: brew install go-task)
+#   Two plugins live here:
+#     - maddi-eclipse/  : Eclipse plugin, a Maven/Tycho reactor (OSGi bundle), separate from the Gradle build.
+#     - maddi-vscode/   : VS Code extension, TypeScript (npm + tsc), delegates to redhat.java (jdt.ls).
+#   Both talk to the analysis daemon (maddi-ide-daemon) out of process, and both bundle it.
+#
+#   Quick start (macOS, Homebrew):
+#     task doctor          # what's installed / missing
+#     task install:tools   # Maven, Node, VS Code (+ redhat.java), Eclipse
+#     task eclipse:build   # -> p2 update site
+#     task vscode:package  # -> .vsix
+#
+# We are not Eclipse/VS Code developers; the install:* tasks below set up the toolchain so you don't have to.
+# JDKs: BUILDING needs any JDK 25+ (Gradle uses ~/.gradle org.gradle.java.home; Maven/Tycho uses the JDK on
+# PATH). RUNNING the analysis needs a JDK 25+ too, set per-IDE (VS Code: maddi.jdkHome; Eclipse: Preferences ->
+# maddi) — that is ANALYSIS_JDK below, NOT the JDK the IDE itself runs on.
+
+version: '3'
+
+vars:
+  ROOT:
+    sh: echo "{{.ROOT_DIR}}"
+  # JDK 25+ the analysis daemon runs on (informational; set it inside the IDE). macOS default; override:
+  #   task doctor ANALYSIS_JDK=/path/to/jdk
+  DEFAULT_ANALYSIS_JDK:
+    sh: /usr/libexec/java_home -v 26 2>/dev/null || /usr/libexec/java_home 2>/dev/null || true
+  ANALYSIS_JDK: '{{.ANALYSIS_JDK | default .DEFAULT_ANALYSIS_JDK}}'
+
+tasks:
+
+  default:
+    cmds: [{ task: help }]
+
+  help:
+    desc: 'List available tasks'
+    silent: true
+    cmds:
+      - task --list
+
+  doctor:
+    desc: 'Report the toolchain: JDK, Maven, Node/npm, VS Code (+redhat.java), Eclipse'
+    silent: true
+    cmds:
+      - 'printf "%-13s " "JDK:"; java -version 2>&1 | head -1'
+      - 'java -version 2>&1 | grep -qE ''version "(2[5-9]|[3-9][0-9])'' && echo "              JDK 25+ OK" || echo "              *** need JDK 25+ ***"'
+      - 'printf "%-13s " "Maven:";       command -v mvn  >/dev/null && (mvn -v 2>&1 | head -1) || echo "MISSING  (task install:maven)"'
+      - 'printf "%-13s " "Node:";        command -v node >/dev/null && node --version         || echo "MISSING  (task install:node)"'
+      - 'printf "%-13s " "npm:";         command -v npm  >/dev/null && npm --version           || echo "MISSING"'
+      - 'printf "%-13s " "VS Code:";     command -v code >/dev/null && (code --version | head -1) || echo "MISSING  (task install:vscode)"'
+      - 'printf "%-13s " "redhat.java:"; code --list-extensions 2>/dev/null | grep -q "^redhat.java$" && echo installed || echo "MISSING  (task install:redhat-java)"'
+      - 'printf "%-13s " "Eclipse:";     ls -d /Applications/Eclipse*.app >/dev/null 2>&1 && echo "/Applications (present)" || echo "not found (task install:eclipse; only needed to RUN the plugin)"'
+      - 'echo "ANALYSIS_JDK = {{.ANALYSIS_JDK}}   <- set as maddi.jdkHome (VS Code) / Preferences->maddi (Eclipse)"'
+
+  # ------------------------------------------------------- prerequisites (Homebrew)
+
+  install:tools:
+    desc: 'Install everything needed to build & run both plugins'
+    cmds:
+      - { task: install:maven }
+      - { task: install:node }
+      - { task: install:vscode }
+      - { task: install:redhat-java }
+      - { task: install:eclipse }
+
+  install:maven:
+    desc: 'Maven (drives the Eclipse/Tycho build)'
+    status: [command -v mvn]
+    cmds: [brew install maven]
+
+  install:node:
+    desc: 'Node.js + npm (build the VS Code extension)'
+    status: [command -v node]
+    cmds: [brew install node]
+
+  install:vscode:
+    desc: 'Visual Studio Code'
+    status: [command -v code]
+    cmds: [brew install --cask visual-studio-code]
+
+  install:redhat-java:
+    desc: 'redhat.java (jdt.ls) — the VS Code extension delegates to it for the project model'
+    status: ['code --list-extensions 2>/dev/null | grep -q "^redhat.java$"']
+    cmds: [code --install-extension redhat.java]
+
+  install:eclipse:
+    desc: 'Eclipse IDE for Java (only to RUN/test the plugin; building the p2 site does NOT need it)'
+    status: [ls -d /Applications/Eclipse*.app]
+    cmds: [brew install --cask eclipse-java]
+
+  # ------------------------------- shared Gradle artifacts (daemon + client), one gradle run to avoid conflicts
+
+  gradle-ide:
+    desc: 'Build the shared Gradle artifacts: daemon installDist + platform/client published to ~/.m2'
+    run: once # both plugins depend on this; build it at most once per invocation (and never concurrently)
+    dir: '{{.ROOT}}'
+    cmds:
+      - ./gradlew :platform:publishToMavenLocal :maddi-ide-client:publishToMavenLocal :maddi-ide-daemon:installDist
+      - 'echo ">> daemon dist: {{.ROOT}}/maddi-ide-daemon/build/install/maddi-ide-daemon"'
+
+  # -------------------------------------------------- Eclipse plugin (Maven/Tycho reactor at maddi-eclipse/)
+
+  eclipse:build:
+    desc: 'Build the Eclipse plugin p2 update site (first run needs network for the 2025-09 release train)'
+    dir: '{{.ROOT}}/maddi-eclipse'
+    cmds:
+      - { task: gradle-ide } # client jar -> ~/.m2, daemon dist copied into the bundle at process-resources
+      - mvn clean verify
+      - 'echo ">> p2 site:  {{.ROOT}}/maddi-eclipse/io.codelaser.maddi.eclipse.repository/target/repository"'
+      - 'echo ">> install in Eclipse: Help -> Install New Software -> Add -> Local... (see maddi-eclipse/README.md)"'
+
+  eclipse:run:
+    desc: 'Open Eclipse so you can install the built p2 site and try the plugin'
+    cmds:
+      - 'open -a Eclipse || echo "Eclipse not found — run: task install:eclipse"'
+
+  # ----------------------------------------------------------- VS Code extension (maddi-vscode/, TypeScript)
+
+  vscode:deps:
+    desc: 'npm install for the VS Code extension'
+    dir: '{{.ROOT}}/maddi-vscode'
+    status: [test -d node_modules]
+    cmds: [npm install]
+
+  vscode:compile:
+    desc: 'Compile the VS Code extension (tsc -> out/)'
+    dir: '{{.ROOT}}/maddi-vscode'
+    cmds:
+      - { task: vscode:deps }
+      - npm run compile
+
+  vscode:test:
+    desc: 'Run the VS Code extension unit tests (Node test runner; no VS Code needed)'
+    dir: '{{.ROOT}}/maddi-vscode'
+    cmds:
+      - { task: vscode:deps }
+      - npm test
+
+  vscode:daemon:
+    desc: 'Copy the built daemon distribution into maddi-vscode/daemon/ (bundled by vscode:package)'
+    dir: '{{.ROOT}}/maddi-vscode'
+    cmds:
+      - { task: gradle-ide }
+      - rm -rf daemon
+      - cp -R ../maddi-ide-daemon/build/install/maddi-ide-daemon daemon
+      - 'echo ">> {{.ROOT}}/maddi-vscode/daemon (bin/ + lib/)"'
+
+  vscode:package:
+    desc: 'Produce a .vsix (compiled extension + bundled daemon) via vsce'
+    dir: '{{.ROOT}}/maddi-vscode'
+    cmds:
+      - { task: vscode:compile }
+      - { task: vscode:daemon }
+      - npx --yes @vscode/vsce package
+      - 'echo ">> .vsix written in {{.ROOT}}/maddi-vscode"'
+
+  vscode:run:
+    desc: 'Launch an Extension Development Host (VS Code) with the extension loaded'
+    dir: '{{.ROOT}}/maddi-vscode'
+    cmds:
+      - { task: vscode:compile }
+      - code --extensionDevelopmentPath="{{.ROOT}}/maddi-vscode" --new-window
+
+  # ------------------------------------------------------------------------------ everything
+
+  build:all:
+    desc: 'Build the shared artifacts and both plugins (Eclipse p2 site + VS Code compile & daemon copy)'
+    cmds:
+      - { task: eclipse:build }
+      - { task: vscode:compile }
+      - { task: vscode:daemon }

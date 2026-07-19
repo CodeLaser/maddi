@@ -1,0 +1,83 @@
+{
+  "name": "maddi-vscode",
+  "displayName": "maddi",
+  "description": "Modification, immutability and independence analysis for Java",
+  "version": "0.1.0",
+  "publisher": "codelaser",
+  "license": "LGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CodeLaser/maddi"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
+  "extensionDependencies": [
+    "redhat.java"
+  ],
+  "activationEvents": [
+    "onLanguage:java"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "maddi.analyze",
+        "title": "Analyze with maddi",
+        "category": "maddi"
+      }
+    ],
+    "configuration": {
+      "title": "maddi",
+      "properties": {
+        "maddi.jdkHome": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Home of a **JDK 25 or later**. maddi runs on this and reads `java.base` from it; it is not the JDK the project targets, nor the one VS Code runs on. Required."
+        },
+        "maddi.daemonInstall": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Directory of the maddi daemon distribution (containing `bin/` and `lib/`). Empty uses the copy bundled with the extension."
+        },
+        "maddi.daemonXmxMb": {
+          "type": "number",
+          "default": 4096,
+          "description": "Maximum heap for the analysis daemon, in MB."
+        },
+        "maddi.hints": {
+          "type": "string",
+          "default": "hide-implied-defaults",
+          "enum": ["hide-implied-defaults", "all", "positive-only", "negative-only", "none"],
+          "enumDescriptions": [
+            "Hide annotations the enclosing declaration already implies; keep the surprises",
+            "Everything maddi computed",
+            "Only positive results (immutable, not-modified, …)",
+            "Only negative results (mutable, modifying, …)",
+            "No inline hints"
+          ],
+          "markdownDescription": "Which computed annotations appear as inline hints. Mirrors the same setting in the IntelliJ and Eclipse plugins."
+        },
+        "maddi.warnNearMisses": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Report types and methods that narrowly miss a property, e.g. one modifying method away from `@Container`. Advisory; expect noise on code not curated for it."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "tsc -p ./ && node --test \"out/test/*.test.js\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.6.0"
+  }
+}

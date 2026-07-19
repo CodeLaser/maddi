@@ -28,9 +28,13 @@ public final class MaddiPreferences {
     public static final String DAEMON_XMX_MB = "maddi.daemonXmxMb";
     public static final String HINT_FILTER = "maddi.hintFilter";
     public static final String AUTO_ANALYZE_ON_BUILD = "maddi.autoAnalyzeOnBuild";
+    public static final String WARN_NEAR_MISSES = "maddi.warnNearMisses";
+    public static final String INLINE_HINTS = "maddi.inlineHints";
+    public static final String HINT_PLACEMENT = "maddi.hintPlacement";
 
     public static final int DEFAULT_XMX_MB = 4096;
     public static final HintFilter DEFAULT_HINT_FILTER = HintFilter.HIDE_CONTEXT_DEFAULTS;
+    public static final HintPlacement DEFAULT_HINT_PLACEMENT = HintPlacement.ABOVE_DECLARATION;
 
     private MaddiPreferences() {
     }
@@ -64,6 +68,35 @@ public final class MaddiPreferences {
     /** Re-analyze a project automatically after Eclipse builds it. */
     public static boolean autoAnalyzeOnBuild() {
         return store().getBoolean(AUTO_ANALYZE_ON_BUILD);
+    }
+
+    /**
+     * Ask the analyzer for advisory near-miss warnings: types and methods that narrowly miss a property,
+     * e.g. one modifying method away from {@code @Container}. Opt-in, as on the CLI, because they are
+     * noisy on code that has not been curated for them.
+     */
+    public static boolean warnNearMisses() {
+        return store().getBoolean(WARN_NEAR_MISSES);
+    }
+
+    /**
+     * Show the computed annotations inline in the Java editor (code minings), as well as in the gutter.
+     * Note that Eclipse also requires <em>Java &gt; Editor &gt; Code Minings &gt; Enable code minings</em>:
+     * JDT gates every provider in its editor, ours included, behind that one.
+     */
+    public static boolean inlineHints() {
+        return store().getBoolean(INLINE_HINTS);
+    }
+
+    /** Where a declaration's hints are drawn; parameters are always inline regardless. */
+    public static HintPlacement hintPlacement() {
+        String v = store().getString(HINT_PLACEMENT);
+        if (isBlank(v)) return DEFAULT_HINT_PLACEMENT;
+        try {
+            return HintPlacement.valueOf(v);
+        } catch (IllegalArgumentException e) {
+            return DEFAULT_HINT_PLACEMENT;
+        }
     }
 
     private static String resolve(String prefKey, String systemProperty, String envVar) {

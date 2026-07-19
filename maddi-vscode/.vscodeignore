@@ -1,0 +1,12 @@
+# Files kept OUT of the packaged .vsix. Keep: out/ (compiled JS, the entry point), daemon/ (bundled
+# analyser), package.json, README.md, LICENSE, COPYING. Everything below is dev-only or redundant.
+.vscode/**
+.vscode-test/**
+src/**
+out/test/**
+out/**/*.map
+**/tsconfig.json
+.gitignore
+.vscodeignore
+package-lock.json
+*.vsix

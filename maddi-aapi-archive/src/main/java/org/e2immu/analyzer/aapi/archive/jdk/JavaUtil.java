@@ -2003,25 +2003,25 @@ public class JavaUtil {
         protected Object clone() { return null; }
         static long UTC(int year, int month, int date, int hrs, int min, int sec) { return 0L; }
         static long parse(String s) { return 0L; }
-        int getYear() { return 0; }
+        @NotModified int getYear() { return 0; }
         void setYear(int year) { }
-        int getMonth() { return 0; }
+        @NotModified int getMonth() { return 0; }
         void setMonth(int month) { }
-        int getDate() { return 0; }
+        @NotModified int getDate() { return 0; }
         void setDate(int date) { }
-        int getDay() { return 0; }
-        int getHours() { return 0; }
+        @NotModified int getDay() { return 0; }
+        @NotModified int getHours() { return 0; }
         void setHours(int hours) { }
-        int getMinutes() { return 0; }
+        @NotModified int getMinutes() { return 0; }
         void setMinutes(int minutes) { }
-        int getSeconds() { return 0; }
+        @NotModified int getSeconds() { return 0; }
         void setSeconds(int seconds) { }
         //frequency 1
         @NotModified
         long getTime() { return 0L; }
         void setTime(long time) { }
-        boolean before(Date when) { return false; }
-        boolean after(Date when) { return false; }
+        @NotModified boolean before(/*@Independent[M] @NotModified[O]*/ Date when) { return false; }
+        @NotModified boolean after(/*@Independent[M] @NotModified[O]*/ Date when) { return false; }
         //override from java.lang.Object
         //@NotModified[H]
         public boolean equals(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ Object obj) { return false; }
@@ -2037,21 +2037,33 @@ public class JavaUtil {
         //override from java.lang.Object
         //@NotModified[H] @NotNull[H]
         public String toString() { return null; }
-        String toLocaleString() { return null; }
-        String toGMTString() { return null; }
-        int getTimezoneOffset() { return 0; }
+        @NotModified String toLocaleString() { return null; }
+        @NotModified String toGMTString() { return null; }
+        @NotModified int getTimezoneOffset() { return 0; }
         static Date from(Instant instant) { return null; }
-        Instant toInstant() { return null; }
+        @NotModified Instant toInstant() { return null; }
     }
 
     //public interface EventListener
     //public interface Deque<E> extends Queue<E>, SequencedCollection<E>
     @Container
-    class Deque$<E> { }
+    class Deque$<E> {
+        @NotModified E peekFirst() { return null; }
+        @NotModified E peekLast() { return null; }
+        @NotModified E element() { return null; }
+        @NotModified E peek() { return null; }
+        @NotModified Iterator<E> descendingIterator() { return null; }
+    }
 
     //public abstract class Dictionary<K, V>
     @Container
-    class Dictionary$<K, V> { }
+    class Dictionary$<K, V> {
+        @NotModified int size() { return 0; }
+        @NotModified boolean isEmpty() { return false; }
+        @NotModified Enumeration<K> keys() { return null; }
+        @NotModified Enumeration<V> elements() { return null; }
+        @NotModified V get(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object key) { return null; }
+    }
 
     //public class EnumMap<K extends Enum<K>, V> extends AbstractMap<K, V> implements Cloneable, Serializable
     @Container
@@ -2255,6 +2267,9 @@ public class JavaUtil {
     @Container
     class Hashtable$<K, V> {
         Hashtable$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
+        @NotModified boolean contains(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object value) {
+            return false;
+        }
     }
 
     //public class IdentityHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Serializable, Cloneable
@@ -2520,10 +2535,12 @@ public class JavaUtil {
         void add(int i, /*@Independent(hc=true)[T] @NotModified[O]*/ E e) { }
         //@Independent(hc=true)[T]
         E remove(int i) { return null; }
+        @NotModified
         int indexOf(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ Object object) { return 0; }
+        @NotModified
         int lastIndexOf(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ Object object) { return 0; }
-        ListIterator<E> listIterator() { return null; }
-        ListIterator<E> listIterator(int i) { return null; }
+        @NotModified ListIterator<E> listIterator() { return null; }
+        @NotModified ListIterator<E> listIterator(int i) { return null; }
         //frequency 3
         @NotModified
         List<E> subList(int i, int i1) { return null; }
@@ -2557,7 +2574,7 @@ public class JavaUtil {
         E removeLast() { return null; }
 
         //override from java.util.SequencedCollection
-        List<E> reversed() { return null; }
+        @NotModified List<E> reversed() { return null; }
 
         //frequency 10
         @ImmutableContainer @NotNull(content = true) @NotModified
@@ -2933,6 +2950,7 @@ public class JavaUtil {
         @NotModified
         boolean containsKey(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object object) { return false; }
 
+        @NotModified
         boolean containsValue(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ Object object) {
             return false;
         }
@@ -3254,7 +3272,26 @@ public class JavaUtil {
 
     //public interface NavigableSet<E> extends SortedSet<E>
     @Container
-    class NavigableSet$<E> { }
+    class NavigableSet$<E> {
+        @NotModified E lower(/*@Independent[M] @NotModified[O]*/ E e) { return null; }
+        @NotModified E floor(/*@Independent[M] @NotModified[O]*/ E e) { return null; }
+        @NotModified E ceiling(/*@Independent[M] @NotModified[O]*/ E e) { return null; }
+        @NotModified E higher(/*@Independent[M] @NotModified[O]*/ E e) { return null; }
+        @NotModified NavigableSet<E> descendingSet() { return null; }
+        @NotModified Iterator<E> descendingIterator() { return null; }
+        @NotModified
+        NavigableSet<E> subSet(
+            /*@Independent[M] @NotModified[O]*/ E fromElement,
+            boolean fromInclusive,
+            /*@Independent[M] @NotModified[O]*/ E toElement,
+            boolean toInclusive) { return null; }
+        @NotModified NavigableSet<E> headSet(/*@Independent[M] @NotModified[O]*/ E toElement, boolean inclusive) {
+            return null;
+        }
+        @NotModified NavigableSet<E> tailSet(/*@Independent[M] @NotModified[O]*/ E fromElement, boolean inclusive) {
+            return null;
+        }
+    }
 
     //public class NoSuchElementException extends RuntimeException
     class NoSuchElementException$ {
@@ -3590,15 +3627,23 @@ public class JavaUtil {
     @Container
     class PriorityQueue$<E> {
         PriorityQueue$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
+        @NotModified Comparator<? super E> comparator() { return null; }
     }
 
     //public class Properties extends Hashtable<Object, Object>
     @Container
-    class Properties$ { }
+    class Properties$ {
+        @NotModified String getProperty(/*@Independent[M] @NotModified[O]*/ String key) { return null; }
+        @NotModified
+        String getProperty(/*@Independent[M] @NotModified[O]*/ String key, String defaultValue) { return null; }
+    }
 
     //public interface Queue<E> extends Collection<E>
     @Container
-    class Queue$<E> { }
+    class Queue$<E> {
+        @NotModified E peek() { return null; }
+        @NotModified E element() { return null; }
+    }
 
     //public class Random implements RandomGenerator, Serializable
     class Random$ {
@@ -3678,16 +3723,16 @@ public class JavaUtil {
     //public interface SequencedCollection implements Collection<E>
     @Container
     class SequencedCollection$<E> {
-        SequencedCollection<E> reversed() { return null; }
+        @NotModified SequencedCollection<E> reversed() { return null; }
         void addFirst(/*@Independent(hc=true)[T] @NotModified[O]*/ E e) { }
         void addLast(/*@Independent(hc=true)[T] @NotModified[O]*/ E e) { }
         //override has frequency 351
         //@Independent(hc=true)[T]
-        E getFirst() { return null; }
+        @NotModified E getFirst() { return null; }
 
         //override has frequency 7
         //@Independent(hc=true)[T]
-        E getLast() { return null; }
+        @NotModified E getLast() { return null; }
 
         //@Independent(hc=true)[T]
         E removeFirst() { return null; }
@@ -3899,18 +3944,19 @@ public class JavaUtil {
     @Container
     class SortedMap$<K, V> {
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]
-        Comparator<? super K> comparator() { return null; }
+        @NotModified Comparator<? super K> comparator() { return null; }
 
+        @NotModified
         SortedMap<K, V> subMap(
             /*@Independent(hc=true)[T] @NotModified[O]*/ K k,
             /*@Independent(hc=true)[T] @NotModified[O]*/ K k1) { return null; }
-        SortedMap<K, V> headMap(/*@Independent(hc=true)[T] @NotModified[O]*/ K k) { return null; }
-        SortedMap<K, V> tailMap(/*@Independent(hc=true)[T] @NotModified[O]*/ K k) { return null; }
+        @NotModified SortedMap<K, V> headMap(/*@Independent(hc=true)[T] @NotModified[O]*/ K k) { return null; }
+        @NotModified SortedMap<K, V> tailMap(/*@Independent(hc=true)[T] @NotModified[O]*/ K k) { return null; }
         //@Independent(hc=true)[T]
-        K firstKey() { return null; }
+        @NotModified K firstKey() { return null; }
 
         //@Independent(hc=true)[T]
-        K lastKey() { return null; }
+        @NotModified K lastKey() { return null; }
 
         //override from java.util.Map
         //@NotModified[H]
@@ -3945,16 +3991,34 @@ public class JavaUtil {
 
     //public interface SortedSet<E> extends Set<E>, SequencedCollection<E>
     @Container
-    class SortedSet$<E> { }
+    class SortedSet$<E> {
+        @NotModified Comparator<? super E> comparator() { return null; }
+        @NotModified
+        SortedSet<E> subSet(
+            /*@Independent[M] @NotModified[O]*/ E fromElement,
+            /*@Independent[M] @NotModified[O]*/ E toElement) { return null; }
+        @NotModified SortedSet<E> headSet(/*@Independent[M] @NotModified[O]*/ E toElement) { return null; }
+        @NotModified SortedSet<E> tailSet(/*@Independent[M] @NotModified[O]*/ E fromElement) { return null; }
+        @NotModified E first() { return null; }
+        @NotModified E last() { return null; }
+    }
 
     //public interface Spliterator<T>
     @Container
     @Independent(hc = true)
-    class Spliterator$<T> { }
+    class Spliterator$<T> {
+        @NotModified boolean hasCharacteristics(int characteristics) { return false; }
+        @NotModified long getExactSizeIfKnown() { return 0L; }
+        @NotModified Comparator<? super T> getComparator() { return null; }
+    }
 
     //public class Stack<E> extends Vector<E>
     @Container
-    class Stack$<E> { }
+    class Stack$<E> {
+        @NotModified E peek() { return null; }
+        @NotModified boolean empty() { return false; }
+        @NotModified int search(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object o) { return 0; }
+    }
 
     //public final class StringJoiner
     // mutable, but add(CharSequence)/merge(StringJoiner) read their argument without modifying it.
@@ -4266,11 +4330,11 @@ public class JavaUtil {
     @Container
     class Vector$<E> {
         Vector$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
-        void copyInto(Object [] anArray) { }
+        @NotModified void copyInto(Object [] anArray) { }
         void trimToSize() { }
         void ensureCapacity(int minCapacity) { }
         void setSize(int newSize) { }
-        int capacity() { return 0; }
+        @NotModified int capacity() { return 0; }
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
         int size() { return 0; }
@@ -4278,7 +4342,7 @@ public class JavaUtil {
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
         boolean isEmpty() { return false; }
-        Enumeration<E> elements() { return null; }
+        @NotModified Enumeration<E> elements() { return null; }
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
         boolean contains(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ Object o) { return false; }
@@ -4286,23 +4350,25 @@ public class JavaUtil {
         //override from java.util.AbstractList, java.util.List
         int indexOf(/*@Immutable(hc=true)[T] @Independent(hc=true)[H] @NotModified[T]*/ Object o) { return 0; }
 
+        @NotModified
         int indexOf(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object o, int index) { return 0; }
 
         //override from java.util.AbstractList, java.util.List
         int lastIndexOf(/*@Immutable(hc=true)[T] @Independent(hc=true)[H] @NotModified[T]*/ Object o) { return 0; }
 
+        @NotModified
         int lastIndexOf(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object o, int index) {
             return 0;
         }
 
         //@Independent(hc=true)[T]
-        E elementAt(int index) { return null; }
+        @NotModified E elementAt(int index) { return null; }
 
         //@Independent(hc=true)[T]
-        E firstElement() { return null; }
+        @NotModified E firstElement() { return null; }
 
         //@Independent(hc=true)[T]
-        E lastElement() { return null; }
+        @NotModified E lastElement() { return null; }
         void setElementAt(/*@Independent(hc=true)[T] @NotModified[T]*/ E obj, int index) { }
         void removeElementAt(int index) { }
         void insertElementAt(/*@Independent(hc=true)[T] @NotModified[T]*/ E obj, int index) { }

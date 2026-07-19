@@ -33,6 +33,19 @@ public final class DaemonAnalysisFixture {
     /** Analyze a single source file (path relative to the source root, e.g. {@code "x/Foo.java"}). */
     public static DaemonProtocol.Result analyze(Path projectDir, String relativePath, String source)
             throws Exception {
+        return analyze(projectDir, relativePath, source, false);
+    }
+
+    /** As {@link #analyze(Path, String, String)}, with the advisory near-miss warnings turned on or off. */
+    public static DaemonProtocol.Result analyze(Path projectDir, String relativePath, String source,
+                                                boolean warnNearMisses) throws Exception {
+        return analyze(projectDir, relativePath, source, warnNearMisses, status -> { });
+    }
+
+    /** As above, with a sink — use it to capture the streamed {@code partialResult} frames. */
+    public static DaemonProtocol.Result analyze(Path projectDir, String relativePath, String source,
+                                                boolean warnNearMisses, AnalyzeHandler.StatusSink sink)
+            throws Exception {
         Path file = projectDir.resolve("src").resolve(relativePath);
         Files.createDirectories(file.getParent());
         Files.writeString(file, source);
@@ -44,8 +57,9 @@ public final class DaemonAnalysisFixture {
                 List.of(new DaemonProtocol.SourceRoot("main", "src", false)),
                 List.of(),
                 List.of(),
-                false);
-        return new WarmAnalysisService().analyze(new DaemonProtocol.AnalyzeProject("test", config), s -> { });
+                false,
+                warnNearMisses);
+        return new WarmAnalysisService().analyze(new DaemonProtocol.AnalyzeProject("test", config), sink);
     }
 
     /** The display annotations computed for the first element of {@code kind} whose fqn contains {@code fqnPart}. */

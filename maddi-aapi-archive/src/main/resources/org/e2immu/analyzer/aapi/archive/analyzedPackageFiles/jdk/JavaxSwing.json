@@ -350,8 +350,8 @@
   {"name": "MisInsertRow(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
   {"name": "MtoString(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}}]},
  {"name": "SPrintMode(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "FFIT_WIDTH(0)", "data":{"annotatedApi":1,"finalField":1}},
-  {"name": "FNORMAL(1)", "data":{"annotatedApi":1,"finalField":1}},
+  {"name": "FFIT_WIDTH(0)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FNORMAL(1)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
   {"name": "MvalueOf(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "Mvalues(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1}}]},
