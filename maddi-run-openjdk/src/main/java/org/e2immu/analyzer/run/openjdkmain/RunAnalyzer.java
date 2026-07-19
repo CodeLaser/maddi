@@ -270,10 +270,9 @@ public class RunAnalyzer implements Runnable {
                         LOGGER.error("CHECKPOINT_RESTORE failed, continuing cold: {}", e.toString());
                     }
                 }
+                var linkCodec = new org.e2immu.analyzer.modification.link.io.LinkCodec(javaInspector);
                 analyzer.setValueFeed(new org.e2immu.analyzer.modification.analyzer.CheckpointWriter(
-                        javaInspector.runtime(),
-                        new org.e2immu.analyzer.modification.link.io.LinkCodec(javaInspector).codec(),
-                        new File(checkpointDir)));
+                        javaInspector.runtime(), linkCodec::codec, new File(checkpointDir)));
                 LOGGER.info("CHECKPOINT: writing pass-boundary deltas to {}", checkpointDir);
             }
             try {

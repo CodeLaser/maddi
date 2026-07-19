@@ -66,7 +66,8 @@ public class TestCheckpointResume extends CommonTest {
         List<Info> analysisOrder = prepWork(X);
 
         File dir = new File("build/json-checkpoint");
-        CheckpointWriter writer = new CheckpointWriter(runtime, new LinkCodec(javaInspector).codec(), dir);
+        LinkCodec linkCodec = new LinkCodec(javaInspector);
+        CheckpointWriter writer = new CheckpointWriter(runtime, linkCodec::codec, dir);
         List<AnalysisValueFeed.Phase> phases = new ArrayList<>();
         AnalysisValueFeed feed = new AnalysisValueFeed() {
             @Override
