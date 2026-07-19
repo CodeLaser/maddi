@@ -74,20 +74,41 @@ public class CheckpointWriter implements AnalysisValueFeed {
             if (primary != null) primaries.add(primary);
         }
         if (primaries.isEmpty()) return;
-        Trie<TypeInfo> trie = new Trie<>();
+        // write PER TYPE so one unencodable type (mid-iteration values can trip codec asserts) costs
+        // only itself, not the whole pass; and via a temp dir + atomic move, so a mid-encode crash
+        // never leaves a truncated file in the checkpoint. Missing types are re-analyzed on resume.
+        int ok = 0, failed = 0;
         for (TypeInfo primary : primaries) {
+            Trie<TypeInfo> trie = new Trie<>();
             trie.add(primary.fullyQualifiedName().split("\\."), primary);
+            java.nio.file.Path tmpDir = null;
+            try {
+                tmpDir = Files.createTempDirectory(directory.toPath(), ".w");
+                new WriteAnalysisResults(runtime).write(tmpDir.toFile(), trie, codec);
+                try (var files = Files.walk(tmpDir).filter(p -> p.toString().endsWith(".json"))) {
+                    for (java.nio.file.Path p : files.toList()) {
+                        Files.move(p, directory.toPath().resolve(p.getFileName()),
+                                java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    }
+                }
+                ok++;
+            } catch (IOException | RuntimeException | AssertionError e) {
+                failed++;
+                LOGGER.debug("Checkpoint skip {} after pass {}: {}", primary, iteration, e.toString());
+            } finally {
+                if (tmpDir != null) {
+                    try (var leftovers = Files.walk(tmpDir).sorted(java.util.Comparator.reverseOrder())) {
+                        for (java.nio.file.Path p : leftovers.toList()) Files.deleteIfExists(p);
+                    } catch (IOException ignored) {
+                        // temp-dir cleanup is best-effort
+                    }
+                }
+            }
         }
-        try {
-            new WriteAnalysisResults(runtime).write(directory, trie, codec);
-            typesWritten += primaries.size();
-            LOGGER.info("Checkpoint after pass {}: wrote {} primary type(s), {} cumulative",
-                    iteration, primaries.size(), typesWritten);
-        } catch (IOException | RuntimeException e) {
-            // never fail the analysis over the checkpoint; the feed guard would swallow this anyway,
-            // but log it as a first-class event
-            LOGGER.error("Checkpoint write failed after pass {}: {}", iteration, e.toString());
-        }
+        typesWritten += ok;
+        LOGGER.info("Checkpoint after pass {}: wrote {} primary type(s) ({} skipped), {} cumulative",
+                iteration, ok, failed, typesWritten);
     }
 
     @Override

@@ -130,8 +130,18 @@ Checkpoint/resume + incremental (session tasks #34/#35):
   analyzer, whose verify-certify sweep is the soundness net. Round-trip pinned in
   TestCheckpointResume (analyze → checkpoint → invalidate+reparse → restore → identical verdicts,
   TERMINAL_CERTIFIED). Deliberately out of v1: source-change detection (per-sourceset fingerprints
-  live on the maddi-kotlin branch); resume assumes unchanged sources. REMAINING: production wiring
-  (env gate in the run harness) so corpus runs checkpoint by default.
+  live on the maddi-kotlin branch); resume assumes unchanged sources. PRODUCTION WIRING DONE same
+  night: CHECKPOINT=<dir> / CHECKPOINT_RESTORE gates in RunAnalyzer (FPDUMP value-convention);
+  crash-consistency hardened after live testing on fernflower — per-type atomic writes (temp dir +
+  ATOMIC_MOVE; an encode assert mid-stream had left truncated JSON), goDirTolerant restore
+  (skip-and-count unreadable files), feed guard now also catches AssertionError/SOE (an encode
+  assert had KILLED the analysis through the RuntimeException-only guard). Verified two-step on
+  fernflower: cold writes 150/227 primaries (codec asserts skip mid-iteration values), warm
+  preloads 82, both certify; cold-vs-baseline 0-diff mod oscillator. FOLLOW-UPS: (a) decode
+  asymmetry — 68 of 150 files encode fine but fail decode (restore coverage, not soundness;
+  missing types are re-analyzed); (b) resume-fixpoint non-confluence observed once:
+  TargetInfo.LocalvarTarget @FF(cold)→@ImmHC(warm) — the preload starts iteration from converged
+  values and certifies a (more precise) different fixpoint; same family as EdgeType.<init>.
 - #35 incremental v2 for the single-module 3M-line monorepo: giant cycle spans ~2/3 of the code, so
   per-sourceset granularity (fingerprints on maddi-kotlin branch) and SCC-transitive invalidation are
   useless — design: element-level fingerprints + optimistic preload of unchanged elements' values +
