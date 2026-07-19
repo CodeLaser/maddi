@@ -97,4 +97,20 @@ public @interface Modified {
      * Any explanation for the presence of this annotion in this particular place.
      */
     String comment() default "";
+
+    /**
+     * On a parameter whose declared type offers no modification surface (typically
+     * {@code java.lang.Object}, visibly immutable-with-hidden-content), a cast or type switch in
+     * the body can still modify the argument. {@code downcast=true} marks that deviation from the
+     * implied {@code @NotModified}: the modification evidence requires the downcast. The verdict
+     * remains a plain modification — this parameter only explains it.
+     */
+    boolean downcast() default false;
+
+    /**
+     * The runtime types the {@link #downcast()} modification goes through (the cast/type-switch
+     * targets, fully qualified). Actionable for the caller: an argument that is none of these
+     * types is not modified by this method.
+     */
+    String[] downcastTo() default {};
 }
