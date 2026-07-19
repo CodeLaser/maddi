@@ -749,8 +749,21 @@ public class JavaInspectorImpl implements JavaInspector {
                 // No Lombok on the classpath: disable all annotation processing (faster, avoids surprises).
                 options.add("-proc:none");
             }
+            // Platform (java.*) types come from the JDK running the analyzer by default (--release=26). When an
+            // alternative JRE is configured (InputConfiguration.alternativeJREDirectory / the --jre option), point
+            // javac's system modules at that JDK with --system instead, so types removed in a newer JDK (e.g.
+            // java.applet.Applet, gone in JDK 26) remain resolvable. --system replaces --release; --enable-preview
+            // does not apply to a fixed older platform image.
+            Path altJre = inputConfiguration == null ? null : inputConfiguration.alternativeJREDirectory();
             if (jdkInternals) {
+                if (altJre != null) {
+                    LOGGER.warn("Ignoring alternative JRE {} while compiling {} against JDK internals: internals are" +
+                                " opened on the running JDK.", altJre, sourceSet.name());
+                }
                 options.addAll(jdkInternalsJavacOptions(sourceSet));
+            } else if (altJre != null) {
+                options.add("--system");
+                options.add(altJre.toString());
             } else {
                 options.add("--enable-preview");
                 options.add("--release=26");

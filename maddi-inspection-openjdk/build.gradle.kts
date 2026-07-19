@@ -51,6 +51,10 @@ tasks.withType<JavaCompile> {
 tasks.test {
     useJUnitPlatform()
     maxParallelForks = 4
+    // Alternative-JRE test (TestAlternativeJRE): forward a JDK 21 home to the forked test JVM so it can
+    // exercise --system against a JDK where java.applet.Applet still exists. Absent -> the test skips.
+    System.getProperty("test.jdk21.home")?.let { systemProperty("test.jdk21.home", it) }
+    System.getenv("JDK21_HOME")?.let { environment("JDK21_HOME", it) }
     jvmArgs(
         "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
