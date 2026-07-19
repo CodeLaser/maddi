@@ -48,9 +48,11 @@ public final class MaddiResults {
      * element (see {@link AnalysisModel#merge}) — a frame is one pass, not a complete picture — and nothing
      * is ever retracted, so what is on screen only gets more complete.
      */
-    public void mergePartial(AnalysisModel.PartialResult partial) {
-        this.latest = AnalysisModel.merge(this.latest, partial);
+    public AnalysisModel.Result mergePartial(AnalysisModel.PartialResult partial) {
+        AnalysisModel.Result merged = AnalysisModel.merge(this.latest, partial);
+        this.latest = merged;
         notifyListeners();
+        return merged; // so the caller can report how much is established without re-reading the field
     }
 
     private void notifyListeners() {

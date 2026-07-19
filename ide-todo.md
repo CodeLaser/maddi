@@ -12,10 +12,10 @@ Ordered by what a user on a large project would feel first.
 **Why:** on larger projects the analysis is slow, and today *every* trigger re-analyses the whole project
 from scratch. A one-line edit costs a full run. This is the single biggest win available.
 
-**Blocked on:** the rewiring work (`rewiring.md`). That is what makes it possible to rebuild only the changed
+**Blocked on:** the rewiring work (`docs/rewiring.md`). That is what makes it possible to rebuild only the changed
 type and what is downstream of it, keeping everything upstream as the *same objects*. Status there:
 openjdk inspector complete and running end to end; Kotlin inspector not started. Also relevant:
-`partial-reparse-rewire.md`.
+`docs/partial-reparse-rewire.md`.
 
 **What has to change in the daemon.** `WarmAnalysisService.analyze` constructs a **fresh**
 `JavaInspectorImpl(true, false)` per request and re-parses everything. Partial re-analysis means the opposite:
@@ -42,28 +42,32 @@ Three separate things, with very different costs. Worth not conflating them.
 thread (`MaddiAnalysis`), IntelliJ in a `Task.Backgroundable` (`MaddiAnalysisService`). Neither blocks the
 editor. Nothing to do here unless something is observed to block.
 
-**(b) "Still running" — on the wire already; Eclipse throws it away.** The daemon emits a `status` frame every
-2 s during the long analysis phase (`WarmAnalysisService.runWithHeartbeat`), plus one per phase transition
-(initialize / hints / parse / prep / order / analyze / collect).
+**(b) "Still running" — DONE.** The daemon emits a `status` frame per phase transition plus a heartbeat every
+2 s during the long analysis phase, and all three front-ends now show it: Eclipse via `SubMonitor.subTask`
+(it previously discarded every frame and its `IProgressMonitor` was unused), IntelliJ via
+`indicator.setText`/`setText2`, VS Code via `withProgress`. Streamed `partialResult` frames additionally
+report the pass number and how many elements have been decided so far.
 
-- IntelliJ consumes them: `daemon.analyze(..., status -> indicator.setText("maddi: " + phase))`.
-- **Eclipse discards them**: `daemon.analyze("req-" + …, config, status -> { })`, and its `IProgressMonitor`
-  is unused. So an Eclipse user gets no indication at all beyond the Job spinner.
+Deliberately no percentage anywhere: the run is a fixpoint iteration whose length is not known in advance,
+so a fraction would be invented rather than measured.
 
-Cheap and worth doing now: feed the frames into the `IProgressMonitor` (`subTask` per phase), and use the
-monitor for cancellation — the protocol has a `cancel` frame that no front-end has ever sent.
+**(c) Determinate progress (n of m types) — still open, and probably not worth it.** `typesDone` is always
+null during analysis: the heartbeat is a liveness ping, not a counter, and `IteratingAnalyzer.analyze` has no
+per-element callback to count. Since (b) landed and item 3 streams the decisions themselves, a counter would
+add little — "23 elements decided, pass 2" already says more than a bar would.
 
-**(c) Determinate progress (n of m types) — needs analyzer support.** The `status` frame already carries
-`typesDone` / `typesTotal`, and `typesTotal` is populated, but **`typesDone` is always null during analysis**:
-the heartbeat is a liveness ping, not a counter. `IteratingAnalyzer.analyze(order)` is one blocking call with
-no per-element callback, so the daemon has nothing to count. Real progress means giving the analyzer a
-progress listener — analyzer work, not IDE plumbing. Do (b) first; it may be enough.
+**Cancellation — NOT supported, and not a small addition.** `DaemonProtocol` defines a `cancel` frame but
+`DaemonMain` handles only handshake / ping / analyzeProject / shutdown, and while an analysis runs the
+connection thread is blocked inside `handleAnalyze` and is not reading the socket at all. So a front-end
+sending `cancel` today would have it sit unread until the run it wanted to stop had finished. Doing it
+properly needs a reader thread on the daemon side plus an interruptible analyzer — an engine change, not
+plumbing. Until then, no front-end should offer a cancel button that cannot work.
 
 ---
 
-## 3. Stream early results, instead of waiting for the run to finish
+## 3. Stream early results, instead of waiting for the run to finish — DONE
 
-Better than a progress bar, and the same analyzer hook pays for both.
+Better than a progress bar, and it made most of item 2(c) unnecessary.
 
 **The observation.** The analyzer is incremental, and the *shape* of the run is lopsided: the majority of the
 output is hard-decided in the first iteration, and the tail is long in duration but short in number of
@@ -96,16 +100,19 @@ Three things it imposes on a consumer:
   documents (provisional → quiet → final at `TERMINAL_CERTIFIED`) rather than presenting early values as
   settled.
 
-**What remains — the daemon adapter and the front-ends.**
-- *Protocol*: `status` is progress-only and there is exactly one terminal `result`. Prefer a **new
-  `partialResult` frame** over making `result` repeatable, and not only on taste: `DaemonClient.analyze`
-  loops until it sees `result` or `error` and hands every *other* frame to the `onStatus` consumer. So a new
-  non-terminal type flows through the existing client untouched, and old clients ignore it; a repeatable
-  `result` would make them return on the first one and treat a partial answer as the whole run.
-- *Both front-ends*: results are currently replaced wholesale (`MaddiResults.update`,
-  `MaddiAnalysisService.applyResult`), and Eclipse rewrites every marker in the workspace per run. Incremental
-  arrival means merging by element and updating markers/hints additively — the same work item 4 lists under
-  marker churn, and another reason to do it.
+**Delivered** (`1ceeb223` daemon, `d68fe382` front-ends).
+
+- *Daemon*: `StreamingValueFeed` turns pass boundaries into a **new non-terminal `partialResult` frame**,
+  chosen over making `result` repeatable — `DaemonClient.analyze` loops until `result`/`error` and hands
+  every other frame on, so a new type reaches existing clients untouched while a second `result` would be
+  mistaken for the whole run.
+- *All three front-ends*: merged by element via the shared `AnalysisModel.merge` (identity is kind + fqn, not
+  position), never replaced — one frame is one pass. Eclipse deliberately does not rebuild markers per frame
+  (`MaddiMarkers.apply` rewrites the whole workspace); hints update because they read `MaddiResults`.
+
+Not done: the provisional → quiet → final status ladder. `certain` rides on the frame but no front-end
+distinguishes established from final, so a user cannot yet tell an early value from a certified one — which
+matters most for type `@Immutable`, since it typically only resolves in the last pass.
 
 Note this composes with partial re-analysis (item 1) rather than competing: that one shrinks *what* is
 analysed, this one shortens *when you see it*. Either helps alone; together a small edit should show revised

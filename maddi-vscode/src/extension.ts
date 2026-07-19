@@ -140,13 +140,22 @@ async function analyze(
         let displayed: Result | undefined;
         const frame = await client.analyze(`req-${Date.now()}`, config, (streamed: Frame) => {
             if (streamed.type === PARTIAL_RESULT) {
-                displayed = merge(displayed, streamed as unknown as PartialResult);
+                const partial = streamed as unknown as PartialResult;
+                displayed = merge(displayed, partial);
                 // show them as they arrive: on a large project this is the difference between an annotated
                 // file in seconds and a blank one until the last pass
                 store.set(displayed);
-                progress.report({ message: `analyzing (${displayed.elementAnnotations.length} elements so far)` });
+                // what has been decided, not a percentage: the run is a fixpoint iteration whose length is
+                // not known in advance, so a fraction would be invented
+                progress.report({
+                    message: `pass ${partial.iteration}, ${displayed.elementAnnotations.length} element(s) so far`,
+                });
             } else {
-                progress.report({ message: String(streamed.phase ?? 'analyzing') });
+                // the heartbeat carries a message during the long analysis phase; it is what shows the run
+                // is alive rather than hung
+                const phase = String(streamed.phase ?? 'analyzing');
+                const message = String(streamed.message ?? '');
+                progress.report({ message: message.length > 0 ? `${phase}: ${message}` : phase });
             }
         });
 

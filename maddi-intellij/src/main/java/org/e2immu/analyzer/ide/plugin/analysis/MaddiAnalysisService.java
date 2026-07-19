@@ -140,7 +140,12 @@ public final class MaddiAnalysisService implements Disposable {
                 AnalysisModel.PartialResult partial =
                         daemon.client().objectMapper().treeToValue(frame, AnalysisModel.PartialResult.class);
                 // merged, not replaced: one frame is one analysis pass, and values only ever strengthen
-                applyResult(AnalysisModel.merge(latest, partial));
+                AnalysisModel.Result merged = AnalysisModel.merge(latest, partial);
+                applyResult(merged);
+                // what has been decided, not a percentage: the run is a fixpoint iteration whose length is
+                // not known in advance, so a fraction would be invented
+                indicator.setText2("pass " + partial.iteration() + ", "
+                                   + merged.elementAnnotations().size() + " element(s) so far");
             } catch (Exception e) {
                 // losing a streamed frame costs an early glimpse, never the run
                 LOG.warn("could not read a streamed result", e);
@@ -148,6 +153,9 @@ public final class MaddiAnalysisService implements Disposable {
             return;
         }
         indicator.setText("maddi: " + frame.path("phase").asText("analyzing"));
+        String message = frame.path("message").asText("");
+        // the heartbeat carries the message during the long analysis phase; it is what shows the run is alive
+        if (!message.isEmpty()) indicator.setText2(message);
     }
 
     /**
