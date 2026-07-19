@@ -1,6 +1,25 @@
 # Incremental reuse v2 — the single-module giant-SCC monorepo (task #35)
 
-Status: DESIGN, 2026-07-19 (post checkpoint/resume v1). Owner: sv-integration thread.
+Status: DESIGN, 2026-07-19 (post checkpoint/resume v1); RECONCILED same day with the kotlin-side
+early-cutoff machinery after the merge (see §0). Owner: sv-integration thread.
+
+## 0. Reconciliation with the delivered early-cutoff worklist (kotlin branch, 2026-07-18)
+
+The metrics thread delivered, independently: `EarlyCutoffWorklist` driving REAL per-primary-type
+recompute through the reload path — `recompute(t) = clear optimistic carry (removeIf
+CROSS_TYPE_DERIVED) + prep + analyze + AnalysisFingerprint.of(t)`, queueing t's dependents ONLY
+when the fresh output fingerprint differs (TestEarlyCutoffWorklistDriver; property analysis-tier
+flags; seeded `analyze(order, graph, initialDirty)`). That solves the DAG/multi-source-set case
+at type granularity, with output-fingerprint EARLY CUTOFF as the frontier device.
+
+This design remains the complement for the case that model cannot crack: inside the giant SCC,
+dependents-of(t) over the type-dependency relation ≈ the whole cycle, and the first recompute
+floods. The composition is: KEEP their worklist and output-fingerprint cutoff; REPLACE the
+dependents relation inside SCCs with the learned summary-consumption edges of §3.3 (much sparser
+than potential dataflow). §3.1/§3.2 below largely coincide with what their machinery + checkpoint
+v1 already provide and shrink to integration work; §3.3 is the remaining new piece. Their known
+gap (Codec fieldIndex throw when fingerprinting a single-type-analysed type whose links reference
+a modifiable field) is the same family as checkpoint v1's decode tail — one shared fix list.
 Prereqs in place: checkpoint v1 (CheckpointWriter, restoreCodec, goDirTolerant, CHECKPOINT/
 CHECKPOINT_RESTORE gates — commits 84a6003c, 49415b2e, b197b101); per-sourceset fingerprints
 (maddi-kotlin branch, other thread).
@@ -88,6 +107,17 @@ PERFORMANCE device; certification is the correctness device.
   run fernflower + elasticsearch, report edge-count distribution (per element: how many summaries
   consumed; per element: how many consumers). GO/NO-GO: if the median consumer closure of a
   random element is <5% of the codebase, the design wins big; if it approaches SCC size, stop.
+
+  **MEASURED 2026-07-19 (fernflower, ConsumptionEdgeRecorder, recorder proven inert by 0-diff
+  FPDUMP A/B)**: 4,598 consuming elements, 59,143 edges; out-degree median/p90/max 5/31/1517;
+  in-degree median/p90/max 5/23/927; sampled consumer-closure median/p90/max **3636/3688/4009 of
+  4598 (79%!)**. VERDICT: locally sparse, small-world — §3.3's TRANSITIVE-closure invalidation is
+  a **NO-GO** by this section's own criterion. The refined GO: use the edges as the
+  DIRECT-consumer wake relation for the early-cutoff worklist (§0) — each changed element wakes a
+  median of 5 consumers, and the output-fingerprint frontier kills propagation wherever verdicts
+  do not change (empirically almost everywhere: the elasticsearch resume re-certified with ~130
+  changed lines out of 239k). Closure is never computed. Phases B-D below stand, with §3.3's
+  invalidation-closure replaced by frontier propagation over direct edges.
 - **Phase B (fingerprints)**: element fingerprint computation + storage next to the checkpoint;
   A/B: fingerprint stability across two identical parses (must be 100%).
 - **Phase C (resume path)**: wire §3.2+§3.3 into CHECKPOINT_RESTORE; acceptance: touch one method

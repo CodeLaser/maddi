@@ -145,7 +145,14 @@ Checkpoint/resume + incremental (session tasks #34/#35):
   while files are per-type — a shared instance put the definition in whichever file used the
   marker first ('Cannot find $_ce0M', 29 files); CheckpointWriter now takes a codec SUPPLIER,
   fresh codec per file = self-contained. REMAINING TAIL: 19 NPE + 2 UOE + 1 stale-overload decode
-  skips (re-analyzed on resume; coverage, not soundness). (b) resume-fixpoint non-confluence observed once:
+  skips (re-analyzed on resume; coverage, not soundness). POST-MERGE 2026-07-19: the kotlin-side
+  corpus configs enable the results-WRITE path, which exposed two more codec gaps on fernflower:
+  typeExpression (FIXED — TypeExpressionCodec added to ExpressionCodec) and variables owned by
+  ANONYMOUS types (encodeInfoOutOfContextStream asserts !isAnonymous — 76 skipped values on
+  fernflower). WriteAnalysisResults now SKIPS unencodable values with a warning + counter instead
+  of aborting the run (rides the existing null-skip pathway). SHARED CODEC FIX LIST (with the
+  early-cutoff thread's fieldIndex gap): anonymous-type out-of-context encoding, decode-tail NPEs,
+  stale-overload disambiguation. (b) resume-fixpoint non-confluence observed once:
   TargetInfo.LocalvarTarget @FF(cold)→@ImmHC(warm) — the preload starts iteration from converged
   values and certifies a (more precise) different fixpoint; same family as EdgeType.<init>.
 - #35 incremental v2 for the single-module 3M-line monorepo: giant cycle spans ~2/3 of the code, so
@@ -199,6 +206,24 @@ session tasks #36-#39):
   collapse chains) carry no taint; expression casts unflagged (variable-operand scope). NEXT =
   step 2: de-duplicate CommonAnalyze in jfocus consuming unmediated <- only (coordinate with the
   jfocus owner thread; their suite is the gate), after the owed 3-suite green confirmation.
+  STEP 2 SHADOW MODE prepared 2026-07-19 (uncommitted in jfocus-refactor-service, owner-thread
+  convention like #36's consumer half): env gate EIDEDUP_SHADOW logs, per assignment-carrying
+  statement, (a) the ENGINE's assignment-tier view of the target (unmediated vs mediated split —
+  mediated must never couple) and (b) 'EIDEDUP syntactic' lines at every coupling site
+  (bidirectional + the three directional adds in linkAssignedValue). Divergence between the two
+  log streams is the evidence base for replacing linkAssignedValue's value-shape recursion.
+  DIRECTIONALITY is the known crux: stored ← does not distinguish method-return/identity flows
+  (directional in the rc-graph) from plain aliases (bidirectional) — the shadow data must answer
+  whether that distinction is recoverable or the replacement stays partial. VERIFIED same day
+  (clean-tree concurrent gradle is safe — up-to-date tasks write nothing): compiles; smoke on
+  TestReplaceTypeInstanceOf shows THE original falsifier correctly classified ('target ii
+  unmediated [] mediated [ii←0:o]' — the cast link is mediated-only, empty unmediated set =
+  must-not-couple; provenance works end-to-end in the consumer). NOTE for the owner thread:
+  their suite currently fails ~10 tests against maddi HEAD (splitclass output diffs, one AIOOBE
+  in TestMetricsAndExtractInterfaceComputer) — NOT from the sv-side changes (persist under
+  NOCYCLEBREAKING=1; mediated flag inert; shadow gated off) — most plausibly the kotlin-merge
+  printer changes (enum-constant listing) vs their pinned expected outputs, plus their own
+  in-flight edits (ExportedExtract, TestAddTypeSub modified in tree).
   Maddi-internal same-disease siblings unaffected and still valid: WLAM's five mirror blocks,
   iterateOverShared vs expandRepToMembers (==/.equals divergence),
   ShallowMethodLinkComputer.correspondingTypeParameters vs hiddenContentHierarchy.

@@ -220,6 +220,9 @@ public class ParameterInfoImpl implements ParameterInfo {
 
     @Override
     public PropertyValueMap analysis() {
+        if (org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.ENABLED) {
+            org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.record(this);
+        }
         return analysis;
     }
 
