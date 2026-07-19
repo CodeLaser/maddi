@@ -292,7 +292,11 @@ public class RunAnalyzer implements Runnable {
                     var report = new org.e2immu.analyzer.modification.analyzer.shadow.ShadowModificationPass()
                             .go(order);
                     LOGGER.info("SHADOWDIFF {}", report.summary());
-                    report.sortedDivergenceStrings().forEach(s -> LOGGER.info("SHADOWDIFF DIV {}", s));
+                    // cause chain appended: distinguishes direct refused-downgrades from the E2/E6
+                    // union-over-implementations conservatism (§7.2) when classifying
+                    report.divergences().stream()
+                            .sorted(java.util.Comparator.comparing(Object::toString))
+                            .forEach(d -> LOGGER.info("SHADOWDIFF DIV {} || {}", d, report.explain(d.info())));
                     // reverse = the pass missed something frozen-modified: a shadow-pass gap, must be
                     // triaged to zero before the pass can gate phase 2 (its own soundness contract)
                     report.reverseDivergences().forEach(d -> LOGGER.info("SHADOWDIFF REV {}", d));
