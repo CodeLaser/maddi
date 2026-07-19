@@ -47,6 +47,15 @@ public class EvalAnd {
 
     // we try to maintain a CNF
     public Expression eval(List<Expression> values) {
+        EvalBudget.enter();
+        try {
+            return evalGuarded(values);
+        } finally {
+            EvalBudget.exit();
+        }
+    }
+
+    private Expression evalGuarded(List<Expression> values) {
 
         // STEP 1: check that all values return boolean!
         for (Expression v : values) {
@@ -103,6 +112,10 @@ public class EvalAnd {
             boolean tooComplex = complexity >= maxAndOrComplexity;
             if (tooComplex) {
                 LOGGER.warn("Stop analysing AND operation, complexity {}", complexity);
+                break;
+            }
+            if (EvalBudget.exhausted()) {
+                LOGGER.warn("Stop analysing AND operation, evaluation budget exhausted");
                 break;
             }
 

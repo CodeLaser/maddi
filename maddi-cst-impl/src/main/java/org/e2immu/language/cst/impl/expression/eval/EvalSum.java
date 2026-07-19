@@ -33,6 +33,12 @@ public class EvalSum {
     }
 
     public Expression eval(Expression l, Expression r, boolean tryAgain) {
+        // arithmetic churn under a budgeted And/Or evaluation counts against the same budget: negating a
+        // GreaterThanZero rebuilds and re-sorts its Sum, and the boolean fixed point does this per pass
+        // (fernflower round 10c: ConstantPool.constructorLoopBodyThrows ground here for 30+ minutes)
+        if (EvalBudget.tickNested()) {
+            return new SumImpl(runtime, l, r);
+        }
         if (l.equals(r))
             return runtime.product(runtime.newInt(2), l);
 
