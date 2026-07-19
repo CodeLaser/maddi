@@ -174,3 +174,48 @@ The harness: analyze an independent parse of the original (ground truth), transf
 pipeline, print + re-parse the output, analyze that, and compare `IMMUTABLE_TYPE` / `CONTAINER_TYPE`
 / per-method `INDEPENDENT_METHOD` + `isModifying()`. Driven by the full `IteratingAnalyzerImpl`
 (`analyze(order)`), analysis hints loaded via the module's testFixtures setup.
+
+---
+
+## Adjudication (link/analyzer thread, 2026-07-19) — RESOLVED, hypothesis 1, with the exact mechanism
+
+**Correct verdict for `Point`: `@Immutable(hc=true)`. The untransformed side under-approximated —
+but on the INDEPENDENCE axis, not modification.** Probe evidence (TestLoopTransformDivergence, this
+module) on the untransformed `Point` before the fix:
+
+```
+IMMUTABLE_TYPE      = @FinalFields
+UNMODIFIED_FIELD    = true          <- the modification axis was already CORRECT
+INDEPENDENT_FIELD   = @Dependent    <- THE CAP
+field LINKS         = this.coords~0:c, this.coords[i]∈0:c
+```
+
+The constructor-loop write was never the problem (construction-phase writes are properly excluded;
+`coords` is unmodified). The defensive copy `this.coords[i] = c[i]` produced CONTENT-TIER links
+(`~`, `∈`) from the field to the constructor parameter, and `FieldAnalyzerImpl.computeIndependent`
+computed the link's dependence from the CONTAINER type (`int[]`, mutable) — but the transported
+content is `int`: a primitive VALUE copy shares nothing, aliases nothing, and carries no
+dependence. `@Dependent` was spurious; the field is `@Independent`; the type is level 2.
+
+**Fix (landed, same day):** `computeIndependent` now derives the transported-content type per link
+(the element face's type for `x[i]`-links, the element type for array `~`-links) and skips links
+whose transported content is immutable — linking stays neutral (the links are still produced; the
+flow module keeps them), the CONSUMER filters, per the house tier discipline. Pins, both
+directions, in `TestLoopTransformDivergence`:
+- `int[]` defensive copy → field `@Independent`, type `@Immutable(hc=true)` (the fix);
+- `StringBuilder[]` defensive copy → field `@Dependent`, type `@FinalFields` (the control: shared
+  MUTABLE elements are genuine dependence; the filter must not over-fire).
+
+**On hypothesis 2 (your soundness worry):** your `Bag`/`mutableStaysMutable` evidence stands, and
+the divergence itself is now explained without invoking the bridge at all. BUT one second-order
+concern remains YOURS to pin: the transformed `Point_t` reached `@ImmutableHC` partly because the
+bridge (slot array + casts) DROPS the `coords~c` link — harmless here since the link was spurious,
+but for genuinely-aliasing element types the same dropped link would hide REAL dependence. Please
+add the mutable-element preservation tripwire on your side: transform the `StringBuilder[]`
+variant (`PointM` in our pin) and assert the transformed twin is judged NO HIGHER than
+`@FinalFields`/`@Dependent`. If it promotes, the bridge under-links reference-element flow — that
+would be the unsound direction, on your side of the fence.
+
+**Action for your tripwire:** `finalFieldsWithLoopDivergence` should now FAIL (both sides converge
+on `@Immutable(hc=true)`) — replace it with `assertAnalysisPreserved(...)` as planned, and add the
+`PointM` tripwire above.
