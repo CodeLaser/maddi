@@ -37,10 +37,15 @@ decisions. Exact commands (all from ~/git/maddi, all via bin/gradle-locked.sh):
    ROLLOUT TABLE (downgrades / nulls decided / type transitions weakened+strengthened /
    reverse-kept): fernflower 793/4/14+4/0 · guava 5935/74/98+57/2 · activemq 823/58/9+13/0 ·
    jenkins 2893/1016/47+82/9 (setter-family cluster named in the log + 2 test-mock primitives;
-   triage batch for the successor). Jenkins also shows 251 analyzed-callee missing-arg-link
-   sites (top: IconSet.addIcon=82) — a real E1 gap, honestly tainted (no optimistic TRUE there).
-   Consistent picture: corrections dominate on well-decided corpora, null-deciding dominates on
-   under-decided ones; both directions are the pass being MORE decided.
+   triage batch for the successor) · camel-util 88/13/-/0 · camel-support 650/31/-/2 (both joint
+   fixpoint in 2 rounds; dumps pinned in build/). Jenkins also shows 251 analyzed-callee
+   missing-arg-link sites (top: IconSet.addIcon=82) — a real E1 gap, honestly tainted (no
+   optimistic TRUE there). Consistent picture across all six corpora: corrections dominate on
+   well-decided corpora, null-deciding dominates on under-decided ones; both directions are the
+   pass being MORE decided. ES verification (plain leg: type-null vs 23206 baseline + CONSEDGES +
+   CHECKPOINT dogfood incl. wave-boundary deltas) LAUNCHED 2026-07-19 afternoon as a background
+   run — results in build/es-checkpoint-2026-07-19 + the FPDUMP; the MODREACH ES leg is the one
+   remaining big A/B (run it only at 33c9b8fc or later — the memoization commit).
 5. Open engineering (designed, measured, not built): #35 frontier integration
    (DESIGN-incremental-v2.md + Phase A numbers: closure NO-GO, direct-edge GO); #39 step 2
    (awaits jfocus owner's EIDEDUP_SHADOW data); #42 refinement (compute 'wholly cast-mediated'
