@@ -186,7 +186,10 @@ Module organization (see org-review-2026-07-18.md for the full ranked plan):
 
 Docs/process:
 - unmodifiedField doc note in road-to-immutability 030-modification (content-only semantics).
-- Corpus FPDUMP baselines: superseded by the audit-round fixes; re-pin on next runs.
+- Corpus FPDUMP baselines: RE-PINNED 2026-07-19 04:26 post all of the day's fixes (mediation
+  provenance, #33 both fronts, fm lifetime): build/imm-{fernflower,timefold,langchain4j,
+  elasticsearch-2}-2026-07-19.txt.gz — fernflower 623,899 lines / timefold 50,464 /
+  langchain4j 53,644 / elasticsearch 239,741. Use these for all future A/Bs.
 - Suite gates must grep BUILD SUCCESSFUL (stale-XML trap, journal 2026-07-18d).
 
 ## JOURNAL
