@@ -90,7 +90,14 @@ decisions. Exact commands (all from ~/git/maddi, all via bin/gradle-locked.sh):
    CHECKPOINT dogfood incl. wave-boundary deltas) LAUNCHED 2026-07-19 afternoon as a background
    run — results in build/es-checkpoint-2026-07-19 + the FPDUMP; the MODREACH ES leg is the one
    remaining big A/B (run it only at 33c9b8fc or later — the memoization commit).
-5. Open engineering (designed, measured, not built): #35 frontier integration
+5. **NEW, HIGH PRIORITY — task #43 (link module, SOUNDNESS)**: the loop-transform bridge drops
+   element-aliasing links (Object[] slot store + downcast + FI application) — transformed
+   reference-element containers promote unsoundly (PointM tripwire, confirmed by the transform
+   thread; adjudication + ownership ruling in
+   maddi-modification-analyzer/immutability-transform-divergence.md). The jfocus pipeline analyzes
+   TRANSFORMED code, so this is live risk; interim policy = MIN of both sides' verdicts.
+   Investigation order in the task; reproduce with an in-repo mini LoopData.
+6. Open engineering (designed, measured, not built): #35 frontier integration
    (DESIGN-incremental-v2.md + Phase A numbers: closure NO-GO, direct-edge GO); #39 step 2
    (awaits jfocus owner's EIDEDUP_SHADOW data); #42 refinement (compute 'wholly cast-mediated'
    from Link.mediated() — the basic @Modified(downcast/downcastTo) annotation + decorator
