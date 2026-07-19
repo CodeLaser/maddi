@@ -7,6 +7,7 @@ import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.ObjectCreationVariable;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.analysis.Value;
@@ -27,6 +28,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+
+import static org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.EMPTY_PART_OF_CONSTRUCTION;
+import static org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION;
 
 /**
  * PLAN-modification-reachability phase 1: the shadow pass. Computes modification as one-shot
@@ -214,6 +218,38 @@ public class ShadowModificationPass {
         // E1/E2: call sites
         if (mi.methodBody() != null) {
             handleBlock(mi, mi.methodBody());
+        }
+        seedStatementLevelFieldModifications(mi);
+    }
+
+    /**
+     * Mirrors FieldAnalyzerImpl.computeUnmodified: modification of a field through a NON-this scope
+     * (local.field on a locally created/held object) never enters any method-level summary — the
+     * method's own receiver and parameters are not implicated — but the field analyzer reads it from
+     * the last statement's VariableData (UNMODIFIED_VARIABLE == FALSE) and decides
+     * UNMODIFIED_FIELD = FALSE. Same exclusions: constructors and part-of-construction methods
+     * (construction-time writes don't count), the field's own getter/setter, and only fields of this
+     * method's own primary type (the field analyzer scans just its primary type's methods).
+     */
+    private void seedStatementLevelFieldModifications(MethodInfo mi) {
+        if (mi.methodBody() == null || mi.methodBody().isEmpty()) return;
+        VariableData vd = VariableDataImpl.of(mi.methodBody().lastStatement());
+        if (vd == null) return;
+        Value.FieldValue getSet = mi.analysis().getOrDefault(PropertyImpl.GET_SET_FIELD,
+                ValueImpl.GetSetValueImpl.EMPTY);
+        for (VariableInfo vi : vd.variableInfoIterable()) {
+            if (!(vi.variable() instanceof FieldReference fr)) continue;
+            FieldInfo fieldInfo = fr.fieldInfo();
+            if (fieldInfo == getSet.field()) continue;
+            if (fieldInfo.owner().primaryType() != mi.typeInfo().primaryType()) continue;
+            Value.Bool unmodified = vi.analysis().getOrNull(VariableInfoImpl.UNMODIFIED_VARIABLE,
+                    ValueImpl.BoolImpl.class);
+            if (unmodified == null || !unmodified.isFalse()) continue;
+            if (mi.isConstructor()) continue;
+            Value.SetOfInfo poc = fieldInfo.owner().analysis().getOrDefault(PART_OF_CONSTRUCTION,
+                    EMPTY_PART_OF_CONSTRUCTION);
+            if (poc.infoSet().contains(mi)) continue;
+            seedWithOrigin(fieldInfo, mi, "statement-level unmodified FALSE on " + fr);
         }
     }
 
