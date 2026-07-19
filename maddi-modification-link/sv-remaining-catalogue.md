@@ -6,7 +6,86 @@
 > (sv-doc entry point), `linking-manual.md` (link module manual), `org-review-2026-07-18.md`
 > (module organization review + 13-point plan).
 
-## CURRENT STATE (2026-07-18)
+## CURRENT STATE (2026-07-19, end of the post-merge session — read this first after compaction)
+
+### UPDATE 2026-07-19 (phase-2 session, later same day) — at 5c880b3c
+
+- Reverse-divergence triage DONE (2beee0f9): 8 -> 0, one mechanism (statement-level field
+  modification via non-this scopes), channel mirrored in the shadow pass; clonebench re-pinned
+  {1,8,274}/{71,212}, 0 reverse.
+- Wave-boundary checkpoint fix DONE (31a6e60c): waveCompleted feed + 60s-throttled deltas at the
+  strata barriers; the cold first pass now checkpoints continuously. ES verification rerun is
+  READY TO LAUNCH in the next quiet window (unchanged command; benefits from the wave fix).
+- Phase-2 sequencing DECIDED and written as PLAN §14: incremental cutover (fixpoint unchanged ->
+  post-convergence reachability pass with overwrite authority as single writer -> consumers
+  re-derived -> certification). P2.1 trackObjectCreations GO (cost nil, 0.12% churn); P2.2a
+  chained-receiver E2 DONE (clonebench 3068->5 unprojected/0 new divergences, fernflower 2597->1,
+  +136 all union-conservatism downstream of a few hub seeds — the cutover-churn map); P2.2b
+  measured tiny (27 analyzed-callee sites of 179).
+- **P2.3 CUTOVER DONE 2026-07-19** behind Configuration.modificationViaReachability / env MODREACH
+  (implies trackObjectCreations; OFF by default, all suites green both ways). (a) writer:
+  reached=>FALSE overwrite, unreached-null=>TRUE only with constructible frontier (§10.1),
+  tainted=>honest null, existing FALSE kept, immutable-typed params/fields never downgraded;
+  single-writer via analyze()-scoped TolerantWrite freeze (trims NO_INFORMATION_IS_NON_MODIFYING
+  and FieldAnalyzer cycle-break writes for free). (b) re-derivation: clear derived immutability
+  family (9394 values on ff), continue loop to fresh terminal with modification frozen.
+  **TestDeepCaptureChain GREEN** (phase-0 acceptance, red since 2026-07-18). Fernflower A/B vs
+  track-on baseline: 793 TRUE->FALSE + 3 null->FALSE + 1 null->TRUE, 0 frontier-skipped, 0
+  reverse-kept; FPDUMP delta 156 fields + 118 methods + 18 types (14 weakened
+  @ImmutableHC->@FinalFields incl. FastFixedSetFactory = the §9.4-named suspect; 4 STRENGTHENED
+  from newly-decided nulls). P2.4 promoted-baseline invariant: under MODREACH the re-run diff
+  shows 0 reverse + divergences == immutable-guarded count (union over-reach on int/String
+  nodes the writer refuses; Report.immutableGuardedDivergences counts them). REMAINING: corpus
+  rollout (timefold/langchain4j/guava A/B + audit cross-read), metrics-thread notification
+  (deepFieldChains saturation pin flips per §8), decision on default-ON.
+- New task #42 queued by the user: DOWNCAST presentation (@Modified(downcast=...) design opinion
+  delivered; DecoratorImpl already half-implements it; @Modified lacks the element declaration).
+
+- Branch `sv-integration` at e2797cdf, tree clean, merged BOTH ways with origin/kotlin (incl. the
+  metrics thread's E7 suite + ShadowModificationPass and the kotlin thread's early-cutoff
+  worklist). All suites green on the merged base.
+- DONE this session: #33 both fronts (elasticsearch SWEEP GREEN, first ever); #34 checkpoint v1
+  incl. production gates + decode fixes (85% restore coverage); #35 Phase A measured (closure
+  NO-GO, direct-edge frontier GO, median wake-set 5); #39 engine side complete + jfocus shadow
+  slice verified end-to-end (the original falsifier correctly classified); type-null breaking
+  fix (guava 100% coverage; ES verification PENDING RERUN — the run was killed externally);
+  §9.4 cross-read executed (FastFixedSetFactory named by both evidence lines; 836 fernflower
+  divergences via the new SHADOWDIFF gate).
+- NEXT, in rough order: (1) DONE 2026-07-19 — the 8 reverse shadow divergences triaged to zero
+  (see below); (2) rerun the ES verification overnight — the wave-boundary checkpoint fix is IN
+  (AnalysisValueFeed.waveCompleted default method; SingleIterationAnalyzerImpl fires it at each
+  strata-wave barrier via a callback wired by IteratingAnalyzerImpl; CheckpointWriter batches
+  wave primaries and flushes at most once per 60s — a cold first pass now checkpoints
+  continuously instead of nothing for 3-4h; interval is a ctor param, tests use 0/MAX);
+  (3) phase-2 sequencing decision, then the reachability implementation
+  (acceptance: TestDeepCaptureChain green + promoted shadow baseline; expect TestShadowCloneBench
+  pins + deepFieldChains tripwire to fire as re-baseline signals); (4) #39 step 2 activation data
+  from the jfocus owner (EIDEDUP_SHADOW=1, their suite); (5) #35 frontier integration (their
+  worklist + consumption edges as wake relation).
+- REVERSE-DIVERGENCE TRIAGE (2026-07-19, phase 2's opening move): all 8 were ONE mechanism —
+  modification of a field through a NON-this scope (local.field on a locally created object:
+  fernflower's AnnotationContainer via collectAllAnnotations' `result`, LabelSets via
+  processStatementLabel's `sets`, Root.firstExprents via an accessor alias). That evidence never
+  enters any method-level mlv.modified() summary (the observing method's receiver/params are not
+  implicated), but FieldAnalyzerImpl.computeUnmodified reads it from the last statement's
+  VariableData (UNMODIFIED_VARIABLE == FALSE) → UNMODIFIED_FIELD = FALSE, and the record/ctor
+  parameters inherit FALSE via the field link (handleParameter). The 3 parameter REVs were pure
+  E3-downstream of the 5 field REVs. Fix: ShadowModificationPass gained a
+  seedStatementLevelFieldModifications channel mirroring the field analyzer exactly (same
+  exclusions: constructors, part-of-construction, the field's own getter/setter, same primary
+  type only). Fernflower: 0 reverse. Clonebench re-baselined {1,6,272}/{71,208} →
+  {nonModifyingMethod=1, unmodifiedField=8, unmodifiedParameter=274}/{propagated=71, seed=212},
+  still 0 reverse — the 4 new forward divergences are genuine refused-downgrades
+  (TestData.expected/.other via a local in an anonymous execute(), + 2 downstream ctor params).
+  Channels inventoried but NOT yet mirrored (would appear as new REVs if a corpus exercises
+  them; add mirrors evidence-driven): (a) modifiableThroughInheritedDefaultMethod
+  (FieldAnalyzerImpl — inherited non-overridden modifying default method + overridden accessor,
+  see notes/default-method-modification-not-propagated-to-impl-field.md); (b) closure-captured
+  ENCLOSING-method parameters: copyModificationsIntoMethod counts inClosure modification as
+  methodModified, but the shadow's seedVariable routes a captured ParameterInfo to the parameter
+  case and never seeds the method node.
+
+## PREVIOUS STATE (2026-07-18)
 
 - Branch `sv-integration`, suites green: java-openjdk, prepwork 199, link 393, analyzer 145.
 - Proving ground certified & crash-free on engine defaults (worklist ON, PARALLEL ON, hints
@@ -52,6 +131,16 @@
   corrupting mid-read — the historical low-victim-count flakes that no locking could cure. Fix:
   fm outlives the task (openFileManagers, closed in invalidateAllSources). Plus an assert that
   -XDuseUnsharedTable is HONORED (Names.table is not SharedNameTable), ScanCompilationUnits.
+- CHECKPOINT GRANULARITY GAP (from the externally killed 2026-07-19 ES verification run, ~3.5h
+  in, 0 checkpoint files): pass-boundary writes give NO protection during a cold run's FIRST
+  pass — which at monorepo scale is 3-4h+, exactly the stretch that needs protecting. Fix
+  direction: iteration 1's strata waves are natural intra-pass boundaries — emit a
+  passCompleted-style delta per completed WAVE (the barrier already guarantees the wave's
+  elements are final for that pass). The ES type-null verification (null count, distribution,
+  CONSEDGES at scale) is PENDING RERUN, schedule overnight. Process note: 'clean tree ⇒
+  concurrent gradle safe' holds only while the tree STAYS clean — post-merge/post-edit rebuilds
+  rewrote jars under the live ES JVM (accepted silently; wrong). The lock exists so this never
+  needs per-case reasoning; bypass only for genuinely read-only overlaps.
 - Elasticsearch SWEEP GREEN 2026-07-19 04:12 (5h21m, 24G, post-#33): **BUILD SUCCESSFUL, zero
   isolated types** — the sweep-green bar is MET. 239,741 elements (+9 = exactly the
   BinaryFieldMapperTests.$13.BytesCompareUnsigned members, the #33 pin type, now fully analyzed).

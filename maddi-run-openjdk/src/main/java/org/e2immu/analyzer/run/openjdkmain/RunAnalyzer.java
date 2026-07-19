@@ -250,8 +250,12 @@ public class RunAnalyzer implements Runnable {
                     .setStopWhenCycleDetectedAndNoImprovements(true) // plateau early-exit, see IteratingAnalyzerImpl
                     // SHADOWDIFF (phase-1 reachability diff, PLAN §13) needs LINKED_VARIABLES_ARGUMENTS,
                     // which only trackObjectCreations produces; note track-on shifts some verdicts
-                    // (saturation boundary, see the metrics thread's FC-chain note) — diagnostic runs only
+                    // (P2.1 measured: nil cost, 0.12% churn on fernflower)
                     .setTrackObjectCreations(System.getenv("SHADOWDIFF") != null)
+                    // MODREACH (PLAN §14 P2.3a, presence-only house convention): post-convergence
+                    // reachability pass becomes the single writer of the three modification
+                    // properties; implies trackObjectCreations
+                    .setModificationViaReachability(System.getenv("MODREACH") != null)
                     .setFaultTolerant(true) // isolate a crash on one element; report it, don't abort the whole run
                     .setWarnNearMisses(configuration.generalConfiguration().warnNearMisses())
                     .build();
@@ -292,7 +296,11 @@ public class RunAnalyzer implements Runnable {
                     var report = new org.e2immu.analyzer.modification.analyzer.shadow.ShadowModificationPass()
                             .go(order);
                     LOGGER.info("SHADOWDIFF {}", report.summary());
-                    report.sortedDivergenceStrings().forEach(s -> LOGGER.info("SHADOWDIFF DIV {}", s));
+                    // cause chain appended: distinguishes direct refused-downgrades from the E2/E6
+                    // union-over-implementations conservatism (§7.2) when classifying
+                    report.divergences().stream()
+                            .sorted(java.util.Comparator.comparing(Object::toString))
+                            .forEach(d -> LOGGER.info("SHADOWDIFF DIV {} || {}", d, report.explain(d.info())));
                     // reverse = the pass missed something frozen-modified: a shadow-pass gap, must be
                     // triaged to zero before the pass can gate phase 2 (its own soundness contract)
                     report.reverseDivergences().forEach(d -> LOGGER.info("SHADOWDIFF REV {}", d));

@@ -37,6 +37,19 @@ public interface IteratingAnalyzer {
 
         boolean trackObjectCreations();
 
+        /**
+         * PLAN-modification-reachability §14 P2.3: after the fixpoint terminates, run the one-shot
+         * modification reachability pass as the single authoritative writer of NON_MODIFYING_METHOD /
+         * UNMODIFIED_PARAMETER / UNMODIFIED_FIELD — downgrading every frozen optimistic TRUE the
+         * reachability evidence contradicts and deciding undecided nodes (TRUE only where the node's
+         * entire in-edge frontier was constructible, §10.1). The three properties are frozen against
+         * later writers from that point on (single-writer discipline). Requires
+         * {@link #trackObjectCreations()} (E1 edges read LINKED_VARIABLES_ARGUMENTS). Default off.
+         */
+        default boolean modificationViaReachability() {
+            return false;
+        }
+
         CycleBreakingStrategy cycleBreakingStrategy();
 
         /** When true (the default), verify user-written contracts against computed values after the fixed

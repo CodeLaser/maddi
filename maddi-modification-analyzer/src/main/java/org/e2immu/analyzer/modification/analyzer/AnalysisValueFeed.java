@@ -49,6 +49,16 @@ public interface AnalysisValueFeed {
      */
     void passCompleted(int iteration, boolean fullPass, Collection<Info> analyzed);
 
+    /**
+     * Emitted at each wave barrier of a strata-parallel FIRST pass (workers quiescent, coordinator
+     * thread — same safety as a pass boundary). At monorepo scale the first pass runs for hours;
+     * pass-boundary consumers see nothing during that stretch. The wave's elements have been analyzed
+     * for this pass, but later waves and the post-loop analyzers may still refine their values —
+     * treat these as provisional snapshots, superseded by the pass-boundary emission.
+     */
+    default void waveCompleted(int iteration, int wave, Collection<Info> analyzed) {
+    }
+
     void phase(Phase phase, int iteration);
 
     enum Phase {

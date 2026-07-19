@@ -69,7 +69,8 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                                     boolean guardContracts,
                                     boolean faultTolerant,
                                     boolean warnNearMisses,
-                                    NearMissPolicy nearMissPolicy) implements Configuration {
+                                    NearMissPolicy nearMissPolicy,
+                                    boolean modificationViaReachability) implements Configuration {
     }
 
     public static class ConfigurationBuilder {
@@ -79,6 +80,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         private boolean guardContracts = true;
         private boolean faultTolerant;
         private boolean warnNearMisses;
+        private boolean modificationViaReachability;
         private NearMissPolicy nearMissPolicy = NearMissPolicy.STRICT;
         private CycleBreakingStrategy cycleBreakingStrategy = CycleBreakingStrategy.NONE;
 
@@ -122,10 +124,57 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             return this;
         }
 
+        public ConfigurationBuilder setModificationViaReachability(boolean modificationViaReachability) {
+            this.modificationViaReachability = modificationViaReachability;
+            if (modificationViaReachability) this.trackObjectCreations = true; // E1 edges need it
+            return this;
+        }
+
         public Configuration build() {
             return new ConfigurationImpl(maxIterations, stopWhenCycleDetectedAndNoImprovements, cycleBreakingStrategy,
-                    trackObjectCreations, guardContracts, faultTolerant, warnNearMisses, nearMissPolicy);
+                    trackObjectCreations, guardContracts, faultTolerant, warnNearMisses, nearMissPolicy,
+                    modificationViaReachability);
         }
+    }
+
+    /**
+     * P2.3b: remove the immutability-family values DERIVED from the pre-pass optimistic modification
+     * values, so the re-derivation recomputes them from the corrected (frozen) modification verdicts.
+     * Structural values (links, part-of-construction, get/set, HCT/HCS, final-field, fluent/identity,
+     * not-null) are modification-independent and stay; the three modification properties are frozen.
+     */
+    private static int clearDerivedFamily(List<Info> analysisOrder) {
+        java.util.Set<String> keys = java.util.Set.of(
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE.key(),
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_TYPE.key(),
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_TYPE.key(),
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_FIELD.key(),
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_FIELD.key(),
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD.key(),
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD.key(),
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_PARAMETER.key(),
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_PARAMETER.key(),
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_METHOD.key(),
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_PARAMETER.key(),
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_FIELD.key());
+        int[] cleared = {0};
+        for (Info info : analysisOrder) {
+            info.analysis().removeIf(p -> {
+                boolean remove = keys.contains(p.key());
+                if (remove) cleared[0]++;
+                return remove;
+            });
+            if (info instanceof org.e2immu.language.cst.api.info.MethodInfo mi) {
+                for (org.e2immu.language.cst.api.info.ParameterInfo pi : mi.parameters()) {
+                    pi.analysis().removeIf(p -> {
+                        boolean remove = keys.contains(p.key());
+                        if (remove) cleared[0]++;
+                        return remove;
+                    });
+                }
+            }
+        }
+        return cleared[0];
     }
 
     /**
@@ -223,13 +272,24 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         // WITHOUT the full verification / cycle-breaking passes — those re-touch the untouched (carried) elements
         // and would defeat the skip. See docs/analysis-rewiring.md and IteratingAnalyzer#analyze(List,G,Set).
         boolean incremental = initialDirty != null;
+        // the freeze is JVM-wide static state from a previous analyze() under modificationViaReachability
+        // (tests run several analyses per JVM): always start unfrozen
+        TolerantWrite.unfreezeModificationProperties();
         // clear-before-recompute: elements already analysed (never to be re-cleared). Seeded with the seed itself,
         // which is fresh (INVALID) source, never carried — so the hook fires only for elements the worklist later
         // pulls in, i.e. carried types entering the dirty frontier, exactly once each, before their first analysis.
         java.util.Set<Info> everAnalyzed = incremental ? new java.util.HashSet<>(initialDirty) : java.util.Set.of();
         int iterations = 0;
+        int maxIterations = configuration.maxIterations(); // extended once by the MODREACH re-derivation
+        boolean modReachDone = false;
         SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
         this.lastRun = singleIterationAnalyzer;
+        if (valueFeed != null && singleIterationAnalyzer instanceof SingleIterationAnalyzerImpl sia) {
+            // wave-barrier feed (first pass only): intra-pass checkpoint protection for the multi-hour
+            // cold first pass; the callback runs on the coordinator thread at the wave barrier
+            sia.setWaveCompletedCallback((waveElements, wave) ->
+                    feed(f -> f.waveCompleted(1, wave, waveElements)));
+        }
         boolean cycleBreakingActive = false;
         int previousPropertiesChanged = Integer.MAX_VALUE;
         // reverse adjacency: dependersOf(Y) = { X | X depends on Y } — the elements to re-analyze when Y changes
@@ -366,22 +426,64 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                               && configuration.stopWhenCycleDetectedAndNoImprovements()
                               && System.getenv("NOPLATEAU") == null
                               && iterations >= 3 && propertiesChanged >= 0.95 * previousPropertiesChanged;
-            if (iterations == configuration.maxIterations() || done || plateau) {
+            if (iterations == maxIterations || done || plateau) {
                 LOGGER.info("Stop iterating after {} iterations, done? {}{}", iterations, done,
                         plateau ? " (plateau: " + propertiesChanged + " vs " + previousPropertiesChanged + ")" : "");
-                {
-                    var terminal = done
-                            ? org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_CERTIFIED
-                            : plateau
-                            ? org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_PLATEAU
-                            : org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_MAX_ITERATIONS;
-                    int it = iterations;
-                    feed(f -> f.phase(terminal, it));
+                if (configuration.modificationViaReachability() && !modReachDone) {
+                    // PLAN §14 P2.3: post-convergence single-writer cutover. One-shot reachability
+                    // over the converged link artifacts becomes the authority for the three
+                    // modification properties: frozen optimistic TRUEs downgrade, undecided nodes
+                    // decide (TRUE only with a constructible in-edge frontier, §10.1). Then FREEZE:
+                    // Bool's legal overwrite direction is FALSE->TRUE, so any later writer — incl.
+                    // cycle breaking's NO_INFORMATION_IS_NON_MODIFYING — could undo a downgrade.
+                    modReachDone = true;
+                    try {
+                        var pass = new org.e2immu.analyzer.modification.analyzer.shadow.ShadowModificationPass();
+                        var report = pass.go(analysisOrder);
+                        var counts = pass.writeVerdicts(analysisOrder, report);
+                        TolerantWrite.freezeModificationProperties();
+                        LOGGER.info("MODREACH {}", counts.summary());
+                        LOGGER.info("MODREACH {}", report.summary());
+                        if (counts.downgraded() + counts.decidedFalse() > 0) {
+                            // P2.3b: the immutability family was derived from the pre-pass optimistic
+                            // values; clear it and re-derive with modification frozen. Cycle breaking
+                            // re-stages at its own certification point; the terminal phase (and
+                            // certification) lands after the re-derivation converges — the §14 order.
+                            int cleared = clearDerivedFamily(analysisOrder);
+                            LOGGER.info("MODREACH cleared {} derived values; re-deriving with modification frozen",
+                                    cleared);
+                            cycleBreakingActive = false;
+                            dirty = null;
+                            verifying = false;
+                            previousPropertiesChanged = Integer.MAX_VALUE;
+                            maxIterations += configuration.maxIterations();
+                            continue;
+                        }
+                    } catch (RuntimeException | AssertionError e) {
+                        LOGGER.error("MODREACH pass failed; modification properties keep their "
+                                     + "fixpoint values (unfrozen)", e);
+                    }
                 }
-                logVerdictFingerprint(analysisOrder);
-                if (configuration.guardContracts() || configuration.warnNearMisses()) {
-                    // values are final now: verify user-written contracts, and/or warn on near-misses
-                    new GuardAnalyzerImpl(javaInspector.runtime(), configuration, guardMessages).go(analysisOrder);
+                try {
+                    {
+                        var terminal = done
+                                ? org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_CERTIFIED
+                                : plateau
+                                ? org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_PLATEAU
+                                : org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_MAX_ITERATIONS;
+                        int it = iterations;
+                        feed(f -> f.phase(terminal, it));
+                    }
+                    logVerdictFingerprint(analysisOrder);
+                    if (configuration.guardContracts() || configuration.warnNearMisses()) {
+                        // values are final now: verify user-written contracts, and/or warn on near-misses
+                        new GuardAnalyzerImpl(javaInspector.runtime(), configuration, guardMessages).go(analysisOrder);
+                    }
+                } finally {
+                    // the MODREACH freeze is analyze()-scoped: the values are final once we return, and the
+                    // static must not leak into other analyzer instances in this JVM (tests drive
+                    // SingleIterationAnalyzerImpl directly and never pass through analyze())
+                    TolerantWrite.unfreezeModificationProperties();
                 }
                 return;
             }
