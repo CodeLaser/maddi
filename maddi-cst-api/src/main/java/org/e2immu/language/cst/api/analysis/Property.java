@@ -22,7 +22,7 @@ public interface Property {
     String key();
 
     /**
-     * Whether this property's value survives a rewire (see {@code rewiring.md}).
+     * Whether this property's value survives a rewire (see {@code docs/rewiring.md}).
      * <p>
      * A rewired type is one whose own source did not change, but which reaches a type that did — so anything
      * <em>derived across types</em> (links, immutability, independence) was computed against source that no longer
@@ -39,5 +39,33 @@ public interface Property {
      */
     default boolean carryOnRewire() {
         return false;
+    }
+
+    /**
+     * Which stage produces this property's value — the classification the incremental early-cutoff skip is built on
+     * (see {@code docs/analysis-rewiring.md}). Three tiers, by <em>who recomputes the value on a reload</em>:
+     * <ul>
+     *   <li>{@link AnalysisTier#PARSE_TIME} — written when the source is parsed. A rewired type is never re-parsed,
+     *       so the value is carried by the rewire phase or lost. Equivalent to {@link #carryOnRewire()}.</li>
+     *   <li>{@link AnalysisTier#INTRINSIC} — derived from the type's <em>own body</em> by prepwork
+     *       ({@code VARIABLE_DATA}, {@code PART_OF_CONSTRUCTION}, {@code FINAL_FIELD}, …). Prepwork re-derives it on
+     *       every run, so it is <em>recomputed, never carried</em>: carrying it onto a type that prep then re-visits
+     *       would double-set.</li>
+     *   <li>{@link AnalysisTier#CROSS_TYPE_DERIVED} — derived <em>across types</em> by the link computer and
+     *       modification analyzer ({@code IMMUTABLE_*}, {@code INDEPENDENT_*}, {@code LINKS}, {@code METHOD_LINKS},
+     *       {@code IMPLEMENTATIONS}, …). The expensive tier a reload exists to avoid; the early-cutoff skip
+     *       <em>carries</em> these onto a fingerprint-stable rewired type instead of recomputing them.</li>
+     * </ul>
+     * The default classifies by {@link #carryOnRewire()} (parse-time when true, cross-type-derived otherwise);
+     * the intrinsic-tier properties declare {@code INTRINSIC} explicitly.
+     */
+    default AnalysisTier analysisTier() {
+        return carryOnRewire() ? AnalysisTier.PARSE_TIME : AnalysisTier.CROSS_TYPE_DERIVED;
+    }
+
+    enum AnalysisTier {
+        PARSE_TIME,
+        INTRINSIC,
+        CROSS_TYPE_DERIVED
     }
 }

@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * KotlinScan via {@code FactoryImpl.setGetSetField}); a REWIRE'd type is never re-parsed, so unless the value is
  * carried across the rewire it is lost. This pins that {@code MethodInfoImpl.rewirePhase3} now carries the opted-in
  * analysis, and that {@code GetSetValueImpl.rewire} re-points the field through the {@code InfoMap}. See
- * {@code rewiring.md} / {@code analysis-rewiring.md}.
+ * {@code docs/rewiring.md} / {@code docs/analysis-rewiring.md}.
  */
 public class TestGetSetFieldRewire extends CommonTest {
 

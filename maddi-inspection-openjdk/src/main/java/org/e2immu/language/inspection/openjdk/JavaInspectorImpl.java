@@ -77,6 +77,12 @@ public class JavaInspectorImpl implements JavaInspector {
     // the most recent scan's units, retained so its still-live javac task can resolve+load a compiled type by
     // FQN on demand (the CompiledTypesManager's lazy getOrLoad path). Single-threaded, like all javac use here.
     private ScanCompilationUnits lastScanUnits;
+    // Each JavacTask's StandardJavaFileManager, kept OPEN for as long as its task can be driven (parse/analyze
+    // after createTask returns, lazy getOrLoad long after). Closing it earlier is use-after-close: javac mostly
+    // self-heals (closed containers are lazily re-created) but intermittently corrupts mid-read — the historical
+    // low-count "tree.starImportScope is null" flakes that no concurrency fix could cure. Closed in
+    // invalidateAllSources(), when every retained task is dropped.
+    private final List<StandardJavaFileManager> openFileManagers = new ArrayList<>();
     private boolean parameterNames;
     private ParameterNameIndex parameterNameIndex; // lazily loaded when parameterNames is on
     private boolean jdkInternals; // "we're working with JDK internals": load jdk.internal.* types + open javac
@@ -106,6 +112,16 @@ public class JavaInspectorImpl implements JavaInspector {
     @Override
     public void invalidateAllSources() {
         infoByFqn.removeAllSources();
+        // all retained javac tasks are now unreachable through this inspector; their file managers can close
+        for (StandardJavaFileManager fm : openFileManagers) {
+            try {
+                fm.close();
+            } catch (IOException e) {
+                LOGGER.debug("Ignoring exception closing a javac file manager: {}", e.toString());
+            }
+        }
+        openFileManagers.clear();
+        lastScanUnits = null;
     }
 
     @Override
@@ -640,7 +656,11 @@ public class JavaInspectorImpl implements JavaInspector {
             }
         }
 
-        try (StandardJavaFileManager fm = javaCompiler.getStandardFileManager(diagnostics, null, null)) {
+        // NOT try-with-resources: the returned JavacTask holds this manager and is driven long after this
+        // method returns (parse/analyze in scan(), lazy getOrLoad far later). See openFileManagers.
+        StandardJavaFileManager fm = javaCompiler.getStandardFileManager(diagnostics, null, null);
+        openFileManagers.add(fm);
+        {
             Iterable<? extends JavaFileObject> allCompilationUnits = computeCompilationUnits(sourceSet, ignoreModule,
                     sources, sourcesByClassName, fm);
             boolean hasModuleInfo = false;
@@ -729,11 +749,27 @@ public class JavaInspectorImpl implements JavaInspector {
                 // No Lombok on the classpath: disable all annotation processing (faster, avoids surprises).
                 options.add("-proc:none");
             }
+            // Platform (java.*) types come from the JDK running the analyzer by default: --release is derived from
+            // the runtime feature version (Runtime.version().feature()), so a new JDK (27, ...) needs no code change
+            // here, and --enable-preview stays valid (it requires --release to equal the running version). When an
+            // alternative JRE is configured (InputConfiguration.alternativeJREDirectory / the --jre option), point
+            // javac's system modules at that JDK with --system instead, so types removed in a newer JDK (e.g.
+            // java.applet.Applet, gone in JDK 26) remain resolvable. --system replaces --release; --enable-preview
+            // does not apply to a fixed older platform image.
+            Path altJre = inputConfiguration == null ? null : inputConfiguration.alternativeJREDirectory();
             if (jdkInternals) {
+                if (altJre != null) {
+                    LOGGER.warn("Ignoring alternative JRE {} while compiling {} against JDK internals: internals are" +
+                                " opened on the running JDK.", altJre, sourceSet.name());
+                }
                 options.addAll(jdkInternalsJavacOptions(sourceSet));
+            } else if (altJre != null) {
+                options.add("--system");
+                options.add(altJre.toString());
             } else {
                 options.add("--enable-preview");
-                options.add("--release=26");
+                // java.lang.Runtime: the maddi CST 'Runtime' is imported in this file and would shadow it
+                options.add("--release=" + java.lang.Runtime.version().feature());
             }
             return (JavacTask) javaCompiler.getTask(null, fm, diagnostics, options, null, allCompilationUnits);
         }

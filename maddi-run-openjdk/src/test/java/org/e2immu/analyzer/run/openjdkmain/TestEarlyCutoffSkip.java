@@ -66,7 +66,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * analysis order fed to the analyzer contains {@code Base}'s members and not {@code User}'s.
  * <p>
  * Prep runs on the INVALID set only, so it never touches the carried REWIRE types (no double-set); this is why the
- * demonstration does not yet need the per-Property tier flag (see {@code analysis-rewiring.md}).
+ * demonstration does not yet need the per-Property tier flag (see {@code docs/analysis-rewiring.md}).
  */
 public class TestEarlyCutoffSkip {
 
@@ -91,9 +91,9 @@ public class TestEarlyCutoffSkip {
             }
             """;
 
-    // the derived (cross-type) tier: analyzer output minus the carryOnRewire tier the rewire phase already carried.
-    private static final Predicate<Property> DERIVED_OUTPUT =
-            p -> AnalysisFingerprint.ANALYZER_OUTPUT_ONLY.test(p) && !p.carryOnRewire();
+    // the derived (cross-type) tier: exactly Property.AnalysisTier.CROSS_TYPE_DERIVED -- analyzer output minus both
+    // the parse-time tier (rewire-carried) and the intrinsic tier (prepwork-recomputed).
+    private static final Predicate<Property> DERIVED_OUTPUT = AnalysisFingerprint.CROSS_TYPE_DERIVED_ONLY;
 
     @TempDir
     Path root;

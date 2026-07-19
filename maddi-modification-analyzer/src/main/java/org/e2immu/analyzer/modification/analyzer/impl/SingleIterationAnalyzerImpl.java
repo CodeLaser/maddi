@@ -282,6 +282,8 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                                 Set<TypeInfo> abstractTypes) {
         if (faultTolerant && failed.contains(info)) return; // an earlier iteration already crashed on this one
         int changesBefore = propertiesChanged.get();
+        // task #35 Phase A: attribute all analysis() touches during this element to it (CONSEDGES gate)
+        org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.setCurrent(info);
         try {
             if (info instanceof MethodInfo methodInfo) {
                 if (firstIteration && methodInfo.isAbstract() && abstractTypes.add(info.typeInfo())) {
@@ -309,8 +311,17 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
             LOGGER.error("Caught exception processing {}", info, e);
             if (!faultTolerant) throw e;
             failed.add(info);
+            // degradation marker (task #36): consumers relying on per-call data must go pessimistic here
+            if (info instanceof org.e2immu.language.cst.api.info.MethodInfo mi) {
+                if (!mi.analysis().haveAnalyzedValueFor(
+                        org.e2immu.language.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD)) {
+                    mi.analysis().set(org.e2immu.language.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD,
+                            org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+                }
+            }
             messages.add(crashFinding(info, e));
         } finally {
+            org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.clearCurrent();
             // under PARALLEL the delta can over-attribute (another thread's change lands in the window);
             // a superset of changed elements is safe for the worklist
             if (propertiesChanged.get() > changesBefore) changedInfos.add(info);

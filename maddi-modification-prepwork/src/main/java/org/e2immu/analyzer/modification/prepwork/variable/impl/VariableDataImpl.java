@@ -17,6 +17,7 @@ package org.e2immu.analyzer.modification.prepwork.variable.impl;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfoContainer;
 import org.e2immu.language.cst.api.analysis.Codec;
+import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.InfoMapView;
@@ -31,8 +32,9 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 public class VariableDataImpl implements VariableData {
+    // INTRINSIC: prepwork rebuilds the per-variable/per-statement data from the method body on every run.
     public static final PropertyImpl VARIABLE_DATA = new PropertyImpl("variableData",
-            new VariableDataImpl(new LinkedHashMap<>()));
+            new VariableDataImpl(new LinkedHashMap<>()), Property.AnalysisTier.INTRINSIC);
 
     public static class Builder implements VariableData {
         // we employ a linkedHashMap to keep the order of creation, with this first, then fields, then parameters,
@@ -102,7 +104,7 @@ public class VariableDataImpl implements VariableData {
     The map keys are fully qualified names and survive, but every VariableInfoContainer underneath holds Variable
     objects (and its own analysis), so a rewire has to descend into all of them. This is the one value worth
     carrying across a rewire -- it is computed from the type's own body, which a REWIRE type by definition did not
-    change -- so this is the place to start when that is taken on. See rewiring.md.
+    change -- so this is the place to start when that is taken on. See docs/rewiring.md.
      */
     @Override
     public Value rewire(InfoMapView infoMap) {

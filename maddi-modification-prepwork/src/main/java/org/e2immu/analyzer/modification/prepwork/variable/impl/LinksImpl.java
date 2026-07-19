@@ -95,17 +95,30 @@ public class LinksImpl implements Links {
     }
 
     private Codec.EncodedValue encodeLink(Codec codec, Codec.Context context, Link link) {
-        // natures are encoded by symbol only. A pass-carrying ≡ variant (☷, e.g. Iterator.remove-style
-        // annotations) loses its method set and its symbol is not decodable — fail HERE, at the cause,
-        // rather than with a delayed "Unknown symbol ☷" on decode. Full pass-set encoding is an open item
-        // (org-review 2026-07-18, item 5).
-        assert link.linkNature().pass() == null || link.linkNature().pass().isEmpty()
-                : "pass-carrying link nature cannot be persisted yet: " + link;
-        return codec.encodeList(context, List.of(
+        // a plain nature encodes as its symbol string; the pass-carrying ≡ variant (☷, e.g.
+        // Iterator.remove-style annotations) additionally carries its method set, so it encodes as a list
+        // [symbol, methodInfo...] — the decoder branches on isList. Deterministic order for stable output.
+        Codec.EncodedValue natureEv;
+        java.util.Set<org.e2immu.language.cst.api.info.MethodInfo> pass = link.linkNature().pass();
+        if (pass == null || pass.isEmpty()) {
+            natureEv = codec.encodeString(context, link.linkNature().toString());
+        } else {
+            List<Codec.EncodedValue> natureList = new java.util.ArrayList<>();
+            natureList.add(codec.encodeString(context, link.linkNature().toString()));
+            pass.stream()
+                    .sorted(java.util.Comparator.comparing(
+                            org.e2immu.language.cst.api.info.MethodInfo::fullyQualifiedName))
+                    .forEach(mi -> natureList.add(codec.encodeMethodInfo(context, mi)));
+            natureEv = codec.encodeList(context, natureList);
+        }
+        List<Codec.EncodedValue> parts = new java.util.ArrayList<>(List.of(
                 codec.encodeVariable(context, link.from()),
-                codec.encodeString(context, link.linkNature().toString()),
+                natureEv,
                 codec.encodeVariable(context, link.to())
         ));
+        // mediation provenance (task #39): appended only when set, so unmediated output stays byte-identical
+        if (link.mediated()) parts.add(codec.encodeBoolean(context, true));
+        return codec.encodeList(context, parts);
     }
 
     @Override
@@ -217,8 +230,13 @@ public class LinksImpl implements Links {
 
         @Override
         public Builder add(LinkNature linkNature, Variable to) {
+            return add(linkNature, to, false);
+        }
+
+        /** mediated=true: the link was produced through a cast / pattern binding (see Link.mediated()) */
+        public Builder add(LinkNature linkNature, Variable to, boolean mediated) {
             if (!representable(primary, to)) return this;
-            LinkImpl link = new LinkImpl(primary, linkNature, to);
+            LinkImpl link = new LinkImpl(primary, linkNature, to, mediated);
             links.add(link);
             addToIndexes(link);
             return this;
@@ -226,9 +244,14 @@ public class LinksImpl implements Links {
 
         @Override
         public Builder add(Variable from, LinkNature linkNature, Variable to) {
+            return add(from, linkNature, to, false);
+        }
+
+        @Override
+        public Builder add(Variable from, LinkNature linkNature, Variable to, boolean mediated) {
             assert primary instanceof This || Util.isPartOf(primary, from);
             if (!representable(from, to)) return this;
-            LinkImpl link = new LinkImpl(from, linkNature, to);
+            LinkImpl link = new LinkImpl(from, linkNature, to, mediated);
             links.add(link);
             addToIndexes(link);
             return this;
@@ -326,7 +349,11 @@ public class LinksImpl implements Links {
     }
 
     // private so that we can ensure that only the links builder can make link objects
-    public record LinkImpl(Variable from, LinkNature linkNature, Variable to) implements Link {
+    public record LinkImpl(Variable from, LinkNature linkNature, Variable to, boolean mediated) implements Link {
+
+        public LinkImpl(Variable from, LinkNature linkNature, Variable to) {
+            this(from, linkNature, to, false);
+        }
 
         public LinkImpl {
             assert from != null;
@@ -379,13 +406,13 @@ public class LinksImpl implements Links {
         public Link translate(TranslationMap translationMap) {
             Variable tFrom = translationMap.translateVariableRecursively(from);
             Variable tTo = translationMap.translateVariableRecursively(to);
-            return new LinkImpl(tFrom, linkNature, tTo);
+            return new LinkImpl(tFrom, linkNature, tTo, mediated);
         }
 
         @Override
         public Link translateFrom(TranslationMap translationMap) {
             Variable tFrom = translationMap.translateVariableRecursively(from);
-            return new LinkImpl(tFrom, linkNature, to);
+            return new LinkImpl(tFrom, linkNature, to, mediated);
         }
 
         @Override
@@ -501,7 +528,7 @@ public class LinksImpl implements Links {
     /*
     Holds the primary Variable and a Link per entry, each with a from and a to Variable, so a rewire has to map all
     of them. Links are derived across types, so a REWIRE type's links are stale by construction and should be
-    recomputed rather than carried; hence not implemented. See rewiring.md.
+    recomputed rather than carried; hence not implemented. See docs/rewiring.md.
      */
     @Override
     public Value rewire(InfoMapView infoMap) {

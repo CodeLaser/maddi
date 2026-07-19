@@ -108,7 +108,12 @@ immutability verdicts are derived.
 - **Cycle breaking**: at the certification point, if immutability-undecided types remain, one more full
   pass runs with undecided inputs resolved by strategy (undecided supertype floored at FINAL_FIELDS;
   no-information treated as non-modifying), then re-certifies. Conclusions that rest on broken cycles
-  are capped at hc-level (2), never granted hc-free (3).
+  are capped at hc-level (2), never granted hc-free (3). Since 2026-07-19 the breaking pass also
+  resolves the field/abstract-method path: a verdict that will never arrive (a field's unmodified
+  status, a NON-PRIVATE field's type immutability, an abstract method's modification — each rooted in
+  external unannotated types, and transitively CASCADING through field types) is pessimistic, and the
+  type concludes FINAL_FIELDS instead of staying undecided. This eliminated the "type-null clusters"
+  (51% of elasticsearch's 45k types; 100% coverage on guava after).
 - **Analysis hints** (annotated APIs): curated JDK properties (String=@Immutable, Object=@ImmutableHC,
   collections mutable, functional interfaces with link summaries), loaded AFTER parse via
   `--preload-analysis-results-dirs`, pre-seeding the property store. Without them the positive

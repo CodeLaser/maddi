@@ -20,7 +20,7 @@ import java.util.Set;
  * The read-only lookup facet of a completed rewire (see {@link InfoMap}, which extends it). Every {@code rewire(...)}
  * method takes an {@code InfoMapView}, so a completed {@code InfoMap} can be handed out — e.g. from the reload — to
  * re-point references without also exposing the {@link InfoMap#put} / {@link InfoMap#rewireAll} mutators. Its lookups
- * are pure and stable after {@link InfoMap#rewireAll()}. See {@code analysis-rewiring.md}.
+ * are pure and stable after {@link InfoMap#rewireAll()}. See {@code docs/analysis-rewiring.md}.
  */
 public interface InfoMapView {
 

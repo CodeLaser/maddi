@@ -211,7 +211,9 @@ public class ComputeCallGraph {
                 if (accept(override.typeInfo())) builder.mergeEdge(mi, override, CODE_STRUCTURE);
             }
             Visitor visitor = new Visitor(mi);
-            mi.methodBody().visit(visitor); // D
+            // a half-built method (dual-identity family, task #33: forward-created member of an anonymous
+            // class) can arrive without a body; skip rather than NPE — the type will be isolated downstream
+            if (mi.methodBody() != null) mi.methodBody().visit(visitor); // D
         });
         typeInfo.fields().forEach(fi -> {
             doJavadoc(fi);

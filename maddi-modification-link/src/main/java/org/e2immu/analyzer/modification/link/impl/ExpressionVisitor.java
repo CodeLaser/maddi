@@ -191,7 +191,8 @@ public record ExpressionVisitor(Runtime runtime,
                 if (instanceOf.patternVariable().localVariable() != null) {
                     LocalVariable lv = instanceOf.patternVariable().localVariable();
                     if (!lv.isUnnamed()) {
-                        linksBuilder.add(LinkNatureImpl.IS_ASSIGNED_TO, lv);
+                        // MEDIATED: the pattern binding re-mediates the declared type (task #39)
+                        ((LinksImpl.Builder) linksBuilder).add(LinkNatureImpl.IS_ASSIGNED_TO, lv, true);
                         // 'o instanceof Set set' where o is itself a bound deconstruction component: the cast
                         // alias is the same object, hence a component of o's containers too
                         sourceMethodComputer.followGraph.graph().markPatternBindingAlias(ve.variable(), lv);
@@ -459,7 +460,10 @@ public record ExpressionVisitor(Runtime runtime,
         Result rTarget = visit(a.target(), variableData, stage);
         Links.Builder builder = new LinksImpl.Builder(((VariableExpression) rTarget.getEvaluated()).variable());
         if (rValue.links() != null && rValue.links().primary() != null) {
-            builder.add(LinkNatureImpl.IS_ASSIGNED_FROM, rValue.links().primary());
+            // cast-mediated assignment 'x = (II) o' (task #39): the cast is link-transparent, so the
+            // mediation provenance is recovered from the casts side-record of the value's evaluation
+            boolean mediated = rValue.casts().containsKey(rValue.links().primary());
+            ((LinksImpl.Builder) builder).add(LinkNatureImpl.IS_ASSIGNED_FROM, rValue.links().primary(), mediated);
         }
         Result result = new Result(builder.build(), LinkedVariablesImpl.EMPTY);
         result.addErase(a.variableTarget());

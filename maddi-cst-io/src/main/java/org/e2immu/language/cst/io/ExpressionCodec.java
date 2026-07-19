@@ -46,6 +46,7 @@ public class ExpressionCodec {
         map.put(Cast.NAME, new CastCodec());
         map.put(BooleanConstant.NAME, new BooleanConstantCodec());
         map.put(IntConstant.NAME, new IntConstantCodec());
+        map.put(org.e2immu.language.cst.api.expression.TypeExpression.NAME, new TypeExpressionCodec());
     }
 
     private interface ECodec {
@@ -191,6 +192,29 @@ public class ExpressionCodec {
         public Expression decode(List<Codec.EncodedValue> list) {
             String source = codec.decodeString(context, list.get(1));
             return runtime.newNullConstant(List.of(), runtime.parseSourceFromCompact2(source));
+        }
+    }
+
+    // a type used as an expression (e.g. in a marker variable's assignment expression); surfaced by
+    // the fernflower results-write after the 2026-07-19 merge
+    class TypeExpressionCodec implements ECodec {
+
+        @Override
+        public List<Codec.EncodedValue> encode(Expression e) {
+            org.e2immu.language.cst.api.expression.TypeExpression te =
+                    (org.e2immu.language.cst.api.expression.TypeExpression) e;
+            return List.of(codec.encodeType(context, te.parameterizedType()));
+        }
+
+        @Override
+        public Expression decode(List<Codec.EncodedValue> list) {
+            String source = codec.decodeString(context, list.get(1));
+            ParameterizedType type = codec.decodeType(context, list.get(2));
+            return runtime.newTypeExpressionBuilder()
+                    .setSource(runtime.parseSourceFromCompact2(source))
+                    .setParameterizedType(type)
+                    .setDiamond(runtime.diamondNo())
+                    .build();
         }
     }
 

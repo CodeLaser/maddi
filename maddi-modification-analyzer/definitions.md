@@ -8,7 +8,7 @@ the code.
   (except where noted in [Wrinkles in the source document](#wrinkles-in-the-source-document), where the code wins).
 - Section references like §050 are to the AsciiDoc file with that numeric prefix.
 - Written for the guard work (`GuardAnalyzerImpl`), which verifies user-written contracts against computed values, so
-  it leans on precisely those definitions. See `guard-mode-analysis.md` at the repository root.
+  it leans on precisely those definitions. See `docs/guard-mode-analysis.md`.
 
 ## The chain of definitions
 

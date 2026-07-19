@@ -1255,8 +1255,20 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     private static Symbol.ClassSymbol primary(Symbol.ClassSymbol csIn) {
         Symbol.ClassSymbol cs = csIn;
-        while (cs.owner instanceof Symbol.ClassSymbol owner) {
-            cs = owner;
+        Symbol owner = cs.owner;
+        while (owner != null) {
+            if (owner instanceof Symbol.ClassSymbol ownerCs) {
+                cs = ownerCs;
+                owner = cs.owner;
+            } else if (owner instanceof Symbol.MethodSymbol || owner instanceof Symbol.VarSymbol) {
+                // a local or anonymous class is owned by a METHOD (or a field initializer), not a class;
+                // hop over it, else the walk stops at the anonymous symbol and isSourceSymbol wrongly
+                // reports false for its members — the class-file path then double-loads their
+                // interfaces/annotations on top of the source scan (task #33)
+                owner = owner.owner;
+            } else {
+                break; // package or module: cs is the primary
+            }
         }
         return cs;
     }

@@ -142,12 +142,22 @@ public interface Codec {
         }
 
         public int fieldIndex(FieldInfo fieldInfo) {
+            int i = fieldIndexOrNegative(fieldInfo);
+            if (i < 0) throw new UnsupportedOperationException();
+            return i;
+        }
+
+        /** Like {@link #fieldIndex}, but returns -1 rather than throwing when the field is not among the type's own
+         *  fields. A <em>detached</em> field — a virtual field ({@code §…}) the link engine created to stand in for a
+         *  shallow/JDK type's hidden content, or a field whose owner was rewritten — has no index; the caller then
+         *  encodes it by name. See {@code maddi-modification-link/.../vf/virtual-fields.md}. */
+        public int fieldIndexOrNegative(FieldInfo fieldInfo) {
             int i = 0;
             for (FieldInfo fi : sortedFields) {
                 if (fi == fieldInfo) return i;
                 ++i;
             }
-            throw new UnsupportedOperationException();
+            return -1;
         }
 
         public int subTypeIndex(TypeInfo typeInfo) {

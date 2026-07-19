@@ -25,7 +25,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 /**
- * The early-cutoff orchestration (analysis-rewiring.md): the "red-green" worklist that decides the minimal set of
+ * The early-cutoff orchestration (docs/analysis-rewiring.md): the "red-green" worklist that decides the minimal set of
  * types to recompute after an edit, and cuts off propagation where a recomputed type's <em>output</em> is unchanged.
  * <p>
  * Seed the worklist with the types whose source changed (the {@code INVALID} set). Recompute a type, hash its output

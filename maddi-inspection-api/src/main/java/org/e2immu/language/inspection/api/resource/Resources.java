@@ -67,6 +67,14 @@ public interface Resources {
 
     int addJmod(SourceFile jmodSourceFile) throws IOException;
 
+    /**
+     * Index a JDK module's classes from the runtime image (the {@code jrt} filesystem, backed by {@code lib/modules})
+     * rather than from a {@code .jmod} file, so the analyzer runs on JDKs that ship no {@code jmods/} directory
+     * (e.g. Eclipse Temurin). Only the running JDK's image is supported; {@code moduleSourceFile.path()} is the
+     * module name.
+     */
+    int addModuleFromRuntimeImage(SourceFile moduleSourceFile) throws IOException;
+
     SourceFile fqnToPath(String fqn, String s);
 
     byte[] loadBytes(URI uri);
