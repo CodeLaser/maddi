@@ -28,8 +28,19 @@ decisions. Exact commands (all from ~/git/maddi, all via bin/gradle-locked.sh):
    metrics thread then executes their §16 checklist (delete deepFieldChains saturation pin —
    deepFieldChainsModReach is the replacement; rewrite TestShadowCloneBench to
    IteratingAnalyzerImpl + assert divergences==immutableGuarded && reverse==0).
-4. **P2.5** is IMPLEMENTED (bounded 3-round pass<->re-derivation joint fixpoint; jenkins run =
-   first corpus validation — check "MODREACH joint fixpoint after N round(s)" in the log).
+4. **P2.5** is IMPLEMENTED AND VALIDATED (jenkins: round 1 = 2893 downgrades + 1016 decided,
+   round 2 = exactly the 2 drift downgrades, round 3 = 0 => joint fixpoint; final invariant
+   holds — 1001 divergences all immutable-guarded; 79 REV all frozen-FALSE conservative keeps).
+   NOTE the receiverChain memoization (33c9b8fc) is LOAD-BEARING: without it the chained-receiver
+   projection is exponential in expression nesting (jenkins hung >50 min, jstack-confirmed) —
+   any big-corpus MODREACH run needs that commit.
+   ROLLOUT TABLE (downgrades / nulls decided / type transitions weakened+strengthened /
+   reverse-kept): fernflower 793/4/14+4/0 · guava 5935/74/98+57/2 · activemq 823/58/9+13/0 ·
+   jenkins 2893/1016/47+82/9 (setter-family cluster named in the log + 2 test-mock primitives;
+   triage batch for the successor). Jenkins also shows 251 analyzed-callee missing-arg-link
+   sites (top: IconSet.addIcon=82) — a real E1 gap, honestly tainted (no optimistic TRUE there).
+   Consistent picture: corrections dominate on well-decided corpora, null-deciding dominates on
+   under-decided ones; both directions are the pass being MORE decided.
 5. Open engineering (designed, measured, not built): #35 frontier integration
    (DESIGN-incremental-v2.md + Phase A numbers: closure NO-GO, direct-edge GO); #39 step 2
    (awaits jfocus owner's EIDEDUP_SHADOW data); #42 refinement (compute 'wholly cast-mediated'
