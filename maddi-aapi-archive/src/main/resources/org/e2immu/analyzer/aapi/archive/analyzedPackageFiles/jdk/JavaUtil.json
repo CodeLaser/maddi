@@ -164,8 +164,8 @@
  {"name": "Melement(8)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
  {"name": "MforEach(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"ignoreModsParameter":1,"independentParameter":2,"notNullParameter":1}}},
- {"name": "MgetFirst(10)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
- {"name": "MgetLast(11)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
+ {"name": "MgetFirst(10)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
+ {"name": "MgetLast(11)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "MisEmpty(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
  {"name": "Miterator(13)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{"-13":3}],"nonModifyingMethod":1,"notNullMethod":1}},
  {"name": "Moffer(14)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
@@ -1562,8 +1562,8 @@
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MdescendingIterator(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1}},
  {"name": "Melement(6)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
- {"name": "MgetFirst(7)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
- {"name": "MgetLast(8)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
+ {"name": "MgetFirst(7)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
+ {"name": "MgetLast(8)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "Miterator(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{"-13":3}],"nonModifyingMethod":1,"notNullMethod":1}},
  {"name": "Moffer(10)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
@@ -1947,8 +1947,8 @@
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MaddLast(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "MgetFirst(2)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
- {"name": "MgetLast(3)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
+ {"name": "MgetFirst(2)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
+ {"name": "MgetLast(3)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "MnewLinkedHashSet(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
  {"name": "MremoveFirst(5)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
@@ -2204,24 +2204,24 @@
   {"name": "MsetVariant(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
  {"name": "SCategory(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "FDISPLAY(0)", "data":{"annotatedApi":1,"finalField":1}},
-  {"name": "FFORMAT(1)", "data":{"annotatedApi":1,"finalField":1}},
+  {"name": "FDISPLAY(0)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FFORMAT(1)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
   {"name": "MvalueOf(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "Mvalues(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1}}]},
  {"name": "SFilteringMode(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "FAUTOSELECT_FILTERING(0)", "data":{"annotatedApi":1,"finalField":1}},
-  {"name": "FEXTENDED_FILTERING(1)", "data":{"annotatedApi":1,"finalField":1}},
-  {"name": "FIGNORE_EXTENDED_RANGES(2)", "data":{"annotatedApi":1,"finalField":1}},
-  {"name": "FMAP_EXTENDED_RANGES(3)", "data":{"annotatedApi":1,"finalField":1}},
-  {"name": "FREJECT_EXTENDED_RANGES(4)", "data":{"annotatedApi":1,"finalField":1}},
+  {"name": "FAUTOSELECT_FILTERING(0)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FEXTENDED_FILTERING(1)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FIGNORE_EXTENDED_RANGES(2)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FMAP_EXTENDED_RANGES(3)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FREJECT_EXTENDED_RANGES(4)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
   {"name": "MvalueOf(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "Mvalues(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1}}]},
  {"name": "SIsoCountryCode(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "FPART1_ALPHA2(0)", "data":{"annotatedApi":1,"finalField":1}},
-  {"name": "FPART1_ALPHA3(1)", "data":{"annotatedApi":1,"finalField":1}},
-  {"name": "FPART3(2)", "data":{"annotatedApi":1,"finalField":1}},
+  {"name": "FPART1_ALPHA2(0)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FPART1_ALPHA3(1)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FPART3(2)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
   {"name": "MvalueOf(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "Mvalues(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1}}]},
@@ -3022,8 +3022,8 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MaddLast(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "MgetFirst(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
- {"name": "MgetLast(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
+ {"name": "MgetFirst(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
+ {"name": "MgetLast(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "MremoveFirst(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
  {"name": "MremoveLast(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
  {"name": "Mreversed(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}}]},
@@ -3173,8 +3173,8 @@
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mcomparator(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
  {"name": "Mfirst(3)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
- {"name": "MgetFirst(4)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
- {"name": "MgetLast(5)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
+ {"name": "MgetFirst(4)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
+ {"name": "MgetLast(5)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "MheadSet(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mlast(7)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
