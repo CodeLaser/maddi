@@ -49,6 +49,11 @@ public record MethodPrinterImpl(TypeInfo typeInfo, MethodInfo methodInfo, boolea
             result.add(methodInfo.methodBody().print(bodyQualification));
             return result;
         }
+        if (methodInfo.isInstanceInitializer()) {
+            // an instance initializer is a bare block; the internal "<init_n>" name must never be printed
+            Qualification bodyQualification = makeBodyQualification(qualification);
+            return new OutputBuilderImpl().add(methodInfo.methodBody().print(bodyQualification));
+        }
         OutputBuilder builder = new OutputBuilderImpl();
         GuideImpl.GuideGenerator gg;
         if (formatter2) {

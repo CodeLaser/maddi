@@ -87,6 +87,9 @@ public class QualificationImpl implements Qualification {
 
     @Override
     public TypeNameRequired qualifierRequired(TypeInfo typeInfo) {
+        // a local class (declared inside a method body) has no legal qualified form: its simple name,
+        // in scope, is the only way to reference it
+        if (typeInfo.enclosingMethod() != null) return TypeNameImpl.Required.SIMPLE;
         if (unqualifiedTypes.contains(typeInfo)) return TypeNameImpl.Required.SIMPLE;
         TypeNameImpl.Required r = top.typesNotImported.get(typeInfo);
         if (r != null) {

@@ -76,7 +76,11 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         fullyQualifiedName = enclosingMethod.typeInfo().fullyQualifiedName() + "."
                              + index + "$" + enclosingMethod.name() + "$" + simpleName;
         this.compilationUnitOrEnclosingType = Either.right(enclosingMethod.typeInfo());
-        inspection.setVariable(new TypeInspectionImpl.Builder(this));
+        TypeInspectionImpl.Builder builder = new TypeInspectionImpl.Builder(this);
+        // a locally declared type KNOWS its enclosing method; the printer relies on this (a local class has
+        // no legal qualified reference, and no access modifier)
+        builder.setEnclosingMethod(enclosingMethod);
+        inspection.setVariable(builder);
     }
 
     @Override

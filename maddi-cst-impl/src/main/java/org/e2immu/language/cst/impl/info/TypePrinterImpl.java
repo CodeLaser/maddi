@@ -189,9 +189,11 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
         Access enclosedAccess = typeInfo.compilationUnitOrEnclosingType().isLeft()
                 ? InspectionImpl.AccessEnum.PUBLIC
                 : typeInfo.compilationUnitOrEnclosingType().getRight().access();
-        if (!enclosedAccess.isPrivate() && !access.isPackage() && !enclosingIsInterface(typeInfo)) {
+        if (!enclosedAccess.isPrivate() && !access.isPackage() && !enclosingIsInterface(typeInfo)
+            && typeInfo.enclosingMethod() == null) {
             list.add(typeModifier(access));
         } // else there really is no point anymore to show any access modifier, let's keep it brief
+        // (for a local class — enclosingMethod() != null — an access modifier is illegal Java)
 
         // 'abstract', 'static'
         if (typeInfo.typeNature().isClass()) {
