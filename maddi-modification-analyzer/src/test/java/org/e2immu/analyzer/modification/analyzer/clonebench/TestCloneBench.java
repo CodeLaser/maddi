@@ -55,6 +55,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults.ANALYZED_RESULTS;
 import static org.e2immu.language.inspection.resource.SourceSetImpl.testProtocolSourceSet;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import org.junit.jupiter.api.Tag;
 
 /*
 IMPORTANT: use "analyzed" branch of "testarchive".
@@ -65,6 +66,7 @@ identically-named default-package types in different directories do not collide)
 javac serially -- avoiding both the thousands of independent JDK loads of a per-file parse and the intermittent
 "tree.starImportScope is null" that concurrent javac produces. Only the (javac-free) analysis is parallelized.
 */
+@Tag("slow")
 public class TestCloneBench extends CommonTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestCloneBench.class);
     private final JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder().build();

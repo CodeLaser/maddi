@@ -13,12 +13,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Tag;
 
 /**
  * Jenkins core (enterprise/DI shape: mutable JavaBeans, Descriptor hierarchies, generated localizer
  * sources; 30k elements). Green since 2026-07-18 (certified fixpoint, ~12.5min at PARALLEL defaults).
  * Known residue: 10 test files dropped at scan (Messages-class resolution from the test source set).
  */
+@Tag("slow")
 public class TestJenkinsCore {
 
     @BeforeAll

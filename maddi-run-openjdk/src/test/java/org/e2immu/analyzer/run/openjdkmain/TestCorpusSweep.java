@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.jupiter.api.Tag;
 
 /**
  * Batch first-contact sweep over every corpus under the test-oss root (see {@link TestOssCorpus}) that
@@ -21,6 +22,7 @@ import java.util.List;
  * A name may contain slashes to address a nested module (e.g. SWEEP=camel/core/camel-util).
  * Verdict baselines are NOT checked here — promote a corpus to its own pinned test for that.
  */
+@Tag("slow")
 public class TestCorpusSweep {
     private static final Path CORPORA = TestOssCorpus.ROOT;
 

@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults.ANALYZED_RESULTS;
 import static org.e2immu.language.inspection.resource.SourceSetImpl.testProtocolSourceSet;
+import org.junit.jupiter.api.Tag;
 
 /**
  * PLAN-modification-reachability phase 1: the shadow diff over the clone-bench corpus (testarchive,
@@ -36,6 +37,7 @@ import static org.e2immu.language.inspection.resource.SourceSetImpl.testProtocol
  * for classification, and reverse divergences (frozen modified, shadow unreached), which indicate
  * shadow-pass gaps.
  */
+@Tag("slow")
 public class TestShadowCloneBench extends CommonTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestShadowCloneBench.class);
     private final JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder().build();
