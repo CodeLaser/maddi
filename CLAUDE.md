@@ -14,12 +14,3 @@ Deeper technical references, in reading order per topic:
   (link-nature combination table), `maddi-modification-link/src/main/java/.../vf/virtual-fields.md`.
 - Shared-variable reconstruction: `maddi-modification-link/sv-reconstruction-techniques.md`.
 - Parsing stability (javac thread-hostility): `maddi-inspection-openjdk/parsing-stability.md`.
-
-## Gradle serialization (MANDATORY for all AI threads)
-
-Never invoke `./gradlew` directly — use **`bin/gradle-locked.sh`** with the same arguments. A build
-in one process rewrites jars/class dirs that another process's live test forks are reading; javac on
-a half-written classpath entry fails with `starImportScope` NPEs and garbled test names (caught
-red-handed 2026-07-18 21:39:08, see task #40 / sv-remaining-catalogue.md). The wrapper waits on a
-stale-proof lock in `build/` — it never fails because someone else is building. Also: never run
-`gradlew --stop` while another thread may be building (daemons are user-wide).

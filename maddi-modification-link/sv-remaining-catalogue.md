@@ -50,7 +50,7 @@ while shrinking the member-level churn.
   directly usable for the first ES-scale INCREMENTAL experiment.
 
 The phase-2 cutover is COMPLETE and validated; what remains is evidence gathering and two
-decisions. Exact commands (all from ~/git/maddi, all via bin/gradle-locked.sh):
+decisions. Exact commands (all from ~/git/maddi, via ./gradlew):
 
 0. **GOTCHA for every big-corpus run: TESTXMX=24G** (maddi-run-openjdk test JVM heap, default
    8G — an 8G elasticsearch sweep dies OOM ~32 min in, and the sweep REPORTS exit=-1 without
@@ -58,8 +58,8 @@ decisions. Exact commands (all from ~/git/maddi, all via bin/gradle-locked.sh):
 1. **Remaining corpus legs** (baseline first if no build/imm-<corpus>-*.txt.gz pin exists, then
    MODREACH; diff the two FPDUMPs; expect: downgrades + null-decisions, type transitions in both
    directions, 0-or-few reverse-kept — all four corpora so far fit this):
-   `FPDUMP=/tmp/imm-X-base.txt bin/gradle-locked.sh :maddi-run-openjdk:test --tests TestCamelCore --rerun -PskipCloneBench`
-   `MODREACH=1 FPDUMP=/tmp/imm-X-mr.txt bin/gradle-locked.sh :maddi-run-openjdk:test --tests TestCamelCore --rerun -PskipCloneBench`
+   `FPDUMP=/tmp/imm-X-base.txt ./gradlew :maddi-run-openjdk:test --tests TestCamelCore --rerun -PskipCloneBench`
+   `MODREACH=1 FPDUMP=/tmp/imm-X-mr.txt ./gradlew :maddi-run-openjdk:test --tests TestCamelCore --rerun -PskipCloneBench`
    Corpus test classes: TestCamelCore (8 modules), TestElasticsearch2 (5h+, overnight; baseline
    already pinned build/imm-elasticsearch-2-2026-07-19.txt.gz). timefold/langchain4j SKIP until
    their inputConfiguration.json is regenerated in ~/git/test-oss.
