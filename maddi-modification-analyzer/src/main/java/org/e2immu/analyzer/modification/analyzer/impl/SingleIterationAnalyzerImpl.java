@@ -385,6 +385,6 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         typeIndependentAnalyzer.go(typeInfo, activateCycleBreaking);
         typeImmutableAnalyzer.go(typeInfo, activateCycleBreaking);
         typeContainerAnalyzer.go(typeInfo);
-        typeEventualAnalyzer.go(typeInfo);
+        typeEventualAnalyzer.go(typeInfo, activateCycleBreaking);
     }
 }
