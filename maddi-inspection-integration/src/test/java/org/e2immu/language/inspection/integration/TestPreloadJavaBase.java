@@ -60,15 +60,10 @@ public class TestPreloadJavaBase {
         TypeInfo biConsumer = javaInspector.compiledTypesManager().get(BiConsumer.class);
         assertNotNull(biConsumer);
         assertTrue(biConsumer.hasBeenInspected());
-
-        // interestingly, java.util.List has been referred to, but it has not been loaded
-        // because it has not yet appeared in a type hierarchy (but it has appeared as a field type
-        // in some private field of java.lang.Throwable)
+        
         TypeInfo list = javaInspector.compiledTypesManager().get(List.class);
-        assertNull(list);
-        TypeInfo list2 = javaInspector.compiledTypesManager().getOrLoad(List.class);
-        assertNotNull(list2);
-        assertTrue(list2.hasBeenInspected());
+        assertNotNull(list);
+        assertTrue(list.hasBeenInspected());
 
         TypeInfo map = javaInspector.compiledTypesManager().get(Map.class);
         assertNotNull(map);
