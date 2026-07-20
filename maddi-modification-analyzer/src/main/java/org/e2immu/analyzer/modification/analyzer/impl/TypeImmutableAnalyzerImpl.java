@@ -74,9 +74,10 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
      * the precondition reasoning we are not reviving.
      */
     @Override
-    public Immutable immutableIgnoringModificationOf(TypeInfo typeInfo, Set<FieldInfo> excusedFields) {
+    public Immutable immutableIgnoringModificationOf(TypeInfo typeInfo, Set<FieldInfo> excusedFields,
+                                                    boolean activateCycleBreaking) {
         Independent independent = typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT);
-        return computeImmutableType(typeInfo, independent, false, excusedFields);
+        return computeImmutableType(typeInfo, independent, activateCycleBreaking, excusedFields);
     }
 
     private Immutable computeImmutableType(TypeInfo typeInfo, Independent independent, boolean activateCycleBreaking,

@@ -94,7 +94,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
     }
 
     @Override
-    public void go(TypeInfo typeInfo) {
+    public void go(TypeInfo typeInfo, boolean activateCycleBreaking) {
         for (MethodInfo methodInfo : typeInfo.methods()) {
             if (methodInfo.analysis().haveAnalyzedValueFor(EVENTUAL_METHOD)) continue;
             // contracts win over computation. They are materialized into analysis() here rather than only read
@@ -110,7 +110,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 propertyChanges.incrementAndGet();
             }
         }
-        computeTypeLevel(typeInfo);
+        computeTypeLevel(typeInfo, activateCycleBreaking);
     }
 
     /**
@@ -123,7 +123,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * subclass) gets its methods annotated, but its own type-level verdict waits for the parent-inheritance step
      * (old {@code approvedPreconditionsFromParent}); see {@code docs/eventual-immutability.md}.
      */
-    private void computeTypeLevel(TypeInfo typeInfo) {
+    private void computeTypeLevel(TypeInfo typeInfo, boolean activateCycleBreaking) {
         if (typeInfo.analysis().haveAnalyzedValueFor(EVENTUALLY_IMMUTABLE_TYPE)) return;
         Value.EventuallyImmutable contracted = eventuallyImmutable(typeInfo);
         if (contracted.isEventual()) {
@@ -146,7 +146,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         }
         if (excused.isEmpty()) return;
 
-        Value.Immutable afterMark = typeImmutableAnalyzer.immutableIgnoringModificationOf(typeInfo, excused);
+        Value.Immutable afterMark = typeImmutableAnalyzer.immutableIgnoringModificationOf(typeInfo, excused, activateCycleBreaking);
         if (afterMark == null) {
             UNDECIDED.debug("TE: Eventual immutability of type {} undecided", typeInfo);
             return;

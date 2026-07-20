@@ -37,5 +37,6 @@ public interface TypeImmutableAnalyzer {
      * The level the type would reach if the modification of {@code excusedFields} did not count: the level
      * <em>after the mark</em>, used by the eventual analyzer (phase 4.3). Null when undecided.
      */
-    Value.Immutable immutableIgnoringModificationOf(TypeInfo typeInfo, Set<FieldInfo> excusedFields);
+    Value.Immutable immutableIgnoringModificationOf(TypeInfo typeInfo, Set<FieldInfo> excusedFields,
+                                                   boolean activateCycleBreaking);
 }

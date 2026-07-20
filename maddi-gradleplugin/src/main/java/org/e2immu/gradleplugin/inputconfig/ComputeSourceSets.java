@@ -31,9 +31,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.jar.JarFile;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -147,6 +150,7 @@ public class ComputeSourceSets {
                                 .setLibrary(true)
                                 .setExternalLibrary(true)
                                 .setPartOfJdk(false)
+                                .setModule(isModularArtifact(file))
                                 .setRuntimeOnly(isRuntimeOnly)
                                 .build();
                         sourceSetsByName.put(name, set);
@@ -226,7 +230,31 @@ public class ComputeSourceSets {
         return new SourceSetImpl.Builder().setName(e2immuSourceSetName)
                 .setSourceDirectories(paths).setUri(paths.getFirst().toUri())
                 .setSourceEncoding(sourceEncoding).setTest(test)
+                .setModule(isModularSource(paths))
                 .setRestrictToPackages(restrictToPackages).build();
+    }
+
+    /**
+     * A source set is a Java module when one of its source directories holds a {@code module-info.java}. The
+     * distinction is not cosmetic: the openjdk front end puts a module's dependencies on javac's <em>module
+     * path</em>, and without the flag every {@code requires}d package comes back as "package X is not visible".
+     */
+    private static boolean isModularSource(List<Path> paths) {
+        return paths.stream().anyMatch(p -> Files.isRegularFile(p.resolve("module-info.java")));
+    }
+
+    /** As {@link #isModularSource}, for a dependency: an explicit module carries a {@code module-info.class}. */
+    private static boolean isModularArtifact(File file) {
+        if (file.isDirectory()) {
+            return new File(file, "module-info.class").canRead();
+        }
+        try (JarFile jarFile = new JarFile(file)) {
+            return jarFile.getEntry("module-info.class") != null
+                   || jarFile.getEntry("META-INF/versions/9/module-info.class") != null;
+        } catch (IOException e) {
+            LOGGER.warn("Cannot read {} as a jar, assuming it is not a module: {}", file, e.getMessage());
+            return false;
+        }
     }
 
     private static String detectSourceEncoding(Project project) {

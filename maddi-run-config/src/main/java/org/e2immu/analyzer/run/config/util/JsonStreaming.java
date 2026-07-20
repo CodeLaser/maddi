@@ -116,6 +116,7 @@ public class JsonStreaming {
             boolean externalLibrary = getBoolean(node, "externalLibrary");
             boolean partOfJdk = getBoolean(node, "partOfJdk");
             boolean runtimeOnly = getBoolean(node, "runtimeOnly");
+            boolean module = partOfJdk || getBoolean(node, "module");
             Set<String> restrictToPackages = new HashSet<>();
             JsonNode restrictToPackagesNode = node.get("restrictToPackages");
             if (restrictToPackagesNode != null) {
@@ -141,7 +142,7 @@ public class JsonStreaming {
                     .setUri(uri)
                     .setSourceEncoding(sourceEncoding)
                     .setTest(test).setLibrary(library).setExternalLibrary(externalLibrary)
-                    .setPartOfJdk(partOfJdk).setModule(partOfJdk)
+                    .setPartOfJdk(partOfJdk).setModule(module)
                     .setRestrictToPackages(Set.copyOf(restrictToPackages))
                     .setDependencies(List.copyOf(dependencies))
                     .build();
@@ -182,6 +183,10 @@ public class JsonStreaming {
             if (value.library()) gen.writeBooleanField("library", value.library());
             if (value.externalLibrary()) gen.writeBooleanField("externalLibrary", value.externalLibrary());
             if (value.partOfJdk()) gen.writeBooleanField("partOfJdk", value.partOfJdk());
+            // a JPMS module: its dependencies go on javac's module path rather than the classpath. Parts of
+            // the JDK are always modules and re-derive it from partOfJdk, so only write it when it adds
+            // something -- but write it we must, or a modular project cannot survive this round trip.
+            if (value.isModule() && !value.partOfJdk()) gen.writeBooleanField("module", value.isModule());
             if (value.runtimeOnly()) gen.writeBooleanField("runtimeOnly", value.runtimeOnly());
             if (value.restrictToPackages() != null) {
                 gen.writeArrayFieldStart("restrictToPackages");

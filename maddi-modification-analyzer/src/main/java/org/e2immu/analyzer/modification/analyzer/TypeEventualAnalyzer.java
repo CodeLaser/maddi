@@ -30,5 +30,5 @@ import org.e2immu.language.cst.api.info.TypeInfo;
  */
 public interface TypeEventualAnalyzer {
 
-    void go(TypeInfo typeInfo);
+    void go(TypeInfo typeInfo, boolean activateCycleBreaking);
 }
