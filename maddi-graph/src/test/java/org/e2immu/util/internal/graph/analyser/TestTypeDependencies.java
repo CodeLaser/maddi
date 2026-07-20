@@ -14,9 +14,8 @@
 
 package org.e2immu.util.internal.graph.analyser;
 
-import org.e2immu.util.internal.graph.analyser.Main;
-import org.e2immu.util.internal.graph.analyser.TypeGraphIO;
 import org.e2immu.util.internal.graph.op.BreakCycles;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -27,6 +26,7 @@ public class TestTypeDependencies {
 
     // cp analyser/build/e2immuGraph/typeDependencies.gml analyser/build/e2immuGraph/packageDependenciesBasedOnTypeGraph.gml  graph/src/test/resources/org/e2immu/graph
 
+    @Tag("slow")
     @Test
     public void test() throws IOException {
         Main main = new Main();
