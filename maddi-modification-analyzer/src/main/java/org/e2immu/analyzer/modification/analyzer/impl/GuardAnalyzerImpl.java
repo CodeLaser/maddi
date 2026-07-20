@@ -460,13 +460,16 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
     }
 
     /**
-     * Eventual immutability ({@code after="..."}) is contracted, but not implemented in the analyzer (road to
-     * immutability, §060): the fields carrying the state transition are assignable, and the modifying methods that
-     * effect it are modifying, by design. The immutability rules only hold after the mark, which the analyzer cannot
-     * see, so guarding such a type would report its own design as a violation.
+     * Eventual immutability ({@code after="..."}) is read as a contract, but not yet computed by the analyzer (road
+     * to immutability, §060): the fields carrying the state transition are assignable, and the methods that effect
+     * it are modifying, by design. The immutability rules only hold after the mark, which the analyzer cannot see,
+     * so guarding such a type would report its own design as a violation. Once eventuality is computed, this is
+     * where the guard starts checking those types instead of skipping them.
      */
     private boolean isEventual(TypeInfo typeInfo) {
-        return typeInfo.annotations().stream().anyMatch(ae -> !ae.extractString("after", "").isBlank());
+        return contractReader.contracts(typeInfo)
+                .get(EVENTUALLY_IMMUTABLE_TYPE) instanceof Value.EventuallyImmutable ev
+               && ev.isEventual();
     }
 
     /**
