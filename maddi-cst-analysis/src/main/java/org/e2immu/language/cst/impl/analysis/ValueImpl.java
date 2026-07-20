@@ -866,6 +866,117 @@ public abstract class ValueImpl implements Value {
                 new PreconditionImpl(di.codec().decodeExpression(di.context(), encodedValue)));
     }
 
+    public record EventualImpl(Set<String> fields, boolean mark, Boolean after, Boolean test) implements Eventual {
+        public static final Eventual NOT_EVENTUAL = new EventualImpl(Set.of(), false, null, null);
+
+        public EventualImpl {
+            // no fields means nothing is annotated, and vice versa
+            assert fields.isEmpty() == (!mark && after == null && test == null);
+        }
+
+        /** {@code @Mark("label")} */
+        public static Eventual mark(String label) {
+            return new EventualImpl(labelToFields(label), true, null, null);
+        }
+
+        /** {@code @Only(after="label")} when {@code after}, {@code @Only(before="label")} otherwise */
+        public static Eventual only(String label, boolean after) {
+            return new EventualImpl(labelToFields(label), false, after, null);
+        }
+
+        /** {@code @TestMark("label")}; {@code trueWhenAfter} is false for the {@code before=true} sense */
+        public static Eventual testMark(String label, boolean trueWhenAfter) {
+            return new EventualImpl(labelToFields(label), false, null, trueWhenAfter);
+        }
+
+        /** the annotation's label is one field name, or several separated by commas */
+        public static Set<String> labelToFields(String label) {
+            return Arrays.stream(label.split(",")).map(String::trim).filter(s -> !s.isEmpty())
+                    .collect(Collectors.toUnmodifiableSet());
+        }
+
+        @Override
+        public boolean isDefault() {
+            return fields.isEmpty();
+        }
+
+        @Override
+        public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
+            if (fields.isEmpty()) return null;
+            return codec.encodeList(context, List.of(codec.encodeString(context, markLabel()),
+                    codec.encodeInt(context, mark ? 1 : 0),
+                    codec.encodeInt(context, tristate(after)),
+                    codec.encodeInt(context, tristate(test))));
+        }
+
+        private static int tristate(Boolean b) {
+            return b == null ? -1 : b ? 1 : 0;
+        }
+
+        private static Boolean fromTristate(int i) {
+            return i < 0 ? null : i == 1;
+        }
+
+        @Override
+        public Value rewire(InfoMapView infoMap) {
+            return this; // field names, a boolean and two tri-states
+        }
+
+        @Override
+        public String toString() {
+            if (fields.isEmpty()) return "<not eventual>";
+            if (mark) return "@Mark(\"" + markLabel() + "\")";
+            if (test != null) return "@TestMark(\"" + markLabel() + "\"" + (test ? "" : ", before=true") + ")";
+            return "@Only(" + (Boolean.TRUE.equals(after) ? "after" : "before") + "=\"" + markLabel() + "\")";
+        }
+    }
+
+    static {
+        decoderMap.put(EventualImpl.class, (di, encodedValue) -> {
+            List<Codec.EncodedValue> list = di.codec().decodeList(di.context(), encodedValue);
+            return new EventualImpl(EventualImpl.labelToFields(di.codec().decodeString(di.context(), list.getFirst())),
+                    di.codec().decodeInt(di.context(), list.get(1)) == 1,
+                    EventualImpl.fromTristate(di.codec().decodeInt(di.context(), list.get(2))),
+                    EventualImpl.fromTristate(di.codec().decodeInt(di.context(), list.get(3))));
+        });
+    }
+
+    public record EventuallyImmutableImpl(String markLabel, Immutable immutableAfterMark)
+            implements EventuallyImmutable {
+        public static final EventuallyImmutable NOT_EVENTUAL = new EventuallyImmutableImpl("", ImmutableImpl.MUTABLE);
+
+        @Override
+        public boolean isDefault() {
+            return markLabel.isBlank();
+        }
+
+        @Override
+        public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
+            if (markLabel.isBlank()) return null;
+            return codec.encodeList(context, List.of(codec.encodeString(context, markLabel),
+                    codec.encodeInt(context, ((ImmutableImpl) immutableAfterMark).value)));
+        }
+
+        @Override
+        public Value rewire(InfoMapView infoMap) {
+            return this; // a label and a level
+        }
+
+        @Override
+        public String toString() {
+            if (markLabel.isBlank()) return "<not eventual>";
+            return immutableAfterMark + "(after=\"" + markLabel + "\")";
+        }
+    }
+
+    static {
+        decoderMap.put(EventuallyImmutableImpl.class, (di, encodedValue) -> {
+            List<Codec.EncodedValue> list = di.codec().decodeList(di.context(), encodedValue);
+            return new EventuallyImmutableImpl(di.codec().decodeString(di.context(), list.getFirst()),
+                    ImmutableImpl.from(di.codec().decodeInt(di.context(), list.get(1))));
+        });
+    }
+
     public record IndicesOfEscapesImpl(Set<String> indices) implements IndicesOfEscapes {
         public static final IndicesOfEscapes EMPTY = new IndicesOfEscapesImpl(Set.of());
 

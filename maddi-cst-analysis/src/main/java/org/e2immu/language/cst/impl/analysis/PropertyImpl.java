@@ -29,6 +29,15 @@ public class PropertyImpl implements Property {
             = new PropertyImpl("immutableTypeDeterminedByParameters");
     public static final Property FINAL_TYPE = new PropertyImpl("finalType");
     public static final Property UTILITY_CLASS = new PropertyImpl("utilityClass");
+    /**
+     * Eventual immutability (road to immutability §060): the {@code after="…"} of {@code @Immutable},
+     * {@code @ImmutableContainer}, {@code @FinalFields}. Deliberately kept out of {@link #IMMUTABLE_TYPE}, which
+     * is combined with min/max all over the analyzer; an eventual value in that lattice would silently move
+     * independence and guard decisions. This property records the promise, the lattice keeps recording what holds
+     * unconditionally.
+     */
+    public static final Property EVENTUALLY_IMMUTABLE_TYPE = new PropertyImpl("eventuallyImmutableType",
+            ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
 
     // method
     public static final Property NON_MODIFYING_METHOD = new PropertyImpl("nonModifyingMethod");
@@ -52,6 +61,9 @@ public class PropertyImpl implements Property {
     public static final Property INDEPENDENT_METHOD = new PropertyImpl("independentMethod",
             ValueImpl.IndependentImpl.DEPENDENT);
     public static final Property FINALIZER_METHOD = new PropertyImpl("finalizerMethod");
+    /** {@code @Mark}, {@code @Only}, {@code @TestMark} on a method: see {@link #EVENTUALLY_IMMUTABLE_TYPE}. */
+    public static final Property EVENTUAL_METHOD = new PropertyImpl("eventualMethod",
+            ValueImpl.EventualImpl.NOT_EVENTUAL);
     // dynamic return type
     public static final Property IMMUTABLE_METHOD = new PropertyImpl("immutableMethod"
             , ValueImpl.ImmutableImpl.MUTABLE);
@@ -81,6 +93,9 @@ public class PropertyImpl implements Property {
     public static final Property IMMUTABLE_PARAMETER = new PropertyImpl("immutableParameter"
             , ValueImpl.ImmutableImpl.MUTABLE);
     public static final Property CONTAINER_PARAMETER = new PropertyImpl("containerParameter");
+    /** {@code @Mark} travelling to a parameter, when a marked method is called on it (road to immutability §060). */
+    public static final Property EVENTUAL_PARAMETER = new PropertyImpl("eventualParameter",
+            ValueImpl.EventualImpl.NOT_EVENTUAL);
     public static final Property INDEPENDENT_PARAMETER = new PropertyImpl("independentParameter",
             ValueImpl.IndependentImpl.DEPENDENT);
     public static final Property DOWNCAST_PARAMETER = new PropertyImpl("downcastParameter",
@@ -91,6 +106,13 @@ public class PropertyImpl implements Property {
     public static final Property FINAL_FIELD = new PropertyImpl("finalField", ValueImpl.BoolImpl.FALSE,
             AnalysisTier.INTRINSIC);
     public static final Property NOT_NULL_FIELD = new PropertyImpl("notNullField", ValueImpl.NotNullImpl.NULLABLE);
+    /**
+     * The mark label(s) of {@code @Final(after="…")} / {@code @NotModified(after="…")}: the field is not final
+     * (resp. is modified) before the mark, and is final (resp. unmodified) after it. {@link #FINAL_FIELD} keeps
+     * recording plain, unconditional finality.
+     */
+    public static final Property EVENTUALLY_FINAL_FIELD = new PropertyImpl("eventuallyFinalField",
+            ValueImpl.SetOfStringsImpl.EMPTY_SET);
     public static final Property IGNORE_MODIFICATIONS_FIELD = new PropertyImpl("ignoreModificationsField");
     public static final Property UNMODIFIED_FIELD = new PropertyImpl("unmodifiedField");
     public static final Property IMMUTABLE_FIELD = new PropertyImpl("immutableField"

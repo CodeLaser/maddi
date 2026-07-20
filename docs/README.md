@@ -18,6 +18,7 @@ Each entry below is labeled:
 | [rewiring.md](rewiring.md) | note | How CST rewiring works in general, and its pitfalls. |
 | [partial-reparse-rewire.md](partial-reparse-rewire.md) | note | Emitting `.class` files from the openjdk inspection pass; partial re-parse/re-wire for IDE use. |
 | [guard-mode-analysis.md](guard-mode-analysis.md) | note | Guard mode (contract verification): analysis and design proposal. |
+| [eventual-immutability.md](eventual-immutability.md) | plan | Bringing road-to-immutability §060 back into the engine: contract the support classes, propagate; no preconditions. |
 | [formatter-analysis.md](formatter-analysis.md) | note | Analysis of the `maddi-cst-print` formatter. |
 | [formatter-doc-ir-plan.md](formatter-doc-ir-plan.md) | plan | Rewrite plan: a Doc IR for `maddi-cst-print`. |
 | [prep-analyzer hardening.md](prep-analyzer%20hardening.md) | plan | Robustness hardening roadmap for `maddi-modification-prepwork`. |
