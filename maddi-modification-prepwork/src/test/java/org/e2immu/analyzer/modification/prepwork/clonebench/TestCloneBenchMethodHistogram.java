@@ -37,11 +37,13 @@ import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Tag;
 
 /*
 IMPORTANT: use "analyzed" branch of "testarchive".
 A small number of files have been modified wrt the main branch, for this test to run.
  */
+@Tag("slow")
 public class TestCloneBenchMethodHistogram extends CommonTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestCloneBenchMethodHistogram.class);
     final JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder().build();

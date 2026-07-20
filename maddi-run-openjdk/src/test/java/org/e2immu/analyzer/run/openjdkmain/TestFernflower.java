@@ -12,11 +12,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Tag;
 
 /**
  * The SMALL corpus (~500 source files vs timefold's ~3,500 types): fast full-chain feedback for engine
  * work (parallelism A/Bs, worklist experiments) where a timefold round costs ~40 minutes.
  */
+@Tag("slow")
 public class TestFernflower {
 
     @BeforeAll

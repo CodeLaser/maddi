@@ -21,6 +21,38 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
+// Fast/slow test split, to keep the everyday `test` loop quick.
+//   - `test` (and `check`/`build`) runs everything EXCEPT tests tagged "slow".
+//   - `slowTest` runs ONLY the "slow" tests: the large-corpus smoke tests (fernflower, guava,
+//     clonebench, langchain4j, ...). It runs one fork at a time and inherits the module's own test
+//     jvmArgs / heap (e.g. the -Xmx from TESTXMX, the javac --add-exports) and system properties,
+//     so no per-module duplication is needed. Run it explicitly: `./gradlew slowTest`.
+// Tests become "slow" by adding `@org.junit.jupiter.api.Tag("slow")` to the class; until then this
+// frame is inert (no test is tagged, so `slowTest` selects nothing and `test` is unchanged).
+tasks.named<Test>("test") {
+    useJUnitPlatform { excludeTags("slow") }
+}
+
+val slowTest = tasks.register<Test>("slowTest") {
+    group = "verification"
+    description = "Runs the slow, large-corpus smoke tests (JUnit tag \"slow\"), one fork at a time."
+    useJUnitPlatform { includeTags("slow") }
+    shouldRunAfter(tasks.named("test"))
+}
+
+// Mirror the module's own `test` configuration onto `slowTest` after the module's build script has
+// finished configuring `test` (each module sets its own jvmArgs / heap / corpus system properties).
+afterEvaluate {
+    val test = tasks.named<Test>("test").get()
+    slowTest.configure {
+        testClassesDirs = test.testClassesDirs
+        classpath = test.classpath
+        test.jvmArgs?.let { setJvmArgs(it) }
+        systemProperties(test.systemProperties)
+        maxParallelForks = 1
+    }
+}
+
 group = "io.codelaser"
 
 dependencies {

@@ -8,7 +8,9 @@ import org.e2immu.language.cst.impl.info.ImportComputerImpl;
 import org.e2immu.language.cst.print.FormattingOptionsImpl;
 import org.e2immu.language.cst.print.formatter2.Formatter2Impl;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
+@Tag("slow")
 public class TestFormatterStress extends CommonTest {
 
     // a grab-bag of constructs that stress a formatter: long chains, ternaries, generics,

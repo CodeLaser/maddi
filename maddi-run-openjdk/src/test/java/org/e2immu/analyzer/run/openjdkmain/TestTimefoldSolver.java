@@ -13,7 +13,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Tag;
 
+@Tag("slow")
 public class TestTimefoldSolver {
 
     @BeforeAll
