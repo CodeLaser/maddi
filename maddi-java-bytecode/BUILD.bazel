@@ -44,6 +44,7 @@ maddi_java_test(
         # Add additional test-specific dependencies here
         "//maddi-cst-impl",
         "//maddi-inspection-api",
+        "//maddi-inspection-integration",
         "//maddi-inspection-resource",
         "//maddi-support",
     ],

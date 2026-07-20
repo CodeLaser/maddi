@@ -60,8 +60,12 @@ maddi_java_test(
         "//maddi-java-bytecode",
         "//maddi-java-parser",
         "//maddi-modification-common",
+        "//maddi-modification-common:maddi-modification-common-testfixtures",
         "//maddi-modification-prepwork",
+        "//maddi-inspection-openjdk",
         "//maddi-support",
         "//maddi-util",
+        "@maven//:org_jspecify_jspecify",
+        "@maven//:org_junit_platform_junit_platform_commons",
     ],
 )

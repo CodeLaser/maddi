@@ -26,3 +26,24 @@ maddi_java_library(
         "//maddi-util",
     ],
 )
+
+# Shared test utilities (src/testFixtures, e.g. CommonTest.javaInspectorFactory), consumed by this
+# module's own tests and by downstream test targets (e.g. //maddi-aapi-parser). The Gradle equivalent
+# is the java-test-fixtures plugin's testFixtures source set.
+maddi_java_library(
+    name = "maddi-modification-common-testfixtures",
+    srcs = glob(["src/testFixtures/java/**/*.java"]),
+    testonly = True,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//maddi-cst-api",
+        "//maddi-inspection-api",
+        "//maddi-inspection-openjdk",
+        "//maddi-inspection-resource",
+        "//maddi-support",
+        "@maven//:org_jspecify_jspecify",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_platform_junit_platform_commons",
+        "@maven//:org_opentest4j_opentest4j",
+    ],
+)

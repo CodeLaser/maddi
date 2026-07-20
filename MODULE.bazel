@@ -55,6 +55,9 @@ maven.install(
 
         # Annotations
         "org.jetbrains:annotations:26.0.2",
+        # jspecify: used by some testFixtures/test sources (org.jspecify.annotations.NonNull); comes in
+        # transitively under Gradle but must be explicit under Bazel strict-deps.
+        "org.jspecify:jspecify:1.0.0",
 
         # Jackson
         "com.fasterxml.jackson.core:jackson-core:2.19.2",
