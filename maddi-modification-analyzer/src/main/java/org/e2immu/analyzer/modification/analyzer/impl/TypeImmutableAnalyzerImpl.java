@@ -27,6 +27,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
@@ -52,7 +53,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
             return; // nothing to be gained
         }
         Independent independent = typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT);
-        Immutable immutable = computeImmutableType(typeInfo, independent, activateCycleBreaking);
+        Immutable immutable = computeImmutableType(typeInfo, independent, activateCycleBreaking, Set.of());
         if (immutable != null) {
             if (TolerantWrite.setAllowControlledOverwrite(typeInfo.analysis(), IMMUTABLE_TYPE, immutable, typeInfo)) {
                 DECIDE.debug("TI: Decide immutable of type {} = {}", typeInfo, immutable);
@@ -63,7 +64,23 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         }
     }
 
-    private Immutable computeImmutableType(TypeInfo typeInfo, Independent independent, boolean activateCycleBreaking) {
+    /**
+     * The level this type would reach if the modification of {@code excusedFields} did not count -- i.e. the level
+     * it reaches <em>after the mark</em>, when the eventually immutable fields it holds have been committed and can
+     * no longer change (road to immutability §060). Returns null when undecided.
+     * <p>
+     * Deliberately the same computation as the unconditional verdict, with one relaxation, so the two can never
+     * drift apart. Field <em>finality</em> is not relaxed: a type whose transition is a plain assignable flag needs
+     * the precondition reasoning we are not reviving.
+     */
+    @Override
+    public Immutable immutableIgnoringModificationOf(TypeInfo typeInfo, Set<FieldInfo> excusedFields) {
+        Independent independent = typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT);
+        return computeImmutableType(typeInfo, independent, false, excusedFields);
+    }
+
+    private Immutable computeImmutableType(TypeInfo typeInfo, Independent independent, boolean activateCycleBreaking,
+                                           Set<FieldInfo> excusedFields) {
         boolean fieldsAssignable = typeInfo.fields().stream().anyMatch(fi -> !fi.isPropertyFinal());
         if (fieldsAssignable) return MUTABLE;
         // sometimes, we have annotated setters on synthetic fields, which do not have the "final" property
@@ -111,7 +128,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
 
         // fields and abstract methods (those annotated by hand)
 
-        Boolean immFromField = loopOverFieldsAndMethods(typeInfo, true);
+        Boolean immFromField = loopOverFieldsAndMethods(typeInfo, true, excusedFields);
         if (immFromField == null) {
             // The 51% type-null cluster (elasticsearch first contact): a missing verdict here — a field's
             // UNMODIFIED undecided, a NON-PRIVATE field's type immutability-undecided, or an abstract
@@ -163,7 +180,8 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         return bestType == null || !bestType.equals(fieldInfo.owner());
     }
 
-    private Boolean loopOverFieldsAndMethods(TypeInfo typeInfo, boolean abstractMethods) {
+    private Boolean loopOverFieldsAndMethods(TypeInfo typeInfo, boolean abstractMethods,
+                                             Set<FieldInfo> excusedFields) {
         // fields should be private, or immutable for the type to be immutable
         // fields should not be @Modified nor assigned to
         // fields should not be @Dependent
@@ -180,6 +198,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
                     }
                 }
             }
+            if (excusedFields.contains(fieldInfo)) continue; // after the mark, this field can no longer change
             Bool fieldUnmodified = fieldInfo.analysis().getOrNull(UNMODIFIED_FIELD, ValueImpl.BoolImpl.class);
             if (fieldUnmodified == null) {
                 isImmutable = null;

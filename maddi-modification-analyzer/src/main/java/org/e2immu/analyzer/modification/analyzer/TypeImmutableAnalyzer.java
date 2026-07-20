@@ -14,7 +14,8 @@
 
 package org.e2immu.analyzer.modification.analyzer;
 
-import org.e2immu.language.cst.api.info.Info;
+import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 
 import java.util.Set;
@@ -31,4 +32,10 @@ It is possible to have to wait for other type's @Immutable status, because of ex
 public interface TypeImmutableAnalyzer {
 
     void go(TypeInfo primaryType, boolean activateCycleBreaking);
+
+    /**
+     * The level the type would reach if the modification of {@code excusedFields} did not count: the level
+     * <em>after the mark</em>, used by the eventual analyzer (phase 4.3). Null when undecided.
+     */
+    Value.Immutable immutableIgnoringModificationOf(TypeInfo typeInfo, Set<FieldInfo> excusedFields);
 }

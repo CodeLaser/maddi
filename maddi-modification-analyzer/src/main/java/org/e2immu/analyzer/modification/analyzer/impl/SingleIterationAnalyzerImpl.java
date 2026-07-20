@@ -52,6 +52,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final TypeIndependentAnalyzer typeIndependentAnalyzer;
     private final ShallowTypeAnalyzer shallowTypeAnalyzer;
     private final TypeContainerAnalyzer typeContainerAnalyzer;
+    private final TypeEventualAnalyzer typeEventualAnalyzer;
     private final AbstractMethodAnalyzer abstractMethodAnalyzer;
     private final AtomicInteger propertiesChanged;
     private final List<Message> messages;
@@ -107,6 +108,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         typeIndependentAnalyzer = new TypeIndependentAnalyzerImpl(configuration, propertiesChanged, messages);
         shallowTypeAnalyzer = new ShallowTypeAnalyzer(runtime, Element::annotations, false);
         typeContainerAnalyzer = new TypeContainerAnalyzerImpl(configuration, propertiesChanged, messages);
+        typeEventualAnalyzer = new TypeEventualAnalyzerImpl(runtime, typeImmutableAnalyzer, configuration, propertiesChanged, messages);
         abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, propertiesChanged, messages);
     }
 
@@ -383,5 +385,6 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         typeIndependentAnalyzer.go(typeInfo, activateCycleBreaking);
         typeImmutableAnalyzer.go(typeInfo, activateCycleBreaking);
         typeContainerAnalyzer.go(typeInfo);
+        typeEventualAnalyzer.go(typeInfo);
     }
 }
