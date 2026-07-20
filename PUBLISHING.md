@@ -1,8 +1,11 @@
 Publishing strategy
 ===================
 
-This document describes *what* maddi publishes, *where*, and *why*. For the concrete Maven Central
-credentials and commands, see `HOWTO.md`.
+> **Status: not yet active.** Nothing is being published on a regular basis yet; this document
+> records the agreed strategy and the wiring completed so far, for when releases start.
+
+This document describes *what* maddi publishes, *where*, and *why*. The concrete Maven Central
+credentials and commands are in the appendix at the bottom.
 
 The guiding principle (agreed): the individual analyzer modules are of no use to an outside consumer,
 so **we do not publish them as a fine-grained library**. We publish only the three things people
@@ -31,7 +34,7 @@ What we publish (Package 1)
 `maddi-support` (`io.codelaser:maddi-support`) contains the user-facing annotations
 (`org.e2immu.annotation.*` — `@Immutable`, `@Container`, `@Independent`, …). This is the one artifact
 a user's *own code* compiles against, so it is a small, stable library on Maven Central. It already has
-the `maven-publish` + jreleaser configuration; publish it per `HOWTO.md`.
+the `maven-publish` + jreleaser configuration; publish it per the appendix below.
 
 === 2. Build plugins — self-contained (shaded)
 
@@ -103,7 +106,7 @@ Release checklist
 -----------------
 
 . Bump the version in `gradle.properties` (once centralized).
-. Annotations: `./gradlew :maddi-support:clean :maddi-support:publishMavenJavaPublicationToStagingRepository :maddi-support:jreleaserDeploy` (see `HOWTO.md` for the credentials/GPG setup).
+. Annotations: `./gradlew :maddi-support:clean :maddi-support:publishMavenJavaPublicationToStagingRepository :maddi-support:jreleaserDeploy` (see the appendix for the credentials/GPG setup).
 . Gradle plugin: `./gradlew :maddi-gradleplugin:publishPlugins` (Gradle Plugin Portal key required).
 . Maven plugin: publish to Central once the descriptor is generated.
 . CLI: `./release-cli.sh <tag>` (builds both `distZip`s and attaches `maddi-<version>.zip` +
@@ -132,3 +135,47 @@ fine-grained JPMS modules. Instead merge them into a handful of coarse JPMS modu
 
 At that point the plugins would depend on these published modules instead of shading. The Kotlin
 modules would remain off Maven Central (see "Why Kotlin is separate").
+
+
+Appendix — Maven Central mechanics (GPG / JReleaser)
+----------------------------------------------------
+
+(Previously the root-level `HOWTO.md`. Key ids and credentials below are placeholders.)
+
+Create gpg key
+
+```
+# make an RSA-RSA 4096 bit key, with correct email address
+gpg --full-generate-key
+# initial check
+gpg --list-keys
+# export private key
+gpg --armor --export-secret-keys  3483290483902483024832  > private.key
+# test private key
+gpg --list-packets ~/.jreleaser/private.key
+# generate public key
+gpg --armor --export 3483290483902483024832 > ~/.jreleaser/public.key
+# send public key so that Maven Central can see it
+gpg --keyserver hkps://keys.openpgp.org --send-keys 3483290483902483024832
+# has it been received?
+gpg --keyserver hkps://keys.openpgp.org --recv-keys 3483290483902483024832
+```
+
+Ensure
+
+```
+cat ~/.jreleaser/config.properties
+JRELEASER_GITHUB_TOKEN=github_pat_11....
+
+JRELEASER_DEPLOY_MAVEN_MAVENCENTRAL_SONATYPE_USERNAME=abc123
+JRELEASER_DEPLOY_MAVEN_MAVENCENTRAL_SONATYPE_PASSWORD=ueohureoi890g024ntoehnieo
+
+JRELEASER_GPG_PUBLIC_KEY=/Users/bnaudts/.jreleaser/public.key
+JRELEASER_GPG_SECRET_KEY=/Users/bnaudts/.jreleaser/private.key
+JRELEASER_GPG_PASSPHRASE=the secret passphrase
+```
+
+Then run
+```
+gradle :maddi-support:clean :maddi-support:publishMavenJavaPublicationToStagingRepository :maddi-support:jreleaserDeploy
+```

@@ -1,5 +1,10 @@
 # maddi — notes for AI assistants
 
+Orientation: **`ARCHITECTURE.md`** (pipeline, module map, reading paths by intent),
+**`AGENTS.md`** (tool-agnostic assistant guidance: commands, engine facts, working style),
+**`CONTRIBUTING.md`** (build/test workflow), **`docs/README.md`** (index of cross-module
+working notes, with status labels).
+
 Before reasoning about immutability, modification, independence, linking, or the analyzer's
 convergence machinery, read **`road-to-immutability/llm-summary.md`** — a condensed, maintained
 reference of the project's authoritative vocabulary, the four immutability levels and their rules,

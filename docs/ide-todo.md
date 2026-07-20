@@ -12,10 +12,10 @@ Ordered by what a user on a large project would feel first.
 **Why:** on larger projects the analysis is slow, and today *every* trigger re-analyses the whole project
 from scratch. A one-line edit costs a full run. This is the single biggest win available.
 
-**Blocked on:** the rewiring work (`docs/rewiring.md`). That is what makes it possible to rebuild only the changed
+**Blocked on:** the rewiring work (`rewiring.md`). That is what makes it possible to rebuild only the changed
 type and what is downstream of it, keeping everything upstream as the *same objects*. Status there:
 openjdk inspector complete and running end to end; Kotlin inspector not started. Also relevant:
-`docs/partial-reparse-rewire.md`.
+`partial-reparse-rewire.md`.
 
 **What has to change in the daemon.** `WarmAnalysisService.analyze` constructs a **fresh**
 `JavaInspectorImpl(true, false)` per request and re-parses everything. Partial re-analysis means the opposite:

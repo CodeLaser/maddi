@@ -45,7 +45,7 @@ maddi-eclipse/
   `executionEnvironment` to `JavaSE-21`. Bumping that one URL moves the baseline.
 - **Installable**: the reactor builds a p2 update site at
   `io.codelaser.maddi.eclipse.repository/target/repository` (and the same zipped). See
-  `maddi-eclipse/README.md`.
+  `../maddi-eclipse/README.md`.
 - `MANIFEST.MF`: `singleton:=true`, `Eclipse-BundleShape: dir` (so the bundled daemon can be launched
   from disk), lazy activation, `Bundle-ClassPath: ., lib/maddi-ide-client.jar, lib/jackson-*.jar`.
 
@@ -178,7 +178,7 @@ inline/above hints, gutter markers, the findings view, and the guard-violation u
   `AnalyzeConfig` to the analyzer;*
 - *the plugin was not installable — there is now a feature and a p2 update site
   (`io.codelaser.maddi.eclipse.repository/target/repository`), verified by installing it with the p2
-  director into a clean Eclipse and starting the daemon from the result; see `maddi-eclipse/README.md`;*
+  director into a clean Eclipse and starting the daemon from the result; see `../maddi-eclipse/README.md`;*
 - *inline hints were thought to need an internal-API spike — they don't. `AbstractTextEditor`
   `.installCodeMiningProviders()` reads the `org.eclipse.ui.workbench.texteditor.codeMiningProviders`
   registry, and JDT registers its own minings through that same public point, so `MaddiCodeMiningProvider`
