@@ -1,6 +1,7 @@
 # Eventual immutability — plan and status
 
-**Status: stage 1 (contracts) done; stage 2 (propagation) not started.**
+**Status: stages 1 and 2 done (contracts + propagation); the remaining gaps are listed under
+"Stage 2, what is not covered".**
 
 Concepts: `road-to-immutability` §060 (`sections/060-eventual.adoc`). This note records *how* we are bringing
 that chapter back into the current engine, and what was deliberately left out.
@@ -35,7 +36,7 @@ So: **contract the leaves, propagate everywhere else, never compute a preconditi
 |---|---|---|
 | 0 | Value model: `Value.Eventual`, `Value.EventuallyImmutable` + properties | done |
 | 1 | Read `@Mark`/`@Only`/`@TestMark` and `after="…"` as contracts | done |
-| 2 | Compute eventuality by propagation over eventually immutable fields | **next** |
+| 2 | Compute eventuality by propagation over eventually immutable fields | done |
 | 3 | Assignment-incompatible-with-precondition, for hand-rolled flag types | probably never needed |
 
 ## Stage 0/1, as built
@@ -66,26 +67,43 @@ immutability lattice (`ValueImpl.ImmutableImpl`, a flat 0..3 int) is combined wi
 analyzer, and independence in particular is derived from it. Moving eventuality into that lattice will change
 results, so it is a separate, deliberate step, to be taken once stage 2 exists and can be tested.
 
-## Stage 2 — what it needs to do
+## Stage 2, as built
 
-1. **Per method**: scan for calls on `this.f` (with `f` a final field of eventually immutable type) or on
-   `this` (an inherited marked method). Take the callee's contracted `Value.Eventual` and combine with the
-   method's own `@Modified`:
-   - callee `@Mark` + modifying → `@Mark`
-   - callee `@Only(before)` → `@Only(before)`
-   - callee `@Only(after)` + non-modifying → `@Only(after)`
-   - inconsistent across fields → not eventual
+`TypeEventualAnalyzer` / `TypeEventualAnalyzerImpl`, phase 4.3, run from `SingleIterationAnalyzerImpl`
+after the container analyzer.
 
-   This is the old `eventualFromEventuallyImmutableFields`, but resolved syntactically over the CST rather
-   than through the old `CONTEXT_IMMUTABLE` context-property propagation.
+**Per method.** Walk the body; for each call whose receiver is `this.f` (with `f` an own field whose type is
+eventually immutable) or `this` (an inherited marked method), take the callee's `Value.Eventual` and place the
+caller on the same side of the transition: `@Mark` → `@Mark`, `@Only(before)` → `@Only(before)`,
+`@Only(after)` → `@Only(after)`. Mixing sides concludes nothing. `@Mark` additionally requires the method to
+modify, so a claim can never contradict phase 1. The label is *our* field's name, not the support class's
+internal one: what our callers observe is "this.inspection has been set".
 
-2. **Per type**: eventually immutable at level L when the immutability rules hold once the eventual field
-   *and the fields guarded by it* are set aside. Port `findFieldsGuardedByEventuallyImmutableFields` from
-   `ComputingTypeAnalyser` — it is pure set containment ("the methods that assign this field ⊆ the methods
-   guarded by that field"), no dataflow. This is what lets `EventuallyFinal.value` ride along with `isFinal`,
-   and what `TypeInspectionImpl`'s builder fields need.
+`@TestMark` propagates only through a body that is exactly `return <testmark call>` or
+`return !<testmark call>`; anything looser would classify every method that merely consults the state — an
+`assert`, a guard — as a state test.
 
-3. Inheritance: `approvedPreconditionsFromParent` in the old code; a subtype inherits its parent's mark.
+**Per type.** Collect the fields marked by the type's own `@Mark` methods, and ask
+`TypeImmutableAnalyzer.immutableIgnoringModificationOf` for the level the type reaches once those fields can
+no longer change. Same computation as the unconditional verdict with exactly one relaxation, so the two
+cannot drift apart. Written only when it beats the unconditional verdict.
+
+**Contracts are materialized.** A hand-written `@Mark` on a source method was previously visible only through
+the `ContractReader`; the analyzer now writes it into `analysis()`, because everything downstream (codec,
+guard, IDE daemon) looks there. The same reader is the fallback when reading a *called* method's contract:
+a compiled type is shallow-analyzed lazily, per method, so a support class usually arrives with an empty
+property map.
+
+## Stage 2, what is not covered
+
+- **Field finality is not relaxed.** A type whose transition is a plain assignable flag (`private boolean
+  frozen`) still fails rule 0. That is the stage 3 case, and it is why `Freezable` itself is contracted.
+- **Guarded fields.** `findFieldsGuardedByEventuallyImmutableFields` from `ComputingTypeAnalyser` is not
+  ported yet: a private field assigned only inside methods guarded by the mark should ride along with it
+  (this is what lets `EventuallyFinal.value` ride along with `isFinal`). Pure set containment, no dataflow.
+  Worth doing once a run over maddi itself shows which types need it.
+- **Inherited marks at type level.** A `Freezable` subclass gets its *methods* annotated, but not its own
+  type-level verdict; that needs the old `approvedPreconditionsFromParent`.
 
 ## Not done, on purpose
 
