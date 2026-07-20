@@ -60,5 +60,6 @@ maddi_java_test(
         "//maddi-modification-common",
         "//maddi-java-parser",
         "//maddi-java-bytecode",
+        "//maddi-inspection-openjdk",
     ],
 )
