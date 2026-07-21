@@ -48,6 +48,22 @@ public interface SourceSet {
     String name();
 
     /**
+     * Returns the identity of the build unit (Maven module, Gradle subproject, Bazel target, ...) that this
+     * source set belongs to, or {@code null} when the importer could not determine it.
+     * <p>
+     * Multiple source sets share a build unit: typically a {@code main} and a {@code test} set, sometimes more.
+     * The value is opaque, but must be unique across the build: importers use a fully qualified identifier
+     * (Maven {@code groupId:artifactId}, Gradle's project path, Bazel's label), <em>not</em> a leaf directory
+     * name. The leaf name is not unique, which is precisely why {@link #name()} cannot serve this purpose.
+     * <p>
+     * Note that this value plays no role in {@code equals}/{@code hashCode}: source sets are identified by
+     * their {@link #name()} throughout the system, including in serialized dependency references.
+     */
+    default String buildUnit() {
+        return null;
+    }
+
+    /**
      * If this source set represents sources, this path points to a directory structure that contain the sources.
      * In the case of Java, the directory structure must be compatible with the package of the compilation unit.
      * <p>
