@@ -17,6 +17,7 @@ package org.e2immu.analyzer.modification.analyzer.impl;
 import org.e2immu.analyzer.modification.analyzer.CycleBreakingStrategy;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.TypeImmutableAnalyzer;
+import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.language.cst.api.analysis.Message;
@@ -53,7 +54,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
             return; // nothing to be gained
         }
         Independent independent = typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT);
-        Immutable immutable = computeImmutableType(typeInfo, independent, activateCycleBreaking, Set.of());
+        Immutable immutable = computeImmutableType(typeInfo, independent, activateCycleBreaking, AfterMark.NONE);
         if (immutable != null) {
             if (TolerantWrite.setAllowControlledOverwrite(typeInfo.analysis(), IMMUTABLE_TYPE, immutable, typeInfo)) {
                 DECIDE.debug("TI: Decide immutable of type {} = {}", typeInfo, immutable);
@@ -74,14 +75,13 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
      * the precondition reasoning we are not reviving.
      */
     @Override
-    public Immutable immutableIgnoringModificationOf(TypeInfo typeInfo, Set<FieldInfo> excusedFields,
-                                                    boolean activateCycleBreaking) {
+    public Immutable immutableAfterMark(TypeInfo typeInfo, AfterMark afterMark, boolean activateCycleBreaking) {
         Independent independent = typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT);
-        return computeImmutableType(typeInfo, independent, activateCycleBreaking, excusedFields);
+        return computeImmutableType(typeInfo, independent, activateCycleBreaking, afterMark);
     }
 
     private Immutable computeImmutableType(TypeInfo typeInfo, Independent independent, boolean activateCycleBreaking,
-                                           Set<FieldInfo> excusedFields) {
+                                           AfterMark afterMark) {
         boolean fieldsAssignable = typeInfo.fields().stream().anyMatch(fi -> !fi.isPropertyFinal());
         if (fieldsAssignable) return MUTABLE;
         // sometimes, we have annotated setters on synthetic fields, which do not have the "final" property
@@ -98,7 +98,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         boolean stopExternal = false;
 
         for (ParameterizedType superType : typeInfo.parentAndInterfacesImplemented()) {
-            Immutable immutableSuper = immutableSuper(superType.typeInfo());
+            Immutable immutableSuper = immutableSuper(superType.typeInfo(), afterMark);
             Immutable immutableSuperBroken;
             if (immutableSuper == null) {
                 if (activateCycleBreaking) {
@@ -129,7 +129,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
 
         // fields and abstract methods (those annotated by hand)
 
-        Boolean immFromField = loopOverFieldsAndMethods(typeInfo, true, excusedFields);
+        Boolean immFromField = loopOverFieldsAndMethods(typeInfo, true, afterMark);
         if (immFromField == null) {
             // The 51% type-null cluster (elasticsearch first contact): a missing verdict here — a field's
             // UNMODIFIED undecided, a NON-PRIVATE field's type immutability-undecided, or an abstract
@@ -164,8 +164,19 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         return undecided ? null : true;
     }
 
-    private Immutable immutableSuper(TypeInfo typeInfo) {
+    private Immutable immutableSuper(TypeInfo typeInfo, AfterMark afterMark) {
         Immutable immutable = typeInfo.analysis().getOrNull(IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.class);
+        if (!afterMark.isNone()) {
+            // after OUR mark, an eventually immutable supertype has been marked too -- the transition is the
+            // object's, not one type's -- so it contributes the level it reaches after its own mark. Without
+            // this, an eventually immutable base or interface stays MUTABLE here and drags every subtype down
+            // with it, which is precisely what kept the *Impl family in maddi from being certified.
+            Value.EventuallyImmutable ev = typeInfo.analysis()
+                    .getOrDefault(EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+            if (ev.isEventual()) {
+                return immutable == null ? ev.immutableAfterMark() : ev.immutableAfterMark().max(immutable);
+            }
+        }
         if (immutable != null || !typeInfo.isAbstract()) return immutable;
         // The abstract supertype's own immutability has not been decided yet. We must NOT estimate it from only its
         // non-abstract members: that ignores the abstract methods, which can make the abstract type mutable (e.g. a
@@ -181,8 +192,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         return bestType == null || !bestType.equals(fieldInfo.owner());
     }
 
-    private Boolean loopOverFieldsAndMethods(TypeInfo typeInfo, boolean abstractMethods,
-                                             Set<FieldInfo> excusedFields) {
+    private Boolean loopOverFieldsAndMethods(TypeInfo typeInfo, boolean abstractMethods, AfterMark afterMark) {
         // fields should be private, or immutable for the type to be immutable
         // fields should not be @Modified nor assigned to
         // fields should not be @Dependent
@@ -199,7 +209,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
                     }
                 }
             }
-            if (excusedFields.contains(fieldInfo)) continue; // after the mark, this field can no longer change
+            if (afterMark.fields().contains(fieldInfo)) continue; // after the mark, this field cannot change
             Bool fieldUnmodified = fieldInfo.analysis().getOrNull(UNMODIFIED_FIELD, ValueImpl.BoolImpl.class);
             if (fieldUnmodified == null) {
                 isImmutable = null;
@@ -209,6 +219,8 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         }
         for (MethodInfo methodInfo : typeInfo.methods()) {
             if (methodInfo.isAbstract() == abstractMethods) {
+                // a @Mark / @Only(before=) method modifies only before the mark
+                if (afterMark.methods().contains(methodInfo)) continue;
                 Bool nonModifying = methodInfo.analysis().getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
                 if (nonModifying == null) {
                     isImmutable = null;

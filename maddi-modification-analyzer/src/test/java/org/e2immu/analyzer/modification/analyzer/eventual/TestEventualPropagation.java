@@ -234,4 +234,51 @@ public class TestEventualPropagation extends CommonTest {
         assertTrue(read.isOnly());
         assertEquals(Boolean.TRUE, read.after());
     }
+
+    // the shape of TypeInfo / TypeInfoImpl: the interface declares the marking method, but only the
+    // implementation holds the eventually immutable field
+    @Language("java")
+    private static final String INPUT5 = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class B {
+              interface I {
+                void commit(String s);
+                boolean hasBeenCommitted();
+              }
+              static class Impl implements I {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                @Override public void commit(String s) { inspection.setFinal(s); }
+                @Override public boolean hasBeenCommitted() { return inspection.isFinal(); }
+              }
+            }
+            """;
+
+    @DisplayName("eventuality travels from implementation to interface, and back down the hierarchy")
+    @Test
+    public void test5() {
+        TypeInfo B = javaInspector.parse("B", INPUT5);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+
+        TypeInfo I = B.findSubType("I");
+        TypeInfo impl = B.findSubType("Impl");
+
+        // the abstract method inherits the mark of its single implementation
+        Value.Eventual commit = eventual(I.findUniqueMethod("commit", 1));
+        assertTrue(commit.isMark(), "I.commit should be @Mark, is " + commit);
+        assertEquals(Set.of("inspection"), commit.fields());
+        assertEquals(Boolean.TRUE, eventual(I.findUniqueMethod("hasBeenCommitted", 0)).test());
+
+        // and the interface itself becomes eventually immutable, which is what unblocks the implementation:
+        // the hierarchy rule would otherwise make a mutable interface force Impl to MUTABLE
+        Value.EventuallyImmutable evI = I.analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+        assertTrue(evI.isEventual(), "I should be eventually immutable, is " + evI);
+        assertEquals("inspection", evI.markLabel());
+
+        Value.EventuallyImmutable evImpl = impl.analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+        assertTrue(evImpl.isEventual(), "Impl should be eventually immutable, is " + evImpl);
+    }
 }

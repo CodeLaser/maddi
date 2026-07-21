@@ -257,6 +257,13 @@ class AnnotationToProperty {
             }
         }
 
+        if (eventual != null && eventual.isTestMark() && unmodified == null) {
+            // a @TestMark method reports which side of the transition the object is on; observing the state is
+            // not changing it (road to immutability §060: "these methods can be called any time"). Without this,
+            // an unannotated state test on a support class defaults to modifying, and every method forwarding it
+            // -- TypeInfoImpl.hasBeenInspected and friends -- is dragged along with it.
+            unmodified = TRUE;
+        }
         if (independent == null && info instanceof TypeInfo typeInfo) {
             independent = simpleComputeIndependent(typeInfo, immutable);
         }
