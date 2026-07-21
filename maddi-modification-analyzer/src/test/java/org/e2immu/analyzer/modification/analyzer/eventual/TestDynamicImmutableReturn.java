@@ -43,6 +43,9 @@ import static org.junit.jupiter.api.Assertions.*;
  * ({@link PropertyImpl#IMMUTABLE_METHOD}, commented "dynamic return type") but computes nothing into it from a
  * method body, and the link engine -- where an accessor's dependence is actually decided -- never reads it.
  * <p>
+ * Since {@code SourceContractMaterializer} (part 1) a hand-written contract does at least reach
+ * {@code analysis()}; the consumption half (part 3) is still missing, which is what B and E below now pin.
+ * <p>
  * Several assertions below pin a LIMITATION rather than desired behaviour; each says so.
  */
 public class TestDynamicImmutableReturn extends CommonTest {
@@ -114,13 +117,13 @@ public class TestDynamicImmutableReturn extends CommonTest {
         // The contract IS readable from the source...
         assertNotNull(m.contractedMethodImmutable(), "the annotation is on the method");
         assertEquals("@Immutable(hc=true)", m.contractedMethodImmutable().toString());
-        // LIMITATION, not desired behaviour: ...but it is never materialized into analysis(). Nothing writes
-        // IMMUTABLE_METHOD for a SOURCE method -- AnnotationToProperty is reached through ShallowMethodAnalyzer,
-        // which handles non-source methods. Same defect class as EVENTUAL_METHOD before the eventual analyzer
-        // began materializing its contracts.
-        assertNull(m.methodImmutable(), "IMMUTABLE_METHOD is not materialized for a source method");
-        // LIMITATION: and even were it materialized, the link engine never reads IMMUTABLE_METHOD, so the
-        // accessor stays dependent and the type with it. The consumption path is not wired up.
+        // ...and since SourceContractMaterializer it is materialized into analysis() too, so the codec, the
+        // guard and the IDE daemon can all see it.
+        assertNotNull(m.methodImmutable(), "IMMUTABLE_METHOD is materialized for a source method");
+        assertTrue(m.methodImmutable().isImmutableHC());
+        // LIMITATION, not desired behaviour: materializing it changes no verdict, because the link engine --
+        // where a source accessor's dependence is decided -- never reads IMMUTABLE_METHOD. (ShallowMethodAnalyzer
+        // does consult it, but only for methods whose source we do not have.) That is part 3, not part 1.
         assertTrue(m.methodIndependent().isDependent());
         assertTrue(m.typeIndependent().isDependent());
         assertTrue(m.typeImmutable().isFinalFields());
@@ -191,8 +194,36 @@ public class TestDynamicImmutableReturn extends CommonTest {
     public void testE() {
         Measured m = measure(E_ANNOTATED_COPY_IN);
         assertNotNull(m.contractedMethodImmutable());
-        // LIMITATION: annotating the accessor of the real-world shape is not a workaround either.
-        assertNull(m.methodImmutable());
+        assertNotNull(m.methodImmutable(), "the contract is materialized");
+        // LIMITATION: but annotating the accessor of the real-world shape is still not a workaround -- nothing
+        // consumes the materialized value, so the type stays exactly where D left it.
+        assertTrue(m.typeIndependent().isDependent());
+        assertTrue(m.typeImmutable().isFinalFields());
+    }
+
+    @Language("java")
+    private static final String G_ANNOTATED_FIELD = """
+            import java.util.List;
+            import org.e2immu.annotation.Immutable;
+            public class B {
+              @Immutable(hc = true)
+              private final List<String> items;
+              public B(List<String> items) { this.items = List.copyOf(items); }
+              public List<String> items() { return items; }
+            }
+            """;
+
+    @DisplayName("G: the FIELD-side contract is materialized too, and likewise consumed by nothing")
+    @Test
+    public void testG() {
+        Measured m = measure(G_ANNOTATED_FIELD);
+        // part 1 for fields: @Immutable on a source field reaches IMMUTABLE_FIELD. This is the property the
+        // spike showed would lift the whole shape if the link engine read it (docs/dynamic-immutability-
+        // feasibility.md), so it is the one part 2 will eventually have to compute.
+        assertNotNull(m.fieldImmutable(), "IMMUTABLE_FIELD is materialized for a source field");
+        assertTrue(m.fieldImmutable().isImmutableHC());
+        // LIMITATION: FieldAnalyzerImpl still grades the field's links off its DECLARED type, so nothing moves.
+        assertTrue(m.fieldIndependent().isDependent());
         assertTrue(m.typeIndependent().isDependent());
         assertTrue(m.typeImmutable().isFinalFields());
     }
