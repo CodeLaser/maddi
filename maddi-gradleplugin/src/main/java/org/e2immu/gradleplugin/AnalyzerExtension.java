@@ -44,7 +44,16 @@ public class AnalyzerExtension {
     /* InputConfiguration */
     public String jmods;
     public String jre;
+    /**
+     * @deprecated Legacy, avoid; fatal on modular projects. See
+     * {@link org.e2immu.language.cst.api.element.SourceSet#restrictToPackages()}.
+     */
+    @Deprecated
     public String sourcePackages;
+    /**
+     * @deprecated As {@link #sourcePackages}.
+     */
+    @Deprecated
     public String testSourcePackages;
     public String excludeFromClasspath;
     public String workingDirectory;
