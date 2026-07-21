@@ -9,12 +9,17 @@ These cannot be set as plugin options.
 Input sources
 -------------
 
-- `sourcePackages` (list of strings):
+- `sourcePackages` (list of strings) — **LEGACY, avoid**:
   - which source packages to analyze.
   - If absent, all sources are analyzed.
   - When an entry ends in a dot, all sub-packages are included.
+  - It dates from the hand-written parser, which could not yet process arbitrary code; the current
+    front ends have no such limitation. It is moreover **fatal on any modular project** — a restriction
+    puts the source roots on javac's `SOURCE_PATH`, javac then compiles `module-info.java` implicitly,
+    and every cross-module reference fails with "package X does not exist". See
+    `SourceSet.restrictToPackages()`.
 
-- `testSourcePackages` (list of strings):
+- `testSourcePackages` (list of strings) — **LEGACY, avoid**:
   - Similar to `sourcePackages`. The difference is made only for some analyses.
 
 - `analyzedSourcesDir` (single string):
