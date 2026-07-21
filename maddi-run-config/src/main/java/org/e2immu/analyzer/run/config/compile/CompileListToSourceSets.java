@@ -196,6 +196,35 @@ public class CompileListToSourceSets {
             "functionalTest", "funcTest",
             "acceptanceTest", "systemTest", "smokeTest", "contractTest");
 
+    // the directory a build tool writes its compiled output into, directly inside the module directory
+    private static final Set<String> BUILD_OUTPUT_NAMES = Set.of("target", "build", "out");
+
+    /*
+    Derives the build unit -- the module the source sets belong to -- from the javac -d destination, by dropping
+    the build tool's output directory and everything below it:
+
+        .../timefold-solver/core/target/classes            -> .../timefold-solver/core
+        .../timefold-solver/core/target/test-classes       -> .../timefold-solver/core
+        .../quarkus/deployment/build/classes/java/main     -> .../quarkus/deployment
+
+    The module directory is what makes a build unit identifiable here. Unlike the source set name, it is unique,
+    and it pairs a module's main and test sets: the names cannot, because computeName below falls back to a
+    frequency heuristic and disambiguates collisions with a counter, so main2 and test-classes2 need not belong
+    to the same module (in timefold-solver they do not).
+
+    Returns null when no output directory is recognised: an unknown grouping must not be guessed at.
+     */
+    private static String computeBuildUnit(String destination) {
+        String[] split = destination.split(SEPARATOR);
+        for (int i = split.length - 1; i > 0; --i) {
+            if (BUILD_OUTPUT_NAMES.contains(split[i])) {
+                return combine(split, 0, i);
+            }
+        }
+        LOGGER.warn("Cannot determine the build unit of {}: no build output directory in the path", destination);
+        return null;
+    }
+
     private SourceSet createSourceSet(CompileInvocation inv,
                                       Map<String, Integer> countSuffix,
                                       Map<String, SourceSet> sourceSetsByPath,
@@ -265,6 +294,7 @@ public class CompileListToSourceSets {
         boolean test = result.testName() != null || !inv.friendPaths().isEmpty();
         SourceSet sourceSet = new SourceSetImpl.Builder()
                 .setName(name)
+                .setBuildUnit(computeBuildUnit(destination))
                 .setSourceDirectories(List.copyOf(sourceDirs))
                 .setUri(uri)
                 .setSourceEncoding(encoding)
