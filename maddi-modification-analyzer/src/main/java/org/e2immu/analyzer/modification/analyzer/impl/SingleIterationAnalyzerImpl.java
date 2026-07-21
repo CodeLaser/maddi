@@ -53,6 +53,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final ShallowTypeAnalyzer shallowTypeAnalyzer;
     private final TypeContainerAnalyzer typeContainerAnalyzer;
     private final TypeEventualAnalyzer typeEventualAnalyzer;
+    private final SourceContractMaterializer sourceContractMaterializer;
     private final AbstractMethodAnalyzer abstractMethodAnalyzer;
     private final AtomicInteger propertiesChanged;
     private final List<Message> messages;
@@ -112,6 +113,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         shallowTypeAnalyzer = new ShallowTypeAnalyzer(runtime, Element::annotations, false);
         typeContainerAnalyzer = new TypeContainerAnalyzerImpl(configuration, propertiesChanged, messages);
         typeEventualAnalyzer = new TypeEventualAnalyzerImpl(runtime, typeImmutableAnalyzer, configuration, propertiesChanged, messages);
+        sourceContractMaterializer = new SourceContractMaterializer(runtime, propertiesChanged);
         abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, propertiesChanged, messages);
     }
 
@@ -307,6 +309,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.setCurrent(info);
         try {
             if (info instanceof MethodInfo methodInfo) {
+                sourceContractMaterializer.materialize(methodInfo);
                 if (firstIteration && methodInfo.isAbstract() && abstractTypes.add(info.typeInfo())) {
                     shallowTypeAnalyzer.analyze(info.typeInfo());
                 }
@@ -321,6 +324,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                     }
                 }
             } else if (info instanceof FieldInfo fieldInfo) {
+                sourceContractMaterializer.materialize(fieldInfo);
                 if (fieldInfo.owner().isAbstract() && firstIteration) {
                     shallowTypeAnalyzer.analyzeField(fieldInfo);
                 }
