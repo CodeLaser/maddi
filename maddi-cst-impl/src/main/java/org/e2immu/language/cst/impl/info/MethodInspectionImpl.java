@@ -57,7 +57,10 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
     private final List<ParameterizedType> exceptionTypes;
     private final MethodInfo.MissingData missingData;
 
-    public MethodInspectionImpl(Inspection inspection,
+    // private: the Builder is the only construction route, so every caller of this constructor is inside
+    // this primary type. That is what lets the analyzer verify, rather than believe, that the collections it
+    // stores are immutable. See docs/dynamic-immutability-feasibility.md.
+    private MethodInspectionImpl(Inspection inspection,
                                 ParameterizedType returnType,
                                 List<TypeParameter> typeParameters,
                                 List<ParameterInfo> parameters,
@@ -72,7 +75,7 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
                 exceptionTypes, operatorType, methodBody, fullyQualifiedName, overrides, missingData);
     }
 
-    public MethodInspectionImpl(Inspection inspection,
+    private MethodInspectionImpl(Inspection inspection,
                                 boolean synthetic,
                                 ParameterizedType returnType,
                                 List<TypeParameter> typeParameters,

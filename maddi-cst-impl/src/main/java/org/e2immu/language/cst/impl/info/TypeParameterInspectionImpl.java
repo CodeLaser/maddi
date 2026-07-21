@@ -28,7 +28,10 @@ public class TypeParameterInspectionImpl extends InspectionImpl implements TypeP
     private final List<ParameterizedType> typeBounds;
     private final Variance variance;
 
-    public TypeParameterInspectionImpl(Inspection inspection, List<ParameterizedType> typeBounds, Variance variance) {
+    // private: the Builder is the only construction route, so every caller of this constructor is inside
+    // this primary type. That is what lets the analyzer verify, rather than believe, that the collections it
+    // stores are immutable. See docs/dynamic-immutability-feasibility.md.
+    private TypeParameterInspectionImpl(Inspection inspection, List<ParameterizedType> typeBounds, Variance variance) {
         super(null, inspection.comments(), inspection.source(), inspection.isSynthetic(),
                 inspection.annotations(), null);
         this.typeBounds = typeBounds;
