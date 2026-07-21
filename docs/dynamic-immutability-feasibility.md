@@ -1,7 +1,8 @@
 # Dynamic immutability: closing the consumption path (2026-07)
 
-**Status: part 3 IMPLEMENTED (2026-07), together with a local guard check. Parts 1 and 3 are in; part 2
-(inference) is not, so the feature is driven by hand-written contracts only and is inert on unannotated code.**
+**Status: parts 1 and 3 IMPLEMENTED (2026-07), together with a local guard check. Part 2 (inference) was
+attempted and NOT built: for maddi's own CST the value it would have to infer is not merely unknown, it is not
+guaranteed to be true. See "Part 2: why it was not built" below.**
 The measurements below were the spike that sized it; the "what it moved" and coupling sections have been updated
 to what the implemented version actually does.
 
@@ -202,3 +203,64 @@ Read the `SHADOWBENCH totals:` line, or just trust the pinned assertions.)
 consumed, and checked as far as a local check can. That is already enough to certify a type by annotating it —
 at the cost of a promise the guard can only warn about rather than verify. Part 2 remains the large piece, and
 remains the thing that would make the CST certify itself with no annotations at all.
+
+## Part 2: why it was not built (2026-07)
+
+Part 2 was authorized with an explicit soundness gate: a constructor parameter's dynamic immutability may only
+be inferred when *every* caller can be enumerated. Applying that gate to the motivating example ends the
+exercise before any code is written.
+
+```
+public class TypeInspectionImpl ...                 // public type
+    public TypeInspectionImpl(Inspection, Set<TypeModifier>, List<MethodInfo>, ...)   // public constructor
+exports org.e2immu.language.cst.impl.info;          // exported package
+```
+
+There is exactly **one** caller inside the analyzed source set (`Builder.commit()`, which does pass
+`List.copyOf(...)`). But the constructor is public on an exported package, so any consumer —
+`maddi-inspection-*`, a plugin, user code — may legally write
+
+```java
+new TypeInspectionImpl(inspection, modifiers, myMutableList, ...);
+```
+
+and the field then *genuinely holds a mutable list*. Inferring `IMMUTABLE_FIELD` from the single visible caller
+would not be an approximation; it would be false. **The `contract-unverifiable` warning part 3 emits for these
+fields is therefore correct and not removable by any amount of analysis** — it is a true statement about the
+API, not a limitation of the analyzer. "Every caller must pass an immutable object" is an obligation the type
+does not enforce.
+
+### The distribution says the ceiling is low
+
+Collection-typed fields in `maddi-cst-impl`, by the shape of their assignment (regex survey, indicative — nested
+builders make exact attribution awkward):
+
+| shape | fields | soundly inferable? |
+|---|---|---|
+| `this.f = List.copyOf(...)` locally in ctor/initializer | 6 | yes — purely local, no call-site walk |
+| `this.f = param`, constructor **private** | 14 | yes — all callers are inside the primary type, which prepwork already scans whole |
+| `this.f = param`, constructor **public/protected** | 80 | **no** — callers are unbounded |
+
+So a sound part 2 reaches roughly 20 of ~100 fields and, decisively, **none of the 16 in `TypeInspectionImpl`**
+that motivated it. Building it would deliver a minority payoff while leaving the headline goal exactly where it
+is — and it would require the fixpoint integration that is the risky part of the work.
+
+`private` is the natural boundary and it aligns with the machinery that exists: all callers of a private member
+are necessarily within the same primary type, and `ComputeCallGraph` is built per primary type. Package-private
+would already exceed that graph's reach.
+
+### What would actually certify the CST
+
+Three options, none of them part 2:
+
+1. **Narrow the constructors.** Make the product constructors private/package-private with the `Builder` as the
+   only route in. That makes the 80 become the 14, and a sound part 2 would then reach them. It is also the
+   change that makes the promise *true* rather than merely believed.
+2. **Copy at both ends.** Add `List.copyOf` to the accessors as well; certifies today with no analyzer change,
+   at a second copy per call on a hot path (`fields()`, `methods()`, `parameters()`).
+3. **Annotate and accept the warning.** Parts 1 and 3 already support this: the contract is materialized,
+   consumed, and reported as trusted-not-verified. Defensible while the annotations stay inside code whose
+   callers you control.
+
+There is no closed-world/whole-program configuration in `IteratingAnalyzer.Configuration`, so option 1's
+soundness cannot be bought with a flag.
