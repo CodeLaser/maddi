@@ -21,6 +21,7 @@ Each entry below is labeled:
 | [dynamic-immutability-feasibility.md](dynamic-immutability-feasibility.md) | note | A field's dynamic immutability: materialized (part 1) and consumed (part 3) from a hand-written contract, with a local guard check; inference (part 2) still open. |
 | [independent-type-optimism.md](independent-type-optimism.md) | note | Reproduced defect: `INDEPENDENT_TYPE` can be frozen at an optimistic value; why the obvious fix unmasks a second inconsistency. |
 | [sam-linking-reconciliation.md](sam-linking-reconciliation.md) | note | What actually diverges between the two SAM conventions: contract vs inference, not virtual fields; retires two theories. |
+| [builder-interface-split-impact.md](builder-interface-split-impact.md) | note | Costing the two ways to stop the mutable Builder capping the read-only Inspection interfaces; measured, no refactor landed. |
 | [eventual-immutability.md](eventual-immutability.md) | plan | Bringing road-to-immutability §060 back into the engine: contract the support classes, propagate; no preconditions. |
 | [formatter-analysis.md](formatter-analysis.md) | note | Analysis of the `maddi-cst-print` formatter. |
 | [formatter-doc-ir-plan.md](formatter-doc-ir-plan.md) | plan | Rewrite plan: a Doc IR for `maddi-cst-print`. |
