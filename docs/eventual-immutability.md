@@ -1,7 +1,9 @@
 # Eventual immutability — plan and status
 
-**Status: stages 1 and 2 done (contracts + propagation); the remaining gaps are listed under
-"Stage 2, what is not covered".**
+**Status: implemented and working on real code.** Contracts, propagation, interface inheritance and
+independence-after-mark are all in; measured on maddi's own CST, 30 methods carry a mark and 4 types are
+eventually immutable. What is not done is listed under "Not done, on purpose" and "Stage 2, what is not
+covered"; none of it blocks use.
 
 Concepts: `road-to-immutability` §060 (`sections/060-eventual.adoc`). This note records *how* we are bringing
 that chapter back into the current engine, and what was deliberately left out.
@@ -38,6 +40,23 @@ So: **contract the leaves, propagate everywhere else, never compute a preconditi
 | 1 | Read `@Mark`/`@Only`/`@TestMark` and `after="…"` as contracts | done |
 | 2 | Compute eventuality by propagation over eventually immutable fields | done |
 | 3 | Assignment-incompatible-with-precondition, for hand-rolled flag types | probably never needed |
+| — | Interface inheritance: implementation → abstract method → interface type-level | done |
+| — | Independence after the mark, with the leaked-type-must-be-eventual constraint | done |
+
+## State on real code (dogfood, maddi's own CST)
+
+Measured with `--preload-analysis-results-dirs` (mandatory — see `dogfood/README.md`; without it the
+annotated APIs are absent and every figure reads as a zero):
+
+- **30 methods** carry `EVENTUAL_METHOD`. `TypeInfoImpl.commit` is `@Mark("inspection")`,
+  `hasBeenInspected()` is `@TestMark("inspection")`, `setOnDemandInspection()` is
+  `@Only(before="inspection")`; likewise across `MethodInfoImpl`, `FieldInfoImpl`, `ParameterInfoImpl`,
+  `TypeParameterImpl`, `CompilationUnitImpl` and `ModuleInfoImpl`. Six of the 30 sit on **interfaces**,
+  reached by the implementation → abstract-method → interface chain.
+- **4 types** are eventually immutable: `ModuleInfo.Provides` and `ModuleInfo.Uses` reach
+  `@Immutable(hc=true)` after their mark, their two implementations `@FinalFields`.
+
+Nobody annotated any of it; all of it is computed.
 
 ## Stage 0/1, as built
 
@@ -151,6 +170,9 @@ configurations.
 - **Preconditions.** `PropertyImpl.PRECONDITION_METHOD` and `Value.Precondition` exist but nothing writes
   them; that remains the case. We are not reviving the precondition/postcondition subsystem.
 - **Companion methods and aspects.** Out of scope, and not needed for the patterns maddi uses.
+- **Refutation as a violation.** The guard warns `contract-unverifiable` on a promise it cannot check;
+  turning a *refuted* one into an error needs a tri-state from `immutabilityOf`, which today collapses
+  "provably mutable" and "undecided" into null.
 
 ## Reference material
 

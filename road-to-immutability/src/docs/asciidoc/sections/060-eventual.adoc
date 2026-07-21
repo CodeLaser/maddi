@@ -6,8 +6,10 @@
 *Status.* The concepts in this chapter — `@Mark`, `@Only`, `@BeforeMark`, `@TestMark`, and the two-phase
 life cycle they describe — are part of the design, and were fully computed in an earlier generation of the
 analyzer.
-The current engine reads `@Mark`, `@Only`, `@TestMark` and the `after="..."` parameters as _contracts_, and
-stores them as properties, but does not yet compute them; `@BeforeMark` is not read yet.
+The current engine reads `@Mark`, `@Only`, `@TestMark` and the `after="..."` parameters as _contracts_,
+stores them as properties, and _computes_ them by propagation, for classes and interfaces alike;
+`@BeforeMark` is not read yet, and the precondition-based detection of the two `SimpleImmutableSet`
+examples above is not implemented (nor needed for the patterns maddi itself uses).
 The chapter is retained because the design remains valid and the pattern is central to how the analyzer's
 own support classes are written (see <<in-the-analyzer>>).
 The plan for computing them is in `docs/eventual-immutability.md`.
