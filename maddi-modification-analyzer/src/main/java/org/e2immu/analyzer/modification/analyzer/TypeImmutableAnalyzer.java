@@ -14,7 +14,9 @@
 
 package org.e2immu.analyzer.modification.analyzer;
 
-import org.e2immu.language.cst.api.info.Info;
+import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 
 import java.util.Set;
@@ -31,4 +33,29 @@ It is possible to have to wait for other type's @Immutable status, because of ex
 public interface TypeImmutableAnalyzer {
 
     void go(TypeInfo primaryType, boolean activateCycleBreaking);
+
+    /**
+     * What may be discounted when computing the level a type reaches <em>after the mark</em> (road to
+     * immutability §060). Everything listed here modifies only on the before-side of the state transition, so
+     * once the mark has been passed it can no longer change.
+     *
+     * @param fields  fields of eventually immutable type that the type's own {@code @Mark} methods commit
+     * @param methods the type's {@code @Mark} and {@code @Only(before=)} methods. Only the abstract ones
+     *                actually matter -- rule 1 catches a concrete modifying method through the field it
+     *                modifies -- but an interface has nothing <em>but</em> abstract methods, which is exactly
+     *                the case this exists for.
+     */
+    record AfterMark(Set<FieldInfo> fields, Set<MethodInfo> methods) {
+        public static final AfterMark NONE = new AfterMark(Set.of(), Set.of());
+
+        public boolean isNone() {
+            return fields.isEmpty() && methods.isEmpty();
+        }
+    }
+
+    /**
+     * The level the type reaches once everything in {@code afterMark} can no longer change. Null when undecided.
+     * Used by the eventual analyzer (phase 4.3).
+     */
+    Value.Immutable immutableAfterMark(TypeInfo typeInfo, AfterMark afterMark, boolean activateCycleBreaking);
 }

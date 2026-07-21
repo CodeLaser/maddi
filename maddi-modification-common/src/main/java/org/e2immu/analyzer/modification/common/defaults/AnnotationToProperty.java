@@ -16,6 +16,9 @@ package org.e2immu.analyzer.modification.common.defaults;
 
 import org.e2immu.analyzer.modification.common.getset.GetSetHelper;
 import org.e2immu.annotation.*;
+import org.e2immu.annotation.eventual.Mark;
+import org.e2immu.annotation.eventual.Only;
+import org.e2immu.annotation.eventual.TestMark;
 import org.e2immu.annotation.method.GetSet;
 import org.e2immu.annotation.rare.AllowsInterrupt;
 import org.e2immu.annotation.rare.Finalizer;
@@ -91,6 +94,11 @@ class AnnotationToProperty {
         Value.GetSetEquivalent getSetEquivalent = null;
         Value.CommutableData commutableData = null;
         Value.Bool utilityClass = null;
+        // eventual immutability (road to immutability §060): the mark label of @Immutable(after=) etc. on a type,
+        // of @Final(after=)/@NotModified(after=) on a field, and the @Mark/@Only/@TestMark family on a method
+        String immutableAfter = null;
+        String finalAfter = null;
+        Value.Eventual eventual = null;
 
         for (AnnotationExpression ae : annotations) {
             boolean isAbsent = ae.extractBoolean("absent");
@@ -103,6 +111,7 @@ class AnnotationToProperty {
                 } else {
                     boolean hc = ae.extractBoolean("hc");
                     immutable = hc ? ValueImpl.ImmutableImpl.IMMUTABLE_HC : ValueImpl.ImmutableImpl.IMMUTABLE;
+                    immutableAfter = ae.extractString("after", "");
                 }
             } else if (ImmutableContainer.class.getCanonicalName().equals(fqn)) {
                 if (isAbsent) {
@@ -112,12 +121,34 @@ class AnnotationToProperty {
                     boolean hc = ae.extractBoolean("hc");
                     immutable = hc ? ValueImpl.ImmutableImpl.IMMUTABLE_HC : ValueImpl.ImmutableImpl.IMMUTABLE;
                     container = ValueImpl.BoolImpl.TRUE;
+                    immutableAfter = ae.extractString("after", "");
                 }
             } else if (FinalFields.class.getCanonicalName().equals(fqn)) {
                 if (isAbsent) {
                     immutable = ValueImpl.ImmutableImpl.MUTABLE;
                 } else {
                     immutable = ValueImpl.ImmutableImpl.FINAL_FIELDS;
+                    immutableAfter = ae.extractString("after", "");
+                }
+            } else if (Mark.class.getCanonicalName().equals(fqn)) {
+                if (!isAbsent) {
+                    eventual = makeEventual(info, ae.extractString("value", ""),
+                            label -> ValueImpl.EventualImpl.mark(label), "@Mark");
+                }
+            } else if (Only.class.getCanonicalName().equals(fqn)) {
+                if (!isAbsent) {
+                    String onlyAfter = ae.extractString("after", "");
+                    // @Only carries exactly one of before= and after=; after= wins if both are (wrongly) present
+                    boolean isAfter = !onlyAfter.isBlank();
+                    String label = isAfter ? onlyAfter : ae.extractString("before", "");
+                    eventual = makeEventual(info, label, l -> ValueImpl.EventualImpl.only(l, isAfter), "@Only");
+                }
+            } else if (TestMark.class.getCanonicalName().equals(fqn)) {
+                if (!isAbsent) {
+                    // before=true means the method returns true in the 'before' state, i.e. the inverted sense
+                    boolean trueWhenAfter = !ae.extractBoolean("before");
+                    eventual = makeEventual(info, ae.extractString("value", ""),
+                            label -> ValueImpl.EventualImpl.testMark(label, trueWhenAfter), "@TestMark");
                 }
             } else if (Container.class.getCanonicalName().equals(fqn)) {
                 container = valueForTrue;
@@ -148,6 +179,7 @@ class AnnotationToProperty {
                 }
             } else if (NotModified.class.getCanonicalName().equals(fqn)) {
                 unmodified = valueForTrue;
+                if (!isAbsent) finalAfter = ae.extractString("after", "");
             } else if (Modified.class.getCanonicalName().equals(fqn)) {
                 unmodified = ValueImpl.BoolImpl.from(isAbsent);
                 String value = ae.extractString("value", "");
@@ -173,6 +205,7 @@ class AnnotationToProperty {
                 }
             } else if (Final.class.getCanonicalName().equals(fqn)) {
                 isFinal = valueForTrue;
+                if (!isAbsent) finalAfter = ae.extractString("after", "");
             } else if (IgnoreModifications.class.getCanonicalName().equals(fqn)) {
                 ignoreModifications = valueForTrue;
             } else if (GetSet.class.getCanonicalName().equals(fqn)) {
@@ -224,6 +257,13 @@ class AnnotationToProperty {
             }
         }
 
+        if (eventual != null && eventual.isTestMark() && unmodified == null) {
+            // a @TestMark method reports which side of the transition the object is on; observing the state is
+            // not changing it (road to immutability §060: "these methods can be called any time"). Without this,
+            // an unannotated state test on a support class defaults to modifying, and every method forwarding it
+            // -- TypeInfoImpl.hasBeenInspected and friends -- is dragged along with it.
+            unmodified = TRUE;
+        }
         if (independent == null && info instanceof TypeInfo typeInfo) {
             independent = simpleComputeIndependent(typeInfo, immutable);
         }
@@ -231,6 +271,10 @@ class AnnotationToProperty {
 
         if (info instanceof TypeInfo) {
             if (immutable != null) map.put(PropertyImpl.IMMUTABLE_TYPE, immutable);
+            if (immutableAfter != null && !immutableAfter.isBlank()) {
+                map.put(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                        new ValueImpl.EventuallyImmutableImpl(immutableAfter, immutable));
+            }
             if (independent != null) {
                 assert independent.linkToParametersReturnValue().isEmpty();
                 map.put(PropertyImpl.INDEPENDENT_TYPE, independent);
@@ -256,6 +300,7 @@ class AnnotationToProperty {
             if (getSetEquivalent != null) map.put(PropertyImpl.GET_SET_EQUIVALENT, getSetEquivalent);
             if (commutableData != null) map.put(PropertyImpl.COMMUTABLE_METHODS, commutableData);
             if (finalizer != null) map.put(PropertyImpl.FINALIZER_METHOD, finalizer);
+            if (eventual != null) map.put(PropertyImpl.EVENTUAL_METHOD, eventual);
             return map;
         }
         if (info instanceof FieldInfo) {
@@ -269,6 +314,10 @@ class AnnotationToProperty {
             if (unmodified != null) map.put(PropertyImpl.UNMODIFIED_FIELD, unmodified);
             if (isFinal != null) map.put(PropertyImpl.FINAL_FIELD, isFinal);
             if (ignoreModifications != null) map.put(PropertyImpl.IGNORE_MODIFICATIONS_FIELD, ignoreModifications);
+            if (finalAfter != null && !finalAfter.isBlank()) {
+                map.put(PropertyImpl.EVENTUALLY_FINAL_FIELD,
+                        new ValueImpl.SetOfStringsImpl(ValueImpl.EventualImpl.labelToFields(finalAfter)));
+            }
             return map;
         }
         if (info instanceof ParameterInfo) {
@@ -278,9 +327,25 @@ class AnnotationToProperty {
             if (notNull != null) map.put(PropertyImpl.NOT_NULL_PARAMETER, notNull);
             if (unmodified != null) map.put(PropertyImpl.UNMODIFIED_PARAMETER, unmodified);
             if (ignoreModifications != null) map.put(PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER, ignoreModifications);
+            if (eventual != null) map.put(PropertyImpl.EVENTUAL_PARAMETER, eventual);
             return map;
         }
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Build the {@link Value.Eventual} for one of {@code @Mark}, {@code @Only}, {@code @TestMark}. The label names
+     * the field(s) carrying the state transition; an annotation without one is meaningless, and we warn rather
+     * than record a value that no later stage can act on.
+     */
+    private Value.Eventual makeEventual(Info info, String label,
+                                        java.util.function.Function<String, Value.Eventual> maker,
+                                        String annotation) {
+        if (label.isBlank()) {
+            LOGGER.warn("{} without a mark label on {}", annotation, info);
+            return null;
+        }
+        return maker.apply(label);
     }
 
     private Value.GetSetEquivalent findBestCompatibleMethod(Stream<MethodInfo> candidateStream, MethodInfo target) {
