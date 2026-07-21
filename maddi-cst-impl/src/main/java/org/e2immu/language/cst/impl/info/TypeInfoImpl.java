@@ -297,7 +297,12 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
 
     @Override
     public Set<TypeInfo> superTypesExcludingJavaLangObject() {
-        return inspection.get().superTypesExcludingJavaLangObject();
+        // no longer on TypeInspection, so dispatch on the phase the two-phase field is in: the Builder computes
+        // the set, the committed product returns the one it stored at commit() time
+        TypeInspection ti = inspection.get();
+        return ti instanceof TypeInspectionImpl.Builder builder
+                ? builder.superTypesExcludingJavaLangObject()
+                : ((TypeInspectionImpl) ti).superTypesExcludingJavaLangObject();
     }
 
     @Override
