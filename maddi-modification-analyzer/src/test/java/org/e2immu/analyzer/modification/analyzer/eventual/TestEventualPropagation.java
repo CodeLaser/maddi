@@ -374,4 +374,83 @@ public class TestEventualPropagation extends CommonTest {
                 "the escaped ArrayList stays mutable after the mark; I must not be promoted to immutable-HC"
                 + " (got " + ev + ")");
     }
+
+    /*
+     The TypeInspection shape, reduced: ONE interface implemented by BOTH a mutable builder and an immutable
+     product. Road to immutability §060 names this exact pattern -- "an interface that is implemented both by
+     the builder and the immutable type" -- as the way to span both stages, and warns it "becomes difficult
+     ... with an eye on immutability". These two tests measure how difficult.
+    */
+    @Language("java")
+    private static final String INPUT9_SHARED = """
+            import java.util.*;
+            public class B {
+              interface I {
+                List<String> items();
+              }
+              static class Product implements I {
+                private final List<String> items;
+                Product(List<String> items) { this.items = List.copyOf(items); }
+                @Override public List<String> items() { return items; }
+              }
+              static class Builder implements I {
+                private final List<String> items = new ArrayList<>();
+                public void add(String s) { items.add(s); }
+                @Override public List<String> items() { return items; }
+                public Product build() { return new Product(items); }
+              }
+            }
+            """;
+
+    // identical, except the builder no longer implements the shared interface
+    @Language("java")
+    private static final String INPUT9_SPLIT = """
+            import java.util.*;
+            public class C {
+              interface I {
+                List<String> items();
+              }
+              static class Product implements I {
+                private final List<String> items;
+                Product(List<String> items) { this.items = List.copyOf(items); }
+                @Override public List<String> items() { return items; }
+              }
+              static class Builder {
+                private final List<String> items = new ArrayList<>();
+                public void add(String s) { items.add(s); }
+                public List<String> items() { return items; }
+                public Product build() { return new Product(items); }
+              }
+            }
+            """;
+
+    private Value.Immutable immutable(TypeInfo typeInfo) {
+        return typeInfo.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.MUTABLE);
+    }
+
+    @DisplayName("splitting the builder off the shared interface does not help the product")
+    @Test
+    public void test9BuilderSplitIsNotTheBlocker() {
+        TypeInfo shared = javaInspector.parse("B", INPUT9_SHARED);
+        analyzer.go(prepWork(shared));
+        Value.Immutable sharedProduct = immutable(shared.findSubType("Product"));
+
+        TypeInfo split = javaInspector.parse("C", INPUT9_SPLIT);
+        analyzer.go(prepWork(split));
+        Value.Immutable splitProduct = immutable(split.findSubType("Product"));
+
+        /*
+         Measured, and it refutes the natural reading of §060: having the mutable builder implement the same
+         interface as the immutable product costs the product NOTHING. Both land on FINAL_FIELDS, and they land
+         there for a reason that has nothing to do with the builder -- Product.items() hands out its own field,
+         so the type is @Dependent, and computeImmutableType returns FINAL_FIELDS at the independence gate
+         before any of this is looked at.
+
+         Recorded as a pin because the "separate the builder from the interface" refactor is an obvious thing to
+         reach for on TypeInspection, and this says it would buy nothing.
+        */
+        assertEquals(sharedProduct, splitProduct);
+        assertTrue(sharedProduct.isFinalFields(), "capped by independence, not by the shared interface: "
+                                                  + sharedProduct);
+    }
 }
