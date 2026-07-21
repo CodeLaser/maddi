@@ -41,6 +41,7 @@ public class TestStreaming {
         ObjectMapper objectMapper = JsonStreaming.objectMapper();
         SourceSet sourceSet = new SourceSetImpl.Builder()
                 .setName("abc")
+                .setBuildUnit("org.e2immu:abc")
                 .setSourceDirectories(List.of(Path.of("/home/x")))
                 .setUri(URI.create("file:/home/x"))
                 .setTest(true)
@@ -70,9 +71,36 @@ public class TestStreaming {
         SourceSet set1 = copy.sourceSets().getFirst();
         Assertions.assertEquals("[a.b.c]", set1.restrictToPackages().toString());
         Assertions.assertEquals(fingerPrint1, set1.fingerPrintOrNull());
+        Assertions.assertEquals("org.e2immu:abc", set1.buildUnit());
 
         SourceSet set2 = copy.sourceSets().get(1);
         Assertions.assertSame(set1, set2.dependencies().stream().findFirst().orElseThrow());
+        // no build unit was set: it must stay absent from the json, and read back as null rather than as ""
+        Assertions.assertFalse(json.contains("\"buildUnit\":\"\""));
+        Assertions.assertNull(set2.buildUnit());
+    }
+
+    @Test
+    public void testRuntimeOnlySurvives() throws JsonProcessingException {
+        SourceSet runtimeOnly = new SourceSetImpl.Builder()
+                .setName("some-runtime-dep.jar")
+                .setUri(URI.create("file:/repo/some-runtime-dep.jar"))
+                .setLibrary(true)
+                .setExternalLibrary(true)
+                .setRuntimeOnly(true)
+                .build();
+
+        // the copy constructor must carry the flag over; ComputeDependencies excludes runtime-only libraries
+        // from the compile classpath, so losing it silently widens that classpath
+        SourceSet renamed = new SourceSetImpl.Builder(runtimeOnly).setName("renamed.jar").build();
+        Assertions.assertTrue(renamed.runtimeOnly());
+
+        ObjectMapper objectMapper = JsonStreaming.objectMapper();
+        InputConfiguration inputConfiguration = new InputConfigurationImpl(Path.of("."),
+                List.of(), List.of(runtimeOnly), Path.of("/"));
+        String json = objectMapper.writeValueAsString(inputConfiguration);
+        InputConfiguration copy = objectMapper.readerFor(InputConfiguration.class).readValue(json);
+        Assertions.assertTrue(copy.classPathParts().getFirst().runtimeOnly());
     }
 
     @Test

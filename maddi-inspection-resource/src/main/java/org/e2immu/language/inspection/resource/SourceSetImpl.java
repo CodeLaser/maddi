@@ -40,6 +40,7 @@ public class SourceSetImpl implements SourceSet {
     private final boolean isModule;
     private final Set<String> restrictToPackages;
     private final List<SourceSet> dependencies;
+    private final String buildUnit;
     private final SetOnce<FingerPrint> fingerPrint = new SetOnce<>();
     private final SetOnce<FingerPrint> analysisFingerPrint = new SetOnce<>();
     private final SetOnce<Map<SourceSet, Integer>> priorityDependencies = new SetOnce<>();
@@ -50,8 +51,10 @@ public class SourceSetImpl implements SourceSet {
                           boolean test, boolean library, boolean externalLibrary, boolean partOfJdk,
                           boolean isModule, boolean runtimeOnly,
                           Set<String> restrictToPackages,
-                          List<SourceSet> dependencies) {
+                          List<SourceSet> dependencies,
+                          String buildUnit) {
         this.name = Objects.requireNonNull(name);
+        this.buildUnit = buildUnit;
         this.sourceDirectories = sourceDirectories;
         this.uri = Objects.requireNonNull(uri, "Must have a URI in a source set");
         Objects.requireNonNull(uri.getScheme(), "The URI of source set " + name + " must have a non-null scheme");
@@ -143,6 +146,11 @@ public class SourceSetImpl implements SourceSet {
     @Override
     public String name() {
         return name;
+    }
+
+    @Override
+    public String buildUnit() {
+        return buildUnit;
     }
 
     @Override
@@ -240,19 +248,19 @@ public class SourceSetImpl implements SourceSet {
     @Override
     public SourceSet withSourceDirectories(List<Path> paths) {
         return new SourceSetImpl(name, paths, uri, sourceEncoding, test, library, externalLibrary, partOfJdk,
-                isModule, runtimeOnly, restrictToPackages, dependencies);
+                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit);
     }
 
     @Override
     public SourceSet withSourceDirectoriesUri(List<Path> sourceDirectories, URI uri) {
         return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library, externalLibrary, partOfJdk,
-                isModule, runtimeOnly, restrictToPackages, dependencies);
+                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit);
     }
 
     @Override
     public SourceSet withDependencies(List<SourceSet> dependencies) {
         return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library,
-                externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies);
+                externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit);
     }
 
     @Override
@@ -293,12 +301,14 @@ public class SourceSetImpl implements SourceSet {
         private boolean isModule;
         private Set<String> restrictToPackages = Set.of();
         private List<SourceSet> dependencies = List.of();
+        private String buildUnit;
 
         public Builder() {
         }
 
         public Builder(SourceSet set) {
             name = set.name();
+            buildUnit = set.buildUnit();
             sourceDirectories = set.sourceDirectories();
             uri = set.uri();
             sourceEncoding = set.sourceEncoding();
@@ -307,12 +317,18 @@ public class SourceSetImpl implements SourceSet {
             externalLibrary = set.externalLibrary();
             partOfJdk = set.partOfJdk();
             isModule = set.isModule();
+            runtimeOnly = set.runtimeOnly();
             restrictToPackages = set.restrictToPackages();
             dependencies = set.dependencies();
         }
 
         public Builder setName(String name) {
             this.name = name;
+            return this;
+        }
+
+        public Builder setBuildUnit(String buildUnit) {
+            this.buildUnit = buildUnit;
             return this;
         }
 
@@ -373,7 +389,7 @@ public class SourceSetImpl implements SourceSet {
 
         public SourceSet build() {
             return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library,
-                    externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies);
+                    externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit);
         }
     }
 }

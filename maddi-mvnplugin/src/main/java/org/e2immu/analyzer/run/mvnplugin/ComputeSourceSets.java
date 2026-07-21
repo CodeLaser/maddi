@@ -40,6 +40,10 @@ public class ComputeSourceSets {
             throws DependencyResolutionException {
         Map<String, SourceSet> sourceSetsByName = new HashMap<>();
         String projectName = project.getName();
+        // the source set name is built from project.getName(), which is the POM's <name> (or artifactId) and is
+        // not unique across a reactor: sibling modules can share it. The build unit must be unique, so we use the
+        // coordinate instead. It groups this module's main and test source sets, and only those.
+        String buildUnit = project.getGroupId() + ":" + project.getArtifactId();
         Charset encoding = Charset.forName(sourceEncoding, Charset.defaultCharset());
 
         Set<SourceSet> deps = new HashSet<>();
@@ -61,6 +65,7 @@ public class ComputeSourceSets {
 
             SourceSet mainSourceSet = new SourceSetImpl.Builder()
                     .setName(projectName + "/main")
+                    .setBuildUnit(buildUnit)
                     .setSourceDirectories(sourcePaths)
                     .setUri(sourcePaths.getFirst().toUri())
                     .setSourceEncoding(encoding)
@@ -79,6 +84,7 @@ public class ComputeSourceSets {
 
             SourceSet testSourceSet = new SourceSetImpl.Builder()
                     .setName(projectName + "/test")
+                    .setBuildUnit(buildUnit)
                     .setSourceDirectories(testSourcePaths)
                     .setUri(testSourcePaths.getFirst().toUri())
                     .setSourceEncoding(encoding)
