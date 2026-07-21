@@ -46,6 +46,10 @@ dependencies {
     testRuntimeOnly(project(":maddi-aapi-archive"))
 }
 tasks.withType<Test> {
+    // pass the clone-bench corpus location through to the test JVM, as run-openjdk does for test.oss.root
+    System.getProperty("testarchive.root")?.let { systemProperty("testarchive.root", it) }
+    System.getenv("TESTARCHIVE_ROOT")?.let { environment("TESTARCHIVE_ROOT", it) }
+
     maxHeapSize = "2G"
     maxParallelForks = 4
 
