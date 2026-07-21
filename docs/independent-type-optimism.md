@@ -130,6 +130,18 @@ fields are — does not help. In `TryData` the undecided element *is* the abstra
 
 Option 1 is the recommendation.
 
+**Update (2026-07): option 1 was tried and rejected on measurement.** Reconciling the SAM conventions by
+stopping `doMethodWithoutImplementation`'s optimistic `UNMODIFIED_PARAMETER` write does resolve the
+main-vs-shadow contradiction on the E7 fixture, but it concedes to the pessimistic side rather than the
+correct one: `TestModificationFunctionalE7.test4`'s false positive survives, and on the clone-bench
+corpus the pinned main-vs-shadow divergence count *rises* (215 → 216) while removing none of the
+existing 215. Details and the revised recommendation (option 3, deriving SAM parameter modification from
+the lambdas actually bound at capture sites) are in
+[`sam-linking-reconciliation.md`](sam-linking-reconciliation.md).
+
+So the independence fix here remains **withheld**, for the same reason as before: it is correct, but it
+unmasks a false positive that no currently-available reconciliation removes.
+
 ## Scope of the damage today
 
 Anything downstream of `INDEPENDENT_TYPE` on an *interface* (or any type whose fields/abstract methods
