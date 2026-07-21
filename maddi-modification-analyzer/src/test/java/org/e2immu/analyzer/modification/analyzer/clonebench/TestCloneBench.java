@@ -98,9 +98,10 @@ public class TestCloneBench extends CommonTest {
     @Override
     @BeforeEach
     public void beforeEach() throws IOException {
+        CloneBenchCorpus.assumeAvailable();
         List<SourceSet> dirSets = new ArrayList<>();
         for (String dir : DIRS) {
-            Path srcDir = Path.of("../../testarchive/" + dir + "/src/main/java");
+            Path srcDir = CloneBenchCorpus.sourceDirectory(dir);
             dirSets.add(new SourceSetImpl.Builder()
                     .setName(dir)
                     .setSourceDirectories(List.of(srcDir))

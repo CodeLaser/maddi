@@ -13,7 +13,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
-import org.junit.jupiter.api.Assumptions;
+import org.e2immu.analyzer.modification.analyzer.clonebench.CloneBenchCorpus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -65,9 +65,6 @@ public class TestShadowCloneBench extends CommonTest {
             "while_pure_compiles", "while_pure_selected_withunit"
     };
 
-    /** The clone-bench corpus root; a sibling checkout, absent on most machines. */
-    private static final Path TESTARCHIVE = Path.of("../../testarchive");
-
     @Override
     @BeforeEach
     public void beforeEach() throws IOException {
@@ -75,11 +72,10 @@ public class TestShadowCloneBench extends CommonTest {
         // honour (see TestOssCorpus). Asserting instead made an absent corpus indistinguishable from a real
         // regression, so `slowTest` reported a failure on every machine without the sibling checkout, and the
         // proving ground could not be used to validate an engine change at all.
-        Assumptions.assumeTrue(Files.isDirectory(TESTARCHIVE),
-                "requires the clone-bench corpus checkout at " + TESTARCHIVE.toAbsolutePath().normalize());
+        CloneBenchCorpus.assumeAvailable();
         List<SourceSet> dirSets = new ArrayList<>();
         for (String dir : DIRS) {
-            Path srcDir = TESTARCHIVE.resolve(dir + "/src/main/java");
+            Path srcDir = CloneBenchCorpus.sourceDirectory(dir);
             dirSets.add(new SourceSetImpl.Builder()
                     .setName(dir)
                     .setSourceDirectories(List.of(srcDir))
