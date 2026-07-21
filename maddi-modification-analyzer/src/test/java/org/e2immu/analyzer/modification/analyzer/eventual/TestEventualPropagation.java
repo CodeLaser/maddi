@@ -281,4 +281,97 @@ public class TestEventualPropagation extends CommonTest {
                 ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
         assertTrue(evImpl.isEventual(), "Impl should be eventually immutable, is " + evImpl);
     }
+
+    /*
+     Independence after the mark. I leaks its eventually immutable state through builder(), which can only be
+     called before the mark -- exactly the TypeInfo.builder() shape. The leak makes Impl.builder(), and hence the
+     abstract I.builder(), @Dependent; without independence-after-mark the dependence cap in computeImmutableType
+     fires before the AfterMark relaxation is ever consulted, and I stops at FINAL_FIELDS.
+    */
+    @Language("java")
+    private static final String INPUT6 = """
+            import org.e2immu.annotation.eventual.Mark;
+            import org.e2immu.annotation.eventual.Only;
+            import org.e2immu.support.SetOnce;
+
+            public class B {
+              interface I {
+                @Mark("t") void commit(String s);
+                @Only(before = "t") SetOnce<String> builder();
+              }
+              static class Impl implements I {
+                private final SetOnce<String> t = new SetOnce<>();
+                @Override public void commit(String s) { t.set(s); }
+                @Override public SetOnce<String> builder() { return t; }
+              }
+            }
+            """;
+
+    @DisplayName("a dependent accessor that can only run before the mark stops capping the type")
+    @Test
+    public void test6() {
+        TypeInfo B = javaInspector.parse("B", INPUT6);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+        TypeInfo I = B.findSubType("I");
+
+        // the leak is real: the accessor is dependent, which is what used to cap the type
+        assertTrue(I.findUniqueMethod("builder", 0).analysis()
+                .getOrDefault(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.DEPENDENT).isDependent());
+
+        Value.EventuallyImmutable ev = I.analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+        assertTrue(ev.isEventual(), "I should be eventually immutable, is " + ev);
+        assertEquals("t", ev.markLabel());
+        assertTrue(ev.immutableAfterMark().isAtLeastImmutableHC(),
+                "after the mark I should be at least immutable-HC, is " + ev.immutableAfterMark());
+    }
+
+    /*
+     The soundness constraint, and the more important of the two tests. Same shape as INPUT6, but leak() hands
+     out a plain ArrayList. "Cannot be called after the mark" is NOT enough on its own: a reference handed out
+     before the mark survives it, and that list stays mutable forever. Only an escaped object that is itself
+     frozen by a mark of its own may be discounted -- so I must NOT be promoted here.
+    */
+    @Language("java")
+    private static final String INPUT7 = """
+            import java.util.ArrayList;
+            import java.util.List;
+            import org.e2immu.annotation.eventual.Mark;
+            import org.e2immu.annotation.eventual.Only;
+            import org.e2immu.support.SetOnce;
+
+            public class B {
+              interface I {
+                @Mark("t") void commit(String s);
+                @Only(before = "t") List<String> leak();
+              }
+              static class Impl implements I {
+                private final SetOnce<String> t = new SetOnce<>();
+                private final List<String> list = new ArrayList<>();
+                @Override public void commit(String s) { t.set(s); }
+                @Override public List<String> leak() { return list; }
+              }
+            }
+            """;
+
+    @DisplayName("leaking a NOT eventually immutable object keeps the type dependent, mark or no mark")
+    @Test
+    public void test7() {
+        TypeInfo B = javaInspector.parse("B", INPUT7);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+        TypeInfo I = B.findSubType("I");
+
+        // the mark itself is still detected -- this is about independence, not about the transition
+        assertTrue(eventual(I.findUniqueMethod("commit", 1)).isMark());
+        assertTrue(I.findUniqueMethod("leak", 0).analysis()
+                .getOrDefault(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.DEPENDENT).isDependent());
+
+        Value.EventuallyImmutable ev = I.analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+        assertFalse(ev.isEventual() && ev.immutableAfterMark().isAtLeastImmutableHC(),
+                "the escaped ArrayList stays mutable after the mark; I must not be promoted to immutable-HC"
+                + " (got " + ev + ")");
+    }
 }

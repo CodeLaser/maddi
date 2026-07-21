@@ -17,6 +17,7 @@ package org.e2immu.analyzer.modification.analyzer.impl;
 import org.e2immu.analyzer.modification.analyzer.CycleBreakingStrategy;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.TypeImmutableAnalyzer;
+import org.e2immu.analyzer.modification.analyzer.TypeIndependentAnalyzer;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.common.util.TolerantWrite;
@@ -41,10 +42,13 @@ Phase 4.2 Primary type immutable
  */
 public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements TypeImmutableAnalyzer {
     private final AnalysisHelper analysisHelper = new AnalysisHelper();
+    private final TypeIndependentAnalyzer typeIndependentAnalyzer;
 
-    public TypeImmutableAnalyzerImpl(IteratingAnalyzer.Configuration configuration,
+    public TypeImmutableAnalyzerImpl(TypeIndependentAnalyzer typeIndependentAnalyzer,
+                                     IteratingAnalyzer.Configuration configuration,
                                      AtomicInteger propertiesChanged, List<Message> analyzerMessages) {
         super(configuration, propertiesChanged, analyzerMessages);
+        this.typeIndependentAnalyzer = typeIndependentAnalyzer;
     }
 
     @Override
@@ -76,7 +80,12 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
      */
     @Override
     public Immutable immutableAfterMark(TypeInfo typeInfo, AfterMark afterMark, boolean activateCycleBreaking) {
-        Independent independent = typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT);
+        // independence, unlike immutability, is not relaxed by the mark on its own: it has to be recomputed with
+        // the same AfterMark, or the dependence cap below fires before the relaxation is ever consulted. The
+        // recomputation can only improve on the unconditional verdict, and falls back to it when undecided.
+        Independent independent = typeIndependentAnalyzer.independentAfterMark(typeInfo, afterMark,
+                activateCycleBreaking);
+        if (independent == null) return null; // undecided: never commit an eventual verdict on a guess
         return computeImmutableType(typeInfo, independent, activateCycleBreaking, afterMark);
     }
 
