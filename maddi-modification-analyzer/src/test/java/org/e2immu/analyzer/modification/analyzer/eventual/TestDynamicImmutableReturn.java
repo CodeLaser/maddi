@@ -164,19 +164,19 @@ public class TestDynamicImmutableReturn extends CommonTest {
             }
             """;
 
-    @DisplayName("D: copying on the way IN lifts nothing -- this is TypeInspectionImpl's actual shape")
+    @DisplayName("D: copying on the way IN now lifts the type -- this is TypeInspectionImpl's actual shape")
     @Test
     public void testD() {
         Measured m = measure(D_COPY_IN);
-        // LIMITATION, not desired behaviour: the field provably holds an immutable list after the constructor,
-        // but that is not tracked, so handing it out still counts as leaking mutable content. This is exactly
-        // TypeInspectionImpl (16 List.copyOf/Set.copyOf fields, plain `return field` accessors) and exactly why
-        // it gets nothing today.
-        assertTrue(m.methodIndependent().isDependent());
-        assertTrue(m.fieldIndependent().isDependent());
-        assertNull(m.fieldImmutable(), "no dynamic immutability is recorded on the field either");
-        assertTrue(m.typeIndependent().isDependent());
-        assertTrue(m.typeImmutable().isFinalFields());
+        // Was the headline limitation: the field provably holds an immutable list after the constructor, but
+        // that was not tracked, so handing it out counted as leaking mutable content. DynamicImmutabilityInference
+        // (part 2) now proves it from the assignment itself, and DynamicImmutability (part 3) consumes it.
+        assertNotNull(m.fieldImmutable(), "the constructor's List.copyOf is the proof");
+        assertTrue(m.fieldImmutable().isAtLeastImmutableHC());
+        assertFalse(m.fieldIndependent().isDependent());
+        assertFalse(m.methodIndependent().isDependent(), "the accessor no longer hands out mutable content");
+        assertFalse(m.typeIndependent().isDependent());
+        assertTrue(m.typeImmutable().isAtLeastImmutableHC(), "immutable: " + m.typeImmutable());
     }
 
     @Language("java")
@@ -197,10 +197,11 @@ public class TestDynamicImmutableReturn extends CommonTest {
         Measured m = measure(E_ANNOTATED_COPY_IN);
         assertNotNull(m.contractedMethodImmutable());
         assertNotNull(m.methodImmutable(), "the contract is materialized");
-        // LIMITATION: but annotating the accessor of the real-world shape is still not a workaround -- nothing
-        // consumes the materialized value, so the type stays exactly where D left it.
-        assertTrue(m.typeIndependent().isDependent());
-        assertTrue(m.typeImmutable().isFinalFields());
+        // The annotation on the ACCESSOR is still not what does the work -- only the field-side value is consumed
+        // -- but the type now lifts anyway, because the inference proves the field from the constructor's copy.
+        // So E has stopped being a limitation by ceasing to matter, not by being fixed.
+        assertFalse(m.typeIndependent().isDependent());
+        assertTrue(m.typeImmutable().isAtLeastImmutableHC(), "immutable: " + m.typeImmutable());
     }
 
     @Language("java")

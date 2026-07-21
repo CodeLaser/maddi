@@ -441,16 +441,19 @@ public class TestEventualPropagation extends CommonTest {
 
         /*
          Measured, and it refutes the natural reading of §060: having the mutable builder implement the same
-         interface as the immutable product costs the product NOTHING. Both land on FINAL_FIELDS, and they land
-         there for a reason that has nothing to do with the builder -- Product.items() hands out its own field,
-         so the type is @Dependent, and computeImmutableType returns FINAL_FIELDS at the independence gate
-         before any of this is looked at.
+         interface as the immutable product costs the product NOTHING. The two land in exactly the same place,
+         and wherever that is, it has nothing to do with the builder.
 
          Recorded as a pin because the "separate the builder from the interface" refactor is an obvious thing to
          reach for on TypeInspection, and this says it would buy nothing.
+
+         The absolute level moved once DynamicImmutabilityInference landed: Product's constructor does
+         `this.items = List.copyOf(items)`, so the field is now provably immutable and the type reaches
+         @Immutable(hc=true) instead of being capped at FINAL_FIELDS by the independence gate. That is the
+         limitation this test used to pin being removed -- the equality above, which is what the test is
+         actually about, is unaffected.
         */
         assertEquals(sharedProduct, splitProduct);
-        assertTrue(sharedProduct.isFinalFields(), "capped by independence, not by the shared interface: "
-                                                  + sharedProduct);
+        assertTrue(sharedProduct.isAtLeastImmutableHC(), "the defensive copy is now understood: " + sharedProduct);
     }
 }

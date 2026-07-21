@@ -701,6 +701,11 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
             && DynamicImmutability.ofField(fr.fieldInfo()) != null) {
             return Proof.IMMUTABLE; // another field carrying the same promise
         }
+        // The parameter case, which used to be unverifiable by definition: since part 2,
+        // DynamicImmutabilityInference can follow the argument to every call site whenever the enclosing method
+        // is private, so ask it before falling back to a warning. Sharing that judgement is what keeps the guard
+        // from reporting "cannot be verified here" about exactly the promises the inference is happy to prove.
+        if (DynamicImmutabilityInference.provenImmutability(value) != null) return Proof.IMMUTABLE;
         return Proof.UNKNOWN;
     }
 

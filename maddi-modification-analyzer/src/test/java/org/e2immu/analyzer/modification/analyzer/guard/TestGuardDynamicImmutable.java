@@ -129,6 +129,51 @@ public class TestGuardDynamicImmutable extends CommonTest {
                 run.unverifiable().getFirst().message());
     }
 
+    /**
+     * The same parameter shape, but with the constructor PRIVATE and every call site inside the type passing a
+     * defensive copy. That is the one configuration a sound analysis can settle, so
+     * {@code DynamicImmutabilityInference} follows the argument to the call site, proves the promise, and the
+     * warning above disappears. The guard and the inference share one judgement of "produces an immutable
+     * object" precisely so this cannot drift into warning about a promise the analyzer itself would make.
+     */
+    @Language("java")
+    private static final String TRUE_CONTRACT_VIA_CALL_SITES = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            import org.e2immu.annotation.Immutable;
+
+            public class X {
+                @Immutable(hc = true)
+                private final List<String> items;
+
+                private X(List<String> items) {
+                    this.items = items;
+                }
+
+                public List<String> items() {
+                    return items;
+                }
+
+                public static class Builder {
+                    private final List<String> collected = new ArrayList<>();
+                    public X commit() { return new X(List.copyOf(collected)); }
+                }
+            }
+            """;
+
+    @DisplayName("a private constructor whose callers all copy: proven, so neither warned nor accused")
+    @Test
+    public void testProvenThroughCallSites() throws IOException {
+        Run run = analyzeWithGuard("a.b.X", TRUE_CONTRACT_VIA_CALL_SITES);
+        assertTrue(run.violations().isEmpty(),
+                "a true contract must not be accused, have: "
+                + run.violations().stream().map(Message::message).toList());
+        assertTrue(run.unverifiable().isEmpty(),
+                "part 2 can enumerate the callers here, so the contract is verified rather than trusted, have: "
+                + run.unverifiable().stream().map(Message::message).toList());
+    }
+
     /** The same promise, refutable: the constructor stores a freshly built mutable list. */
     @Language("java")
     private static final String REFUTABLE_LIE = """
