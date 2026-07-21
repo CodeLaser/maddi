@@ -105,6 +105,44 @@ property map.
 - **Inherited marks at type level.** A `Freezable` subclass gets its *methods* annotated, but not its own
   type-level verdict; that needs the old `approvedPreconditionsFromParent`.
 
+## Interfaces (the hierarchy blocker)
+
+`TypeInfoImpl` cannot be certified while `TypeInfo` -- the interface -- is plain mutable: it declares
+`commit`, `builder`, `setOnDemandInspection`, so the hierarchy rule returns MUTABLE for every
+implementation before any field reasoning happens. Eventuality therefore has to reach the interfaces.
+Three pieces, all in place:
+
+1. `AbstractMethodAnalyzerImpl.methodEventual` copies `EVENTUAL_METHOD` from implementations to the
+   abstract method, the same implementation-to-abstract shape phase 6 already uses for modification and
+   independence. All implementations must agree on the side of the transition *and* the mark label.
+2. `TypeImmutableAnalyzer.AfterMark` generalizes the relaxation from fields to `(fields, methods)`. An
+   interface has no fields, only abstract methods, so excusing the `@Mark` / `@Only(before=)` methods is
+   what lets it reach a level at all.
+3. `immutableSuper` consults a supertype's `EVENTUALLY_IMMUTABLE_TYPE` when computing an after-mark
+   level: after *our* mark the supertype has been marked too -- the transition belongs to the object,
+   not to one type -- so it contributes the level it reaches after its own mark.
+
+A fourth change was needed to make the chain actually close: **`@TestMark` now implies
+`@NotModified`**. Observing which side of the transition an object is on is not changing it (§060: "these
+methods can be called any time"). Without it, `EventuallyFinalOnDemand.isFinal()` defaults to modifying,
+so `hasBeenInspected()` is modifying, so the interface fails rule 1 and stays at FINAL_FIELDS -- and a
+FINAL_FIELDS supertype counts as mutable (`ImmutableImpl.isMutable()` is `value <= 1`), which drags the
+implementation back down to MUTABLE.
+
+`TestEventualPropagation.test5` pins the whole chain: implementation -> abstract method -> interface
+type-level -> back down to the implementation.
+
+### Why the dogfood run still shows nothing
+
+`dogfood/` analyzes only `maddi-cst-impl`; `TypeInfo` lives in the **maddi-cst-api jar**. A jar type is
+never part of the abstract-method batch, so nothing propagates into it. Exercising interface propagation
+on maddi's own code needs the interface module co-analyzed *as source*. The input configuration format
+supports several source sets, but the plugin computes one Gradle project's, and a sibling project is
+consumed as a jar by design (`ComputeSourceSets`: no cross-project source recursion, which Gradle 9
+rejects as unsafe). Options, in increasing order of work: a second Gradle source set inside the dogfood
+project; teaching the plugin to emit source sets for included builds; or hand-merging two generated
+configurations.
+
 ## Not done, on purpose
 
 - **`@BeforeMark`** is parsed by nobody yet. It belongs with the "track objects guaranteed to be in the

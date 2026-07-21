@@ -131,33 +131,45 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             propertyChanges.incrementAndGet();
             return; // contracts win
         }
-        Set<FieldInfo> excused = new HashSet<>();
+        // the mark labels of this type's own @Mark methods, and everything that only changes before the mark
+        Set<String> markLabels = new HashSet<>();
+        Set<FieldInfo> excusedFields = new HashSet<>();
+        Set<MethodInfo> excusedMethods = new HashSet<>();
         for (MethodInfo methodInfo : typeInfo.methods()) {
             Value.Eventual eventual = methodInfo.analysis().getOrDefault(EVENTUAL_METHOD, NOT_EVENTUAL);
-            if (!eventual.isMark()) continue;
-            for (String label : eventual.fields()) {
-                FieldInfo fieldInfo = typeInfo.getFieldByName(label, false);
-                // an unresolved label is an inherited mark; a resolved one must really be of eventual type
-                if (fieldInfo != null && fieldInfo.type().bestTypeInfo() != null
-                    && eventuallyImmutable(fieldInfo.type().bestTypeInfo()).isEventual()) {
-                    excused.add(fieldInfo);
+            if (eventual.isMark()) {
+                markLabels.addAll(eventual.fields());
+                excusedMethods.add(methodInfo);
+                for (String label : eventual.fields()) {
+                    FieldInfo fieldInfo = typeInfo.getFieldByName(label, false);
+                    // an unresolved label is an inherited mark, or an abstract type's; a resolved one must
+                    // really be of eventually immutable type
+                    if (fieldInfo != null && fieldInfo.type().bestTypeInfo() != null
+                        && eventuallyImmutable(fieldInfo.type().bestTypeInfo()).isEventual()) {
+                        excusedFields.add(fieldInfo);
+                    }
                 }
+            } else if (eventual.isOnly() && Boolean.FALSE.equals(eventual.after())) {
+                excusedMethods.add(methodInfo);
             }
         }
-        if (excused.isEmpty()) return;
+        if (markLabels.isEmpty()) return;
 
-        Value.Immutable afterMark = typeImmutableAnalyzer.immutableIgnoringModificationOf(typeInfo, excused, activateCycleBreaking);
-        if (afterMark == null) {
+        TypeImmutableAnalyzer.AfterMark afterMark =
+                new TypeImmutableAnalyzer.AfterMark(Set.copyOf(excusedFields), Set.copyOf(excusedMethods));
+        Value.Immutable afterMarkLevel = typeImmutableAnalyzer.immutableAfterMark(typeInfo, afterMark,
+                activateCycleBreaking);
+        if (afterMarkLevel == null) {
             UNDECIDED.debug("TE: Eventual immutability of type {} undecided", typeInfo);
             return;
         }
         Value.Immutable unconditional = typeInfo.analysis()
                 .getOrDefault(IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.MUTABLE);
-        if (afterMark.compareTo(unconditional) <= 0) {
+        if (afterMarkLevel.compareTo(unconditional) <= 0) {
             return; // the mark buys nothing; do not claim eventuality the type does not need
         }
-        String label = excused.stream().map(FieldInfo::name).sorted().collect(Collectors.joining(","));
-        Value.EventuallyImmutable value = new ValueImpl.EventuallyImmutableImpl(label, afterMark);
+        String label = markLabels.stream().sorted().collect(Collectors.joining(","));
+        Value.EventuallyImmutable value = new ValueImpl.EventuallyImmutableImpl(label, afterMarkLevel);
         typeInfo.analysis().set(EVENTUALLY_IMMUTABLE_TYPE, value);
         DECIDE.debug("TE: Decide eventual immutability of type {} = {}", typeInfo, value);
         propertyChanges.incrementAndGet();
