@@ -22,8 +22,11 @@ import org.e2immu.gradleplugin.task.WriteInputConfigurationTask;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.attributes.Category;
+import org.gradle.api.file.SourceDirectorySet;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
+import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Provider;
@@ -31,7 +34,10 @@ import org.gradle.api.tasks.SourceSet;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The maddi Gradle plugin. Registers the {@code e2immu-analyzer} and {@code e2immu-write-input-configuration} tasks
@@ -64,6 +70,8 @@ public class AnalyzerPlugin implements Plugin<Project> {
             return toJson(configuration);
         });
 
+        publishSourceElements(project);
+
         LOGGER.debug("Adding {} task to {}", AnalyzerExtension.ANALYZER_TASK_NAME, project);
         project.getTasks().register(AnalyzerExtension.ANALYZER_TASK_NAME, AnalyzerTask.class, task -> {
             task.setGroup("e2immu");
@@ -85,6 +93,44 @@ public class AnalyzerPlugin implements Plugin<Project> {
                     task.getOutputFile().set(project.getLayout().getBuildDirectory().file("inputConfiguration.json"));
                     dependOnCompileTasks(task, project);
                 });
+    }
+
+    /**
+     * Publish this project's main source <em>directories</em> as a consumable variant, so a project that depends
+     * on it can co-analyze its sources rather than read its jar. That distinction decides real results: an
+     * interface reached only as a jar never enters the abstract-method batch, so nothing an implementation
+     * computed (modification, independence, eventual immutability) can travel up to it -- and by the hierarchy
+     * rule an undecided or mutable supertype then drags every implementation down with it.
+     * <p>
+     * {@code Category} is what makes the variant selectable: the normal {@code apiElements}/{@code
+     * runtimeElements} variants declare {@code Category=library}, so a request for {@code e2immu-sources} is
+     * incompatible with them and can only match this one. The artifacts go in through the {@code Provider}
+     * overload, not a fixed list: a build script sets its {@code srcDirs} after applying the plugin, so
+     * enumerating them here and now would publish the defaults instead of what the user configured.
+     */
+    private void publishSourceElements(Project project) {
+        project.getPlugins().withType(JavaPlugin.class, jp ->
+                project.getConfigurations().consumable(AnalyzerExtension.SOURCE_ELEMENTS_CONFIGURATION_NAME, conf -> {
+                    conf.setDescription("Source directories of " + project + ", for co-analysis by the e2immu analyzer.");
+                    conf.getAttributes().attribute(Category.CATEGORY_ATTRIBUTE,
+                            project.getObjects().named(Category.class, AnalyzerExtension.SOURCES_CATEGORY));
+                    conf.getOutgoing().artifacts(project.provider(() -> mainSourceDirectories(project)));
+                }));
+    }
+
+    /** The existing, readable source directories of the main source set: Java, plus Kotlin when that plugin is on. */
+    private static List<File> mainSourceDirectories(Project project) {
+        JavaPluginExtension javaPluginExtension = project.getExtensions().findByType(JavaPluginExtension.class);
+        if (javaPluginExtension == null) return List.of();
+        SourceSet main = javaPluginExtension.getSourceSets().findByName(SourceSet.MAIN_SOURCE_SET_NAME);
+        if (main == null) return List.of();
+        Set<File> srcDirs = new LinkedHashSet<>(main.getAllJava().getSrcDirs());
+        Object kotlin = ((ExtensionAware) main).getExtensions().findByName("kotlin");
+        if (kotlin instanceof SourceDirectorySet kotlinDirs) {
+            srcDirs.addAll(kotlinDirs.getSrcDirs());
+        }
+        // a directory that is not there would be published as a missing artifact, which fails resolution
+        return srcDirs.stream().filter(File::canRead).toList();
     }
 
     /** The analyzer's source files and compile classpath, for up-to-date checking. Both are Gradle-managed lazy

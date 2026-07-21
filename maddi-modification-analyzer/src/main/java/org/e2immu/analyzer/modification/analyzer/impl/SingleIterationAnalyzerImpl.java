@@ -52,6 +52,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final TypeIndependentAnalyzer typeIndependentAnalyzer;
     private final ShallowTypeAnalyzer shallowTypeAnalyzer;
     private final TypeContainerAnalyzer typeContainerAnalyzer;
+    private final TypeEventualAnalyzer typeEventualAnalyzer;
     private final AbstractMethodAnalyzer abstractMethodAnalyzer;
     private final AtomicInteger propertiesChanged;
     private final List<Message> messages;
@@ -103,10 +104,14 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         Runtime runtime = javaInspector.runtime();
         fieldAnalyzer = new FieldAnalyzerImpl(runtime, configuration, propertiesChanged, messages);
         typeModIndyAnalyzer = new TypeModIndyAnalyzerImpl(configuration, propertiesChanged, messages);
-        typeImmutableAnalyzer = new TypeImmutableAnalyzerImpl(configuration, propertiesChanged, messages);
-        typeIndependentAnalyzer = new TypeIndependentAnalyzerImpl(configuration, propertiesChanged, messages);
+        // the independent analyzer is built first: the immutable analyzer asks it for after-mark independence,
+        // because the dependence cap in computeImmutableType would otherwise fire before the AfterMark relaxation
+        typeIndependentAnalyzer = new TypeIndependentAnalyzerImpl(runtime, configuration, propertiesChanged, messages);
+        typeImmutableAnalyzer = new TypeImmutableAnalyzerImpl(typeIndependentAnalyzer, configuration,
+                propertiesChanged, messages);
         shallowTypeAnalyzer = new ShallowTypeAnalyzer(runtime, Element::annotations, false);
         typeContainerAnalyzer = new TypeContainerAnalyzerImpl(configuration, propertiesChanged, messages);
+        typeEventualAnalyzer = new TypeEventualAnalyzerImpl(runtime, typeImmutableAnalyzer, configuration, propertiesChanged, messages);
         abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, propertiesChanged, messages);
     }
 
@@ -383,5 +388,6 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         typeIndependentAnalyzer.go(typeInfo, activateCycleBreaking);
         typeImmutableAnalyzer.go(typeInfo, activateCycleBreaking);
         typeContainerAnalyzer.go(typeInfo);
+        typeEventualAnalyzer.go(typeInfo, activateCycleBreaking);
     }
 }

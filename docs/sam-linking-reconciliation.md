@@ -1,0 +1,152 @@
+# The two SAM conventions: what actually diverges
+
+**Status: research findings, no code change.** Follow-on from
+[`independent-type-optimism.md`](independent-type-optimism.md), whose recommended option 1 was
+"reconcile the two SAM conventions first". This note establishes *what* has to be reconciled, and
+retires two plausible-but-wrong theories about it — including the one this investigation started from.
+
+## The contradiction, pinned to one element
+
+For a SAM with no registered `IMPLEMENTATIONS`, the engine holds two contradictory positions:
+
+- `AbstractMethodAnalyzerImpl.doMethodWithoutImplementation` writes `UNMODIFIED_PARAMETER=TRUE` on its
+  parameters (optimistic: nothing is known, so nothing is assumed to happen). First iteration only, via
+  `TolerantWrite.setOnce`.
+- The link computer seeds the *formal* parameter of the applied SAM into the caller's modified set
+  (pessimistic).
+
+Measured on E7 `INPUT4` with the independence fix applied (`TypeIndependentAnalyzerImpl`
+`return null` when undecided):
+
+```
+apply:0:o   UNMODIFIED_PARAMETER=true   IMPLEMENTATIONS.empty=true
+run.modified = a.b.X.ThrowingFunction.apply(a.b.X.TryData):0:o, a.b.X.run(...):0:td, run
+```
+
+The same parameter is simultaneously asserted unmodified and seeded as modified. Main reports the first,
+the shadow pass's reachability walk concludes the second, and `TestShadowModificationPass`'s
+"correctly-analyzed code must diff clean" invariant fires. `IMPLEMENTATIONS` comes from
+`overrides()`, so a SAM satisfied only by a method reference genuinely has none — this cannot be fixed
+by populating it.
+
+## Experiment: three SAM shapes, one program
+
+The E7 `INPUT4` shape was run with three different SAMs, everything else identical, both with and
+without the independence fix. `someSetUnmod=false` in every cell — the essential E7 path (modification
+reaching `someSet` through the captured Result) works throughout; only the marking differs.
+
+| variant | SAM | `run.modified` (baseline) | `run.modified` (independence fixed) |
+|---|---|---|---|
+| **A** | custom, non-generic `ThrowingFunction` | `run:0:td, run` | `apply:0:o, run:0:td, run` ← **false positive** |
+| **B** | `java.util.function.Consumer<TryData>` | `run:0:td` | `run:0:td` ← **correct** |
+| **C** | custom, generic `MyConsumer<T>` | *(empty)* | *(empty)* ← **under-approximates** |
+
+Two things follow.
+
+1. **The `java.util.function` exception does prevent the false positive** — the hypothesis this
+   investigation started from is confirmed at the level of observable behaviour.
+2. **But the split is not simply package-based.** A custom *generic* SAM also avoids the false positive,
+   while losing the correct `run:0:td` marking entirely. Three shapes, three behaviours, one program.
+   Only B is right.
+
+Under the independence fix all three reach identical, correct type-level values (`TryData`
+`@Dependent`/`@FinalFields`, `TryDataImpl` `@Dependent`/`@Mutable`), so the divergence lives purely in
+the link/modification layer, not in the immutability lattice.
+
+## Two theories, both refuted
+
+### It is not the virtual fields (refutes the `§8.3` framing for *this* sighting)
+
+`virtual-fields.md` §8.3 documents that `VirtualFieldComputer.compute()` short-circuits only the
+`java.util.function` package while `Util.needsVirtual()` excludes all functional interfaces, and
+suggests the concept implies aligning `needsVirtual` *to* `compute`. The natural reading — a custom SAM
+gets a `§m` modification component that a `java.util.function` SAM does not, and the seed attaches to it
+— predicts that removing those virtual fields removes the false positive.
+
+**Measured: it does not.** Aligning `compute()` in the *other* direction (short-circuit every functional
+interface, not just the package) leaves variant A's false positive exactly as it was. Virtual-field
+structure is not what produces the seed.
+
+### It is not `$_afi` deferral
+
+`LinkMethodCall.samOfFunctionalInterface` already implements deferral: when the SAM's receiver resolves
+to a parameter of the current method it decorates it with an `AppliedFunctionalInterfaceVariable`
+(`$_afi`) "to be resolved once the concrete lambda bound to that parameter is known at the outer call
+site". That is exactly the shape a "defer to the caller" redesign would want.
+
+But it is not what discriminates A from B: the receiver (`td.throwingFunction()`) resolves the same way
+in all three variants, and `TryData.throwingFunction()` is `@Dependent` in all three once independence is
+fixed. Deferral is orthogonal to the divergence.
+
+## What actually discriminates: contract versus inference
+
+`java.util.function.Consumer.accept` is annotated in the AAPI archive
+(`maddi-aapi-archive/.../jdk/JavaUtilFunction.java`):
+
+```java
+void accept(/*@Independent(hc=true)[T]*/ @Modified T t) { }
+```
+
+With that contract the engine knows the SAM modifies its argument and translates the effect onto the
+concrete argument — `run:0:td`, clean, no formal parameter in sight. It never needs to seed, and
+`doMethodWithoutImplementation` never gets a say, because `Consumer.accept` is external and already
+decided.
+
+A custom SAM has no such contract. The engine must infer, and the two conventions above then contradict
+each other on the same element. **So "`java.util.function` is special" is true, but it is special
+because it is *annotated*, not because of any package check in the virtual-field logic.** The package
+check in `compute()` is a separate matter that happens to correlate.
+
+Variant C shows genericity is a third, independent axis: a generic custom SAM produces no marking at
+all, losing even the correct `run:0:td`. That is an under-approximation and arguably its own defect;
+it is not the subject of this note.
+
+## Does one redesign cover both sightings?
+
+**No — the evidence says they are distinct.**
+
+- The 2026-06 sighting (`virtual-fields.md` §8.3) is about *carriage*: aligning `needsVirtual` to
+  `compute` moves functional-interface values off the Λ (SAM/lambda) path onto `§m` virtual-field
+  content. Reproduced here: exactly five `TestModificationFunctional` failures, four of them literally
+  "ThrowingFunction: propagation part 1–4", with links changing from
+  `build.throwingFunction←Λthis.bodyThrowingFunction` to `build.throwingFunction.§m≡…`.
+- Our sighting is about *contract versus inference* for the SAM's parameter, plus the
+  optimistic/pessimistic contradiction that inference triggers.
+
+They share a cast of characters (custom SAMs, `ThrowingFunction`) but not a mechanism — demonstrated by
+the fact that changing the virtual-field predicate does not move our false positive. Fixing §8.3 will
+not fix this, and fixing this will not fix §8.3.
+
+## Candidate designs
+
+1. **Stop the optimistic write for a SAM that is actually applied.** `doMethodWithoutImplementation`
+   would not write `UNMODIFIED_PARAMETER=TRUE` for a functional interface's SAM, leaving the
+   conservative seed uncontradicted. Smallest change; makes main agree with shadow by conceding to the
+   pessimistic side. Cost: every custom SAM parameter becomes potentially-modified, which will ripple —
+   wants the corpus.
+2. **Stop the pessimistic seed when the callee's parameter is contractually unmodified.** The inverse:
+   the link computer would consult `UNMODIFIED_PARAMETER` before seeding a formal parameter. Makes main
+   and shadow agree on the optimistic side, and keeps E7's current pinned expectations. Risk: the
+   optimism is unfounded — it comes from `doMethodWithoutImplementation`'s "nothing is known", not from
+   evidence — so this may hide real modification through lambdas.
+3. **Give custom SAMs the same treatment as annotated ones** by deriving the SAM parameter's
+   modification from the lambdas/method references actually bound to it at capture sites. Principled and
+   matches what `$_afi` does for the receiver case, but it is the real redesign, and the capture site is
+   not always in the same compilation unit.
+
+**Recommendation: option 1**, measured against the corpus. It resolves the contradiction in the
+direction of soundness (a SAM whose implementations are invisible *may* modify its argument), and it is
+the one that does not require inventing new machinery. Option 3 is the right long-term answer and should
+be revisited if option 1's ripple proves too coarse.
+
+Note for whoever runs that measurement: `slowTest` covers the corpus for the *main* pass only.
+`TestShadowCloneBench` skips without `../../testarchive`, so the shadow-vs-main invariant — the one this
+whole question surfaced through — is **not** corpus-covered. A green `slowTest` is therefore weaker
+evidence here than it looks.
+
+## Reproducing
+
+The three-variant fixture is not checked in (it was scratch). To rebuild it: copy
+`TestModificationFunctionalE7.INPUT4`, and swap `ThrowingFunction` for `java.util.function.Consumer<TryData>`
+(variant B) and for a custom `interface MyConsumer<T> { void accept(T o); }` (variant C). Apply the
+independence fix from `independent-type-optimism.md` and print `mlv(run).sortedModifiedString()`.

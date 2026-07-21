@@ -14,14 +14,17 @@
 
 package org.e2immu.gradleplugin.inputconfig;
 
+import org.e2immu.gradleplugin.AnalyzerExtension;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.gradle.api.Project;
+import org.gradle.api.artifacts.ArtifactView;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
 import org.gradle.api.artifacts.result.ResolvedArtifactResult;
+import org.gradle.api.attributes.Category;
 import org.gradle.api.file.SourceDirectorySet;
-import org.gradle.api.internal.artifacts.DefaultProjectComponentIdentifier;
 import org.gradle.api.internal.plugins.DslObject;
 import org.gradle.api.internal.project.ProjectInternal;
 import org.gradle.api.plugins.ExtensionAware;
@@ -32,9 +35,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.jar.JarFile;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -44,7 +50,7 @@ import java.util.stream.Collectors;
  * <ul>
  *     <li>multiple directories in a source set (DONE)</li>
  *     <li>source sets beyond main, test in the same project (e.g. functionalTest in testgradlepluginanalyzer (DONE)</li>
- *     <li>dependent source project in multi-project build</li>
+ *     <li>dependent source project in multi-project build (DONE, see {@code collectProjectSources})</li>
  *     <li>dependent source projects in composite build (TODO, current attempts have failed)</li>
  * </ul>
  * <p>
@@ -97,18 +103,23 @@ public class ComputeSourceSets {
         }
 
         List<Configuration> configurations = sortConfigurations(project);
-        inspectConfigurations(excludeFromClasspath, configurations, sourceSetsByName);
+        // sibling projects that publish their sources come first: their artifacts must NOT also be recorded as
+        // jar classpath parts, or the same types arrive twice, once parsed and once shallow
+        Map<String, List<Path>> sourcesByProject = collectProjectSources(project, configurations);
+        inspectConfigurations(excludeFromClasspath, configurations, sourceSetsByName, sourcesByProject.keySet());
         String mainSourceSetName = projectName + "/main";
-        // No cross-project source recursion (see inspectConfigurations): sibling projects are consumed as
-        // compiled classpath parts, so there are never dependent source projects to carry here.
-        Result result = new Result(mainSourceSetName, sourceSetsByName, List.of());
+        List<Result> dependentProjects = sourcesByProject.entrySet().stream()
+                .map(e -> dependentProjectResult(e.getKey(), e.getValue(), restrictSourcesToPackages, encoding))
+                .toList();
+        Result result = new Result(mainSourceSetName, sourceSetsByName, dependentProjects);
         LOGGER.info("Exit compute source sets with result: {} has source sets/classpath parts {}",
                 result.mainSourceSetName, result.sourceSetsByName.keySet());
         return result;
     }
 
     private void inspectConfigurations(Set<String> excludeFromClasspath,
-                                       List<Configuration> configurations, Map<String, SourceSet> sourceSetsByName) {
+                                       List<Configuration> configurations, Map<String, SourceSet> sourceSetsByName,
+                                       Set<String> projectsProvidingSources) {
         for (Configuration configuration : configurations) {
             if (configuration.isCanBeResolved()) {
                 String configurationName = configuration.getName();
@@ -117,20 +128,21 @@ public class ComputeSourceSets {
                 boolean isRuntimeOnly = configurationName.toLowerCase().contains("runtime");
 
                 for (ResolvedArtifactResult rar : configuration.getIncoming().getArtifacts().getArtifacts()) {
-                    // Both external libraries and project (sibling module) dependencies are consumed the same way:
-                    // as their already-resolved compiled artifact on THIS project's classpath. We deliberately do NOT
-                    // recurse into a sibling project to co-parse its source -- that resolves the sibling's own
-                    // configurations, which Gradle 9 rejects as unsafe cross-project resolution (a hard error in
-                    // multi-project builds). This matches how the Maven plugin treats reactor siblings: as jars.
+                    // External libraries are consumed as their already-resolved compiled artifact. A sibling
+                    // project is too, UNLESS it published its sources (see collectProjectSources) -- then it has
+                    // already been turned into a source set and must not be added a second time as a jar.
+                    // We still never recurse into a sibling to read its configurations: Gradle 9 rejects that as
+                    // unsafe cross-project resolution. Variant reselection is what makes the source case legal.
                     String description;
                     boolean excludedByCoordinate;
                     if (rar.getVariant().getOwner() instanceof ModuleComponentIdentifier mci) {
                         description = mci.getGroup() + ":" + mci.getModule() + ":" + mci.getVersion();
                         excludedByCoordinate = excludeFromClasspath.contains(description)
                                                 || excludeFromClasspath.contains(mci.getModule());
-                    } else if (rar.getVariant().getOwner() instanceof DefaultProjectComponentIdentifier pci) {
+                    } else if (rar.getVariant().getOwner() instanceof ProjectComponentIdentifier pci) {
                         description = pci.getProjectName();
-                        excludedByCoordinate = excludeFromClasspath.contains(pci.getProjectName());
+                        excludedByCoordinate = excludeFromClasspath.contains(pci.getProjectName())
+                                               || projectsProvidingSources.contains(pci.getProjectName());
                     } else {
                         continue;
                     }
@@ -149,6 +161,7 @@ public class ComputeSourceSets {
                                 .setLibrary(true)
                                 .setExternalLibrary(true)
                                 .setPartOfJdk(false)
+                                .setModule(isModularArtifact(file))
                                 .setRuntimeOnly(isRuntimeOnly)
                                 .build();
                         sourceSetsByName.put(name, set);
@@ -156,6 +169,71 @@ public class ComputeSourceSets {
                 }
             }
         }
+    }
+
+    /**
+     * The source directories that dependency projects publish on their {@code e2immuSourceElements} variant,
+     * keyed by project name. This is the cross-project aggregation pattern Gradle blesses (the same one
+     * {@code test-report-aggregation} and {@code jacoco-report-aggregation} use): an artifact view with
+     * <em>variant reselection</em> asks each already-resolved component for a different variant of itself. It
+     * reads only what the producer chose to publish, so it is not the unsafe cross-project configuration
+     * resolution that Gradle 9 forbids.
+     * <p>
+     * Lenient because most components have no such variant at all -- every external jar, and any project on
+     * which the plugin was not applied. Those must be skipped silently and stay ordinary classpath parts.
+     */
+    private Map<String, List<Path>> collectProjectSources(Project project, List<Configuration> configurations) {
+        Category sourcesCategory = project.getObjects()
+                .named(Category.class, AnalyzerExtension.SOURCES_CATEGORY);
+        Map<String, Set<Path>> byProject = new LinkedHashMap<>();
+        for (Configuration configuration : configurations) {
+            if (!configuration.isCanBeResolved()) continue;
+            ArtifactView view = configuration.getIncoming().artifactView(v -> {
+                v.withVariantReselection();
+                v.lenient(true);
+                v.getAttributes().attribute(Category.CATEGORY_ATTRIBUTE, sourcesCategory);
+            });
+            for (ResolvedArtifactResult rar : view.getArtifacts().getArtifacts()) {
+                if (rar.getVariant().getOwner() instanceof ProjectComponentIdentifier pci) {
+                    File file = rar.getFile();
+                    if (file.isDirectory() && file.canRead()) {
+                        byProject.computeIfAbsent(pci.getProjectName(), k -> new LinkedHashSet<>())
+                                .add(file.getAbsoluteFile().toPath().normalize());
+                    }
+                }
+            }
+        }
+        byProject.forEach((name, paths) -> LOGGER.info(" -- project {} contributes sources {}", name, paths));
+        return byProject.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,
+                e -> List.copyOf(e.getValue()), (a, b) -> a, LinkedHashMap::new));
+    }
+
+    /**
+     * A dependency project, as a {@link Result} of its own so that {@link ComputeDependencies} wires it up: it
+     * walks {@code sourceSetDependencies} depth-first and makes this project's source sets depend on the main
+     * source set of each, which is exactly the edge the openjdk front end needs to resolve types across them.
+     * <p>
+     * The package restriction is the <em>consuming</em> project's: {@code sourcePackages} says which packages
+     * the user wants analyzed, and asking the sibling for its own setting would mean reading its extension,
+     * i.e. the cross-project access this whole mechanism exists to avoid.
+     */
+    private Result dependentProjectResult(String projectName, List<Path> paths, String restrictTo,
+                                          String encodingString) {
+        String sourceSetName = projectName + "/main";
+        SourceSet sourceSet = new SourceSetImpl.Builder().setName(sourceSetName)
+                .setSourceDirectories(paths).setUri(paths.getFirst().toUri())
+                .setSourceEncoding(encodingString == null ? null : Charset.forName(encodingString))
+                .setModule(isModularSource(paths))
+                .setRestrictToPackages(restrictToPackages(restrictTo))
+                .build();
+        return new Result(sourceSetName, new HashMap<>(Map.of(sourceSetName, sourceSet)), List.of());
+    }
+
+    private static Set<String> restrictToPackages(String restrictTo) {
+        return restrictTo == null || restrictTo.isBlank() ? null :
+                Arrays.stream(restrictTo.split("[,;]\\s*"))
+                        .filter(s -> !s.isBlank())
+                        .collect(Collectors.toUnmodifiableSet());
     }
 
     private static @NotNull List<Configuration> sortConfigurations(Project project) {
@@ -225,10 +303,7 @@ public class ComputeSourceSets {
                                     String restrictTo,
                                     String encodingString,
                                     boolean test) {
-        Set<String> restrictToPackages = restrictTo == null || restrictTo.isBlank() ? null :
-                Arrays.stream(restrictTo.split("[,;]\\s*"))
-                        .filter(s -> !s.isBlank())
-                        .collect(Collectors.toUnmodifiableSet());
+        Set<String> restrictToPackages = restrictToPackages(restrictTo);
         Charset sourceEncoding = encodingString == null ? null : Charset.forName(encodingString);
         // Java source dirs, plus Kotlin source dirs when the Kotlin JVM plugin is applied. SourceSet is
         // ExtensionAware and the Kotlin plugin registers a 'kotlin' SourceDirectorySet per source set; reading it
@@ -249,7 +324,31 @@ public class ComputeSourceSets {
                 .setBuildUnit(buildUnit)
                 .setSourceDirectories(paths).setUri(paths.getFirst().toUri())
                 .setSourceEncoding(sourceEncoding).setTest(test)
+                .setModule(isModularSource(paths))
                 .setRestrictToPackages(restrictToPackages).build();
+    }
+
+    /**
+     * A source set is a Java module when one of its source directories holds a {@code module-info.java}. The
+     * distinction is not cosmetic: the openjdk front end puts a module's dependencies on javac's <em>module
+     * path</em>, and without the flag every {@code requires}d package comes back as "package X is not visible".
+     */
+    private static boolean isModularSource(List<Path> paths) {
+        return paths.stream().anyMatch(p -> Files.isRegularFile(p.resolve("module-info.java")));
+    }
+
+    /** As {@link #isModularSource}, for a dependency: an explicit module carries a {@code module-info.class}. */
+    private static boolean isModularArtifact(File file) {
+        if (file.isDirectory()) {
+            return new File(file, "module-info.class").canRead();
+        }
+        try (JarFile jarFile = new JarFile(file)) {
+            return jarFile.getEntry("module-info.class") != null
+                   || jarFile.getEntry("META-INF/versions/9/module-info.class") != null;
+        } catch (IOException e) {
+            LOGGER.warn("Cannot read {} as a jar, assuming it is not a module: {}", file, e.getMessage());
+            return false;
+        }
     }
 
     private static String detectSourceEncoding(Project project) {

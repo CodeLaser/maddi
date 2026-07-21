@@ -14,18 +14,24 @@
 
 package org.e2immu.analyzer.modification.analyzer.impl;
 
+import org.e2immu.analyzer.modification.common.defaults.ContractReader;
 import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
+import org.e2immu.analyzer.modification.analyzer.TypeImmutableAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.TypeIndependentAnalyzer;
 import org.e2immu.language.cst.api.analysis.Message;
+import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.analyzer.modification.analyzer.CycleBreakingStrategy.NO_INFORMATION_IS_NON_MODIFYING;
@@ -39,9 +45,15 @@ Phase 4.1 Primary type independent
 
  */
 public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements TypeIndependentAnalyzer {
+    private final ContractReader contractReader;
+    // as in TypeEventualAnalyzerImpl: the support classes are consulted from every consumer, and a compiled type
+    // is shallow-analyzed lazily, so the contract fallback is hit constantly. Concurrent: types may run in parallel.
+    private final Map<TypeInfo, Value.EventuallyImmutable> eventuallyImmutableCache = new ConcurrentHashMap<>();
 
-    public TypeIndependentAnalyzerImpl(IteratingAnalyzer.Configuration configuration, AtomicInteger propertyChanges, List<Message> analyzerMessages) {
+    public TypeIndependentAnalyzerImpl(Runtime runtime, IteratingAnalyzer.Configuration configuration,
+                                       AtomicInteger propertyChanges, List<Message> analyzerMessages) {
         super(configuration, propertyChanges, analyzerMessages);
+        this.contractReader = new ContractReader(runtime);
     }
 
     @Override
@@ -49,7 +61,8 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
 
         Independent typeIndependent = typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT);
         if (typeIndependent.isIndependent()) return; // nothing to be gained
-        Independent independent = computeIndependentType(typeInfo, activateCycleBreaking);
+        Independent independent = computeIndependentType(typeInfo, activateCycleBreaking,
+                TypeImmutableAnalyzer.AfterMark.NONE);
         if (independent != null) {
             if (TolerantWrite.setAllowControlledOverwrite(typeInfo.analysis(), INDEPENDENT_TYPE, independent, typeInfo)) {
                 DECIDE.debug("Ti: Decide independent of type {} = {}", typeInfo, independent);
@@ -65,7 +78,14 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         }
     }
 
-    private Independent computeIndependentType(TypeInfo typeInfo, boolean activateCycleBreaking) {
+    @Override
+    public Independent independentAfterMark(TypeInfo typeInfo, TypeImmutableAnalyzer.AfterMark afterMark,
+                                            boolean activateCycleBreaking) {
+        return computeIndependentType(typeInfo, activateCycleBreaking, afterMark);
+    }
+
+    private Independent computeIndependentType(TypeInfo typeInfo, boolean activateCycleBreaking,
+                                               TypeImmutableAnalyzer.AfterMark afterMark) {
         Independent indyFromHierarchy = INDEPENDENT;
 
         // hierarchy
@@ -73,7 +93,7 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         boolean stopExternal = false;
         for (ParameterizedType superType : typeInfo.parentAndInterfacesImplemented()) {
             TypeInfo superTypeInfo = superType.typeInfo();
-            Independent independentSuper = independentSuper(superTypeInfo);
+            Independent independentSuper = independentSuper(superTypeInfo, afterMark);
             Independent independentSuperBroken;
             if (independentSuper == null) {
                 if (activateCycleBreaking) {
@@ -97,11 +117,31 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         }
         assert indyFromHierarchy.isAtLeastIndependentHc();
 
-        Independent fromFieldsAndAbstractMethods = loopOverFieldsAndAbstractMethods(typeInfo);
+        Independent fromFieldsAndAbstractMethods = loopOverFieldsAndAbstractMethods(typeInfo, afterMark);
+        if (fromFieldsAndAbstractMethods == null && !afterMark.isNone()) {
+            // Undecided, and in after-mark mode that must not be read as INDEPENDENT the way min(null) does for
+            // the unconditional verdict. The unconditional value is revised as inputs settle (TolerantWrite lets
+            // it improve), but the eventual verdict is written once and never revisited, so a promotion made on a
+            // not-yet-copied abstract INDEPENDENT_METHOD would stick. Wait for the next iteration instead.
+            return null;
+        }
         return indyFromHierarchy.min(fromFieldsAndAbstractMethods);
     }
 
-    private Independent independentSuper(TypeInfo superTypeInfo) {
+    private Independent independentSuper(TypeInfo superTypeInfo, TypeImmutableAnalyzer.AfterMark afterMark) {
+        if (!afterMark.isNone()) {
+            // mirrors immutableSuper: after OUR mark the supertype has been marked too -- the transition belongs
+            // to the object, not to one type -- so it is independent to the degree its after-mark immutability
+            // implies. Never worse than what was computed unconditionally, hence the max.
+            Value.EventuallyImmutable ev = superTypeInfo.analysis()
+                    .getOrDefault(EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+            if (ev.isEventual()) {
+                Independent fromMark = ev.immutableAfterMark().toCorrespondingIndependent();
+                Independent plain = superTypeInfo.analysis().getOrNull(INDEPENDENT_TYPE,
+                        ValueImpl.IndependentImpl.class);
+                return plain == null ? fromMark : fromMark.max(plain);
+            }
+        }
         Independent ofType = superTypeInfo.analysis().getOrNull(INDEPENDENT_TYPE, ValueImpl.IndependentImpl.class);
         if (ofType != null || !superTypeInfo.isAbstract()) return ofType;
         Independent ofMethods = INDEPENDENT;
@@ -117,9 +157,14 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         return ofMethods;
     }
 
-    private Independent loopOverFieldsAndAbstractMethods(TypeInfo typeInfo) {
+    private Independent loopOverFieldsAndAbstractMethods(TypeInfo typeInfo,
+                                                         TypeImmutableAnalyzer.AfterMark afterMark) {
         Independent independent = INDEPENDENT;
         for (FieldInfo fieldInfo : typeInfo.fields()) {
+            // AfterMark.fields() only ever holds fields whose own type is eventually immutable -- that is the
+            // condition under which TypeEventualAnalyzerImpl puts them there -- so what such a field exposes has
+            // itself become immutable at the mark, and exposing it afterwards is harmless.
+            if (afterMark.fields().contains(fieldInfo)) continue;
             Independent fieldIndependent = fieldInfo.analysis().getOrNull(INDEPENDENT_FIELD,
                     ValueImpl.IndependentImpl.class);
             if (fieldIndependent == null) {
@@ -132,12 +177,13 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         }
         for (MethodInfo methodInfo : typeInfo.methods()) {
             if (methodInfo.isAbstract()) {
+                boolean beforeMarkOnly = afterMark.methods().contains(methodInfo);
                 Independent methodIndependent = methodInfo.analysis().getOrNull(INDEPENDENT_METHOD,
                         ValueImpl.IndependentImpl.class);
                 if (methodIndependent == null) {
                     independent = null;
                 } else if (methodIndependent.isDependent()) {
-                    return DEPENDENT;
+                    if (!excused(beforeMarkOnly, methodInfo.returnType())) return DEPENDENT;
                 } else if (independent != null) {
                     independent = independent.min(methodIndependent);
                 }
@@ -147,7 +193,7 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
                     if (paramIndependent == null) {
                         independent = null;
                     } else if (paramIndependent.isDependent()) {
-                        return DEPENDENT;
+                        if (!excused(beforeMarkOnly, pi.parameterizedType())) return DEPENDENT;
                     } else if (independent != null) {
                         independent = independent.min(paramIndependent);
                     }
@@ -155,6 +201,37 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
             }
         }
         return independent;
+    }
+
+    /**
+     * Whether one dependent exposure may be discounted after the mark. BOTH conditions must hold, and the second
+     * is the whole point of the exercise:
+     * <ol>
+     * <li>the method can only run before the mark ({@code @Mark} or {@code @Only(before=)}, i.e. it is in
+     * {@code AfterMark.methods()}), so it cannot be called to leak anything once the mark has been passed;</li>
+     * <li>the type it exposes is <em>itself</em> eventually immutable.</li>
+     * </ol>
+     * The second condition is not belt-and-braces. A reference handed out <em>before</em> the mark survives it --
+     * the caller keeps it -- so "cannot be called afterwards" alone would be unsound: the content would have
+     * escaped while it was still mutable, and stay mutable. It is sound only when the escaped object is itself
+     * frozen by a mark of its own, which is exactly the {@code TypeInfo.builder() -> TypeInspection.Builder}
+     * shape: committing the builder makes further mutation throw. A method failing this keeps the type dependent,
+     * after the mark as much as before.
+     */
+    private boolean excused(boolean beforeMarkOnly, ParameterizedType exposed) {
+        if (!beforeMarkOnly) return false;
+        TypeInfo bestType = exposed.bestTypeInfo();
+        return bestType != null && eventuallyImmutable(bestType).isEventual();
+    }
+
+    /** As {@code TypeEventualAnalyzerImpl.eventuallyImmutable}: analysis first, hand-written contract as fallback. */
+    private Value.EventuallyImmutable eventuallyImmutable(TypeInfo typeInfo) {
+        Value.EventuallyImmutable fromAnalysis = typeInfo.analysis()
+                .getOrDefault(EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+        if (fromAnalysis.isEventual()) return fromAnalysis;
+        return eventuallyImmutableCache.computeIfAbsent(typeInfo, ti ->
+                contractReader.contracts(ti).get(EVENTUALLY_IMMUTABLE_TYPE) instanceof Value.EventuallyImmutable e
+                        ? e : ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
     }
 }
 

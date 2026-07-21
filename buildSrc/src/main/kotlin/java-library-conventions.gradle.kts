@@ -47,6 +47,11 @@ afterEvaluate {
     slowTest.configure {
         testClassesDirs = test.testClassesDirs
         classpath = test.classpath
+        // Heap must be mirrored separately: Gradle lifts -Xmx out of jvmArgs into maxHeapSize, so by the time
+        // we copy, test.jvmArgs no longer contains it. Without this, slowTest ran on Gradle's default heap
+        // (512m) no matter what TESTXMX said -- which is why the large-corpus proving ground OOM'd rather than
+        // reporting a result, in the one module (maddi-run-openjdk) that sets its heap this way.
+        maxHeapSize = test.maxHeapSize
         test.jvmArgs?.let { setJvmArgs(it) }
         systemProperties(test.systemProperties)
         maxParallelForks = 1

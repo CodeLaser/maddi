@@ -49,13 +49,18 @@ Rules (each level requires the previous):
 - A mutable supertype makes the subtype mutable; an undecided supertype blocks the decision (see cycle
   breaking).
 
-## Eventual immutability — DESIGN ONLY
+## Eventual immutability — CONTRACTED, NOT YET COMPUTED
 
 `@Mark`, `@Only(before/after)`, `@BeforeMark`, `@TestMark`, `@Immutable(after="...")` describe types
 that transition once from mutable to immutable (builders, freeze patterns, `SetOnce`/`FirstThen`
-support classes). Implemented in an earlier analyzer generation; the CURRENT engine does not compute
-them. The design chapter (060) is retained; the analyzer's own code still follows the pattern
-(builder-commit CST, write-once property maps).
+support classes). Fully computed in an earlier analyzer generation. The CURRENT engine **reads them as
+contracts** — `Value.Eventual`/`Value.EventuallyImmutable`, properties `EVENTUAL_METHOD`,
+`EVENTUAL_PARAMETER`, `EVENTUALLY_IMMUTABLE_TYPE`, `EVENTUALLY_FINAL_FIELD`, all filled by
+`AnnotationToProperty` — but does not yet **compute** them, and the guard skips eventual types.
+Mark labels are field *names* (a mark is often inherited). Eventuality is deliberately kept OUT of the
+`IMMUTABLE_TYPE` lattice for now. `@BeforeMark` is not read yet. The analyzer's own code follows the
+pattern heavily (builder-commit CST, write-once property maps).
+Plan and staging: `docs/eventual-immutability.md`.
 
 ## The link system (chapter 105; module maddi-modification-link)
 
@@ -141,7 +146,7 @@ immutability verdicts are derived.
 ## Document map (src/docs/asciidoc/sections/)
 
 Tutorial: 010 introduction · 020 final fields · 030 modification · 040 containers ·
-045 linking & dependence · 050 immutability · 060 eventual (design-only, see note) ·
+045 linking & dependence · 050 immutability · 060 eventual (contracted, not computed; see note) ·
 070 modification part 2 · 080 hidden content.
 Technical: **105 the link system** · **108 convergence (iterating analyzer)**.
 Practice: 110 support classes · 115 the analyzer's own code · 120 other annotations ·

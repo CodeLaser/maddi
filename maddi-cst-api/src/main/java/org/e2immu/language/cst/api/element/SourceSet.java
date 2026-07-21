@@ -134,7 +134,20 @@ public interface SourceSet {
     /**
      * Returns a set of package name prefixes to which inspection of this source set is restricted.
      * An empty set means no restriction (all packages are inspected).
+     *
+     * @deprecated <b>Legacy; do not use in new code, and prefer removing it from existing
+     * configurations.</b> Package restriction dates from the hand-written parser, which could not yet
+     * process arbitrary code and needed a way to be pointed at the part it could manage. The current front
+     * ends have no such limitation, so the option now buys nothing but trouble.
+     * <p>
+     * Concretely, it is <em>fatal on any modular project</em>. A restriction makes
+     * {@code JavaInspectorImpl} place the source roots on javac's {@code SOURCE_PATH}; javac finds the
+     * {@code module-info.java} there and compiles it implicitly, even though {@code ParseOptions.ignoreModule}
+     * had deliberately excluded it from the compilation units. The compilation becomes a named module,
+     * everything on the class path lands in the unnamed module, and every cross-module reference fails with
+     * "package X does not exist". See {@code dogfood/README.md}.
      */
+    @Deprecated
     default Set<String> restrictToPackages() {
         return Set.of();
     }

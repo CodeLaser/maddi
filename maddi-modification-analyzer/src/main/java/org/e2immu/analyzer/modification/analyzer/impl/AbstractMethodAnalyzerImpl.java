@@ -59,6 +59,7 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
                 }
                 methodNonModifying(concreteImplementations, methodInfo);
                 methodIndependent(concreteImplementations, methodInfo);
+                methodEventual(concreteImplementations, methodInfo);
             }
         }
     }
@@ -146,6 +147,36 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
         }
         if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), NON_MODIFYING_METHOD, fromImplementations, methodInfo)) {
             DECIDE.debug("AM: Decide non-modifying of method {} = {}", methodInfo, fromImplementations);
+        }
+    }
+
+    /**
+     * Eventual immutability travels from implementation to abstract method (road to immutability §060). An
+     * interface such as {@code TypeInfo} declares {@code commit}; the fact that it marks a state transition is
+     * only visible in {@code TypeInfoImpl}, which holds the eventually immutable field. Without this step the
+     * interface stays plain mutable, and -- by the hierarchy rule -- so does every implementation of it.
+     * <p>
+     * All implementations must agree, on the side of the transition <em>and</em> on the mark label. Labels are
+     * field names, and two implementations are free to name their state differently; that is a disagreement we
+     * cannot merge, so we conclude nothing.
+     */
+    private void methodEventual(Iterable<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
+        if (methodInfo.analysis().haveAnalyzedValueFor(EVENTUAL_METHOD)) return;
+        Value.Eventual fromImplementations = null;
+        for (MethodInfo implementation : concreteImplementations) {
+            Value.Eventual eventual = implementation.analysis().getOrDefault(EVENTUAL_METHOD,
+                    ValueImpl.EventualImpl.NOT_EVENTUAL);
+            if (!eventual.isEventual()) return; // one implementation without a mark: no promise to make
+            if (fromImplementations == null) {
+                fromImplementations = eventual;
+            } else if (!fromImplementations.equals(eventual)) {
+                return;
+            }
+        }
+        if (fromImplementations != null) {
+            methodInfo.analysis().set(EVENTUAL_METHOD, fromImplementations);
+            DECIDE.debug("AM: Decide eventual of abstract method {} = {}", methodInfo, fromImplementations);
+            propertyChanges.incrementAndGet();
         }
     }
 
