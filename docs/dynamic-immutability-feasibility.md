@@ -264,3 +264,57 @@ Three options, none of them part 2:
 
 There is no closed-world/whole-program configuration in `IteratingAnalyzer.Configuration`, so option 1's
 soundness cannot be bought with a flag.
+
+## Why `TypeInspectionImpl` still does not certify (2026-07)
+
+After parts 1–3 and the constructor narrowing, the dogfood run shows `TypeInspectionImpl` and
+`MethodInspectionImpl` with `containerType:1`, `independentType:2` and **no `immutableType` key at all**.
+That reads as "undecided". It is not.
+
+**`immutableType` absent means MUTABLE.** `ValueImpl.ImmutableImpl.encode` returns null when `value <= 0`, so
+MUTABLE (0) and NO_VALUE (−1) are never written to the JSON. The same holds for `nonModifyingMethod` and every
+other `BoolImpl` (`encode` returns null for 0), so a missing key there means *false*, not *unknown*. **You
+cannot read "undecided" off the dogfood JSON.** Instrumented, `TypeImmutableAnalyzerImpl.go` reports
+`TypeInspectionImpl ... -> @Mutable` on every iteration: a decided verdict, written and re-confirmed.
+
+### The chain, measured
+
+```
+TypeInspection.superTypesExcludingJavaLangObject   NON_MODIFYING_METHOD = false
+  because impl Builder.superTypesExcludingJavaLangObject   nonMod = false
+       while impl TypeInspectionImpl.superTypesExcludingJavaLangObject   nonMod = true
+→ loopOverFieldsAndMethods(TypeInspection) = false      → TypeInspection = @FinalFields
+→ immutableSuper(TypeInspectionImpl ← TypeInspection).isMutable() == true   (isMutable() is value <= 1)
+→ TypeInspectionImpl = @Mutable
+```
+
+`MethodInspectionImpl` is the same shape through `MethodInspection.withSynthetic`, poisoned by
+`Builder.withSynthetic` while `MethodInspectionImpl.withSynthetic` is non-modifying.
+
+This is an **honest verdict, not a defect**. `AbstractMethodAnalyzerImpl.methodNonModifying` takes the meet over
+implementations — one modifying implementation makes the abstract method modifying — and the mutable `Builder`
+implements the same interface as the immutable product. The Builder's modification is real: it reaches
+`TypeInfo.parentClass()`/`interfacesImplemented()`, which go through `EventuallyFinalOnDemand.get()`, and that
+runs the on-demand loader. (`TypeInfoImpl.superTypesExcludingJavaLangObject` is modifying for the same reason.)
+
+So it is neither a convergence gap nor `independent-type-optimism.md` in a third disguise. Independence is
+fully resolved here (`independentType:2` = `@Independent`); the cap is the shared interface.
+
+### `test9BuilderSplitIsNotTheBlocker` is narrower than it reads
+
+That pin concludes "having the mutable builder implement the same interface as the immutable product costs the
+product NOTHING", and recommends against the split refactor on `TypeInspection`. **The generalisation is
+refuted by the real code.** Its fixture's `Builder.items()` is a plain getter — non-modifying — so the meet over
+implementations is harmless. In the CST the shared methods (`superTypesExcludingJavaLangObject`,
+`withSynthetic`) *are* modifying in the Builder, and that is exactly what caps the interface.
+
+The test remains a valid pin of its own fixture. What is wrong is the conclusion drawn from it: splitting the
+Builder off the shared interface is **the** blocker for the inspection types, not a no-op. Road to immutability
+§060 names this pattern and warns it "becomes difficult ... with an eye on immutability"; this is the
+difficulty, and it is specifically about *modifying* methods on the shared interface.
+
+### What would certify these types
+
+Split the mutable `Builder` off the read-only interface (or move the offending methods out of it), so the meet
+over implementations no longer sees a modifying one. That is a source-side API change, not an engine change,
+and no analyzer work remains in its way: independence is resolved and the defensive copies are understood.
