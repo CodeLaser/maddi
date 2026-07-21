@@ -23,12 +23,27 @@ Carrying `:cst-api`'s sources into `:cst-impl`'s input configuration is what the
 How to run
 ----------
 
+**Pass `--preload-analysis-results-dirs`, or every number you read will be wrong.**
+Without it the annotated-API results are not loaded, so JDK methods such as `List.copyOf` have no
+`immutableMethod` and anything that reasons from them silently infers nothing. The unit tests preload
+via `CommonTest`/`LoadAnalysisResults`, which is why fixtures can pass while the real run reports
+zeros. This went unnoticed for a whole working session and invalidated every dogfood figure taken
+before it: `eventuallyImmutableType` reads 0 without preloading and 4 with it.
+
+Current baseline (with preloading): `eventualMethod` 30, `eventuallyImmutableType` 4,
+`immutableField` 115, `immutableType` 202, `independentType` 471.
+
+Compare **aggregate counts only**. The per-file JSON is non-deterministic — the run is parallel and
+link lists come out in varying order, so two runs at the same revision differ in ~11 files, more than
+a real change does. A file-by-file diff of two dogfood runs is noise that looks like signal.
+
 ```console
 $ ./gradlew :maddi-gradleplugin:publishAllPublicationsToLocalPluginRepoRepository
 $ ./gradlew build                                    # the dependency jars must exist
 $ cd dogfood && ../gradlew --refresh-dependencies :cst-impl:e2immu-write-input-configuration
 $ cd .. && ./gradlew :maddi-run-openjdk:run --args="\
     --input-configuration $PWD/dogfood/cst-impl/build/inputConfiguration.json \
+    --preload-analysis-results-dirs $PWD/maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk,$PWD/maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs/test,$PWD/maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs/log \
     --analysis-steps prep,modification \
     --analysis-results-dir /tmp/dogfood-out"
 ```
