@@ -41,7 +41,10 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
     private final List<Comment> trailingComments;
     private final MethodMap methodMap;
 
-    public TypeInspectionImpl(Inspection inspection,
+    // private: the Builder is the only construction route, so every caller of this constructor is inside
+    // this primary type. That is what lets the analyzer verify, rather than believe, that the collections it
+    // stores are immutable. See docs/dynamic-immutability-feasibility.md.
+    private TypeInspectionImpl(Inspection inspection,
                               Set<TypeModifier> typeModifiers,
                               List<MethodInfo> methods,
                               List<MethodInfo> constructors,
