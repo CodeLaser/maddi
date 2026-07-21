@@ -26,6 +26,7 @@ import org.gradle.api.artifacts.result.ResolvedArtifactResult;
 import org.gradle.api.attributes.Category;
 import org.gradle.api.file.SourceDirectorySet;
 import org.gradle.api.internal.plugins.DslObject;
+import org.gradle.api.internal.project.ProjectInternal;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.tasks.compile.JavaCompile;
@@ -90,11 +91,12 @@ public class ComputeSourceSets {
                 .getByType(JavaPluginExtension.class);
         Map<String, SourceSet> sourceSetsByName = new HashMap<>();
         String projectName = project.getName();
+        String buildUnit = buildUnitOf(project);
 
         for (org.gradle.api.tasks.SourceSet gradleSourceSet : javaPluginExtension.getSourceSets()) {
             String sourceSetName = projectName + "/" + gradleSourceSet.getName();
             boolean test = gradleSourceSet.getName().toLowerCase().contains("test");
-            SourceSet sourceSet = makeSourceSet(gradleSourceSet, sourceSetName,
+            SourceSet sourceSet = makeSourceSet(gradleSourceSet, sourceSetName, buildUnit,
                     test ? restrictTestSourcesToPackages : restrictSourcesToPackages,
                     encoding, test);
             if (sourceSet != null) sourceSetsByName.put(sourceSet.name(), sourceSet);
@@ -276,8 +278,28 @@ public class ComputeSourceSets {
         return file.getAbsoluteFile().toURI();
     }
 
+    /*
+    The build unit groups the source sets of one Gradle project, and must be unique across the whole build.
+
+    project.getName() is not: it is a leaf directory name, so ':a:util' and ':b:util' both yield 'util' -- which is
+    exactly why the source set names built from it cannot serve as build units.
+
+    project.getPath() (':a:util') is unique within one build, but not across a composite: an included build can
+    carry the same ':core'. ProjectInternal.getIdentityPath() prefixes the included build, turning the ':core' of
+    included build 'foo' into ':foo:core'. We fall back to getPath() should that internal type ever be absent,
+    which remains correct for every non-composite build.
+     */
+    private static String buildUnitOf(Project project) {
+        if (project instanceof ProjectInternal projectInternal) {
+            return projectInternal.getIdentityPath().toString();
+        }
+        LOGGER.warn("Cannot determine the identity path of {}; falling back to its project path", project);
+        return project.getPath();
+    }
+
     private SourceSet makeSourceSet(org.gradle.api.tasks.SourceSet gradleSourceSet,
                                     String e2immuSourceSetName,
+                                    String buildUnit,
                                     String restrictTo,
                                     String encodingString,
                                     boolean test) {
@@ -299,6 +321,7 @@ public class ComputeSourceSets {
                 .filter(File::canRead).map(f -> f.getAbsoluteFile().toPath().normalize()).toList();
         if (paths.isEmpty()) return null;
         return new SourceSetImpl.Builder().setName(e2immuSourceSetName)
+                .setBuildUnit(buildUnit)
                 .setSourceDirectories(paths).setUri(paths.getFirst().toUri())
                 .setSourceEncoding(sourceEncoding).setTest(test)
                 .setModule(isModularSource(paths))

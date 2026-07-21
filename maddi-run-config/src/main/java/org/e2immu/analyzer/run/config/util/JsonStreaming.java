@@ -137,12 +137,17 @@ public class JsonStreaming {
                     }
                 }
             }
+            // absent in configurations written before build units were recorded, and by importers that cannot
+            // determine them; null then means 'unknown', not 'no build unit'
+            String buildUnit = getString(node, "buildUnit", null);
             SourceSet ssi = new SourceSetImpl.Builder().setName(name)
+                    .setBuildUnit(buildUnit)
                     .setSourceDirectories(sourceDirectories)
                     .setUri(uri)
                     .setSourceEncoding(sourceEncoding)
                     .setTest(test).setLibrary(library).setExternalLibrary(externalLibrary)
                     .setPartOfJdk(partOfJdk).setModule(module)
+                    .setRuntimeOnly(runtimeOnly)
                     .setRestrictToPackages(Set.copyOf(restrictToPackages))
                     .setDependencies(List.copyOf(dependencies))
                     .build();
@@ -173,6 +178,7 @@ public class JsonStreaming {
                 gen.writeStringField("sourceEncoding", value.sourceEncoding().name());
             }
             gen.writeStringField("name", value.name());
+            if (value.buildUnit() != null) gen.writeStringField("buildUnit", value.buildUnit());
             if (value.sourceDirectories() != null && !value.sourceDirectories().isEmpty()) {
                 gen.writeArrayFieldStart("sourceDirectories");
                 for (Path dir : value.sourceDirectories()) gen.writeString(dir.toString());

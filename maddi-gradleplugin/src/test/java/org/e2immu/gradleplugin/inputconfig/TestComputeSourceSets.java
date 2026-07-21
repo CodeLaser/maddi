@@ -27,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -73,5 +74,31 @@ public class TestComputeSourceSets {
         boolean hasKotlin = mainSet.sourceDirectories().stream()
                 .anyMatch(p -> p.toString().replace('\\', '/').endsWith("src/main/kotlin"));
         assertTrue(hasKotlin, "expected the kotlin source directory; got " + mainSet.sourceDirectories());
+    }
+
+    /**
+     * Every source set of one Gradle project must record the same build unit, and that build unit must be derived
+     * from the project's path rather than its name: sibling projects ':a:util' and ':b:util' share the leaf name
+     * 'util', so the name cannot identify a build unit. Source set names stay leaf-based, as before.
+     */
+    @Test
+    public void recordsTheProjectPathAsBuildUnit() {
+        Project root = ProjectBuilder.builder().withName("root").build();
+        Project util = ProjectBuilder.builder().withName("util").withParent(root).build();
+        util.getPluginManager().apply("java");
+        new File(util.getProjectDir(), "src/main/java").mkdirs();
+        new File(util.getProjectDir(), "src/test/java").mkdirs();
+
+        ComputeSourceSets css = new ComputeSourceSets(util.getProjectDir().toPath().toAbsolutePath());
+        ComputeSourceSets.Result result = css.compute(util, null, null, Set.of());
+
+        SourceSet main = result.sourceSetsByName().get("util/main");
+        SourceSet test = result.sourceSetsByName().get("util/test");
+        assertNotNull(main, "got " + result.sourceSetsByName().keySet());
+        assertNotNull(test, "got " + result.sourceSetsByName().keySet());
+
+        assertEquals(":util", main.buildUnit());
+        assertEquals(main.buildUnit(), test.buildUnit(), "main and test must share one build unit");
+        assertTrue(test.test());
     }
 }
