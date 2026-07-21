@@ -21,6 +21,15 @@ public class AnalyzerExtension {
     public static final String ANALYZER_TASK_NAME = "e2immu-analyzer";
     public static final String WRITE_INPUT_CONFIGURATION_TASK_NAME = "e2immu-write-input-configuration";
 
+    /**
+     * The consumable configuration each analyzed project publishes its own source directories on, and the
+     * {@code Category} value that identifies it. A depending project reselects this variant to co-analyze its
+     * siblings' <em>sources</em> instead of their jars; without that, an interface and its implementations end
+     * up on opposite sides of the source/classpath divide and nothing can travel between them.
+     */
+    public static final String SOURCE_ELEMENTS_CONFIGURATION_NAME = "e2immuSourceElements";
+    public static final String SOURCES_CATEGORY = "e2immu-sources";
+
     public boolean skipProject;
 
     /* GeneralConfiguration */
