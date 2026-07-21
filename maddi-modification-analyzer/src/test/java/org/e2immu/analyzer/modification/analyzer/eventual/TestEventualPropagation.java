@@ -428,9 +428,18 @@ public class TestEventualPropagation extends CommonTest {
         return typeInfo.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.MUTABLE);
     }
 
-    @DisplayName("splitting the builder off the shared interface does not help the product")
+    /*
+     Scope note (2026-07): this fixture's builder accessor is a plain getter, hence non-modifying, so the
+     meet over implementations costs the shared interface nothing and the split is genuinely a no-op HERE.
+     Do not generalise it -- the real CST is the opposite case. TypeInspection.superTypesExcludingJavaLangObject
+     is non-modifying in the product but MODIFYING in the Builder (it reaches TypeInfo.parentClass(), which runs
+     EventuallyFinalOnDemand's on-demand loader), so the meet caps the interface at FINAL_FIELDS and the
+     hierarchy rule then makes every implementation mutable. There, splitting the builder off IS the blocker.
+     See docs/dynamic-immutability-feasibility.md.
+     */
+    @DisplayName("splitting the builder off the shared interface is a no-op when its accessors do not modify")
     @Test
-    public void test9BuilderSplitIsNotTheBlocker() {
+    public void test9BuilderSplitIsNoOpForNonModifyingBuilder() {
         TypeInfo shared = javaInspector.parse("B", INPUT9_SHARED);
         analyzer.go(prepWork(shared));
         Value.Immutable sharedProduct = immutable(shared.findSubType("Product"));
