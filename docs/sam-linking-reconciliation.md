@@ -1,6 +1,6 @@
 # The two SAM conventions: what actually diverges
 
-**Status: research findings, no code change.** Follow-on from
+**Status: research findings + one measured, rejected repair attempt; no code change.** Follow-on from
 [`independent-type-optimism.md`](independent-type-optimism.md), whose recommended option 1 was
 "reconcile the two SAM conventions first". This note establishes *what* has to be reconciled, and
 retires two plausible-but-wrong theories about it — including the one this investigation started from.
@@ -134,15 +134,65 @@ not fix this, and fixing this will not fix §8.3.
    matches what `$_afi` does for the receiver case, but it is the real redesign, and the capture site is
    not always in the same compilation unit.
 
-**Recommendation: option 1**, measured against the corpus. It resolves the contradiction in the
+### Option 1, measured against the corpus (2026-07) — rejected
+
+Option 1 was implemented and evidence-tested. It was scoped as narrowly as the diagnosis justifies:
+`doMethodWithoutImplementation` skips *only* the `UNMODIFIED_PARAMETER=TRUE` write, and only when
+`methodInfo == methodInfo.typeInfo().singleAbstractMethod()`. The structural test was chosen over
+`isSAMOfStandardFunctionalInterface()` because a lambda can target any structurally-functional
+interface, annotated or not, so the narrower test would miss exactly the un-annotated custom SAMs that
+have this problem. `INDEPENDENT_METHOD`, `IMMUTABLE_METHOD` and `INDEPENDENT_PARAMETER` were left alone.
+The independence fix from `independent-type-optimism.md` was applied at the same time, as the two are
+entangled.
+
+What it achieved:
+
+- **The main-vs-shadow contradiction on the E7 fixture is resolved.** `TestShadowModificationPass`
+  "shadow agrees on the forwarding-hop callback shape" passes. That is what option 1 promised.
+- Ripple across the unit suite is tiny: **exactly one** test fails build-wide.
+
+Why it was rejected anyway:
+
+- **The false positive survives.** The one failing test is `TestModificationFunctionalE7.test4`, whose
+  expectation is ground truth: `run.modified` becomes
+  `apply:0:o, run:0:td, run` where `run:0:td, run` is correct, because `apply` is realized only by
+  `this::methodBody` and `methodBody` never touches its parameter. Option 1 makes main *agree* with
+  shadow by conceding to the pessimistic side — it buys consistency by adopting the wrong answer, and
+  passing it would require editing the expectation that encodes the right one.
+- **At corpus scale it makes the divergence worse, not better.** `TestShadowCloneBench` over the
+  clone-bench corpus (9306 types) pins a known main-vs-shadow divergence count; option 1 moves
+  `unmodifiedParameter` from **215 to 216**. It removes *none* of the 215. That is the decisive
+  measurement: if SAM-parameter optimism were the cause of the main/shadow disagreement, fixing it
+  should have reduced that count. It did not. Option 1 is therefore not the reconciliation — it is a
+  separate behaviour change that happens to move the one fixture.
+
+Everything else in the corpus was identical to baseline: `TestCloneBench` 9306 types green, and
+ActiveMQ, Fernflower, Guava, JenkinsCore, LangChain4j, TimefoldSolver, TypeDependencies, FormatterStress
+and CloneBenchMethodHistogram all unchanged (13 tests / 2 skipped / 1 failed vs. baseline 13 / 2 / 0).
+
+The eventual-immutability dogfood measurement was also unchanged (30 `eventualMethod`, no
+`eventuallyImmutableType`), confirming that the missing type-level verdict is structural — `TypeInfo`
+declares `setOnDemandInspection` and `builder()` but not `commit()`, so the interface carries no
+`@Mark` — and not a consequence of the independence gate.
+
+**Revised recommendation: option 3.** The measurement above removes option 1 from contention and, by
+showing the 215 existing divergences are untouched by SAM-parameter optimism, suggests option 2 would
+not reach them either. Deriving the SAM parameter's modification from the lambdas and method references
+actually bound at capture sites is the remaining candidate that could be *correct* rather than merely
+consistent. It is the real redesign, and it should be attempted only with the corpus harness in place —
+which it now is.
+
+---
+
+**Original recommendation (superseded): option 1**, measured against the corpus. It resolves the contradiction in the
 direction of soundness (a SAM whose implementations are invisible *may* modify its argument), and it is
 the one that does not require inventing new machinery. Option 3 is the right long-term answer and should
 be revisited if option 1's ripple proves too coarse.
 
-Note for whoever runs that measurement: `slowTest` covers the corpus for the *main* pass only.
-`TestShadowCloneBench` skips without `../../testarchive`, so the shadow-vs-main invariant — the one this
-whole question surfaced through — is **not** corpus-covered. A green `slowTest` is therefore weaker
-evidence here than it looks.
+Note for whoever runs that measurement: `TestShadowCloneBench` is the invariant this whole question
+surfaced through, and it is now corpus-covered — pass
+`-Dtestarchive.root=<path>` (or `TESTARCHIVE_ROOT`) so it does not skip, and force a genuine re-run.
+It is the test that decided the option 1 measurement above.
 
 ## Reproducing
 
