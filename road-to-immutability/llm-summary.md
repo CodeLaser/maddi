@@ -49,14 +49,18 @@ Rules (each level requires the previous):
 - A mutable supertype makes the subtype mutable; an undecided supertype blocks the decision (see cycle
   breaking).
 
-## Eventual immutability — CONTRACTED, NOT YET COMPUTED
+## Eventual immutability — COMPUTED
 
 `@Mark`, `@Only(before/after)`, `@BeforeMark`, `@TestMark`, `@Immutable(after="...")` describe types
 that transition once from mutable to immutable (builders, freeze patterns, `SetOnce`/`FirstThen`
-support classes). Fully computed in an earlier analyzer generation. The CURRENT engine **reads them as
-contracts** — `Value.Eventual`/`Value.EventuallyImmutable`, properties `EVENTUAL_METHOD`,
-`EVENTUAL_PARAMETER`, `EVENTUALLY_IMMUTABLE_TYPE`, `EVENTUALLY_FINAL_FIELD`, all filled by
-`AnnotationToProperty` — but does not yet **compute** them, and the guard skips eventual types.
+support classes). The CURRENT engine reads them as contracts (`Value.Eventual`/`Value.EventuallyImmutable`;
+properties `EVENTUAL_METHOD`, `EVENTUAL_PARAMETER`, `EVENTUALLY_IMMUTABLE_TYPE`,
+`EVENTUALLY_FINAL_FIELD`) **and computes them**, in `TypeEventualAnalyzer` (phase 4.3), without
+reviving preconditions: a type holding a field of eventually immutable type inherits the mark, because
+the callee's own contract says which side of the transition it belongs to. Marks travel from an
+implementation to its abstract method (`AbstractMethodAnalyzerImpl.methodEventual`), so interfaces are
+certified too. `@TestMark` implies `@NotModified` — observing the state is not changing it.
+Independence is relaxed after the mark only when the leaked object is ITSELF eventually immutable.
 Mark labels are field *names* (a mark is often inherited). Eventuality is deliberately kept OUT of the
 `IMMUTABLE_TYPE` lattice for now. `@BeforeMark` is not read yet. The analyzer's own code follows the
 pattern heavily (builder-commit CST, write-once property maps).
