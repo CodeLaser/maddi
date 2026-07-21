@@ -40,11 +40,13 @@ import static org.junit.jupiter.api.Assertions.*;
  * <p>
  * The old e2immu computed "dynamic type annotations": {@code return List.of(...)} yielded an
  * {@code @Immutable(hc=true)} marker on the method. This generation keeps the property slot
- * ({@link PropertyImpl#IMMUTABLE_METHOD}, commented "dynamic return type") but computes nothing into it from a
- * method body, and the link engine -- where an accessor's dependence is actually decided -- never reads it.
+ * ({@link PropertyImpl#IMMUTABLE_METHOD}, commented "dynamic return type") but still computes nothing into it
+ * from a method body: inferring dynamic immutability is inter-procedural and is not done
+ * ({@code docs/dynamic-immutability-feasibility.md}). Only a hand-written contract supplies it.
  * <p>
- * Since {@code SourceContractMaterializer} (part 1) a hand-written contract does at least reach
- * {@code analysis()}; the consumption half (part 3) is still missing, which is what B and E below now pin.
+ * {@code SourceContractMaterializer} (part 1) brings a hand-written contract into {@code analysis()}, and
+ * {@code DynamicImmutability} (part 3) consumes it where dependence is decided. Only the FIELD-side contract is
+ * consumed, though, which is why G below now lifts while B and E -- which annotate the accessor -- still do not.
  * <p>
  * Several assertions below pin a LIMITATION rather than desired behaviour; each says so.
  */
@@ -213,19 +215,21 @@ public class TestDynamicImmutableReturn extends CommonTest {
             }
             """;
 
-    @DisplayName("G: the FIELD-side contract is materialized too, and likewise consumed by nothing")
+    @DisplayName("G: the FIELD-side contract is materialized AND consumed -- the shape finally lifts")
     @Test
     public void testG() {
         Measured m = measure(G_ANNOTATED_FIELD);
-        // part 1 for fields: @Immutable on a source field reaches IMMUTABLE_FIELD. This is the property the
-        // spike showed would lift the whole shape if the link engine read it (docs/dynamic-immutability-
-        // feasibility.md), so it is the one part 2 will eventually have to compute.
+        // part 1 for fields: @Immutable on a source field reaches IMMUTABLE_FIELD.
         assertNotNull(m.fieldImmutable(), "IMMUTABLE_FIELD is materialized for a source field");
         assertTrue(m.fieldImmutable().isImmutableHC());
-        // LIMITATION: FieldAnalyzerImpl still grades the field's links off its DECLARED type, so nothing moves.
-        assertTrue(m.fieldIndependent().isDependent());
-        assertTrue(m.typeIndependent().isDependent());
-        assertTrue(m.typeImmutable().isFinalFields());
+        // part 3: and it is now consumed. Desired behaviour, no longer a limitation -- DynamicImmutability
+        // grades the field by what it HOLDS rather than by its declared type, so handing it out shares nothing.
+        // Note this is D's shape (copy in the constructor, plain `return field`), i.e. TypeInspectionImpl's:
+        // the one that got nothing before, and the reason the feature exists.
+        assertTrue(m.fieldIndependent().isAtLeastIndependentHc(), "field: " + m.fieldIndependent());
+        assertTrue(m.methodIndependent().isAtLeastIndependentHc(), "accessor: " + m.methodIndependent());
+        assertTrue(m.typeIndependent().isAtLeastIndependentHc(), "type: " + m.typeIndependent());
+        assertTrue(m.typeImmutable().isImmutableHC(), "reaches @Immutable(hc=true): " + m.typeImmutable());
     }
 
     @Language("java")

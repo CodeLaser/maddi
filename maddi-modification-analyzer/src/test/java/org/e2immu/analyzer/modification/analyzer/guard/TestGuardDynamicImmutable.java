@@ -34,26 +34,34 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * What materializing a dynamic-immutability contract does, and does not, do to guard mode.
+ * Policing the dynamic-immutability contract now that it decides verdicts.
  * <p>
- * {@code SourceContractMaterializer} writes {@code @Immutable} on a source field or method into
- * {@code analysis()}. Materializing a contract means the analyzer stops deriving a value and starts trusting
- * one, so the standing question for any such change is whether it blunts the guard: if "computed" becomes
- * trivially equal to "contracted", the guard can no longer catch a user who promised something untrue.
+ * {@code SourceContractMaterializer} (part 1) writes {@code @Immutable} on a source field into
+ * {@code analysis()}, and {@code DynamicImmutability} (part 3) consumes it: the field, its accessor and often
+ * the whole type are lifted out of {@code @Dependent} on the strength of that annotation alone. A promise that
+ * moves verdicts has to be checked, or a wrong one manufactures an immutability result out of nothing.
  * <p>
- * For these two properties it cannot, because the guard never reads them. {@code guardMethod} polices
- * {@code NON_MODIFYING_METHOD} and {@code INDEPENDENT_METHOD} on abstract methods;
- * {@code immutableFieldFailingRule} reads {@code FINAL_FIELD}, {@code UNMODIFIED_FIELD}, the field's
- * <em>declared</em> type and {@code INDEPENDENT_FIELD}. Neither {@code IMMUTABLE_METHOD} nor
- * {@code IMMUTABLE_FIELD} appears anywhere in {@code GuardAnalyzerImpl}. The first test below pins that as the
- * measured reality; the second pins that a contract the guard <em>does</em> police is still enforced, i.e. the
- * materializer did not quietly disarm it.
+ * {@code guardDynamicImmutableFields} checks it against every assignment the type itself makes to the field.
+ * That is a <b>local</b> check, and the tests below pin exactly how far it reaches:
+ * <ul>
+ *   <li>a refutable lie — storing a freshly constructed mutable object — is an error;</li>
+ *   <li>a proven contract — {@code List.copyOf} — is silent;</li>
+ *   <li>{@code this.items = items} from a parameter is <em>unverifiable locally</em> and is reported at lower
+ *       severity in its own category, because the true and the false version are syntactically identical and
+ *       only the call sites can tell them apart. That is part 2's job.</li>
+ * </ul>
+ * The last test pins that contracts the guard already policed are still enforced, i.e. none of this disarmed
+ * anything.
  */
 public class TestGuardDynamicImmutable extends CommonTest {
 
     private record Run(List<Message> messages, TypeInfo typeInfo) {
         List<Message> violations() {
             return messages.stream().filter(m -> GuardAnalyzerImpl.CONTRACT_VIOLATION.equals(m.category())).toList();
+        }
+
+        List<Message> unverifiable() {
+            return messages.stream().filter(m -> GuardAnalyzerImpl.CONTRACT_UNVERIFIABLE.equals(m.category())).toList();
         }
     }
 
@@ -92,9 +100,9 @@ public class TestGuardDynamicImmutable extends CommonTest {
             }
             """;
 
-    @DisplayName("a false dynamic-immutability contract is materialized, and the guard does not police it")
+    @DisplayName("storing a parameter is UNVERIFIABLE locally: warned, not accused -- and the promise is trusted")
     @Test
-    public void testFalseContractNotPoliced() throws IOException {
+    public void testParameterAssignmentIsUnverifiable() throws IOException {
         Run run = analyzeWithGuard("a.b.X", FALSE_CONTRACT);
         MethodInfo items = run.typeInfo().findUniqueMethod("items", 0);
 
@@ -105,13 +113,84 @@ public class TestGuardDynamicImmutable extends CommonTest {
                         .getOrNull(PropertyImpl.IMMUTABLE_FIELD, ValueImpl.ImmutableImpl.class),
                 "IMMUTABLE_FIELD materialized");
 
-        // LIMITATION, not desired behaviour: the promise is false -- the constructor stores the caller's list
-        // and the accessor hands it straight back -- yet nothing reports it, because GuardAnalyzerImpl reads
-        // neither property. Materializing therefore cannot have blunted a check: there was none to blunt.
-        // Whoever wires up consumption (part 3) should add the matching guard check at the same time.
+        // LIMITATION, stated loudly because it is the case that matters: this contract is FALSE -- the
+        // constructor stores the caller's list and the accessor hands it straight back -- and the guard does
+        // NOT call it out as a violation. It cannot: `this.items = items` is character-for-character what
+        // TypeInspectionImpl does with a true contract (its callers pass List.copyOf(...)), so refuting it here
+        // would accuse correct code. The guard says what it honestly can -- "I am trusting this, not checking
+        // it" -- and part 2, which follows the argument to the call site, is what turns this into a verdict.
         assertTrue(run.violations().isEmpty(),
-                "no violation is reported for a false dynamic-immutability contract, have: "
+                "the parameter case must not be reported as a violation, have: "
                 + run.violations().stream().map(Message::message).toList());
+        assertEquals(1, run.unverifiable().size(),
+                "exactly one unverifiable finding, have: "
+                + run.unverifiable().stream().map(Message::message).toList());
+        assertTrue(run.unverifiable().getFirst().message().contains("items"),
+                run.unverifiable().getFirst().message());
+    }
+
+    /** The same promise, refutable: the constructor stores a freshly built mutable list. */
+    @Language("java")
+    private static final String REFUTABLE_LIE = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            import org.e2immu.annotation.Immutable;
+
+            public class X {
+                @Immutable(hc = true)
+                private final List<String> items;
+
+                public X(List<String> items) {
+                    this.items = new ArrayList<>(items);
+                }
+
+                public List<String> items() {
+                    return items;
+                }
+            }
+            """;
+
+    @DisplayName("a refutable lie -- storing a freshly built mutable list -- IS reported")
+    @Test
+    public void testRefutableLieIsCaught() throws IOException {
+        Run run = analyzeWithGuard("a.b.X", REFUTABLE_LIE);
+        assertEquals(1, run.violations().size(),
+                "the false @Immutable on the field must be reported, have: "
+                + run.violations().stream().map(Message::message).toList());
+        assertTrue(run.violations().getFirst().message().contains("mutable object"),
+                run.violations().getFirst().message());
+    }
+
+    /** The promise kept: List.copyOf really does copy, and the AAPI says so. */
+    @Language("java")
+    private static final String TRUE_CONTRACT = """
+            package a.b;
+            import java.util.List;
+            import org.e2immu.annotation.Immutable;
+
+            public class X {
+                @Immutable(hc = true)
+                private final List<String> items;
+
+                public X(List<String> items) {
+                    this.items = List.copyOf(items);
+                }
+
+                public List<String> items() {
+                    return items;
+                }
+            }
+            """;
+
+    @DisplayName("a proven contract is silent -- no violation, and nothing to warn about either")
+    @Test
+    public void testTrueContractIsSilent() throws IOException {
+        Run run = analyzeWithGuard("a.b.X", TRUE_CONTRACT);
+        assertTrue(run.violations().isEmpty(), "no violation, have: "
+                                               + run.violations().stream().map(Message::message).toList());
+        assertTrue(run.unverifiable().isEmpty(), "nothing unverifiable either, have: "
+                                                 + run.unverifiable().stream().map(Message::message).toList());
     }
 
     /**

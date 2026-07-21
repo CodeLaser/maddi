@@ -128,6 +128,17 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
             }
         }
 
+        /**
+         * Independence contributed by what the field actually HOLDS, which is not always what its declared type
+         * says — see {@link DynamicImmutability}, which owns the rule and the reasoning. The whole field object is
+         * reached here (this grades the field itself), so the dynamic value legitimately applies.
+         */
+        private Value.Independent independentOfFieldContent(TypeInfo owner, FieldInfo fieldInfo) {
+            Value.Independent fromDeclaredType = analysisHelper.typeIndependentFromImmutableOrNull(owner,
+                    fieldInfo.type());
+            return DynamicImmutability.improve(fromDeclaredType, fieldInfo);
+        }
+
         private boolean notEmptyOrSyntheticAccessorAndReferringTo(MethodInfo mi, FieldInfo fieldInfo) {
             if (!mi.methodBody().isEmpty()) {
                 VariableData vd = VariableDataImpl.of(mi.methodBody().lastStatement());
@@ -287,8 +298,7 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
 
         private Value.Independent computeIndependent(FieldInfo fieldInfo, Links links) {
             TypeInfo owner = fieldInfo.owner();
-            Value.Independent independentOfType = analysisHelper.typeIndependentFromImmutableOrNull(owner,
-                    fieldInfo.type());
+            Value.Independent independentOfType = independentOfFieldContent(owner, fieldInfo);
             if (independentOfType == null) {
                 // wait
                 return null;
