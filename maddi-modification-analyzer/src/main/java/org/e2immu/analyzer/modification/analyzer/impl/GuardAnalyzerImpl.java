@@ -29,6 +29,7 @@ import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.expression.Assignment;
+import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.expression.VariableExpression;
@@ -75,6 +76,8 @@ import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
  */
 public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyzer {
     public static final String CONTRACT_VIOLATION = "contract-violation";
+    /** a contract the guard can see but cannot check locally; see {@link #guardDynamicImmutableFields} */
+    public static final String CONTRACT_UNVERIFIABLE = "contract-unverifiable";
     public static final String NEAR_MISS_CONTAINER = "near-miss-container";
     public static final String NEAR_MISS_NOT_MODIFIED = "near-miss-not-modified";
     public static final String NEAR_MISS_INDEPENDENT = "near-miss-independent";
@@ -405,6 +408,7 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
     }
 
     private void guardType(TypeInfo typeInfo) {
+        guardDynamicImmutableFields(typeInfo);
         Map<Property, Value> contracts = contractReader.contracts(typeInfo);
         if (contracts.get(CONTAINER_TYPE) instanceof Value.Bool container && container.isTrue()) {
             guardContainer(typeInfo);
@@ -592,6 +596,112 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
                         + contractHolder.fullyQualifiedName(), causes));
             }
         }
+    }
+
+    /**
+     * {@code @Immutable} on a FIELD is a promise about what the field <em>holds</em>, not about its declared type:
+     * a {@code List<String>} field said to hold an immutable list. Since {@code DynamicImmutability} that promise
+     * is load-bearing — it lifts the field, the accessor and often the whole type out of {@code @Dependent} — so
+     * it needs checking, or a wrong annotation silently manufactures a verdict.
+     * <p>
+     * The check is <b>local</b>: every assignment to the field that this type itself makes (field initializer,
+     * constructors, methods). That is enough to catch the flat lie — storing a caller's collection and calling it
+     * immutable — and it is all that can be done without the inter-procedural walk that is part 2.
+     *
+     * <h2>The parameter case, and why it warns rather than accuses or stays silent</h2>
+     * {@code this.items = items} with a parameter on the right is the shape that matters, and a local check cannot
+     * settle it: {@code TypeInspectionImpl}'s contract is true (every caller passes {@code List.copyOf(...)} from
+     * {@code Builder.commit()}) while {@code TestGuardDynamicImmutable}'s is false (the caller keeps its list), and
+     * the two are syntactically identical. Reporting a violation would accuse correct code; staying silent would
+     * let a now-load-bearing promise pass unremarked. So it is reported at lower severity, in its own category:
+     * the user is told exactly which promise is being trusted rather than verified, and that the obligation has
+     * moved to the callers. When part 2 lands and can follow the argument to the call site, this warning becomes
+     * a real verdict.
+     *
+     * <h2>What counts as proof</h2>
+     * The AAPI's own judgement ({@code IMMUTABLE_METHOD}), never a hand-written list of factory names. That keeps
+     * one definition of "produces an immutable object" instead of two that can drift, and it is more accurate than
+     * a name list would be: {@code List.copyOf} is annotated and genuinely copies, while
+     * {@code Collections.unmodifiableList} is deliberately not — it returns a <em>view</em>, so a caller holding
+     * the original can still change what the field sees, and treating it as proof would bless a false contract.
+     */
+    private void guardDynamicImmutableFields(TypeInfo typeInfo) {
+        for (FieldInfo fieldInfo : typeInfo.fields()) {
+            if (!(contractReader.contracts(fieldInfo).get(IMMUTABLE_FIELD) instanceof Value.Immutable contracted)
+                || !contracted.isAtLeastImmutableHC()) {
+                continue; // no dynamic-immutability promise on this field: nothing to check
+            }
+            Message contractLocation = MessageImpl.cause(fieldInfo,
+                    "@Immutable contracted on field '" + fieldInfo.name() + "'");
+            for (Assigned assigned : assignmentsTo(typeInfo, fieldInfo)) {
+                switch (classify(assigned.value())) {
+                    case MUTABLE -> analyzerMessages.add(MessageImpl.error(fieldInfo, CONTRACT_VIOLATION,
+                            "field '" + fieldInfo.name() + "' is assigned a mutable object in "
+                            + assigned.where() + ", violating its @Immutable contract",
+                            assigned.cause(), contractLocation));
+                    case UNKNOWN -> analyzerMessages.add(MessageImpl.warn(fieldInfo, CONTRACT_UNVERIFIABLE,
+                            "the @Immutable contract on field '" + fieldInfo.name() + "' cannot be verified here:"
+                            + " " + assigned.where() + " assigns a value whose immutability is not visible locally"
+                            + " (every caller must pass an immutable object)",
+                            assigned.cause(), contractLocation));
+                    case IMMUTABLE -> {
+                        // proven at this assignment; nothing to report
+                    }
+                }
+            }
+        }
+    }
+
+    /** One assignment to the guarded field, with where it was found, for the message's located cause. */
+    private record Assigned(Expression value, String where, Message cause) {
+    }
+
+    private enum Proof {IMMUTABLE, MUTABLE, UNKNOWN}
+
+    private List<Assigned> assignmentsTo(TypeInfo typeInfo, FieldInfo fieldInfo) {
+        List<Assigned> result = new ArrayList<>();
+        if (fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty()) {
+            result.add(new Assigned(fieldInfo.initializer(), "its initializer",
+                    MessageImpl.cause(fieldInfo, "assigned here")));
+        }
+        typeInfo.constructorAndMethodStream().forEach(mi -> {
+            if (mi.methodBody().isEmpty()) return;
+            mi.methodBody().visit(e -> {
+                if (e instanceof Assignment asg && asg.variableTarget() instanceof FieldReference fr
+                    && fr.scopeIsRecursivelyThis() && fr.fieldInfo() == fieldInfo) {
+                    result.add(new Assigned(asg.value(), "'" + mi.name() + "'",
+                            MessageImpl.cause(e.source(), mi, "assigned here")));
+                }
+                return true;
+            });
+        });
+        return result;
+    }
+
+    /**
+     * Can this right-hand side be shown, from here, to produce an immutable object? See
+     * {@link #guardDynamicImmutableFields} for why {@code IMMUTABLE_METHOD} is the only accepted proof of a
+     * factory call.
+     */
+    private Proof classify(Expression value) {
+        if (value.isNullConstant()) return Proof.IMMUTABLE; // holds nothing, shares nothing
+        Value.Immutable ofDeclaredType = analysisHelper.typeImmutable(value.parameterizedType());
+        if (ofDeclaredType != null && ofDeclaredType.isAtLeastImmutableHC()) return Proof.IMMUTABLE;
+        if (value instanceof MethodCall mc) {
+            Value.Immutable dynamic = mc.methodInfo().analysis().getOrNull(IMMUTABLE_METHOD,
+                    ValueImpl.ImmutableImpl.class);
+            return dynamic != null && dynamic.isAtLeastImmutableHC() ? Proof.IMMUTABLE : Proof.UNKNOWN;
+        }
+        if (value instanceof ConstructorCall) {
+            // `new ArrayList<>(x)` -- the declared type was already consulted above and is not immutable, and a
+            // freshly constructed object of a mutable type is mutable. This is the one shape we can refute.
+            return Proof.MUTABLE;
+        }
+        if (value instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
+            && DynamicImmutability.ofField(fr.fieldInfo()) != null) {
+            return Proof.IMMUTABLE; // another field carrying the same promise
+        }
+        return Proof.UNKNOWN;
     }
 
     private void guardMethod(MethodInfo methodInfo) {

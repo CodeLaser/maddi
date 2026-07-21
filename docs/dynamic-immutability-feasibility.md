@@ -1,8 +1,11 @@
-# Dynamic immutability: can the consumption path be closed? (spike, 2026-07)
+# Dynamic immutability: closing the consumption path (2026-07)
 
-**Status: spike. No candidate change is proposed here; the engine is left untouched.**
+**Status: part 3 IMPLEMENTED (2026-07), together with a local guard check. Parts 1 and 3 are in; part 2
+(inference) is not, so the feature is driven by hand-written contracts only and is inert on unannotated code.**
+The measurements below were the spike that sized it; the "what it moved" and coupling sections have been updated
+to what the implemented version actually does.
 
-Sizing exercise for a three-part feature. Companion notes: `independent-type-optimism.md` (the optimism
+Originally a sizing exercise for a three-part feature. Companion notes: `independent-type-optimism.md` (the optimism
 defect, which turns out to be coupled to this), `sam-linking-reconciliation.md`.
 
 ## Why anyone cares
@@ -64,9 +67,9 @@ The chain, concretely:
 Note step 5: a *concrete* accessor's dependence never caps its own type. Only fields and abstract methods are
 graded. This matters below.
 
-## The spike change
+## The change, as implemented
 
-One read, at step 2: consult `IMMUTABLE_FIELD` (which exists, is documented, and has **zero readers**
+Three reads, not one — see below. The first is at step 2: consult `IMMUTABLE_FIELD` (which exists, is documented, and has **zero readers**
 anywhere in the engine) in preference to the declared type.
 
 ```java
@@ -93,7 +96,7 @@ answer the consumption question without it.
 So **the consumption path can be closed**, and cheaply: one read in one place takes the real-world shape from
 `@FinalFields` to `@Immutable(hc=true)`.
 
-## The finding that matters more: parts 3 and the optimism defect are coupled
+## The coupling with the optimism defect — found by the spike, CLOSED by the implementation
 
 The interface variant (`I` declaring `items()`, `Impl` implementing it) is the shape the CST actually has.
 With the spike, `Impl` lifts to independent-HC/immutable-HC. But measuring the same fixture with the spike
@@ -107,8 +110,55 @@ through the hierarchy rule. So:
 > `INDEPENDENT_METHOD`. A field-only change works today only because the interface is optimistically
 > mis-graded; fixing the optimism defect would immediately re-break this shape — which is maddi's CST shape.
 
-That coupling is not visible from either investigation alone, and it means these two pieces of work have to be
-planned together rather than sequenced independently.
+**The implementation does exactly that, so the coupling is gone.** Three sites grade a field by its declared
+type and now all consult `DynamicImmutability`:
+
+| site | what it decides |
+|---|---|
+| `FieldAnalyzerImpl.computeIndependent` | the field's own `INDEPENDENT_FIELD` |
+| `TypeModIndyAnalyzerImpl.handleGetterSetter` | a getter's `INDEPENDENT_METHOD` |
+| `LinkToField.immutableOfLinkedField` | a return value's link to a field (and the guard's blame) |
+
+With the getter lifted, `AbstractMethodAnalyzerImpl.methodIndependent` copies the value up to the abstract
+accessor, so the interface is graded **honestly** rather than optimistically. Verified by temporarily applying
+the optimism fix (`return null` in `computeIndependentType`) and re-measuring the interface fixture:
+
+| | before the optimism fix | with it applied |
+|---|---|---|
+| `I` | `@Independent` / `@Immutable(hc=true)` | `@Independent(hc=true)` / `@Immutable(hc=true)` |
+| `Impl` | `@Independent(hc=true)` / `@Immutable(hc=true)` | `@Independent(hc=true)` / `@Immutable(hc=true)` |
+
+`I` drops to its honest value and nothing breaks. So the two pieces of work no longer have to be sequenced
+together — fixing `independent-type-optimism.md` will not re-break this shape.
+
+### Whole object only
+
+The dynamic value is applied only where the whole field object is reached — never on a content tier (`§es`,
+`∋`, `∈`, or an indexed getter). `@Immutable(hc=true)` on a field says the *container* cannot change; the
+elements are its hidden content. Reading it more broadly would turn a promise about the container into a
+promise about everything inside it.
+
+## The guard check
+
+Because the contract now moves verdicts, `GuardAnalyzerImpl.guardDynamicImmutableFields` checks it against
+every assignment the type itself makes to the field (initializer, constructors, methods):
+
+- **refutable lie** — a freshly constructed mutable object (`new ArrayList<>(in)`) — is a `contract-violation`
+  error;
+- **proven** — a call whose `IMMUTABLE_METHOD` says it returns an immutable object — is silent;
+- **unverifiable** — `this.items = items` from a parameter — is a `contract-unverifiable` *warning*.
+
+The parameter case is the one that matters and the one a local check cannot settle: `TypeInspectionImpl`'s
+contract is true (callers pass `List.copyOf(...)` from `Builder.commit()`) while a false one is
+character-for-character identical. Refuting would accuse correct code; silence would let a load-bearing promise
+pass unremarked. The warning says precisely what is true — *this is trusted, not checked, and the obligation
+has moved to the callers* — and part 2 is what turns it into a verdict.
+
+Proof of "produces an immutable object" is the AAPI's own `IMMUTABLE_METHOD`, never a hand-written list of
+factory names: one definition instead of two that can drift, and more accurate than a name list. `List.copyOf`
+is annotated and genuinely copies; `Collections.unmodifiableList` is deliberately not annotated, because it
+returns a **view** — a caller holding the original can still change what the field sees, so treating it as
+proof would bless a false contract.
 
 ## Corpus A/B
 
@@ -142,11 +192,13 @@ Read the `SHADOWBENCH totals:` line, or just trust the pinned assertions.)
   call-site argument through a constructor parameter to a field, over all callers. Needs a parameter-level
   notion of dynamic immutability that does not exist, and is the same class of problem as static-value
   propagation. This is the part that decides whether the feature is a week or a quarter.
-- **Part 3, consumption (small in the field, unknown at the abstract accessor).** The field read above is one
-  line. Lifting the abstract accessor's `INDEPENDENT_METHOD` is not sized here, and it is entangled with the
-  optimism defect and with the 215 pinned shadow divergences; that is where the risk sits, not in part 3's
-  field half.
+- **Part 3, consumption — DONE.** Three reads sharing one rule (`DynamicImmutability`), plus the guard check.
+  The abstract accessor lifts via the existing implementation-to-abstract copy, so the optimism coupling is
+  closed rather than inherited. Corpus A/B identical (13 tests / 2 skipped / 0 failed, `TestCloneBench` 9306
+  types, `TestShadowCloneBench` 224 divergences {nonModifyingMethod=1, unmodifiedField=8,
+  unmodifiedParameter=215}) — expected, because nothing writes `IMMUTABLE_FIELD` on unannotated code.
 
-**Recommendation.** The consumption question is answered: yes, and cheaply. Do not start with part 2. The next
-decision is whether to take on abstract-accessor independence together with the optimism fix as one piece of
-work, because the spike shows they cannot be separated for the shape we care about.
+**Where this leaves the feature.** Parts 1 and 3 are in: a hand-written `@Immutable` on a field is materialized,
+consumed, and checked as far as a local check can. That is already enough to certify a type by annotating it —
+at the cost of a promise the guard can only warn about rather than verify. Part 2 remains the large piece, and
+remains the thing that would make the CST certify itself with no annotations at all.

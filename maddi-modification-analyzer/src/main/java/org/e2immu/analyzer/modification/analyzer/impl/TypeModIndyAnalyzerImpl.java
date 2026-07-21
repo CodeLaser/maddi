@@ -217,12 +217,20 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             propertyChanges.incrementAndGet();
         }
         ParameterizedType type;
+        boolean wholeField;
         if (fieldValue.hasIndex() && !fieldValue.list()) {
             type = fieldValue.field().type().copyWithOneFewerArrays();
+            wholeField = false; // an indexed getter hands out an ELEMENT, not the container
         } else {
             type = fieldValue.field().type();
+            wholeField = true;
         }
         Independent independentFromType = analysisHelper.typeIndependentFromImmutableOrNull(type);
+        if (wholeField) {
+            // the getter returns what the field holds, so its dynamic immutability decides as much as the
+            // declared type does; see DynamicImmutability
+            independentFromType = DynamicImmutability.improve(independentFromType, fieldValue.field());
+        }
         if (independentFromType == null) {
             UNDECIDED.debug("MI: Independent of method {} undecided", methodInfo);
         } else if (fieldValue.setter()) {
