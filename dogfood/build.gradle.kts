@@ -12,44 +12,18 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-plugins {
-    java
-    id("org.e2immu.analyzer-plugin") version "0.8.2"
-}
-
 /*
- Analyze ONE maddi module from source: maddi-cst-impl, because it holds TypeInfoImpl, whose `inspection`
- field is the EventuallyFinalOnDemand that stage 2 of eventual immutability is meant to recognize.
+ One subproject per maddi module, each pointing at that module's real source directory. The modules are
+ NOT merged: every maddi module is a JPMS module, and several module-info.java in one compilation collide
+ ("too many module declarations"); dropping them instead makes javac compile the merge as one of the
+ modules, and every `requires`d package then comes back as "package org.slf4j is not visible".
 
- Its maddi dependencies come in as the jars the real build produces. Merging several modules into one
- Gradle project does NOT work: each maddi module is a JPMS module, and five module-info.java files in one
- compilation collide. Keeping the module intact also keeps its `requires` correct, which is what lets the
- openjdk front end resolve slf4j and the rest off javac's module path -- see
- TestJavaInspector5RealClasspathModule, and the module detection in the plugin's ComputeSourceSets.
+ cst-api and cst-impl are both analyzed as source because that is the whole point: TypeInfo is an
+ interface in cst-api, TypeInfoImpl implements it in cst-impl, and eventual immutability can only travel
+ between them when both are parsed -- a jar type never enters the abstract-method batch. The plugin's
+ e2immuSourceElements variant is what carries cst-api's sources into cst-impl's input configuration.
 */
-java {
-    sourceCompatibility = JavaVersion.VERSION_25
-    targetCompatibility = JavaVersion.VERSION_25
-}
-
-sourceSets {
-    main {
-        java { setSrcDirs(listOf("../maddi-cst-impl/src/main/java")) }
-        resources { setSrcDirs(emptyList<String>()) }
-    }
-}
-
-dependencies {
-    listOf("maddi-support", "maddi-util", "maddi-cst-api", "maddi-cst-analysis").forEach {
-        implementation(":$it:0.8.2")
-    }
-    // the third-party artifacts java-library-conventions gives every maddi module; versions from the
-    // platform BOM (../platform/build.gradle.kts)
-    implementation("org.slf4j:slf4j-api:2.0.17")
-    implementation("org.jetbrains:annotations:26.1.0")
-}
-
-e2immu {
-    sourcePackages = "org.e2immu."
-    jmods = "java.base"
+plugins {
+    // resolved once here, applied in the subprojects
+    id("org.e2immu.analyzer-plugin") version "0.8.2" apply false
 }
