@@ -22,10 +22,26 @@ stay short and defer to the maintained references).
 ./gradlew :<module>:test --tests 'TestName'
 ```
 
-The corpus tests need the external `test-oss` corpus (a sibling of this checkout; managed by
-the `CodeLaser/maddi-oss` repo, override with `-Dtest.oss.root`). **Without it they skip via
-JUnit assumptions — never report a green `slowTest` as proof the corpora ran; check for
-skipped tests.**
+The corpus tests need external corpora, each a sibling of this checkout: `test-oss` (managed by
+the `CodeLaser/maddi-oss` repo, override with `-Dtest.oss.root`) and `testarchive` for clone-bench
+(the "analyzed" branch, override with `-Dtestarchive.root`). The defaults are `../../<corpus>`, so
+a checkout one level deeper — a worktree — needs the override even when the corpora are present.
+
+**A green `slowTest` is not by itself evidence that anything ran.** Before quoting one as proof,
+check all four:
+
+1. **Did the tasks execute, or were they served from cache?** Gradle reports an up-to-date test
+   task as success without running a thing. For an A/B, force it: `--rerun-tasks`, or delete
+   `build/test-results/slowTest` first. A cached green proves only that nothing changed its inputs.
+2. **Did the corpora resolve?** An absent corpus skips via a JUnit assumption. Read the roll-call
+   per test, not the build outcome.
+3. **Did the tests analyze anything?** Several corpus tests print their own scale (`Analyzed N
+   types`, `SHADOW DIV` lines, `byClass`/`totalRev` counts). `TestCloneBench` once passed having
+   analyzed 0 types, on an absent corpus with no assumption to stop it (fixed 2026-07, but the
+   shape is worth recognising: vacuous success is the failure mode that looks most like evidence).
+4. **Is the module's heap what you think?** Gradle lifts `-Xmx` out of `jvmArgs` into
+   `maxHeapSize`; anything that copies `jvmArgs` between test tasks silently drops it. `slowTest`
+   ran on the 512m default for exactly this reason (fixed 2026-07).
 
 ## Facts not to re-derive (wrongly)
 

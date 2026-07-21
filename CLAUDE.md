@@ -1,5 +1,9 @@
 # maddi — notes for AI assistants
 
+Before quoting a `slowTest` run as evidence for an engine change, read **`AGENTS.md` §Commands**:
+a green corpus run can be cached, skipped, vacuous, or heap-starved, and each looks like success.
+Force the re-run and read the per-test roll-call.
+
 Orientation: **`ARCHITECTURE.md`** (pipeline, module map, reading paths by intent),
 **`AGENTS.md`** (tool-agnostic assistant guidance: commands, engine facts, working style),
 **`CONTRIBUTING.md`** (build/test workflow), **`docs/README.md`** (index of cross-module
