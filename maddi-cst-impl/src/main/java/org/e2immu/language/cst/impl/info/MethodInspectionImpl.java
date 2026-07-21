@@ -101,7 +101,12 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
         this.missingData = missingData;
     }
 
-    @Override
+    /**
+     * Deliberately NOT on {@link MethodInspection}: here it returns a NEW inspection, while the Builder mutated
+     * itself and returned {@code this} — one signature, two contracts, which made the read-only interface's
+     * method modifying. The Builder's variant is gone; callers on the variable path use {@code setSynthetic}
+     * directly. See {@code docs/builder-interface-split-impact.md}.
+     */
     public MethodInspection withSynthetic(boolean synthetic) {
         return new MethodInspectionImpl(this, synthetic, returnType, typeParameters, parameters,
                 methodModifiers, exceptionTypes, operatorType, methodBody, fullyQualifiedName, overrides, missingData);
@@ -180,12 +185,6 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
         @Override
         public MethodInfo.MissingData missingData() {
             return missingData;
-        }
-
-        @Override
-        public MethodInspection withSynthetic(boolean synthetic) {
-            setSynthetic(synthetic);
-            return this;
         }
 
         @Override

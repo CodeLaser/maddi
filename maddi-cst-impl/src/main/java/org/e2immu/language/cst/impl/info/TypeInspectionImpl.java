@@ -88,7 +88,12 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
         return trailingComments;
     }
 
-    @Override
+    /**
+     * Deliberately NOT on {@link TypeInspection}: here it hands back a stored field, while the Builder computes
+     * the set by walking the hierarchy — a modifying operation. One signature over both made the read-only
+     * interface's method modifying (the analyzer meets over implementations), which capped every implementation
+     * at mutable. See {@code docs/builder-interface-split-impact.md}.
+     */
     public Set<TypeInfo> superTypesExcludingJavaLangObject() {
         return superTypesExcludingJavaLangObject;
     }
@@ -189,7 +194,9 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
 
         private volatile boolean hierarchyDone;
 
-        @Override
+        /** Build machinery, needed only by {@link #commit()}; see the product's method for why it is not on
+         * {@link TypeInspection}. Walking parentClass()/interfacesImplemented() reaches other types'
+         * on-demand loaders, which is what makes this modifying. */
         public Set<TypeInfo> superTypesExcludingJavaLangObject() {
             Set<TypeInfo> set = new HashSet<>();
             recursivelyComputeSuperTypesExcludingJLO(typeInfo, set);
