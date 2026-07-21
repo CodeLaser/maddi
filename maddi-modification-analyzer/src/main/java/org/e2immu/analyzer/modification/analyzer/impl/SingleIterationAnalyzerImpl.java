@@ -54,6 +54,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final TypeContainerAnalyzer typeContainerAnalyzer;
     private final TypeEventualAnalyzer typeEventualAnalyzer;
     private final SourceContractMaterializer sourceContractMaterializer;
+    private final DynamicImmutabilityInference dynamicImmutabilityInference;
     private final AbstractMethodAnalyzer abstractMethodAnalyzer;
     private final AtomicInteger propertiesChanged;
     private final List<Message> messages;
@@ -114,6 +115,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         typeContainerAnalyzer = new TypeContainerAnalyzerImpl(configuration, propertiesChanged, messages);
         typeEventualAnalyzer = new TypeEventualAnalyzerImpl(runtime, typeImmutableAnalyzer, configuration, propertiesChanged, messages);
         sourceContractMaterializer = new SourceContractMaterializer(runtime, propertiesChanged);
+        dynamicImmutabilityInference = new DynamicImmutabilityInference(propertiesChanged);
         abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, propertiesChanged, messages);
     }
 
@@ -325,6 +327,9 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                 }
             } else if (info instanceof FieldInfo fieldInfo) {
                 sourceContractMaterializer.materialize(fieldInfo);
+                // after materialization (a contract wins over inference) and before fieldAnalyzer.go, which is
+                // the first consumer of IMMUTABLE_FIELD via DynamicImmutability
+                dynamicImmutabilityInference.infer(fieldInfo);
                 if (fieldInfo.owner().isAbstract() && firstIteration) {
                     shallowTypeAnalyzer.analyzeField(fieldInfo);
                 }
