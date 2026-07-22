@@ -284,3 +284,63 @@ non-confluence), and because `PropertyValueMap` is `@FinalFields` (not immutable
 the type reaches HC only when the coin lands right. The clean settle remains the structural one — make
 `ParameterInfoImpl extends InfoImpl` so it inherits the store instead of holding it directly — which also
 stops it reading the store through a direct field reference in the first place.
+
+## Getter ↔ variable equivalence, and the store is a red herring (2026-07-22, corrected)
+
+`extends InfoImpl` is explicitly off the table until every other means is exhausted. Chasing the store
+modification led to three corrections of the record above.
+
+**(a) The `analysis` store is NOT the `ParameterInfoImpl` cap.** Across 8 dogfood runs (gate on/off, with and
+without any change) `field unmodified=true …ParameterInfoImpl.analysis` is **stable** — the flip described
+above does not reproduce. The plugin fix (cst-analysis as source) made `getOrDefault`'s `NON_MODIFYING`
+verdict stably decided, which closes the provisional-`false` window that used to race. So there is no live
+modification non-determinism on that field.
+
+**(b) Getter ↔ variable equivalence — verified status.** The engine already models `x.f()` == `x.f` *exactly*,
+not approximately: `ApplyGetSetTranslation` (prepwork, run on every expression in `MethodAnalyzer.beforeExpression`)
+and its link-layer twin in `ExpressionVisitor` **rewrite** a recognised getter call into the field access
+before variable data / links are built, so there is a single `FieldReference` afterward — no separate "getter
+path" to diverge. Recognition is `GetSetHelper.doGetSetAnalysis`: the body's first statement must be a bare
+`return this.field;` (or the array/list-get shapes). Dogfood: 694 getters + 132 setters of 6271 methods.
+The **one real gap**: a leading side-effect-only statement defeats recognition. `InfoImpl.analysis()` and
+`ParameterInfoImpl.analysis()` open with `if (ConsumptionEdgeRecorder.ENABLED) { record(this); }`, so their
+first statement is an `IfStatement` → unrecognised → not rewritten; the accessor's receiver is a return-value
+intermediate and the field never surfaces as a `FieldReference` in the reader. (`TypeParameterImpl.analysis()`,
+`StatementImpl.analysis()`, … are bare returns → recognised.) This asymmetry is the latent fragility behind
+the historical flip, but a probe (making `ParameterInfoImpl.analysis()` a bare, recognised getter) left the
+verdict **byte-identical** `@FinalFields(after="inspection,methodInfo,parameterizedType")` — so it is *not*
+the cap either.
+
+**PROPOSED — `GetSetHelper` guard-tolerance (documented, not yet implemented).** Make getter/setter
+recognition see through a *leading side-effect-only guard*: recognise `if (CONST) { …no field access… } return
+this.field;` (and the setter analogue) as the getter it plainly is. This restores exact getter↔variable
+equivalence for `analysis()` and any similarly-guarded accessor, routing them through the same unified
+`FieldReference` machinery as the other 694 getters instead of the return-value-link fallback. It is an
+engine/recognition change only — no CST edits, no contact with the modification-convergence invariant. It does
+**not** lift `ParameterInfoImpl` (see (c)); it closes the genuine gap in the equivalence and removes the latent
+non-confluence source. Care points: the guard block must be proven not to read or write the field (else the
+rewrite is unsound); keep it behind the same recognition entry point so all consumers (prepwork + link) agree.
+
+**Rejected — "wait-on-pending-callee" in `FieldAnalyzerImpl.computeUnmodified` (unsound, do not revisit as-is).**
+The idea was: when a `FieldReference`'s `UNMODIFIED_VARIABLE` is `false` only because the called method's
+`NON_MODIFYING_METHOD` is still undecided (`MethodModification.go` defaults an undecided callee to *modifying*),
+return "undecided" so the field waits and settles monotonically instead of committing the provisional `false`.
+It is unsound: an undecided field-modification is optimistically forced to **TRUE** by cycle-breaking
+(`FieldAnalyzerImpl.go`, `cycleBreakingActive`), and `TolerantWrite` then *refuses* the later correcting `false`
+as a weakening — so genuinely-modified collections (`ModuleInfoImpl.BuilderImpl.requiresList`,
+`AndImpl.Builder.expressions`, `ElementImpl.Builder.annotations`, `ExpressionComparator.cache`, …) were wrongly
+reported `unmodified=true`. The pessimistic "undecided callee = modifying" default exists precisely to prevent
+this. Lesson: converting a provisional-`false` field verdict to "undecided" is equivalent to *optimistically*
+assuming unmodified, which cycle-breaking then bakes in.
+
+**(c) The real cap is INDEPENDENCE, not modification.** `ParameterInfoImpl` is
+`@FinalFields(after="inspection,methodInfo,parameterizedType")`; the gap to IMMUTABLE-HC is independence of its
+own fields, chiefly `parameterizedType : ParameterizedType` — whose impl `ParameterizedTypeImpl` is itself only
+`eventual=@FinalFields(after="typeInfo,typeParameter")`, not HC. An exposed field of non-HC content ⇒
+dependent ⇒ capped at FINAL_FIELDS. Investigation of this cap is the next thread (see below).
+
+### Diagnostic: FPDUMP extended
+`FPDUMP` now also emits, per element: the after-mark `eventual=` verdict on each type
+(`EVENTUALLY_IMMUTABLE_TYPE`), and `getset=<field>(get|set)` on each recognised getter/setter method
+(`GET_SET_FIELD`). Both were essential to the corrections above — the flagship types read `type immutable=@Mutable`
+unconditionally, their HC-ness lives only in `eventual=`. (`maddi-modification-analyzer/.../IteratingAnalyzerImpl`.)
