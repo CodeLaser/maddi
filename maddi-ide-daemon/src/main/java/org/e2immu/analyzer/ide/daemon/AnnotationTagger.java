@@ -56,7 +56,11 @@ public class AnnotationTagger {
     // annotation simple names by polarity (the core safety concepts)
     private static final Set<String> POSITIVE_NAMES = Set.of(
             "NotModified", "Immutable", "ImmutableContainer", "Container", "Independent", "NotNull", "Final");
-    private static final Set<String> NEGATIVE_NAMES = Set.of("Modified", "Mutable", "Dependent", "Nullable");
+    // the four baseline "absence of a safety guarantee" concepts, plus @StaticSideEffects: not a missing
+    // guarantee but a genuine outward effect (this method reaches into global/static state) the designer should
+    // always see, so it is rendered with the same attention polarity rather than carried as neutral
+    private static final Set<String> NEGATIVE_NAMES = Set.of("Modified", "Mutable", "Dependent", "Nullable",
+            "StaticSideEffects");
     // annotations that exist ONLY in an eventual form (the transition protocol, and the after-mark FINAL_FIELDS
     // level which the decorator never emits unconditionally)
     private static final Set<String> ALWAYS_EVENTUAL_NAMES = Set.of("Mark", "Only", "TestMark", "FinalFields");
