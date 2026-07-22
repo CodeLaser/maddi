@@ -78,16 +78,14 @@ mostly cheap. Net: memory bought with a bounded recompute in the tail passes. Me
 
 ## 5. Phasing (each phase independently testable)
 
-- **Phase 0 (spike — the load-bearing unknown):** can prepwork rebuild ONE method's VD mid-run? Find
-  the smallest callable unit (`PrepAnalyzer`/`MethodAnalyzer.doMethod`) and prove: build a method's VD,
-  drop it, rebuild it, assert the rebuilt VD is equal (same variables, assignments, reads). If prepwork
-  is one-shot/stateful and not per-method re-invocable, the regeneration leg needs a different design
-  (e.g. keep a compact per-statement structural skeleton and only drop `Links`). GO/NO-GO here.
-- **Phase 1 (flatten mechanism, no wiring):** a `VariableDataFlattener` that takes a statement's VD and
-  returns a back-reference-free snapshot VD with identical `best()`/links per variable. Unit test:
-  snapshot `best()` equals original `best()` for every variable; snapshot VIC `isInitial()==true` and
-  holds no `Either.left`; a deep-reachability check (or a GC/`-verbose` assertion via weak refs) shows
-  the original chain is unreachable from the snapshot.
+- **Phase 0 (spike — the load-bearing unknown): DONE (GO), commit `9a0fab0d`.** `PrepAnalyzer.doMethod`
+  is per-method re-invocable; `TestVariableDataRegeneration` proves drop (`removeIf` VARIABLE_DATA on
+  method + statements) then re-run rebuilds identical per-statement VD.
+- **Phase 1 (flatten mechanism, no wiring): DONE, commit `322e2033`.** `VariableInfoContainer.flattened()`
+  collapses `Either.left(prevVic)` to `Either.right(getPreviousOrInitial())` keeping own eval/merge;
+  `VariableDataImpl.flattened()` maps it. `TestVariableDataFlatten` asserts best()/getPreviousOrInitial/
+  indexOfDefinition/hasEvaluation/hasMerge preserved, `isPrevious()==false`, idempotent, over both
+  eval-having and previous-only containers.
 - **Phase 2 (drop + gate):** `Configuration.flattenVariableData()` default false; after
   `linkComputer.doMethod` in `processElement` (`SingleIterationAnalyzerImpl.java:319`), when enabled and
   this is the method's settled link for the pass, flatten the consumed VD and `removeIf`-drop the
