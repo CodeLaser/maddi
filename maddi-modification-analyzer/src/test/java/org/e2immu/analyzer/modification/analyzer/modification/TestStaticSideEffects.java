@@ -72,4 +72,41 @@ public class TestStaticSideEffects extends CommonTest {
             StaticSideEffectAnalyzerImpl.ENABLED = saved;
         }
     }
+
+    /**
+     * The callee-annotation half (the AAPI safe-surface): a method contracted {@code @StaticSideEffects} (here
+     * {@code reconfigure()}, standing in for {@code System.setOut}) whose effect is invisible from its body makes
+     * its callers a static-side-effect method too, transitively. {@code SourceContractMaterializer} lifts the
+     * source annotation into {@code analysis()}; the analyzer then propagates it.
+     */
+    @Language("java")
+    private static final String PROPAGATION = """
+            package a.b;
+            import org.e2immu.annotation.rare.StaticSideEffects;
+            public class X {
+                @StaticSideEffects void reconfigure() { }   // effect invisible from body, asserted by contract
+                void direct() { reconfigure(); }            // calls an SSE method -> SSE
+                void indirect() { direct(); }               // transitive -> SSE
+                void clean() { int x = 1 + 1; }             // calls nothing global -> not SSE
+            }
+            """;
+
+    @DisplayName("a call to a @StaticSideEffects method propagates to the caller, transitively")
+    @Test
+    public void testPropagation() throws IOException {
+        boolean saved = StaticSideEffectAnalyzerImpl.ENABLED;
+        StaticSideEffectAnalyzerImpl.ENABLED = true;
+        try {
+            TypeInfo X = javaInspector.parse("a.b.X", PROPAGATION);
+            List<Info> ao = prepWork(X);
+            analyzer.go(ao);
+
+            assertTrue(sse(X.findUniqueMethod("reconfigure", 0)), "contracted @StaticSideEffects");
+            assertTrue(sse(X.findUniqueMethod("direct", 0)), "calls a static-side-effect method");
+            assertTrue(sse(X.findUniqueMethod("indirect", 0)), "transitively calls a static-side-effect method");
+            assertFalse(sse(X.findUniqueMethod("clean", 0)), "touches no global state");
+        } finally {
+            StaticSideEffectAnalyzerImpl.ENABLED = saved;
+        }
+    }
 }

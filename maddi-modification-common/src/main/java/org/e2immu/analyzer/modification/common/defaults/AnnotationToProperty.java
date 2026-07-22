@@ -23,6 +23,7 @@ import org.e2immu.annotation.method.GetSet;
 import org.e2immu.annotation.rare.AllowsInterrupt;
 import org.e2immu.annotation.rare.Finalizer;
 import org.e2immu.annotation.rare.IgnoreModifications;
+import org.e2immu.annotation.rare.StaticSideEffects;
 import org.e2immu.annotation.type.UtilityClass;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
@@ -87,6 +88,7 @@ class AnnotationToProperty {
         Value.Bool identity = null;
         Value.Bool unmodified = null;
         Value.Bool ignoreModifications = null;
+        Value.Bool staticSideEffects = null;
         Value.Bool isFinal = null;
         Value.Bool finalizer = null;
         Value.FieldValue getSetField = null;
@@ -219,6 +221,8 @@ class AnnotationToProperty {
                 if (!isAbsent) finalAfter = ae.extractString("after", "");
             } else if (IgnoreModifications.class.getCanonicalName().equals(fqn)) {
                 ignoreModifications = valueForTrue;
+            } else if (StaticSideEffects.class.getCanonicalName().equals(fqn)) {
+                staticSideEffects = valueForTrue;
             } else if (GetSet.class.getCanonicalName().equals(fqn)) {
                 if (info instanceof MethodInfo methodInfo) {
                     boolean equivalent = ae.extractBoolean("equivalent");
@@ -308,6 +312,7 @@ class AnnotationToProperty {
             if (unmodified != null) map.put(PropertyImpl.NON_MODIFYING_METHOD, unmodified);
             if (allowInterrupt != null) map.put(PropertyImpl.METHOD_ALLOWS_INTERRUPTS, allowInterrupt);
             if (ignoreModifications != null) map.put(PropertyImpl.IGNORE_MODIFICATION_METHOD, ignoreModifications);
+            if (staticSideEffects != null) map.put(PropertyImpl.STATIC_SIDE_EFFECTS_METHOD, staticSideEffects);
             if (getSetEquivalent != null) map.put(PropertyImpl.GET_SET_EQUIVALENT, getSetEquivalent);
             if (commutableData != null) map.put(PropertyImpl.COMMUTABLE_METHODS, commutableData);
             if (finalizer != null) map.put(PropertyImpl.FINALIZER_METHOD, finalizer);
