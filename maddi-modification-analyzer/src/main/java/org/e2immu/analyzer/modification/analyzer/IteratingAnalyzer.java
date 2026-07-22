@@ -80,6 +80,20 @@ public interface IteratingAnalyzer {
          * production runners and the real-code survey turn it on. Mirrors {@code PrepAnalyzer.Options.faultTolerant}.
          */
         boolean faultTolerant();
+
+        /**
+         * When true, evict the regenerable statement-level {@code VariableData} of each method once a
+         * pass has consumed it: the method's last-statement VD is replaced with a back-reference-free
+         * snapshot and the intermediate statements' VD is dropped, so the O(statements×variables)
+         * container chain becomes collectible — bounding the standing heap on a single unsplittable
+         * giant SCC (the 3M-line target). A method re-entering the worklist has its VD regenerated from
+         * the body before re-linking. Off by default: consumers that read intermediate statements' VD
+         * after analysis would see it gone (see {@code DESIGN-vardata-flatten.md}); not compatible with
+         * {@link #modificationViaReachability()} (the shadow pass reads all statements).
+         */
+        default boolean flattenVariableData() {
+            return false;
+        }
     }
 
     /**
