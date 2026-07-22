@@ -512,6 +512,15 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                         int it = iterations;
                         feed(f -> f.phase(terminal, it));
                     }
+                    // EXPERIMENTAL (EVENTUALCLUSTER): the greatest-fixpoint contraction. The optimistic seed may
+                    // have concluded a member eventually immutable by assuming an unproven candidate; retract any
+                    // member whose assumption did not hold, iterating to the fixpoint. Off the gate the assumption
+                    // ledger is empty and this is a no-op; runs before the fingerprint/guard so both see the
+                    // contracted state.
+                    if (EventualCluster.ENABLED
+                        && singleIterationAnalyzer instanceof SingleIterationAnalyzerImpl sia) {
+                        EventualClusterContraction.retract(analysisOrder, sia.eventualCluster());
+                    }
                     logVerdictFingerprint(analysisOrder);
                     if (configuration.guardContracts() || configuration.warnNearMisses()) {
                         // values are final now: verify user-written contracts, and/or warn on near-misses
