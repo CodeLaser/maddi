@@ -59,6 +59,18 @@ public class CompositeValueFeed implements AnalysisValueFeed {
     }
 
     @Override
+    public void elementCompleted() {
+        // per-element (hot): most delegates leave this a no-op; only the progress feed ticks a counter
+        for (AnalysisValueFeed d : delegates) {
+            try {
+                d.elementCompleted();
+            } catch (RuntimeException | AssertionError e) {
+                LOGGER.warn("value feed {} threw on elementCompleted; ignoring", d.getClass().getSimpleName(), e);
+            }
+        }
+    }
+
+    @Override
     public void phase(Phase phase, int iteration) {
         for (AnalysisValueFeed d : delegates) {
             try {

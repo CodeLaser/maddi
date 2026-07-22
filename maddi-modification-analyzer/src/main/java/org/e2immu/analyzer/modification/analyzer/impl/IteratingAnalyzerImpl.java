@@ -308,6 +308,11 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             // cold first pass; the callback runs on the coordinator thread at the wave barrier
             sia.setWaveCompletedCallback((waveElements, wave) ->
                     feed(f -> f.waveCompleted(1, wave, waveElements)));
+            // per-element progress tick: lets the feed advance INSIDE a giant single-SCC wave, where the
+            // wave-barrier above fires only once (at the end). Method ref = no per-element allocation; feed()
+            // keeps the exception-swallowing contract. Runs on parallel workers, so the feed must be cheap.
+            sia.setElementCompletedCallback(() ->
+                    feed(org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed::elementCompleted));
         }
         boolean cycleBreakingActive = false;
         int previousPropertiesChanged = Integer.MAX_VALUE;
