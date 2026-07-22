@@ -19,6 +19,7 @@ import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.common.defaults.ContractReader;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
+import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
@@ -82,6 +83,9 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
     public static final String NEAR_MISS_NOT_MODIFIED = "near-miss-not-modified";
     public static final String NEAR_MISS_INDEPENDENT = "near-miss-independent";
     public static final String NEAR_MISS_IMMUTABLE = "near-miss-immutable";
+    /** an @IgnoreModifications field shares content with accessible content, so its disclaimer is not confined
+     * to the ignored stratum; see {@link #guardIgnoreModificationsSeparation} and road-to-immutability 050 */
+    public static final String IGNORE_MODIFICATIONS_NOT_CONFINED = "ignore-modifications-not-confined";
 
     private final ContractReader contractReader;
     private final AnalysisHelper analysisHelper = new AnalysisHelper();
@@ -409,6 +413,7 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
 
     private void guardType(TypeInfo typeInfo) {
         guardDynamicImmutableFields(typeInfo);
+        guardIgnoreModificationsSeparation(typeInfo);
         Map<Property, Value> contracts = contractReader.contracts(typeInfo);
         if (contracts.get(CONTAINER_TYPE) instanceof Value.Bool container && container.isTrue()) {
             guardContainer(typeInfo);
@@ -650,6 +655,46 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
                 }
             }
         }
+    }
+
+    /*
+    Confinement guard, field-granularity separation (road-to-immutability 050): @IgnoreModifications is sound
+    manual hidden content only when the ignored field is independent of the type's accessible content -- a
+    modification reached through the ignored stratum must not touch accessible state. A non-decoration link
+    between the ignored field and an accessible (non-ignore-mod) field of the same primary type IS shared
+    content: mutating the ignored field could mutate the accessible one, so the disclaimer is not confined.
+    We WARN, never cap: the escape does not by itself make the type mutable, it invalidates the confinement the
+    annotation asserts, and (per the book) the designer decides. Conservative -- referencing accessible content
+    from the stratum without sharing (the analysis overlay's normal use: it stores immutable Value objects) is a
+    decoration/absent link and stays silent. Global-escape/containment (the method-granularity arm and
+    @StaticSideEffects) is a separate, later piece.
+     */
+    private void guardIgnoreModificationsSeparation(TypeInfo typeInfo) {
+        for (FieldInfo fieldInfo : typeInfo.fields()) {
+            if (!isContractedIgnoreModifications(fieldInfo)) continue;
+            Links links = fieldInfo.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class);
+            if (links == null) continue;
+            for (Link link : links) {
+                if (link.linkNature().isDecoration()) continue; // metadata link: no shared content
+                Variable to = Util.primary(link.to());
+                if (to instanceof FieldReference fr
+                    && fr.fieldInfo() != fieldInfo
+                    && fr.fieldInfo().owner().primaryType() == typeInfo.primaryType()
+                    && !isContractedIgnoreModifications(fr.fieldInfo())) {
+                    analyzerMessages.add(MessageImpl.warn(fieldInfo, IGNORE_MODIFICATIONS_NOT_CONFINED,
+                            "@IgnoreModifications field '" + fieldInfo.name() + "' shares content with accessible"
+                            + " field '" + fr.fieldInfo().name() + "': a modification reached through the ignored"
+                            + " stratum could touch accessible state, so the disclaimer is not confined"
+                            + " (road-to-immutability 050)",
+                            MessageImpl.cause(fieldInfo, "@IgnoreModifications here")));
+                }
+            }
+        }
+    }
+
+    private boolean isContractedIgnoreModifications(FieldInfo fieldInfo) {
+        return contractReader.contracts(fieldInfo).get(IGNORE_MODIFICATIONS_FIELD) instanceof Value.Bool b
+               && b.isTrue();
     }
 
     /** One assignment to the guarded field, with where it was found, for the message's located cause. */
