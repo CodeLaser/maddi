@@ -18,6 +18,7 @@ import org.e2immu.analyzer.modification.analyzer.CommonTest;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.impl.GuardAnalyzerImpl;
 import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
+import org.e2immu.analyzer.modification.analyzer.impl.StaticSideEffectAnalyzerImpl;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -139,5 +140,46 @@ public class TestGuardIgnoreModifications extends CommonTest {
                 + run.notConfined().stream().map(Message::message).toList());
         assertTrue(run.notConfined().getFirst().message().contains("mirror"),
                 run.notConfined().getFirst().message());
+    }
+
+    /**
+     * The global-escape arm: a modifying call on the ignored field whose callee has a static side effect
+     * (it modifies another type's static state) leaves the ignored stratum. {@code Sink.record()} bumps a static
+     * counter of another type, so calling it on the {@code @IgnoreModifications} field {@code sink} is not
+     * confined; {@code sink.plain()} is.
+     */
+    @Language("java")
+    private static final String GLOBAL_ESCAPE = """
+            package a.b;
+            import org.e2immu.annotation.rare.IgnoreModifications;
+            class Global { static int count; }
+            public class X {
+                static class Sink {
+                    void record() { Global.count = Global.count + 1; }
+                    void plain() { }
+                }
+                @IgnoreModifications
+                private final Sink sink = new Sink();
+                public void bad() { sink.record(); }
+                public void ok() { sink.plain(); }
+            }
+            """;
+
+    @DisplayName("global-escape arm: a static-side-effect call on an ignore-mod field is not confined")
+    @Test
+    public void testGlobalEscapeIsWarned() throws IOException {
+        boolean saved = StaticSideEffectAnalyzerImpl.ENABLED;
+        StaticSideEffectAnalyzerImpl.ENABLED = true;
+        try {
+            Run run = analyzeWithGuard("a.b.X", GLOBAL_ESCAPE);
+            List<Message> notConfined = run.notConfined();
+            assertEquals(1, notConfined.size(),
+                    "the static-side-effect call on the ignore-mod field must be flagged, have: "
+                    + notConfined.stream().map(Message::message).toList());
+            String msg = notConfined.getFirst().message();
+            assertTrue(msg.contains("record") && msg.contains("static side effect") && msg.contains("sink"), msg);
+        } finally {
+            StaticSideEffectAnalyzerImpl.ENABLED = saved;
+        }
     }
 }

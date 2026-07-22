@@ -69,6 +69,7 @@ public class PropertyProviderImpl {
         Collections.addAll(properties,
                 METHOD_ALLOWS_INTERRUPTS,
                 NON_MODIFYING_METHOD,
+                STATIC_SIDE_EFFECTS_METHOD,
                 NOT_NULL_FIELD,
                 NOT_NULL_METHOD,
                 NOT_NULL_PARAMETER,

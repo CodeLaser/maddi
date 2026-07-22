@@ -414,6 +414,7 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
     private void guardType(TypeInfo typeInfo) {
         guardDynamicImmutableFields(typeInfo);
         guardIgnoreModificationsSeparation(typeInfo);
+        guardIgnoreModificationsContainment(typeInfo);
         Map<Property, Value> contracts = contractReader.contracts(typeInfo);
         if (contracts.get(CONTAINER_TYPE) instanceof Value.Bool container && container.isTrue()) {
             guardContainer(typeInfo);
@@ -695,6 +696,40 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
     private boolean isContractedIgnoreModifications(FieldInfo fieldInfo) {
         return contractReader.contracts(fieldInfo).get(IGNORE_MODIFICATIONS_FIELD) instanceof Value.Bool b
                && b.isTrue();
+    }
+
+    /*
+    Confinement guard, method-granularity containment / global-escape arm (road-to-immutability §050): a modifying
+    call on an @IgnoreModifications field must confine its effect to the ignored stratum. The disclaimer excuses
+    the mutation of the ignored OBJECT, but not a STATIC SIDE EFFECT reached through it -- a call whose callee is
+    @StaticSideEffects (it modifies another type's static/global state) leaves the stratum. We WARN, never cap.
+    Requires STATIC_SIDE_EFFECTS_METHOD, which is computed only when the SSE pass is enabled; off that gate this
+    is silently a no-op. Conservative: only a direct call on the named ignored field is examined.
+     */
+    private void guardIgnoreModificationsContainment(TypeInfo typeInfo) {
+        List<FieldInfo> ignored = typeInfo.fields().stream()
+                .filter(this::isContractedIgnoreModifications).toList();
+        if (ignored.isEmpty()) return;
+        typeInfo.constructorAndMethodStream().forEach(mi -> {
+            if (mi.methodBody().isEmpty()) return;
+            mi.methodBody().visit(e -> {
+                if (e instanceof MethodCall mc && mc.object() instanceof VariableExpression ve
+                    && ve.variable() instanceof FieldReference fr
+                    && ignored.stream().anyMatch(f -> f == fr.fieldInfo())) {
+                    Value.Bool sse = mc.methodInfo().analysis()
+                            .getOrNull(STATIC_SIDE_EFFECTS_METHOD, ValueImpl.BoolImpl.class);
+                    if (sse != null && sse.isTrue()) {
+                        analyzerMessages.add(MessageImpl.warn(fr.fieldInfo(), IGNORE_MODIFICATIONS_NOT_CONFINED,
+                                "call to '" + mc.methodInfo().name() + "' on @IgnoreModifications field '"
+                                + fr.fieldInfo().name() + "' has a static side effect: the modification reaches"
+                                + " global state, so it is not confined to the ignored stratum"
+                                + " (road-to-immutability 050)",
+                                MessageImpl.cause(fr.fieldInfo(), "@IgnoreModifications here")));
+                    }
+                }
+                return true;
+            });
+        });
     }
 
     /** One assignment to the guarded field, with where it was found, for the message's located cause. */
