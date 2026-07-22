@@ -465,4 +465,96 @@ public class TestEventualPropagation extends CommonTest {
         assertEquals(sharedProduct, splitProduct);
         assertTrue(sharedProduct.isAtLeastImmutableHC(), "the defensive copy is now understood: " + sharedProduct);
     }
+
+    private Set<String> nonModAfter(MethodInfo methodInfo) {
+        return methodInfo.analysis().getOrDefault(PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD,
+                ValueImpl.SetOfStringsImpl.EMPTY_SET).set();
+    }
+
+    // The real TypeInfo/Info shape the whole exercise is for: the interface declares a read-through accessor
+    // (length) whose ONLY modification is the lazy loader inside inspection.get(). Without method-level eventual
+    // non-modification the accessor is @Modified, the interface caps at FINAL_FIELDS, and the hierarchy rule then
+    // drags every implementation to MUTABLE.
+    @Language("java")
+    private static final String INPUT10 = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class B {
+              interface I {
+                void commit(String s);
+                boolean hasBeenCommitted();
+                int length();
+              }
+              static class Impl implements I {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                @Override public void commit(String s) { inspection.setFinal(s); }
+                @Override public boolean hasBeenCommitted() { return inspection.isFinal(); }
+                @Override public int length() { return inspection.get().length(); }
+              }
+            }
+            """;
+
+    @DisplayName("a read-through accessor is @NotModified(after=), so it stops capping the interface")
+    @Test
+    public void test10ReadThroughAccessor() {
+        TypeInfo B = javaInspector.parse("B", INPUT10);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+
+        TypeInfo I = B.findSubType("I");
+        TypeInfo impl = B.findSubType("Impl");
+
+        // the implementation's accessor really does modify before the mark (get() runs the loader) ...
+        MethodInfo implLength = impl.findUniqueMethod("length", 0);
+        assertFalse(implLength.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD,
+                ValueImpl.BoolImpl.FALSE).isTrue(), "Impl.length modifies before the mark");
+        // ... but is non-modifying after 'inspection' has been committed
+        assertEquals(Set.of("inspection"), nonModAfter(implLength));
+        // and the abstract accessor inherits that
+        assertEquals(Set.of("inspection"), nonModAfter(I.findUniqueMethod("length", 0)));
+
+        // so the interface still reaches an eventual verdict despite the @Modified accessor
+        Value.EventuallyImmutable evI = I.analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+        assertTrue(evI.isEventual(), "I should be eventually immutable, is " + evI);
+        assertEquals("inspection", evI.markLabel());
+
+        assertTrue(impl.analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL).isEventual(), "Impl should be eventually immutable");
+    }
+
+    // The Info interface exactly: it declares NO @Mark method (commit lives elsewhere), only a read-through
+    // accessor. The type's mark label must then be derived from that accessor's after-label -- there is no other
+    // source. This is the case that needs computeTypeLevel to read EVENTUALLY_NON_MODIFYING_METHOD.
+    @Language("java")
+    private static final String INPUT11 = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class B {
+              interface Reader {
+                int length();
+              }
+              static class Impl implements Reader {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                @Override public int length() { return inspection.get().length(); }
+              }
+            }
+            """;
+
+    @DisplayName("an interface with only a read-through accessor derives its mark from the after-label")
+    @Test
+    public void test11MarkFromAccessorOnly() {
+        TypeInfo B = javaInspector.parse("B", INPUT11);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+
+        TypeInfo reader = B.findSubType("Reader");
+        assertEquals(Set.of("inspection"), nonModAfter(reader.findUniqueMethod("length", 0)));
+
+        Value.EventuallyImmutable ev = reader.analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+        assertTrue(ev.isEventual(), "Reader should be eventually immutable, is " + ev);
+        assertEquals("inspection", ev.markLabel());
+    }
 }

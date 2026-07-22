@@ -64,6 +64,14 @@ public class PropertyImpl implements Property {
     /** {@code @Mark}, {@code @Only}, {@code @TestMark} on a method: see {@link #EVENTUALLY_IMMUTABLE_TYPE}. */
     public static final Property EVENTUAL_METHOD = new PropertyImpl("eventualMethod",
             ValueImpl.EventualImpl.NOT_EVENTUAL);
+    /**
+     * The mark label(s) of {@code @NotModified(after="…")} on a method: the method modifies before the mark
+     * (typically a lazy-loading getter that effects the transition) and is non-modifying after it. The
+     * method-level twin of {@link #EVENTUALLY_FINAL_FIELD}. {@link #NON_MODIFYING_METHOD} keeps recording the
+     * unconditional verdict, which for such a method is {@code false} (it does modify, before the mark).
+     */
+    public static final Property EVENTUALLY_NON_MODIFYING_METHOD = new PropertyImpl("eventuallyNonModifyingMethod",
+            ValueImpl.SetOfStringsImpl.EMPTY_SET);
     // dynamic return type
     public static final Property IMMUTABLE_METHOD = new PropertyImpl("immutableMethod"
             , ValueImpl.ImmutableImpl.MUTABLE);

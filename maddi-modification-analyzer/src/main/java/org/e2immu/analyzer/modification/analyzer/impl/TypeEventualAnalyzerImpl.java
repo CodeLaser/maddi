@@ -20,6 +20,7 @@ import org.e2immu.analyzer.modification.analyzer.TypeImmutableAnalyzer;
 import org.e2immu.analyzer.modification.common.defaults.ContractReader;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.expression.Assignment;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.expression.Negation;
@@ -45,6 +46,7 @@ import java.util.stream.Collectors;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUAL_METHOD;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE;
+import static org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.EventualImpl.NOT_EVENTUAL;
 
@@ -110,6 +112,16 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 propertyChanges.incrementAndGet();
             }
         }
+        for (MethodInfo methodInfo : typeInfo.methods()) {
+            if (methodInfo.analysis().haveAnalyzedValueFor(EVENTUALLY_NON_MODIFYING_METHOD)) continue;
+            Set<String> labels = computeEventuallyNonModifying(typeInfo, methodInfo);
+            if (labels != null && !labels.isEmpty()) {
+                methodInfo.analysis().set(EVENTUALLY_NON_MODIFYING_METHOD,
+                        new ValueImpl.SetOfStringsImpl(Set.copyOf(labels)));
+                DECIDE.debug("TE: Decide eventually-non-modifying of method {} after {}", methodInfo, labels);
+                propertyChanges.incrementAndGet();
+            }
+        }
         computeTypeLevel(typeInfo, activateCycleBreaking);
     }
 
@@ -140,17 +152,20 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             if (eventual.isMark()) {
                 markLabels.addAll(eventual.fields());
                 excusedMethods.add(methodInfo);
-                for (String label : eventual.fields()) {
-                    FieldInfo fieldInfo = typeInfo.getFieldByName(label, false);
-                    // an unresolved label is an inherited mark, or an abstract type's; a resolved one must
-                    // really be of eventually immutable type
-                    if (fieldInfo != null && fieldInfo.type().bestTypeInfo() != null
-                        && eventuallyImmutable(fieldInfo.type().bestTypeInfo()).isEventual()) {
-                        excusedFields.add(fieldInfo);
-                    }
-                }
+                resolveExcusedFields(typeInfo, eventual.fields(), excusedFields);
             } else if (eventual.isOnly() && Boolean.FALSE.equals(eventual.after())) {
                 excusedMethods.add(methodInfo);
+            }
+            // an @Modified accessor that becomes non-modifying after the mark (TypeInfoImpl.access, and after
+            // propagation the abstract Info.access) carries the mark just as a @Mark method does: its after-label
+            // is the field that transitions. This is the only mark source an interface like Info has -- it
+            // declares no @Mark method -- so without it the interface never gets an eventual verdict.
+            Value.SetOfStrings nonModAfter = methodInfo.analysis()
+                    .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET);
+            if (!nonModAfter.set().isEmpty()) {
+                markLabels.addAll(nonModAfter.set());
+                excusedMethods.add(methodInfo);
+                resolveExcusedFields(typeInfo, nonModAfter.set(), excusedFields);
             }
         }
         if (markLabels.isEmpty()) return;
@@ -173,6 +188,18 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         typeInfo.analysis().set(EVENTUALLY_IMMUTABLE_TYPE, value);
         DECIDE.debug("TE: Decide eventual immutability of type {} = {}", typeInfo, value);
         propertyChanges.incrementAndGet();
+    }
+
+    /** Add each label's field to {@code excusedFields}, when it resolves to an own field of eventually immutable
+     * type. An unresolved label is an inherited mark, or an abstract type's, and simply excuses no field here. */
+    private void resolveExcusedFields(TypeInfo typeInfo, Set<String> labels, Set<FieldInfo> excusedFields) {
+        for (String label : labels) {
+            FieldInfo fieldInfo = typeInfo.getFieldByName(label, false);
+            if (fieldInfo != null && fieldInfo.type().bestTypeInfo() != null
+                && eventuallyImmutable(fieldInfo.type().bestTypeInfo()).isEventual()) {
+                excusedFields.add(fieldInfo);
+            }
+        }
     }
 
     /** null when nothing can be concluded; never {@code NOT_EVENTUAL} (we do not record absence). */
@@ -204,6 +231,104 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             return true;
         });
         return combine(methodInfo, marked, onlyBefore, onlyAfter);
+    }
+
+    /**
+     * The labels after which a method is non-modifying, or null when nothing can be concluded. The method-level
+     * twin of {@code @Final(after=)}: a getter such as {@code TypeInfoImpl.access()} is {@code @Modified} only
+     * because it reads through {@code this.inspection.get()}, and {@code inspection} is eventually immutable, so
+     * once {@code inspection} has been committed the call can no longer modify anything. We conclude
+     * {@code @NotModified(after="inspection")}, which the interface then inherits (its abstract accessors are
+     * {@code @Modified} for exactly the same reason) and which lets the after-mark verdict excuse the method.
+     * <p>
+     * Sound and conservative: we conclude only when <em>every</em> modification the method can effect is either a
+     * call on {@code this.<own eventually immutable field>} (excused after that field's mark, because the field is
+     * then immutable) or a {@code this.<eventually-non-modifying method>} forward (excused after its labels). Any
+     * own-field assignment, any modifying call on another receiver, or any {@code this} passed into a call, makes
+     * us conclude nothing.
+     */
+    private Set<String> computeEventuallyNonModifying(TypeInfo typeInfo, MethodInfo methodInfo) {
+        if (methodInfo.isStatic() || methodInfo.isAbstract() || methodInfo.methodBody().isEmpty()) return null;
+        // a method that effects the transition (@Mark) or is confined to one side (@Only) is not "non-modifying
+        // after the mark": it belongs to the transition, and calling it after the mark throws. Leave it eventual.
+        if (methodInfo.analysis().getOrDefault(EVENTUAL_METHOD, NOT_EVENTUAL).isEventual()) return null;
+        // only relevant for a method that DOES modify: a plain non-modifying method needs no after-label
+        Value.Bool nonModifying = methodInfo.analysis().getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+        if (nonModifying == null || nonModifying.isTrue()) return null;
+
+        Set<String> labels = new HashSet<>();
+        boolean[] bail = {false};
+        methodInfo.methodBody().visit(e -> {
+            if (bail[0]) return false;
+            if (e instanceof Assignment a && a.variableTarget() instanceof FieldReference fr && fr.scopeIsThis()) {
+                bail[0] = true; // assigning an own field is a finality/mark concern, not eventual non-modification
+                return false;
+            }
+            if (e instanceof MethodCall mc) {
+                Value.Bool calleeNonMod = mc.methodInfo().analysis()
+                        .getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+                boolean calleeModifies = calleeNonMod == null || calleeNonMod.isFalse();
+                if (calleeModifies) {
+                    Set<String> excused = nonModifyingLabels(typeInfo, mc);
+                    if (excused == null) {
+                        bail[0] = true;
+                        return false;
+                    }
+                    labels.addAll(excused);
+                }
+                // a modifying-through-parameter call could touch 'this' even after the mark; refuse if 'this'
+                // (or one of its fields) is handed to any call
+                if (mc.parameterExpressions().stream().anyMatch(this::referencesThis)) {
+                    bail[0] = true;
+                    return false;
+                }
+            }
+            return true;
+        });
+        if (bail[0]) return null;
+        return labels;
+    }
+
+    /**
+     * The labels excusing a modifying call, or null when it cannot be excused: a call on {@code this.<own
+     * eventually immutable field>} (label = that field, immutable after its mark), or a {@code this.<own
+     * eventually-non-modifying method>} forward (labels = the callee's).
+     */
+    private Set<String> nonModifyingLabels(TypeInfo typeInfo, MethodCall mc) {
+        if (!(mc.object() instanceof VariableExpression ve)) return null;
+        if (ve.variable() instanceof FieldReference fr && fr.scopeIsThis()) {
+            FieldInfo fieldInfo = fr.fieldInfo();
+            if (!isOwnField(typeInfo, fieldInfo)) return null;
+            TypeInfo fieldType = fieldInfo.type().bestTypeInfo();
+            if (fieldType == null || !eventuallyImmutable(fieldType).isEventual()) return null;
+            // the call must be one that survives the mark: a @Mark or @Only(before) call is the transition
+            // itself (setFinal, setVariable), not a post-mark read, and calling it after the mark throws
+            Value.Eventual calleeEventual = eventualOf(mc.methodInfo());
+            if (calleeEventual.isMark() || calleeEventual.isOnly() && Boolean.FALSE.equals(calleeEventual.after())) {
+                return null;
+            }
+            return Set.of(fieldInfo.name());
+        }
+        if (ve.variable() instanceof This) {
+            Value.SetOfStrings calleeLabels = mc.methodInfo().analysis()
+                    .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET);
+            return calleeLabels.set().isEmpty() ? null : calleeLabels.set();
+        }
+        return null;
+    }
+
+    private boolean referencesThis(Expression expression) {
+        boolean[] found = {false};
+        expression.visit(e -> {
+            if (e instanceof VariableExpression ve
+                && (ve.variable() instanceof This
+                    || ve.variable() instanceof FieldReference fr && fr.scopeIsThis())) {
+                found[0] = true;
+                return false;
+            }
+            return !found[0];
+        });
+        return found[0];
     }
 
     /**

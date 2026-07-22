@@ -98,6 +98,7 @@ class AnnotationToProperty {
         // of @Final(after=)/@NotModified(after=) on a field, and the @Mark/@Only/@TestMark family on a method
         String immutableAfter = null;
         String finalAfter = null;
+        String notModifiedAfter = null;
         Value.Eventual eventual = null;
 
         for (AnnotationExpression ae : annotations) {
@@ -178,8 +179,18 @@ class AnnotationToProperty {
                     }
                 }
             } else if (NotModified.class.getCanonicalName().equals(fqn)) {
-                unmodified = valueForTrue;
-                if (!isAbsent) finalAfter = ae.extractString("after", "");
+                String after = isAbsent ? "" : ae.extractString("after", "");
+                if (!after.isBlank() && info instanceof MethodInfo) {
+                    // eventual non-modification: the method modifies BEFORE the mark (a lazy-loading getter
+                    // effects the transition), and is non-modifying only after it. Record the honest
+                    // unconditional floor (it does modify) plus the after-label; do NOT claim @NotModified.
+                    unmodified = FALSE;
+                    notModifiedAfter = after;
+                } else {
+                    unmodified = valueForTrue;
+                    // on a FIELD, @NotModified(after=) still writes EVENTUALLY_FINAL_FIELD (existing, optimistic)
+                    if (!after.isBlank()) finalAfter = after;
+                }
             } else if (Modified.class.getCanonicalName().equals(fqn)) {
                 unmodified = ValueImpl.BoolImpl.from(isAbsent);
                 String value = ae.extractString("value", "");
@@ -301,6 +312,10 @@ class AnnotationToProperty {
             if (commutableData != null) map.put(PropertyImpl.COMMUTABLE_METHODS, commutableData);
             if (finalizer != null) map.put(PropertyImpl.FINALIZER_METHOD, finalizer);
             if (eventual != null) map.put(PropertyImpl.EVENTUAL_METHOD, eventual);
+            if (notModifiedAfter != null && !notModifiedAfter.isBlank()) {
+                map.put(PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD,
+                        new ValueImpl.SetOfStringsImpl(ValueImpl.EventualImpl.labelToFields(notModifiedAfter)));
+            }
             return map;
         }
         if (info instanceof FieldInfo) {
