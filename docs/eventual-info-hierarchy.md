@@ -124,8 +124,41 @@ Five abstract accessors stay `@Modified` because they modify through a **cross-r
 (`inspection`); it does not excuse `this.typeInfo.descriptor()`, because `typeInfo`'s type (`TypeInfo`)
 is itself the blocked interface (not yet eventually immutable) and, even if it were, its mark is a
 *different object's* lifecycle. The `Info` types form a **mutual-reference cluster** (parameter →
-method → type → …) whose eventual immutability is a joint fixpoint: each needs the others. That is a
-distinct, larger problem than the inherited-mark of step 6 — closer to cycle-breaking-for-eventual —
-and is where the next push has to aim. Steps 1–5 are the necessary substrate; they are correct and
-land the whole self-field pattern, but the cross-reference cluster is what the real `Info` hierarchy
-is actually made of.
+method → type → …) whose eventual immutability is a joint fixpoint: each needs the others.
+
+## The cluster is an all-or-nothing greatest fixpoint (2026-07-22, deeper dig)
+
+Chasing the five accessors to the bottom (contrary to a first fear, they do **not** modify through a
+deep transitive graph — `ParameterInfoImpl.parameterizedType()` returns a plain field, the stream/lambda
+calls are non-modifying JDK, so `descriptor()` modifies *only* through `this.inspection` via
+`parameters()` and `this.typeInfo` via the cross-ref). The real obstruction is a **circular
+recognition** with three interlocking pieces, none of which can resolve first:
+
+1. **Cross-reference field recognition.** `MethodInfoImpl.descriptor()` → `this.typeInfo.descriptor()`,
+   `ParameterInfoImpl.typeInfo()` → `this.methodInfo.typeInfo()`, `…fullyQualifiedName()` →
+   `this.methodInfo.fullyQualifiedName()`. Each is excusable *iff* the cross-referenced field type
+   (`TypeInfo`, `MethodInfo`) is recognized eventually immutable — which is the blocked verdict itself.
+2. **Inherited mark, subclass → abstract superclass.** Every `*InfoImpl` extends `InfoImpl`, which has
+   **no mark of its own** (its accessors are abstract, implemented in the subclasses; verified: zero
+   `EVENTUAL_METHOD`/`EVENTUALLY_NON_MODIFYING_METHOD` on `InfoImpl` itself). So `InfoImpl` can only get
+   an eventual verdict *from* its subclasses — but by the hierarchy rule the subclasses need `InfoImpl`
+   eventual first (a FINAL_FIELDS/MUTABLE supertype forces them MUTABLE). This is the deferred
+   `approvedPreconditionsFromParent`, here in its subclass→parent direction.
+3. **Interface propagation** (already built: `methodEventuallyNonModifying`, and the type-level
+   label-from-after in `computeTypeLevel`).
+
+All three are mutually circular. A least-fixpoint monotone pass (what the analyzer runs) concludes
+nothing from nothing; the cluster only resolves as a **greatest fixpoint**: optimistically assume the
+whole cluster is eventually immutable, compute, and keep it iff nothing contradicts. That is sound as a
+*coinductive* eventual claim — `@Immutable(after="inspection,typeInfo,…")`, the joint transition of
+the cluster — but it cannot be reached by the write-once, monotone outer loop without an
+optimistic-seed-and-verify pass, i.e. the same shape as the engine's existing immutability cycle-breaking,
+extended to eventual immutability and to the subclass→superclass mark inheritance.
+
+**Assessment.** This is not an incremental extension of steps 1–5; it is one indivisible mechanism
+(optimistic cluster seeding + verification + subclass→parent mark inheritance) that has to break all
+three circles at once, and it touches the engine's most guarded part (cycle-breaking, whose golden rule
+is a byte-identical FPDUMP A/B on the certified corpus). It should be scoped and funded as its own
+piece, behind a gate until a corpus A/B clears it. Steps 1–5 are the correct, self-contained substrate
+it will build on — they land the entire self-field pattern and the interface method propagation; the
+cluster fixpoint is the distinct next investment.
