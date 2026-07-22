@@ -30,7 +30,10 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.util.Elements;
 import javax.tools.JavaFileObject;
 import java.io.IOException;
+import java.net.JarURLConnection;
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -144,8 +147,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             SourceSet toAdd;
             if (cpp.name().startsWith("jar-on-classpath:")) {
                 int colon = cpp.name().indexOf(':');
-                String jarName = cpp.name().substring(colon + 1);
-                toAdd = new SourceSetImpl.Builder(cpp).setName(jarName).build();
+                String selector = cpp.name().substring(colon + 1);
+                toAdd = resolveJarOnClassPath(cpp, selector, prefixes);
             } else {
                 toAdd = cpp;
                 if (cpp.externalLibrary() && "file".equals(cpp.uri().getScheme())) {
@@ -163,6 +166,46 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
         sourceSetMap = Map.copyOf(map);
         sourceSetDirPrefixes = Map.copyOf(prefixes);
+    }
+
+    // A 'jar-on-classpath:<selector>' entry does not carry the physical identity of the library: the selector is a
+    // package folder (e.g. org/junit/jupiter/api) whose containing jar sits on this process' classpath, but its
+    // filename and version are unknown until we look. Resolve it here, once, to that real location -- exactly as a
+    // class-directory entry is resolved to its real path just above -- so that ensureSourceSet can later match the
+    // source set by the jar name (or directory) javac reports for a loaded class. A selector that does not resolve
+    // to a folder (e.g. one given directly as a jar filename, the other accepted form) keeps its text as the name.
+    private SourceSet resolveJarOnClassPath(SourceSet cpp, String selector, Map<String, SourceSet> prefixes) {
+        URL url = resolveOnClassPath(selector);
+        if (url != null) {
+            if ("jar".equals(url.getProtocol())) {
+                try {
+                    URI jarUri = ((JarURLConnection) url.openConnection()).getJarFileURL().toURI();
+                    String jarName = Path.of(jarUri).getFileName().toString();
+                    return new SourceSetImpl.Builder(cpp).setName(jarName).setUri(jarUri).build();
+                } catch (IOException | URISyntaxException e) {
+                    LOGGER.warn("Cannot resolve jar-on-classpath selector {} to a jar: {}", selector, e.toString());
+                }
+            } else if ("file".equals(url.getProtocol())) {
+                try {
+                    Path root = Path.of(url.toURI());
+                    for (int i = selector.split("/").length; i > 0 && root != null; i--) {
+                        root = root.getParent();
+                    }
+                    if (root != null) {
+                        prefixes.put(root.toRealPath().toAbsolutePath().toString(), cpp);
+                    }
+                } catch (IOException | URISyntaxException e) {
+                    LOGGER.warn("Cannot resolve jar-on-classpath selector {} to a directory: {}", selector, e.toString());
+                }
+            }
+        }
+        return new SourceSetImpl.Builder(cpp).setName(selector).build();
+    }
+
+    private static URL resolveOnClassPath(String selector) {
+        ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+        URL url = contextClassLoader == null ? null : contextClassLoader.getResource(selector);
+        return url != null ? url : ClassSymbolScanner.class.getClassLoader().getResource(selector);
     }
 
     TypeInfo lazilyLoadTypeFromClassFile(Symbol.ClassSymbol cs) {
