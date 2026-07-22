@@ -69,6 +69,30 @@ public class TestAnalysisProgressFeed {
     }
 
     @Test
+    public void elementCompletedAdvancesProgressInsideAGiantWave() throws Exception {
+        // the miles-core case: after a small wave commits, the analysis enters ONE giant SCC wave whose
+        // barrier fires only at its end. elementCompleted() must advance 'done' in between, so progress is
+        // not pinned for the whole (multi-hour) wave. Barrier then commits and resets the in-flight tally.
+        Path dir = Files.createTempDirectory("progress-feed-intrawave");
+        File metrics = new File(dir.toFile(), "metrics.jsonl");
+        AnalysisProgressFeed feed = new AnalysisProgressFeed(1000, metrics, 0); // heartbeat 0 => emit on every event
+
+        feed.waveCompleted(1, 1, sized(200));                                   // commit 200
+        for (int i = 0; i < 500; i++) feed.elementCompleted();                  // 500 of the giant wave done, no barrier
+        feed.phase(AnalysisValueFeed.Phase.CYCLE_BREAKING_ACTIVATED, 1);        // mid-wave emit
+        for (int i = 0; i < 300; i++) feed.elementCompleted();                  // remaining 300 (giant wave = 800)
+        feed.waveCompleted(1, 2, sized(800));                                   // barrier commits the 800
+
+        List<String> lines = Files.readAllLines(metrics.toPath());
+        assertEquals(3, lines.size(), "wave1 + mid-wave phase + giant-wave barrier");
+        assertTrue(lines.get(0).contains("\"done\":200"), () -> "first wave commits 200: " + lines.get(0));
+        assertTrue(lines.get(1).contains("\"done\":700"),
+                () -> "intra-wave = 200 committed + 500 in-flight: " + lines.get(1));
+        assertTrue(lines.get(2).contains("\"done\":1000"),
+                () -> "barrier commits total and resets in-flight: " + lines.get(2));
+    }
+
+    @Test
     public void samplerEmitsWithNoWaveOrPassEvents() throws Exception {
         // the giant-SCC case: pass 1 stays inside one long wave, so no wave/pass callback fires. The
         // time-based sampler must still produce heap/GC heartbeats so the run is never blind.

@@ -1,7 +1,8 @@
 # Dropping the javac AST after parse — freeing heap for heavy analysis on large projects
 
-Status: REPORT / DESIGN, 2026-07-22. Not yet implemented. Motivated by running the extract-interface
-engine on very large single-SCC projects (miles-core: 23,394 types, 661,633 elements, ~32G).
+Status: IMPLEMENTED (Option B, gated) + validated at server/main scale, 2026-07-22. Motivated by running
+the extract-interface engine on very large single-SCC projects (miles-core: 23,394 types, 661,633
+elements, ~32G). See §8 for the implementation and measurements.
 
 ## 1. The opportunity
 
@@ -123,3 +124,58 @@ the difference-maker between a run that sits at 99% of a 32G heap and one with c
 because the parse floor (dominated by the javac AST + maddi CST held simultaneously) is exactly what
 leaves too little room for the analysis accumulator. It is a prerequisite capability for pushing heavy
 analysis onto projects larger than ~250k elements at a fixed 32G ceiling.
+
+## 8. Implementation and validation (2026-07-22)
+
+Built as **Option B, gated**, plus the fail-loud safety net (§6.3):
+
+- **Engine** (`CompiledTypesManagerImpl`): after the AST is dropped, a `getOrLoad` **miss is surfaced**,
+  not silently nulled — it is counted and the FQN logged once (measurement mode), or thrown
+  (`DROP_AST_STRICT`). A `lazyLoaderDisabled` flag mirrors "no live javac task"; `JavaInspectorImpl`
+  sets it in `invalidateAllSources()` and clears it whenever a scan reassigns `lastScanUnits`, so a
+  normal partial-classpath miss stays benign while a task is live. Accessors expose distinct/total miss
+  counts + a sample (`TestDropAstFailLoud`).
+- **Harness** (`AnalysisRun`, extract-interface): `DROP_AST=1` calls `invalidateAllSources()` after prep
+  and before the analysis accumulator grows; a post-run line reports residual misses.
+
+**Key finding — the drop does NOT depend on a successful hints load.** §5B feared Option B was unsafe
+without hints coverage. In practice **parse itself** eagerly resolves and caches the compiled types the
+source references (via `getOrLoad` during scanning), so by analysis time the cache already holds the
+surface the linker walks. Both validation runs recorded **0 residual misses** with no reliance on the
+AAPI hints archive:
+
+| corpus        | types | elements | reclaimed at drop | peak used (ceiling) | gcFraction | misses |
+|---------------|-------|----------|-------------------|---------------------|------------|--------|
+| guava         |   610 |   21,837 | 1111 → 260 MB     | (small)             | ~0         | **0**  |
+| server/main   | 4,875 |  138,385 | 4148 → 1853 MB    | 11.3 G (12 G)       | ≤0.017     | **0**  |
+
+server/main context: same corpus was ~20.6 G peak (multi-pass, no flatten) → ~16 G (single-pass+flatten)
+→ **11.3 G with the AST drop added**, GC pressure near zero. The drop removes the parse-floor javac
+retention and hands the analysis real headroom — exactly the miles-core lever.
+
+Residual risk for miles-core: its dependency surface differs, so a few residual misses are possible;
+the run stays in **log mode** (not strict) to measure them rather than abort. If the count is non-trivial,
+escalate to Option C (eager pre-load of the referenced closure before the drop).
+
+### miles-core outcome (the target, 2026-07-22)
+
+miles-core is 23,394 types / 661,633 elements (2.65× full ES) and is one giant SCC. With `DROP_AST=1`
++ single-pass + flatten:
+
+- **@ 32G: does not fit.** The drop clearly helped — the run advanced smoothly to **48% at gcFrac ~1.5%**
+  (the prior no-drop run teetered at 30-31G from the start) — then entered the back-half SCC wave and
+  thrashed to death (used pinned 31G, gcFrac 0.85, no progress). The wall is the **persistent write-once
+  output accumulator + the retained per-method VD**, which grow monotonically through the single pass.
+- **@ 44G: ran the SCC wave healthily** (gcFrac 1-2%, no thrash) but was killed by external memory
+  pressure before completing (concurrent gradle in other worktrees; the true full peak is unconfirmed).
+- **Live histogram at the 48% wall: 29.4G** — dominated by prepwork VariableData ~7.2G (miles-core's
+  10K-statement methods make each flattened last-statement VD large), CST ~4.5G (irreducible),
+  analysis() maps 1.4G, map/array backing ~9.6G.
+
+**Settled: ~44G is the miles-core requirement with today's levers (drop-AST + single-pass + flatten);
+32G needs a further lever.** The drop-AST work is complete and validated — it removed the parse-floor
+javac retention and was the difference between teetering-from-the-start and a clean 48%-at-1.5%-GC climb.
+The next lever, if 32G is pursued later, is to **drop a method's VD entirely after linking in single-pass
+mode** (the ~7.2G dominant) rather than merely flatten it — a real engine task, because the flatten
+retains the last-statement VD for the concurrent FieldAnalyzer/CommonAnalyze readers active during the
+pass. Secondary: lazy-allocate the ~1.4G of mostly-empty `analysis()` PropertyValueMapImpl maps.

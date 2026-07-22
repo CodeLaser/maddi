@@ -122,6 +122,9 @@ public class JavaInspectorImpl implements JavaInspector {
         }
         openFileManagers.clear();
         lastScanUnits = null;
+        // the lazy getOrLoad path can no longer serve compiled-type misses; tell the CTM to surface them
+        // (log/throw) instead of silently returning null. Re-armed by the next scan (see singleSourceSet).
+        if (compiledTypesManager instanceof CompiledTypesManagerImpl ctm) ctm.setLazyLoaderDisabled(true);
     }
 
     @Override
@@ -488,6 +491,8 @@ public class JavaInspectorImpl implements JavaInspector {
             scanned = scanCompilationUnits.scan();
         }
         this.lastScanUnits = scanCompilationUnits; // keep the live task for on-demand getOrLoad
+        // a live task can serve getOrLoad misses again: undo any earlier drop-time disable (see invalidateAllSources)
+        if (compiledTypesManager instanceof CompiledTypesManagerImpl ctm) ctm.setLazyLoaderDisabled(false);
 
         // copy from scanned into summary
         // register the source set so it appears in ParseResult.sourceSetsByName() (mirrors the congocc inspector)
