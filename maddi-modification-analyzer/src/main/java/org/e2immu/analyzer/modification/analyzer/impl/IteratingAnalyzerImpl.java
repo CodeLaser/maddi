@@ -239,13 +239,17 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                     } else if (info instanceof org.e2immu.language.cst.api.info.FieldInfo) {
                         var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_FIELD,
                                 org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
-                        v = "field unmodified=" + b;
+                        var ind = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_FIELD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.class);
+                        v = "field unmodified=" + b + " independent=" + ind;
                     } else if (info instanceof org.e2immu.language.cst.api.info.TypeInfo) {
                         var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE,
                                 org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.class);
                         var ev = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
                                 org.e2immu.language.cst.impl.analysis.ValueImpl.EventuallyImmutableImpl.class);
-                        v = "type immutable=" + b + " eventual=" + ev;
+                        var ind = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_TYPE,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.class);
+                        v = "type immutable=" + b + " eventual=" + ev + " independent=" + ind;
                     } else continue;
                     pw.println(v + " " + info.fullyQualifiedName());
                 }
