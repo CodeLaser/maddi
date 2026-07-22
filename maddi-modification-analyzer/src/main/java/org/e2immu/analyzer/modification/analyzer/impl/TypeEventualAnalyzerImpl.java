@@ -59,6 +59,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
 
     private final ContractReader contractReader;
     private final TypeImmutableAnalyzer typeImmutableAnalyzer;
+    private final EventualCluster eventualCluster;
     // the support classes are reached over and over, from every consumer; re-deriving their contracts each time
     // would be wasteful. Concurrent: the type loop may run in parallel.
     private final Map<TypeInfo, Value.EventuallyImmutable> eventuallyImmutableCache = new ConcurrentHashMap<>();
@@ -66,10 +67,12 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
 
     public TypeEventualAnalyzerImpl(Runtime runtime, TypeImmutableAnalyzer typeImmutableAnalyzer,
                                     IteratingAnalyzer.Configuration configuration,
-                                    AtomicInteger propertiesChanged, List<Message> analyzerMessages) {
+                                    AtomicInteger propertiesChanged, List<Message> analyzerMessages,
+                                    EventualCluster eventualCluster) {
         super(configuration, propertiesChanged, analyzerMessages);
         this.contractReader = new ContractReader(runtime);
         this.typeImmutableAnalyzer = typeImmutableAnalyzer;
+        this.eventualCluster = eventualCluster;
     }
 
     /**
@@ -122,6 +125,9 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 propertyChanges.incrementAndGet();
             }
         }
+        // EXPERIMENTAL (EVENTUALCLUSTER): once this type's method-level eventual intent is known, close it upward
+        // so its supertypes join the cluster (InfoImpl and the interfaces have no eventual method of their own).
+        eventualCluster.noteCandidate(typeInfo);
         computeTypeLevel(typeInfo, activateCycleBreaking);
     }
 
@@ -196,10 +202,16 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         for (String label : labels) {
             FieldInfo fieldInfo = typeInfo.getFieldByName(label, false);
             if (fieldInfo != null && fieldInfo.type().bestTypeInfo() != null
-                && eventuallyImmutable(fieldInfo.type().bestTypeInfo()).isEventual()) {
+                && isEventuallyImmutableFieldType(fieldInfo.type().bestTypeInfo())) {
                 excusedFields.add(fieldInfo);
             }
         }
+    }
+
+    /** A field type that excuses a call on it after the mark: really eventually immutable, or -- under the
+     *  EVENTUALCLUSTER gate -- a cluster candidate whose verdict is still circular (see {@link EventualCluster}). */
+    private boolean isEventuallyImmutableFieldType(TypeInfo fieldType) {
+        return eventualCluster.treatAsEventuallyImmutable(fieldType, eventuallyImmutable(fieldType));
     }
 
     /** null when nothing can be concluded; never {@code NOT_EVENTUAL} (we do not record absence). */
@@ -300,7 +312,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             FieldInfo fieldInfo = fr.fieldInfo();
             if (!isOwnField(typeInfo, fieldInfo)) return null;
             TypeInfo fieldType = fieldInfo.type().bestTypeInfo();
-            if (fieldType == null || !eventuallyImmutable(fieldType).isEventual()) return null;
+            if (fieldType == null || !isEventuallyImmutableFieldType(fieldType)) return null;
             // the call must be one that survives the mark: a @Mark or @Only(before) call is the transition
             // itself (setFinal, setVariable), not a post-mark read, and calling it after the mark throws
             Value.Eventual calleeEventual = eventualOf(mc.methodInfo());

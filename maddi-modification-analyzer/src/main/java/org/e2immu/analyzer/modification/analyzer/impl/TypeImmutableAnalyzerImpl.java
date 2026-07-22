@@ -43,12 +43,15 @@ Phase 4.2 Primary type immutable
 public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements TypeImmutableAnalyzer {
     private final AnalysisHelper analysisHelper = new AnalysisHelper();
     private final TypeIndependentAnalyzer typeIndependentAnalyzer;
+    private final EventualCluster eventualCluster;
 
     public TypeImmutableAnalyzerImpl(TypeIndependentAnalyzer typeIndependentAnalyzer,
                                      IteratingAnalyzer.Configuration configuration,
-                                     AtomicInteger propertiesChanged, List<Message> analyzerMessages) {
+                                     AtomicInteger propertiesChanged, List<Message> analyzerMessages,
+                                     EventualCluster eventualCluster) {
         super(configuration, propertiesChanged, analyzerMessages);
         this.typeIndependentAnalyzer = typeIndependentAnalyzer;
+        this.eventualCluster = eventualCluster;
     }
 
     @Override
@@ -184,6 +187,14 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
                     .getOrDefault(EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
             if (ev.isEventual()) {
                 return immutable == null ? ev.immutableAfterMark() : ev.immutableAfterMark().max(immutable);
+            }
+            // EXPERIMENTAL (EVENTUALCLUSTER): the supertype's own eventual verdict is still circular (InfoImpl has
+            // no mark of its own; it inherits from its subclasses). Optimistically contribute immutable-HC after
+            // the mark -- capped there, never hc-free -- so the subclass is not dragged down while the cluster
+            // greatest-fixpoint settles.
+            if (eventualCluster.treatAsEventuallyImmutable(typeInfo, ev)) {
+                Immutable optimistic = ValueImpl.ImmutableImpl.IMMUTABLE_HC;
+                return immutable == null ? optimistic : optimistic.max(immutable);
             }
         }
         if (immutable != null || !typeInfo.isAbstract()) return immutable;
