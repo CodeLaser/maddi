@@ -2352,6 +2352,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
         } else throw new UnsupportedOperationException();
 
+        // the referenced method's simple name (the identifier after '::', the last identifier of the whole
+        // 'scope::name' span), so callers can do mr.source().detailedSources().detail(mr.methodInfo().name()) to
+        // locate/rename it, exactly as for a MethodCall. Keyed by method.name() (DetailedSources is identity-keyed
+        // and mr.methodInfo() == method). Skipped for constructor references (X::new has no method-name identifier).
+        if (!method.isConstructor()) {
+            dsb.put(method.name(), lastIdentifierSource(sourceForNode(node), method.name()));
+        }
         currentExpression = runtime.newMethodReferenceBuilder()
                 .setScope(scope)
                 .setMethod(method)
