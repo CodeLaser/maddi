@@ -301,12 +301,17 @@ adopt.
 `PUBLISHING.md` reports the wiring as essentially complete — what remains is credentials and
 deliberate outward-facing runs. Until this happens, "install maddi" has no answer.
 
-- [ ] `maddi-support` → Maven Central (jreleaser; appendix in `PUBLISHING.md`).
+- [x] `maddi-support` → Maven Central. **DONE 2026-07-22: 0.9.0, Apache-2.0, verified
+      dependency-free in the published POM and module metadata.**
 - [ ] Gradle plugin → Plugin Portal (needs `com.gradle.plugin-publish` applied + a Portal key).
 - [ ] CLI zips → GitHub Release via `release-cli.sh <tag>` (needs authenticated `gh`).
 - [ ] Maven plugin — untested against a real `mvn` invocation. Either test it or say so in the
       release notes.
-- [ ] Flip the README "Try it" section from build-from-source to download once this lands.
+- [x] README now leads with the `io.codelaser:maddi-support:0.9.0` coordinate (commit 344ad1e4).
+- [ ] **Blocker for the CLI and plugin legs:** `gh` is authenticated as `bart-naudts_soficonv`,
+      which has `pull` only on `CodeLaser/maddi` (see §2). `release-cli.sh` runs `gh release
+      create`, which needs write access — re-auth as the owning account first, or the release
+      will fail on the upload step after doing all the build work.
 
 ## 7. Split the licence — DECIDED 2026-07-22
 
