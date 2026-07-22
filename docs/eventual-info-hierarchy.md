@@ -786,3 +786,31 @@ semantics. Tests to extend: `TestWriteAnalysis2`, `TestAnalysisHintsComposer`.
 
 No LSP is involved; the transport is the daemon's NDJSON. See `docs/ide-todo.md` for the separately-tracked IDE
 work (partial re-analysis, streaming).
+
+## The residue quest, characterized: recursion pessimism is the fulcrum (2026-07-22, night)
+
+The verification-residue handoff was executed as a characterization pass; the full record now lives in
+`docs/handoff-verification-residue.md` §7. The essentials for this arc:
+
+- The assumed buckets dissolved: no crashes anywhere; the "587-element residue" is the expected summary
+  fallout of cycle breaking activating mid-verification (genuine residue: 2 elements, a
+  `ParameterizedTypeImpl` lambda); exit code 5 is the guard reporting contract violations, not cycle
+  protection; and the 71 `nonModifying=null` methods are abstract cst-api methods without in-scope
+  implementations — `MODREACH=1` (the gated §14 shadow pass) already decides all 71.
+- The real blocker of `ParameterizedType`/`Expression`: **recursive pure methods can never compute
+  non-modifying**. `MethodInfoImpl.isNonModifying()` defaults undecided to modifying at call sites, so a
+  method's own first evaluation poisons its summary (receiver + receiver-rooted field into the modified
+  set), and the monotone write discipline keeps the FALSE forever. Minimal repro pinned in
+  `TestRecursionThroughAbstract` (`direct()`, plain self-recursion: FALSE). Through
+  `TypeInfoImpl.packageName()/descriptor()/fromPrimaryTypeDownwards()` → `TypeNameImpl.typeName` this
+  sinks the entire print family, which is what the eventual contraction keeps tripping over.
+- Composed gates measured: `MODREACH=1 EVENTUALCLUSTER=1` gives survivors 8→5, retracted 36→59, enm
+  labels 414→522 — the honest downgrades of the shadow pass remove verdicts the optimistic seed leaned
+  on. Method-level machinery is healthy; the type level dies exclusively on the recursion pessimism.
+- Candidate fixes (decision pending, spelled out in handoff §7.5): (A) shadow-pass primitive seeding +
+  reverse upgrade, corpus-inert behind MODREACH, recommended; (B) fixpoint-side optimism, rejected as it
+  fights the §14 monotone-write architecture.
+
+Session artifacts, all env-gated and verdict-inert (module suite green; dogfood A/B churn proven equal to
+same-state base-vs-base): `FPDUMP_PARAMS` (parameter lines in the FPDUMP), `MODREACH_DEBUG` (reverse-
+divergence dump), `MODREACH_EXPLAIN=<substring>` (BFS chain from a reached receiver back to its seed).

@@ -1,5 +1,11 @@
 # Handoff — the verification-pass residue (the gate on the eventual-immutability endgame)
 
+> **2026-07-22, second session: CHARACTERIZATION COMPLETE — read §7 first.** The bucket structure
+> assumed below (§0–§3) turned out to be wrong in instructive ways; §7 carries the true diagnosis
+> (recursion pessimism at the `isNonModifying` undecided-callee default), the minimal repro
+> (`TestRecursionThroughAbstract`), the measurements, and the two candidate fix designs awaiting a
+> decision. §0–§6 are kept as the record of what we believed going in.
+
 **Audience:** a fresh model implementing this without the 2026-07-22 session context.
 **Status:** diagnosed at the symptom level only; the iterating-analyzer internals were NOT dug into.
 **Base commit:** `54bd9859` on branch `ws/eventual`. Tree clean.
@@ -125,3 +131,109 @@ A green `slowTest` can be cached/vacuous — `--rerun-tasks`, then check the rol
 - Do not weaken `TolerantWrite` or the contraction to make numbers move; the eventual side is behind
   `EVENTUALCLUSTER` and is not the patient here.
 - Do not diagnose from a single green run — re-run; the engine has known run-to-run nondeterminism.
+
+---
+
+## 7. Characterization (2026-07-22, second session) — the true diagnosis
+
+Every finding below is from dogfood runs at `38ec1152` plus env-gated, log-only diagnostics
+(committed with this section: `FPDUMP_PARAMS`, `MODREACH_DEBUG`, `MODREACH_EXPLAIN`).
+
+### 7.1 The assumed buckets do not exist
+
+- **No crash bucket.** The baseline run has zero crashes, zero cycle-protection trips, zero
+  StackOverflows; `SingleIterationAnalyzerImpl.failed` stays empty. The `dogfood/README.md` note
+  ("cycle protection trips on printer methods") is stale: **exit code 5 comes from the guard
+  analyzer** — 138 (base) / 243 (MODREACH) `contract-violation` findings, dominated by
+  "`parameter 'qualification' of *.print(Qualification) is modified`" against the `@Container`
+  contract on `Element`, plus `Element` methods computing as modifying against its `@Immutable`
+  contract. Those violations are *symptoms of the same pessimism diagnosed in §7.3*.
+- **The 587-element "residue" is mostly an artifact.** The genuine pre-cycle-breaking residue is
+  **2 elements** (`ParameterizedTypeImpl.$9`, a lambda, plus its `apply`), with a
+  `set:variablesLinkedToObject@LCI=55` churn on every full pass. The 587 appear at iteration 14
+  because cycle breaking activates *mid-verification* and decides 481 immutability-undecided types;
+  the residue log then reports the (expected) summary fallout as if it were adjacency-gap churn.
+  The reporting is misleading, not the convergence.
+- **The 71 `nonModifying=null` methods are all abstract cst-api methods whose implementations are
+  outside the dogfood source set**: the `Codec` family (46), `FormattingOptions` (10), the
+  printing/factory interfaces (~10), `FingerPrint.isNoFingerPrint`, `TypeInfo.Builder.source()`,
+  `Factory.parameterizedTypeWildcard()`, `TranslationMap.ModificationTimesHandler`. Nothing ever
+  writes `NON_MODIFYING_METHOD` on a no-impl abstract method; cycle breaking's
+  `NO_INFORMATION_IS_NON_MODIFYING` is consulted only inside type-immutability/independence.
+  **`MODREACH=1` decides all 71 (`71 null->TRUE`, frontier-complete unreached), so this bucket is
+  already solved by the gated shadow pass.**
+
+### 7.2 What actually blocks `ParameterizedType` / the `Expression` hierarchy
+
+`ParameterizedType`'s five holdouts (`print`×2 via the interface, `rewire`×2, `concreteSuperType`,
+`mostSpecific`, `replaceByTypeBounds`) are **`nonModifying=false` — decided modifying, not
+undecided**. The chain (established with `FPDUMP_PARAMS`):
+
+`ParameterizedTypeImpl.print(q,…)` hands `this` to `ParameterizedTypePrinter.print(...)` (static,
+in scope, itself `nonModifying=true`) whose `parameterizedType` **parameter** is
+`unmodified=false` ← it hands `parameterizedType.typeInfo()` to `TypeNameImpl.typeName(...)` whose
+`typeInfo` parameter is `unmodified=false` ← `typeName` only calls six `TypeInfo` accessors, of
+which `TypeInfoImpl.packageName()` / `descriptor()` / `fromPrimaryTypeDownwards()` are
+`nonModifying=false` ← each is a pure read that **recurses through the abstract declaration**
+(`compilationUnitOrEnclosingType.getRight().packageName()`).
+
+### 7.3 Root cause: the undecided-callee default makes recursion permanently modifying
+
+`MethodInfoImpl.isNonModifying()` (cst-impl:402) is
+`getOrDefault(NON_MODIFYING_METHOD, FALSE).isTrue()` — **undecided reads as modifying** at every
+call site (`MethodModification.go`). For any recursive method — even direct self-recursion of a
+pure function, no interface involved — the first evaluation sees its own callee undecided, marks
+the receiver (and receiver-rooted field) modified, the summary freezes that, the abstract batch
+aggregates the impl's FALSE, and the result is a self-consistent pessimistic fixpoint that no
+later iteration can leave (the write discipline is monotone; no downgrade is ever *attempted*, so
+this never even shows among refused downgrades). Minimal repro pinned in
+`maddi-modification-analyzer/.../modification/TestRecursionThroughAbstract.java`:
+`direct=false C.name=false I.name=false`, all three of which should be `true`.
+
+The shadow pass cannot repair this class because it **seeds from the converged summaries**
+("seeded by `TypeInfoImpl.packageName()` modified `this.compilationUnitOrEnclosingType`" — the
+`MODREACH_EXPLAIN` output verbatim), and abstract in-order methods additionally seed from their
+frozen FALSE. The poison re-seeds itself; the node is "reached" by its own seed, so it is neither
+a divergence nor a reverse divergence. Separately, the dogfood has **281 unique REVERSE
+divergences** (fixpoint modified, shadow unreached: 433/356/4 field/parameter/method dump lines
+across rounds — `MODREACH_DEBUG`), a class the pass doctrine calls "a bug in this pass" and keeps
+FALSE conservatively; on this interface-heavy code they are largely downstream of the same
+pessimism (the `qualification` parameters of the whole print family are in there).
+
+### 7.4 Measurements (dogfood, cst-api+analysis+impl, preloaded aapi)
+
+| run | nonModifying=null | survivors (`eventual=@`) | retracted | enm labels | exit |
+|---|---|---|---|---|---|
+| base (no gates) | 71 | – | – | – | 5 |
+| `EVENTUALCLUSTER=1` | 71 | 8 | 36 | 414 | 5 |
+| `MODREACH=1` | **0** | – | – | – | 5 |
+| `MODREACH=1 EVENTUALCLUSTER=1` | **0** | **5** | **59** | 522 | 5 |
+
+MODREACH alone: `1404 TRUE->FALSE` honest downgrades, `71 null->TRUE`, `231 reverse kept` (round 1).
+Composed, the eventual scoreboard gets **worse** (5 survivors, 59 retractions): the honest
+downgrades remove non-modifying verdicts the optimistic eventual seed was leaning on. The label
+count rising 414→522 while survivors fall shows the method-level machinery is fine — the
+type-level verdicts die on the recursion pessimism. **Fixing §7.3 is the entire game.**
+
+### 7.5 Candidate fixes (decision needed — this is where the next session starts)
+
+**A. Shadow-pass trust-model refinement (recommended; stays behind the MODREACH gate).**
+Two coupled changes: (1) *primitive seeding* — stop blind-seeding every summary-modified entry of
+analyzed methods; seed only evidence the reachability graph cannot re-derive (degraded bodies,
+statement-level assignment evidence, calls to NON-analyzed callees with modifying/`@Modified`
+contracts, the E7/marker channels), and let E1/E2/E6 edges re-derive analyzed-callee effects;
+(2) *reverse upgrade* — in `writeVerdicts`, treat frontier-complete unreached frozen-FALSE nodes
+exactly like the `null->TRUE` writes the pass already performs (the "reverse = pass bug" doctrine
+is falsified on interface-heavy code). Corpus-inert by construction (pass only runs under
+`MODREACH`); the honest cost is re-pinning `TestShadowCloneBench` / `TestShadowModificationPass`
+baselines and re-running the §17 rollout table. Interacts with the default-ON decision, which is
+Bart's call — hence this handoff stops here.
+
+**B. Fixpoint-side optimistic recursion (not recommended).** Treating an undecided in-order callee
+as non-modifying at the call site needs TRUE→FALSE downgrades when the callee later decides
+modifying — exactly the write direction the monotone discipline forbids and the reason MODREACH
+exists as post-convergence single writer. Reopening that would fight the §14 architecture.
+
+Cosmetic side-quests, independent of the decision: silence the residue INFO for the first pass
+after cycle-breaking activation (it reports expected fallout as churn); refresh the stale exit-5
+note in `dogfood/README.md`.
