@@ -439,8 +439,13 @@ prints a plain `@Immutable(hc=true)` with **no `after=`**, losing the eventual n
 semantics. Tests to extend: `TestWriteAnalysis2`, `TestAnalysisHintsComposer`.
 
 **Staging** (each step independently shippable, all downstream of the seam):
-1. **Decorate** — the `DecoratorImpl` extension above. One change; makes eventual verdicts render as annotations
-   on IntelliJ/Eclipse/VS Code inlays *and* in decorated-source printing.
+1. **Decorate — DONE (2026-07-22).** `DecoratorImpl.annotationAndProperties()` now emits
+   `EVENTUALLY_IMMUTABLE_TYPE` → `@Immutable(hc?, after="…")`/`@FinalFields(after="…")`, `EVENTUAL_METHOD`/
+   `EVENTUAL_PARAMETER` → `@Mark`/`@Only`/`@TestMark`, `EVENTUALLY_NON_MODIFYING_METHOD` → `@NotModified(after="…")`,
+   `EVENTUALLY_FINAL_FIELD` → `@Final(after="…")`, mirroring `AnnotationToProperty`. `AnnotationTagger` tags
+   `@Immutable`/`@NotModified`/`@Final(after=)` POSITIVE (rendered inlays, `after=` visible) and the
+   `@Mark`/`@Only`/`@TestMark`/`@FinalFields` family NEUTRAL (carried, not dropped), so all three front-ends now
+   surface them. `TestDecorateEventual`; ungated & additive; prepwork 206/0, link 402/0 (decoration unchanged).
 2. **Polarity** — decide how `AnnotationTagger` (`maddi-ide-daemon`, polarity tables ~52–54) tags an eventual
    annotation (POSITIVE, or a new EVENTUAL polarity) so the `InlineHintsMode`/`HintPlacement` filters on each
    front-end treat it sensibly (e.g. show `@Immutable(after=…)` distinctly from a plain `@Immutable`).
