@@ -105,9 +105,25 @@ mostly cheap. Net: memory bought with a bounded recompute in the tail passes. Me
   Validated: elasticsearch-fw single-pass + flatten is **byte-identical** to single-pass without flatten
   (flatten is transparent to EI output). Memory reduction at scale (server/main + a synthetic single
   SCC) is Phase 4.
-- **Phase 4 (scale):** the `AnalysisProgressFeed` heap curve on `server/main` and a large ES
-  module-group with gate ON vs OFF — quantify the peak-heap reduction and the wall-clock cost. Then the
-  real target: whether a synthetic large single-SCC fits where it did not.
+- **Phase 4 (scale): MEASURED 2026-07-22 — wave granularity is TOO COARSE for a giant SCC.**
+  server/main single-pass + flatten completed (34 min, 8 OK + 2 NOT_SUPPORTED on the biggest ES module —
+  the engine's first full run there), but **peak 20.6G, NOT reduced**. The sampler shows why: the `done`
+  counter is pinned at 53,372 for the entire pass, then jumps to 138,385 at the end — i.e. a fast first
+  wave (53k) then **one giant wave (~85k elements, the SCC) with no barrier inside it**. Wave-barrier
+  flatten fires only at that wave's END, after the accumulator is already at peak. So Phases 2/2.1 free
+  cross-pass and cross-wave memory but NOT the in-giant-wave peak — which is the whole problem for a
+  single unsplittable SCC.
+
+  **The real fix (Phase 5): per-method flatten inside the giant wave.** Flatten method M right after its
+  own `linkComputer.doMethod` in `processElement` — concurrently. This reintroduces the race with the
+  parallel `FieldAnalyzer` reading M's last-statement VD, but it is tractable: (a) replace M's
+  last-statement/method VD with the flattened snapshot via an ATOMIC `overwrite` (a concurrent reader
+  then sees the old chained VD or the new flattened one — both have identical `best()`/links, both
+  correct); (b) dropping M's INTERMEDIATE statements' VD is safe because no cross-method reader reads
+  them, and a reader still walking M's old chained VD keeps the intermediate VICs alive via the chain
+  until it finishes (a transient blip, not corruption). Requires confirming `PropertyValueMap.overwrite`
+  is an atomic single-reference swap (no transient null). This is what actually bounds the peak on the
+  3M single-SCC target. server/main fits at 32G WITHOUT it (20.6G); it is needed only for the larger SCC.
 
 ## 5b. Single-pass EI mode and its trade-off (measured 2026-07-22)
 
