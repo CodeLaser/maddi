@@ -421,11 +421,36 @@ callee that is `@StaticSideEffects` — the modification reaches global state, s
 `TestStaticSideEffects` + `TestGuardIgnoreModifications.testGlobalEscapeIsWarned`; analyzer suite 231/0; corpus
 A/B (SSE off byte-identical / SSE on no-crash) green.
 
-**Still open:** the AAPI safe-surface declarations for static-method reconfiguration (`System.setOut`,
-`logger.addAppender`) — the part of the global-escape arm that needs callee annotations; a `DecoratorImpl`
-emission of `@StaticSideEffects` so it surfaces in the IDE (Task 4 adjacent); `GetSetHelper` guard-tolerance
-(getter↔variable equivalence gap); and the greatest-fixpoint **removal pass** still owed for the cluster
-optimism.
+**AAPI safe-surface — DONE (2026-07-22).** The callee-annotation half of the global-escape arm: a static
+*method* call that reconfigures global state (`System.setOut(other)` replacing the process-wide `System.out`)
+is invisible from JDK source, so it is recorded as a **contract** on the library's safe surface. Five pieces:
+1. **`@StaticSideEffects` annotation** (`maddi-support/.../annotation/rare/StaticSideEffects.java`) — contracted
+   on a library surface, `@Target(METHOD, CONSTRUCTOR)`, like `@IgnoreModifications`.
+2. **`AnnotationToProperty`** parses it → `STATIC_SIDE_EFFECTS_METHOD` (method map), so the shallow/AAPI path
+   materialises it automatically.
+3. **`SourceContractMaterializer.materialize(MethodInfo)`** materialises it on SOURCE methods too (parallel to
+   `IGNORE_MODIFICATIONS_FIELD` on fields) — a source author may assert it; ungated, a no-op where absent.
+4. **`StaticSideEffectAnalyzerImpl`** propagation: a call to a `@StaticSideEffects` callee makes the caller a
+   static-side-effect method too, transitively. `calleeStaticSideEffect` resolves the callee's verdict with a
+   has-body discriminator — a source callee not yet decided is UNDECIDED (wait, like the modifying-call case on
+   `NON_MODIFYING_METHOD`); a shallow/abstract callee with no contract is a decided FALSE (never stalls). This
+   is what makes the contract *bite*: it is how `System.setOut` reaches the guard.
+5. **AAPI declarations** — `System$.setOut/setErr/setIn` in `maddi-aapi-archive/.../jdk/JavaLang.java` annotated
+   `@StaticSideEffects`; the archive JSON regenerated via `./gradlew :maddi-aapi-parser:compileAnalysisHints`
+   (surgical 3-line diff in `JavaLang.json` — each setter gains `"staticSideEffectsMethod":1` — plus the
+   repackaged `openjdk.jar`; no other JSON changed).
+
+The `guardIgnoreModificationsContainment` arm needed no change — it already reads `STATIC_SIDE_EFFECTS_METHOD`
+on the direct callee, so propagation composes: `sink.reconfigure()` on an `@IgnoreModifications` field, where
+`reconfigure()` calls the contracted leaf, is flagged. Tests: `TestStaticSideEffects.testPropagation` (direct +
+transitive), `TestGuardIgnoreModifications.testGlobalEscapeViaContractIsWarned` (contract → propagate → guard).
+Analyzer suite 233/0, modification-common 52/0. Road §050 gained a "Recognising an invisible escape: the
+safe-surface contract" subsection. **Golden-rule corpus A/B: Fernflower FPDUMP byte-identical** off the SSE gate
+(the JSON delta is 3 JDK methods gaining a property no gate-off run reads).
+
+**Still open:** a `DecoratorImpl` emission of `@StaticSideEffects` so it surfaces in the IDE (Task 4 adjacent);
+`GetSetHelper` guard-tolerance (getter↔variable equivalence gap); and the greatest-fixpoint **removal pass**
+still owed for the cluster optimism.
 
 ## Task 4: surface the eventual verdicts to developers (the IDE path)
 

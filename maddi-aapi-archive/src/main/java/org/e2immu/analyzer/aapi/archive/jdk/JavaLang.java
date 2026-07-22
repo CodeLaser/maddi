@@ -42,6 +42,7 @@ import org.e2immu.annotation.Independent;
 import org.e2immu.annotation.NotModified;
 import org.e2immu.annotation.NotNull;
 import org.e2immu.annotation.rare.IgnoreModifications;
+import org.e2immu.annotation.rare.StaticSideEffects;
 import org.e2immu.annotation.type.UtilityClass;
 public class JavaLang {
     public static final String PACKAGE_NAME = "java.lang";
@@ -2573,9 +2574,13 @@ public class JavaLang {
             System.Logger getLocalizedLogger(String name, ResourceBundle bundle, Module module) { return null; }
             static System.LoggerFinder getLoggerFinder() { return null; }
         }
-        static void setIn(/*@Independent[T]*/ InputStream in) { }
-        static void setOut(/*@Independent[T]*/ PrintStream out) { }
-        static void setErr(/*@Independent[T]*/ PrintStream err) { }
+        // reconfiguring the process-wide streams is a static side effect (road-to-immutability section 050): the
+        // effect (replacing System.out/err/in) is invisible from JDK source, so it is contracted here on the safe
+        // surface. A caller inherits the static side effect, which the @IgnoreModifications containment guard uses
+        // to tell "reconfiguring the mechanics" (an escape) from "just using System.out" (confined).
+        @StaticSideEffects static void setIn(/*@Independent[T]*/ InputStream in) { }
+        @StaticSideEffects static void setOut(/*@Independent[T]*/ PrintStream out) { }
+        @StaticSideEffects static void setErr(/*@Independent[T]*/ PrintStream err) { }
         //@Independent[O]
         static Console console() { return null; }
 

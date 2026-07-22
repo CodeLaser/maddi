@@ -30,18 +30,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Computes {@link PropertyImpl#STATIC_SIDE_EFFECTS_METHOD}: a method has a static side effect when it modifies
  * static/global state that belongs to a type <em>other</em> than its own primary type (road-to-immutability
- * §050, "Static side effects"). Concretely, the first cut flags a modifying call on, or an assignment to,
- * another type's static field. It is informational — it does not cap immutability (which inspects only the
- * type's own fields) — and it is the <b>global-escape arm</b> of the {@code @IgnoreModifications} confinement
- * guard: a modification reached through the ignored stratum that is a static side effect has left it.
+ * §050, "Static side effects"). It flags three shapes: an assignment to another type's static field; a
+ * modifying call on another type's static field ({@code Other.COUNTER.incrementAndGet()}); and a call to a
+ * method that itself has a static side effect. The third shape is the <b>callee-annotation</b> half: a static
+ * <em>method</em> call that reconfigures global state, e.g. {@code System.setOut(other)}, whose effect is not
+ * visible from JDK source, is recognised through a contracted {@code @StaticSideEffects} on the library's
+ * safe surface (an AAPI declaration; see {@code maddi-aapi-archive .../jdk/JavaLang.java}) and propagates to
+ * its callers, transitively.
+ * <p>
+ * It is informational — it does not cap immutability (which inspects only the type's own fields) — and it is the
+ * <b>global-escape arm</b> of the {@code @IgnoreModifications} confinement guard: a modification reached through
+ * the ignored stratum that is a static side effect has left it.
  * <p>
  * Gated on env {@code SSE} until a broader corpus A/B clears it. Additive: it writes only its own property and
  * changes no existing verdict.
- * <p>
- * Not yet covered (needs an AAPI "safe-surface" declaration on the callee, since a JDK static method's effect is
- * not visible from source): a static <em>method</em> call that reconfigures global state, e.g.
- * {@code System.setOut(other)}. A modifying call on another type's static <em>field</em> (e.g.
- * {@code System.out.println(x)}, {@code Other.COUNTER.incrementAndGet()}) is covered.
  */
 public class StaticSideEffectAnalyzerImpl {
     // non-final so a test can flip it; the env is the production default
@@ -91,10 +93,38 @@ public class StaticSideEffectAnalyzerImpl {
                     return false;
                 }
             }
+            // a call to a method that itself has a static side effect: the effect propagates to the caller. This
+            // is the callee-annotation half of the arm -- it is how an AAPI-contracted @StaticSideEffects method
+            // whose global effect is invisible from source (System.setOut(other) replacing System.out) makes its
+            // caller a static-side-effect method too. Works transitively for source callees as well.
+            if (e instanceof MethodCall mc) {
+                switch (calleeStaticSideEffect(mc.methodInfo())) {
+                    case TRUE -> { sse[0] = true; return false; }
+                    case UNDECIDED -> undecided[0] = true;
+                    case FALSE -> { /* no escape via this call */ }
+                }
+            }
             return true;
         });
         if (sse[0]) return Boolean.TRUE;
         return undecided[0] ? null : Boolean.FALSE;
+    }
+
+    private enum CalleeSse {TRUE, FALSE, UNDECIDED}
+
+    /**
+     * The static-side-effect verdict of a callee, for propagation to the caller. A contracted callee (an AAPI
+     * safe-surface method such as {@code System.setOut}, or a source method the author asserted) reads TRUE
+     * immediately. Absence is ambiguous, so it is resolved structurally: a source callee (a body we will compute)
+     * whose value is not in yet is UNDECIDED — wait for it, exactly as the modifying-call case waits on
+     * {@code NON_MODIFYING_METHOD}; a shallow/abstract callee (no body, no contract) can only be a static side
+     * effect by annotation, so its absence is a decided FALSE and never stalls the caller.
+     */
+    private static CalleeSse calleeStaticSideEffect(MethodInfo callee) {
+        Value.Bool sse = callee.analysis().getOrNull(PropertyImpl.STATIC_SIDE_EFFECTS_METHOD, ValueImpl.BoolImpl.class);
+        if (sse != null) return sse.isTrue() ? CalleeSse.TRUE : CalleeSse.FALSE;
+        boolean computable = !callee.isAbstract() && !callee.methodBody().isEmpty();
+        return computable ? CalleeSse.UNDECIDED : CalleeSse.FALSE;
     }
 
     /**
