@@ -446,9 +446,15 @@ semantics. Tests to extend: `TestWriteAnalysis2`, `TestAnalysisHintsComposer`.
    `@Immutable`/`@NotModified`/`@Final(after=)` POSITIVE (rendered inlays, `after=` visible) and the
    `@Mark`/`@Only`/`@TestMark`/`@FinalFields` family NEUTRAL (carried, not dropped), so all three front-ends now
    surface them. `TestDecorateEventual`; ungated & additive; prepwork 206/0, link 402/0 (decoration unchanged).
-2. **Polarity** — decide how `AnnotationTagger` (`maddi-ide-daemon`, polarity tables ~52–54) tags an eventual
-   annotation (POSITIVE, or a new EVENTUAL polarity) so the `InlineHintsMode`/`HintPlacement` filters on each
-   front-end treat it sensibly (e.g. show `@Immutable(after=…)` distinctly from a plain `@Immutable`).
+2. **Polarity — DONE (2026-07-22).** `AnnotationTagger` tags `@Mark`/`@Only`/`@TestMark`/`@FinalFields` and the
+   `after=` forms of `@Immutable`/`@NotModified`/`@Final` with a new **`EVENTUAL`** polarity (detected
+   structurally from the `AnnotationExpression`, not by text-matching), distinct from the plain `POSITIVE` of a
+   proven-now verdict; and an eventual verdict is never a context default, so the default filter always shows it.
+   Verified safe on all three front-ends (each filters "show unless polarity == one excluded literal"; polarity
+   is a free-form String, so an unrecognised value renders everywhere but the explicit NONE mode — it can only
+   make eventual verdicts *more* visible). `TestEventualPolarity` (end-to-end: a `SetOnce` holder's
+   `@Immutable(after="value")`/`@Mark`/`@Only` come back `EVENTUAL`, unconditional `@Container`/`@NotModified`
+   stay `POSITIVE`); daemon 11/0. Front-end styling/filtering *on* `EVENTUAL` is a later refinement.
 3. **Typed protocol field** (optional) — `DaemonProtocol.ElementAnnotation` carries `displayAnnotations`,
    `annotations`, and a stringly-typed `properties` map; a typed eventual field would let front-ends style the
    `after="…"` labels rather than parse strings.
