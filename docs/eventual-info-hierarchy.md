@@ -359,6 +359,42 @@ read-ordering artifact, not a real modification. Care point: key it on the store
 
 ### Diagnostic: FPDUMP extended
 `FPDUMP` now also emits, per element: the after-mark `eventual=` verdict on each type
-(`EVENTUALLY_IMMUTABLE_TYPE`), and `getset=<field>(get|set)` on each recognised getter/setter method
-(`GET_SET_FIELD`). Both were essential to the corrections above — the flagship types read `type immutable=@Mutable`
-unconditionally, their HC-ness lives only in `eventual=`. (`maddi-modification-analyzer/.../IteratingAnalyzerImpl`.)
+(`EVENTUALLY_IMMUTABLE_TYPE`), `getset=<field>(get|set)` on each recognised getter/setter method
+(`GET_SET_FIELD`), and `independent=` / `ignoreMod=` on fields and types. All were essential to the corrections
+above — the flagship types read `type immutable=@Mutable` unconditionally, their HC-ness lives only in
+`eventual=`. (`maddi-modification-analyzer/.../IteratingAnalyzerImpl`.)
+
+## Resolution: `@IgnoreModifications`-as-hidden-content (2026-07-22, DONE)
+
+The "skip `PropertyValueMap` by type" proposal above was correctly diagnosed as a hack (it conflates two
+regimes and would hide a genuine modification once the analyzer's own sources are in scope). The principled
+replacement, worked out with Bart and written into `road-to-immutability` §050 ("Ignoring modifications as
+manual hidden content"): **`@IgnoreModifications` *is* the manual form of hidden content** — a field whose
+modifications the author disclaims, confined to the *ignored stratum*, so it does not bear on the type's
+immutability. `@StaticSideEffects` is the same guard's global-escape arm.
+
+Implemented in two parts:
+
+1. **Annotations** — every `Info` store carries `@IgnoreModifications` with the "analysis overlay is orthogonal
+   to CST-structure immutability" rationale at the site: `InfoImpl.propertyValueMap` (inherited by the four
+   `InfoImpl`-extending types), `ParameterInfoImpl.analysis` (owned), `TypeParameterImpl.analysis` (owned
+   override).
+2. **Engine** — (a) `SourceContractMaterializer` now materializes `IGNORE_MODIFICATIONS_FIELD` on source fields
+   (it is a pure contract, uncomputable, so a source annotation was previously read by nothing — the exact
+   asymmetry that made the annotation fire on shallow-analysed `InfoImpl` but not on source `ParameterInfoImpl`);
+   ungated, a no-op off maddi's own annotated code. (b) `TypeImmutableAnalyzerImpl.loopOverFieldsAndMethods`
+   treats an `@IgnoreModifications` field as hidden content — its `UNMODIFIED_FIELD` verdict is irrelevant —
+   gated on `EVENTUALCLUSTER`; the field still holds the type at `IMMUTABLE_HC` (concrete type not deeply
+   immutable), never hc-free.
+
+**Result:** `ParameterInfoImpl` reaches `eventual=@Immutable(hc=true)(after="inspection,methodInfo,
+parameterizedType")` **deterministically** — the fourth core `Info` type, and the first **without**
+`extends InfoImpl`. All five (`TypeInfoImpl`, `MethodInfoImpl`, `FieldInfoImpl`, `TypeParameterImpl`,
+`ParameterInfoImpl`) are now eventual-HC on maddi's own code. Dogfood HC 9→10; gate-off unchanged (4 eventual);
+analyzer suite 227/0. Golden-rule corpus A/B: pending (the ungated materialization is argued a corpus no-op —
+no e2immu annotations there — and the field-loop skip is gated off).
+
+**Open follow-ons:** ungate the field-loop skip once the corpus A/B clears it (honouring `@IgnoreModifications`
+in the immutability loop is general correctness, not prototype); the confinement *guard* itself (separation
+check now, global-escape/containment later) as designed in §050; and the greatest-fixpoint removal pass still
+owed for the cluster optimism.
