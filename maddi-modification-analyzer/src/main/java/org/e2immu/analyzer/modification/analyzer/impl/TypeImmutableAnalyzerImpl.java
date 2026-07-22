@@ -88,6 +88,13 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         // recomputation can only improve on the unconditional verdict, and falls back to it when undecided.
         Independent independent = typeIndependentAnalyzer.independentAfterMark(typeInfo, afterMark,
                 activateCycleBreaking);
+        if (independent != null && EventualCluster.ENABLED) {
+            // the mark only RELAXES, so after-mark independence can never be below the unconditional verdict;
+            // floor it there. The recomputation under-reports here when a plain accessor leaks a cluster
+            // candidate whose immutability is not yet proven (ParameterInfoImpl.parameterizedType) -- see
+            // docs/eventual-info-hierarchy.md.
+            independent = independent.max(typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
+        }
         if (independent == null) return null; // undecided: never commit an eventual verdict on a guess
         return computeImmutableType(typeInfo, independent, activateCycleBreaking, afterMark);
     }

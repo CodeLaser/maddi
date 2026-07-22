@@ -16,11 +16,12 @@ sourceSets {
 }
 
 dependencies {
-    // the project dependency is the one under test: cst-api must arrive as SOURCE, not as a jar
+    // the project dependencies are the ones under test: cst-api and cst-analysis must arrive as SOURCE, not
+    // as jars -- analyzing PropertyValueMapImpl as source lets getOrDefault be proven @NotModified, which a
+    // jar dependency cannot establish (see docs/eventual-info-hierarchy.md, ParameterInfoImpl)
     implementation(project(":cst-api"))
-    // below the pair under test, so still jars; maddi-support in particular stays a jar so that reading
-    // @Mark/@Only out of byte code is exercised
-    implementation(":maddi-cst-analysis:0.8.2")
+    implementation(project(":cst-analysis"))
+    // maddi-support in particular stays a jar so that reading @Mark/@Only out of byte code is exercised
     implementation(":maddi-util:0.8.2")
     implementation("org.slf4j:slf4j-api:2.0.17")
     implementation("org.jetbrains:annotations:26.1.0")

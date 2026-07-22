@@ -11,8 +11,13 @@ One subproject per maddi module, each pointing at that module's real source dire
 | subproject | analyzed as | why |
 |---|---|---|
 | `:cst-api` | source | holds `TypeInfo`, the **interface** |
+| `:cst-analysis` | source | holds `PropertyValueMapImpl`; its `getOrDefault`/`getOrNull` must be **computed** `@NotModified` (a jar leaves them unproven, capping `ParameterInfoImpl`'s analysis store) |
 | `:cst-impl` | source | holds `TypeInfoImpl`, the **implementation** |
-| maddi-support, maddi-util, maddi-cst-analysis | jars (flatDir) | below the pair under test; maddi-support stays a jar so that reading `@Mark`/`@Only` out of **byte code** is exercised |
+| maddi-support, maddi-util | jars (flatDir) | maddi-support stays a jar so that reading `@Mark`/`@Only` out of **byte code** is exercised |
+
+When immutability is the focus, analyze as many dependencies as source as possible: a shallow jar leaves
+read accessors without a proven `@NotModified`, which conservatively caps immutability (see
+`road-to-immutability/llm-summary.md`). The plugin wires the transitive `cst-analysis → cst-api` source edge.
 
 Both interface and implementation must be analyzed *as source*: a jar type never enters the
 abstract-method batch, so nothing an implementation computes can travel up to its interface — and by
