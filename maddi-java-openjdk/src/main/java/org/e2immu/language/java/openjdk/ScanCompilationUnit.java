@@ -1512,7 +1512,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     } else {
                         scan(node.getInitializer(), p);
                         // must come after evaluation of initializer (when it creates a lambda, anonymous type)
-                        type = convertTypeWithAnnotations(variableDecl.vartype, dsb, annots::add);
+                        // For 'var', javac fills in the inferred type but its source points at the 'var' keyword;
+                        // recording a detailed source for it would make rename/move clobber the 'var <name>' text
+                        // (there is no explicit type token to rename). Resolve the type but discard its detailed
+                        // sources in that case.
+                        DetailedSources.Builder typeDsb = variableDecl.declaredUsingVar()
+                                ? runtime.newDetailedSourcesBuilder() : dsb;
+                        type = convertTypeWithAnnotations(variableDecl.vartype, typeDsb, annots::add);
                     }
                     if (currentExpression == null) {
                         currentExpression = runtime.newEmptyExpression();
