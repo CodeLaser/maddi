@@ -82,7 +82,8 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                                     boolean faultTolerant,
                                     boolean warnNearMisses,
                                     NearMissPolicy nearMissPolicy,
-                                    boolean modificationViaReachability) implements Configuration {
+                                    boolean modificationViaReachability,
+                                    boolean flattenVariableData) implements Configuration {
     }
 
     public static class ConfigurationBuilder {
@@ -93,6 +94,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         private boolean faultTolerant;
         private boolean warnNearMisses;
         private boolean modificationViaReachability;
+        private boolean flattenVariableData;
         private NearMissPolicy nearMissPolicy = NearMissPolicy.STRICT;
         private CycleBreakingStrategy cycleBreakingStrategy = CycleBreakingStrategy.NONE;
 
@@ -142,10 +144,15 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             return this;
         }
 
+        public ConfigurationBuilder setFlattenVariableData(boolean flattenVariableData) {
+            this.flattenVariableData = flattenVariableData;
+            return this;
+        }
+
         public Configuration build() {
             return new ConfigurationImpl(maxIterations, stopWhenCycleDetectedAndNoImprovements, cycleBreakingStrategy,
                     trackObjectCreations, guardContracts, faultTolerant, warnNearMisses, nearMissPolicy,
-                    modificationViaReachability);
+                    modificationViaReachability, flattenVariableData);
         }
     }
 
