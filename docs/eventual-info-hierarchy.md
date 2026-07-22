@@ -508,12 +508,27 @@ treatAsEventuallyImmutable(member, candidate, actual)` (signature extended with 
 for the field-type check). Recording is a pure side effect read by nobody yet, so it changes no verdict — additive
 and gated (`ENABLED` made non-final, mirroring `StaticSideEffectAnalyzerImpl`, so tests can flip it).
 `TestEventualClusterAssumptions` pins: an optimistic call records the edge; a proven verdict and the gate-off case
-record nothing. *No corpus A/B needed (no verdict path touched).* Next: step 2 walks this ledger to verify each
-member against the surviving set and retract the losers, iterating to the fixpoint.
+record nothing. *No corpus A/B needed (no verdict path touched).*
 
-**Still open:** greatest-fixpoint **step 2** (verify + retract the seed-only members, iterating to convergence)
-and step 3 (ungate the cluster result behind a byte-identical corpus A/B); the still-deferred subclass→superclass
-mark inheritance that would promote `InfoImpl` itself.
+**Step 2 — the contraction — IMPLEMENTED (2026-07-22, gate-ON dogfood validation pending gradle go-ahead).**
+`EventualClusterContraction` runs once at the terminal certification point (in `IteratingAnalyzerImpl`, before the
+verdict fingerprint and guard): it computes the largest subset of the eventual-verdict holders closed under "every
+candidate I assumed is retained" (`membersToRetract`, pure/generic so it is unit-testable), then **retracts**
+`EVENTUALLY_IMMUTABLE_TYPE` on the members that did not survive — dropping any that leaned on a candidate which did
+not itself prove eventually immutable, cascading to a fixpoint. Retraction is a `removeIf` on the property: it
+runs *outside* the monotone loop (a weakening `TolerantWrite` would refuse) as a post-convergence phase, which is
+sound precisely because the seed only ever influenced `EVENTUALLY_IMMUTABLE_TYPE` (the optimistic contribution
+fires solely in the after-mark branch of `immutableSuper` and in `fieldHoldsCommittableContent`), so clearing that
+one property is the whole retraction — no derived-family recompute. Conservative: the ledger is a superset of the
+final structural dependencies, so the pass never keeps an unsound verdict, though it could drop a justifiable one;
+on a self-consistent cluster it retracts nothing. Double-gated on `EVENTUALCLUSTER` (call site + early return) →
+off the gate the ledger is empty and it is a complete no-op, so the gate-off corpus A/B is byte-identical **by
+construction**. `TestEventualClusterContraction` (self-consistent cycle survives whole; broken assumption drops;
+cascade; independent verdict kept; mixed core-kept/sibling-dropped). analyzer 240/0.
+
+**Still open:** confirm on the **gate-ON dogfood** that the contraction retracts nothing (the self-consistency
+evidence — needs the standalone dogfood run); **step 3** ungate the cluster result behind a byte-identical corpus
+A/B; the still-deferred subclass→superclass mark inheritance that would promote `InfoImpl` itself.
 
 ## Task 4: surface the eventual verdicts to developers (the IDE path)
 
