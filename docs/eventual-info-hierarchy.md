@@ -410,9 +410,22 @@ The ungated materialization is a corpus no-op (no e2immu annotations there) and 
   `TestGuardIgnoreModifications`: the overlay shape is silent, a StringBuilder-content share is flagged once.
   Analyzer suite 229/0.
 
-**Still open:** the confinement guard's **global-escape/containment arm** (method-granularity, `@StaticSideEffects`
-+ AAPI safe-surface declarations); `GetSetHelper` guard-tolerance (getter↔variable equivalence gap); and the
-greatest-fixpoint **removal pass** still owed for the cluster optimism.
+**Confinement guard, global-escape arm — DONE (2026-07-22).** Its mechanical core, `@StaticSideEffects`, did
+not exist in the engine (only in road §050) — now implemented as a computed `STATIC_SIDE_EFFECTS_METHOD`
+(`StaticSideEffectAnalyzerImpl`): a method has a static side effect when it modifies static/global state of a
+type *other* than its own primary type (first cut: assignment to, or a modifying call on, another type's static
+field; static-method reconfiguration like `System.setOut` needs an AAPI safe-surface declaration, left for
+later). Gated on env `SSE`, additive (writes only its own property). `GuardAnalyzerImpl`.
+`guardIgnoreModificationsContainment` then warns when a modifying call on an `@IgnoreModifications` field has a
+callee that is `@StaticSideEffects` — the modification reaches global state, so it left the ignored stratum.
+`TestStaticSideEffects` + `TestGuardIgnoreModifications.testGlobalEscapeIsWarned`; analyzer suite 231/0; corpus
+A/B (SSE off byte-identical / SSE on no-crash) green.
+
+**Still open:** the AAPI safe-surface declarations for static-method reconfiguration (`System.setOut`,
+`logger.addAppender`) — the part of the global-escape arm that needs callee annotations; a `DecoratorImpl`
+emission of `@StaticSideEffects` so it surfaces in the IDE (Task 4 adjacent); `GetSetHelper` guard-tolerance
+(getter↔variable equivalence gap); and the greatest-fixpoint **removal pass** still owed for the cluster
+optimism.
 
 ## Task 4: surface the eventual verdicts to developers (the IDE path)
 

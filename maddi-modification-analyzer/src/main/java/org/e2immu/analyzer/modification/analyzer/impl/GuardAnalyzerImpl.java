@@ -667,8 +667,8 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
     We WARN, never cap: the escape does not by itself make the type mutable, it invalidates the confinement the
     annotation asserts, and (per the book) the designer decides. Conservative -- referencing accessible content
     from the stratum without sharing (the analysis overlay's normal use: it stores immutable Value objects) is a
-    decoration/absent link and stays silent. Global-escape/containment (the method-granularity arm and
-    @StaticSideEffects) is a separate, later piece.
+    decoration/absent link and stays silent. The global-escape/containment arm (a @StaticSideEffects call
+    reached through the ignored field) is guardIgnoreModificationsContainment.
      */
     private void guardIgnoreModificationsSeparation(TypeInfo typeInfo) {
         for (FieldInfo fieldInfo : typeInfo.fields()) {
