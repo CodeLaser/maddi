@@ -143,6 +143,18 @@ mostly cheap. Net: memory bought with a bounded recompute in the tail passes. Me
   VARIABLES_LINKED_TO_OBJECT, method-call level), so dropping ALL VD at pass-1 end is possible but does
   not lower the pass-1 peak, where field analyzers still need each method's last statement.
 
+  **Heap histogram at peak (jmap -histo:live, server/main single-pass+flatten, 2026-07-22) — the 16G
+  was GARBAGE, live set is 5.09G.** The 32G ceiling let churn accumulate; GC stayed at 1% so it never
+  reclaimed. Live rollup: JDK Object[]/collections 2115M (backing for the rest), parsed CST 993M,
+  **analysis() maps 798M (4M PropertyValueMapImpl, one per VariableInfo — mostly empty-map overhead,
+  lazy-allocate candidate)**, prepwork VD 430M (flatten already did its job — VD is only 8% of live),
+  **retained javac trees/symbols `com.sun.tools.javac.*` 407M (droppable if maddi keeps the javac AST
+  after building its CST)**, link engine 6M. Implications: (1) flatten's live-set impact is modest
+  because VD was never the bulk; its value is bounding churn/GC pressure. (2) 3M SCC extrapolates to
+  ~25G live at 5x — fits 32G, with the lazy-analysis-map and javac-drop levers as headroom. (3) the
+  earlier full-ES OOMs were MULTI-PASS + no flatten (churn across 30 passes); single-pass+flatten should
+  fit. Next validation: full ES (27 source sets) single-pass+flatten.
+
 ## 5b. Single-pass EI mode and its trade-off (measured 2026-07-22)
 
 For the actual use case — breaking the 3M-line SCC with ExtractInterface — the analyzer's *verdicts*
