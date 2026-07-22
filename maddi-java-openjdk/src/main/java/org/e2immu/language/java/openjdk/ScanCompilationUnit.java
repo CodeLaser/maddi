@@ -1597,7 +1597,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             // source, source of name
             Source vdSource = sourceForNode(variableDecl); // declaration, but only of one field
             Source nameSource = sourceOfIdentifier(name, variableDecl.pos);
-            dsb.put(name, nameSource);
+            // key by the canonical fieldInfo.name() instance: DetailedSources is identity-keyed and callers look up
+            // with fieldInfo.name(). The transient 'name' (varSymbol.toString()) is a fresh instance on each parse
+            // phase, so on a re-visit (inMap != null) it would no longer match fieldInfo.name(). Mirrors the
+            // parameter path (setParameterSource).
+            dsb.put(fieldInfo.name(), nameSource);
             Source nameAndInitSource;
             if (variableDecl.init != null) {
                 Source s = sourceForNode(variableDecl.init);
@@ -1731,7 +1735,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 namePos = namePos.withDetailedSources(nameDsb.build());
             }
         }
-        dsb.put(name, namePos);
+        // key by the canonical localVariable.simpleName() instance (DetailedSources is identity-keyed, callers look
+        // up with it), consistent with the field and parameter paths.
+        dsb.put(localVariable.simpleName(), namePos);
         Source statementSource = statementSourceForNode(variableDecl, dsb);
         lvcb.setSource(statementSource);
         elementStack.put(localVariable.simpleName(), localVariable);
