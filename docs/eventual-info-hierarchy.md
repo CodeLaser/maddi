@@ -479,7 +479,41 @@ no-op with the SSE gate off (no source method carries the property), so no corpu
 `TestDecorateStaticSideEffects` (prepwork, decorator seam), `TestStaticSideEffectPolarity` (daemon, end-to-end:
 gate on → decorate → tag NEGATIVE). prepwork 207/0, daemon 12/0.
 
-**Still open:** the greatest-fixpoint **removal pass** still owed for the cluster optimism.
+## Greatest-fixpoint removal pass (the remaining engine investment)
+
+The `EventualCluster` prototype supplies only the **optimistic seed** of the greatest fixpoint: it assumes each
+cluster candidate is eventually immutable and lets the two analyzers use that before the verdict is proven
+(`TypeImmutableAnalyzerImpl.immutableSuper` for a supertype contribution, `TypeEventualAnalyzerImpl.fieldHolds
+CommittableContent` for a cross-reference field type). It never does the other half — **contract**: remove any
+member whose verdict does not hold once its dependencies are restricted to the survivors, iterating to
+convergence. Today the result "happens to be" self-consistent (stable reruns; every member genuinely checks out),
+but that is proof-by-observation, not proof-by-construction. The removal pass makes it sound for arbitrary code
+and is the prerequisite to taking the whole cluster result (4→17 eventual, the five core `Info` types at
+eventual-HC) off the `EVENTUALCLUSTER` gate.
+
+Two architectural obstacles make this its own funded step, not an increment: (a) `EVENTUALLY_IMMUTABLE_TYPE` is
+**write-once** — set once in `computeTypeLevel` and NOT in `IteratingAnalyzerImpl.clearDerivedFamily`, so the
+outer loop never clears/recomputes it; retraction needs either adding it to the clearable family or a distinct
+post-convergence phase with its own clear. (b) analysis() writes are **monotone (strengthen-only)**; a retraction
+is a weakening the `TolerantWrite` guard refuses (the trap that killed "wait-on-pending-callee"), so the removal
+must run outside the monotone discipline as a controlled clear-and-recompute. It also overlaps the engine's
+existing immutability cycle-breaking and should extend it rather than run a parallel fixpoint — the most-guarded
+region, gated behind a byte-identical corpus A/B.
+
+**Step 1 — witness the optimism — IMPLEMENTED (2026-07-22, build/test pending gradle go-ahead).** For the
+contraction to have something to run on, every optimistic decision is now recorded. `EventualCluster.
+treatAsEventuallyImmutable(member, candidate, actual)` (signature extended with `member`) records the edge
+`member → candidate` in a new `assumptions()` ledger whenever it answers `true` only because of the seed
+(candidate not yet proven); both call sites thread the member (the subtype for `immutableSuper`, the field owner
+for the field-type check). Recording is a pure side effect read by nobody yet, so it changes no verdict — additive
+and gated (`ENABLED` made non-final, mirroring `StaticSideEffectAnalyzerImpl`, so tests can flip it).
+`TestEventualClusterAssumptions` pins: an optimistic call records the edge; a proven verdict and the gate-off case
+record nothing. *No corpus A/B needed (no verdict path touched).* Next: step 2 walks this ledger to verify each
+member against the surviving set and retract the losers, iterating to the fixpoint.
+
+**Still open:** greatest-fixpoint **step 2** (verify + retract the seed-only members, iterating to convergence)
+and step 3 (ungate the cluster result behind a byte-identical corpus A/B); the still-deferred subclass→superclass
+mark inheritance that would promote `InfoImpl` itself.
 
 ## Task 4: surface the eventual verdicts to developers (the IDE path)
 

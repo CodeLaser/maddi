@@ -117,7 +117,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         boolean stopExternal = false;
 
         for (ParameterizedType superType : typeInfo.parentAndInterfacesImplemented()) {
-            Immutable immutableSuper = immutableSuper(superType.typeInfo(), afterMark);
+            Immutable immutableSuper = immutableSuper(typeInfo, superType.typeInfo(), afterMark);
             Immutable immutableSuperBroken;
             if (immutableSuper == null) {
                 if (activateCycleBreaking) {
@@ -183,14 +183,16 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         return undecided ? null : true;
     }
 
-    private Immutable immutableSuper(TypeInfo typeInfo, AfterMark afterMark) {
-        Immutable immutable = typeInfo.analysis().getOrNull(IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.class);
+    // {@code member} is the subtype whose analysis is leaning on {@code superType}; it is recorded as the assumer
+    // when the optimistic (EVENTUALCLUSTER) contribution below fires, for the greatest-fixpoint contraction pass.
+    private Immutable immutableSuper(TypeInfo member, TypeInfo superType, AfterMark afterMark) {
+        Immutable immutable = superType.analysis().getOrNull(IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.class);
         if (!afterMark.isNone()) {
             // after OUR mark, an eventually immutable supertype has been marked too -- the transition is the
             // object's, not one type's -- so it contributes the level it reaches after its own mark. Without
             // this, an eventually immutable base or interface stays MUTABLE here and drags every subtype down
             // with it, which is precisely what kept the *Impl family in maddi from being certified.
-            Value.EventuallyImmutable ev = typeInfo.analysis()
+            Value.EventuallyImmutable ev = superType.analysis()
                     .getOrDefault(EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
             if (ev.isEventual()) {
                 return immutable == null ? ev.immutableAfterMark() : ev.immutableAfterMark().max(immutable);
@@ -198,13 +200,13 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
             // EXPERIMENTAL (EVENTUALCLUSTER): the supertype's own eventual verdict is still circular (InfoImpl has
             // no mark of its own; it inherits from its subclasses). Optimistically contribute immutable-HC after
             // the mark -- capped there, never hc-free -- so the subclass is not dragged down while the cluster
-            // greatest-fixpoint settles.
-            if (eventualCluster.treatAsEventuallyImmutable(typeInfo, ev)) {
+            // greatest-fixpoint settles. The member->superType assumption is witnessed for the contraction pass.
+            if (eventualCluster.treatAsEventuallyImmutable(member, superType, ev)) {
                 Immutable optimistic = ValueImpl.ImmutableImpl.IMMUTABLE_HC;
                 return immutable == null ? optimistic : optimistic.max(immutable);
             }
         }
-        if (immutable != null || !typeInfo.isAbstract()) return immutable;
+        if (immutable != null || !superType.isAbstract()) return immutable;
         // The abstract supertype's own immutability has not been decided yet. We must NOT estimate it from only its
         // non-abstract members: that ignores the abstract methods, which can make the abstract type mutable (e.g. a
         // modifying abstract method on an interface). Such an over-optimistic estimate gets committed onto a subtype,

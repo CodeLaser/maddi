@@ -20,7 +20,10 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -45,15 +48,33 @@ import java.util.concurrent.ConcurrentHashMap;
  * Only the recognition is optimistic; every genuine field/method check in the two analyzers stays strict, so a
  * candidate with a real mutable field still fails. Soundness of the resulting coinductive verdict is not yet
  * enforced by a removal pass (that is the follow-up) -- the gate keeps it out of the default corpus meanwhile.
+ *
+ * <h2>Witnessing the optimism (greatest-fixpoint, step 1)</h2>
+ * A greatest fixpoint is <em>seed optimistically, then contract</em>: start with every candidate assumed
+ * eventually immutable, then remove any member whose verdict does not hold once its dependencies are restricted
+ * to the survivors, iterating to convergence. This oracle supplies the seed; the contraction is the follow-up.
+ * For the contraction to have something to run on, every optimistic decision is now <em>recorded</em>: whenever
+ * {@link #treatAsEventuallyImmutable} answers {@code true} only because of the seed (the candidate's own verdict
+ * was not yet proven), it notes the edge <em>member &rarr; candidate</em> in {@link #assumptions()} -- "this
+ * member concluded relying on that candidate". Recording is a pure side effect (read by nobody yet), so it
+ * changes no verdict; it is the ledger the contraction pass will walk to retract any member that leaned on a
+ * candidate which ultimately did not prove out.
  */
 public class EventualCluster {
 
-    public static final boolean ENABLED = System.getenv("EVENTUALCLUSTER") != null;
+    private static final Logger LOGGER = LoggerFactory.getLogger(EventualCluster.class);
+
+    // non-final so a test can flip it; the env is the production default (mirrors StaticSideEffectAnalyzerImpl)
+    public static boolean ENABLED = System.getenv("EVENTUALCLUSTER") != null;
 
     // supertypes of direct candidates: the only members with no eventual method of their own
     private final Set<TypeInfo> inheritedCandidates = ConcurrentHashMap.newKeySet();
     private final Set<TypeInfo> directCandidateCache = ConcurrentHashMap.newKeySet();
     private final Set<TypeInfo> notDirectCandidateCache = ConcurrentHashMap.newKeySet();
+
+    // greatest-fixpoint step 1: member -> the candidates it optimistically relied on (not yet proven when used).
+    // The ledger the contraction pass walks; empty when the gate is off.
+    private final Map<TypeInfo, Set<TypeInfo>> assumptions = new ConcurrentHashMap<>();
 
     /** Does the type carry eventual intent of its own (independent of the hierarchy closure)? */
     public boolean isDirectCandidate(TypeInfo typeInfo) {
@@ -91,9 +112,31 @@ public class EventualCluster {
         return isDirectCandidate(typeInfo) || inheritedCandidates.contains(typeInfo);
     }
 
-    /** Under the gate, a candidate may be treated as eventually immutable before its verdict is proven. */
-    public boolean treatAsEventuallyImmutable(TypeInfo typeInfo, Value.EventuallyImmutable actual) {
-        if (actual.isEventual()) return true;
-        return ENABLED && isCandidate(typeInfo);
+    /**
+     * May {@code candidate} be treated as eventually immutable here? {@code true} outright when its verdict is
+     * genuinely proven ({@code actual.isEventual()}); otherwise, under the gate, {@code true} optimistically when
+     * it is a cluster candidate whose verdict is still circular -- and that optimism is <em>witnessed</em>: the
+     * edge {@code member -> candidate} is recorded in {@link #assumptions()} so the contraction pass can later
+     * retract {@code member} if {@code candidate} does not prove out. {@code member} is the type whose analysis is
+     * leaning on {@code candidate} (the subtype for a supertype contribution, the field owner for a field type).
+     */
+    public boolean treatAsEventuallyImmutable(TypeInfo member, TypeInfo candidate, Value.EventuallyImmutable actual) {
+        if (actual.isEventual()) return true; // proven on its own merits: no assumption
+        if (ENABLED && isCandidate(candidate)) {
+            if (assumptions.computeIfAbsent(member, m -> ConcurrentHashMap.newKeySet()).add(candidate)) {
+                LOGGER.debug("EC: {} optimistically assumes {} is eventually immutable", member, candidate);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * The optimistic assumptions witnessed so far: for each member, the set of candidates it concluded by relying
+     * on (before those candidates' own verdicts were proven). The ledger the greatest-fixpoint contraction pass
+     * walks; empty when the gate is off. The returned map is live (backed by the oracle); callers must not mutate.
+     */
+    public Map<TypeInfo, Set<TypeInfo>> assumptions() {
+        return assumptions;
     }
 }
