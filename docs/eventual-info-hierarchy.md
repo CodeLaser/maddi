@@ -391,8 +391,10 @@ Implemented in two parts:
 parameterizedType")` **deterministically** — the fourth core `Info` type, and the first **without**
 `extends InfoImpl`. All five (`TypeInfoImpl`, `MethodInfoImpl`, `FieldInfoImpl`, `TypeParameterImpl`,
 `ParameterInfoImpl`) are now eventual-HC on maddi's own code. Dogfood HC 9→10; gate-off unchanged (4 eventual);
-analyzer suite 227/0. Golden-rule corpus A/B: pending (the ungated materialization is argued a corpus no-op —
-no e2immu annotations there — and the field-loop skip is gated off).
+analyzer suite 227/0. **Golden-rule corpus A/B: passed** — the three certified corpus tests
+(`TestFernflower`/`TestTimefoldSolver`/`TestLangchain4j`) ran gate-off, forced (`--rerun-tasks`), with real
+analysis time (147s / 179s / 36s) and 0 failures / 0 errors (Timefold's 1 skip is the pre-existing assumption).
+The ungated materialization is a corpus no-op (no e2immu annotations there) and the field-loop skip is gated off.
 
 **Open follow-ons:** ungate the field-loop skip once the corpus A/B clears it (honouring `@IgnoreModifications`
 in the immutability loop is general correctness, not prototype); the confinement *guard* itself (separation
