@@ -103,32 +103,55 @@ preloading `libs/test` analysis hints aborts unless junit-jupiter-api is on the 
 `jdk` alone for small examples), and piping gradle through `tail` makes `$?` the exit status of
 `tail`, so a failed analysis reads as success.
 
-## 2. GitHub repo metadata
+## 2. GitHub repo metadata — DONE 2026-07-22
 
-Free, takes minutes, and it is what determines whether the repo is findable at all.
+The repo previously had no topics at all, so it was invisible to GitHub's own topic search, and no
+homepage link. Now:
 
-- [ ] **Topics**: `static-analysis`, `program-analysis`, `immutability`, `java`, `kotlin`,
-      `javac`, `dataflow-analysis`, `annotations`. Currently none — the repo is invisible to
-      GitHub's own topic search.
-- [ ] **Homepage URL**: unset. Point it at the book once §4 is done.
-- [ ] **Description**: currently expands the acronym, which leads with "duplication detection" —
-      a capability the docs never mention again. Replace with something a stranger can act on,
-      e.g. *"Whole-program static analyzer that computes immutability, modification and
-      independence for Java and Kotlin."*
-- [ ] **Discussions**: off. Turn on — questions about the *concepts* have nowhere to go today,
-      and those are the ones most worth having in public.
-- [ ] Social preview image (optional, but it is what renders when anyone links the repo).
+- **Description**: "Whole-program static analyzer that computes immutability, modification and
+  independence for Java and Kotlin." (drops the acronym expansion, per §8)
+- **Homepage**: `https://www.e2immu.org/docs/road-to-immutability.html` — the book. Revisit when
+  the book gets its own home under a maddi domain (§4).
+- **Topics**: `annotations`, `dataflow-analysis`, `immutability`, `java`, `javac`, `kotlin`,
+  `program-analysis`, `static-analysis`.
+- **Discussions**: enabled — questions about the *concepts* previously had nowhere to go.
 
-## 3. CI
+> **Tooling note.** The `gh` CLI on this machine is authenticated as `bart-naudts_soficonv`, which
+> has `{admin: false, push: false, pull: true}` on `CodeLaser/maddi`. Any write through `gh` fails
+> with a bare **HTTP 404** (GitHub returns 404, not 403, for repos you can read but not administer).
+> Git pushes still work because the SSH remote uses a different, privileged identity. The same
+> account limit is why Dependabot alerts could not be read in §1. Do repo administration in the web
+> UI, or `gh auth login` as the owning account first.
 
-`.github/workflows/` does not exist. For a static-analysis tool, an unproven build is a credibility
-problem before anyone reads a line.
+- [ ] Social preview image — still unset. It is what renders whenever anyone links the repo in
+      Slack, on Mastodon/X, or in a chat client; the default is a grey placeholder.
 
-- [ ] Workflow running `./gradlew build` on push and PR (JDK 26, `actions/setup-java`).
-- [ ] Badge in the README once green.
-- [ ] Do **not** put `slowTest` on every push — it needs the external corpora, which are absent on
-      a runner and skip via JUnit assumption, i.e. it would report a green that proves nothing
-      (see `AGENTS.md` §Commands). Schedule it separately, or gate it on a label.
+## 3. CI — workflow added 2026-07-22, first run not yet observed
+
+For a static-analysis tool, an unproven build is a credibility problem before anyone reads a line.
+`.github/workflows/build.yml` runs `./gradlew build` on push to `main`, on pull requests, and on
+manual dispatch: JDK 26 via `actions/setup-java` (Temurin `jdk-26.0.1+8` is GA for linux/x64 and
+matches the development JDK), Gradle caching via `gradle/actions/setup-gradle@v4`, test reports
+uploaded as an artifact on failure, and a concurrency group so a newer push cancels an in-flight run.
+
+Two things deliberately NOT done:
+
+- **`slowTest` is not in CI, and should not be added.** The large-corpus tests need external corpora
+  (`test-oss`, `testarchive`) that do not exist on a runner; without them every test skips via a
+  JUnit assumption and the job reports a green that proves nothing — the exact failure mode
+  `AGENTS.md` §Commands warns about. If it is ever wanted, it needs the corpora provisioned *and* a
+  roll-call assertion, not just the task name.
+- **No README badge yet.** Add it only after the first genuinely green run; a red badge is worse
+  than no badge. The line to add under the title:
+  `![build](https://github.com/CodeLaser/maddi/actions/workflows/build.yml/badge.svg)`
+
+- [ ] Watch the first run. The known risk is `maddi-intellij`, which resolves
+      `intellijIdea("2025.3")` — a large IDE distribution downloaded on a cold Gradle cache. If it
+      makes runs slow or flaky, exclude that project from the CI invocation rather than dropping
+      the workflow; the analyzer stack is what outsiders evaluate.
+- [ ] No Gradle toolchain is declared anywhere, so the build silently uses whatever `JAVA_HOME`
+      offers. Declaring one would make CI and local builds agree by construction instead of by
+      convention.
 
 ## 4. Publish the book
 
