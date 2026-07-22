@@ -145,13 +145,34 @@ Two things deliberately NOT done:
   than no badge. The line to add under the title:
   `![build](https://github.com/CodeLaser/maddi/actions/workflows/build.yml/badge.svg)`
 
-- [ ] Watch the first run. The known risk is `maddi-intellij`, which resolves
-      `intellijIdea("2025.3")` — a large IDE distribution downloaded on a cold Gradle cache. If it
-      makes runs slow or flaky, exclude that project from the CI invocation rather than dropping
-      the workflow; the analyzer stack is what outsiders evaluate.
+### First run failed, and found a real bug (run 29919515257, 2026-07-22)
+
+Not the IntelliJ download — that resolved and compiled fine. The Gradle **daemon** died:
+
+```
+The Daemon will expire immediately since the JVM garbage collector is thrashing.
+The currently configured max heap space is '512 MiB' and the configured max metaspace is '384 MiB'.
+Gradle build daemon has been stopped: since the JVM garbage collector is thrashing
+```
+
+`gradle.properties` declared no `org.gradle.jvmargs`, so CI got Gradle's 512 MiB default. This was
+never a CI-only problem: **`git clone && ./gradlew build` could not have worked on any machine
+without a user-level heap setting.** It passed locally only because
+`~/.gradle/gradle.properties` supplies `-Xmx24G`, and the user-home file takes precedence over the
+project one. CI was the first environment honest enough to have no such file.
+
+Fixed by adding `org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g` to the project
+`gradle.properties`. Because user-home wins, this changes nothing for existing developers and fixes
+every fresh clone. This is the concrete form of the "agree by construction, not convention" point
+below — a declared Gradle toolchain would close the JDK half of the same gap.
+
+Also bumped the actions to current majors (`checkout@v7`, `setup-java@v5`, `upload-artifact@v7`,
+`setup-gradle@v6`), clearing the Node-20 deprecation annotation.
+
+- [ ] Re-run and confirm green, then add the badge.
 - [ ] No Gradle toolchain is declared anywhere, so the build silently uses whatever `JAVA_HOME`
-      offers. Declaring one would make CI and local builds agree by construction instead of by
-      convention.
+      offers — the same class of latent portability bug as the heap default. Declaring one would
+      make CI and local builds agree by construction.
 
 ## 4. Publish the book
 
