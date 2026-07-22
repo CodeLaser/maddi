@@ -30,12 +30,16 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
+import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +71,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
     private final Map<TypeInfo, Value.EventuallyImmutable> eventuallyImmutableCache = new ConcurrentHashMap<>();
     private final Map<MethodInfo, Value.Eventual> eventualCache = new ConcurrentHashMap<>();
     private final Map<TypeInfo, Value.Immutable> immutableCache = new ConcurrentHashMap<>();
+    private final Map<MethodInfo, Value.Independent> independentCache = new ConcurrentHashMap<>();
 
     public TypeEventualAnalyzerImpl(Runtime runtime, TypeImmutableAnalyzer typeImmutableAnalyzer,
                                     IteratingAnalyzer.Configuration configuration,
@@ -288,6 +293,9 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
 
         Set<String> labels = new HashSet<>();
         boolean[] bail = {false};
+        // EVENTUALCLUSTER: locals holding a 'this'-derived value, with the labels committing it (null = poisoned)
+        Map<Variable, Set<String>> localCommit = EventualCluster.ENABLED
+                ? buildLocalCommitMap(typeInfo, methodInfo) : Map.of();
         methodInfo.methodBody().visit(e -> {
             if (bail[0]) return false;
             if (e instanceof Assignment a && a.variableTarget() instanceof FieldReference fr && fr.scopeIsThis()) {
@@ -298,6 +306,15 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 Value.Bool calleeNonMod = mc.methodInfo().analysis()
                         .getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
                 boolean calleeModifies = calleeNonMod == null || calleeNonMod.isFalse();
+                if (EventualCluster.ENABLED) {
+                    Set<String> excused = commitExcusedLabels(typeInfo, mc, calleeModifies, localCommit);
+                    if (excused == null) {
+                        bail[0] = true;
+                        return false;
+                    }
+                    labels.addAll(excused);
+                    return true;
+                }
                 if (calleeModifies) {
                     Set<String> excused = nonModifyingLabels(typeInfo, mc);
                     if (excused == null) {
@@ -361,6 +378,301 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             return receiverAfterLabels(typeInfo, inner.object());
         }
         return null;
+    }
+
+    /**
+     * EVENTUALCLUSTER reframe of the per-call excusal (handoff: {@code
+     * docs/handoff-eventual-interface-nonmodification.md} §5): a call cannot modify {@code this} after mark M iff
+     * every {@code this}-derived value it touches -- its receiver <em>and</em> its arguments -- is committed by M.
+     * Replaces both the receiver-only rooting of {@link #nonModifyingLabels} and the all-or-nothing parameter
+     * guard, which bail on the real cross-reference accessors ({@code returnType().typeInfo().isEnclosedIn(this
+     * .typeInfo)}). Null = bail: the enclosing method is not eventually-non-modifying via this path.
+     */
+    private Set<String> commitExcusedLabels(TypeInfo typeInfo, MethodCall mc, boolean calleeModifies,
+                                            Map<Variable, Set<String>> localCommit) {
+        // a @Mark or @Only(before) callee is the transition itself (setFinal, setVariable), not a post-mark
+        // read; calling it after the mark throws
+        Value.Eventual calleeEventual = eventualOf(mc.methodInfo());
+        if (calleeEventual.isMark() || calleeEventual.isOnly() && Boolean.FALSE.equals(calleeEventual.after())) {
+            return null;
+        }
+        Set<String> labels = new HashSet<>();
+        if (calleeModifies) {
+            // only a modifying callee can modify its receiver
+            if (mc.object() instanceof VariableExpression ve && ve.variable() instanceof This) {
+                // this.<accessor>() forward: the accessor itself must be eventually-non-modifying
+                Set<String> enm = mc.methodInfo().analysis()
+                        .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET).set();
+                if (enm.isEmpty()) return null;
+                labels.addAll(enm);
+            } else {
+                // top level: only the receiver needs committing; the call's own return value feeds nothing here
+                Set<String> receiver = commitLabels(typeInfo, mc.object(), localCommit);
+                if (receiver == null) return null;
+                labels.addAll(receiver);
+            }
+        }
+        // a call may modify a this-derived argument (a @Modified parameter); commit each
+        for (Expression arg : mc.parameterExpressions()) {
+            Set<String> argLabels = commitLabels(typeInfo, arg, localCommit);
+            if (argLabels == null) return null;
+            labels.addAll(argLabels);
+        }
+        return labels;
+    }
+
+    /**
+     * EVENTUALCLUSTER only. The mark labels after which {@code expr}'s value can no longer be used to modify
+     * {@code owner}'s ({@code this}'s) accessible state: the empty set when the value is not derived from
+     * {@code this} at all (a parameter, a fresh object, a constant, a static reference); a non-empty set when it
+     * is {@code this}-derived but committed (immutable) once those marks have passed; null when it is
+     * {@code this}-derived and cannot be shown committable -- bail. Bare {@code this} is never committable from
+     * the inside: mid-transition, it still has its mutable half.
+     */
+    private Set<String> commitLabels(TypeInfo owner, Expression expr, Map<Variable, Set<String>> localCommit) {
+        return commitLabels(owner, expr, localCommit, 0);
+    }
+
+    // how many same-class single-return forwards commitLabels may look through (guards against recursion)
+    private static final int MAX_LOOK_THROUGH = 3;
+
+    private Set<String> commitLabels(TypeInfo owner, Expression expr, Map<Variable, Set<String>> localCommit,
+                                     int depth) {
+        if (expr == null || !referencesThisOrTracked(expr, localCommit)) return Set.of();
+        if (expr instanceof VariableExpression ve) {
+            if (ve.variable() instanceof FieldReference fr && fr.scopeIsThis()) {
+                FieldInfo fieldInfo = fr.fieldInfo();
+                if (isOwnField(owner, fieldInfo) && fieldHoldsCommittableContent(fieldInfo)) {
+                    return Set.of(fieldInfo.name());
+                }
+                return null; // a non-committable field of this
+            }
+            if (localCommit.containsKey(ve.variable())) return localCommit.get(ve.variable()); // may be null
+            return null; // bare this (mid-transition), or another this-referencing variable shape
+        }
+        if (expr instanceof MethodCall mc) {
+            // an intermediate @Mark or @Only(before) call belongs to the transition; after the mark it throws
+            Value.Eventual calleeEventual = eventualOf(mc.methodInfo());
+            if (calleeEventual.isMark() || calleeEventual.isOnly() && Boolean.FALSE.equals(calleeEventual.after())) {
+                return null;
+            }
+            Set<String> acc = new HashSet<>();
+            // is the receiver a this-derived value that is COMMITTED once acc's labels have passed? (bare this
+            // never is: mid-transition it still has its mutable half)
+            boolean receiverCommitted;
+            if (mc.object() instanceof VariableExpression ve && ve.variable() instanceof This) {
+                // this.<accessor>(): the method boundary erases WHICH committed field the result was read
+                // through, which handedOnValueSafe often needs -- so look through a same-class single-return
+                // forward first, evaluating its body expression in place (one level of inlining)
+                if (depth < MAX_LOOK_THROUGH && mc.methodInfo().typeInfo() == owner) {
+                    Expression returned = singleReturnExpression(mc.methodInfo());
+                    if (returned != null) {
+                        Set<String> through = commitLabels(owner, returned, Map.of(), depth + 1);
+                        if (through != null) {
+                            acc.addAll(through);
+                            return commitArguments(owner, mc, localCommit, depth, acc);
+                        }
+                    }
+                }
+                // a genuinely non-modifying accessor contributes nothing; a modifying one must be
+                // eventually-non-modifying, and contributes its labels
+                if (!isNonModifyingRead(mc.methodInfo())) {
+                    Set<String> enm = mc.methodInfo().analysis()
+                            .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET)
+                            .set();
+                    if (enm.isEmpty()) return null;
+                    acc.addAll(enm);
+                }
+                receiverCommitted = false;
+            } else {
+                Set<String> receiver = commitLabels(owner, mc.object(), localCommit, depth);
+                if (receiver == null) return null;
+                if (receiver.isEmpty()) {
+                    // the receiver is not this-derived; neither is anything obtained from it -- only the
+                    // arguments still need committing
+                    return commitArguments(owner, mc, localCommit, depth, acc);
+                }
+                acc.addAll(receiver);
+                receiverCommitted = true;
+            }
+            // the aliasing trap (handoff §6, caveat 1): the value an INTERMEDIATE call hands on must not be
+            // usable to modify this-derived state downstream
+            if (!handedOnValueSafe(owner, mc, receiverCommitted)) return null;
+            return commitArguments(owner, mc, localCommit, depth, acc);
+        }
+        return null; // any other this-referencing expression shape: conservative
+    }
+
+    /** The expression of a body that is nothing but {@code return <expr>;}, else null. */
+    private static Expression singleReturnExpression(MethodInfo methodInfo) {
+        if (methodInfo.isAbstract() || methodInfo.methodBody().isEmpty()) return null;
+        List<Statement> statements = methodInfo.methodBody().statements().stream()
+                .filter(s -> !s.isSynthetic()).toList();
+        if (statements.size() != 1 || !(statements.getFirst() instanceof ReturnStatement rs)) return null;
+        return rs.expression();
+    }
+
+    /** Commit each argument of the call, folding the labels into {@code acc}; null = bail. */
+    private Set<String> commitArguments(TypeInfo owner, MethodCall mc, Map<Variable, Set<String>> localCommit,
+                                        int depth, Set<String> acc) {
+        for (Expression arg : mc.parameterExpressions()) {
+            Set<String> argLabels = commitLabels(owner, arg, localCommit, depth);
+            if (argLabels == null) return null;
+            acc.addAll(argLabels);
+        }
+        return acc;
+    }
+
+    /**
+     * Can the value an intermediate chain call hands on be used, downstream, to modify {@code owner}'s
+     * ({@code this}'s) mutable state? Decided from the callee's independence, which says exactly what the
+     * result shares with its receiver:
+     * <ul>
+     * <li>{@code @Independent}: nothing mutable -- always safe.</li>
+     * <li>{@code @Dependent} (accessible content): safe when the receiver is committed, because a committed
+     *     object's accessible content is immutable; NOT safe off bare {@code this} (the {@code getItems()}
+     *     trap: a non-modifying accessor handing out a mutable this-field).</li>
+     * <li>{@code @Independent(hc=true)} (hidden content, e.g. {@code Collection.stream},
+     *     {@code Either.getRight}): the wrapper layer is fresh by the contract; safe when the shared content
+     *     -- the concrete return type's parameters -- is committable ({@code Stream<MethodModifier>}).</li>
+     * </ul>
+     * A modifying or independence-undecided callee falls back to the return type itself being committable
+     * ({@link #returnTypeHoldsCommittableContent}), which also covers the hc-read whose result IS the hidden
+     * content ({@code EventuallyFinalOnDemand.get()} returning a cluster candidate).
+     */
+    private boolean handedOnValueSafe(TypeInfo owner, MethodCall mc, boolean receiverCommitted) {
+        if (isNonModifyingRead(mc.methodInfo())) {
+            Value.Independent independent = independentOf(mc.methodInfo());
+            if (independent != null) {
+                if (independent.isIndependent()) return true;
+                if (independent.isDependent()) {
+                    if (receiverCommitted) return true;
+                } else if (typeParametersHoldCommittableContent(owner, mc.concreteReturnType())) {
+                    return true;
+                }
+            }
+        }
+        return returnTypeHoldsCommittableContent(owner, mc);
+    }
+
+    /** All type parameters committable (seed + witness) or at least immutable-hc -- with at least one present:
+     *  a parameterless type offers no handle on what an hc-read's result shares. */
+    private boolean typeParametersHoldCommittableContent(TypeInfo owner, ParameterizedType parameterizedType) {
+        if (parameterizedType.parameters().isEmpty()) return false;
+        for (ParameterizedType param : parameterizedType.parameters()) {
+            TypeInfo paramType = param.bestTypeInfo();
+            if (paramType == null) return false;
+            if (!isEventuallyImmutableFieldType(owner, paramType)
+                && !immutableOf(paramType).isAtLeastImmutableHC()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // sentinel for "no verdict, no contract" -- must NOT read as dependent, which would skip the hidden-content
+    // check; kept out of the Value.Independent lattice on purpose
+    private static final Value.Independent INDEPENDENT_UNDECIDED =
+            new ValueImpl.IndependentImpl(-1, Map.of(), List.of());
+
+    /** {@code INDEPENDENT_METHOD}, with the {@link ContractReader} fallback for a jar method whose contract was
+     *  never materialised into {@code analysis()}. Mirrors {@link #immutableOf}; null when truly undecided. */
+    private Value.Independent independentOf(MethodInfo methodInfo) {
+        Value.Independent fromAnalysis = methodInfo.analysis()
+                .getOrNull(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.class);
+        if (fromAnalysis != null) return fromAnalysis;
+        Value.Independent cached = independentCache.computeIfAbsent(methodInfo, mi ->
+                contractReader.contracts(mi).get(PropertyImpl.INDEPENDENT_METHOD) instanceof Value.Independent i
+                        ? i : INDEPENDENT_UNDECIDED);
+        return cached == INDEPENDENT_UNDECIDED ? null : cached;
+    }
+
+    /**
+     * The twin of {@link #fieldHoldsCommittableContent} for the value an intermediate chain call hands on,
+     * operating on the concrete return type: committable when eventually immutable or a cluster candidate
+     * (seed + witness, via {@link #isEventuallyImmutableFieldType}), deeply immutable (a primitive, String), or an
+     * immutable single-indirection wrapper ({@code Either}, {@code Option}) of committable content.
+     */
+    private boolean returnTypeHoldsCommittableContent(TypeInfo member, MethodCall mc) {
+        ParameterizedType returnType = mc.concreteReturnType();
+        if (returnType.isPrimitiveExcludingVoid() || returnType.isVoid()) return true; // a value cannot alias
+        TypeInfo rtType = returnType.bestTypeInfo();
+        if (rtType == null) return false; // an unresolved type parameter: conservative
+        if (isEventuallyImmutableFieldType(member, rtType)) return true;
+        Value.Immutable immutable = immutableOf(rtType);
+        if (immutable.isImmutable()) return true; // no hidden content at all: nothing mutable to alias
+        if (!immutable.isAtLeastImmutableHC()) return false; // reads through it might expose mutable content
+        for (ParameterizedType param : returnType.parameters()) {
+            TypeInfo paramType = param.bestTypeInfo();
+            if (paramType != null && isEventuallyImmutableFieldType(member, paramType)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * EVENTUALCLUSTER only. Locals (and reassigned parameters) that hold a {@code this}-derived value, mapped to
+     * the labels committing that value (null = poisoned: this-derived but not committable). The handoff spec
+     * treats every local as "not this-derived" ({@code ∅}); that is exactly the aliasing trap one hop removed
+     * ({@code var l = this.items; l.add(x)}), so instead the map is built flow-insensitively over the whole body
+     * (a use before the assignment in a loop is still caught) and iterated for chained locals
+     * ({@code var b = a;}). Locals never assigned anything this-derived stay untracked, which is the spec's
+     * {@code ∅}: a fresh {@code new ArrayList<>()} builder local stays excusable.
+     */
+    private Map<Variable, Set<String>> buildLocalCommitMap(TypeInfo typeInfo, MethodInfo methodInfo) {
+        Map<Variable, Set<String>> map = new HashMap<>();
+        boolean changed = true;
+        int guard = 0;
+        while (changed && guard++ < 10) {
+            boolean[] change = {false};
+            methodInfo.methodBody().visit(e -> {
+                if (e instanceof LocalVariableCreation lvc) {
+                    lvc.localVariableStream().forEach(lv ->
+                            change[0] |= trackAssignment(typeInfo, map, lv, lv.assignmentExpression()));
+                } else if (e instanceof Assignment a
+                           && !(a.variableTarget() instanceof FieldReference)
+                           && !(a.variableTarget() instanceof This)) {
+                    change[0] |= trackAssignment(typeInfo, map, a.variableTarget(), a.value());
+                }
+                return true;
+            });
+            changed = change[0];
+        }
+        return map;
+    }
+
+    /** Fold one assignment into the map; true when the map changed. Once poisoned (null), a variable stays so. */
+    private boolean trackAssignment(TypeInfo typeInfo, Map<Variable, Set<String>> map, Variable target,
+                                    Expression value) {
+        if (value == null || value.isEmpty()) return false;
+        if (!referencesThisOrTracked(value, map)) return false; // not this-derived: stays untracked (∅)
+        Set<String> labels = commitLabels(typeInfo, value, map);
+        if (map.containsKey(target)) {
+            Set<String> existing = map.get(target);
+            if (existing == null) return false; // already poisoned
+            if (labels == null) {
+                map.put(target, null);
+                return true;
+            }
+            return existing.addAll(labels);
+        }
+        map.put(target, labels == null ? null : new HashSet<>(labels));
+        return true;
+    }
+
+    /** {@link #referencesThis}, extended with the locals tracked as holding this-derived values. */
+    private boolean referencesThisOrTracked(Expression expression, Map<Variable, Set<String>> tracked) {
+        boolean[] found = {false};
+        expression.visit(e -> {
+            if (e instanceof VariableExpression ve
+                && (ve.variable() instanceof This
+                    || ve.variable() instanceof FieldReference fr && fr.scopeIsThis()
+                    || tracked.containsKey(ve.variable()))) {
+                found[0] = true;
+                return false;
+            }
+            return !found[0];
+        });
+        return found[0];
     }
 
     /** Non-modifying by its own verdict, or -- for a jar accessor whose verdict was never materialized --

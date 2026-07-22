@@ -23,6 +23,8 @@ import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -69,22 +71,30 @@ public class EventualCluster {
 
     // supertypes of direct candidates: the only members with no eventual method of their own
     private final Set<TypeInfo> inheritedCandidates = ConcurrentHashMap.newKeySet();
+    // positive cache only: eventual intent appears monotonically over the iterations, so a negative answer is
+    // never final -- caching it once froze TypeInspectionImpl.Builder out of the cluster (queried before its
+    // @TestMark was computed), which silently kept TypeInspection from ever becoming an inherited candidate
     private final Set<TypeInfo> directCandidateCache = ConcurrentHashMap.newKeySet();
-    private final Set<TypeInfo> notDirectCandidateCache = ConcurrentHashMap.newKeySet();
 
     // greatest-fixpoint step 1: member -> the candidates it optimistically relied on (not yet proven when used).
     // The ledger the contraction pass walks; empty when the gate is off.
     private final Map<TypeInfo, Set<TypeInfo>> assumptions = new ConcurrentHashMap<>();
 
+    // label provenance: abstract-method owner -> the implementation owners its EVENTUALLY_NON_MODIFYING labels
+    // were inherited from. Under the commitLabels reframe a method label itself rests on seed assumptions, and
+    // when an interface inherits the label it must also inherit the implementation's assumption edges -- the
+    // implementation's own type verdict (whose retraction would otherwise carry the cascade) may legitimately
+    // never exist. Folded into the ledger by {@link #effectiveAssumptions}.
+    private final Map<TypeInfo, Set<TypeInfo>> labelProvenance = new ConcurrentHashMap<>();
+
     /** Does the type carry eventual intent of its own (independent of the hierarchy closure)? */
     public boolean isDirectCandidate(TypeInfo typeInfo) {
         if (directCandidateCache.contains(typeInfo)) return true;
-        if (notDirectCandidateCache.contains(typeInfo)) return false;
         boolean direct = typeInfo.analysis()
                 .getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL)
                 .isEventual()
                 || typeInfo.methods().stream().anyMatch(this::methodShowsEventualIntent);
-        (direct ? directCandidateCache : notDirectCandidateCache).add(typeInfo);
+        if (direct) directCandidateCache.add(typeInfo);
         return direct;
     }
 
@@ -138,5 +148,40 @@ public class EventualCluster {
      */
     public Map<TypeInfo, Set<TypeInfo>> assumptions() {
         return assumptions;
+    }
+
+    /** Record that {@code abstractOwner}'s abstract method inherited its eventually-non-modifying labels from an
+     *  implementation declared on {@code implementationOwner}: the abstract owner's verdict then rests on
+     *  whatever that implementation's excusals assumed. */
+    public void noteLabelInheritance(TypeInfo abstractOwner, TypeInfo implementationOwner) {
+        if (!ENABLED || abstractOwner == implementationOwner) return;
+        labelProvenance.computeIfAbsent(abstractOwner, k -> ConcurrentHashMap.newKeySet()).add(implementationOwner);
+    }
+
+    /**
+     * The contraction's view of the ledger: {@link #assumptions()} with label provenance folded in -- each member
+     * also carries the assumption sets of the implementation owners its abstract methods inherited labels from,
+     * transitively. A fresh snapshot; safe to keep while the underlying maps continue to grow.
+     */
+    public Map<TypeInfo, Set<TypeInfo>> effectiveAssumptions() {
+        Map<TypeInfo, Set<TypeInfo>> effective = new HashMap<>();
+        assumptions.forEach((member, set) -> effective.put(member, new HashSet<>(set)));
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (Map.Entry<TypeInfo, Set<TypeInfo>> entry : labelProvenance.entrySet()) {
+                Set<TypeInfo> mine = null;
+                for (TypeInfo source : entry.getValue()) {
+                    Set<TypeInfo> ofSource = effective.get(source);
+                    if (ofSource != null && !ofSource.isEmpty()) {
+                        if (mine == null) {
+                            mine = effective.computeIfAbsent(entry.getKey(), k -> new HashSet<>());
+                        }
+                        changed |= mine.addAll(ofSource);
+                    }
+                }
+            }
+        }
+        return effective;
     }
 }
