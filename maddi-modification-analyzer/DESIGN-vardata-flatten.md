@@ -133,7 +133,15 @@ mostly cheap. Net: memory bought with a bounded recompute in the tail passes. Me
   cross-method reader reads them; a reader still holding the old chained VD keeps its VICs alive via the
   chain until done). Wave-barrier (2.1) and pass-end flatten removed; pass-start regeneration kept for
   the multi-pass case. Correctness: elasticsearch-fw single-pass + Phase-5 flatten is byte-identical to
-  no-flatten. Peak-reduction proof on server/main: MEASURING.
+  no-flatten. **Peak-reduction MEASURED on server/main: 20.6G -> 16.0G (~22%), same 8 OK outcomes.**
+  Real and correct, but modest: the intermediate/nested statement chain was ~4.6G, NOT the dominant
+  accumulator. At ~5x scale (3M SCC) 16G extrapolates to ~80G — still over 32G. So flatten alone does
+  not make the 3M SCC fit; a heap histogram at peak is needed to find what holds the remaining 16G
+  (candidates: the flattened last-statement VDs across 138k methods, the parsed CST of 4875 types,
+  METHOD_LINKS summaries, the info/dependency graph). Next lever depends on that measurement — do NOT
+  guess. Note: in single-pass EI mode nothing reads statement VD after pass 1 (EI reads only
+  VARIABLES_LINKED_TO_OBJECT, method-call level), so dropping ALL VD at pass-1 end is possible but does
+  not lower the pass-1 peak, where field analyzers still need each method's last statement.
 
 ## 5b. Single-pass EI mode and its trade-off (measured 2026-07-22)
 
