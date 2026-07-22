@@ -13,4 +13,5 @@ module org.e2immu.analyzer.modification.analyzer {
     requires org.e2immu.util.internal.graph;
     requires org.e2immu.util.internal.util;
     requires org.slf4j;
+    requires java.management; // AnalysisProgressFeed: heap + GC beans for long-run observability
 }
