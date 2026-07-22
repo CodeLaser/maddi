@@ -109,11 +109,14 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         // the independent analyzer is built first: the immutable analyzer asks it for after-mark independence,
         // because the dependence cap in computeImmutableType would otherwise fire before the AfterMark relaxation
         typeIndependentAnalyzer = new TypeIndependentAnalyzerImpl(runtime, configuration, propertiesChanged, messages);
+        // EXPERIMENTAL greatest-fixpoint oracle for the eventual cluster (gated on EVENTUALCLUSTER), shared so the
+        // immutable analyzer's supertype step and the eventual analyzer's cross-reference step agree on membership
+        EventualCluster eventualCluster = new EventualCluster();
         typeImmutableAnalyzer = new TypeImmutableAnalyzerImpl(typeIndependentAnalyzer, configuration,
-                propertiesChanged, messages);
+                propertiesChanged, messages, eventualCluster);
         shallowTypeAnalyzer = new ShallowTypeAnalyzer(runtime, Element::annotations, false);
         typeContainerAnalyzer = new TypeContainerAnalyzerImpl(configuration, propertiesChanged, messages);
-        typeEventualAnalyzer = new TypeEventualAnalyzerImpl(runtime, typeImmutableAnalyzer, configuration, propertiesChanged, messages);
+        typeEventualAnalyzer = new TypeEventualAnalyzerImpl(runtime, typeImmutableAnalyzer, configuration, propertiesChanged, messages, eventualCluster);
         sourceContractMaterializer = new SourceContractMaterializer(runtime, propertiesChanged);
         dynamicImmutabilityInference = new DynamicImmutabilityInference(propertiesChanged);
         abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, propertiesChanged, messages);

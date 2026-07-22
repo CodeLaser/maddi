@@ -162,3 +162,41 @@ is a byte-identical FPDUMP A/B on the certified corpus). It should be scoped and
 piece, behind a gate until a corpus A/B clears it. Steps 1–5 are the correct, self-contained substrate
 it will build on — they land the entire self-field pattern and the interface method propagation; the
 cluster fixpoint is the distinct next investment.
+
+## Prototype: `EventualCluster`, gated on `EVENTUALCLUSTER` (2026-07-22)
+
+Built the optimistic half of the greatest fixpoint (`EventualCluster`, injected into the eventual and
+immutable analyzers). Cluster identification is candidates + upward hierarchy closure (§"how the cluster
+set is identified" above): a *direct* candidate has a `@Mark`/`@Only`/`@TestMark` method, an
+`EVENTUALLY_NON_MODIFYING_METHOD`, or an `EVENTUALLY_IMMUTABLE_TYPE`; its supertypes join by closure
+(the only way `InfoImpl` and the interfaces, with no eventual method, enter). Under the gate the eventual
+analyzer's cross-reference check and the immutable analyzer's `immutableSuper` treat a candidate as
+eventually immutable (capped at immutable-HC) before its verdict is proven.
+
+**Result — the circularity does break.** `eventuallyImmutableType` goes **4 → 17**, *stable across two
+reruns* (identical set), and the joint marks are exactly the predicted coinductive transitions:
+`TypeInfoImpl` after `inspection`, `MethodInfoImpl` after `inspection,typeInfo`, `FieldInfoImpl` after
+`inspection,owner`, `ParameterInfoImpl` after `inspection,methodInfo,parameterizedType`,
+`CompilationUnitImpl` after `fingerPrint,types`, plus `TypeParameterImpl`, `ModuleInfoImpl`,
+`FieldReferenceImpl`, `ParameterizedTypeImpl`, `ThisImpl` … Gate OFF returns exactly 4 (golden rule
+intact); analyzer suite 227/0 with the gate compiled in.
+
+**Two ceilings the prototype exposes, both worth the follow-up:**
+
+1. **Level caps at FINAL_FIELDS(1), not IMMUTABLE-HC(2).** `TypeInfoImpl`-after-`inspection` is level 1
+   with `independentType=2` — so independence is *not* the cap. The cap is a **cross-reference through a
+   wrapper**: `TypeInfoImpl.compilationUnitOrEnclosingType` is an `Either<CompilationUnit,TypeInfo>`, read
+   as `this.field.getLeft().method()`. The `nonModifyingLabels` pattern only reaches `this.field.m()`, not
+   `this.field.unwrap().m()`, so that field stays modified-content and holds the type at FINAL_FIELDS.
+   Generalising the excusal through immutable single-indirection wrappers (`Either`, `Option`) is the next
+   lever for the level.
+2. **Interfaces don't surface.** FINAL_FIELDS-after-mark does not beat their FINAL_FIELDS-*unconditional*,
+   so `computeTypeLevel`'s "must beat unconditional" guard suppresses the write. They would appear once
+   ceiling 1 lifts the level to IMMUTABLE-HC.
+
+**Soundness status.** The result is stable (evidence of a self-consistent fixpoint at level 1), but the
+greatest-fixpoint **removal pass is not yet implemented** — a member that concluded while relying on a
+candidate that ultimately did *not* is not yet retracted. That, plus the wrapper generalisation and
+promoting `InfoImpl` via subclass→parent inheritance, is the remaining work to make it default-worthy.
+The prototype's contribution is the proof that the cluster is genuinely resolvable and that the marks are
+the right ones; it lives behind `EVENTUALCLUSTER` until the removal pass and a corpus A/B clear it.
