@@ -47,11 +47,19 @@ public class AnnotationTagger {
     public static final String POSITIVE = "POSITIVE";
     public static final String NEGATIVE = "NEGATIVE";
     public static final String NEUTRAL = "NEUTRAL";
+    // an after-mark verdict: proven, but only once the object has passed its mark -- a conditional promise, so
+    // neither the plain POSITIVE (proven now) nor the NEGATIVE baseline. Its own polarity so a front-end can
+    // style/filter it distinctly; today every front-end shows an unrecognised polarity, so this degrades to
+    // "visible" without any client change. See road-to-immutability section 060 and docs/eventual-info-hierarchy.md.
+    public static final String EVENTUAL = "EVENTUAL";
 
     // annotation simple names by polarity (the core safety concepts)
     private static final Set<String> POSITIVE_NAMES = Set.of(
             "NotModified", "Immutable", "ImmutableContainer", "Container", "Independent", "NotNull", "Final");
     private static final Set<String> NEGATIVE_NAMES = Set.of("Modified", "Mutable", "Dependent", "Nullable");
+    // annotations that exist ONLY in an eventual form (the transition protocol, and the after-mark FINAL_FIELDS
+    // level which the decorator never emits unconditionally)
+    private static final Set<String> ALWAYS_EVENTUAL_NAMES = Set.of("Mark", "Only", "TestMark", "FinalFields");
 
     private final DecoratorImpl decorator;
     private final Qualification simpleNames;
@@ -66,7 +74,13 @@ public class AnnotationTagger {
         for (AnnotationExpression ae : decorator.annotations(info)) {
             String text = ae.print(simpleNames).toString();
             String name = nameOf(text);
-            out.add(new DaemonProtocol.Annotation(text, polarity(name), positiveContextDefault(info, name)));
+            if (isEventual(ae, name)) {
+                // an eventual verdict is novel information, never implied by the enclosing declaration, so it is
+                // never a context default (which the default filter would hide) -- always show it.
+                out.add(new DaemonProtocol.Annotation(text, EVENTUAL, false));
+            } else {
+                out.add(new DaemonProtocol.Annotation(text, polarity(name), positiveContextDefault(info, name)));
+            }
         }
         addNegatives(info, out);
         return out;
@@ -136,6 +150,18 @@ public class AnnotationTagger {
 
     private static DaemonProtocol.Annotation neg(String text, boolean contextDefault) {
         return new DaemonProtocol.Annotation(text, NEGATIVE, contextDefault);
+    }
+
+    /**
+     * An eventual (after-mark) annotation: the transition protocol ({@code @Mark}/{@code @Only}/{@code @TestMark})
+     * or the after-mark form of an otherwise-unconditional annotation ({@code @Immutable(after=)},
+     * {@code @NotModified(after=)}, {@code @Final(after=)}, {@code @FinalFields(after=)}). Detected structurally
+     * from the {@link AnnotationExpression} -- the {@code after=} attribute and the type's simple name -- not by
+     * string-matching the printed text.
+     */
+    private static boolean isEventual(AnnotationExpression ae, String name) {
+        if (ALWAYS_EVENTUAL_NAMES.contains(name)) return true;
+        return POSITIVE_NAMES.contains(name) && !ae.extractString("after", "").isBlank();
     }
 
     private static String polarity(String name) {
