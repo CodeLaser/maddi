@@ -234,8 +234,29 @@ OFF still exactly 4 (golden rule intact), suite 227/0. The three flagship types 
 
 **Still FINAL_FIELDS:** `ParameterInfoImpl` (after `inspection, methodInfo, parameterizedType`) is capped
 by its own `analysis` field — a mutable `PropertyValueMap`. Unlike the other three, `ParameterInfoImpl`
-does **not** extend `InfoImpl`; it holds the analysis store directly, and that field reads
-`unmodified=false` (whereas `InfoImpl.propertyValueMap`, which the others inherit, reads `unmodified=true`).
-The clean fix is a CST change — make `ParameterInfoImpl extends InfoImpl` like its siblings — not an
-analyzer one. `CompilationUnitImpl`, `ParameterizedTypeImpl`, `ModuleInfoImpl`, `TypeParameterImpl` remain
-at FINAL_FIELDS for similar per-type field reasons, each worth a look but none blocking the headline.
+does **not** extend `InfoImpl`; it holds the analysis store directly and reads it *on the field*
+(`analysis.getOrDefault(...)` in `isUnmodified`/`isIgnoreModifications`/`assignedToField`), whereas the
+three that extend `InfoImpl` can only reach the store through the `analysis()` accessor.
+
+The mechanism, confirmed: `PropertyValueMap.getOrDefault` has no `@NotModified` and its only implementation
+(`PropertyValueMapImpl`) is a **jar** here, so its non-modification is never established (`nonModifying=null`).
+The identical call is then non-modifying through the accessor (`InfoImpl.hasBeenAnalyzed` = `analysis().getOrDefault`
+→ true) but conservatively modifying on the direct field (`ParameterInfoImpl.isUnmodified` = `analysis.getOrDefault`
+→ false), because a possibly-mutating call on a *named own field* marks that field's content modified. So the
+store reads `unmodified=false` only in `ParameterInfoImpl`.
+
+Three fixes, in increasing scope:
+- **Annotate `PropertyValueMap.getOrDefault`/`getOrNull` `@NotModified`** — root cause, tiny, correct, helps
+  anywhere these are called on a field.
+- **Make `ParameterInfoImpl extends InfoImpl`** like its three siblings — removes the directly-readable store.
+- **Analyze `cst-analysis` as source** so `getOrDefault` is *computed* non-modifying (the "computed, not
+  contracted" path). Attempted: adding `cst-analysis` as a third dogfood source subproject wires it into the
+  input configuration, but the openjdk front end drops it — `package org.e2immu.language.cst.api.info does not
+  exist`. Root cause is a plugin gap: `ComputeSourceSets.dependentProjectResult` builds each *transitive*
+  dependency project (cst-analysis) as a flat leaf source set with `List.of()` inter-project dependencies, so
+  the cst-analysis→cst-api source edge is never wired and cst-analysis cannot resolve cst-api. Fixing it means
+  reconstructing the source-project dependency DAG from the resolution result — the general lesson (analyze
+  dependencies as source for immutability) is now noted in `road-to-immutability/llm-summary.md`.
+
+`CompilationUnitImpl`, `ParameterizedTypeImpl`, `ModuleInfoImpl`, `TypeParameterImpl` remain at FINAL_FIELDS
+for similar per-type field reasons, each worth a look but none blocking the headline.
