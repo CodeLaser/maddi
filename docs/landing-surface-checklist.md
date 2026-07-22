@@ -169,7 +169,70 @@ below — a declared Gradle toolchain would close the JDK half of the same gap.
 Also bumped the actions to current majors (`checkout@v7`, `setup-java@v5`, `upload-artifact@v7`,
 `setup-gradle@v6`), clearing the Node-20 deprecation annotation.
 
-- [ ] Re-run and confirm green, then add the badge.
+### Second run failed too, and found the second real bug (run 29921482346)
+
+The heap fix worked: the daemon survived and the build ran all the way into the test tasks.
+`:maddi-java-bytecode:test` then failed — every test in the module, with
+
+```
+java.nio.file.NoSuchFileException:
+  /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/26.0.1-8/x64/jmods/java.base.jmod
+```
+
+`CommonJmodBaseTests` opens `System.getProperty("java.home") + "/jmods/java.base.jmod"` directly, so
+the tests require a JDK that ships its `jmods` directory. The Temurin 26 build in the runner
+tool-cache does not; the Homebrew JDK used locally does, which is why this never showed up.
+
+**This is a test-harness gap, not a product gap.** The product already handles jmod-less JDKs:
+`JavaInspectorImpl`'s `case "jmod"` checks `Files.isRegularFile(jreDir/jmods/<mod>.jmod)` and, when
+absent and no `alternativeJREDirectory` is set, falls back to
+`Resources.addModuleFromRuntimeImage(...)`, reading the module out of `lib/modules` over the `jrt`
+filesystem. `CommonJmodBaseTests` predates that: it hardcodes
+`URI.create("jar:file:" + java.home + "/jmods/java.base.jmod!/")` and calls `addJmod` directly,
+so it never reaches the fallback.
+
+**Keep Temurin on CI — it is the only place the fallback is ever tested.**
+`TestRuntimeImageFallback` opens with `Assumptions.assumeFalse(Files.isDirectory(jmods))`, so on any
+developer JDK that ships `jmods/` (the macOS Homebrew build does) it silently skips. On the Temurin
+runner it finally executed for real, and **passed** (6.8s, run 29921482346). Switching to a
+jmods-shipping distribution (zulu, oracle, …) would make that test skip again and take the coverage
+away. The instinct to "fix" CI by changing the JDK was wrong; the jmod-less runner is an asset.
+
+Note this is *distinct* from `regression-jdk-preload-jmodless-alternative-jre.md`, which is about a
+jmod-less **`alternativeJREDirectory`** — the third branch above, which deliberately refuses
+(`"a jmod-less non-running JDK is not supported"`). The running-JDK path works; the alternative-JRE
+path does not. Do not conflate them.
+
+**Fixed 2026-07-22** in `maddi-java-bytecode`'s tests, three cases:
+
+- `CommonJmodBaseTests` (base of `TestPredefined`, `TestParseGenerics`, `TestParameterNameIndex`,
+  `TestParameterizedTypeFactory`) — new `addJavaBase` helper picking `.jmod` vs `jrt:` exactly as
+  `JavaInspectorImpl` does.
+- `TestGrpcStub.addJmod` — same selection; it built its own source set and called `addJmod` directly.
+- `GenerateParameterNameIndex` — genuinely needs `.jmod` files on disk (its `setup(List<Path>)` and
+  `allJmods()` take real paths), so its two tests now skip via an explicit `Assumptions.assumeTrue`
+  with a reason, rather than being reworked. Visible in the report, not a silent pass.
+
+Verified on **both** JDK kinds locally — `temurin-26.jdk` on this machine ships no `jmods/`, so CI is
+reproducible without pushing:
+
+```
+./gradlew -Dorg.gradle.java.home=/Library/Java/JavaVirtualMachines/temurin-26.jdk/Contents/Home \
+          :maddi-java-bytecode:test --rerun-tasks
+```
+
+(the `-D` override is needed because `~/.gradle/gradle.properties` pins `org.gradle.java.home`.)
+
+| class | jmods JDK (Homebrew) | jmod-less JDK (Temurin) |
+|---|---|---|
+| TestPredefined | 1 pass | 1 pass |
+| TestParseGenerics | 11 pass | 11 pass |
+| TestParameterizedTypeFactory | 12 pass | 12 pass |
+| TestParameterNameIndex | 2 pass | 2 pass |
+| TestGrpcStub | 1 pass | 1 pass |
+| GenerateParameterNameIndex | 2 pass | 2 **skipped** (by design) |
+
+- [ ] Push, confirm green, add the badge.
 - [ ] No Gradle toolchain is declared anywhere, so the build silently uses whatever `JAVA_HOME`
       offers — the same class of latent portability bug as the heap default. Declaring one would
       make CI and local builds agree by construction.

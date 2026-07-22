@@ -30,11 +30,31 @@ jobs:
       # No Gradle toolchain is declared, so the build runs on whatever JAVA_HOME provides.
       # Development happens on JDK 26; the openjdk front end reaches into jdk.compiler
       # internals, so running on an older JDK than the one that built it will not work.
+      # KEEP Temurin. It ships no `jmods/` directory, which makes this the only environment that
+      # actually exercises maddi's runtime-image fallback (JavaInspectorImpl case "jmod" ->
+      # addModuleFromRuntimeImage, via the jrt filesystem). TestRuntimeImageFallback skips itself
+      # whenever a jmods/ dir exists, so on a typical developer JDK it never runs at all.
+      # Confirmed: that test PASSED here on 2026-07-22, its first real execution.
+      # Switching to a jmods-shipping distribution (zulu, oracle, ...) would silence that coverage.
       - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
+
+      # Diagnostic, never fails: makes the jmods question answerable from the log alone,
+      # whichever way the build goes. Remove once CI is settled.
+      - name: Report JDK layout
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME"
+          java -version 2>&1
+          if [ -d "$JAVA_HOME/jmods" ]; then
+            echo "jmods present: $(ls "$JAVA_HOME/jmods" | wc -l) files"
+            ls "$JAVA_HOME/jmods" | head -5
+          else
+            echo "jmods ABSENT at $JAVA_HOME/jmods"
+            ls -la "$JAVA_HOME"
+          fi
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
