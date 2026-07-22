@@ -814,3 +814,27 @@ The verification-residue handoff was executed as a characterization pass; the fu
 Session artifacts, all env-gated and verdict-inert (module suite green; dogfood A/B churn proven equal to
 same-state base-vs-base): `FPDUMP_PARAMS` (parameter lines in the FPDUMP), `MODREACH_DEBUG` (reverse-
 divergence dump), `MODREACH_EXPLAIN=<substring>` (BFS chain from a reached receiver back to its seed).
+
+## Design A landed: the shadow pass repairs the recursion pessimism (2026-07-22, night, commit 23a01d71)
+
+Bart approved handoff §7.5 design A; it is implemented, tested, and recorded in
+`docs/handoff-verification-residue.md` §8. In brief: primitive seeding (walkable bodies no longer seed
+receiver-rooted summary entries; assignments, boundary contracts, the undecided-abstract-callee mirror and
+the E1/E2/E6 edges carry the evidence), E6-aware abstract seeding, the FALSE→TRUE reverse upgrade at the
+cutover, the `@IgnoreModifications` mirror + immutable-variable cut in the projections, and `@NotModified`
+on `Either.isLeft()/isRight()` (maddi-support byte-code aapi gap — the one ungated change; Fernflower
+gate-off A/B **byte-identical, 0 lines**, suites analyzer/link/prepwork/common all green).
+
+Effects on the dogfood under `MODREACH=1`: reverse-kept 231→0, joint fixpoint clean, ~340 FALSE→TRUE
+upgrades, `nonModifying=null` stays 0; `TypeInfoImpl.packageName()`/`fromPrimaryTypeDownwards()` and the
+abstract `TypeInfo.packageName()` compute TRUE; `TestRecursionThroughAbstract.testModReach` pins the repro
+all-true. `descriptor()` and the `print` family remain FALSE **correctly** — their chains pass through
+`inspection.get()`, i.e. the pre-mark modification this whole arc exists to excuse.
+
+**Consequence for the eventual endgame:** composing `MODREACH=1 EVENTUALCLUSTER=1` still nets fewer
+survivors (4, retracted 61; `InfoImpl` survives for the first time): modreach's ~1586 honest TRUE→FALSE
+downgrades hand `commitLabels` more methods than it currently excuses. The next front is Part B coverage
+against the honest modification state (EC_RETRACT_DEBUG + eventuallyNonMod scoreboard on the composed
+run), and one open engine question: jar `Stream.map` seeding as boundary-modifying despite the preloaded
+jdk aapi (suspected per-sourceSet Info identity mismatch; `MODREACH_EXPLAIN` chains through
+`SetOfMethodInfoImpl.nice()`).

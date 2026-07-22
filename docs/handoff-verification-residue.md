@@ -289,3 +289,8 @@ The next front is therefore **Part B coverage against the honest (modreach) modi
 — plus one open engine question: `Stream.map` (and friends) seeding as "non-analyzed modifying
 callee" despite the preloaded jdk aapi (suspected per-sourceSet Info identity mismatch at the
 preload boundary; see `MODREACH_EXPLAIN` chains through `SetOfMethodInfoImpl.nice()`).
+
+**Three-corpus gate-off A/B for commit `23a01d71` (2026-07-22, night):** Fernflower **0 lines**,
+Langchain4j **0 lines**, Timefold 6 lines vs base — proven run-to-run noise by the base-vs-base
+technique (a second base run flips 6 lines of the identical class: `Testdata*Solution` /
+`ListIterableSelector` / propagator-field independence flips on this known-flaky corpus).
