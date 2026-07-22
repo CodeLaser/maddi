@@ -60,6 +60,7 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
                 methodNonModifying(concreteImplementations, methodInfo);
                 methodIndependent(concreteImplementations, methodInfo);
                 methodEventual(concreteImplementations, methodInfo);
+                methodEventuallyNonModifying(concreteImplementations, methodInfo);
             }
         }
     }
@@ -176,6 +177,36 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
         if (fromImplementations != null) {
             methodInfo.analysis().set(EVENTUAL_METHOD, fromImplementations);
             DECIDE.debug("AM: Decide eventual of abstract method {} = {}", methodInfo, fromImplementations);
+            propertyChanges.incrementAndGet();
+        }
+    }
+
+    /**
+     * Carry {@code @NotModified(after=)} up to the abstract method, the same way {@link #methodEventual} carries
+     * {@code @Mark}/{@code @Only}. This is what makes {@code Info.access()} (and the rest of the read-through
+     * accessors) non-modifying after the mark, so the interface can reach an eventual verdict at all.
+     * <p>
+     * Every implementation must be compatible: either eventually-non-modifying after the same label set, or
+     * unconditionally non-modifying (which holds after any mark). One implementation that modifies with no
+     * after-label -- or whose modification is still undecided -- is a promise we cannot make.
+     */
+    private void methodEventuallyNonModifying(Iterable<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
+        if (methodInfo.analysis().haveAnalyzedValueFor(EVENTUALLY_NON_MODIFYING_METHOD)) return;
+        Set<String> agreed = null;
+        for (MethodInfo implementation : concreteImplementations) {
+            Value.SetOfStrings evNonMod = implementation.analysis()
+                    .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET);
+            if (!evNonMod.set().isEmpty()) {
+                if (agreed == null) agreed = evNonMod.set();
+                else if (!agreed.equals(evNonMod.set())) return; // implementations name different transitions
+            } else {
+                Value.Bool nonMod = implementation.analysis().getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+                if (nonMod == null || nonMod.isFalse()) return; // modifies with no after-label, or undecided
+            }
+        }
+        if (agreed != null) {
+            methodInfo.analysis().set(EVENTUALLY_NON_MODIFYING_METHOD, new ValueImpl.SetOfStringsImpl(Set.copyOf(agreed)));
+            DECIDE.debug("AM: Decide eventually-non-modifying of abstract method {} after {}", methodInfo, agreed);
             propertyChanges.incrementAndGet();
         }
     }

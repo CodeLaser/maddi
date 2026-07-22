@@ -44,6 +44,7 @@ public class PropertyProviderImpl {
                 EVENTUAL_PARAMETER,
                 EVENTUALLY_FINAL_FIELD,
                 EVENTUALLY_IMMUTABLE_TYPE,
+                EVENTUALLY_NON_MODIFYING_METHOD,
                 FINAL_FIELD,
                 FINAL_TYPE,
                 FINALIZER_METHOD,

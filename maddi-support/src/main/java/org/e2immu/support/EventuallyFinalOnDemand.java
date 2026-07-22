@@ -15,6 +15,7 @@
 package org.e2immu.support;
 
 import org.e2immu.annotation.ImmutableContainer;
+import org.e2immu.annotation.NotModified;
 import org.e2immu.annotation.eventual.Mark;
 import org.e2immu.annotation.eventual.Only;
 import org.e2immu.annotation.eventual.TestMark;
@@ -34,6 +35,7 @@ public class EventuallyFinalOnDemand<T> {
     // reentrant, so the loader calling get() from inside run() (same thread) still works as in the original
     // unsynchronized design. It is important that only setFinal can clear onDemand, and set isFinal at the
     // same time; no value should be returned as long as onDemand != null.
+    @NotModified(after = "isFinal")
     public T get() {
         if (isFinal) return value; // fast path: a committed value never changes again
         Runnable runnable = onDemand;
