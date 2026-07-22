@@ -19,9 +19,14 @@ import org.e2immu.analyzer.modification.analyzer.*;
 import org.e2immu.analyzer.modification.common.defaults.ShallowTypeAnalyzer;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
+import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.analysis.Message;
+import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.element.Element;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -60,6 +65,12 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final List<Message> messages;
     private final boolean faultTolerant;
     private final Set<Info> failed = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    // VariableData flatten-snapshot (Configuration.flattenVariableData; DESIGN-vardata-flatten.md):
+    // runtime rebuilds a method's VD via prepwork on regeneration; the set tracks methods whose
+    // intermediate-statement VD has been dropped, so a re-link regenerates it first.
+    private final Runtime runtime;
+    private final boolean flattenVariableData;
+    private final Set<MethodInfo> flattenedMethods = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     // Parallel per-element loop: iterations 2+ on a fixed pool, iteration 1 via call-graph strata waves.
     // DEFAULT ON since the 3-corpus proof (2026-07-17: certified + verdict-exact at 8 threads): min(8,
@@ -120,6 +131,8 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         sourceContractMaterializer = new SourceContractMaterializer(runtime, propertiesChanged);
         dynamicImmutabilityInference = new DynamicImmutabilityInference(propertiesChanged);
         abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, propertiesChanged, messages);
+        this.runtime = runtime;
+        this.flattenVariableData = configuration.flattenVariableData();
     }
 
     @Override
@@ -165,6 +178,9 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         changedInfos.clear();
         summaryChangedInfos.clear();
         TolerantWrite.resetChangedTargets();
+        // flatten-snapshot: before this pass re-links any method whose intermediate VD was dropped,
+        // regenerate its full per-statement VD from the body (quiescent: before the parallel loop).
+        if (flattenVariableData && !flattenedMethods.isEmpty()) regenerateFlattened(analysisOrder);
         // first iteration only; concurrent for the strata-parallel path
         Set<TypeInfo> abstractTypes = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
@@ -198,12 +214,19 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                             }));
                         }
                         joinAll(futures); // barrier per wave: the next wave's callees are complete
+                        List<Info> waveElements = (waveCompletedCallback != null || flattenVariableData)
+                                ? wave.stream().flatMap(List::stream).toList() : null;
                         if (waveCompletedCallback != null) {
                             // workers quiescent at the barrier; the callback (guarded by the iterating
                             // analyzer's feed wrapper) must not slow the pass beyond its own throttle
-                            List<Info> waveElements = wave.stream().flatMap(List::stream).toList();
                             waveCompletedCallback.accept(waveElements, waveIndex);
                         }
+                        // flatten-snapshot Phase 2.1: flatten this wave's just-linked methods AT THE
+                        // BARRIER (quiescent) so the standing accumulator is bounded DURING the pass-1
+                        // giant wave — the actual peak, not just cross-pass memory. A pass-1 method is
+                        // linked exactly once, so no regeneration is needed here; later waves' field
+                        // analyzers read only the (preserved) last statement of these methods.
+                        if (flattenVariableData) flattenConsumed(waveElements);
                     }
                 } finally {
                     linkComputer.setLockComputeDisabled(false);
@@ -288,6 +311,82 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         LOGGER.info("Phase timing: main loop {} ms, abstract batch {} ms, 2nd type pass {} ms",
                 endLoop - startLoop, startSecondPass - startAbstract, end - startSecondPass);
         unionInWriteTargets();
+        // flatten-snapshot: this pass has consumed the methods' VariableData (links written, field/type
+        // analyzers done). Flatten each method's last-statement VD and drop the intermediates, so the
+        // container chain is collectible. Quiescent: after all joins, before the next pass.
+        if (flattenVariableData) flattenConsumed(analysisOrder);
+    }
+
+    // ---- VariableData flatten-snapshot helpers (DESIGN-vardata-flatten.md) --------------------------
+    // Both regenerate and flatten run only at pass boundaries in go(), where the workers are quiescent,
+    // so neither races the parallel FieldAnalyzer reads of another method's last-statement VariableData.
+
+    private void regenerateFlattened(List<Info> subset) {
+        PrepAnalyzer prep = new PrepAnalyzer(runtime);
+        for (Info info : subset) {
+            if (info instanceof MethodInfo mi && flattenedMethods.remove(mi)) {
+                clearAllVariableData(mi);
+                try {
+                    prep.doMethod(mi);
+                } catch (RuntimeException | AssertionError e) {
+                    LOGGER.error("VariableData regeneration failed for {}", mi, e);
+                }
+            }
+        }
+    }
+
+    private void flattenConsumed(List<Info> subset) {
+        for (Info info : subset) {
+            if (info instanceof MethodInfo mi && !failed.contains(mi) && flattenedMethods.add(mi)) {
+                try {
+                    if (!flattenOneMethod(mi)) flattenedMethods.remove(mi); // nothing flattened: don't track
+                } catch (RuntimeException | AssertionError e) {
+                    LOGGER.error("VariableData flatten failed for {}; keeping full VD", mi, e);
+                    flattenedMethods.remove(mi);
+                }
+            }
+        }
+    }
+
+    /** @return true iff the method's VariableData was flattened (false = abstract/empty, do not track). */
+    private boolean flattenOneMethod(MethodInfo mi) {
+        if (mi.methodBody() == null) return false;
+        List<Statement> statements = mi.methodBody().statements();
+        if (statements.isEmpty()) return false;
+        Statement last = statements.getLast(); // its VD is the method's consumed (last-block) VariableData
+        VariableData consumed = VariableDataImpl.of(last);
+        if (!(consumed instanceof VariableDataImpl vdi)) return false;
+        VariableDataImpl flat = vdi.flattened();
+        setVariableData(last.analysis(), flat);
+        if (VariableDataImpl.of(mi) != null) setVariableData(mi.analysis(), flat); // same anchor, method level
+        // consumers read only the last statement; drop the rest (recursing into sub-blocks)
+        walkStatements(statements, s -> {
+            if (s != last) clearVariableData(s.analysis());
+        });
+        return true;
+    }
+
+    private void clearAllVariableData(MethodInfo mi) {
+        clearVariableData(mi.analysis());
+        if (mi.methodBody() != null) {
+            walkStatements(mi.methodBody().statements(), s -> clearVariableData(s.analysis()));
+        }
+    }
+
+    private static void walkStatements(List<Statement> statements, java.util.function.Consumer<Statement> action) {
+        for (Statement s : statements) {
+            action.accept(s);
+            s.subBlockStream().forEach(b -> walkStatements(b.statements(), action));
+        }
+    }
+
+    private static void setVariableData(PropertyValueMap analysis, VariableDataImpl flat) {
+        analysis.removeIf(p -> p == VariableDataImpl.VARIABLE_DATA); // write-once: clear before re-setting
+        analysis.set(VariableDataImpl.VARIABLE_DATA, flat);
+    }
+
+    private static void clearVariableData(PropertyValueMap analysis) {
+        analysis.removeIf(p -> p == VariableDataImpl.VARIABLE_DATA);
     }
 
     private static void joinAll(List<java.util.concurrent.Future<?>> futures) {
