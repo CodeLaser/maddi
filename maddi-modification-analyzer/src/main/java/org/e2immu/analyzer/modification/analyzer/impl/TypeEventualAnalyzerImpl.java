@@ -21,8 +21,14 @@ import org.e2immu.analyzer.modification.common.defaults.ContractReader;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.Assignment;
+import org.e2immu.language.cst.api.expression.Cast;
+import org.e2immu.language.cst.api.expression.ConstructorCall;
+import org.e2immu.language.cst.api.expression.EnclosedExpression;
 import org.e2immu.language.cst.api.expression.Expression;
+import org.e2immu.language.cst.api.expression.InlineConditional;
+import org.e2immu.language.cst.api.expression.Lambda;
 import org.e2immu.language.cst.api.expression.MethodCall;
+import org.e2immu.language.cst.api.expression.MethodReference;
 import org.e2immu.language.cst.api.expression.Negation;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -136,6 +142,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         // EXPERIMENTAL (EVENTUALCLUSTER): once this type's method-level eventual intent is known, close it upward
         // so its supertypes join the cluster (InfoImpl and the interfaces have no eventual method of their own).
         eventualCluster.noteCandidate(typeInfo);
+        eventualCluster.noteHierarchy(typeInfo);
         computeTypeLevel(typeInfo, activateCycleBreaking);
     }
 
@@ -194,6 +201,37 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 if (!excusedFields.contains(fieldInfo) && fieldHoldsCommittableContent(fieldInfo)) {
                     markLabels.add(fieldInfo.name());
                     excusedFields.add(fieldInfo);
+                }
+            }
+        }
+        // EVENTUALCLUSTER, Part A -- subclass -> abstract superclass mark inheritance (the historical
+        // approvedPreconditionsFromParent, in this direction): an abstract class with no mark of its own, all
+        // of whose analyzed direct subclasses are eventually immutable with a SHARED mark label (every concrete
+        // Info subclass marks its own 'inspection'), inherits that shared label. A subclass whose verdict is
+        // still pending counts optimistically via the seed, witnessed like every other assumption -- the
+        // contraction validates. The shared label is the intersection: subclasses add their own cross-reference
+        // ride-alongs ('typeInfo', 'compilationUnitOrEnclosingType') on top of the common transition.
+        if (markLabels.isEmpty() && EventualCluster.ENABLED && typeInfo.isAbstract() && !typeInfo.isInterface()) {
+            Set<TypeInfo> subclasses = eventualCluster.knownSubclasses(typeInfo);
+            if (!subclasses.isEmpty()) {
+                Set<String> shared = null;
+                boolean allEventual = true;
+                for (TypeInfo subclass : subclasses) {
+                    Value.EventuallyImmutable subVerdict = subclass.analysis().getOrDefault(
+                            EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+                    if (subVerdict.isEventual()) {
+                        Set<String> subLabels = Set.of(subVerdict.markLabel().split(","));
+                        if (shared == null) shared = new HashSet<>(subLabels);
+                        else shared.retainAll(subLabels);
+                    } else if (!eventualCluster.treatAsEventuallyImmutable(typeInfo, subclass, subVerdict)) {
+                        allEventual = false;
+                        break;
+                    }
+                }
+                if (allEventual && shared != null && !shared.isEmpty()) {
+                    markLabels.addAll(shared);
+                    // no own field resolves these labels (they live on the subclasses); the abstract type's own
+                    // modifying methods still need their enm labels, collected in the loop above
                 }
             }
         }
@@ -293,9 +331,10 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
 
         Set<String> labels = new HashSet<>();
         boolean[] bail = {false};
-        // EVENTUALCLUSTER: locals holding a 'this'-derived value, with the labels committing it (null = poisoned)
-        Map<Variable, Set<String>> localCommit = EventualCluster.ENABLED
-                ? buildLocalCommitMap(typeInfo, methodInfo) : Map.of();
+        // EVENTUALCLUSTER: locals holding a 'this'-derived value (with committing labels; null = poisoned),
+        // and locals holding provably fresh objects (every assignment a plain constructor call)
+        LocalContext localContext = EventualCluster.ENABLED
+                ? buildLocalContext(typeInfo, methodInfo) : LocalContext.EMPTY;
         methodInfo.methodBody().visit(e -> {
             if (bail[0]) return false;
             if (e instanceof Assignment a && a.variableTarget() instanceof FieldReference fr && fr.scopeIsThis()) {
@@ -307,7 +346,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                         .getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
                 boolean calleeModifies = calleeNonMod == null || calleeNonMod.isFalse();
                 if (EventualCluster.ENABLED) {
-                    Set<String> excused = commitExcusedLabels(typeInfo, mc, calleeModifies, localCommit);
+                    Set<String> excused = commitExcusedLabels(typeInfo, mc, calleeModifies, localContext);
                     if (excused == null) {
                         bail[0] = true;
                         return false;
@@ -389,11 +428,13 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * .typeInfo)}). Null = bail: the enclosing method is not eventually-non-modifying via this path.
      */
     private Set<String> commitExcusedLabels(TypeInfo typeInfo, MethodCall mc, boolean calleeModifies,
-                                            Map<Variable, Set<String>> localCommit) {
+                                            LocalContext ctx) {
         // a @Mark or @Only(before) callee is the transition itself (setFinal, setVariable), not a post-mark
-        // read; calling it after the mark throws
+        // read; calling it after the mark throws -- UNLESS it acts on a provably fresh object's lifecycle
+        // (fi.inspection.setVariable(...) in withOwnerVariableBuilder), which is not this's transition at all
         Value.Eventual calleeEventual = eventualOf(mc.methodInfo());
-        if (calleeEventual.isMark() || calleeEventual.isOnly() && Boolean.FALSE.equals(calleeEventual.after())) {
+        if ((calleeEventual.isMark() || calleeEventual.isOnly() && Boolean.FALSE.equals(calleeEventual.after()))
+            && !rootedInFresh(mc.object(), ctx)) {
             return null;
         }
         Set<String> labels = new HashSet<>();
@@ -407,18 +448,42 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 labels.addAll(enm);
             } else {
                 // top level: only the receiver needs committing; the call's own return value feeds nothing here
-                Set<String> receiver = commitLabels(typeInfo, mc.object(), localCommit);
+                Set<String> receiver = commitLabels(typeInfo, mc.object(), ctx);
                 if (receiver == null) return null;
                 labels.addAll(receiver);
             }
         }
         // a call may modify a this-derived argument (a @Modified parameter); commit each
         for (Expression arg : mc.parameterExpressions()) {
-            Set<String> argLabels = commitLabels(typeInfo, arg, localCommit);
+            Set<String> argLabels = commitLabels(typeInfo, arg, ctx);
             if (argLabels == null) return null;
             labels.addAll(argLabels);
         }
         return labels;
+    }
+
+    /** Per-method context for {@link #commitLabels}: locals holding this-derived values (with the labels
+     *  committing them; a null value = poisoned), and locals holding provably FRESH objects. */
+    private record LocalContext(Map<Variable, Set<String>> commit, Set<Variable> fresh) {
+        static final LocalContext EMPTY = new LocalContext(Map.of(), Set.of());
+    }
+
+    /** Is the expression's value rooted in an object constructed in this very method body (a plain constructor
+     *  call, or a chain of reads off a local every assignment of which is one)? A transition call on such a
+     *  receiver belongs to the fresh object's lifecycle, not to this's transition. */
+    private static boolean rootedInFresh(Expression expr, LocalContext ctx) {
+        if (expr instanceof ConstructorCall cc) return cc.anonymousClass() == null;
+        if (expr instanceof VariableExpression ve) {
+            if (ctx.fresh().contains(ve.variable())) return true;
+            return ve.variable() instanceof FieldReference fr && !fr.scopeIsThis() && rootedInFresh(fr.scope(), ctx);
+        }
+        if (expr instanceof MethodCall mc) return rootedInFresh(mc.object(), ctx);
+        if (expr instanceof Cast cast) return rootedInFresh(cast.expression(), ctx);
+        if (expr instanceof EnclosedExpression enclosed) return rootedInFresh(enclosed.inner(), ctx);
+        if (expr instanceof InlineConditional inline) {
+            return rootedInFresh(inline.ifTrue(), ctx) && rootedInFresh(inline.ifFalse(), ctx);
+        }
+        return false;
     }
 
     /**
@@ -429,31 +494,89 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * {@code this}-derived and cannot be shown committable -- bail. Bare {@code this} is never committable from
      * the inside: mid-transition, it still has its mutable half.
      */
-    private Set<String> commitLabels(TypeInfo owner, Expression expr, Map<Variable, Set<String>> localCommit) {
-        return commitLabels(owner, expr, localCommit, 0);
+    private Set<String> commitLabels(TypeInfo owner, Expression expr, LocalContext ctx) {
+        return commitLabels(owner, expr, ctx, 0);
     }
 
     // how many same-class single-return forwards commitLabels may look through (guards against recursion)
     private static final int MAX_LOOK_THROUGH = 3;
 
-    private Set<String> commitLabels(TypeInfo owner, Expression expr, Map<Variable, Set<String>> localCommit,
-                                     int depth) {
-        if (expr == null || !referencesThisOrTracked(expr, localCommit)) return Set.of();
+    private Set<String> commitLabels(TypeInfo owner, Expression expr, LocalContext ctx, int depth) {
+        if (expr == null || !referencesThisOrTracked(expr, ctx.commit())) return Set.of();
+        // a value whose TYPE cannot carry mutable state (an int, a String, a parameterless immutable-hc
+        // MethodType) is harmless whatever produced it -- the producing calls are excused independently by
+        // the enclosing visitor, which sees every MethodCall node
+        if (expr.parameterizedType() != null && valueIsHarmless(expr.parameterizedType())) return Set.of();
         if (expr instanceof VariableExpression ve) {
             if (ve.variable() instanceof FieldReference fr && fr.scopeIsThis()) {
                 FieldInfo fieldInfo = fr.fieldInfo();
                 if (isOwnField(owner, fieldInfo) && fieldHoldsCommittableContent(fieldInfo)) {
                     return Set.of(fieldInfo.name());
                 }
+                // an @IgnoreModifications store is manual hidden content (road §050): modifications through
+                // it are disclaimed by design, so its value cannot count as modifying this
+                if (fieldInfo.analysis().getOrDefault(PropertyImpl.IGNORE_MODIFICATIONS_FIELD,
+                        ValueImpl.BoolImpl.FALSE).isTrue()) {
+                    return Set.of();
+                }
+                // a deeply immutable value (String, a primitive) offers nothing to modify through
+                if (valueIsHarmless(fieldInfo.type())) return Set.of();
                 return null; // a non-committable field of this
             }
-            if (localCommit.containsKey(ve.variable())) return localCommit.get(ve.variable()); // may be null
-            return null; // bare this (mid-transition), or another this-referencing variable shape
+            if (ve.variable() instanceof FieldReference fr && !fr.scopeIsThis()) {
+                // a field read off another object (fi.inspection): the result is this-derived only insofar as
+                // this-derived content flowed into that object -- committed after the scope's labels
+                if (fr.fieldInfo().isStatic()) return null; // static state: not ours to excuse
+                return commitLabels(owner, fr.scope(), ctx, depth);
+            }
+            if (ctx.commit().containsKey(ve.variable())) return ctx.commit().get(ve.variable()); // may be null
+            if (ve.variable() instanceof This
+                && eventualCluster.treatAsEventuallyImmutable(owner, owner, eventuallyImmutable(owner))) {
+                // bare this handed out (Stream.of(this) in innerClassEnclosingStream): for a cluster candidate,
+                // this is committed once its own marks have passed -- before them the enclosing method is
+                // modifying anyway, and the owner's own verdict (validated by the contraction) carries the
+                // promise that post-mark aliases cannot modify it
+                return Set.of();
+            }
+            return null; // bare this (mid-transition, no candidate owner), or another variable shape
+        }
+        if (expr instanceof Cast cast) return commitLabels(owner, cast.expression(), ctx, depth);
+        if (expr instanceof EnclosedExpression enclosed) return commitLabels(owner, enclosed.inner(), ctx, depth);
+        if (expr instanceof InlineConditional inline) {
+            // the value is one of the two branches; the condition's calls are excused by the outer visitor,
+            // but its VALUE cannot leak (a boolean)
+            Set<String> ifTrue = commitLabels(owner, inline.ifTrue(), ctx, depth);
+            if (ifTrue == null) return null;
+            Set<String> ifFalse = commitLabels(owner, inline.ifFalse(), ctx, depth);
+            if (ifFalse == null) return null;
+            Set<String> acc = new HashSet<>(ifTrue);
+            acc.addAll(ifFalse);
+            return acc;
+        }
+        if (expr instanceof ConstructorCall cc) {
+            // a fresh object; a call on it later cannot modify this except through the this-derived values
+            // stored into it here, each committed after its own labels
+            if (cc.anonymousClass() != null) return null; // may capture this arbitrarily: conservative
+            Set<String> acc = new HashSet<>();
+            for (Expression arg : cc.parameterExpressions()) {
+                Set<String> argLabels = commitLabels(owner, arg, ctx, depth);
+                if (argLabels == null) return null;
+                acc.addAll(argLabels);
+            }
+            return acc;
+        }
+        if (expr instanceof Lambda lambda) {
+            return lambdaCommitLabels(owner, lambda, ctx, depth);
+        }
+        if (expr instanceof MethodReference mr) {
+            return methodReferenceCommitLabels(owner, mr, ctx, depth);
         }
         if (expr instanceof MethodCall mc) {
             // an intermediate @Mark or @Only(before) call belongs to the transition; after the mark it throws
+            // -- unless it acts on a provably fresh object's lifecycle
             Value.Eventual calleeEventual = eventualOf(mc.methodInfo());
-            if (calleeEventual.isMark() || calleeEventual.isOnly() && Boolean.FALSE.equals(calleeEventual.after())) {
+            if ((calleeEventual.isMark() || calleeEventual.isOnly() && Boolean.FALSE.equals(calleeEventual.after()))
+                && !rootedInFresh(mc.object(), ctx)) {
                 return null;
             }
             Set<String> acc = new HashSet<>();
@@ -467,10 +590,10 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 if (depth < MAX_LOOK_THROUGH && mc.methodInfo().typeInfo() == owner) {
                     Expression returned = singleReturnExpression(mc.methodInfo());
                     if (returned != null) {
-                        Set<String> through = commitLabels(owner, returned, Map.of(), depth + 1);
+                        Set<String> through = commitLabels(owner, returned, LocalContext.EMPTY, depth + 1);
                         if (through != null) {
                             acc.addAll(through);
-                            return commitArguments(owner, mc, localCommit, depth, acc);
+                            return commitArguments(owner, mc, ctx, depth, acc);
                         }
                     }
                 }
@@ -485,22 +608,128 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 }
                 receiverCommitted = false;
             } else {
-                Set<String> receiver = commitLabels(owner, mc.object(), localCommit, depth);
+                Set<String> receiver = commitLabels(owner, mc.object(), ctx, depth);
                 if (receiver == null) return null;
                 if (receiver.isEmpty()) {
                     // the receiver is not this-derived; neither is anything obtained from it -- only the
                     // arguments still need committing
-                    return commitArguments(owner, mc, localCommit, depth, acc);
+                    return commitArguments(owner, mc, ctx, depth, acc);
                 }
                 acc.addAll(receiver);
                 receiverCommitted = true;
             }
             // the aliasing trap (handoff §6, caveat 1): the value an INTERMEDIATE call hands on must not be
-            // usable to modify this-derived state downstream
-            if (!handedOnValueSafe(owner, mc, receiverCommitted)) return null;
-            return commitArguments(owner, mc, localCommit, depth, acc);
+            // usable to modify this-derived state downstream. A getter of an @IgnoreModifications store is
+            // exempt: modifications through that value are disclaimed by design (road §050). And when the
+            // OWNER itself is a cluster candidate (seed, witnessed as a self-assumption), a this-accessor's
+            // result is accessible content of this, committed once this's own marks have passed -- the trap
+            // shape (an accessor handing out an unmarked mutable field) then sinks the owner's own type
+            // verdict, and the contraction cascades the retraction to everything that leaned on it.
+            boolean ownerSeedCoversResult = !receiverCommitted
+                    && eventualCluster.treatAsEventuallyImmutable(owner, owner, eventuallyImmutable(owner));
+            // a chain rooted in a fresh object (the fluent newField.builder().setX(..).setY(..)) hands on
+            // fresh-owned state; the this-derived values stored into it are committed by the labels in acc
+            boolean freshRooted = rootedInFresh(mc.object(), ctx);
+            if (!isIgnoreModificationsAccessor(mc.methodInfo()) && !ownerSeedCoversResult && !freshRooted
+                && !handedOnValueSafe(owner, mc, receiverCommitted)) {
+                return null;
+            }
+            return commitArguments(owner, mc, ctx, depth, acc);
         }
         return null; // any other this-referencing expression shape: conservative
+    }
+
+    /** A getter handing out an {@code @IgnoreModifications} store: the value is manual hidden content, and
+     *  whatever is done through it is disclaimed (road §050). */
+    private boolean isIgnoreModificationsAccessor(MethodInfo methodInfo) {
+        Value.FieldValue fieldValue = methodInfo.getSetField();
+        return fieldValue != null && fieldValue.field() != null && !fieldValue.setter()
+               && fieldValue.field().analysis()
+                       .getOrDefault(PropertyImpl.IGNORE_MODIFICATIONS_FIELD, ValueImpl.BoolImpl.FALSE).isTrue();
+    }
+
+    /** A value of this type cannot be used to modify anything: a primitive, a deeply immutable type (String),
+     *  or a parameterless immutable-hc type (MethodType) -- all its methods are non-modifying, and there is
+     *  nothing parameterised to launder mutable content through. */
+    private boolean valueIsHarmless(ParameterizedType type) {
+        if (type.arrays() > 0) return false;
+        if (type.isPrimitiveExcludingVoid() || type.isVoid()) return true;
+        TypeInfo bestType = type.bestTypeInfo();
+        if (bestType == null) return false;
+        Value.Immutable immutable = immutableOf(bestType);
+        if (immutable.isImmutable()) return true;
+        return immutable.isAtLeastImmutableHC() && type.parameters().isEmpty();
+    }
+
+    /**
+     * A lambda handed to a callee: the callee may invoke it at will, so every this-derived value its body can
+     * touch or return must be committed. Calls and constructor calls inside the body are evaluated with the
+     * full {@link #commitLabels} discipline (including the handed-on-value checks -- the lambda's return value
+     * flows to the callee); a bare captured {@code this} bails.
+     */
+    private Set<String> lambdaCommitLabels(TypeInfo owner, Lambda lambda, LocalContext ctx, int depth) {
+        Set<String> acc = new HashSet<>();
+        boolean[] bail = {false};
+        lambda.methodBody().visit(e -> {
+            if (bail[0]) return false;
+            if (e instanceof Assignment a && a.variableTarget() instanceof FieldReference fr && fr.scopeIsThis()) {
+                bail[0] = true; // assigning an own field inside the lambda
+                return false;
+            }
+            if (e instanceof MethodCall || e instanceof ConstructorCall || e instanceof VariableExpression) {
+                Expression inner = (Expression) e;
+                if (referencesThisOrTracked(inner, ctx.commit())) {
+                    Set<String> labels = commitLabels(owner, inner, ctx, depth + 1);
+                    if (labels == null) {
+                        bail[0] = true;
+                        return false;
+                    }
+                    acc.addAll(labels);
+                }
+                return false; // commitLabels covered the subtree
+            }
+            return true;
+        });
+        return bail[0] ? null : acc;
+    }
+
+    /**
+     * A bound method reference handed to a callee ({@code newField.builder()::addFieldModifier}): the callee
+     * will invoke the referenced method on the bound scope. Unbound/static references without this-derived
+     * content never reach here (the fast path returns ∅).
+     */
+    private Set<String> methodReferenceCommitLabels(TypeInfo owner, MethodReference mr, LocalContext ctx,
+                                                    int depth) {
+        Value.Eventual mrEventual = eventualOf(mr.methodInfo());
+        boolean transition = mrEventual.isMark() || mrEventual.isOnly() && Boolean.FALSE.equals(mrEventual.after());
+        if (mr.scope() instanceof VariableExpression ve && ve.variable() instanceof This) {
+            if (transition) return null;
+            Set<String> acc = new HashSet<>();
+            if (!isNonModifyingRead(mr.methodInfo())) {
+                Set<String> enm = mr.methodInfo().analysis()
+                        .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET).set();
+                if (enm.isEmpty()) return null;
+                acc.addAll(enm);
+            }
+            // the result flows to the callee: same discipline as an intermediate this-accessor
+            if (!returnTypeHoldsCommittableContent(owner, mr.methodInfo().returnType())) return null;
+            return acc;
+        }
+        Set<String> scopeLabels = commitLabels(owner, mr.scope(), ctx, depth);
+        if (scopeLabels == null) return null;
+        if (rootedInFresh(mr.scope(), ctx)) return scopeLabels; // acts on the fresh object's lifecycle
+        if (transition) return null;
+        if (scopeLabels.isEmpty()) return scopeLabels; // not this-derived at all
+        // committed receiver: mirror handedOnValueSafe on the declared return type
+        if (isNonModifyingRead(mr.methodInfo())) {
+            Value.Independent independent = independentOf(mr.methodInfo());
+            if (independent != null && (independent.isIndependent() || independent.isDependent()
+                                        || typeParametersHoldCommittableContent(owner, mr.methodInfo().returnType()))) {
+                return scopeLabels;
+            }
+        }
+        if (returnTypeHoldsCommittableContent(owner, mr.methodInfo().returnType())) return scopeLabels;
+        return null;
     }
 
     /** The expression of a body that is nothing but {@code return <expr>;}, else null. */
@@ -513,10 +742,10 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
     }
 
     /** Commit each argument of the call, folding the labels into {@code acc}; null = bail. */
-    private Set<String> commitArguments(TypeInfo owner, MethodCall mc, Map<Variable, Set<String>> localCommit,
-                                        int depth, Set<String> acc) {
+    private Set<String> commitArguments(TypeInfo owner, MethodCall mc, LocalContext ctx, int depth,
+                                        Set<String> acc) {
         for (Expression arg : mc.parameterExpressions()) {
-            Set<String> argLabels = commitLabels(owner, arg, localCommit, depth);
+            Set<String> argLabels = commitLabels(owner, arg, ctx, depth);
             if (argLabels == null) return null;
             acc.addAll(argLabels);
         }
@@ -541,6 +770,13 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * content ({@code EventuallyFinalOnDemand.get()} returning a cluster candidate).
      */
     private boolean handedOnValueSafe(TypeInfo owner, MethodCall mc, boolean receiverCommitted) {
+        // on a COMMITTED receiver the result's wrapper layer is either fresh or immutable content of the
+        // receiver's graph, whatever the callee's (possibly still undecided -- direct recursion!) independence;
+        // the only content it can hand on is typed by the parameters. This is what lets
+        // parent.recursiveSuperTypeStream() (Stream<TypeInfo>) and Stream.map chains (Stream<String>) through.
+        if (receiverCommitted && typeParametersHoldCommittableContent(owner, mc.concreteReturnType())) {
+            return true;
+        }
         if (isNonModifyingRead(mc.methodInfo())) {
             Value.Independent independent = independentOf(mc.methodInfo());
             if (independent != null) {
@@ -594,7 +830,11 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * immutable single-indirection wrapper ({@code Either}, {@code Option}) of committable content.
      */
     private boolean returnTypeHoldsCommittableContent(TypeInfo member, MethodCall mc) {
-        ParameterizedType returnType = mc.concreteReturnType();
+        return returnTypeHoldsCommittableContent(member, mc.concreteReturnType());
+    }
+
+    private boolean returnTypeHoldsCommittableContent(TypeInfo member, ParameterizedType returnType) {
+        if (returnType.arrays() > 0) return false; // array content stays mutable whatever the element type
         if (returnType.isPrimitiveExcludingVoid() || returnType.isVoid()) return true; // a value cannot alias
         TypeInfo rtType = returnType.bestTypeInfo();
         if (rtType == null) return false; // an unresolved type parameter: conservative
@@ -602,6 +842,11 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         Value.Immutable immutable = immutableOf(rtType);
         if (immutable.isImmutable()) return true; // no hidden content at all: nothing mutable to alias
         if (!immutable.isAtLeastImmutableHC()) return false; // reads through it might expose mutable content
+        // parameterless immutable-hc (MethodInspectionImpl, String): all its methods are non-modifying, so
+        // nothing can be modified through the value -- the same trust isNonModifyingRead places in a declared
+        // immutable type. Only a PARAMETERISED wrapper (Either, List) can launder mutable content, and then a
+        // committable parameter is required.
+        if (returnType.parameters().isEmpty()) return true;
         for (ParameterizedType param : returnType.parameters()) {
             TypeInfo paramType = param.bestTypeInfo();
             if (paramType != null && isEventuallyImmutableFieldType(member, paramType)) return true;
@@ -618,8 +863,27 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * ({@code var b = a;}). Locals never assigned anything this-derived stay untracked, which is the spec's
      * {@code ∅}: a fresh {@code new ArrayList<>()} builder local stays excusable.
      */
-    private Map<Variable, Set<String>> buildLocalCommitMap(TypeInfo typeInfo, MethodInfo methodInfo) {
+    private LocalContext buildLocalContext(TypeInfo typeInfo, MethodInfo methodInfo) {
+        // pass 1 -- freshness: a local is fresh when every (non-empty) assignment to it is a plain
+        // constructor call. Fresh + this-derived-tracked can coexist (the constructor args carry labels).
+        Set<Variable> freshCandidates = new HashSet<>();
+        Set<Variable> notFresh = new HashSet<>();
+        methodInfo.methodBody().visit(e -> {
+            if (e instanceof LocalVariableCreation lvc) {
+                lvc.localVariableStream().forEach(lv -> classifyFreshness(lv, lv.assignmentExpression(),
+                        freshCandidates, notFresh));
+            } else if (e instanceof Assignment a
+                       && !(a.variableTarget() instanceof FieldReference)
+                       && !(a.variableTarget() instanceof This)) {
+                classifyFreshness(a.variableTarget(), a.value(), freshCandidates, notFresh);
+            }
+            return true;
+        });
+        freshCandidates.removeAll(notFresh);
+
+        // pass 2 -- commit labels, to a fixpoint for chained locals (var b = a;)
         Map<Variable, Set<String>> map = new HashMap<>();
+        LocalContext ctx = new LocalContext(map, Set.copyOf(freshCandidates));
         boolean changed = true;
         int guard = 0;
         while (changed && guard++ < 10) {
@@ -627,25 +891,45 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             methodInfo.methodBody().visit(e -> {
                 if (e instanceof LocalVariableCreation lvc) {
                     lvc.localVariableStream().forEach(lv ->
-                            change[0] |= trackAssignment(typeInfo, map, lv, lv.assignmentExpression()));
+                            change[0] |= trackAssignment(typeInfo, ctx, lv, lv.assignmentExpression()));
                 } else if (e instanceof Assignment a
                            && !(a.variableTarget() instanceof FieldReference)
                            && !(a.variableTarget() instanceof This)) {
-                    change[0] |= trackAssignment(typeInfo, map, a.variableTarget(), a.value());
+                    change[0] |= trackAssignment(typeInfo, ctx, a.variableTarget(), a.value());
                 }
                 return true;
             });
             changed = change[0];
         }
-        return map;
+        return ctx;
+    }
+
+    private static void classifyFreshness(Variable target, Expression value,
+                                          Set<Variable> freshCandidates, Set<Variable> notFresh) {
+        if (value == null || value.isEmpty()) return; // a bare declaration neither makes nor breaks freshness
+        if (isFreshCreation(value)) {
+            freshCandidates.add(target);
+        } else {
+            notFresh.add(target);
+        }
+    }
+
+    private static boolean isFreshCreation(Expression value) {
+        if (value instanceof ConstructorCall cc) return cc.anonymousClass() == null;
+        if (value instanceof InlineConditional inline) {
+            return isFreshCreation(inline.ifTrue()) && isFreshCreation(inline.ifFalse());
+        }
+        if (value instanceof Cast cast) return isFreshCreation(cast.expression());
+        if (value instanceof EnclosedExpression enclosed) return isFreshCreation(enclosed.inner());
+        return false;
     }
 
     /** Fold one assignment into the map; true when the map changed. Once poisoned (null), a variable stays so. */
-    private boolean trackAssignment(TypeInfo typeInfo, Map<Variable, Set<String>> map, Variable target,
-                                    Expression value) {
+    private boolean trackAssignment(TypeInfo typeInfo, LocalContext ctx, Variable target, Expression value) {
         if (value == null || value.isEmpty()) return false;
-        if (!referencesThisOrTracked(value, map)) return false; // not this-derived: stays untracked (∅)
-        Set<String> labels = commitLabels(typeInfo, value, map);
+        if (!referencesThisOrTracked(value, ctx.commit())) return false; // not this-derived: stays untracked (∅)
+        Set<String> labels = commitLabels(typeInfo, value, ctx);
+        Map<Variable, Set<String>> map = ctx.commit();
         if (map.containsKey(target)) {
             Set<String> existing = map.get(target);
             if (existing == null) return false; // already poisoned
@@ -742,10 +1026,14 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             FieldInfo fieldInfo = fr.fieldInfo();
             if (!isOwnField(typeInfo, fieldInfo)) return null;
             // the field's type must be the eventually immutable one; otherwise the callee's mark is about
-            // something else entirely and must not be re-labelled with our field's name
+            // something else entirely and must not be re-labelled with our field's name. Under EVENTUALCLUSTER
+            // a cluster candidate passes optimistically (seed + witness; off the gate this is the same strict
+            // check): the @TestMark forward through a candidate-typed field (TypeInspectionImpl.Builder
+            // .hasBeenCommitted -> typeInfo.hasBeenInspected()) is otherwise stuck behind the candidate's own
+            // verdict, which in turn waits on this very classification -- the staircase never converges.
             TypeInfo fieldType = fieldInfo.type().bestTypeInfo();
             if (fieldType == null) return null;
-            if (!eventuallyImmutable(fieldType).isEventual()) return null;
+            if (!isEventuallyImmutableFieldType(typeInfo, fieldType)) return null;
             // the label is OUR field, not the support class's internal field name: the transition our callers
             // observe is "this.inspection has been set", not "EventuallyFinalOnDemand.isFinal"
             return Set.of(fieldInfo.name());
