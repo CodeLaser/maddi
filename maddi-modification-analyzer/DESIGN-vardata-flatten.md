@@ -86,15 +86,21 @@ mostly cheap. Net: memory bought with a bounded recompute in the tail passes. Me
   `VariableDataImpl.flattened()` maps it. `TestVariableDataFlatten` asserts best()/getPreviousOrInitial/
   indexOfDefinition/hasEvaluation/hasMerge preserved, `isPrevious()==false`, idempotent, over both
   eval-having and previous-only containers.
-- **Phase 2 (drop + gate):** `Configuration.flattenVariableData()` default false; after
-  `linkComputer.doMethod` in `processElement` (`SingleIterationAnalyzerImpl.java:319`), when enabled and
-  this is the method's settled link for the pass, flatten the consumed VD and `removeIf`-drop the
-  intermediates. Cross-method-read regression: run the extract-interface stress on framework with the
-  gate ON and assert candidate outcomes are unchanged from OFF (CommonAnalyze reads the last statement,
-  which survives).
-- **Phase 3 (regenerate before re-link):** mark flattened methods; before re-linking a marked dirty
-  method, regenerate (Phase 0 mechanism), re-link, re-flatten. Correctness A/B: full analysis with gate
-  ON vs OFF must certify the same verdicts on fernflower + guava (mod known non-confluence).
+- **Phase 2 (drop + gate + regenerate): DONE, commit `4dab4377`.** `Configuration.flattenVariableData()`
+  default false. To avoid racing the parallel FieldAnalyzer reads, both operations run at **pass
+  boundaries** in `SingleIterationAnalyzerImpl.go` (quiescent): flatten each method's consumed
+  last-statement VD + drop intermediates at pass END; regenerate any flattened method about to be
+  re-linked at the next pass's START. (This makes passes-2+ safe and reduces cross-pass memory; it does
+  NOT yet reduce the pass-1 in-pass peak — that is Phase 2.1, moving the flatten to wave barriers.)
+  Validated: elasticsearch-fw stress runs ON to completion across 13 passes (regeneration works), same
+  candidate outcomes as OFF. Edit-count differences under ON are the ACCEPTED extract-interface consumer
+  degradation (`CommonAnalyze` reads intermediate links; user-accepted for large codebases).
+- **Phase 3 (the real correctness gate): TODO.** A maddi analyzer-level A/B: full `IteratingAnalyzer`
+  ON vs OFF must produce bit-identical ANALYSIS verdicts (METHOD_LINKS, modification, immutability) —
+  the framework stress measures the consumer, not the analysis, so it cannot settle this. Dump verdicts
+  for a small multi-type program both ways and assert equal; then fernflower/guava (mod non-confluence).
+- **Phase 2.1 (pass-1 peak): TODO.** Move the flatten hook to the pass-1 wave barriers (also quiescent)
+  so the standing accumulator is bounded DURING pass 1, not only after it — the actual OOM fix.
 - **Phase 4 (scale):** the `AnalysisProgressFeed` heap curve on `server/main` and a large ES
   module-group with gate ON vs OFF — quantify the peak-heap reduction and the wall-clock cost. Then the
   real target: whether a synthetic large single-SCC fits where it did not.
