@@ -54,6 +54,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     private final Deque<BlockData> blockBuilders = new ArrayDeque<>();
     private Expression currentExpression;
     private final Map<StatementTree, String> statementLabels = new IdentityHashMap<>();
+    private final Map<JCTree.JCVariableDecl, Source> wholeFieldDeclarationSources = new IdentityHashMap<>();
     private final CompilationUnit.Builder compilationUnitBuilder;
     private CompilationUnit compilationUnit;
     private Source compilationUnitSource;
@@ -418,6 +419,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         }
 
         // members: methods, fields
+        recordWholeFieldDeclarationSources(jcClassDecl.defs);
         for (var member : jcClassDecl.getMembers()) {
             currentMethod = null;
             scan(member, null);
@@ -1535,6 +1537,33 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         }
     }
 
+    // A multi-declarator field declaration such as 'private String a, b;' produces one JCVariableDecl per
+    // declarator; they share the same start position but each ends at its own comma/semicolon. So that every
+    // sibling reports the SAME whole-declaration FIELD_DECLARATION (as the native parser does), map each
+    // declarator to the span [first-declarator-start .. last-declarator-end].
+    private void recordWholeFieldDeclarationSources(List<JCTree> defs) {
+        int i = 0;
+        while (i < defs.size()) {
+            if (defs.get(i) instanceof JCTree.JCVariableDecl first) {
+                int j = i;
+                while (j + 1 < defs.size()
+                       && defs.get(j + 1) instanceof JCTree.JCVariableDecl next
+                       && next.getStartPosition() == first.getStartPosition()) {
+                    j++;
+                }
+                if (j > i) {
+                    Source whole = sourceForNode(first).max(sourceForNode(defs.get(j)));
+                    for (int k = i; k <= j; k++) {
+                        wholeFieldDeclarationSources.put((JCTree.JCVariableDecl) defs.get(k), whole);
+                    }
+                }
+                i = j + 1;
+            } else {
+                i++;
+            }
+        }
+    }
+
     private void createField(JCTree.JCVariableDecl variableDecl,
                              Symbol.VarSymbol varSymbol,
                              String name,
@@ -1586,7 +1615,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 // field modifiers are recorded per declarator under the same nameAndInitSource key
                 attachModifiers(nameAndInitSource, dsb, flagHelper::fieldModifier);
             }
-            dsb.put(DetailedSources.FIELD_DECLARATION, vdSource);
+            dsb.put(DetailedSources.FIELD_DECLARATION,
+                    wholeFieldDeclarationSources.getOrDefault(variableDecl, vdSource));
 
             fieldInfo.builder()
                     .addComments(commentsForNode(vdSource))
@@ -2682,6 +2712,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 throw new UnresolvedSymbolException(
                         "Compilation error in " + typeStack.getLast() + "? Cannot resolve " + newClass);
             }
+        }
+        if (scanResult != null) {
+            Source callSrc = scanSource(node);
+            dsb.putIfNotNull(DetailedSources.END_OF_ARGUMENT_LIST, scanResult.findEndOfArgumentList(callSrc));
+            dsb.putListIfNotNull(DetailedSources.ARGUMENT_COMMAS, scanResult.findArgumentCommas(callSrc));
         }
         currentExpression = runtime.newConstructorCallBuilder()
                 .setObject(object)
