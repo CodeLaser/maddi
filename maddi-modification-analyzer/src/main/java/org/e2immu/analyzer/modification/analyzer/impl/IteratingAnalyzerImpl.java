@@ -241,7 +241,9 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                                 org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
                         var ind = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_FIELD,
                                 org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.class);
-                        v = "field unmodified=" + b + " independent=" + ind;
+                        var igm = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_FIELD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                        v = "field unmodified=" + b + " independent=" + ind + " ignoreMod=" + igm;
                     } else if (info instanceof org.e2immu.language.cst.api.info.TypeInfo) {
                         var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE,
                                 org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.class);

@@ -32,6 +32,7 @@ import org.e2immu.language.cst.impl.info.TypeParameterInspectionImpl;
 import org.e2immu.language.cst.impl.output.*;
 import org.e2immu.support.Either;
 import org.e2immu.support.EventuallyFinal;
+import org.e2immu.annotation.rare.IgnoreModifications;
 
 import java.util.*;
 import java.util.function.Predicate;
@@ -42,6 +43,10 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
     private final String name;
     private final Either<TypeInfo, MethodInfo> owner;
     private final EventuallyFinal<TypeParameterInspection> inspection = new EventuallyFinal<>();
+    // Manual hidden content: derived analyzer metadata, orthogonal to this type parameter's immutability.
+    // TypeParameterImpl overrides analysis() to return this own store rather than the one inherited from InfoImpl;
+    // @IgnoreModifications gives it the same treatment for the same reason. See road-to-immutability section 050.
+    @IgnoreModifications
     private final PropertyValueMap analysis = new PropertyValueMapImpl();
 
     public TypeParameterImpl(int index, String name, Either<TypeInfo, MethodInfo> owner) {
