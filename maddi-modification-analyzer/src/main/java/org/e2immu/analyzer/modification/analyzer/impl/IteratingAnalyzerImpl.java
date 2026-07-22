@@ -235,7 +235,17 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                                 org.e2immu.language.cst.impl.analysis.ValueImpl.GetSetValueImpl.class);
                         String getset = gs != null && gs.field() != null
                                 ? " getset=" + gs.field().name() + (gs.setter() ? "(set)" : "(get)") : "";
-                        v = "method nonModifying=" + b + getset;
+                        // eventual-cluster diagnostic: the after-mark non-modification label (why a read-through
+                        // accessor is excused after the mark) and the @Mark/@Only verdict, to see why an interface
+                        // does or does not surface an eventual type-level verdict
+                        var enm = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.SetOfStringsImpl.class);
+                        String evNonMod = enm != null && !enm.set().isEmpty()
+                                ? " eventuallyNonMod=" + new java.util.TreeSet<>(enm.set()) : "";
+                        var evm = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUAL_METHOD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.EventualImpl.class);
+                        String evMethod = evm != null && evm.isEventual() ? " eventual=" + evm : "";
+                        v = "method nonModifying=" + b + getset + evNonMod + evMethod;
                     } else if (info instanceof org.e2immu.language.cst.api.info.FieldInfo) {
                         var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_FIELD,
                                 org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
