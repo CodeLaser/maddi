@@ -15,8 +15,24 @@
  * limitations under the License.
  */
 
+// NOTE: this module deliberately does NOT apply `java-library-conventions`.
+//
+// maddi-support is the only published, user-facing artifact, and it must stay dependency-free: it
+// contains annotations and small support classes and imports nothing outside java.base (see
+// module-info.java, which has no `requires`). The conventions plugin adds
+// `api(platform(project(":platform")))` plus org.jetbrains:annotations and org.slf4j:slf4j-api,
+// all of which leak into the published POM and Gradle module metadata. The internal
+// io.codelaser:platform BOM is not published to Maven Central, so a consumer of such a POM cannot
+// resolve it at all -- and slf4j would be dragged in as a runtime dependency of an annotations jar.
+//
+// 0.8.2 on Central has zero dependencies in every variant; keep it that way. The same reasoning is
+// why both build plugins strip <dependencies>/<dependencyManagement> from their POMs
+// (see maddi-gradleplugin/build.gradle.kts). Here we simply never add them.
+//
+// It is also the only module targeting Java 17 (the rest is 25/26), because it is the one library a
+// user's own code compiles against.
 plugins {
-    id("java-library-conventions")
+    `java-library`
     id("org.jreleaser") version "1.19.0"
     `maven-publish`
 }
@@ -26,6 +42,18 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
     withJavadocJar()
     withSourcesJar()
+}
+
+// Explicit versions rather than the platform BOM, so nothing enters the published metadata.
+// Test-only: these do not appear in any published variant.
+dependencies {
+    testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.0.3")
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
 }
 
 // group and version come from the root gradle.properties (single release train — see PUBLISHING.md)
