@@ -557,4 +557,80 @@ public class TestEventualPropagation extends CommonTest {
         assertTrue(ev.isEventual(), "Reader should be eventually immutable, is " + ev);
         assertEquals("inspection", ev.markLabel());
     }
+
+    @DisplayName("a @Mark method is NOT recorded as non-modifying-after-the-mark (its call IS the transition)")
+    @Test
+    public void test12MarkIsNotEventuallyNonModifying() {
+        TypeInfo B = javaInspector.parse("B", INPUT1);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+
+        MethodInfo commit = B.findUniqueMethod("commit", 1);
+        assertTrue(eventual(commit).isMark(), "commit is @Mark");
+        // it calls inspection.setFinal (the @Mark on the field): that is the transition, not a post-mark read
+        assertTrue(nonModAfter(commit).isEmpty(), "commit must not be eventually-non-modifying, is " + nonModAfter(commit));
+        // setVariable is @Only(before=): also excluded
+        assertTrue(nonModAfter(B.findUniqueMethod("setVariable", 1)).isEmpty());
+        // the read-through accessor, by contrast, is
+        assertEquals(Set.of("inspection"), nonModAfter(B.findUniqueMethod("length", 0)));
+    }
+
+    // a modification through a field that is NOT eventually immutable cannot be excused by any mark
+    @Language("java")
+    private static final String INPUT13 = """
+            import java.util.*;
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class B {
+              private final List<String> items = new ArrayList<>();
+              private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+              public void commit(String s) { inspection.setFinal(s); }
+              public void touch(String s) { items.add(s); }
+              public int length() { return inspection.get().length(); }
+            }
+            """;
+
+    @DisplayName("modifying a plain mutable field is not excusable, and does not over-conclude eventuality")
+    @Test
+    public void test13PlainFieldNotExcused() {
+        TypeInfo B = javaInspector.parse("B", INPUT13);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+
+        // touch() modifies items.add(...), a field that is not eventually immutable: no after-label
+        assertTrue(nonModAfter(B.findUniqueMethod("touch", 1)).isEmpty(),
+                "touch must not be eventually-non-modifying, is " + nonModAfter(B.findUniqueMethod("touch", 1)));
+        // length() still is (it reads through the eventually immutable field)
+        assertEquals(Set.of("inspection"), nonModAfter(B.findUniqueMethod("length", 0)));
+
+        // and the type is NOT eventually immutable: 'items' stays mutable, marked by nothing
+        assertFalse(B.analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL).isEventual(),
+                "B must not be eventually immutable: it has an unmarked mutable field");
+    }
+
+    // one accessor forwarding to another (this.length()) rides along with its after-label
+    @Language("java")
+    private static final String INPUT14 = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class B {
+              private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+              public void commit(String s) { inspection.setFinal(s); }
+              public int length() { return inspection.get().length(); }
+              public int twiceLength() { return length() + length(); }
+            }
+            """;
+
+    @DisplayName("a this-forward to an eventually-non-modifying method inherits its after-label")
+    @Test
+    public void test14ThisForward() {
+        TypeInfo B = javaInspector.parse("B", INPUT14);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+
+        assertEquals(Set.of("inspection"), nonModAfter(B.findUniqueMethod("length", 0)));
+        // twiceLength() only modifies via this.length(), which is non-modifying after 'inspection'
+        assertEquals(Set.of("inspection"), nonModAfter(B.findUniqueMethod("twiceLength", 0)));
+    }
 }
