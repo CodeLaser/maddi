@@ -125,6 +125,16 @@ mostly cheap. Net: memory bought with a bounded recompute in the tail passes. Me
   is an atomic single-reference swap (no transient null). This is what actually bounds the peak on the
   3M single-SCC target. server/main fits at 32G WITHOUT it (20.6G); it is needed only for the larger SCC.
 
+  **Phase 5 IMPLEMENTED 2026-07-22.** Confirmed `PropertyValueMapImpl` is a plain HashMap but every
+  accessor (getOrNull/set/overwrite/removeIf) is `synchronized`, so `overwrite` (a single synchronized
+  `map.put`) is an atomic swap and a concurrent `getOrNull` sees old-or-new, never null. `flattenMethod`
+  now runs per-method in `processElement` right after the link is written (concurrent, inside the wave);
+  the last-statement/method VD is replaced via `overwrite`, intermediates dropped via `removeIf` (no
+  cross-method reader reads them; a reader still holding the old chained VD keeps its VICs alive via the
+  chain until done). Wave-barrier (2.1) and pass-end flatten removed; pass-start regeneration kept for
+  the multi-pass case. Correctness: elasticsearch-fw single-pass + Phase-5 flatten is byte-identical to
+  no-flatten. Peak-reduction proof on server/main: MEASURING.
+
 ## 5b. Single-pass EI mode and its trade-off (measured 2026-07-22)
 
 For the actual use case — breaking the 3M-line SCC with ExtractInterface — the analyzer's *verdicts*
