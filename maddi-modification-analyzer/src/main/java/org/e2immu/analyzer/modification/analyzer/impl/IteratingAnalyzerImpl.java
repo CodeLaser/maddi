@@ -271,6 +271,20 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                         v = "type immutable=" + b + " eventual=" + ev + " independent=" + ind;
                     } else continue;
                     pw.println(v + " " + info.fullyQualifiedName());
+                    // FPDUMP_PARAMS: parameter-level lines (separate gate so the A/B corpus format is unchanged)
+                    if (System.getenv("FPDUMP_PARAMS") != null
+                        && info instanceof org.e2immu.language.cst.api.info.MethodInfo mi) {
+                        for (org.e2immu.language.cst.api.info.ParameterInfo pi : mi.parameters()) {
+                            var um = pi.analysis().getOrNull(
+                                    org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                                    org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                            var ind = pi.analysis().getOrNull(
+                                    org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_PARAMETER,
+                                    org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.class);
+                            pw.println("param unmodified=" + um + " independent=" + ind
+                                       + " " + pi.fullyQualifiedName());
+                        }
+                    }
                 }
             } catch (java.io.IOException e) {
                 LOGGER.error("FPDUMP failed", e);
@@ -494,6 +508,25 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                     try {
                         var pass = new org.e2immu.analyzer.modification.analyzer.shadow.ShadowModificationPass();
                         var report = pass.go(analysisOrder);
+                        // MODREACH_DEBUG (presence-only): dump the reverse-divergence class — fixpoint says
+                        // modified, reachability finds no modifying frontier. Zero on the certified corpora;
+                        // any population is a fixpoint pessimism to root-cause (PLAN §14; dogfood: 231).
+                        if (System.getenv("MODREACH_DEBUG") != null) {
+                            report.reverseDivergences().stream()
+                                    .map(Object::toString).sorted()
+                                    .forEach(d -> System.out.println("MODREACH_REVERSE " + d));
+                        }
+                        // MODREACH_EXPLAIN=<substring>: print the BFS chain (node <- cause <- ... <- seed)
+                        // for every reached method receiver whose FQN contains the substring
+                        String explain = System.getenv("MODREACH_EXPLAIN");
+                        if (explain != null) {
+                            for (Object node : report.reached()) {
+                                if (node instanceof org.e2immu.language.cst.api.info.MethodInfo rm
+                                    && rm.fullyQualifiedName().contains(explain)) {
+                                    System.out.println("MODREACH_EXPLAIN " + report.explain(node));
+                                }
+                            }
+                        }
                         var counts = pass.writeVerdicts(analysisOrder, report);
                         TolerantWrite.freezeModificationProperties();
                         LOGGER.info("MODREACH round {}: {}", modReachRounds, counts.summary());
