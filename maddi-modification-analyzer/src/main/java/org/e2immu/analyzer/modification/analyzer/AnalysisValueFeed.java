@@ -59,6 +59,16 @@ public interface AnalysisValueFeed {
     default void waveCompleted(int iteration, int wave, Collection<Info> analyzed) {
     }
 
+    /**
+     * Emitted once per element as its {@code processElement} completes, on the (possibly parallel) worker
+     * thread — so it must be cheap and thread-safe. Its purpose is intra-wave progress: {@link #waveCompleted}
+     * only fires at a barrier, and a giant single SCC is ONE wave, so committed progress can pin for the whole
+     * multi-hour stretch. Counting completed elements lets progress advance smoothly inside that wave. It
+     * carries no values (the element's analysis may still be refined this pass); it is a counter tick only.
+     */
+    default void elementCompleted() {
+    }
+
     void phase(Phase phase, int iteration);
 
     enum Phase {

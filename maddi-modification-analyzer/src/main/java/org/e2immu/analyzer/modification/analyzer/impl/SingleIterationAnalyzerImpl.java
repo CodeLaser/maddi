@@ -108,6 +108,15 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         this.waveCompletedCallback = callback;
     }
 
+    // per-element hook (AnalysisValueFeed.elementCompleted): fired once as each element's processElement
+    // finishes, on the (parallel) worker thread — must be cheap + thread-safe. Gives intra-wave progress
+    // when a giant SCC is one wave. Set by IteratingAnalyzerImpl when a feed exists.
+    private Runnable elementCompletedCallback;
+
+    public void setElementCompletedCallback(Runnable callback) {
+        this.elementCompletedCallback = callback;
+    }
+
     public static final String ANALYZER_CRASH = "analyzer-crash";
     public static final String LINK_CRASH = "link-crash";
 
@@ -465,6 +474,9 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
             // under PARALLEL the delta can over-attribute (another thread's change lands in the window);
             // a superset of changed elements is safe for the worklist
             if (propertiesChanged.get() > changesBefore) changedInfos.add(info);
+            // intra-wave progress tick (in finally: a fault-tolerant crash still counts as processed)
+            Runnable ec = elementCompletedCallback;
+            if (ec != null) ec.run();
         }
     }
 
