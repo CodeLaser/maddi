@@ -238,15 +238,27 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                     if (info instanceof org.e2immu.language.cst.api.info.MethodInfo) {
                         var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
                                 org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
-                        v = "method nonModifying=" + b;
+                        var gs = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.GET_SET_FIELD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.GetSetValueImpl.class);
+                        String getset = gs != null && gs.field() != null
+                                ? " getset=" + gs.field().name() + (gs.setter() ? "(set)" : "(get)") : "";
+                        v = "method nonModifying=" + b + getset;
                     } else if (info instanceof org.e2immu.language.cst.api.info.FieldInfo) {
                         var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_FIELD,
                                 org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
-                        v = "field unmodified=" + b;
+                        var ind = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_FIELD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.class);
+                        var igm = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_FIELD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                        v = "field unmodified=" + b + " independent=" + ind + " ignoreMod=" + igm;
                     } else if (info instanceof org.e2immu.language.cst.api.info.TypeInfo) {
                         var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE,
                                 org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.class);
-                        v = "type immutable=" + b;
+                        var ev = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.EventuallyImmutableImpl.class);
+                        var ind = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_TYPE,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.class);
+                        v = "type immutable=" + b + " eventual=" + ev + " independent=" + ind;
                     } else continue;
                     pw.println(v + " " + info.fullyQualifiedName());
                 }

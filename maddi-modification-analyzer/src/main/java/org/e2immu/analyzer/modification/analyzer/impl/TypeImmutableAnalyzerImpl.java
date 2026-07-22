@@ -240,6 +240,13 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
             // EXPERIMENTAL (EVENTUALCLUSTER): a field of immutable type holds content that cannot be modified,
             // so the UNMODIFIED_FIELD verdict on it is irrelevant -- a `final String` field is unmodifiable
             // whatever the field analyzer recorded. (Off the gate, the existing verdict is kept for A/B parity.)
+            // An @IgnoreModifications field is manual hidden content: its modifications are confined to the
+            // ignored stratum and do not bear on this type's immutability, so its UNMODIFIED_FIELD verdict is
+            // irrelevant -- exactly as a type-parameter field is hidden by erasure. The field still keeps the
+            // type at IMMUTABLE_HC (never hc-free) because its concrete type is not deeply immutable, which
+            // instanceFieldTypesDeeplyImmutable enforces. Ungated: honouring the contract is general correctness,
+            // and a no-op wherever no field carries the annotation. See road-to-immutability section 050.
+            if (fieldInfo.isIgnoreModifications()) continue;
             if (EventualCluster.ENABLED) {
                 Immutable fieldTypeImm = analysisHelper.typeImmutableNullIfUndecided(fieldInfo.type());
                 if (fieldTypeImm != null && fieldTypeImm.isAtLeastImmutableHC()) continue;
