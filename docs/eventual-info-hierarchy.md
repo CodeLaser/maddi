@@ -716,6 +716,12 @@ Two more pieces, both gated:
   modifies at all — `CompilationUnitStub`'s throwing `setFingerPrint` — cannot contradict the transition the
   real implementations declare, so it no longer vetoes the abstract method's `@Mark`.
 
+**Gate-ON stability (2026-07-22, two consecutive dogfoods at `54bd9859`):** the surviving core of **8** is
+identical across runs; ONE type flips in/out — `CompilationUnitPrinterImpl`, a printer-family type, i.e.
+exactly the verification-residue boundary (`docs/handoff-verification-residue.md`) — and the
+`eventuallyNonMod` method count wobbles (414 vs 402) for the same reason. Full stability is an ungate
+criterion and is expected to come with the residue fix, not before.
+
 **Result: `CompilationUnit` is the first cross-reference type to SURVIVE the contraction** —
 `eventual=@Immutable(hc=true)(after="fingerPrint,types")`, retained, not seeded-and-retracted. Survivors
 5→8. The remaining broken roots, per `EC_RETRACT_DEBUG`: `api.type.ParameterizedType` (18 dependents —
