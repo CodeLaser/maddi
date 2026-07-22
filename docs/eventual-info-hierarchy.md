@@ -311,15 +311,37 @@ the historical flip, but a probe (making `ParameterInfoImpl.analysis()` a bare, 
 verdict **byte-identical** `@FinalFields(after="inspection,methodInfo,parameterizedType")` — so it is *not*
 the cap either.
 
-**PROPOSED — `GetSetHelper` guard-tolerance (documented, not yet implemented).** Make getter/setter
-recognition see through a *leading side-effect-only guard*: recognise `if (CONST) { …no field access… } return
-this.field;` (and the setter analogue) as the getter it plainly is. This restores exact getter↔variable
-equivalence for `analysis()` and any similarly-guarded accessor, routing them through the same unified
-`FieldReference` machinery as the other 694 getters instead of the return-value-link fallback. It is an
-engine/recognition change only — no CST edits, no contact with the modification-convergence invariant. It does
-**not** lift `ParameterInfoImpl` (see (c)); it closes the genuine gap in the equivalence and removes the latent
-non-confluence source. Care points: the guard block must be proven not to read or write the field (else the
-rewrite is unsound); keep it behind the same recognition entry point so all consumers (prepwork + link) agree.
+**`GetSetHelper` guard-tolerance — DONE (2026-07-22).** Getter/setter recognition now sees through a *leading
+inert-guard* prefix: `doGetSetAnalysis` runs the return/assignment recognition on the first **non-inert**
+statement, not literally the first, so `if (ConsumptionEdgeRecorder.ENABLED) { record(this); } return
+propertyValueMap;` (the `InfoImpl.analysis()` / `ParameterInfoImpl.analysis()` shape) is recognised as the getter
+it plainly is, routing `x.analysis()` through the same unified `FieldReference` machinery (`ExpressionVisitor`
+call-site rewrite) as the other 694 getters. Engine/recognition only — no CST edits, no contact with the
+modification-convergence invariant; the single entry point keeps prepwork + link in agreement (both read
+`GET_SET_FIELD`).
+
+*Tolerance (see `GetSetHelper`'s class comment for the full soundness argument).* The check is purely syntactic
+(it sits in `PrepAnalyzer`, below any computed verdict, and its output is trusted stack-wide, incl.
+`ExpressionVisitor`, which *replaces* `x.m()` with a read of `x.field`, bypassing the body). A leading statement
+is an inert guard iff, across its whole subtree, it: (1) falls through — no return/yield/throw/break/continue;
+(2) writes no field of `this`; (3) references no field of `this` at all; (4) makes no call *on* `this`. A call
+that merely *passes* `this` to a static method (`record(this)`) is allowed — its only possible effect is on state
+the object does not own, a disclaimed static side effect (road §050) that cannot cap the object's immutability,
+so dropping it at the call site corrupts no verdict. Deliberately **not** tolerated: a guard that reads/writes an
+own field, calls a method on `this`, or can exit early (a second behaviour, not a getter with a benign prelude).
+`TestGetSetGuardTolerance` (positive: guarded getter/setter/fluent; negative: the four boundary violations).
+Suites: common 52/0, prepwork 209/0, link 402/0, analyzer 233/0. Consistent with (b)/(c): it closes the
+equivalence gap and removes the latent non-confluence source but does **not** by itself lift `ParameterInfoImpl`
+(the owned-store cap, already handled by the ignore-mod route).
+
+*Golden-rule corpus A/B (Fernflower FPDUMP, baseline vs change).* Not byte-identical, but **no verdict moved**:
+with the `getset=` classification tokens stripped the diff is **0 lines**. The single delta is one genuinely
+guarded setter that baseline missed — `ConstExprent.setConstType(VarType)`:
+`if (constType == null) { constType = VARTYPE_UNKNOWN; } this.constType = constType;` — now correctly classified
+`getset=constType(set)` (the guard reassigns the *parameter*, a local, which rule 2 permits; then the strict
+setter shape matches). Its `nonModifying=false` verdict is identical in both runs. So the A/B caught exactly the
+intended broadened classification, and it is correct and non-regressive — the feature working as designed, not a
+verdict regression.
 
 **Rejected — "wait-on-pending-callee" in `FieldAnalyzerImpl.computeUnmodified` (unsound, do not revisit as-is).**
 The idea was: when a `FieldReference`'s `UNMODIFIED_VARIABLE` is `false` only because the called method's
@@ -457,8 +479,7 @@ no-op with the SSE gate off (no source method carries the property), so no corpu
 `TestDecorateStaticSideEffects` (prepwork, decorator seam), `TestStaticSideEffectPolarity` (daemon, end-to-end:
 gate on → decorate → tag NEGATIVE). prepwork 207/0, daemon 12/0.
 
-**Still open:** `GetSetHelper` guard-tolerance (getter↔variable equivalence gap); and the greatest-fixpoint
-**removal pass** still owed for the cluster optimism.
+**Still open:** the greatest-fixpoint **removal pass** still owed for the cluster optimism.
 
 ## Task 4: surface the eventual verdicts to developers (the IDE path)
 
