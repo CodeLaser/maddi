@@ -673,6 +673,34 @@ dynamic-immutability-aware field committability for its `List.copyOf`-style fiel
 (@Mutable, unlike its three sibling inspections — undiagnosed), `CompilationUnitImpl`, `TypeParameterImpl`.
 The all-or-nothing fixpoint holds until that ring closes.
 
+**Ring 2, mapped precisely (2026-07-22, closing).** Landed on top of the above: `FieldInspectionImpl
+.analysisOfInitializer` gains the `@IgnoreModifications` every Info analysis store carries (it was the one
+without it — the source of its @Mutable); the §060 field-ride-along fires without a prior own mark under the
+gate (**markless carriers**: `ParameterizedTypeImpl`); assumed candidates outside the analysis order
+(`java.lang.Record`, pulled in as every record's supertype) discharge through their preloaded unconditional
+verdict; and the contraction gained an env-gated diagnostic (`EC_RETRACT_DEBUG=1`) that prints, per retracted
+member, exactly which assumed candidates broke — use it first in any future session.
+
+The diagnostic shows the closure now spans the **entire CST**, and the remaining broken roots are:
+
+1. **The `Expression` hierarchy** (`api.expression.Expression` + every `*Impl` + `ExpressionImpl`): every
+   carrier assumed it; certifying it means the whole expression tree proves out — including the printer
+   methods that today CRASH with the known exit-5 `ANALYSER_ERROR` (cycle protection), leaving their
+   `NON_MODIFYING` undecided forever. Fixing those crashes is a hard prerequisite.
+2. **The API `Builder` interfaces** (`FieldInfo.Builder`, `MethodInfo.Builder`, …): they enter the cluster
+   through the upward closure (the `*InspectionImpl.Builder`s implement them and have `@TestMark` intent),
+   so `commitLabels`' RTHCC treats them as committable candidates and records assumptions — but a builder
+   interface full of plain `@Modified` setters can never prove eventually immutable. Candidacy (or at least
+   RTHCC-committability) needs to exclude builder-natured types, or the builders need their own eventual
+   story (their `commit()` IS a transition).
+3. `api.type.ParameterizedType` (interface): blocked by its default printing methods (see 1).
+4. `api.element.CompilationUnit`, `api.element.ModuleInfo`, `api.variable.*` — same pattern, smaller.
+
+So retraction-0 is equivalent to certifying essentially all of cst-api/cst-impl — the full "culmination"
+scope. The method-level machinery (this session) appears sufficient; the remaining work is (a) the printer
+crashes, (b) the builder-candidacy modeling decision, (c) grinding the expression/statement/variable
+hierarchies through the same dogfood loop with `EC_RETRACT_DEBUG` as the compass.
+
 ## Task 4: surface the eventual verdicts to developers (the IDE path)
 
 The eventual verdicts are the novel output of this arc; today they are visible only via `FPDUMP` and the

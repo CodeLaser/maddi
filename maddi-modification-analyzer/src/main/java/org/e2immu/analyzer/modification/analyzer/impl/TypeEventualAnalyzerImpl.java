@@ -192,9 +192,12 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         // §060: an effectively final field of eventually immutable type "will at some point hold objects that are
         // in their final or after state, in which case they act as immutable fields". It rides along with the mark
         // on its own referent -- FieldInfoImpl.type (a ParameterizedType), MethodInfoImpl.typeInfo -- even when no
-        // accessor reads through it. Only fired alongside a mark already found: a type with no transition of its
-        // own does not become eventual just by holding such a field.
-        if (!markLabels.isEmpty()) {
+        // accessor reads through it. Off the gate, only fired alongside a mark already found: a type with no
+        // transition of its own does not become eventual just by holding such a field. Under EVENTUALCLUSTER the
+        // restriction lifts: a MARKLESS CARRIER (ParameterizedTypeImpl -- final fields of candidate types, no
+        // own transition) is immutable as soon as its referents commit; the field names are its observable
+        // labels, every optimistic field check is witnessed, and the "buys nothing" guard below still applies.
+        if (!markLabels.isEmpty() || EventualCluster.ENABLED) {
             for (FieldInfo fieldInfo : typeInfo.fields()) {
                 if (fieldInfo.isStatic()) continue;
                 if (!fieldInfo.analysis().getOrDefault(FINAL_FIELD, ValueImpl.BoolImpl.FALSE).isTrue()) continue;
