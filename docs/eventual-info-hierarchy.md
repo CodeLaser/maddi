@@ -543,9 +543,16 @@ observation was self-*consistency* of the optimism, not soundness; step 2 is exa
 subclasses) and the interfaces obtain their own eventual verdicts, the flagships' assumptions discharge, the
 contraction retracts nothing, and the 17 survive *soundly* — which is what earns ungating.
 
-**Still open (in order):** (1) **subclass→superclass mark inheritance** — give `InfoImpl` and the `*Info`
-interfaces their own eventual verdict from the subclasses' shared mark; re-run the dogfood and confirm the
-contraction now retracts 0. (2) **Step 3 — ungate** the cluster result behind a byte-identical corpus A/B.
+**Still open (in order):** (1) **interface eventual verdict (Part B)** — the diagnostic (FPDUMP now emits
+`eventuallyNonMod`) pinned the blocker: the interfaces' cross-reference read-through accessors (`isFactoryMethod`,
+`primaryType`, `descriptor`, the hierarchy streams) bail in `computeEventuallyNonModifying` because
+`receiverAfterLabels` only follows *genuinely* non-modifying chains, not the *eventually*-non-modifying
+`this`-accessor chains (`returnType()`, `enclosingMethod()`) the real accessors use. Fix = reframe
+`nonModifyingLabels`/`receiverAfterLabels` into a unified `commitLabels(owner, expr)` (commit every `this`-derived
+receiver **and** arg, not just root the receiver in a committed field). **Fully specified for handoff in
+`docs/handoff-eventual-interface-nonmodification.md`.** (2) **subclass→superclass mark inheritance (Part A)** —
+give `InfoImpl` its own eventual verdict from the subclasses' shared `inspection` mark (also in the handoff, §9).
+(3) re-run the dogfood → contraction retracts 0. (4) **Step 3 — ungate** behind a byte-identical corpus A/B.
 
 ## Task 4: surface the eventual verdicts to developers (the IDE path)
 
