@@ -626,6 +626,53 @@ against a base run (the one line that differed against the *first* base run — 
 nonModifying — flips identically between two base runs, i.e. pre-existing run-to-run nondeterminism, not the
 change).
 
+## Part B, second wave: METHOD LEVEL COMPLETE — 0 holdouts on all five interfaces (2026-07-22, late)
+
+The wave that followed took every remaining holdout class down; **all five `*Info` interfaces now have zero
+unexcused modifying methods**. What it took, in landing order (each verified by a gate-ON dogfood iteration,
+all gated):
+
+- **The `@TestMark` staircase, resolved**: `labelsOfReceiver` now uses `isEventuallyImmutableFieldType`
+  (seed + witness; off the gate this is the identical strict check), so
+  `TypeInspectionImpl.Builder.hasBeenCommitted()` — a `@TestMark` forward through a candidate-typed field —
+  classifies deterministically instead of waiting on the interface verdict it itself feeds.
+  `methodEventual` records label provenance like its enm twin.
+- **Freshness**: `LocalContext` tracks locals whose every assignment is a plain constructor call (through
+  ternaries and casts). `ConstructorCall` = fresh with the union of its args' labels; a field read scoped on
+  another object commits after the scope's labels; a `@Mark`/`@Only(before)` call whose receiver chain roots
+  in a fresh local is that object's lifecycle, not this's transition (`withOwnerVariableBuilder`'s
+  `fi.inspection.setVariable(...)`); a chain rooted in fresh skips the handed-on-value check (the fluent
+  `newField.builder().setX(..).setY(..)`).
+- **Lambdas and method references as argument values**: a lambda's body is walked with the full
+  `commitLabels` discipline (calls inside are additionally excused by the enclosing visitor as always); a
+  bound method reference mirrors the intermediate-call rules on its scope and declared return type.
+- **The owner-candidacy rule** (the deepest cut): when the owner itself is a cluster candidate — witnessed
+  as a self-assumption — a this-accessor's result, and even bare `this` handed out (`Stream.of(this)` in
+  `innerClassEnclosingStream`), is excusable: accessible content of `this` is committed once its own marks
+  pass, the trap shape (accessor handing out an unmarked mutable field) sinks the owner's own type verdict,
+  and the contraction cascades that retraction. This is the coinductive step that unlocked
+  `interfacesImplemented()`-style chains and with them every hierarchy stream.
+- **Value-type reasoning**: `handedOnValueSafe` accepts any call on a COMMITTED receiver whose return type's
+  parameters are committable (covers direct recursion — `parent.recursiveSuperTypeStream()` — where the
+  callee's independence is inherently undecided); `returnTypeHoldsCommittableContent` accepts parameterless
+  immutable-hc types (`MethodInspectionImpl`, `MethodType`) and rejects arrays; `commitLabels` short-circuits
+  ∅ for any expression whose TYPE cannot carry mutable state (an int arithmetic constructor argument, a
+  String concat) — the producing calls are excused independently by the visitor; ternary/cast/parenthesis
+  unwrapping; `@IgnoreModifications` reads are disclaimed (road §050).
+
+`translate`, `withMethodBody`, `withSynthetic`, `topOfOverloadingHierarchy`, the `with*` builders, the
+hierarchy streams: all excused. Also implemented: **Part A** (subclass→parent mark inheritance for abstract
+classes, `EventualCluster.noteHierarchy`/`knownSubclasses` + the shared-label intersection in
+`computeTypeLevel`, seeded + witnessed).
+
+**Where the wall is now (type level).** Retraction 37; the interfaces' (seeded) verdicts still retract
+because the assumption closure reaches a NEXT RING of candidates that neither prove eventually immutable nor
+discharge unconditionally: `ParameterizedTypeImpl` (@Mutable — a **markless carrier**: no transition of its
+own, all-final fields of candidate types; needs the §060 field-ride-along decoupled from an own mark, plus
+dynamic-immutability-aware field committability for its `List.copyOf`-style fields), `FieldInspectionImpl`
+(@Mutable, unlike its three sibling inspections — undiagnosed), `CompilationUnitImpl`, `TypeParameterImpl`.
+The all-or-nothing fixpoint holds until that ring closes.
+
 ## Task 4: surface the eventual verdicts to developers (the IDE path)
 
 The eventual verdicts are the novel output of this arc; today they are visible only via `FPDUMP` and the

@@ -172,6 +172,9 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
             Value.Eventual eventual = implementation.analysis().getOrDefault(EVENTUAL_METHOD,
                     ValueImpl.EventualImpl.NOT_EVENTUAL);
             if (!eventual.isEventual()) return; // one implementation without a mark: no promise to make
+            // the implementation's classification may lean on the cluster seed (labelsOfReceiver through a
+            // candidate-typed field); the abstract owner inherits those assumption edges (no-op off the gate)
+            eventualCluster.noteLabelInheritance(methodInfo.typeInfo(), implementation.typeInfo());
             if (fromImplementations == null) {
                 fromImplementations = eventual;
             } else if (!fromImplementations.equals(eventual)) {

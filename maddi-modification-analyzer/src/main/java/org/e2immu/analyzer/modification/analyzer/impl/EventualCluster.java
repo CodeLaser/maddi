@@ -106,6 +106,26 @@ public class EventualCluster {
                 .set().isEmpty();
     }
 
+    // Part A support: parent class -> ALL analyzed subclasses (candidate or not), for the abstract
+    // subclass->parent mark inheritance (InfoImpl inherits the shared 'inspection' label from its subclasses)
+    private final Map<TypeInfo, Set<TypeInfo>> subclassesByParent = new ConcurrentHashMap<>();
+
+    /** Record the class-hierarchy edge of every analyzed type (not just candidates): the subclass->parent mark
+     *  inheritance must see ALL subclasses -- one uncooperative subclass invalidates the shared label. */
+    public void noteHierarchy(TypeInfo typeInfo) {
+        if (!ENABLED) return;
+        ParameterizedType parent = typeInfo.parentClass();
+        TypeInfo parentType = parent == null ? null : parent.typeInfo();
+        if (parentType != null && !parentType.isJavaLangObject()) {
+            subclassesByParent.computeIfAbsent(parentType, k -> ConcurrentHashMap.newKeySet()).add(typeInfo);
+        }
+    }
+
+    /** The analyzed direct subclasses of {@code parent} seen so far; empty when none (or off the gate). */
+    public Set<TypeInfo> knownSubclasses(TypeInfo parent) {
+        return subclassesByParent.getOrDefault(parent, Set.of());
+    }
+
     /** Record a direct candidate and close upward: its supertypes join the cluster (this is how {@code InfoImpl}
      *  and the interfaces, which have no eventual method, get in). */
     public void noteCandidate(TypeInfo typeInfo) {

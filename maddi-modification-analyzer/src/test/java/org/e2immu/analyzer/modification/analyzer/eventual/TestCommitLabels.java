@@ -208,8 +208,10 @@ public class TestCommitLabels extends CommonTest {
             TypeInfo T = C.findSubType("T");
 
             assertEquals(Set.of("inspection"), nonModAfter(T, "len", 0));
-            // peer.same(this): the receiver is committable, but bare this mid-transition never is
-            assertEquals(Set.of(), nonModAfter(T, "bailBareThis", 0));
+            // peer.same(this): bare this handed out IS excusable for a cluster-candidate owner (post-marks it
+            // is committed; the self-assumption is witnessed and the contraction validates) -- the receiver
+            // field contributes its label
+            assertEquals(Set.of("peer"), nonModAfter(T, "bailBareThis", 0));
             // items.add: a plain mutable field is not committed by any mark
             assertEquals(Set.of(), nonModAfter(T, "bailMutableField", 0));
             // l = items; l.add(x): the local aliases the mutable field -- must NOT be excused even though the
