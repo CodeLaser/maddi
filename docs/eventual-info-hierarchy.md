@@ -526,9 +526,26 @@ off the gate the ledger is empty and it is a complete no-op, so the gate-off cor
 construction**. `TestEventualClusterContraction` (self-consistent cycle survives whole; broken assumption drops;
 cascade; independent verdict kept; mixed core-kept/sibling-dropped). analyzer 240/0.
 
-**Still open:** confirm on the **gate-ON dogfood** that the contraction retracts nothing (the self-consistency
-evidence — needs the standalone dogfood run); **step 3** ungate the cluster result behind a byte-identical corpus
-A/B; the still-deferred subclass→superclass mark inheritance that would promote `InfoImpl` itself.
+**Gate-ON dogfood — the contraction is NOT a no-op: it retracts 12 (2026-07-22).** Run with `EVENTUALCLUSTER=1`
+on maddi's own CST, the contraction retracted **12** of the 17 optimistic eventual verdicts — the *entire* `Info`
+flagship family (`TypeInfoImpl`, `MethodInfoImpl`, `FieldInfoImpl`, `ParameterInfoImpl`, `TypeParameterImpl`,
+`CompilationUnitImpl`, …). Only 5 self-contained verdicts survive (`ModuleInfo.Provides`/`Uses`, `Variable`,
+`ModuleInfoImpl.ProvidesImpl`/`UsesImpl`). This is the contraction *working correctly*, not a bug: `InfoImpl` and
+the `*Info` interfaces are all `eventual=null` — they never obtain a verdict (no `@Mark` of their own; the mark
+lives on the subclasses' `inspection` field, and the **subclass→superclass mark inheritance is the deferred
+piece**). Every flagship leans on `InfoImpl` (via `immutableSuper`) or an interface (via a cross-reference field)
+being eventual, and the greatest-fixpoint contraction soundly refuses to certify a verdict whose premise is never
+discharged. **So the seeded "4→17" was resting on undischarged premises** — the earlier "stable across reruns"
+observation was self-*consistency* of the optimism, not soundness; step 2 is exactly the tool that exposed it.
+
+**Roadmap, reordered.** The subclass→superclass mark inheritance is no longer optional/deferred — it is the
+**critical-path prerequisite**. Once `InfoImpl` (inheriting the shared `inspection` transition from its
+subclasses) and the interfaces obtain their own eventual verdicts, the flagships' assumptions discharge, the
+contraction retracts nothing, and the 17 survive *soundly* — which is what earns ungating.
+
+**Still open (in order):** (1) **subclass→superclass mark inheritance** — give `InfoImpl` and the `*Info`
+interfaces their own eventual verdict from the subclasses' shared mark; re-run the dogfood and confirm the
+contraction now retracts 0. (2) **Step 3 — ungate** the cluster result behind a byte-identical corpus A/B.
 
 ## Task 4: surface the eventual verdicts to developers (the IDE path)
 
