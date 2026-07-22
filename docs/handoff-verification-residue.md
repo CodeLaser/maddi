@@ -237,3 +237,55 @@ exists as post-convergence single writer. Reopening that would fight the §14 ar
 Cosmetic side-quests, independent of the decision: silence the residue INFO for the first pass
 after cycle-breaking activation (it reports expected fallout as churn); refresh the stale exit-5
 note in `dogfood/README.md`.
+
+---
+
+## 8. Design A implemented (2026-07-22, same session — approved by Bart)
+
+The §7.5-A redesign is in `ShadowModificationPass`, MODREACH-gated as before. What landed:
+
+1. **Primitive seeding.** Methods whose body the walk fully sees (no bound method references,
+   anonymous classes, or local type declarations; lambda bodies ARE walked, unbound `Type::m`
+   references are transparent) no longer seed their receiver-rooted summary entries (This,
+   this-scoped FieldReferences, own parameters). Replacement evidence: direct assignments (field
+   rebinding → owner graph; array-element stores → array object, construction excluded), boundary
+   callees (outside the analysis order: modifying/`@Modified` verdicts incl. the conservative
+   no-information default; the seeded callee nodes travel over the existing E1/E2 edges), the
+   conservative mirror for **undecided abstract in-order callees** (the SAM shape), and an E1
+   fallback connecting a boundary callee's `@Modified` parameters to syntactically projected
+   arguments when argument links are absent. Opaque bodies keep full summary seeding (E7 eager
+   creation-site attributions live there).
+2. **Abstract seeding by evidence class.** Frozen FALSE on an abstract seeds only when E6 cannot
+   re-derive it: an implementation outside the order **or not connected by overrides()** (a
+   method-reference implementation is in IMPLEMENTATIONS but has no override relation), or an
+   explicit source `@Modified`. All-impls-in-order aggregations are left to the E6 edges — this
+   alone un-poisons the `TypeInfo.packageName` class. No-impl abstracts stay unseeded when
+   undecided (preserves the validated null→TRUE cutover for the Codec class).
+3. **Reverse upgrade.** `writeVerdicts` now upgrades frontier-complete unreached FALSE nodes to
+   TRUE (`REVERSE_UPGRADED`, in the joint-fixpoint trigger), retiring the "reverse divergence =
+   pass bug" doctrine; tainted nodes keep FALSE. `TestShadowModificationPass`'s forwarding-hop
+   pin re-pinned with justification (the engine's own frozen state was internally inconsistent:
+   `apply:0` unmodified TRUE vs stale `run:td` FALSE).
+4. **`@IgnoreModifications` mirror** in all projections (was missing entirely — MODREACH had been
+   downgrading `InfoImpl.propertyValueMap` to modified, sinking the eventual flagship store), and
+   an **immutable-variable cut** in `project()` (an immutable-typed face contributes no nodes —
+   the projection-layer mirror of the closure cut / writer guard).
+5. **`Either.isLeft()/isRight()` got `@NotModified`** in maddi-support (the only ungated change;
+   style-consistent with getLeft/getRight — the jar's byte-code annotations are its aapi, and the
+   missing contract made every `Either`-discriminated accessor conservatively modifying).
+6. Diagnostics: `SHADOW_SEEDS` (env-gated seed dump with origins).
+
+**Dogfood results (MODREACH=1):** seeds 2638→~1085, reverse-kept 231→0, joint fixpoint clean at
+round 3 with 0 reverses; ~317+25 FALSE→TRUE upgrades; `nonModifying=null` stays 0;
+`TestRecursionThroughAbstract.testModReach` all-true; `TypeInfoImpl.packageName()` /
+`fromPrimaryTypeDownwards()` / abstract `TypeInfo.packageName()` now TRUE. `descriptor()` and the
+`print` family stay FALSE — **correctly**: their chains run through `inspection.get()` (the
+pre-mark modification) and genuinely-modifying jar boundaries; they are the EVENTUAL layer's job.
+
+**The reframed endgame:** composing `MODREACH=1 EVENTUALCLUSTER=1` still nets fewer survivors
+(4, retracted 61; `InfoImpl` survives for the first time) because modreach's ~1586 honest
+TRUE→FALSE downgrades hand the eventual layer more methods than `commitLabels` currently excuses.
+The next front is therefore **Part B coverage against the honest (modreach) modification state**
+— plus one open engine question: `Stream.map` (and friends) seeding as "non-analyzed modifying
+callee" despite the preloaded jdk aapi (suspected per-sourceSet Info identity mismatch at the
+preload boundary; see `MODREACH_EXPLAIN` chains through `SetOfMethodInfoImpl.nice()`).

@@ -531,7 +531,8 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                         TolerantWrite.freezeModificationProperties();
                         LOGGER.info("MODREACH round {}: {}", modReachRounds, counts.summary());
                         LOGGER.info("MODREACH round {}: {}", modReachRounds, report.summary());
-                        if (counts.downgraded() + counts.decidedFalse() + counts.decidedTrue() > 0) {
+                        if (counts.downgraded() + counts.decidedFalse() + counts.decidedTrue()
+                            + counts.reverseUpgraded() > 0) {
                             // P2.3b: the immutability family was derived from the pre-pass optimistic
                             // values; clear it and re-derive with modification frozen. Cycle breaking
                             // re-stages at its own certification point; the terminal phase (and
