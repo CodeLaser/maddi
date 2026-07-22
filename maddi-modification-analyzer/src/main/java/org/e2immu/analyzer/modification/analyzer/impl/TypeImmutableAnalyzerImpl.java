@@ -243,6 +243,12 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
             if (EventualCluster.ENABLED) {
                 Immutable fieldTypeImm = analysisHelper.typeImmutableNullIfUndecided(fieldInfo.type());
                 if (fieldTypeImm != null && fieldTypeImm.isAtLeastImmutableHC()) continue;
+                // An @IgnoreModifications field is manual hidden content: its modifications are confined to the
+                // ignored stratum and do not bear on this type's immutability, so its UNMODIFIED_FIELD verdict is
+                // irrelevant -- exactly as a type-parameter field is hidden by erasure. The field still keeps the
+                // type at IMMUTABLE_HC (never hc-free) because its concrete type is not deeply immutable, which
+                // instanceFieldTypesDeeplyImmutable enforces. See road-to-immutability section 050.
+                if (fieldInfo.isIgnoreModifications()) continue;
             }
             Bool fieldUnmodified = fieldInfo.analysis().getOrNull(UNMODIFIED_FIELD, ValueImpl.BoolImpl.class);
             if (fieldUnmodified == null) {

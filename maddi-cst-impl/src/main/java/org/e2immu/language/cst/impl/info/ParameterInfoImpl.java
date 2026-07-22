@@ -33,6 +33,7 @@ import org.e2immu.language.cst.impl.output.TextImpl;
 import org.e2immu.language.cst.impl.variable.DescendModeEnum;
 import org.e2immu.language.cst.impl.variable.LocalVariableImpl;
 import org.e2immu.support.EventuallyFinal;
+import org.e2immu.annotation.rare.IgnoreModifications;
 
 import java.util.List;
 import java.util.Objects;
@@ -45,6 +46,11 @@ public class ParameterInfoImpl implements ParameterInfo {
     private final MethodInfo methodInfo;
     private final ParameterizedType parameterizedType;
     private final EventuallyFinal<ParameterInspection> inspection;
+    // Manual hidden content: the analysis overlay is derived analyzer metadata, orthogonal to the immutability of
+    // the parameter it decorates. Unlike its Info siblings, ParameterInfoImpl owns its store directly rather than
+    // inheriting it from InfoImpl; @IgnoreModifications gives it the same treatment for the same reason (the
+    // modifications are confined to the ignored stratum). See road-to-immutability section 050.
+    @IgnoreModifications
     private final PropertyValueMap analysis = new PropertyValueMapImpl();
 
     public ParameterInfoImpl(MethodInfo methodInfo, int index, String name, ParameterizedType parameterizedType) {
