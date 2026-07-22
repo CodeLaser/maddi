@@ -413,3 +413,42 @@ The ungated materialization is a corpus no-op (no e2immu annotations there) and 
 **Still open:** the confinement guard's **global-escape/containment arm** (method-granularity, `@StaticSideEffects`
 + AAPI safe-surface declarations); `GetSetHelper` guard-tolerance (getter↔variable equivalence gap); and the
 greatest-fixpoint **removal pass** still owed for the cluster optimism.
+
+## Task 4: surface the eventual verdicts to developers (the IDE path)
+
+The eventual verdicts are the novel output of this arc; today they are visible only via `FPDUMP` and the
+results JSON. The goal is to show them *in the editor* ("this type becomes `@Immutable` once `inspection` is
+committed"). Reconnaissance (2026-07-22) corrected the framing: **a full IDE stack already ships** — plugins for
+IntelliJ (`maddi-intellij`: inlay/gutter/annotator/findings-panel), Eclipse (`maddi-eclipse`: code minings),
+and VS Code (`maddi-vscode`: inlay hints + hover + diagnostics), all over a bespoke NDJSON daemon protocol
+(`maddi-ide-daemon` / `maddi-ide-client`, `DaemonProtocol`), **not** LSP. So this is not "build IDE
+integration"; it is "make the eventual verdicts flow through the surfaces that exist." They flow only
+**partially** today: the daemon ships each element's raw `properties` map (so `eventualMethod=…`/
+`eventuallyImmutableType=…` are already weakly visible in the **VS Code hover**), but the *rendered*
+annotations/inlays on every front-end come from `DecoratorImpl`, which emits **no eventual annotation at all**.
+
+**The single high-leverage seam — `DecoratorImpl.annotationAndProperties()`**
+(`maddi-modification-prepwork/.../io/DecoratorImpl.java`, ~128–383). It turns computed `analysis()` properties
+back into `@Annotation` decorations and feeds `AnnotationTagger` → `ResultCollector` → **all three front-ends**
+*and* decorated-source printing. It covers `@Immutable`/`@Independent`/`@NotModified`/`@Final`/… but no
+`EVENTUALLY_*`; for an eventually-immutable type it reads the optimistic unconditional `IMMUTABLE_TYPE` and
+prints a plain `@Immutable(hc=true)` with **no `after=`**, losing the eventual nature. Extend it to emit
+`EVENTUALLY_IMMUTABLE_TYPE` → `@Immutable(after="…")`, `EVENTUAL_METHOD`/`EVENTUAL_PARAMETER` →
+`@Mark`/`@Only`/`@TestMark`, `EVENTUALLY_FINAL_FIELD` → `@Final(after="…")`, `EVENTUALLY_NON_MODIFYING_METHOD` →
+`@NotModified(after="…")`. The exact inverse already exists — `AnnotationToProperty` (`maddi-modification-common/.../AnnotationToProperty.java`, ~134–335) parses these same annotations *into* the properties — so mirror its label/field
+semantics. Tests to extend: `TestWriteAnalysis2`, `TestAnalysisHintsComposer`.
+
+**Staging** (each step independently shippable, all downstream of the seam):
+1. **Decorate** — the `DecoratorImpl` extension above. One change; makes eventual verdicts render as annotations
+   on IntelliJ/Eclipse/VS Code inlays *and* in decorated-source printing.
+2. **Polarity** — decide how `AnnotationTagger` (`maddi-ide-daemon`, polarity tables ~52–54) tags an eventual
+   annotation (POSITIVE, or a new EVENTUAL polarity) so the `InlineHintsMode`/`HintPlacement` filters on each
+   front-end treat it sensibly (e.g. show `@Immutable(after=…)` distinctly from a plain `@Immutable`).
+3. **Typed protocol field** (optional) — `DaemonProtocol.ElementAnnotation` carries `displayAnnotations`,
+   `annotations`, and a stringly-typed `properties` map; a typed eventual field would let front-ends style the
+   `after="…"` labels rather than parse strings.
+4. **Round-trip is already done** — `WriteAnalysisResults` + `PropertyProviderImpl` + `ValueImpl` codecs
+   serialize/deserialize every eventual property, so a file-consuming tool needs no new work.
+
+No LSP is involved; the transport is the daemon's NDJSON. See `docs/ide-todo.md` for the separately-tracked IDE
+work (partial re-analysis, streaming).
