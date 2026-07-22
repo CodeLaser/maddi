@@ -182,4 +182,50 @@ public class TestGuardIgnoreModifications extends CommonTest {
             StaticSideEffectAnalyzerImpl.ENABLED = saved;
         }
     }
+
+    /**
+     * The AAPI safe-surface path, end to end: the escape is not a visible static-field write but a call to a
+     * method contracted {@code @StaticSideEffects} — the stand-in for {@code System.setOut}, whose global effect
+     * is invisible from source. {@code Sink.reconfigure()} calls the contracted {@code Native.install()}, so the
+     * analyzer propagates the static side effect onto {@code reconfigure()}, and calling it on the
+     * {@code @IgnoreModifications} field {@code sink} leaves the ignored stratum.
+     */
+    @Language("java")
+    private static final String GLOBAL_ESCAPE_VIA_CONTRACT = """
+            package a.b;
+            import org.e2immu.annotation.rare.IgnoreModifications;
+            import org.e2immu.annotation.rare.StaticSideEffects;
+            public class X {
+                static class Native {
+                    @StaticSideEffects void install() { }   // effect invisible from body, asserted by contract
+                }
+                static class Sink {
+                    private final Native n = new Native();
+                    void reconfigure() { n.install(); }     // inherits the static side effect by propagation
+                    void plain() { }
+                }
+                @IgnoreModifications
+                private final Sink sink = new Sink();
+                public void bad() { sink.reconfigure(); }
+                public void ok() { sink.plain(); }
+            }
+            """;
+
+    @DisplayName("global-escape via a contracted @StaticSideEffects callee: propagates, then the guard fires")
+    @Test
+    public void testGlobalEscapeViaContractIsWarned() throws IOException {
+        boolean saved = StaticSideEffectAnalyzerImpl.ENABLED;
+        StaticSideEffectAnalyzerImpl.ENABLED = true;
+        try {
+            Run run = analyzeWithGuard("a.b.X", GLOBAL_ESCAPE_VIA_CONTRACT);
+            List<Message> notConfined = run.notConfined();
+            assertEquals(1, notConfined.size(),
+                    "the propagated static-side-effect call on the ignore-mod field must be flagged, have: "
+                    + notConfined.stream().map(Message::message).toList());
+            String msg = notConfined.getFirst().message();
+            assertTrue(msg.contains("reconfigure") && msg.contains("static side effect") && msg.contains("sink"), msg);
+        } finally {
+            StaticSideEffectAnalyzerImpl.ENABLED = saved;
+        }
+    }
 }

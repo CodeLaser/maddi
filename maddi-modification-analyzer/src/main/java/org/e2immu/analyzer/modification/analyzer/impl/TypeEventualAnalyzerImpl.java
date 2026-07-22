@@ -226,9 +226,10 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
     }
 
     /** A field type that excuses a call on it after the mark: really eventually immutable, or -- under the
-     *  EVENTUALCLUSTER gate -- a cluster candidate whose verdict is still circular (see {@link EventualCluster}). */
-    private boolean isEventuallyImmutableFieldType(TypeInfo fieldType) {
-        return eventualCluster.treatAsEventuallyImmutable(fieldType, eventuallyImmutable(fieldType));
+     *  EVENTUALCLUSTER gate -- a cluster candidate whose verdict is still circular (see {@link EventualCluster}).
+     *  {@code member} is the type holding the field, recorded as the assumer when the excusal is optimistic. */
+    private boolean isEventuallyImmutableFieldType(TypeInfo member, TypeInfo fieldType) {
+        return eventualCluster.treatAsEventuallyImmutable(member, fieldType, eventuallyImmutable(fieldType));
     }
 
     /** null when nothing can be concluded; never {@code NOT_EVENTUAL} (we do not record absence). */
@@ -377,13 +378,15 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * modify anything.
      */
     private boolean fieldHoldsCommittableContent(FieldInfo fieldInfo) {
+        // the member leaning on the field's type is the type that declares the field
+        TypeInfo member = fieldInfo.owner();
         TypeInfo fieldType = fieldInfo.type().bestTypeInfo();
         if (fieldType == null) return false;
-        if (isEventuallyImmutableFieldType(fieldType)) return true;
+        if (isEventuallyImmutableFieldType(member, fieldType)) return true;
         if (!immutableOf(fieldType).isAtLeastImmutableHC()) return false; // the wrapper read must not itself modify
         for (ParameterizedType arg : fieldInfo.type().parameters()) {
             TypeInfo argType = arg.bestTypeInfo();
-            if (argType != null && isEventuallyImmutableFieldType(argType)) return true;
+            if (argType != null && isEventuallyImmutableFieldType(member, argType)) return true;
         }
         return false;
     }

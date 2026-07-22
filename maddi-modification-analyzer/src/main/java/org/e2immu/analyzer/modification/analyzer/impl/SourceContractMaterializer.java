@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_FIELD;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_FIELD;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD;
+import static org.e2immu.language.cst.impl.analysis.PropertyImpl.STATIC_SIDE_EFFECTS_METHOD;
 
 /**
  * Writes a user's <em>dynamic type</em> contract on a SOURCE field or method into {@code analysis()}.
@@ -76,6 +77,12 @@ public class SourceContractMaterializer {
 
     public void materialize(MethodInfo methodInfo) {
         materialize(methodInfo, IMMUTABLE_METHOD);
+        // @StaticSideEffects is the global-escape twin of @IgnoreModifications: a pure contract on the safe
+        // surface (e.g. System.setOut in an AAPI declaration) whose global effect the analyzer cannot see. On a
+        // SOURCE method it is normally computed, but a source author may also assert it directly; materialize it
+        // so it is read from analysis() like every other consumer expects. It caps nothing (SSE is informational,
+        // feeding only the @IgnoreModifications containment guard), so trusting it here is safe.
+        materializeTrueBool(methodInfo, STATIC_SIDE_EFFECTS_METHOD);
     }
 
     public void materialize(FieldInfo fieldInfo) {

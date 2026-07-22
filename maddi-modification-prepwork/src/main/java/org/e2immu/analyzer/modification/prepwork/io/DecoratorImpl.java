@@ -22,6 +22,7 @@ import org.e2immu.annotation.method.GetSet;
 import org.e2immu.annotation.rare.AllowsInterrupt;
 import org.e2immu.annotation.rare.Finalizer;
 import org.e2immu.annotation.rare.IgnoreModifications;
+import org.e2immu.annotation.rare.StaticSideEffects;
 import org.e2immu.annotation.type.UtilityClass;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
@@ -73,6 +74,7 @@ public class DecoratorImpl implements Qualification.Decorator {
     private final AnnotationExpression utilityClassAnnotation;
     private final AnnotationExpression allowInterruptAnnotation;
     private final AnnotationExpression finalizerAnnotation;
+    private final AnnotationExpression staticSideEffectsAnnotation;
 
     private final Set<Class<?>> importsNeeded = new HashSet<>();
 
@@ -113,6 +115,8 @@ public class DecoratorImpl implements Qualification.Decorator {
         allowInterruptAnnotation = runtime.newAnnotationExpressionBuilder().setTypeInfo(allowInterruptTi).build();
         TypeInfo finalizerTi = runtime.getFullyQualified(Finalizer.class, true, sourceSetOfRequest);
         finalizerAnnotation = runtime.newAnnotationExpressionBuilder().setTypeInfo(finalizerTi).build();
+        TypeInfo staticSideEffectsTi = runtime.getFullyQualified(StaticSideEffects.class, true, sourceSetOfRequest);
+        staticSideEffectsAnnotation = runtime.newAnnotationExpressionBuilder().setTypeInfo(staticSideEffectsTi).build();
         commutableTi = runtime.getFullyQualified(Commutable.class, true, sourceSetOfRequest);
         getSetTi = runtime.getFullyQualified(GetSet.class, true, sourceSetOfRequest);
     }
@@ -159,6 +163,7 @@ public class DecoratorImpl implements Qualification.Decorator {
         PropertyValueMap analysis = info.analysis();
         Property propertyUtilityClass = null;
         Property propertyIgnoreModifications = null;
+        Property propertyStaticSideEffects = null;
         Property propertyAllowInterrupt = null;
         Value.CommutableData commutableData = null;
         Value.FieldValue fieldValue = null;
@@ -190,6 +195,8 @@ public class DecoratorImpl implements Qualification.Decorator {
                 propertyIdentity = methodInfo.isIdentity() ? IDENTITY_METHOD : null;
                 propertyFluent = methodInfo.isFluent() ? FLUENT_METHOD : null;
                 propertyIgnoreModifications = methodInfo.isIgnoreModification() ? IGNORE_MODIFICATION_METHOD : null;
+                propertyStaticSideEffects = analysis.getOrDefault(STATIC_SIDE_EFFECTS_METHOD, FALSE).isTrue()
+                        ? STATIC_SIDE_EFFECTS_METHOD : null;
                 propertyAllowInterrupt = methodInfo.allowsInterrupts() ? METHOD_ALLOWS_INTERRUPTS : null;
                 propertyFinalizer = methodInfo.analysis().getOrDefault(FINALIZER_METHOD, FALSE).isTrue()
                         ? FINALIZER_METHOD : null;
@@ -282,6 +289,10 @@ public class DecoratorImpl implements Qualification.Decorator {
         if (propertyIgnoreModifications != null) {
             importsNeeded.add(IgnoreModifications.class);
             list.add(new AnnotationProperty(ignoreModifications, propertyIgnoreModifications));
+        }
+        if (propertyStaticSideEffects != null) {
+            importsNeeded.add(StaticSideEffects.class);
+            list.add(new AnnotationProperty(staticSideEffectsAnnotation, propertyStaticSideEffects));
         }
         if (propertyImmutable != null && immutable != null && !immutable.isMutable()) {
             TypeInfo ti;

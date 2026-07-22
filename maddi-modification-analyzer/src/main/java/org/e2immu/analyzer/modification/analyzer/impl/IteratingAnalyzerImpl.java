@@ -242,7 +242,17 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                                 org.e2immu.language.cst.impl.analysis.ValueImpl.GetSetValueImpl.class);
                         String getset = gs != null && gs.field() != null
                                 ? " getset=" + gs.field().name() + (gs.setter() ? "(set)" : "(get)") : "";
-                        v = "method nonModifying=" + b + getset;
+                        // eventual-cluster diagnostic: the after-mark non-modification label (why a read-through
+                        // accessor is excused after the mark) and the @Mark/@Only verdict, to see why an interface
+                        // does or does not surface an eventual type-level verdict
+                        var enm = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.SetOfStringsImpl.class);
+                        String evNonMod = enm != null && !enm.set().isEmpty()
+                                ? " eventuallyNonMod=" + new java.util.TreeSet<>(enm.set()) : "";
+                        var evm = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUAL_METHOD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.EventualImpl.class);
+                        String evMethod = evm != null && evm.isEventual() ? " eventual=" + evm : "";
+                        v = "method nonModifying=" + b + getset + evNonMod + evMethod;
                     } else if (info instanceof org.e2immu.language.cst.api.info.FieldInfo) {
                         var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_FIELD,
                                 org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
@@ -518,6 +528,15 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                                 : org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_MAX_ITERATIONS;
                         int it = iterations;
                         feed(f -> f.phase(terminal, it));
+                    }
+                    // EXPERIMENTAL (EVENTUALCLUSTER): the greatest-fixpoint contraction. The optimistic seed may
+                    // have concluded a member eventually immutable by assuming an unproven candidate; retract any
+                    // member whose assumption did not hold, iterating to the fixpoint. Off the gate the assumption
+                    // ledger is empty and this is a no-op; runs before the fingerprint/guard so both see the
+                    // contracted state.
+                    if (EventualCluster.ENABLED
+                        && singleIterationAnalyzer instanceof SingleIterationAnalyzerImpl sia) {
+                        EventualClusterContraction.retract(analysisOrder, sia.eventualCluster());
                     }
                     logVerdictFingerprint(analysisOrder);
                     if (configuration.guardContracts() || configuration.warnNearMisses()) {
