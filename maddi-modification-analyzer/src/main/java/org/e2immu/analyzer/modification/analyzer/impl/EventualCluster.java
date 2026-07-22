@@ -153,12 +153,48 @@ public class EventualCluster {
     public boolean treatAsEventuallyImmutable(TypeInfo member, TypeInfo candidate, Value.EventuallyImmutable actual) {
         if (actual.isEventual()) return true; // proven on its own merits: no assumption
         if (ENABLED && isCandidate(candidate)) {
-            if (assumptions.computeIfAbsent(member, m -> ConcurrentHashMap.newKeySet()).add(candidate)) {
-                LOGGER.debug("EC: {} optimistically assumes {} is eventually immutable", member, candidate);
+            java.util.ArrayDeque<java.util.List<TypeInfo[]>> stack = assumptionBuffers.get();
+            if (!stack.isEmpty()) {
+                // success-only witnessing: inside a buffered computation, the edge only reaches the ledger if
+                // the computation lands its property -- a bailed attempt (retried next iteration, possibly
+                // succeeding via a different path) must not leave vestigial edges for the contraction to
+                // cascade on
+                stack.peek().add(new TypeInfo[]{member, candidate});
+            } else {
+                record(member, candidate);
             }
             return true;
         }
         return false;
+    }
+
+    // per-thread stack of assumption buffers; the type loop runs computations in parallel, one per thread
+    private final ThreadLocal<java.util.ArrayDeque<java.util.List<TypeInfo[]>>> assumptionBuffers =
+            ThreadLocal.withInitial(java.util.ArrayDeque::new);
+
+    private void record(TypeInfo member, TypeInfo candidate) {
+        if (assumptions.computeIfAbsent(member, m -> ConcurrentHashMap.newKeySet()).add(candidate)) {
+            LOGGER.debug("EC: {} optimistically assumes {} is eventually immutable", member, candidate);
+        }
+    }
+
+    /** Open an assumption buffer for the computation that follows on this thread. Pair with exactly one
+     *  {@link #commitAssumptionBuffer()} or {@link #discardAssumptionBuffer()}. No-op off the gate. */
+    public void beginAssumptionBuffer() {
+        if (!ENABLED) return;
+        assumptionBuffers.get().push(new java.util.ArrayList<>());
+    }
+
+    /** The buffered computation landed its property: its optimistic edges enter the ledger. */
+    public void commitAssumptionBuffer() {
+        if (!ENABLED) return;
+        for (TypeInfo[] edge : assumptionBuffers.get().pop()) record(edge[0], edge[1]);
+    }
+
+    /** The buffered computation bailed: its optimistic edges are dropped. */
+    public void discardAssumptionBuffer() {
+        if (!ENABLED) return;
+        assumptionBuffers.get().pop();
     }
 
     /**

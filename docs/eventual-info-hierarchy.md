@@ -701,6 +701,29 @@ scope. The method-level machinery (this session) appears sufficient; the remaini
 crashes, (b) the builder-candidacy modeling decision, (c) grinding the expression/statement/variable
 hierarchies through the same dogfood loop with `EC_RETRACT_DEBUG` as the compass.
 
+## Ring 3: success-only witnessing; the first cross-reference type SURVIVES (2026-07-22, closing)
+
+Two more pieces, both gated:
+
+- **Success-only witnessing.** The assumption ledger recorded edges from *every* optimistic query — including
+  computations that bailed in iteration k and succeeded in iteration k+n via a different path (fresh-rooted,
+  look-through), leaving vestigial edges the contraction then cascaded on. Every computation in
+  `TypeEventualAnalyzerImpl.go` now runs inside a per-thread **assumption buffer**
+  (`EventualCluster.beginAssumptionBuffer`/`commit`/`discard`): edges reach the ledger only when the
+  computation lands its property. This removed the `java.lang.Record` and most Builder-interface edges from
+  the broken lists without any modeling decision.
+- **Throwing-stub compatibility in `methodEventual`** (mirrors the enm clause): an implementation that never
+  modifies at all — `CompilationUnitStub`'s throwing `setFingerPrint` — cannot contradict the transition the
+  real implementations declare, so it no longer vetoes the abstract method's `@Mark`.
+
+**Result: `CompilationUnit` is the first cross-reference type to SURVIVE the contraction** —
+`eventual=@Immutable(hc=true)(after="fingerPrint,types")`, retained, not seeded-and-retracted. Survivors
+5→8. The remaining broken roots, per `EC_RETRACT_DEBUG`: `api.type.ParameterizedType` (18 dependents —
+holdouts `print`/`rewire`/`concreteSuperType`/`mostSpecific`/`replaceByTypeBounds`, i.e. the printing and
+rewiring machinery), `api.expression.Expression` + `ExpressionImpl` (17+12 — same machinery, plus the
+71-method `nonModifying=null` verification residue), `AnnotationExpression`, and the small tail
+(`VariableImpl`, `FieldInspection` cascades). The grind continues exactly there.
+
 ## Task 4: surface the eventual verdicts to developers (the IDE path)
 
 The eventual verdicts are the novel output of this arc; today they are visible only via `FPDUMP` and the

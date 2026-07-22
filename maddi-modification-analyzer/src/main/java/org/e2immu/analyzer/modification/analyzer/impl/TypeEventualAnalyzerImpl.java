@@ -114,6 +114,9 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
 
     @Override
     public void go(TypeInfo typeInfo, boolean activateCycleBreaking) {
+        // every computation runs inside an assumption buffer: only a computation that LANDS its property
+        // flushes its optimistic edges into the contraction's ledger (success-only witnessing) -- a bailed
+        // attempt, retried and possibly succeeding via a different path, must not leave vestigial edges
         for (MethodInfo methodInfo : typeInfo.methods()) {
             if (methodInfo.analysis().haveAnalyzedValueFor(EVENTUAL_METHOD)) continue;
             // contracts win over computation. They are materialized into analysis() here rather than only read
@@ -121,29 +124,43 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             // in analysis(), and for a source method nothing else puts them there.
             Value.Eventual eventual = eventualOf(methodInfo);
             boolean contracted = eventual.isEventual();
+            eventualCluster.beginAssumptionBuffer();
             if (!contracted) eventual = computeEventual(typeInfo, methodInfo);
             if (eventual != null && eventual.isEventual()) {
                 methodInfo.analysis().set(EVENTUAL_METHOD, eventual);
                 DECIDE.debug("TE: {} eventual of method {} = {}", contracted ? "Contracted" : "Decide",
                         methodInfo, eventual);
                 propertyChanges.incrementAndGet();
+                eventualCluster.commitAssumptionBuffer();
+            } else {
+                eventualCluster.discardAssumptionBuffer();
             }
         }
         for (MethodInfo methodInfo : typeInfo.methods()) {
             if (methodInfo.analysis().haveAnalyzedValueFor(EVENTUALLY_NON_MODIFYING_METHOD)) continue;
+            eventualCluster.beginAssumptionBuffer();
             Set<String> labels = computeEventuallyNonModifying(typeInfo, methodInfo);
             if (labels != null && !labels.isEmpty()) {
                 methodInfo.analysis().set(EVENTUALLY_NON_MODIFYING_METHOD,
                         new ValueImpl.SetOfStringsImpl(Set.copyOf(labels)));
                 DECIDE.debug("TE: Decide eventually-non-modifying of method {} after {}", methodInfo, labels);
                 propertyChanges.incrementAndGet();
+                eventualCluster.commitAssumptionBuffer();
+            } else {
+                eventualCluster.discardAssumptionBuffer();
             }
         }
         // EXPERIMENTAL (EVENTUALCLUSTER): once this type's method-level eventual intent is known, close it upward
         // so its supertypes join the cluster (InfoImpl and the interfaces have no eventual method of their own).
         eventualCluster.noteCandidate(typeInfo);
         eventualCluster.noteHierarchy(typeInfo);
+        eventualCluster.beginAssumptionBuffer();
         computeTypeLevel(typeInfo, activateCycleBreaking);
+        if (typeInfo.analysis().haveAnalyzedValueFor(EVENTUALLY_IMMUTABLE_TYPE)) {
+            eventualCluster.commitAssumptionBuffer();
+        } else {
+            eventualCluster.discardAssumptionBuffer();
+        }
     }
 
     /**
