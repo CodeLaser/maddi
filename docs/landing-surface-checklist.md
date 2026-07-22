@@ -232,7 +232,20 @@ reproducible without pushing:
 | TestGrpcStub | 1 pass | 1 pass |
 | GenerateParameterNameIndex | 2 pass | 2 **skipped** (by design) |
 
-- [ ] Push, confirm green, add the badge.
+### Green — run 29923820913, 2026-07-22, 19m30s
+
+`✓ main build`. The diagnostic step confirms `jmods ABSENT at
+/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/26.0.1-8/x64/jmods`, so the whole build passes *on* a
+jmod-less JDK rather than around one. Badge added to the README.
+
+§3 is done. Three runs, three findings: the missing daemon heap (fresh clones were broken), the
+jmod-less test harness, and — positively — the first real execution of `TestRuntimeImageFallback`.
+
+- [ ] Optional cleanup: drop the "Report JDK layout" step now that CI is settled, or keep it as
+      cheap documentation of why the distribution choice matters. Keeping it is the safer default —
+      it is what makes a future jmods-related failure diagnosable from the log alone.
+- [ ] Javadoc warnings surfaced as annotations on the green run (e.g. `Commutable.java#58` "no
+      comment", "no @return"). Harmless, but they are the only noise on an otherwise clean run.
 - [ ] No Gradle toolchain is declared anywhere, so the build silently uses whatever `JAVA_HOME`
       offers — the same class of latent portability bug as the heap default. Declaring one would
       make CI and local builds agree by construction.
@@ -302,14 +315,27 @@ BSD): it is the jar users compile their own code against, and LGPL on an annotat
 the kind of thing corporate legal departments stall on for months. Do this *before* the release —
 cheap now while nothing is published, expensive once it is on Central and third parties depend on it.
 
-- [ ] Pick Apache-2.0 or BSD (Apache-2.0 is the more common expectation for a Java annotations
-      artifact, and carries an explicit patent grant).
-- [ ] Add the licence file under `maddi-support/`, and make clear it governs that module only.
-- [ ] Update the `pom` metadata in the `maddi-support` publication block — Maven Central shows the
-      POM licence, and it must not say LGPL.
-- [ ] Check the source headers: `copyright_file.txt` at the repo root drives header insertion.
-- [ ] Say the split explicitly in the release notes; a project that quietly relicenses part of
-      itself invites exactly the suspicion the split is meant to remove.
+**Done 2026-07-22.** Apache-2.0 chosen (the common expectation for a Java annotations artifact, and
+it carries an explicit patent grant). Sole copyright holder is Bart Naudts — `git log` over
+`maddi-support/` shows no other author — so the relicensing is clean.
+
+- `maddi-support/LICENSE` — the canonical Apache-2.0 text, scoped to that module.
+- 44 headers rewritten (43 `.java` + `build.gradle.kts`), plus `BUILD.bazel`'s hash-comment variant.
+  `module-info.java` never carried one. Zero `Lesser General Public` mentions remain under
+  `maddi-support/`.
+- POM `licenses` block and JReleaser `license.set(...)` now say `Apache-2.0`; verified in the
+  generated `pom-default.xml`.
+- Copyright year moved to 2020-2026 in the rewritten headers.
+
+Note the repo-root `copyright_file.txt` still holds the LGPL header, which is correct — it is the
+template for the *analyzer*, which stays LGPL. Anything that applies it to `maddi-support` would
+undo this.
+
+- [ ] Say the split explicitly in the 0.9.0 release notes. **0.8.2 was published under
+      LGPL-3.0-or-later on 2025-08-18 and stays that way** — a released version cannot be
+      relicensed. Only 0.9.0 onward is Apache-2.0, and users wanting permissive terms must upgrade.
+      A project that quietly relicenses part of itself invites exactly the suspicion the split is
+      meant to remove.
 
 ## 8. Naming — DECIDED 2026-07-22
 
