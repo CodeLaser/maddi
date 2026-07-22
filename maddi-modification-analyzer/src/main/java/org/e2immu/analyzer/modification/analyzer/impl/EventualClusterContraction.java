@@ -118,8 +118,29 @@ public class EventualClusterContraction {
                 }
             }
         }
+        // an assumed candidate OUTSIDE the analysis order (java.lang.Record, pulled in as a record's
+        // supertype) discharges through its preloaded unconditional verdict; it can never appear in the
+        // analysis-order scan above
+        for (Set<TypeInfo> assumed : assumptions.values()) {
+            for (TypeInfo candidate : assumed) {
+                if (!discharged.contains(candidate) && candidate.analysis()
+                        .getOrDefault(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.MUTABLE)
+                        .isAtLeastImmutableHC()) {
+                    discharged.add(candidate);
+                }
+            }
+        }
         Set<TypeInfo> retract = membersToRetract(discharged, assumptions);
         retract.retainAll(haveEventual); // only an eventual verdict can be retracted
+        if (System.getenv("EC_RETRACT_DEBUG") != null) {
+            for (TypeInfo t : retract) {
+                Set<TypeInfo> assumed = assumptions.getOrDefault(t, Set.of());
+                String broken = assumed.stream().filter(c -> !discharged.contains(c))
+                        .map(TypeInfo::fullyQualifiedName).sorted().collect(java.util.stream.Collectors.joining(", "));
+                System.out.println("ECRETRACT " + t.fullyQualifiedName() + " <- broken: ["
+                        + broken + "] (cascade if empty)");
+            }
+        }
         for (TypeInfo t : retract) {
             t.analysis().removeIf(p -> PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE.key().equals(p.key()));
             LOGGER.debug("EC contraction: retract eventual verdict of {} (unproven assumption)", t);
