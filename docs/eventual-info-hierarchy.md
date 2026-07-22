@@ -396,7 +396,20 @@ analyzer suite 227/0. **Golden-rule corpus A/B: passed** — the three certified
 analysis time (147s / 179s / 36s) and 0 failures / 0 errors (Timefold's 1 skip is the pre-existing assumption).
 The ungated materialization is a corpus no-op (no e2immu annotations there) and the field-loop skip is gated off.
 
-**Open follow-ons:** ungate the field-loop skip once the corpus A/B clears it (honouring `@IgnoreModifications`
-in the immutability loop is general correctness, not prototype); the confinement *guard* itself (separation
-check now, global-escape/containment later) as designed in §050; and the greatest-fixpoint removal pass still
-owed for the cluster optimism.
+**Follow-ons 1 & 2 (2026-07-22, DONE).**
+- **Ungated the field-loop skip.** `if (fieldInfo.isIgnoreModifications()) continue;` moved out of the
+  `EVENTUALCLUSTER` gate in `loopOverFieldsAndMethods` — honouring the contract is general correctness, and a
+  no-op wherever no field carries the annotation. **Corpus A/B green** (Fernflower/Timefold/Langchain4j, forced
+  rerun, real analysis time, 0 failures).
+- **Confinement guard, separation arm.** `GuardAnalyzerImpl.guardIgnoreModificationsSeparation` **warns**
+  (category `ignore-modifications-not-confined`, never caps) when an `@IgnoreModifications` field holds a
+  non-decoration link to an accessible (non-ignore-mod) field of the same primary type — content shared with the
+  accessible surface, so a modification through the ignored stratum could escape it. Conservative (a
+  reference-only/decoration link stays silent, so the analysis overlay's normal use is not flagged);
+  method-granularity / global-escape (`@StaticSideEffects`) is the deferred later arm.
+  `TestGuardIgnoreModifications`: the overlay shape is silent, a StringBuilder-content share is flagged once.
+  Analyzer suite 229/0.
+
+**Still open:** the confinement guard's **global-escape/containment arm** (method-granularity, `@StaticSideEffects`
++ AAPI safe-surface declarations); `GetSetHelper` guard-tolerance (getter↔variable equivalence gap); and the
+greatest-fixpoint **removal pass** still owed for the cluster optimism.
