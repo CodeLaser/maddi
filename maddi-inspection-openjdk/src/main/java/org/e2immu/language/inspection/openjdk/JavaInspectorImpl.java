@@ -24,6 +24,7 @@ import org.e2immu.language.inspection.api.resource.ParameterNameIndex;
 import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.e2immu.language.inspection.resource.InfoByFqn;
 import org.e2immu.language.inspection.resource.SummaryImpl;
+import org.e2immu.language.java.openjdk.ClassSymbolScanner;
 import org.e2immu.language.java.openjdk.InMemoryJavaFileObject;
 import org.e2immu.language.java.openjdk.MaddiDiagnosticCollector;
 import org.e2immu.language.java.openjdk.ScanCompilationUnits;
@@ -718,9 +719,7 @@ public class JavaInspectorImpl implements JavaInspector {
                     }
                 }
             }
-            if (!jarsAndClassDirectories.isEmpty()) {
-                fm.setLocation(StandardLocation.CLASS_PATH, jarsAndClassDirectories);
-            }
+            setCompileClassPath(fm, jarsAndClassDirectories, sourceSet);
             if (!moduleJars.isEmpty()) {
                 fm.setLocation(StandardLocation.MODULE_PATH, moduleJars);
             }
@@ -789,6 +788,29 @@ public class JavaInspectorImpl implements JavaInspector {
             }
             return (JavacTask) javaCompiler.getTask(null, fm, diagnostics, options, null, allCompilationUnits);
         }
+    }
+
+    // Set javac's compile class path for this source set. With no file dependencies we leave javac's default
+    // (process) class path untouched -- that is what carries jar-on-classpath libraries. As soon as we override it
+    // with file dependencies, that default is gone, so the jar-on-classpath libraries are added back explicitly.
+    private void setCompileClassPath(StandardJavaFileManager fm, List<File> fileDependencies, SourceSet sourceSet)
+            throws IOException {
+        if (fileDependencies.isEmpty()) return;
+        List<File> classPath = new ArrayList<>(fileDependencies);
+        classPath.addAll(resolveJarOnClassPathDependencies(sourceSet));
+        fm.setLocation(StandardLocation.CLASS_PATH, classPath);
+    }
+
+    // jar-on-classpath dependencies resolved to their real jar files (see ClassSymbolScanner#jarOnClassPathFile)
+    private List<File> resolveJarOnClassPathDependencies(SourceSet sourceSet) {
+        List<File> jars = new ArrayList<>();
+        for (SourceSet dependency : sourceSet.dependencies()) {
+            if (dependency.partOfJdk() || !dependency.name().startsWith(JAR_WITH_PATH_PREFIX)) continue;
+            int colon = dependency.name().indexOf(':');
+            File jar = ClassSymbolScanner.jarOnClassPathFile(dependency.name().substring(colon + 1));
+            if (jar != null) jars.add(jar);
+        }
+        return jars;
     }
 
     // does the cause chain point into Lombok's own code? (processor init/handler crash, not a source problem)

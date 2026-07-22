@@ -29,6 +29,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.util.Elements;
 import javax.tools.JavaFileObject;
+import java.io.File;
 import java.io.IOException;
 import java.net.JarURLConnection;
 import java.net.URI;
@@ -175,31 +176,46 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     // source set by the jar name (or directory) javac reports for a loaded class. A selector that does not resolve
     // to a folder (e.g. one given directly as a jar filename, the other accepted form) keeps its text as the name.
     private SourceSet resolveJarOnClassPath(SourceSet cpp, String selector, Map<String, SourceSet> prefixes) {
+        File jar = jarOnClassPathFile(selector);
+        if (jar != null) {
+            return new SourceSetImpl.Builder(cpp).setName(jar.getName()).setUri(jar.toURI()).build();
+        }
         URL url = resolveOnClassPath(selector);
-        if (url != null) {
-            if ("jar".equals(url.getProtocol())) {
-                try {
-                    URI jarUri = ((JarURLConnection) url.openConnection()).getJarFileURL().toURI();
-                    String jarName = Path.of(jarUri).getFileName().toString();
-                    return new SourceSetImpl.Builder(cpp).setName(jarName).setUri(jarUri).build();
-                } catch (IOException | URISyntaxException e) {
-                    LOGGER.warn("Cannot resolve jar-on-classpath selector {} to a jar: {}", selector, e.toString());
-                }
-            } else if ("file".equals(url.getProtocol())) {
-                try {
-                    Path root = Path.of(url.toURI());
-                    for (int i = selector.split("/").length; i > 0 && root != null; i--) {
-                        root = root.getParent();
-                    }
-                    if (root != null) {
-                        prefixes.put(root.toRealPath().toAbsolutePath().toString(), cpp);
-                    }
-                } catch (IOException | URISyntaxException e) {
-                    LOGGER.warn("Cannot resolve jar-on-classpath selector {} to a directory: {}", selector, e.toString());
-                }
-            }
+        if (url != null && "file".equals(url.getProtocol())) {
+            registerExplodedClassDirectory(cpp, selector, url, prefixes);
         }
         return new SourceSetImpl.Builder(cpp).setName(selector).build();
+    }
+
+    // The real jar file backing a 'jar-on-classpath:<selector>' entry, or null if the selector does not resolve to
+    // a jar on this process' classpath. Used both to name the source set (attribution) and to place the jar on
+    // javac's compile classpath (JavaInspectorImpl).
+    public static File jarOnClassPathFile(String selector) {
+        URL url = resolveOnClassPath(selector);
+        if (url != null && "jar".equals(url.getProtocol())) {
+            try {
+                return new File(((JarURLConnection) url.openConnection()).getJarFileURL().toURI());
+            } catch (IOException | URISyntaxException e) {
+                LOGGER.warn("Cannot resolve jar-on-classpath selector {} to a jar: {}", selector, e.toString());
+            }
+        }
+        return null;
+    }
+
+    // The selector resolves to loose .class files in a directory (an exploded classpath). Register the directory
+    // that roots the selector's package folder as a prefix, mirroring the class-directory handling in ensureSourceSet.
+    private void registerExplodedClassDirectory(SourceSet cpp, String selector, URL url, Map<String, SourceSet> prefixes) {
+        try {
+            Path root = Path.of(url.toURI());
+            for (int i = selector.split("/").length; i > 0 && root != null; i--) {
+                root = root.getParent();
+            }
+            if (root != null) {
+                prefixes.put(root.toRealPath().toAbsolutePath().toString(), cpp);
+            }
+        } catch (IOException | URISyntaxException e) {
+            LOGGER.warn("Cannot resolve jar-on-classpath selector {} to a directory: {}", selector, e.toString());
+        }
     }
 
     private static URL resolveOnClassPath(String selector) {
