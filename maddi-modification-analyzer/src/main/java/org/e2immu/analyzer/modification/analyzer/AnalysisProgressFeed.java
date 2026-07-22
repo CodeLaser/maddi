@@ -74,8 +74,11 @@ public class AnalysisProgressFeed implements AnalysisValueFeed {
     private long lastHeartbeatMillis = startMillis;
     private long lastGcCount = totalGcCount();
     private long lastGcTimeMillis = totalGcTimeMillis();
-    private int elementsDone;
+    private volatile int elementsDone;      // advanced on the coordinator thread, read by the sampler
+    private volatile boolean firstPassOngoing = true;
+    private volatile boolean running = true;
     private long peakUsedBytes;
+    private Thread sampler;
 
     public AnalysisProgressFeed(int totalElements, File metricsFile) {
         this(totalElements, metricsFile, DEFAULT_HEARTBEAT_MILLIS);
@@ -88,6 +91,35 @@ public class AnalysisProgressFeed implements AnalysisValueFeed {
         LOGGER.info("Progress feed: {} elements to analyze; heartbeat every {}s{}", totalElements,
                 heartbeatMillis / 1000,
                 metricsFile == null ? "" : ", metrics -> " + metricsFile);
+        // A time-based daemon so the heap/GC curve is never blind: the wave-barrier events dry up inside
+        // a giant-SCC first wave (server/main is essentially one wave — no barrier for minutes), which is
+        // exactly when we most need to see whether the heap is climbing toward the ceiling. It samples on
+        // the same throttle and yields to real wave/pass events (which reset the throttle).
+        if (heartbeatMillis > 0) startSampler();
+    }
+
+    private void startSampler() {
+        sampler = new Thread(() -> {
+            while (running) {
+                try {
+                    Thread.sleep(Math.min(heartbeatMillis, 2000));
+                } catch (InterruptedException e) {
+                    return;
+                }
+                long now = System.currentTimeMillis();
+                if (running && now - lastHeartbeatMillis >= heartbeatMillis) {
+                    emit(now, "sampling", firstPassOngoing);
+                }
+            }
+        }, "analysis-progress-sampler");
+        sampler.setDaemon(true);
+        sampler.start();
+    }
+
+    /** Stop the sampler; idempotent. Called on a terminal phase, safe to call more than once. */
+    public void stop() {
+        running = false;
+        if (sampler != null) sampler.interrupt();
     }
 
     @Override
@@ -102,20 +134,24 @@ public class AnalysisProgressFeed implements AnalysisValueFeed {
     @Override
     public void passCompleted(int iteration, boolean fullPass, Collection<Info> analyzed) {
         // pass boundaries are infrequent (and the first one closes the multi-hour stretch): always emit.
-        if (fullPass && iteration == 1) elementsDone = totalElements; // waves should already sum to this
+        if (fullPass && iteration == 1) {
+            elementsDone = totalElements; // waves should already sum to this
+            firstPassOngoing = false;     // past pass 1, the ETA denominator no longer applies
+        }
         emit(System.currentTimeMillis(), "pass " + iteration + " done"
                 + (fullPass ? "" : " (worklist " + analyzed.size() + ")"), fullPass && iteration == 1);
     }
 
     @Override
     public void phase(Phase phase, int iteration) {
+        if (phase.name().startsWith("TERMINAL")) stop(); // the analysis is done; no more sampling
         emit(System.currentTimeMillis(), phase + " @ pass " + iteration, false);
     }
 
     /**
      * @param showEta only meaningful while the full first pass is accumulating against {@code totalElements}
      */
-    private void emit(long now, String where, boolean showEta) {
+    private synchronized void emit(long now, String where, boolean showEta) {
         MemoryUsage heap = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
         long used = heap.getUsed();
         long committed = heap.getCommitted();

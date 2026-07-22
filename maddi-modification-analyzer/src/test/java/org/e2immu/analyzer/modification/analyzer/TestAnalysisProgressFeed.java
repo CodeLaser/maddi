@@ -69,6 +69,27 @@ public class TestAnalysisProgressFeed {
     }
 
     @Test
+    public void samplerEmitsWithNoWaveOrPassEvents() throws Exception {
+        // the giant-SCC case: pass 1 stays inside one long wave, so no wave/pass callback fires. The
+        // time-based sampler must still produce heap/GC heartbeats so the run is never blind.
+        Path dir = Files.createTempDirectory("progress-feed-sampler");
+        File metrics = new File(dir.toFile(), "metrics.jsonl");
+        AnalysisProgressFeed feed = new AnalysisProgressFeed(500_000, metrics, 50);
+        try {
+            Thread.sleep(350); // ~several 50ms heartbeats, no events at all
+        } finally {
+            feed.stop();
+        }
+        assertTrue(metrics.exists(), "sampler should have written heartbeats");
+        List<String> lines = Files.readAllLines(metrics.toPath());
+        assertFalse(lines.isEmpty(), "at least one sampling heartbeat expected");
+        assertTrue(lines.stream().allMatch(l -> l.contains("\"where\":\"sampling\"")),
+                () -> "all lines should be sampler emissions: " + lines);
+        assertTrue(lines.stream().allMatch(l -> l.contains("\"heapUsedMB\":")),
+                "sampler heartbeats carry heap");
+    }
+
+    @Test
     public void nullMetricsFileIsLogOnlyAndSafe() {
         // no file: must still sample heap/GC and not throw
         AnalysisProgressFeed feed = new AnalysisProgressFeed(10, null, 0);
