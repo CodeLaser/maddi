@@ -211,12 +211,19 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                             }));
                         }
                         joinAll(futures); // barrier per wave: the next wave's callees are complete
+                        List<Info> waveElements = (waveCompletedCallback != null || flattenVariableData)
+                                ? wave.stream().flatMap(List::stream).toList() : null;
                         if (waveCompletedCallback != null) {
                             // workers quiescent at the barrier; the callback (guarded by the iterating
                             // analyzer's feed wrapper) must not slow the pass beyond its own throttle
-                            List<Info> waveElements = wave.stream().flatMap(List::stream).toList();
                             waveCompletedCallback.accept(waveElements, waveIndex);
                         }
+                        // flatten-snapshot Phase 2.1: flatten this wave's just-linked methods AT THE
+                        // BARRIER (quiescent) so the standing accumulator is bounded DURING the pass-1
+                        // giant wave — the actual peak, not just cross-pass memory. A pass-1 method is
+                        // linked exactly once, so no regeneration is needed here; later waves' field
+                        // analyzers read only the (preserved) last statement of these methods.
+                        if (flattenVariableData) flattenConsumed(waveElements);
                     }
                 } finally {
                     linkComputer.setLockComputeDisabled(false);

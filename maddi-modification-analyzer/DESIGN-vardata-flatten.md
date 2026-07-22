@@ -99,11 +99,40 @@ mostly cheap. Net: memory bought with a bounded recompute in the tail passes. Me
   ON vs OFF must produce bit-identical ANALYSIS verdicts (METHOD_LINKS, modification, immutability) —
   the framework stress measures the consumer, not the analysis, so it cannot settle this. Dump verdicts
   for a small multi-type program both ways and assert equal; then fernflower/guava (mod non-confluence).
-- **Phase 2.1 (pass-1 peak): TODO.** Move the flatten hook to the pass-1 wave barriers (also quiescent)
-  so the standing accumulator is bounded DURING pass 1, not only after it — the actual OOM fix.
+- **Phase 2.1 (pass-1 peak): DONE.** Flatten each wave's just-linked methods at the pass-1 wave barrier
+  (quiescent, in `SingleIterationAnalyzerImpl.go`), so the accumulator is bounded DURING pass 1 — the
+  actual OOM fix. In single-pass mode (`EI_MAX_ITER=1`) no method re-links, so no regeneration runs.
+  Validated: elasticsearch-fw single-pass + flatten is **byte-identical** to single-pass without flatten
+  (flatten is transparent to EI output). Memory reduction at scale (server/main + a synthetic single
+  SCC) is Phase 4.
 - **Phase 4 (scale):** the `AnalysisProgressFeed` heap curve on `server/main` and a large ES
   module-group with gate ON vs OFF — quantify the peak-heap reduction and the wall-clock cost. Then the
   real target: whether a synthetic large single-SCC fits where it did not.
+
+## 5b. Single-pass EI mode and its trade-off (measured 2026-07-22)
+
+For the actual use case — breaking the 3M-line SCC with ExtractInterface — the analyzer's *verdicts*
+are not needed; EI's correctness is. Two facts make a **single link pass** the right runtime for EI,
+sidestepping regeneration entirely (one pass never re-links):
+
+- **The EI engine is single-pass-exact.** Its only analyzer input is `VARIABLES_LINKED_TO_OBJECT`
+  (`LinkComputerImpl:790`, **write-once** — its converged value *is* its pass-1 value) plus prepwork's
+  `INSTANCEOF_SCOPE`; everything else is syntactic (CST). Measured: 9/10 elasticsearch-fw candidates
+  byte-identical at 1 pass vs 30; the engine's output for a fixed slice never changed.
+- **The candidate search splits cleanly by objective.** Demand/cycle-breaking candidates are built from
+  the call graph + syntactic blockers (`UsageIndexImpl`, `extractableMethods`) and the `funnel`
+  (depender narrowing) — all convergence-INDEPENDENT, so single-pass preserves the cycle-breaking
+  candidate set and its ranking exactly. The only convergence-dependent candidates are the two
+  immutability-objective **seeds** (`CandidateSearchImpl.seeds`, `READ_ONLY_SEED`/`CONTAINER_SEED`),
+  built from `ModificationVerdicts.isNonModifying`/`allParametersUnmodified` — verdicts that refine
+  monotonically over passes. At 1 pass these seeds contain fewer methods (a conservative, sound subset;
+  convergence only ever adds).
+
+**The trade-off, stated plainly:** single-pass EI keeps 100% of the *cycle-breaking* (demand) candidate
+quality and the full engine fidelity, and spends only the *completeness of the read-only/`@Container`
+seed* candidates (the immutability objective) — which is exactly the analyzer outcome that is not
+needed here. The MockTransportService 1-vs-30 slice difference is one such seed. Recommended EI-on-huge-
+SCC invocation: `EI_MAX_ITER=1 EI_FLATTEN=1` (single pass + wave-barrier flatten, no regeneration).
 
 ## 6. Non-goals
 
