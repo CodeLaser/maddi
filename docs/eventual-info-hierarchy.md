@@ -333,11 +333,29 @@ reported `unmodified=true`. The pessimistic "undecided callee = modifying" defau
 this. Lesson: converting a provisional-`false` field verdict to "undecided" is equivalent to *optimistically*
 assuming unmodified, which cycle-breaking then bakes in.
 
-**(c) The real cap is INDEPENDENCE, not modification.** `ParameterInfoImpl` is
-`@FinalFields(after="inspection,methodInfo,parameterizedType")`; the gap to IMMUTABLE-HC is independence of its
-own fields, chiefly `parameterizedType : ParameterizedType` — whose impl `ParameterizedTypeImpl` is itself only
-`eventual=@FinalFields(after="typeInfo,typeParameter")`, not HC. An exposed field of non-HC content ⇒
-dependent ⇒ capped at FINAL_FIELDS. Investigation of this cap is the next thread (see below).
+**(c) The real cap is the directly-owned `analysis` store — probe-confirmed, and it is NOT independence.**
+`ParameterInfoImpl` is `@FinalFields(after="inspection,methodInfo,parameterizedType")` with
+`INDEPENDENT_TYPE=@Independent` (independence floors fine; the after-mark independence loop exempts the three
+mark fields, whose `afterMark.fields()=[parameterizedType, methodInfo, inspection]` — verified). The cap is in
+`TypeImmutableAnalyzerImpl.loopOverFieldsAndMethods`: it returns `false` on the **`analysis`** field
+(`PropertyValueMap`), read `unmodified=false` *at computation time* even though it settles `true` (FPDUMP
+final). That commits FINAL_FIELDS, which then does not upgrade. The four flagship types never face this: their
+store is **inherited from `InfoImpl`**, so it is not a declared field of the subtype and never enters
+`typeInfo.fields()` in the loop — contrast `MethodInfoImpl.afterMark.fields()=[inspection, typeInfo]`, no store.
+A probe that skips the `PropertyValueMap` store field in the loop lifts `ParameterInfoImpl` to
+`eventual=@Immutable(hc=true)` **deterministically** (HC count 9→10, stable across reruns). So the store —
+owned vs inherited — is the whole difference; `parameterizedType` (`ParameterizedType`, itself only
+`eventual=@FinalFields`) is correctly exempted via the mark and is *not* the cap.
+
+**PROPOSED — exempt the analysis-metadata store from the field-modification cap (gated).** The
+`PropertyValueMap analysis()` store is the mechanism of eventual immutability itself: filled during analysis,
+frozen after; every Info type has one, and for the four that extend `InfoImpl` it is provably never a
+modification cap (it is inherited, never looped). A directly-owned store should get the same treatment — skip a
+field of type `PropertyValueMap` in `loopOverFieldsAndMethods` (gated on `EVENTUALCLUSTER`), mirroring the
+structural exemption the flagship get for free. Sound: the field's `UNMODIFIED_FIELD` settles `true` (its only
+writers, external `set()` calls, are not in the analysed source); the `false` it is read as is a
+read-ordering artifact, not a real modification. Care point: key it on the store precisely (type
+`PropertyValueMap`), and keep it gated so the corpus A/B stays byte-identical off the gate.
 
 ### Diagnostic: FPDUMP extended
 `FPDUMP` now also emits, per element: the after-mark `eventual=` verdict on each type
