@@ -716,6 +716,13 @@ Two more pieces, both gated:
   modifies at all — `CompilationUnitStub`'s throwing `setFingerPrint` — cannot contradict the transition the
   real implementations declare, so it no longer vetoes the abstract method's `@Mark`.
 
+**Three-corpus gate-OFF A/B (2026-07-22, closing, at `54bd9859` vs base `523963fe`):** Fernflower
+**0-line diff**; Langchain4j **0-line diff**; Timefold 8 lines, every one of which flips identically
+between two BASE runs (`TestdataInvalidConstraintWeightOverridesSolution`,
+`TestdataFactorySortableSolution` independence, `ListIterableSelector`) — pre-existing run-to-run
+nondeterminism, verified with the A-vs-A2 technique. The whole session's engine surface is gate-off inert
+on the full certified proving ground.
+
 **Gate-ON stability (2026-07-22, two consecutive dogfoods at `54bd9859`):** the surviving core of **8** is
 identical across runs; ONE type flips in/out — `CompilationUnitPrinterImpl`, a printer-family type, i.e.
 exactly the verification-residue boundary (`docs/handoff-verification-residue.md`) — and the
