@@ -36,9 +36,10 @@ import java.util.List;
  *
  * <p><b>Where.</b> The heavy stretch is the cold FIRST pass, which the analyzer runs as strata waves
  * (see {@link org.e2immu.analyzer.modification.analyzer.impl.SingleIterationAnalyzerImpl}); this feed
- * counts elements at each {@link #waveCompleted} barrier, so progress advances during the very stretch
- * that pass-boundary logging leaves silent. Later (worklist) passes are fast and reported at their
- * boundary only.
+ * commits progress at each {@link #waveCompleted} barrier AND ticks {@link #elementCompleted} per element
+ * in between, so progress advances smoothly even <em>inside</em> a single giant SCC — which is one wave,
+ * whose barrier fires only at its end (miles-core pinned at 48% for the whole back-half wave without this).
+ * Later (worklist) passes are fast and reported at their boundary only.
  *
  * <p><b>How.</b> Each heartbeat samples the heap ({@link MemoryMXBean}) and the collectors
  * ({@link GarbageCollectorMXBean}) and reports the <em>GC-time fraction of the interval</em>. That
@@ -74,7 +75,11 @@ public class AnalysisProgressFeed implements AnalysisValueFeed {
     private long lastHeartbeatMillis = startMillis;
     private long lastGcCount = totalGcCount();
     private long lastGcTimeMillis = totalGcTimeMillis();
-    private volatile int elementsDone;      // advanced on the coordinator thread, read by the sampler
+    private volatile int elementsDone;      // committed at wave barriers (coordinator thread), read by the sampler
+    // completed elements since the last wave barrier — ticked per element on parallel workers, so it must be
+    // atomic. Added to elementsDone for display, giving smooth progress INSIDE a giant single-SCC wave (where
+    // elementsDone would otherwise pin for the whole wave). Reset to 0 at each barrier, once folded in.
+    private final java.util.concurrent.atomic.AtomicInteger elementsInFlight = new java.util.concurrent.atomic.AtomicInteger();
     private volatile boolean firstPassOngoing = true;
     private volatile boolean running = true;
     private long peakUsedBytes;
@@ -123,8 +128,14 @@ public class AnalysisProgressFeed implements AnalysisValueFeed {
     }
 
     @Override
+    public void elementCompleted() {
+        elementsInFlight.incrementAndGet(); // hot path: a single atomic tick, no emit (the sampler emits)
+    }
+
+    @Override
     public void waveCompleted(int iteration, int wave, Collection<Info> analyzed) {
         elementsDone += analyzed.size();
+        elementsInFlight.set(0); // this wave's in-flight ticks are now committed into elementsDone
         long now = System.currentTimeMillis();
         if (now - lastHeartbeatMillis >= heartbeatMillis) {
             emit(now, "pass " + iteration + " wave " + wave, true);
@@ -138,6 +149,7 @@ public class AnalysisProgressFeed implements AnalysisValueFeed {
             elementsDone = totalElements; // waves should already sum to this
             firstPassOngoing = false;     // past pass 1, the ETA denominator no longer applies
         }
+        elementsInFlight.set(0); // a later parallel pass has no wave barriers; reset per pass so it doesn't drift
         emit(System.currentTimeMillis(), "pass " + iteration + " done"
                 + (fullPass ? "" : " (worklist " + analyzed.size() + ")"), fullPass && iteration == 1);
     }
@@ -168,18 +180,21 @@ public class AnalysisProgressFeed implements AnalysisValueFeed {
         lastGcTimeMillis = gcTime;
         lastHeartbeatMillis = now;
 
+        // live progress = committed (wave-barrier) + in-flight (this wave's completed elements). The
+        // in-flight term is what advances inside a giant single-SCC wave; clamp to total defensively.
+        int live = Math.min(totalElements, elementsDone + elementsInFlight.get());
         long elapsedMillis = Math.max(1, now - startMillis);
-        double rate = elementsDone * 1000.0 / elapsedMillis; // elements/s over the whole run
-        long etaSec = showEta && rate > 0 && elementsDone < totalElements
-                ? (long) ((totalElements - elementsDone) / rate) : -1;
+        double rate = live * 1000.0 / elapsedMillis; // elements/s over the whole run
+        long etaSec = showEta && rate > 0 && live < totalElements
+                ? (long) ((totalElements - live) / rate) : -1;
 
         String pct = showEta && totalElements > 0
-                ? String.format(" (%d%%)", 100 * elementsDone / totalElements) : "";
+                ? String.format(" (%d%%)", 100 * live / totalElements) : "";
         String gcNote = gcFraction >= GC_THRASH_WARN_FRACTION
                 ? String.format(" GC %.0f%% of interval!", gcFraction * 100)
                 : (gcCountDelta > 0 ? String.format(" GC+%d/%dms", gcCountDelta, gcTimeDelta) : "");
         LOGGER.info("progress[{}]: {}/{} elem{} | heap {}/{}/{} | {} elem/s | ETA {} | peak {}{}",
-                where, String.format("%,d", elementsDone), String.format("%,d", totalElements), pct,
+                where, String.format("%,d", live), String.format("%,d", totalElements), pct,
                 gb(used), gb(committed), gb(max), String.format("%.0f", rate),
                 etaSec < 0 ? "-" : hms(etaSec * 1000), gb(peakUsedBytes), gcNote);
 
@@ -189,16 +204,16 @@ public class AnalysisProgressFeed implements AnalysisValueFeed {
                     String.format("%.0f", gcFraction * 100), intervalMillis / 1000, gb(used), gb(max),
                     gb(max - used));
         }
-        appendJsonl(now, where, used, committed, max, gcCountDelta, gcTimeDelta, gcFraction, rate, etaSec);
+        appendJsonl(now, where, live, used, committed, max, gcCountDelta, gcTimeDelta, gcFraction, rate, etaSec);
     }
 
-    private void appendJsonl(long now, String where, long used, long committed, long max,
+    private void appendJsonl(long now, String where, int live, long used, long committed, long max,
                              long gcCountDelta, long gcTimeDelta, double gcFraction, double rate, long etaSec) {
         if (metricsFile == null) return;
         String line = "{"
                 + "\"t\":" + (now - startMillis)
                 + ",\"where\":\"" + where + '"'
-                + ",\"done\":" + elementsDone
+                + ",\"done\":" + live
                 + ",\"total\":" + totalElements
                 + ",\"heapUsedMB\":" + used / MB
                 + ",\"heapCommittedMB\":" + committed / MB

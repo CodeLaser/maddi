@@ -105,9 +105,55 @@ mostly cheap. Net: memory bought with a bounded recompute in the tail passes. Me
   Validated: elasticsearch-fw single-pass + flatten is **byte-identical** to single-pass without flatten
   (flatten is transparent to EI output). Memory reduction at scale (server/main + a synthetic single
   SCC) is Phase 4.
-- **Phase 4 (scale):** the `AnalysisProgressFeed` heap curve on `server/main` and a large ES
-  module-group with gate ON vs OFF — quantify the peak-heap reduction and the wall-clock cost. Then the
-  real target: whether a synthetic large single-SCC fits where it did not.
+- **Phase 4 (scale): MEASURED 2026-07-22 — wave granularity is TOO COARSE for a giant SCC.**
+  server/main single-pass + flatten completed (34 min, 8 OK + 2 NOT_SUPPORTED on the biggest ES module —
+  the engine's first full run there), but **peak 20.6G, NOT reduced**. The sampler shows why: the `done`
+  counter is pinned at 53,372 for the entire pass, then jumps to 138,385 at the end — i.e. a fast first
+  wave (53k) then **one giant wave (~85k elements, the SCC) with no barrier inside it**. Wave-barrier
+  flatten fires only at that wave's END, after the accumulator is already at peak. So Phases 2/2.1 free
+  cross-pass and cross-wave memory but NOT the in-giant-wave peak — which is the whole problem for a
+  single unsplittable SCC.
+
+  **The real fix (Phase 5): per-method flatten inside the giant wave.** Flatten method M right after its
+  own `linkComputer.doMethod` in `processElement` — concurrently. This reintroduces the race with the
+  parallel `FieldAnalyzer` reading M's last-statement VD, but it is tractable: (a) replace M's
+  last-statement/method VD with the flattened snapshot via an ATOMIC `overwrite` (a concurrent reader
+  then sees the old chained VD or the new flattened one — both have identical `best()`/links, both
+  correct); (b) dropping M's INTERMEDIATE statements' VD is safe because no cross-method reader reads
+  them, and a reader still walking M's old chained VD keeps the intermediate VICs alive via the chain
+  until it finishes (a transient blip, not corruption). Requires confirming `PropertyValueMap.overwrite`
+  is an atomic single-reference swap (no transient null). This is what actually bounds the peak on the
+  3M single-SCC target. server/main fits at 32G WITHOUT it (20.6G); it is needed only for the larger SCC.
+
+  **Phase 5 IMPLEMENTED 2026-07-22.** Confirmed `PropertyValueMapImpl` is a plain HashMap but every
+  accessor (getOrNull/set/overwrite/removeIf) is `synchronized`, so `overwrite` (a single synchronized
+  `map.put`) is an atomic swap and a concurrent `getOrNull` sees old-or-new, never null. `flattenMethod`
+  now runs per-method in `processElement` right after the link is written (concurrent, inside the wave);
+  the last-statement/method VD is replaced via `overwrite`, intermediates dropped via `removeIf` (no
+  cross-method reader reads them; a reader still holding the old chained VD keeps its VICs alive via the
+  chain until done). Wave-barrier (2.1) and pass-end flatten removed; pass-start regeneration kept for
+  the multi-pass case. Correctness: elasticsearch-fw single-pass + Phase-5 flatten is byte-identical to
+  no-flatten. **Peak-reduction MEASURED on server/main: 20.6G -> 16.0G (~22%), same 8 OK outcomes.**
+  Real and correct, but modest: the intermediate/nested statement chain was ~4.6G, NOT the dominant
+  accumulator. At ~5x scale (3M SCC) 16G extrapolates to ~80G — still over 32G. So flatten alone does
+  not make the 3M SCC fit; a heap histogram at peak is needed to find what holds the remaining 16G
+  (candidates: the flattened last-statement VDs across 138k methods, the parsed CST of 4875 types,
+  METHOD_LINKS summaries, the info/dependency graph). Next lever depends on that measurement — do NOT
+  guess. Note: in single-pass EI mode nothing reads statement VD after pass 1 (EI reads only
+  VARIABLES_LINKED_TO_OBJECT, method-call level), so dropping ALL VD at pass-1 end is possible but does
+  not lower the pass-1 peak, where field analyzers still need each method's last statement.
+
+  **Heap histogram at peak (jmap -histo:live, server/main single-pass+flatten, 2026-07-22) — the 16G
+  was GARBAGE, live set is 5.09G.** The 32G ceiling let churn accumulate; GC stayed at 1% so it never
+  reclaimed. Live rollup: JDK Object[]/collections 2115M (backing for the rest), parsed CST 993M,
+  **analysis() maps 798M (4M PropertyValueMapImpl, one per VariableInfo — mostly empty-map overhead,
+  lazy-allocate candidate)**, prepwork VD 430M (flatten already did its job — VD is only 8% of live),
+  **retained javac trees/symbols `com.sun.tools.javac.*` 407M (droppable if maddi keeps the javac AST
+  after building its CST)**, link engine 6M. Implications: (1) flatten's live-set impact is modest
+  because VD was never the bulk; its value is bounding churn/GC pressure. (2) 3M SCC extrapolates to
+  ~25G live at 5x — fits 32G, with the lazy-analysis-map and javac-drop levers as headroom. (3) the
+  earlier full-ES OOMs were MULTI-PASS + no flatten (churn across 30 passes); single-pass+flatten should
+  fit. Next validation: full ES (27 source sets) single-pass+flatten.
 
 ## 5b. Single-pass EI mode and its trade-off (measured 2026-07-22)
 
