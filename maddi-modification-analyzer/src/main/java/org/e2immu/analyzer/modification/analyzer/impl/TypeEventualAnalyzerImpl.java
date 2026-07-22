@@ -28,6 +28,7 @@ import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.e2immu.language.cst.api.statement.Statement;
@@ -44,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUAL_METHOD;
+import static org.e2immu.language.cst.impl.analysis.PropertyImpl.FINAL_FIELD;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD;
@@ -64,6 +66,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
     // would be wasteful. Concurrent: the type loop may run in parallel.
     private final Map<TypeInfo, Value.EventuallyImmutable> eventuallyImmutableCache = new ConcurrentHashMap<>();
     private final Map<MethodInfo, Value.Eventual> eventualCache = new ConcurrentHashMap<>();
+    private final Map<TypeInfo, Value.Immutable> immutableCache = new ConcurrentHashMap<>();
 
     public TypeEventualAnalyzerImpl(Runtime runtime, TypeImmutableAnalyzer typeImmutableAnalyzer,
                                     IteratingAnalyzer.Configuration configuration,
@@ -174,6 +177,21 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 resolveExcusedFields(typeInfo, nonModAfter.set(), excusedFields);
             }
         }
+        // §060: an effectively final field of eventually immutable type "will at some point hold objects that are
+        // in their final or after state, in which case they act as immutable fields". It rides along with the mark
+        // on its own referent -- FieldInfoImpl.type (a ParameterizedType), MethodInfoImpl.typeInfo -- even when no
+        // accessor reads through it. Only fired alongside a mark already found: a type with no transition of its
+        // own does not become eventual just by holding such a field.
+        if (!markLabels.isEmpty()) {
+            for (FieldInfo fieldInfo : typeInfo.fields()) {
+                if (fieldInfo.isStatic()) continue;
+                if (!fieldInfo.analysis().getOrDefault(FINAL_FIELD, ValueImpl.BoolImpl.FALSE).isTrue()) continue;
+                if (!excusedFields.contains(fieldInfo) && fieldHoldsCommittableContent(fieldInfo)) {
+                    markLabels.add(fieldInfo.name());
+                    excusedFields.add(fieldInfo);
+                }
+            }
+        }
         if (markLabels.isEmpty()) return;
 
         TypeImmutableAnalyzer.AfterMark afterMark =
@@ -201,8 +219,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
     private void resolveExcusedFields(TypeInfo typeInfo, Set<String> labels, Set<FieldInfo> excusedFields) {
         for (String label : labels) {
             FieldInfo fieldInfo = typeInfo.getFieldByName(label, false);
-            if (fieldInfo != null && fieldInfo.type().bestTypeInfo() != null
-                && isEventuallyImmutableFieldType(fieldInfo.type().bestTypeInfo())) {
+            if (fieldInfo != null && fieldHoldsCommittableContent(fieldInfo)) {
                 excusedFields.add(fieldInfo);
             }
         }
@@ -307,26 +324,78 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * eventually-non-modifying method>} forward (labels = the callee's).
      */
     private Set<String> nonModifyingLabels(TypeInfo typeInfo, MethodCall mc) {
-        if (!(mc.object() instanceof VariableExpression ve)) return null;
-        if (ve.variable() instanceof FieldReference fr && fr.scopeIsThis()) {
-            FieldInfo fieldInfo = fr.fieldInfo();
-            if (!isOwnField(typeInfo, fieldInfo)) return null;
-            TypeInfo fieldType = fieldInfo.type().bestTypeInfo();
-            if (fieldType == null || !isEventuallyImmutableFieldType(fieldType)) return null;
-            // the call must be one that survives the mark: a @Mark or @Only(before) call is the transition
-            // itself (setFinal, setVariable), not a post-mark read, and calling it after the mark throws
-            Value.Eventual calleeEventual = eventualOf(mc.methodInfo());
-            if (calleeEventual.isMark() || calleeEventual.isOnly() && Boolean.FALSE.equals(calleeEventual.after())) {
-                return null;
-            }
-            return Set.of(fieldInfo.name());
+        // the call must be one that survives the mark: a @Mark or @Only(before) call is the transition itself
+        // (setFinal, setVariable), not a post-mark read, and calling it after the mark throws
+        Value.Eventual calleeEventual = eventualOf(mc.methodInfo());
+        if (calleeEventual.isMark() || calleeEventual.isOnly() && Boolean.FALSE.equals(calleeEventual.after())) {
+            return null;
         }
-        if (ve.variable() instanceof This) {
+        // this.<eventually-non-modifying method>() forward: the callee is non-modifying after its own labels
+        if (mc.object() instanceof VariableExpression ve && ve.variable() instanceof This) {
             Value.SetOfStrings calleeLabels = mc.methodInfo().analysis()
                     .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET);
             return calleeLabels.set().isEmpty() ? null : calleeLabels.set();
         }
+        // a call on this.<field>, or on a non-modifying accessor chained off it (this.field.getRight().m())
+        return receiverAfterLabels(typeInfo, mc.object());
+    }
+
+    /**
+     * The labels after which the receiver expression is guaranteed committed (so a call on it cannot modify), or
+     * null. Bottoms out at {@code this.<own field holding committable content>}; follows a chain of
+     * <em>non-modifying</em> accessors through it, which is how {@code this.compilationUnitOrEnclosingType.getRight()}
+     * -- a plain read on an immutable {@code Either} wrapping an eventually immutable {@code TypeInfo} -- resolves to
+     * the field {@code compilationUnitOrEnclosingType}.
+     */
+    private Set<String> receiverAfterLabels(TypeInfo typeInfo, Expression object) {
+        if (object instanceof VariableExpression ve
+            && ve.variable() instanceof FieldReference fr && fr.scopeIsThis()) {
+            FieldInfo fieldInfo = fr.fieldInfo();
+            if (!isOwnField(typeInfo, fieldInfo) || !fieldHoldsCommittableContent(fieldInfo)) return null;
+            return Set.of(fieldInfo.name());
+        }
+        if (object instanceof MethodCall inner) {
+            // the chained step (getLeft/getRight/get) must itself be non-modifying, and rooted in an own field
+            if (!isNonModifyingRead(inner.methodInfo())) return null;
+            return receiverAfterLabels(typeInfo, inner.object());
+        }
         return null;
+    }
+
+    /** Non-modifying by its own verdict, or -- for a jar accessor whose verdict was never materialized --
+     *  because it is declared on an immutable type, whose methods cannot modify anything (e.g. Either.getRight). */
+    private boolean isNonModifyingRead(MethodInfo methodInfo) {
+        Value.Bool nm = methodInfo.analysis().getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+        if (nm != null) return nm.isTrue();
+        return immutableOf(methodInfo.typeInfo()).isAtLeastImmutableHC();
+    }
+
+    /**
+     * A field whose content becomes immutable after the mark on it: it is itself of eventually immutable type
+     * (or a cluster candidate under the gate), or an immutable single-indirection wrapper ({@code Either},
+     * {@code Option}) of such content -- once the wrapped object is committed, reads through the wrapper cannot
+     * modify anything.
+     */
+    private boolean fieldHoldsCommittableContent(FieldInfo fieldInfo) {
+        TypeInfo fieldType = fieldInfo.type().bestTypeInfo();
+        if (fieldType == null) return false;
+        if (isEventuallyImmutableFieldType(fieldType)) return true;
+        if (!immutableOf(fieldType).isAtLeastImmutableHC()) return false; // the wrapper read must not itself modify
+        for (ParameterizedType arg : fieldInfo.type().parameters()) {
+            TypeInfo argType = arg.bestTypeInfo();
+            if (argType != null && isEventuallyImmutableFieldType(argType)) return true;
+        }
+        return false;
+    }
+
+    /** {@code IMMUTABLE_TYPE}, with the {@link ContractReader} fallback for a jar type whose contract was never
+     *  materialised into {@code analysis()} (e.g. the support class {@code Either}). Mirrors {@link #eventualOf}. */
+    private Value.Immutable immutableOf(TypeInfo typeInfo) {
+        Value.Immutable fromAnalysis = typeInfo.analysis().getOrNull(IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.class);
+        if (fromAnalysis != null) return fromAnalysis;
+        return immutableCache.computeIfAbsent(typeInfo, ti ->
+                contractReader.contracts(ti).get(IMMUTABLE_TYPE) instanceof Value.Immutable i
+                        ? i : ValueImpl.ImmutableImpl.MUTABLE);
     }
 
     private boolean referencesThis(Expression expression) {

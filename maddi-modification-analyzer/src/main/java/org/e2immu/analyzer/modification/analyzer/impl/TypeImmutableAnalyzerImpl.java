@@ -230,6 +230,13 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
                 }
             }
             if (afterMark.fields().contains(fieldInfo)) continue; // after the mark, this field cannot change
+            // EXPERIMENTAL (EVENTUALCLUSTER): a field of immutable type holds content that cannot be modified,
+            // so the UNMODIFIED_FIELD verdict on it is irrelevant -- a `final String` field is unmodifiable
+            // whatever the field analyzer recorded. (Off the gate, the existing verdict is kept for A/B parity.)
+            if (EventualCluster.ENABLED) {
+                Immutable fieldTypeImm = analysisHelper.typeImmutableNullIfUndecided(fieldInfo.type());
+                if (fieldTypeImm != null && fieldTypeImm.isAtLeastImmutableHC()) continue;
+            }
             Bool fieldUnmodified = fieldInfo.analysis().getOrNull(UNMODIFIED_FIELD, ValueImpl.BoolImpl.class);
             if (fieldUnmodified == null) {
                 isImmutable = null;
