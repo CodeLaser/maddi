@@ -1,5 +1,7 @@
 # maddi
 
+[![build](https://github.com/CodeLaser/maddi/actions/workflows/build.yml/badge.svg)](https://github.com/CodeLaser/maddi/actions/workflows/build.yml)
+
 **maddi works out what is actually immutable in your Java codebase — and tells you why it isn't.**
 
 It is a whole-program static analyzer for Java (and Kotlin, via a shared syntax tree). You do not
