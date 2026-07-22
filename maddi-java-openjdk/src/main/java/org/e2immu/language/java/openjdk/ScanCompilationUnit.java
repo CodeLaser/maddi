@@ -590,7 +590,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                                                                JCTree.JCExpression expression,
                                                                DetailedSources.Builder dsb) {
         if (expression.type.tsym == owner) {
-            // self-reference! we must check, otherwise there'll be loops
+            // self-reference! we must build a loop-safe parameterized type rather than calling convertTree.
+            // But we still record the detailed source of the type-name identifier (keyed by the self type), which
+            // convertTree would otherwise have done; without it, rename/move cannot locate the reference in the
+            // bound (e.g. class A<X extends A<X>> -> the 'A' in the bound).
+            JCTree.JCExpression nameExpression = expression instanceof JCTree.JCTypeApply apply
+                    ? apply.clazz : expression;
+            dsb.put(tp.typeInfo(), sourceForNode(nameExpression));
             return runtime.newParameterizedType(tp.getOwner().getLeft(),
                     tp.typeInfo().typeParameters().stream().map(NamedType::asParameterizedType).toList());
         }
