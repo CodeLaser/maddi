@@ -144,6 +144,13 @@ immutability verdicts are derived.
 - Interfaces: extensible ⇒ hidden content ⇒ at best `@Immutable(hc=true)`; a constants-only interface
   deserves immutability (no instance fields).
 - Stateless lambdas/anonymous classes currently stay at FINAL_FIELDS (known conservative gap).
+- **When immutability is the focus, analyze as many dependencies as SOURCE as possible, not as jars.**
+  A type read shallowly (a compiled jar without an annotated API) gets conservative modification
+  verdicts: an unannotated read accessor never establishes `@NotModified`, so a field read *directly*
+  through it (`this.store.getOrDefault(...)`) is conservatively `@Modified`, which caps the enclosing
+  type's immutability. The shallow/annotated-API path under-approximates the immutable side; source does
+  not. (Concretely: `ParameterInfoImpl.analysis` was capped only because `PropertyValueMap.getOrDefault`
+  lived in a jar — see `docs/eventual-info-hierarchy.md`.)
 - javac is not thread-safe: all JavacTask access must be single-threaded
   (`-XDuseUnsharedTable=true`, synchronized lazy `getOrLoad`).
 
