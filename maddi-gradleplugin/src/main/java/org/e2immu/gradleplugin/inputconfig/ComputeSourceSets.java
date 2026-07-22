@@ -22,7 +22,10 @@ import org.gradle.api.artifacts.ArtifactView;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
+import org.gradle.api.artifacts.result.DependencyResult;
 import org.gradle.api.artifacts.result.ResolvedArtifactResult;
+import org.gradle.api.artifacts.result.ResolvedComponentResult;
+import org.gradle.api.artifacts.result.ResolvedDependencyResult;
 import org.gradle.api.attributes.Category;
 import org.gradle.api.file.SourceDirectorySet;
 import org.gradle.api.internal.plugins.DslObject;
@@ -61,7 +64,8 @@ public class ComputeSourceSets {
     private static final Logger LOGGER = LoggerFactory.getLogger(ComputeSourceSets.class);
 
     public record Result(String mainSourceSetName, Map<String, SourceSet> sourceSetsByName,
-                         List<Result> sourceSetDependencies) {
+                         List<Result> sourceSetDependencies,
+                         Map<String, Set<String>> sourceProjectEdges) {
         public Map<String, SourceSet> allSourceSetsByName() {
             Map<String, SourceSet> map = new HashMap<>(sourceSetsByName);
             sourceSetDependencies.forEach(r -> map.putAll(r.allSourceSetsByName()));
@@ -111,7 +115,11 @@ public class ComputeSourceSets {
         List<Result> dependentProjects = sourcesByProject.entrySet().stream()
                 .map(e -> dependentProjectResult(e.getKey(), e.getValue(), restrictSourcesToPackages, encoding))
                 .toList();
-        Result result = new Result(mainSourceSetName, sourceSetsByName, dependentProjects);
+        // the dependency edges AMONG the source-contributing projects (e.g. cst-analysis -> cst-api). Without
+        // them a transitive source project cannot resolve the types it depends on and the front end drops it.
+        Map<String, Set<String>> sourceProjectEdges = collectSourceProjectEdges(configurations,
+                sourcesByProject.keySet());
+        Result result = new Result(mainSourceSetName, sourceSetsByName, dependentProjects, sourceProjectEdges);
         LOGGER.info("Exit compute source sets with result: {} has source sets/classpath parts {}",
                 result.mainSourceSetName, result.sourceSetsByName.keySet());
         return result;
@@ -226,7 +234,40 @@ public class ComputeSourceSets {
                 .setModule(isModularSource(paths))
                 .setRestrictToPackages(restrictToPackages(restrictTo))
                 .build();
-        return new Result(sourceSetName, new HashMap<>(Map.of(sourceSetName, sourceSet)), List.of());
+        return new Result(sourceSetName, new HashMap<>(Map.of(sourceSetName, sourceSet)), List.of(), Map.of());
+    }
+
+    /**
+     * The dependency edges among the source-contributing projects, reconstructed from the resolution graph:
+     * {@code project -> the source projects it directly depends on}. The flat {@link #collectProjectSources}
+     * loses this — every dependent project is a leaf — so a transitive source project (cst-analysis, which
+     * implements cst-api's interfaces) has no edge to the project it needs, cannot resolve those types, and is
+     * dropped by the front end. {@link ComputeDependencies} turns these into source-set edges. Only edges
+     * between two SOURCE projects matter; a dependency on a jar is already a class path part.
+     */
+    private Map<String, Set<String>> collectSourceProjectEdges(List<Configuration> configurations,
+                                                               Set<String> sourceProjectNames) {
+        Map<String, Set<String>> edges = new LinkedHashMap<>();
+        for (Configuration configuration : configurations) {
+            if (!configuration.isCanBeResolved()) continue;
+            for (ResolvedComponentResult component :
+                    configuration.getIncoming().getResolutionResult().getAllComponents()) {
+                if (!(component.getId() instanceof ProjectComponentIdentifier fromPci)) continue;
+                String from = fromPci.getProjectName();
+                if (!sourceProjectNames.contains(from)) continue;
+                for (DependencyResult dr : component.getDependencies()) {
+                    if (dr instanceof ResolvedDependencyResult rdr
+                        && rdr.getSelected().getId() instanceof ProjectComponentIdentifier toPci) {
+                        String to = toPci.getProjectName();
+                        if (!from.equals(to) && sourceProjectNames.contains(to)) {
+                            edges.computeIfAbsent(from, k -> new LinkedHashSet<>()).add(to);
+                        }
+                    }
+                }
+            }
+        }
+        edges.forEach((from, tos) -> LOGGER.info(" -- source project {} depends on source projects {}", from, tos));
+        return edges;
     }
 
     private static Set<String> restrictToPackages(String restrictTo) {

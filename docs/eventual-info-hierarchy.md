@@ -250,13 +250,37 @@ Three fixes, in increasing scope:
   anywhere these are called on a field.
 - **Make `ParameterInfoImpl extends InfoImpl`** like its three siblings — removes the directly-readable store.
 - **Analyze `cst-analysis` as source** so `getOrDefault` is *computed* non-modifying (the "computed, not
-  contracted" path). Attempted: adding `cst-analysis` as a third dogfood source subproject wires it into the
-  input configuration, but the openjdk front end drops it — `package org.e2immu.language.cst.api.info does not
-  exist`. Root cause is a plugin gap: `ComputeSourceSets.dependentProjectResult` builds each *transitive*
-  dependency project (cst-analysis) as a flat leaf source set with `List.of()` inter-project dependencies, so
-  the cst-analysis→cst-api source edge is never wired and cst-analysis cannot resolve cst-api. Fixing it means
-  reconstructing the source-project dependency DAG from the resolution result — the general lesson (analyze
-  dependencies as source for immutability) is now noted in `road-to-immutability/llm-summary.md`.
+  contracted" path) — **done, see below**.
 
-`CompilationUnitImpl`, `ParameterizedTypeImpl`, `ModuleInfoImpl`, `TypeParameterImpl` remain at FINAL_FIELDS
-for similar per-type field reasons, each worth a look but none blocking the headline.
+`CompilationUnitImpl`, `ParameterizedTypeImpl`, `ModuleInfoImpl` remain at FINAL_FIELDS for similar per-type
+field reasons, each worth a look but none blocking the headline.
+
+## Plugin fix: transitive source-project edges, and cst-analysis as source (2026-07-22)
+
+The "analyze cst-analysis as source" route was blocked by a plugin gap:
+`ComputeSourceSets.dependentProjectResult` built each *transitive* dependency project as a flat leaf source
+set with `List.of()` inter-project dependencies, so the cst-analysis→cst-api edge was never wired —
+cst-analysis could not resolve cst-api (`package org.e2immu.language.cst.api.info does not exist`) and the
+front end dropped it. Fixed: `ComputeSourceSets.collectSourceProjectEdges` reconstructs the dependency DAG
+among source projects from the Gradle resolution result, and `ComputeDependencies` adds those edges to the
+graph. The dogfood now analyzes `cst-analysis` as a third source subproject.
+
+**Effect, confirmed:** `PropertyValueMapImpl.getOrDefault`/`getOrNull` are **computed** `@NotModified` from
+source, the interface methods inherit it, and `ParameterInfoImpl.analysis` can now read `unmodified=true` —
+exactly the "computed, not contracted" resolution.
+
+Also fixed here: **after-mark independence is floored at the unconditional verdict** (`immutableAfterMark`,
+gated). The mark only relaxes, so after-mark independence can never be below the unconditional — but
+`independentAfterMark` under-reported when a plain accessor leaks a not-yet-proven cluster candidate
+(`ParameterInfoImpl.parameterizedType`). Flooring lifted `TypeParameterImpl` to IMMUTABLE-HC.
+
+**State with the gate:** `eventuallyImmutableType` 4 → 17, **9 at IMMUTABLE-HC** (`TypeInfoImpl`,
+`MethodInfoImpl`, `FieldInfoImpl`, `TypeParameterImpl`, + the 4 base + `CompilationUnitStub`). Gate OFF still
+exactly 4 (golden rule intact), analyzer suite 227/0, plugin 6/0.
+
+**`ParameterInfoImpl` still does not reliably land**, for a subtler reason than before: its `analysis` field's
+`unmodified` verdict is now *non-deterministic* — it flips true/false across runs (the documented
+non-confluence), and because `PropertyValueMap` is `@FinalFields` (not immutable-HC) the field is checked, so
+the type reaches HC only when the coin lands right. The clean settle remains the structural one — make
+`ParameterInfoImpl extends InfoImpl` so it inherits the store instead of holding it directly — which also
+stops it reading the store through a direct field reference in the first place.
