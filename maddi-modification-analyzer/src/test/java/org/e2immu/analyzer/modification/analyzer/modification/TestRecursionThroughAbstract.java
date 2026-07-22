@@ -64,7 +64,7 @@ public class TestRecursionThroughAbstract extends CommonTest {
             }
             """;
 
-    @DisplayName("PIN of the pessimism: recursive pure accessors currently compute as modifying")
+    @DisplayName("PIN of the pessimism: the plain fixpoint computes recursive pure accessors as modifying")
     @Test
     public void test() {
         TypeInfo X = javaInspector.parse("X", INPUT);
@@ -76,10 +76,32 @@ public class TestRecursionThroughAbstract extends CommonTest {
         // of a pure function, name() is the packageName() shape. The conservative undecided-callee
         // default at the call site (MethodInfo.isNonModifying: getOrDefault FALSE) makes the first
         // evaluation mark the receiver modified, and the monotone write discipline (no TRUE->FALSE
-        // downgrades needed here — the FALSE is simply self-consistent) never leaves it. When the fix
-        // lands (shadow-pass primitive seeding + reverse upgrade, or a fixpoint-side SCC treatment),
-        // flip this expectation to all-true.
+        // downgrades needed here — the FALSE is simply self-consistent) never leaves it. The repair
+        // channel is the MODREACH cutover (testModReach below); a fixpoint-side fix would need the
+        // downgrade direction the monotone discipline forbids.
         assertEquals("direct=false C.name=false I.name=false",
+                "direct=" + nonModifying(C, "direct")
+                + " C.name=" + nonModifying(C, "name")
+                + " I.name=" + nonModifying(I, "name"));
+    }
+
+    @DisplayName("the MODREACH cutover (P3 primitive seeding + reverse upgrade) repairs the pessimism")
+    @Test
+    public void testModReach() {
+        TypeInfo X = javaInspector.parse("X", INPUT);
+        var ao = prepWork(X);
+        var iterating = new org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl(javaInspector,
+                new org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl.ConfigurationBuilder()
+                        .setMaxIterations(10)
+                        .setModificationViaReachability(true) // implies trackObjectCreations
+                        .build());
+        iterating.analyze(ao);
+        TypeInfo I = X.findSubType("I");
+        TypeInfo C = X.findSubType("C");
+
+        // no primitive modification evidence anywhere in these bodies: the reachability pass leaves
+        // all three unreached with a complete frontier and upgrades the fixpoint's recursion FALSEs
+        assertEquals("direct=true C.name=true I.name=true",
                 "direct=" + nonModifying(C, "direct")
                 + " C.name=" + nonModifying(C, "name")
                 + " I.name=" + nonModifying(I, "name"));
