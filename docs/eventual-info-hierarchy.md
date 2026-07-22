@@ -200,3 +200,42 @@ candidate that ultimately did *not* is not yet retracted. That, plus the wrapper
 promoting `InfoImpl` via subclass→parent inheritance, is the remaining work to make it default-worthy.
 The prototype's contribution is the proof that the cluster is genuinely resolvable and that the marks are
 the right ones; it lives behind `EVENTUALCLUSTER` until the removal pass and a corpus A/B clear it.
+
+## Wrapper generalisation → the level lifts to IMMUTABLE-HC (2026-07-22)
+
+Three additions (all under the gate, or A/B-verified neutral off it) took the flagship types from
+FINAL_FIELDS to genuine immutable-HC:
+
+1. **Chained reads through an immutable wrapper.** `nonModifyingLabels`/`receiverAfterLabels` now
+   follow a chain of *non-modifying* accessors from an own field:
+   `this.compilationUnitOrEnclosingType.getRight().descriptor()` resolves to the field
+   `compilationUnitOrEnclosingType`. `fieldHoldsCommittableContent` excuses a field that is an immutable
+   single-indirection wrapper (`Either`, `Option`) of candidate content. A `ContractReader` fallback
+   (`immutableOf`) supplies `Either`'s `@ImmutableContainer` verdict, which as a jar type is not
+   materialised into `analysis()` (the same trap `eventualOf` already handles). `Either.getRight()` is
+   recognised non-modifying because it is declared on an immutable type.
+2. **Immutable-typed fields are exempt from the `UNMODIFIED_FIELD` gate** (in `loopOverFieldsAndMethods`,
+   gated). A `private final String` field (`simpleName`, `fullyQualifiedName`, `MethodInfoImpl.name`)
+   was recorded `unmodified=false` in the baseline — spurious, since String content is unmodifiable —
+   and it was the true cap holding every flagship type at FINAL_FIELDS. An immutable-typed field's
+   content cannot be modified whatever the field analyzer recorded, so the check is skipped.
+3. **A final field of eventually-immutable/candidate type joins the mark** (§060: "will at some point
+   hold objects that are in their after state … act as immutable fields"). `FieldInfoImpl.type`
+   (a `ParameterizedType`) rides along even though no accessor reads through it. Only fires when a mark
+   was already found, so a type with no transition of its own is unaffected.
+
+**Result:** `eventuallyImmutableType` 4 → 17, **8 at IMMUTABLE-HC** (was 4), *stable across reruns*, gate
+OFF still exactly 4 (golden rule intact), suite 227/0. The three flagship types are certified
+`@Immutable(hc=true)` after their marks:
+
+- `TypeInfoImpl` after `compilationUnitOrEnclosingType, inspection`
+- `MethodInfoImpl` after `inspection, typeInfo`
+- `FieldInfoImpl` after `inspection, owner, type`
+
+**Still FINAL_FIELDS:** `ParameterInfoImpl` (after `inspection, methodInfo, parameterizedType`) is capped
+by its own `analysis` field — a mutable `PropertyValueMap`. Unlike the other three, `ParameterInfoImpl`
+does **not** extend `InfoImpl`; it holds the analysis store directly, and that field reads
+`unmodified=false` (whereas `InfoImpl.propertyValueMap`, which the others inherit, reads `unmodified=true`).
+The clean fix is a CST change — make `ParameterInfoImpl extends InfoImpl` like its siblings — not an
+analyzer one. `CompilationUnitImpl`, `ParameterizedTypeImpl`, `ModuleInfoImpl`, `TypeParameterImpl` remain
+at FINAL_FIELDS for similar per-type field reasons, each worth a look but none blocking the headline.
