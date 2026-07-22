@@ -1023,6 +1023,36 @@ becoming hidden content.
 This is the `System.out` story above, read from the field's owner: without the {ignoreModifications} we would
 add, `println` is {sse}; with it, the effect is sanctioned hidden content.
 
+[#sse-safe-surface]
+=== Recognising an invisible escape: the safe-surface contract
+
+For a source method the analyzer _computes_ the {sse}: it sees the assignment to, or the modifying call on,
+another type's static field.
+But the sharpest escape is invisible from source.
+`System.setOut(other)` replaces the process-wide `System.out`; nothing in the JDK source the analyzer can reach
+says so, and its own body is empty to us.
+The same holds for `logger.addAppender(a)` reconfiguring a logging framework.
+
+An invisible escape is recorded the only way it can be -- as a _contract_ on the library's safe surface, a
+declaration in the annotated API:
+
+.Example {counter:example}, a static side effect contracted on the safe surface
+[source,java]
+----
+class System$ {                                   // annotated-API stand-in for java.lang.System
+    @IgnoreModifications static final PrintStream out = null;
+    @StaticSideEffects static void setOut(PrintStream out) { }   // effect invisible from source
+}
+----
+
+A caller of a {sse} method _inherits_ the static side effect, transitively.
+This is the mechanism that lets the confinement guard tell "reconfiguring the mechanics of the stream" from
+"just using it": `sink.reconfigure()` on an {ignoreModifications} field, where `reconfigure()` calls
+`System.setOut`, propagates {sse} up to `reconfigure()`, and the guard flags the call as leaving the ignored
+stratum -- whereas `sink.println(x)`, calling only the confined `println`, passes.
+As with {ignoreModifications}, this annotation is _contracted_ on a library surface (never computed onto the
+library method itself), and on a source method it is _computed_, never trusted from an annotation.
+
 [#value-based-classes]
 == Value-based classes
 

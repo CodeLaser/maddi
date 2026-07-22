@@ -62,6 +62,9 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final SourceContractMaterializer sourceContractMaterializer;
     private final DynamicImmutabilityInference dynamicImmutabilityInference;
     private final AbstractMethodAnalyzer abstractMethodAnalyzer;
+    // EXPERIMENTAL greatest-fixpoint oracle (EVENTUALCLUSTER), exposed so IteratingAnalyzerImpl's post-convergence
+    // contraction phase can read the assumption ledger it accumulated
+    private final EventualCluster eventualCluster;
     private final AtomicInteger propertiesChanged;
     private final List<Message> messages;
     private final boolean faultTolerant;
@@ -123,7 +126,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         typeIndependentAnalyzer = new TypeIndependentAnalyzerImpl(runtime, configuration, propertiesChanged, messages);
         // EXPERIMENTAL greatest-fixpoint oracle for the eventual cluster (gated on EVENTUALCLUSTER), shared so the
         // immutable analyzer's supertype step and the eventual analyzer's cross-reference step agree on membership
-        EventualCluster eventualCluster = new EventualCluster();
+        this.eventualCluster = new EventualCluster();
         typeImmutableAnalyzer = new TypeImmutableAnalyzerImpl(typeIndependentAnalyzer, configuration,
                 propertiesChanged, messages, eventualCluster);
         shallowTypeAnalyzer = new ShallowTypeAnalyzer(runtime, Element::annotations, false);
@@ -140,6 +143,11 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     @Override
     public int propertiesChanged() {
         return propertiesChanged.get();
+    }
+
+    /** The greatest-fixpoint oracle (EVENTUALCLUSTER), for the post-convergence contraction phase. */
+    public EventualCluster eventualCluster() {
+        return eventualCluster;
     }
 
     @Override

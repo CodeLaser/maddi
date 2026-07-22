@@ -311,15 +311,37 @@ the historical flip, but a probe (making `ParameterInfoImpl.analysis()` a bare, 
 verdict **byte-identical** `@FinalFields(after="inspection,methodInfo,parameterizedType")` — so it is *not*
 the cap either.
 
-**PROPOSED — `GetSetHelper` guard-tolerance (documented, not yet implemented).** Make getter/setter
-recognition see through a *leading side-effect-only guard*: recognise `if (CONST) { …no field access… } return
-this.field;` (and the setter analogue) as the getter it plainly is. This restores exact getter↔variable
-equivalence for `analysis()` and any similarly-guarded accessor, routing them through the same unified
-`FieldReference` machinery as the other 694 getters instead of the return-value-link fallback. It is an
-engine/recognition change only — no CST edits, no contact with the modification-convergence invariant. It does
-**not** lift `ParameterInfoImpl` (see (c)); it closes the genuine gap in the equivalence and removes the latent
-non-confluence source. Care points: the guard block must be proven not to read or write the field (else the
-rewrite is unsound); keep it behind the same recognition entry point so all consumers (prepwork + link) agree.
+**`GetSetHelper` guard-tolerance — DONE (2026-07-22).** Getter/setter recognition now sees through a *leading
+inert-guard* prefix: `doGetSetAnalysis` runs the return/assignment recognition on the first **non-inert**
+statement, not literally the first, so `if (ConsumptionEdgeRecorder.ENABLED) { record(this); } return
+propertyValueMap;` (the `InfoImpl.analysis()` / `ParameterInfoImpl.analysis()` shape) is recognised as the getter
+it plainly is, routing `x.analysis()` through the same unified `FieldReference` machinery (`ExpressionVisitor`
+call-site rewrite) as the other 694 getters. Engine/recognition only — no CST edits, no contact with the
+modification-convergence invariant; the single entry point keeps prepwork + link in agreement (both read
+`GET_SET_FIELD`).
+
+*Tolerance (see `GetSetHelper`'s class comment for the full soundness argument).* The check is purely syntactic
+(it sits in `PrepAnalyzer`, below any computed verdict, and its output is trusted stack-wide, incl.
+`ExpressionVisitor`, which *replaces* `x.m()` with a read of `x.field`, bypassing the body). A leading statement
+is an inert guard iff, across its whole subtree, it: (1) falls through — no return/yield/throw/break/continue;
+(2) writes no field of `this`; (3) references no field of `this` at all; (4) makes no call *on* `this`. A call
+that merely *passes* `this` to a static method (`record(this)`) is allowed — its only possible effect is on state
+the object does not own, a disclaimed static side effect (road §050) that cannot cap the object's immutability,
+so dropping it at the call site corrupts no verdict. Deliberately **not** tolerated: a guard that reads/writes an
+own field, calls a method on `this`, or can exit early (a second behaviour, not a getter with a benign prelude).
+`TestGetSetGuardTolerance` (positive: guarded getter/setter/fluent; negative: the four boundary violations).
+Suites: common 52/0, prepwork 209/0, link 402/0, analyzer 233/0. Consistent with (b)/(c): it closes the
+equivalence gap and removes the latent non-confluence source but does **not** by itself lift `ParameterInfoImpl`
+(the owned-store cap, already handled by the ignore-mod route).
+
+*Golden-rule corpus A/B (Fernflower FPDUMP, baseline vs change).* Not byte-identical, but **no verdict moved**:
+with the `getset=` classification tokens stripped the diff is **0 lines**. The single delta is one genuinely
+guarded setter that baseline missed — `ConstExprent.setConstType(VarType)`:
+`if (constType == null) { constType = VARTYPE_UNKNOWN; } this.constType = constType;` — now correctly classified
+`getset=constType(set)` (the guard reassigns the *parameter*, a local, which rule 2 permits; then the strict
+setter shape matches). Its `nonModifying=false` verdict is identical in both runs. So the A/B caught exactly the
+intended broadened classification, and it is correct and non-regressive — the feature working as designed, not a
+verdict regression.
 
 **Rejected — "wait-on-pending-callee" in `FieldAnalyzerImpl.computeUnmodified` (unsound, do not revisit as-is).**
 The idea was: when a `FieldReference`'s `UNMODIFIED_VARIABLE` is `false` only because the called method's
@@ -421,11 +443,116 @@ callee that is `@StaticSideEffects` — the modification reaches global state, s
 `TestStaticSideEffects` + `TestGuardIgnoreModifications.testGlobalEscapeIsWarned`; analyzer suite 231/0; corpus
 A/B (SSE off byte-identical / SSE on no-crash) green.
 
-**Still open:** the AAPI safe-surface declarations for static-method reconfiguration (`System.setOut`,
-`logger.addAppender`) — the part of the global-escape arm that needs callee annotations; a `DecoratorImpl`
-emission of `@StaticSideEffects` so it surfaces in the IDE (Task 4 adjacent); `GetSetHelper` guard-tolerance
-(getter↔variable equivalence gap); and the greatest-fixpoint **removal pass** still owed for the cluster
-optimism.
+**AAPI safe-surface — DONE (2026-07-22).** The callee-annotation half of the global-escape arm: a static
+*method* call that reconfigures global state (`System.setOut(other)` replacing the process-wide `System.out`)
+is invisible from JDK source, so it is recorded as a **contract** on the library's safe surface. Five pieces:
+1. **`@StaticSideEffects` annotation** (`maddi-support/.../annotation/rare/StaticSideEffects.java`) — contracted
+   on a library surface, `@Target(METHOD, CONSTRUCTOR)`, like `@IgnoreModifications`.
+2. **`AnnotationToProperty`** parses it → `STATIC_SIDE_EFFECTS_METHOD` (method map), so the shallow/AAPI path
+   materialises it automatically.
+3. **`SourceContractMaterializer.materialize(MethodInfo)`** materialises it on SOURCE methods too (parallel to
+   `IGNORE_MODIFICATIONS_FIELD` on fields) — a source author may assert it; ungated, a no-op where absent.
+4. **`StaticSideEffectAnalyzerImpl`** propagation: a call to a `@StaticSideEffects` callee makes the caller a
+   static-side-effect method too, transitively. `calleeStaticSideEffect` resolves the callee's verdict with a
+   has-body discriminator — a source callee not yet decided is UNDECIDED (wait, like the modifying-call case on
+   `NON_MODIFYING_METHOD`); a shallow/abstract callee with no contract is a decided FALSE (never stalls). This
+   is what makes the contract *bite*: it is how `System.setOut` reaches the guard.
+5. **AAPI declarations** — `System$.setOut/setErr/setIn` in `maddi-aapi-archive/.../jdk/JavaLang.java` annotated
+   `@StaticSideEffects`; the archive JSON regenerated via `./gradlew :maddi-aapi-parser:compileAnalysisHints`
+   (surgical 3-line diff in `JavaLang.json` — each setter gains `"staticSideEffectsMethod":1` — plus the
+   repackaged `openjdk.jar`; no other JSON changed).
+
+The `guardIgnoreModificationsContainment` arm needed no change — it already reads `STATIC_SIDE_EFFECTS_METHOD`
+on the direct callee, so propagation composes: `sink.reconfigure()` on an `@IgnoreModifications` field, where
+`reconfigure()` calls the contracted leaf, is flagged. Tests: `TestStaticSideEffects.testPropagation` (direct +
+transitive), `TestGuardIgnoreModifications.testGlobalEscapeViaContractIsWarned` (contract → propagate → guard).
+Analyzer suite 233/0, modification-common 52/0. Road §050 gained a "Recognising an invisible escape: the
+safe-surface contract" subsection. **Golden-rule corpus A/B: Fernflower FPDUMP byte-identical** off the SSE gate
+(the JSON delta is 3 JDK methods gaining a property no gate-off run reads).
+
+**`@StaticSideEffects` in the IDE — DONE (2026-07-22).** `DecoratorImpl.annotationAndProperties()` now emits
+`@StaticSideEffects` on a method whose `STATIC_SIDE_EFFECTS_METHOD` is true (mirroring the `@IgnoreModifications`
+emission), and `AnnotationTagger` tags it the `NEGATIVE` attention polarity — not a missing safety guarantee, but
+a genuine outward effect the designer should always see, rendered like the baseline cautions. Feeds
+DecoratorImpl → AnnotationTagger → all three front-ends + decorated-source printing. Not in the FPDUMP path and a
+no-op with the SSE gate off (no source method carries the property), so no corpus A/B needed.
+`TestDecorateStaticSideEffects` (prepwork, decorator seam), `TestStaticSideEffectPolarity` (daemon, end-to-end:
+gate on → decorate → tag NEGATIVE). prepwork 207/0, daemon 12/0.
+
+## Greatest-fixpoint removal pass (the remaining engine investment)
+
+The `EventualCluster` prototype supplies only the **optimistic seed** of the greatest fixpoint: it assumes each
+cluster candidate is eventually immutable and lets the two analyzers use that before the verdict is proven
+(`TypeImmutableAnalyzerImpl.immutableSuper` for a supertype contribution, `TypeEventualAnalyzerImpl.fieldHolds
+CommittableContent` for a cross-reference field type). It never does the other half — **contract**: remove any
+member whose verdict does not hold once its dependencies are restricted to the survivors, iterating to
+convergence. Today the result "happens to be" self-consistent (stable reruns; every member genuinely checks out),
+but that is proof-by-observation, not proof-by-construction. The removal pass makes it sound for arbitrary code
+and is the prerequisite to taking the whole cluster result (4→17 eventual, the five core `Info` types at
+eventual-HC) off the `EVENTUALCLUSTER` gate.
+
+Two architectural obstacles make this its own funded step, not an increment: (a) `EVENTUALLY_IMMUTABLE_TYPE` is
+**write-once** — set once in `computeTypeLevel` and NOT in `IteratingAnalyzerImpl.clearDerivedFamily`, so the
+outer loop never clears/recomputes it; retraction needs either adding it to the clearable family or a distinct
+post-convergence phase with its own clear. (b) analysis() writes are **monotone (strengthen-only)**; a retraction
+is a weakening the `TolerantWrite` guard refuses (the trap that killed "wait-on-pending-callee"), so the removal
+must run outside the monotone discipline as a controlled clear-and-recompute. It also overlaps the engine's
+existing immutability cycle-breaking and should extend it rather than run a parallel fixpoint — the most-guarded
+region, gated behind a byte-identical corpus A/B.
+
+**Step 1 — witness the optimism — IMPLEMENTED (2026-07-22, build/test pending gradle go-ahead).** For the
+contraction to have something to run on, every optimistic decision is now recorded. `EventualCluster.
+treatAsEventuallyImmutable(member, candidate, actual)` (signature extended with `member`) records the edge
+`member → candidate` in a new `assumptions()` ledger whenever it answers `true` only because of the seed
+(candidate not yet proven); both call sites thread the member (the subtype for `immutableSuper`, the field owner
+for the field-type check). Recording is a pure side effect read by nobody yet, so it changes no verdict — additive
+and gated (`ENABLED` made non-final, mirroring `StaticSideEffectAnalyzerImpl`, so tests can flip it).
+`TestEventualClusterAssumptions` pins: an optimistic call records the edge; a proven verdict and the gate-off case
+record nothing. *No corpus A/B needed (no verdict path touched).*
+
+**Step 2 — the contraction — IMPLEMENTED (2026-07-22, gate-ON dogfood validation pending gradle go-ahead).**
+`EventualClusterContraction` runs once at the terminal certification point (in `IteratingAnalyzerImpl`, before the
+verdict fingerprint and guard): it computes the largest subset of the eventual-verdict holders closed under "every
+candidate I assumed is retained" (`membersToRetract`, pure/generic so it is unit-testable), then **retracts**
+`EVENTUALLY_IMMUTABLE_TYPE` on the members that did not survive — dropping any that leaned on a candidate which did
+not itself prove eventually immutable, cascading to a fixpoint. Retraction is a `removeIf` on the property: it
+runs *outside* the monotone loop (a weakening `TolerantWrite` would refuse) as a post-convergence phase, which is
+sound precisely because the seed only ever influenced `EVENTUALLY_IMMUTABLE_TYPE` (the optimistic contribution
+fires solely in the after-mark branch of `immutableSuper` and in `fieldHoldsCommittableContent`), so clearing that
+one property is the whole retraction — no derived-family recompute. Conservative: the ledger is a superset of the
+final structural dependencies, so the pass never keeps an unsound verdict, though it could drop a justifiable one;
+on a self-consistent cluster it retracts nothing. Double-gated on `EVENTUALCLUSTER` (call site + early return) →
+off the gate the ledger is empty and it is a complete no-op, so the gate-off corpus A/B is byte-identical **by
+construction**. `TestEventualClusterContraction` (self-consistent cycle survives whole; broken assumption drops;
+cascade; independent verdict kept; mixed core-kept/sibling-dropped). analyzer 240/0.
+
+**Gate-ON dogfood — the contraction is NOT a no-op: it retracts 12 (2026-07-22).** Run with `EVENTUALCLUSTER=1`
+on maddi's own CST, the contraction retracted **12** of the 17 optimistic eventual verdicts — the *entire* `Info`
+flagship family (`TypeInfoImpl`, `MethodInfoImpl`, `FieldInfoImpl`, `ParameterInfoImpl`, `TypeParameterImpl`,
+`CompilationUnitImpl`, …). Only 5 self-contained verdicts survive (`ModuleInfo.Provides`/`Uses`, `Variable`,
+`ModuleInfoImpl.ProvidesImpl`/`UsesImpl`). This is the contraction *working correctly*, not a bug: `InfoImpl` and
+the `*Info` interfaces are all `eventual=null` — they never obtain a verdict (no `@Mark` of their own; the mark
+lives on the subclasses' `inspection` field, and the **subclass→superclass mark inheritance is the deferred
+piece**). Every flagship leans on `InfoImpl` (via `immutableSuper`) or an interface (via a cross-reference field)
+being eventual, and the greatest-fixpoint contraction soundly refuses to certify a verdict whose premise is never
+discharged. **So the seeded "4→17" was resting on undischarged premises** — the earlier "stable across reruns"
+observation was self-*consistency* of the optimism, not soundness; step 2 is exactly the tool that exposed it.
+
+**Roadmap, reordered.** The subclass→superclass mark inheritance is no longer optional/deferred — it is the
+**critical-path prerequisite**. Once `InfoImpl` (inheriting the shared `inspection` transition from its
+subclasses) and the interfaces obtain their own eventual verdicts, the flagships' assumptions discharge, the
+contraction retracts nothing, and the 17 survive *soundly* — which is what earns ungating.
+
+**Still open (in order):** (1) **interface eventual verdict (Part B)** — the diagnostic (FPDUMP now emits
+`eventuallyNonMod`) pinned the blocker: the interfaces' cross-reference read-through accessors (`isFactoryMethod`,
+`primaryType`, `descriptor`, the hierarchy streams) bail in `computeEventuallyNonModifying` because
+`receiverAfterLabels` only follows *genuinely* non-modifying chains, not the *eventually*-non-modifying
+`this`-accessor chains (`returnType()`, `enclosingMethod()`) the real accessors use. Fix = reframe
+`nonModifyingLabels`/`receiverAfterLabels` into a unified `commitLabels(owner, expr)` (commit every `this`-derived
+receiver **and** arg, not just root the receiver in a committed field). **Fully specified for handoff in
+`docs/handoff-eventual-interface-nonmodification.md`.** (2) **subclass→superclass mark inheritance (Part A)** —
+give `InfoImpl` its own eventual verdict from the subclasses' shared `inspection` mark (also in the handoff, §9).
+(3) re-run the dogfood → contraction retracts 0. (4) **Step 3 — ungate** behind a byte-identical corpus A/B.
 
 ## Task 4: surface the eventual verdicts to developers (the IDE path)
 
