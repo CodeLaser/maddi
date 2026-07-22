@@ -39,8 +39,12 @@ import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.IN
 
 public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements AbstractMethodAnalyzer {
 
-    public AbstractMethodAnalyzerImpl(IteratingAnalyzer.Configuration configuration, AtomicInteger propertiesChanged, List<Message> analyzerMessages) {
+    private final EventualCluster eventualCluster;
+
+    public AbstractMethodAnalyzerImpl(IteratingAnalyzer.Configuration configuration, AtomicInteger propertiesChanged,
+                                      List<Message> analyzerMessages, EventualCluster eventualCluster) {
         super(configuration, propertiesChanged, analyzerMessages);
+        this.eventualCluster = eventualCluster;
     }
 
     @Override
@@ -197,8 +201,20 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
             Value.SetOfStrings evNonMod = implementation.analysis()
                     .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET);
             if (!evNonMod.set().isEmpty()) {
+                // the label rests on whatever the implementation's excusals assumed (commitLabels leans on the
+                // cluster seed): carry the provenance so the contraction can cascade a broken assumption here
+                eventualCluster.noteLabelInheritance(methodInfo.typeInfo(), implementation.typeInfo());
                 if (agreed == null) agreed = evNonMod.set();
-                else if (!agreed.equals(evNonMod.set())) return; // implementations name different transitions
+                else if (!agreed.equals(evNonMod.set())) {
+                    // EVENTUALCLUSTER: unlike a @Mark, whose label names THE transition, "non-modifying after L"
+                    // weakens monotonically -- once the union has passed, each implementation's own subset
+                    // certainly has. The union is the weakest common guarantee (ParameterInfoImpl says
+                    // 'methodInfo' where MethodInfoImpl says 'inspection' for the same abstract accessor).
+                    if (!EventualCluster.ENABLED) return; // implementations name different transitions
+                    Set<String> union = new HashSet<>(agreed);
+                    union.addAll(evNonMod.set());
+                    agreed = union;
+                }
             } else {
                 Value.Bool nonMod = implementation.analysis().getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
                 if (nonMod == null || nonMod.isFalse()) return; // modifies with no after-label, or undecided

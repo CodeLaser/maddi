@@ -554,6 +554,78 @@ receiver **and** arg, not just root the receiver in a committed field). **Fully 
 give `InfoImpl` its own eventual verdict from the subclasses' shared `inspection` mark (also in the handoff, §9).
 (3) re-run the dogfood → contraction retracts 0. (4) **Step 3 — ungate** behind a byte-identical corpus A/B.
 
+## Part B in progress: the `commitLabels` reframe (2026-07-22, evening session)
+
+The handoff's §5 reframe is **implemented** (all of it gated on `EVENTUALCLUSTER`; the gate-off visitor path is
+the old code verbatim): `computeEventuallyNonModifying` now excuses a call iff every `this`-derived value it
+touches — receiver *and* arguments — is committed by the collected marks (`commitExcusedLabels` /
+`commitLabels` in `TypeEventualAnalyzerImpl`). Beyond the handoff spec, the session added, each for a reason the
+dogfood forced:
+
+- **Local tracking** (`buildLocalCommitMap`): the spec's "a local is not `this`-derived → ∅" is the §6 aliasing
+  trap one hop removed (`var l = this.items; l.add(x)`); locals ever assigned a `this`-derived value carry its
+  commit labels (flow-insensitive fixpoint, null = poisoned). Fresh `new ArrayList<>()` builder locals stay ∅.
+- **`handedOnValueSafe`** replaces the blanket return-type gate on intermediate chain calls: decided by the
+  callee's **independence**. `@Independent` shares nothing mutable → safe; `@Dependent` returns accessible
+  content → safe iff the receiver is committed (NOT off bare `this` — the `getItems()` trap); `@Independent
+  (hc=true)` (Collection.stream, Either.getRight) → the wrapper layer is fresh by contract, safe iff the
+  concrete return type's parameters are committable-or-immutable-hc (`Stream<MethodModifier>`); anything
+  undecided falls back to `returnTypeHoldsCommittableContent` (the type itself committable — EFOD.get()
+  returning a candidate `MethodInspection`).
+- **Look-through of same-class single-`return` forwards** (depth-capped): the method boundary erases *which*
+  committed field a result was read through — `descriptor()` calling `this.parameters()` — so `commitLabels`
+  inlines a `return <expr>;` body one level and evaluates it in place.
+- **Abstract label union** (`AbstractMethodAnalyzerImpl.methodEventuallyNonModifying`, gated): implementations
+  legitimately name different transitions for the same abstract accessor (`[inspection]` vs `[methodInfo]` for
+  `Info.fullyQualifiedName`); unlike a `@Mark`, "non-modifying after L" weakens monotonically, so the union is
+  the sound meet.
+- **`EventualCluster` negative-cache bug fixed**: `isDirectCandidate` cached a *negative* verdict across
+  iterations, freezing `TypeInspectionImpl.Builder` out of the cluster when queried before its `@TestMark` was
+  computed. Eventual intent appears monotonically; only the positive answer may be cached.
+- **Contraction repairs** (both required *because of* Part B): the handoff's premise "the seed only ever
+  influenced `EVENTUALLY_IMMUTABLE_TYPE`" no longer holds — `commitLabels` leans on the seed for **method
+  labels** too. (a) *Discharge*: a candidate that ends up **unconditionally** ≥ immutable-hc (`MethodInspection`)
+  discharges assumptions on it a fortiori; previously its assumers were wrongly retracted. (b) *Label
+  provenance*: when an abstract method inherits enm labels from an implementation, the abstract owner inherits
+  the implementation owner's assumption edges (`EventualCluster.noteLabelInheritance` →
+  `effectiveAssumptions()`), so a broken assumption under an impl's labels cascades to the interface that
+  inherited them.
+
+**Dogfood scoreboard (gate ON), method level — the reframe works.** Both §5.4 worked traces land exactly as
+predicted: `isFactoryMethod → eventuallyNonMod=[inspection, typeInfo]`, `TypeInfoImpl.primaryType →
+[compilationUnitOrEnclosingType, inspection]`. Holdout counts (nonModifying=false, no label, not eventual/getset):
+`ParameterInfo` **19→0**, `Info` 3→2, `MethodInfo` 7→5, `FieldInfo` 3→3, `TypeInfo` ~19→12.
+`Info.fullyQualifiedName`, `isFinal`, `isSynchronized`, `isSAMOfStandardFunctionalInterface`, `isEnclosedIn`,
+`parameters`, and the whole modifier-Set/Stream chain class are excused.
+
+**Type level — the interfaces do NOT yet surface; retraction is now honest and large (34).** With enm labels
+leaning on the seed, the all-or-nothing fixpoint retracts nearly everything until *every* holdout clears — the
+optics got worse (survivors 5→2) precisely because the ledger got sound. The remaining blockers, precisely:
+
+1. **Fresh-object rewiring methods** — `withOwner`, `withOwnerVariableBuilder`, `withMethodType`,
+   `withSynthetic`, `translate` (blocks `Info`, `MethodInfo`, `FieldInfo`). They construct a fresh `*InfoImpl`
+   and call `setVariable`/`setFinal`/builder-commit **on the fresh object's own field** — excusable only with
+   freshness tracking: a `ConstructorCall` case in `commitLabels` (fresh, labels = union of args), field reads
+   scoped on fresh locals, and a transition-guard exception for marks on provably-fresh receivers. Sketched, not
+   implemented.
+2. **Streams over the hierarchy with `this`-capturing lambdas** — `constructorAndMethodStream`,
+   `recursiveSuperTypeStream`, … (blocks `TypeInfo`). Needs a `Lambda` case in `commitLabels` (the outer visitor
+   already excuses calls *inside* lambda bodies; the gap is the lambda **as argument value**).
+3. **The `@TestMark` staircase** — `TypeInspectionImpl.Builder.hasBeenCommitted()` forwards
+   `typeInfo.hasBeenInspected()` through a **cluster-interface-typed field**; `computeEventual`'s
+   `labelsOfReceiver` uses the *strict* eventual check, so the Builder's `@TestMark` (and with it the
+   candidacy of `TypeInspection`, and with *that* the excusal of `isSealed`/`isStatic`/…) only materialises in
+   whatever late iteration the seeded interface verdict happens to exist — order-dependent, converges partially.
+   Either `labelsOfReceiver` learns the seed (+ witnessing, + provenance for `EVENTUAL_METHOD`), or the
+   `TypeInspection` candidacy needs a non-circular source.
+4. **Part A** (`InfoImpl` subclass→superclass mark inheritance, handoff §9.3) — unchanged, still required.
+
+Unit tests: `TestCommitLabels` (cross-reference receiver/arg shapes, Either + local chains, all bail shapes,
+gate-off pins). Full `:maddi-modification-analyzer:test` green. Gate-OFF Fernflower corpus A/B: **0-line diff**
+against a base run (the one line that differed against the *first* base run — `StatEdge.EdgeType.<init>`
+nonModifying — flips identically between two base runs, i.e. pre-existing run-to-run nondeterminism, not the
+change).
+
 ## Task 4: surface the eventual verdicts to developers (the IDE path)
 
 The eventual verdicts are the novel output of this arc; today they are visible only via `FPDUMP` and the

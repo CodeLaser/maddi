@@ -135,7 +135,8 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         staticSideEffectAnalyzer = new StaticSideEffectAnalyzerImpl(propertiesChanged);
         sourceContractMaterializer = new SourceContractMaterializer(runtime, propertiesChanged);
         dynamicImmutabilityInference = new DynamicImmutabilityInference(propertiesChanged);
-        abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, propertiesChanged, messages);
+        abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, propertiesChanged, messages,
+                eventualCluster);
         this.runtime = runtime;
         this.flattenVariableData = configuration.flattenVariableData();
     }
