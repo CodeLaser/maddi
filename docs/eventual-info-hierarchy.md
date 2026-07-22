@@ -448,9 +448,17 @@ Analyzer suite 233/0, modification-common 52/0. Road §050 gained a "Recognising
 safe-surface contract" subsection. **Golden-rule corpus A/B: Fernflower FPDUMP byte-identical** off the SSE gate
 (the JSON delta is 3 JDK methods gaining a property no gate-off run reads).
 
-**Still open:** a `DecoratorImpl` emission of `@StaticSideEffects` so it surfaces in the IDE (Task 4 adjacent);
-`GetSetHelper` guard-tolerance (getter↔variable equivalence gap); and the greatest-fixpoint **removal pass**
-still owed for the cluster optimism.
+**`@StaticSideEffects` in the IDE — DONE (2026-07-22).** `DecoratorImpl.annotationAndProperties()` now emits
+`@StaticSideEffects` on a method whose `STATIC_SIDE_EFFECTS_METHOD` is true (mirroring the `@IgnoreModifications`
+emission), and `AnnotationTagger` tags it the `NEGATIVE` attention polarity — not a missing safety guarantee, but
+a genuine outward effect the designer should always see, rendered like the baseline cautions. Feeds
+DecoratorImpl → AnnotationTagger → all three front-ends + decorated-source printing. Not in the FPDUMP path and a
+no-op with the SSE gate off (no source method carries the property), so no corpus A/B needed.
+`TestDecorateStaticSideEffects` (prepwork, decorator seam), `TestStaticSideEffectPolarity` (daemon, end-to-end:
+gate on → decorate → tag NEGATIVE). prepwork 207/0, daemon 12/0.
+
+**Still open:** `GetSetHelper` guard-tolerance (getter↔variable equivalence gap); and the greatest-fixpoint
+**removal pass** still owed for the cluster optimism.
 
 ## Task 4: surface the eventual verdicts to developers (the IDE path)
 
