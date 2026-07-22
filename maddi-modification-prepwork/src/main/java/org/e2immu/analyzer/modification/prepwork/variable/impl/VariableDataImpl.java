@@ -134,4 +134,17 @@ public class VariableDataImpl implements VariableData {
     public static VariableData of(Element element) {
         return element.analysis().getOrNull(VARIABLE_DATA, VariableDataImpl.class);
     }
+
+    /**
+     * A back-reference-free copy: every container is {@link VariableInfoContainer#flattened()}, so this
+     * VariableData no longer holds the chain of earlier statements' containers. Applied to a method's
+     * consumed (last-statement) VD, this is what lets the intermediate statements' VARIABLE_DATA be
+     * dropped and their container chains collected — see
+     * {@code maddi-modification-analyzer/DESIGN-vardata-flatten.md}.
+     */
+    public VariableDataImpl flattened() {
+        LinkedHashMap<String, VariableInfoContainer> flat = new LinkedHashMap<>();
+        vicByFqn.forEach((fqn, vic) -> flat.put(fqn, vic.flattened()));
+        return new VariableDataImpl(flat);
+    }
 }

@@ -143,4 +143,21 @@ public class VariableInfoContainerImpl implements VariableInfoContainer {
         if (previousOrInitial.isRight()) return previousOrInitial.getRight().assignments().indexOfDefinition();
         return previousOrInitial.getLeft().indexOfDefinition();
     }
+
+    @Override
+    public VariableInfoContainer flattened() {
+        if (previousOrInitial.isRight()) return this; // already back-reference-free
+        // Collapse the Either.left(previousVic) chain link to a value snapshot of what
+        // getPreviousOrInitial() currently resolves to. best()/best(stage)/has(stage)/
+        // bestCurrentlyComputed() are unchanged because this container's own evaluation and merge are
+        // carried over verbatim; only the "came from a previous statement" structure is dropped. The
+        // captured VariableInfoImpl holds this variable's value (assignments/reads/links), not the
+        // previous containers, so the intermediate chain becomes collectible once its statements'
+        // VARIABLE_DATA is dropped too.
+        VariableInfoImpl previousSnapshot = (VariableInfoImpl) getPreviousOrInitial();
+        VariableInfoContainerImpl copy = new VariableInfoContainerImpl(variable, variableNature,
+                Either.right(previousSnapshot), evaluation, merge != null);
+        if (merge != null && merge.isSet()) copy.setMerge(merge.get());
+        return copy;
+    }
 }
