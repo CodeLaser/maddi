@@ -892,6 +892,137 @@ We leave it up to the programmer or designer to determine whether static calls d
 In almost all instances, we prefer a singleton instance (see <<singleton-classes>>) over a class with modifying static methods.
 In singletons the normal modification rules apply, unless {ignoreModifications} decorates the static field giving access to the singleton.
 
+[#ignore-modifications-hidden-content]
+== Ignoring modifications as manual hidden content
+
+The {ignoreModifications} annotation and hidden content (<<hidden-content>>) are two faces of a single idea.
+Recall why the hidden content of a type never threatens its immutability: by parametricity, an {immutableHC}
+type holds only the _abstract_ interface of its hidden content -- the type parameter `T`, or an unbounded
+generic -- and so it _cannot express_ an operation that reaches out of the hidden content into its own
+accessible state.
+A client is free to mutate the hidden content (`list.get(i).mutate()`); the container stays {immutableHC}.
+Confinement is guaranteed by erasure.
+
+An {ignoreModifications} field holds a _concrete_ type, which _can_ express such reaching-out operations.
+The annotation asserts, by hand, the very property erasure would otherwise have derived: _modifications to this
+field's object are not part of my immutability contract._
+That is the defining predicate of hidden content.
+
+****
+{ignoreModifications} is the _manual_ form of hidden content.
+It reclassifies a field from accessible content (known type, modifications attributable) to hidden content
+(modifications external to the contract) -- hiding by declaration what the type system would otherwise hide by
+erasure.
+A type all of whose modifiable content is either erased or {ignoreModifications} is {immutableHC}, never
+hc-free.
+****
+
+The two are interchangeable in the immutability lattice; they differ only in the _provenance_ of the "not my
+concern" judgement -- derived (always sound) versus asserted -- and that difference is a proof obligation, not
+an arithmetic one.
+Which brings us to the guard.
+
+[#confinement-guard]
+=== The confinement guard
+
+Because erasure is replaced by an assertion, soundness must be _checked_ where it was previously _given_.
+The check is confinement: an {ignoreModifications} field is sound hidden content exactly when a modification
+reached through it stays inside the _ignored stratum_ -- the transitive content reachable only through that
+field -- and never escapes into accessible or global state.
+This lands at two granularities, which are one principle:
+
+* _field granularity (separation)_: the ignored field must be {independent} of the type's accessible content --
+no accessible content is aliased _into_ it (else mutating the field mutates accessible state), and no state read
+_out_ of it flows into immutability-relevant accessible content (else the "immutable" surface secretly depends
+on mutable ignored state);
+* _method granularity (containment)_: every modifying call _on_ the ignored field must confine its effect to the
+receiver (and other ignored strata) -- touching no accessible field, no aliased parameter, and no global state.
+
+The method-granularity check, with a logger and a stream as the running examples:
+
+[cols="2,3,1"]
+|===
+| call | effect | verdict
+
+| `printStream.println(x)`, `store.put(k,v)`
+| writes the object's own buffer / entries
+| confined -- allowed
+
+| `logger.setLevel(WARN)`, `logger.addAppender(a)`
+| reaches external / global configuration
+| escapes -- flagged
+
+| `System.setOut(other)`
+| replaces a global reference
+| escapes -- flagged
+|===
+
+"Changing the mechanics of the stream" is exactly the _escapes-the-stratum_ case, and it fails the guard even
+though `println` on the same object passes.
+
+[#ignored-stratum-boundary]
+=== The stratum boundary, by example
+
+The ignored stratum is closed under two operations that look like modifications but are not escapes:
+
+. _writing into the stratum_ -- appending to a log, putting into a metadata store;
+. _referencing accessible content from the stratum_ -- storing a reference to an (immutable) accessible object
+inside the ignored object.
+
+The canonical case is an analyzer that reads an immutable syntax structure and records its findings in a
+per-node property overlay, held on each node behind an {ignoreModifications} `analysis()` store.
+The analyzer writes that overlay constantly -- that is its whole purpose -- and the overlay holds references
+back into the structure (an "assigned to field _f_" finding references the field _f_).
+Neither escapes:
+
+****
+Writing into the ignored stratum, and referencing accessible content from it, are confined and permitted.
+The guard fires only on an _escape_: a modification, reached _through_ the stratum, of accessible or global
+state -- for instance `node.analysis().someMutableThing().mutate()` where the mutation lands on accessible
+content.
+****
+
+This is why bringing the analyzer's own sources into scope does not trip the guard: filling the overlay is a
+client mutating hidden content, always permitted; storing structural references in it is confinement, not
+escape.
+The only way the guard could fire is if the analyzer reached through the overlay and mutated a _committed_
+accessible field -- which would be a genuine violation of the structure's stated immutability, exactly the bug
+the guard exists to surface.
+Confinement thus degrades gracefully: an unverifiable assumption at the boundary when the mutating code is out
+of scope, a checked theorem once the region is closed.
+
+[#sse-global-escape]
+=== Static side effects are the global-escape arm
+
+<<static-side-effects>> is not made redundant by this equivalence -- it _is_ one branch of the confinement
+guard, met earlier.
+The two annotations partition the space by _ownership_:
+
+* {ignoreModifications} / hidden content governs content the type _holds_ through one of its own fields;
+* {sse} governs state the type does _not_ hold at all -- a reach-out modification of another type's static or
+global state, which cannot be reclassified as _your_ hidden content because it is not your field.
+
+The guard's two landing sites carry different consequences, and this is the whole distinction:
+
+[cols="2,3"]
+|===
+| the escape lands on... | consequence
+
+| the type's own _accessible_ content
+| *caps immutability* -- unsound to ignore (the separation check)
+
+| _global / static_ state you do not own
+| does *not* cap immutability (it inspects only your fields) -- but is a real outward effect, flagged {sse}
+|===
+
+So {sse} covers precisely what the manual-hidden-content reading cannot: an effect that does not corrupt _your_
+immutability -- it is not your field -- yet is a genuine outward effect the designer should see.
+And the two compose: {ignoreModifications} on the _target_ global field is what downgrades an {sse} from
+"un-accounted outward effect" to "disclaimed" -- which, from the target owner's perspective, is that field
+becoming hidden content.
+This is the `System.out` story above, read from the field's owner: without the {ignoreModifications} we would
+add, `println` is {sse}; with it, the effect is sanctioned hidden content.
+
 [#value-based-classes]
 == Value-based classes
 
