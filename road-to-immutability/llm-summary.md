@@ -150,6 +150,12 @@ immutability verdicts are derived.
 
 - Compare `TypeInfo`/`MethodInfo`/`FieldInfo` with `==` (single instance per FQN + source set).
 - `unmodifiedField` is content-only by design; do not "fix" it to include assignment.
+- **Chapter 14 "Other annotations" is mostly aspirational — do not assume those annotations work.**
+  Only `@Identity`/`@Fluent` are computed (`TypeModIndyAnalyzerImpl`). `@NotNull`/`@Nullable`,
+  `@UtilityClass` and `@Finalizer` are read as *contracts* by `AnnotationToProperty` (and shown by
+  `DecoratorImpl`) but never inferred, and `@Finalizer`'s rules are not enforced. `@Singleton` and
+  `@ExtensionClass` exist in `maddi-support` but have no property and are read by nothing. The
+  chapter carries per-section "Not implemented" markers as of 2026-07-22.
 - Record accessors expose components → records of mutable types are at best FINAL_FIELDS (dependent),
   or IMMUTABLE_HC when unexposed; never hc-free @Immutable.
 - Interfaces: extensible ⇒ hidden content ⇒ at best `@Immutable(hc=true)`; a constants-only interface

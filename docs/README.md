@@ -31,6 +31,7 @@ Each entry below is labeled:
 | [TEST_MIGRATION.md](TEST_MIGRATION.md) | plan | Migrating tests from `maddi-inspection-integration` to `maddi-java-openjdk`. |
 | [discrepancies openjdk-maddi parsers.md](discrepancies%20openjdk-maddi%20parsers.md) | note | Observed differences between the openjdk (javac) and hand-written (CongoCC) Java front ends. |
 | [regression-jdk-preload-jmodless-alternative-jre.md](regression-jdk-preload-jmodless-alternative-jre.md) | note | Regression report: JDK preload failing on a jmod-less `alternativeJREDirectory`. |
+| [landing-surface-checklist.md](landing-surface-checklist.md) | plan | Everything an outsider hits before reading any code: e2immu.org redirect, repo metadata, CI, publishing the book, the 0.9.0 release, the LGPL/permissive licence split. |
 | [eclipse-plugin-state.md](eclipse-plugin-state.md) | status | Eclipse plugin: state of the union. |
 | [ide-todo.md](ide-todo.md) | status | IDE front ends (IntelliJ/Eclipse/VS Code): what is *not* done yet. |
 
