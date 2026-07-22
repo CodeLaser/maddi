@@ -14,6 +14,17 @@ chapter only when detail is missing here.
   - **hidden content** — content that exists but cannot be named structurally: type parameters,
     extensible (non-final) types, the elements of shallowly-analyzed containers. Leaf immutables
     (String, primitives, boxed) have NO hidden content; containers of immutables DO.
+- **`@IgnoreModifications` = manual hidden content** (road §050 "Ignoring modifications as manual hidden
+  content"): a field of concrete (mutable) type whose modifications the author disclaims. Same lattice effect
+  as a type-parameter field (→ at best `@Immutable(hc=true)`, never hc-free); it differs only in *provenance* —
+  erasure *derives* confinement, `@IgnoreModifications` *asserts* it, so soundness must be **checked** not
+  assumed. **Confinement guard**: a modification reached through the field must stay in the *ignored stratum*
+  (transitive content reachable only via that field). Writing into the stratum, and referencing accessible
+  content from it, are confined and fine (this is why an analyzer filling an `@IgnoreModifications analysis()`
+  overlay is legal); an *escape* into the type's own accessible content **caps immutability** (the separation
+  check), an escape into global/static state is a **`@StaticSideEffects`** — does NOT cap (not your field) but
+  flags a real outward effect. SSE is thus the global-escape arm of the same guard; `@IgnoreModifications` on
+  the *target* global field downgrades an SSE to a sanctioned disclaimer (the `System.out` story).
 - **Modification**: a method is *modifying* when it assigns, or modifies the content of, something in
   the object graph of its receiver's fields. Marked `@Modified` / `@NotModified`.
   - A *static* method mutating a parameter does not have a receiver to modify: the parameter is marked

@@ -15,6 +15,9 @@
 package org.e2immu.analyzer.modification.prepwork.io;
 
 import org.e2immu.annotation.*;
+import org.e2immu.annotation.eventual.Mark;
+import org.e2immu.annotation.eventual.Only;
+import org.e2immu.annotation.eventual.TestMark;
 import org.e2immu.annotation.method.GetSet;
 import org.e2immu.annotation.rare.AllowsInterrupt;
 import org.e2immu.annotation.rare.Finalizer;
@@ -54,6 +57,14 @@ public class DecoratorImpl implements Qualification.Decorator {
     private final TypeInfo commutableTi;
     private final TypeInfo getSetTi;
     private final TypeInfo modifiedTi;
+    // eventual: the after-mark verdicts (@Immutable(after=)/@FinalFields(after=)/@Mark/@Only/@TestMark/
+    // @NotModified(after=)/@Final(after=)) -- the write twin of AnnotationToProperty's eventual parsing
+    private final TypeInfo notModifiedTi;
+    private final TypeInfo finalTi;
+    private final TypeInfo finalFieldsTi;
+    private final TypeInfo markTi;
+    private final TypeInfo onlyTi;
+    private final TypeInfo testMarkTi;
     private final AnnotationExpression ignoreModifications;
     private final AnnotationExpression identityAnnotation;
     private final AnnotationExpression fluentAnnotation;
@@ -73,13 +84,17 @@ public class DecoratorImpl implements Qualification.Decorator {
 
     public DecoratorImpl(Runtime runtime, SourceSet sourceSetOfRequest, Map<Element, Element> translationMap) {
         this.runtime = runtime;
-        TypeInfo notModifiedTi = runtime.getFullyQualified(NotModified.class, true, sourceSetOfRequest);
+        notModifiedTi = runtime.getFullyQualified(NotModified.class, true, sourceSetOfRequest);
         notModifiedAnnotation = runtime.newAnnotationExpressionBuilder().setTypeInfo(notModifiedTi).build();
         modifiedTi = runtime.getFullyQualified(Modified.class, true, sourceSetOfRequest);
         modifiedAnnotation = runtime.newAnnotationExpressionBuilder().setTypeInfo(modifiedTi).build();
         independentTi = runtime.getFullyQualified(Independent.class, true, sourceSetOfRequest);
         immutableTi = runtime.getFullyQualified(Immutable.class, true, sourceSetOfRequest);
-        TypeInfo finalTi = runtime.getFullyQualified(Final.class, true, sourceSetOfRequest);
+        finalFieldsTi = runtime.getFullyQualified(FinalFields.class, true, sourceSetOfRequest);
+        markTi = runtime.getFullyQualified(Mark.class, true, sourceSetOfRequest);
+        onlyTi = runtime.getFullyQualified(Only.class, true, sourceSetOfRequest);
+        testMarkTi = runtime.getFullyQualified(TestMark.class, true, sourceSetOfRequest);
+        finalTi = runtime.getFullyQualified(Final.class, true, sourceSetOfRequest);
         TypeInfo containerTi = runtime.getFullyQualified(Container.class, true, sourceSetOfRequest);
         immutableContainerTi = runtime.getFullyQualified(ImmutableContainer.class, true, sourceSetOfRequest);
         finalAnnotation = runtime.newAnnotationExpressionBuilder().setTypeInfo(finalTi).build();
@@ -150,6 +165,11 @@ public class DecoratorImpl implements Qualification.Decorator {
         Value.GetSetEquivalent getSetEquivalent = null;
         Property downcast = null;
         Value.VariableToTypeInfoSet downcastValue = null;
+        // eventual after-mark verdicts (the write twin of AnnotationToProperty)
+        Value.Eventual eventual = null;                    // EVENTUAL_METHOD / EVENTUAL_PARAMETER
+        Value.EventuallyImmutable eventuallyImmutable = null;  // EVENTUALLY_IMMUTABLE_TYPE
+        Set<String> eventuallyFinalLabels = null;          // EVENTUALLY_FINAL_FIELD
+        Set<String> eventuallyNonModifyingLabels = null;   // EVENTUALLY_NON_MODIFYING_METHOD
         switch (info) {
             case MethodInfo methodInfo -> {
                 boolean noReturn = methodInfo.isConstructor() || !methodInfo.hasReturnValue();
@@ -176,6 +196,10 @@ public class DecoratorImpl implements Qualification.Decorator {
                 commutableData = analysis.getOrNull(COMMUTABLE_METHODS, ValueImpl.CommutableDataImpl.class);
                 fieldValue = methodInfo.getSetField();
                 getSetEquivalent = analysis.getOrNull(GET_SET_EQUIVALENT, ValueImpl.GetSetEquivalentImpl.class);
+                eventual = analysis.getOrDefault(EVENTUAL_METHOD, ValueImpl.EventualImpl.NOT_EVENTUAL);
+                Value.SetOfStrings enm = analysis.getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD,
+                        ValueImpl.SetOfStringsImpl.EMPTY_SET);
+                if (!enm.set().isEmpty()) eventuallyNonModifyingLabels = enm.set();
             }
             case FieldInfo fieldInfo -> {
                 propertyUnmodified = !fieldInfo.type().isPrimitiveStringClass()
@@ -188,6 +212,9 @@ public class DecoratorImpl implements Qualification.Decorator {
                 propertyIgnoreModifications = fieldInfo.isIgnoreModifications() ? IGNORE_MODIFICATIONS_FIELD : null;
                 propertyNotNull = NOT_NULL_FIELD;
                 notNull = notNull(analysis.getOrDefault(NOT_NULL_FIELD, ValueImpl.NotNullImpl.NULLABLE), fieldInfo.type());
+                Value.SetOfStrings eff = analysis.getOrDefault(EVENTUALLY_FINAL_FIELD,
+                        ValueImpl.SetOfStringsImpl.EMPTY_SET);
+                if (!eff.set().isEmpty()) eventuallyFinalLabels = eff.set();
             }
             case ParameterInfo pi -> {
                 boolean isUnmodified = analysis.getOrDefault(UNMODIFIED_PARAMETER, FALSE).isTrue();
@@ -210,6 +237,7 @@ public class DecoratorImpl implements Qualification.Decorator {
                     downcast = DOWNCAST_PARAMETER;
                     downcastValue = casts;
                 }
+                eventual = analysis.getOrDefault(EVENTUAL_PARAMETER, ValueImpl.EventualImpl.NOT_EVENTUAL);
             }
             case TypeInfo typeInfo -> {
                 immutable = analysis.getOrDefault(IMMUTABLE_TYPE, MUTABLE);
@@ -222,6 +250,8 @@ public class DecoratorImpl implements Qualification.Decorator {
                     propertyIndependent = INDEPENDENT_TYPE;
                 }
                 propertyContainer = analysis.getOrDefault(CONTAINER_TYPE, FALSE).isTrue() ? CONTAINER_TYPE : null;
+                eventuallyImmutable = analysis.getOrDefault(EVENTUALLY_IMMUTABLE_TYPE,
+                        ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
             }
             case TypeParameter typeParameter -> {
                 immutable = MUTABLE;
@@ -381,7 +411,62 @@ public class DecoratorImpl implements Qualification.Decorator {
             }
             list.add(new AnnotationProperty(modified.build(), downcast));
         }
+        // eventual after-mark verdicts. These are the novel computed output of the eventual-immutability
+        // analysis; without them the decorator prints a plain @Immutable (or nothing) and the "after=" nature is
+        // lost. Mirrors AnnotationToProperty's parsing (the read twin); see road-to-immutability section 060.
+        if (eventuallyImmutable != null && eventuallyImmutable.isEventual()) {
+            Value.Immutable level = eventuallyImmutable.immutableAfterMark();
+            AnnotationExpression.Builder b = runtime.newAnnotationExpressionBuilder();
+            if (level.isFinalFields()) {
+                importsNeeded.add(FinalFields.class);
+                b.setTypeInfo(finalFieldsTi);
+            } else {
+                importsNeeded.add(Immutable.class);
+                b.setTypeInfo(immutableTi);
+                if (level.isImmutableHC()) b.addKeyValuePair("hc", runtime.constantTrue());
+            }
+            b.addKeyValuePair("after", runtime.newStringConstant(eventuallyImmutable.markLabel()));
+            list.add(new AnnotationProperty(b.build(), EVENTUALLY_IMMUTABLE_TYPE));
+        }
+        if (eventual != null && eventual.isEventual()) {
+            AnnotationExpression.Builder b = runtime.newAnnotationExpressionBuilder();
+            if (eventual.isMark()) {
+                importsNeeded.add(Mark.class);
+                b.setTypeInfo(markTi).addKeyValuePair("value", runtime.newStringConstant(eventual.markLabel()));
+            } else if (eventual.isTestMark()) {
+                importsNeeded.add(TestMark.class);
+                b.setTypeInfo(testMarkTi).addKeyValuePair("value", runtime.newStringConstant(eventual.markLabel()));
+                // before=true is the inverted sense (method returns true in the 'before' state)
+                if (!Boolean.TRUE.equals(eventual.test())) b.addKeyValuePair("before", runtime.constantTrue());
+            } else { // @Only, carrying exactly one of after=/before=
+                importsNeeded.add(Only.class);
+                b.setTypeInfo(onlyTi).addKeyValuePair(Boolean.TRUE.equals(eventual.after()) ? "after" : "before",
+                        runtime.newStringConstant(eventual.markLabel()));
+            }
+            list.add(new AnnotationProperty(b.build(),
+                    info instanceof ParameterInfo ? EVENTUAL_PARAMETER : EVENTUAL_METHOD));
+        }
+        if (eventuallyNonModifyingLabels != null) {
+            importsNeeded.add(NotModified.class);
+            AnnotationExpression nm = runtime.newAnnotationExpressionBuilder().setTypeInfo(notModifiedTi)
+                    .addKeyValuePair("after", runtime.newStringConstant(joinLabels(eventuallyNonModifyingLabels)))
+                    .build();
+            list.add(new AnnotationProperty(nm, EVENTUALLY_NON_MODIFYING_METHOD));
+        }
+        if (eventuallyFinalLabels != null) {
+            importsNeeded.add(Final.class);
+            AnnotationExpression fin = runtime.newAnnotationExpressionBuilder().setTypeInfo(finalTi)
+                    .addKeyValuePair("after", runtime.newStringConstant(joinLabels(eventuallyFinalLabels)))
+                    .build();
+            list.add(new AnnotationProperty(fin, EVENTUALLY_FINAL_FIELD));
+        }
         return list;
+    }
+
+    // a label set is printed as its field names, comma-separated, sorted for determinism (the inverse of
+    // EventualImpl.labelToFields)
+    private static String joinLabels(Set<String> labels) {
+        return String.join(",", new TreeSet<>(labels));
     }
 
     private Value.NotNullProperty notNull(Value.NotNullProperty notNull, ParameterizedType parameterizedType) {

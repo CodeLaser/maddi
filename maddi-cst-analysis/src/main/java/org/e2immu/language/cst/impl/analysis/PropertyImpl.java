@@ -41,6 +41,13 @@ public class PropertyImpl implements Property {
 
     // method
     public static final Property NON_MODIFYING_METHOD = new PropertyImpl("nonModifyingMethod");
+    /** the method has a STATIC SIDE EFFECT: it modifies static/global state belonging to a type other than its
+     * own primary type (a modifying call on, or assignment to, another type's static field). Informational — it
+     * does not by itself cap the type's immutability (immutability inspects only the type's own fields) — but it
+     * is the "global-escape" arm of the confinement guard: a modification reached through an {@code
+     * @IgnoreModifications} field that is a static side effect leaves the ignored stratum. See
+     * road-to-immutability section 050 ("Static side effects") and section 050 "confinement guard". */
+    public static final Property STATIC_SIDE_EFFECTS_METHOD = new PropertyImpl("staticSideEffectsMethod");
     /** the source-level analysis of this method was abandoned (cycle protection, work ceiling, fault
      * isolation) and its values come from the SHALLOW summary. Consumers that rely on per-call data
      * (e.g. VARIABLES_LINKED_TO_OBJECT for extract-interface) must treat such methods pessimistically. */

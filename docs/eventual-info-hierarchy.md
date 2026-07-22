@@ -284,3 +284,195 @@ non-confluence), and because `PropertyValueMap` is `@FinalFields` (not immutable
 the type reaches HC only when the coin lands right. The clean settle remains the structural one — make
 `ParameterInfoImpl extends InfoImpl` so it inherits the store instead of holding it directly — which also
 stops it reading the store through a direct field reference in the first place.
+
+## Getter ↔ variable equivalence, and the store is a red herring (2026-07-22, corrected)
+
+`extends InfoImpl` is explicitly off the table until every other means is exhausted. Chasing the store
+modification led to three corrections of the record above.
+
+**(a) The `analysis` store is NOT the `ParameterInfoImpl` cap.** Across 8 dogfood runs (gate on/off, with and
+without any change) `field unmodified=true …ParameterInfoImpl.analysis` is **stable** — the flip described
+above does not reproduce. The plugin fix (cst-analysis as source) made `getOrDefault`'s `NON_MODIFYING`
+verdict stably decided, which closes the provisional-`false` window that used to race. So there is no live
+modification non-determinism on that field.
+
+**(b) Getter ↔ variable equivalence — verified status.** The engine already models `x.f()` == `x.f` *exactly*,
+not approximately: `ApplyGetSetTranslation` (prepwork, run on every expression in `MethodAnalyzer.beforeExpression`)
+and its link-layer twin in `ExpressionVisitor` **rewrite** a recognised getter call into the field access
+before variable data / links are built, so there is a single `FieldReference` afterward — no separate "getter
+path" to diverge. Recognition is `GetSetHelper.doGetSetAnalysis`: the body's first statement must be a bare
+`return this.field;` (or the array/list-get shapes). Dogfood: 694 getters + 132 setters of 6271 methods.
+The **one real gap**: a leading side-effect-only statement defeats recognition. `InfoImpl.analysis()` and
+`ParameterInfoImpl.analysis()` open with `if (ConsumptionEdgeRecorder.ENABLED) { record(this); }`, so their
+first statement is an `IfStatement` → unrecognised → not rewritten; the accessor's receiver is a return-value
+intermediate and the field never surfaces as a `FieldReference` in the reader. (`TypeParameterImpl.analysis()`,
+`StatementImpl.analysis()`, … are bare returns → recognised.) This asymmetry is the latent fragility behind
+the historical flip, but a probe (making `ParameterInfoImpl.analysis()` a bare, recognised getter) left the
+verdict **byte-identical** `@FinalFields(after="inspection,methodInfo,parameterizedType")` — so it is *not*
+the cap either.
+
+**PROPOSED — `GetSetHelper` guard-tolerance (documented, not yet implemented).** Make getter/setter
+recognition see through a *leading side-effect-only guard*: recognise `if (CONST) { …no field access… } return
+this.field;` (and the setter analogue) as the getter it plainly is. This restores exact getter↔variable
+equivalence for `analysis()` and any similarly-guarded accessor, routing them through the same unified
+`FieldReference` machinery as the other 694 getters instead of the return-value-link fallback. It is an
+engine/recognition change only — no CST edits, no contact with the modification-convergence invariant. It does
+**not** lift `ParameterInfoImpl` (see (c)); it closes the genuine gap in the equivalence and removes the latent
+non-confluence source. Care points: the guard block must be proven not to read or write the field (else the
+rewrite is unsound); keep it behind the same recognition entry point so all consumers (prepwork + link) agree.
+
+**Rejected — "wait-on-pending-callee" in `FieldAnalyzerImpl.computeUnmodified` (unsound, do not revisit as-is).**
+The idea was: when a `FieldReference`'s `UNMODIFIED_VARIABLE` is `false` only because the called method's
+`NON_MODIFYING_METHOD` is still undecided (`MethodModification.go` defaults an undecided callee to *modifying*),
+return "undecided" so the field waits and settles monotonically instead of committing the provisional `false`.
+It is unsound: an undecided field-modification is optimistically forced to **TRUE** by cycle-breaking
+(`FieldAnalyzerImpl.go`, `cycleBreakingActive`), and `TolerantWrite` then *refuses* the later correcting `false`
+as a weakening — so genuinely-modified collections (`ModuleInfoImpl.BuilderImpl.requiresList`,
+`AndImpl.Builder.expressions`, `ElementImpl.Builder.annotations`, `ExpressionComparator.cache`, …) were wrongly
+reported `unmodified=true`. The pessimistic "undecided callee = modifying" default exists precisely to prevent
+this. Lesson: converting a provisional-`false` field verdict to "undecided" is equivalent to *optimistically*
+assuming unmodified, which cycle-breaking then bakes in.
+
+**(c) The real cap is the directly-owned `analysis` store — probe-confirmed, and it is NOT independence.**
+`ParameterInfoImpl` is `@FinalFields(after="inspection,methodInfo,parameterizedType")` with
+`INDEPENDENT_TYPE=@Independent` (independence floors fine; the after-mark independence loop exempts the three
+mark fields, whose `afterMark.fields()=[parameterizedType, methodInfo, inspection]` — verified). The cap is in
+`TypeImmutableAnalyzerImpl.loopOverFieldsAndMethods`: it returns `false` on the **`analysis`** field
+(`PropertyValueMap`), read `unmodified=false` *at computation time* even though it settles `true` (FPDUMP
+final). That commits FINAL_FIELDS, which then does not upgrade. The four flagship types never face this: their
+store is **inherited from `InfoImpl`**, so it is not a declared field of the subtype and never enters
+`typeInfo.fields()` in the loop — contrast `MethodInfoImpl.afterMark.fields()=[inspection, typeInfo]`, no store.
+A probe that skips the `PropertyValueMap` store field in the loop lifts `ParameterInfoImpl` to
+`eventual=@Immutable(hc=true)` **deterministically** (HC count 9→10, stable across reruns). So the store —
+owned vs inherited — is the whole difference; `parameterizedType` (`ParameterizedType`, itself only
+`eventual=@FinalFields`) is correctly exempted via the mark and is *not* the cap.
+
+**PROPOSED — exempt the analysis-metadata store from the field-modification cap (gated).** The
+`PropertyValueMap analysis()` store is the mechanism of eventual immutability itself: filled during analysis,
+frozen after; every Info type has one, and for the four that extend `InfoImpl` it is provably never a
+modification cap (it is inherited, never looped). A directly-owned store should get the same treatment — skip a
+field of type `PropertyValueMap` in `loopOverFieldsAndMethods` (gated on `EVENTUALCLUSTER`), mirroring the
+structural exemption the flagship get for free. Sound: the field's `UNMODIFIED_FIELD` settles `true` (its only
+writers, external `set()` calls, are not in the analysed source); the `false` it is read as is a
+read-ordering artifact, not a real modification. Care point: key it on the store precisely (type
+`PropertyValueMap`), and keep it gated so the corpus A/B stays byte-identical off the gate.
+
+### Diagnostic: FPDUMP extended
+`FPDUMP` now also emits, per element: the after-mark `eventual=` verdict on each type
+(`EVENTUALLY_IMMUTABLE_TYPE`), `getset=<field>(get|set)` on each recognised getter/setter method
+(`GET_SET_FIELD`), and `independent=` / `ignoreMod=` on fields and types. All were essential to the corrections
+above — the flagship types read `type immutable=@Mutable` unconditionally, their HC-ness lives only in
+`eventual=`. (`maddi-modification-analyzer/.../IteratingAnalyzerImpl`.)
+
+## Resolution: `@IgnoreModifications`-as-hidden-content (2026-07-22, DONE)
+
+The "skip `PropertyValueMap` by type" proposal above was correctly diagnosed as a hack (it conflates two
+regimes and would hide a genuine modification once the analyzer's own sources are in scope). The principled
+replacement, worked out with Bart and written into `road-to-immutability` §050 ("Ignoring modifications as
+manual hidden content"): **`@IgnoreModifications` *is* the manual form of hidden content** — a field whose
+modifications the author disclaims, confined to the *ignored stratum*, so it does not bear on the type's
+immutability. `@StaticSideEffects` is the same guard's global-escape arm.
+
+Implemented in two parts:
+
+1. **Annotations** — every `Info` store carries `@IgnoreModifications` with the "analysis overlay is orthogonal
+   to CST-structure immutability" rationale at the site: `InfoImpl.propertyValueMap` (inherited by the four
+   `InfoImpl`-extending types), `ParameterInfoImpl.analysis` (owned), `TypeParameterImpl.analysis` (owned
+   override).
+2. **Engine** — (a) `SourceContractMaterializer` now materializes `IGNORE_MODIFICATIONS_FIELD` on source fields
+   (it is a pure contract, uncomputable, so a source annotation was previously read by nothing — the exact
+   asymmetry that made the annotation fire on shallow-analysed `InfoImpl` but not on source `ParameterInfoImpl`);
+   ungated, a no-op off maddi's own annotated code. (b) `TypeImmutableAnalyzerImpl.loopOverFieldsAndMethods`
+   treats an `@IgnoreModifications` field as hidden content — its `UNMODIFIED_FIELD` verdict is irrelevant —
+   gated on `EVENTUALCLUSTER`; the field still holds the type at `IMMUTABLE_HC` (concrete type not deeply
+   immutable), never hc-free.
+
+**Result:** `ParameterInfoImpl` reaches `eventual=@Immutable(hc=true)(after="inspection,methodInfo,
+parameterizedType")` **deterministically** — the fourth core `Info` type, and the first **without**
+`extends InfoImpl`. All five (`TypeInfoImpl`, `MethodInfoImpl`, `FieldInfoImpl`, `TypeParameterImpl`,
+`ParameterInfoImpl`) are now eventual-HC on maddi's own code. Dogfood HC 9→10; gate-off unchanged (4 eventual);
+analyzer suite 227/0. **Golden-rule corpus A/B: passed** — the three certified corpus tests
+(`TestFernflower`/`TestTimefoldSolver`/`TestLangchain4j`) ran gate-off, forced (`--rerun-tasks`), with real
+analysis time (147s / 179s / 36s) and 0 failures / 0 errors (Timefold's 1 skip is the pre-existing assumption).
+The ungated materialization is a corpus no-op (no e2immu annotations there) and the field-loop skip is gated off.
+
+**Follow-ons 1 & 2 (2026-07-22, DONE).**
+- **Ungated the field-loop skip.** `if (fieldInfo.isIgnoreModifications()) continue;` moved out of the
+  `EVENTUALCLUSTER` gate in `loopOverFieldsAndMethods` — honouring the contract is general correctness, and a
+  no-op wherever no field carries the annotation. **Corpus A/B green** (Fernflower/Timefold/Langchain4j, forced
+  rerun, real analysis time, 0 failures).
+- **Confinement guard, separation arm.** `GuardAnalyzerImpl.guardIgnoreModificationsSeparation` **warns**
+  (category `ignore-modifications-not-confined`, never caps) when an `@IgnoreModifications` field holds a
+  non-decoration link to an accessible (non-ignore-mod) field of the same primary type — content shared with the
+  accessible surface, so a modification through the ignored stratum could escape it. Conservative (a
+  reference-only/decoration link stays silent, so the analysis overlay's normal use is not flagged);
+  method-granularity / global-escape (`@StaticSideEffects`) is the deferred later arm.
+  `TestGuardIgnoreModifications`: the overlay shape is silent, a StringBuilder-content share is flagged once.
+  Analyzer suite 229/0.
+
+**Confinement guard, global-escape arm — DONE (2026-07-22).** Its mechanical core, `@StaticSideEffects`, did
+not exist in the engine (only in road §050) — now implemented as a computed `STATIC_SIDE_EFFECTS_METHOD`
+(`StaticSideEffectAnalyzerImpl`): a method has a static side effect when it modifies static/global state of a
+type *other* than its own primary type (first cut: assignment to, or a modifying call on, another type's static
+field; static-method reconfiguration like `System.setOut` needs an AAPI safe-surface declaration, left for
+later). Gated on env `SSE`, additive (writes only its own property). `GuardAnalyzerImpl`.
+`guardIgnoreModificationsContainment` then warns when a modifying call on an `@IgnoreModifications` field has a
+callee that is `@StaticSideEffects` — the modification reaches global state, so it left the ignored stratum.
+`TestStaticSideEffects` + `TestGuardIgnoreModifications.testGlobalEscapeIsWarned`; analyzer suite 231/0; corpus
+A/B (SSE off byte-identical / SSE on no-crash) green.
+
+**Still open:** the AAPI safe-surface declarations for static-method reconfiguration (`System.setOut`,
+`logger.addAppender`) — the part of the global-escape arm that needs callee annotations; a `DecoratorImpl`
+emission of `@StaticSideEffects` so it surfaces in the IDE (Task 4 adjacent); `GetSetHelper` guard-tolerance
+(getter↔variable equivalence gap); and the greatest-fixpoint **removal pass** still owed for the cluster
+optimism.
+
+## Task 4: surface the eventual verdicts to developers (the IDE path)
+
+The eventual verdicts are the novel output of this arc; today they are visible only via `FPDUMP` and the
+results JSON. The goal is to show them *in the editor* ("this type becomes `@Immutable` once `inspection` is
+committed"). Reconnaissance (2026-07-22) corrected the framing: **a full IDE stack already ships** — plugins for
+IntelliJ (`maddi-intellij`: inlay/gutter/annotator/findings-panel), Eclipse (`maddi-eclipse`: code minings),
+and VS Code (`maddi-vscode`: inlay hints + hover + diagnostics), all over a bespoke NDJSON daemon protocol
+(`maddi-ide-daemon` / `maddi-ide-client`, `DaemonProtocol`), **not** LSP. So this is not "build IDE
+integration"; it is "make the eventual verdicts flow through the surfaces that exist." They flow only
+**partially** today: the daemon ships each element's raw `properties` map (so `eventualMethod=…`/
+`eventuallyImmutableType=…` are already weakly visible in the **VS Code hover**), but the *rendered*
+annotations/inlays on every front-end come from `DecoratorImpl`, which emits **no eventual annotation at all**.
+
+**The single high-leverage seam — `DecoratorImpl.annotationAndProperties()`**
+(`maddi-modification-prepwork/.../io/DecoratorImpl.java`, ~128–383). It turns computed `analysis()` properties
+back into `@Annotation` decorations and feeds `AnnotationTagger` → `ResultCollector` → **all three front-ends**
+*and* decorated-source printing. It covers `@Immutable`/`@Independent`/`@NotModified`/`@Final`/… but no
+`EVENTUALLY_*`; for an eventually-immutable type it reads the optimistic unconditional `IMMUTABLE_TYPE` and
+prints a plain `@Immutable(hc=true)` with **no `after=`**, losing the eventual nature. Extend it to emit
+`EVENTUALLY_IMMUTABLE_TYPE` → `@Immutable(after="…")`, `EVENTUAL_METHOD`/`EVENTUAL_PARAMETER` →
+`@Mark`/`@Only`/`@TestMark`, `EVENTUALLY_FINAL_FIELD` → `@Final(after="…")`, `EVENTUALLY_NON_MODIFYING_METHOD` →
+`@NotModified(after="…")`. The exact inverse already exists — `AnnotationToProperty` (`maddi-modification-common/.../AnnotationToProperty.java`, ~134–335) parses these same annotations *into* the properties — so mirror its label/field
+semantics. Tests to extend: `TestWriteAnalysis2`, `TestAnalysisHintsComposer`.
+
+**Staging** (each step independently shippable, all downstream of the seam):
+1. **Decorate — DONE (2026-07-22).** `DecoratorImpl.annotationAndProperties()` now emits
+   `EVENTUALLY_IMMUTABLE_TYPE` → `@Immutable(hc?, after="…")`/`@FinalFields(after="…")`, `EVENTUAL_METHOD`/
+   `EVENTUAL_PARAMETER` → `@Mark`/`@Only`/`@TestMark`, `EVENTUALLY_NON_MODIFYING_METHOD` → `@NotModified(after="…")`,
+   `EVENTUALLY_FINAL_FIELD` → `@Final(after="…")`, mirroring `AnnotationToProperty`. `AnnotationTagger` tags
+   `@Immutable`/`@NotModified`/`@Final(after=)` POSITIVE (rendered inlays, `after=` visible) and the
+   `@Mark`/`@Only`/`@TestMark`/`@FinalFields` family NEUTRAL (carried, not dropped), so all three front-ends now
+   surface them. `TestDecorateEventual`; ungated & additive; prepwork 206/0, link 402/0 (decoration unchanged).
+2. **Polarity — DONE (2026-07-22).** `AnnotationTagger` tags `@Mark`/`@Only`/`@TestMark`/`@FinalFields` and the
+   `after=` forms of `@Immutable`/`@NotModified`/`@Final` with a new **`EVENTUAL`** polarity (detected
+   structurally from the `AnnotationExpression`, not by text-matching), distinct from the plain `POSITIVE` of a
+   proven-now verdict; and an eventual verdict is never a context default, so the default filter always shows it.
+   Verified safe on all three front-ends (each filters "show unless polarity == one excluded literal"; polarity
+   is a free-form String, so an unrecognised value renders everywhere but the explicit NONE mode — it can only
+   make eventual verdicts *more* visible). `TestEventualPolarity` (end-to-end: a `SetOnce` holder's
+   `@Immutable(after="value")`/`@Mark`/`@Only` come back `EVENTUAL`, unconditional `@Container`/`@NotModified`
+   stay `POSITIVE`); daemon 11/0. Front-end styling/filtering *on* `EVENTUAL` is a later refinement.
+3. **Typed protocol field** (optional) — `DaemonProtocol.ElementAnnotation` carries `displayAnnotations`,
+   `annotations`, and a stringly-typed `properties` map; a typed eventual field would let front-ends style the
+   `after="…"` labels rather than parse strings.
+4. **Round-trip is already done** — `WriteAnalysisResults` + `PropertyProviderImpl` + `ValueImpl` codecs
+   serialize/deserialize every eventual property, so a file-consuming tool needs no new work.
+
+No LSP is involved; the transport is the daemon's NDJSON. See `docs/ide-todo.md` for the separately-tracked IDE
+work (partial re-analysis, streaming).

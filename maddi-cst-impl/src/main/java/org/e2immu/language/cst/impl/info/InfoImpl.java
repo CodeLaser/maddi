@@ -21,11 +21,19 @@ import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.PropertyValueMapImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.cst.impl.variable.DescendModeEnum;
+import org.e2immu.annotation.rare.IgnoreModifications;
 
 import java.util.stream.Stream;
 
 public abstract class InfoImpl implements Info {
 
+    // The analysis overlay is derived analyzer metadata, orthogonal to the immutability of the CST structure it
+    // decorates: the analyzer fills it (via analysis().set(...)) AFTER inspection is committed, and it is never
+    // part of the committed object. @IgnoreModifications makes it manual hidden content -- its modifications are
+    // confined to the ignored stratum and never escape into the structural (accessible) content, so they do not
+    // bear on this type's stated immutability. See road-to-immutability section 050, "Ignoring modifications as
+    // manual hidden content".
+    @IgnoreModifications
     private final PropertyValueMap propertyValueMap = new PropertyValueMapImpl();
 
     @Override

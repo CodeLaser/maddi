@@ -24,6 +24,7 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_FIELD;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_FIELD;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD;
 
@@ -79,6 +80,12 @@ public class SourceContractMaterializer {
 
     public void materialize(FieldInfo fieldInfo) {
         materialize(fieldInfo, IMMUTABLE_FIELD);
+        // @IgnoreModifications is a pure contract -- it cannot be computed (it declares that the author does not
+        // care about this field's modifications), so on a SOURCE field the annotation would otherwise be read by
+        // nothing. Materializing it lets @IgnoreModifications-as-hidden-content (road-to-immutability section 050)
+        // work on source exactly as it does on shallow/AAPI types. It cannot blunt any derived verdict, since
+        // nothing computes IGNORE_MODIFICATIONS_FIELD.
+        materializeTrueBool(fieldInfo, IGNORE_MODIFICATIONS_FIELD);
     }
 
     private void materialize(Info info, Property property) {
@@ -91,6 +98,18 @@ public class SourceContractMaterializer {
             // MUTABLE is the default: writing it would record an "annotation" indistinguishable from silence
             info.analysis().set(property, immutable);
             CommonAnalyzerImpl.DECIDE.debug("SCM: Contracted {} of {} = {}", property, info, immutable);
+            propertyChanges.incrementAndGet();
+        }
+    }
+
+    // as materialize(Info, Property) but for a boolean contract; only TRUE is written (FALSE is the silent
+    // default, indistinguishable from an absent annotation)
+    private void materializeTrueBool(Info info, Property property) {
+        if (info.analysis().haveAnalyzedValueFor(property)) return;
+        if (info.annotations().isEmpty()) return;
+        if (contractReader.contracts(info).get(property) instanceof Value.Bool bool && bool.isTrue()) {
+            info.analysis().set(property, bool);
+            CommonAnalyzerImpl.DECIDE.debug("SCM: Contracted {} of {} = {}", property, info, bool);
             propertyChanges.incrementAndGet();
         }
     }

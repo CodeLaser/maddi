@@ -58,6 +58,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final ShallowTypeAnalyzer shallowTypeAnalyzer;
     private final TypeContainerAnalyzer typeContainerAnalyzer;
     private final TypeEventualAnalyzer typeEventualAnalyzer;
+    private final StaticSideEffectAnalyzerImpl staticSideEffectAnalyzer;
     private final SourceContractMaterializer sourceContractMaterializer;
     private final DynamicImmutabilityInference dynamicImmutabilityInference;
     private final AbstractMethodAnalyzer abstractMethodAnalyzer;
@@ -128,6 +129,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         shallowTypeAnalyzer = new ShallowTypeAnalyzer(runtime, Element::annotations, false);
         typeContainerAnalyzer = new TypeContainerAnalyzerImpl(configuration, propertiesChanged, messages);
         typeEventualAnalyzer = new TypeEventualAnalyzerImpl(runtime, typeImmutableAnalyzer, configuration, propertiesChanged, messages, eventualCluster);
+        staticSideEffectAnalyzer = new StaticSideEffectAnalyzerImpl(propertiesChanged);
         sourceContractMaterializer = new SourceContractMaterializer(runtime, propertiesChanged);
         dynamicImmutabilityInference = new DynamicImmutabilityInference(propertiesChanged);
         abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, propertiesChanged, messages);
@@ -498,5 +500,6 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         typeImmutableAnalyzer.go(typeInfo, activateCycleBreaking);
         typeContainerAnalyzer.go(typeInfo);
         typeEventualAnalyzer.go(typeInfo, activateCycleBreaking);
+        staticSideEffectAnalyzer.go(typeInfo); // gated on env SSE; additive, writes only STATIC_SIDE_EFFECTS_METHOD
     }
 }
