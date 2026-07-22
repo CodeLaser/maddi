@@ -1182,9 +1182,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         } else throw new UnsupportedOperationException("NYI");
 
         Block block = parseBlock("0", node.getStatement());
+        Source source = statementSourceForNode(node);
         addStatement(runtime.newForEachBuilder()
                 .setLabel(statementLabels.get(node))
-                .setSource(statementSourceForNode(node))
+                .setSource(source)
+                .addComments(commentsForNode(source))
                 .setBlock(block)
                 .setExpression(iterable)
                 .setInitializer(lvc)
