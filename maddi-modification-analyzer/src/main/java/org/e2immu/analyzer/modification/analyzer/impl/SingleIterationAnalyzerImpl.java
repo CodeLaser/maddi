@@ -214,19 +214,14 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                             }));
                         }
                         joinAll(futures); // barrier per wave: the next wave's callees are complete
-                        List<Info> waveElements = (waveCompletedCallback != null || flattenVariableData)
-                                ? wave.stream().flatMap(List::stream).toList() : null;
                         if (waveCompletedCallback != null) {
                             // workers quiescent at the barrier; the callback (guarded by the iterating
                             // analyzer's feed wrapper) must not slow the pass beyond its own throttle
+                            List<Info> waveElements = wave.stream().flatMap(List::stream).toList();
                             waveCompletedCallback.accept(waveElements, waveIndex);
                         }
-                        // flatten-snapshot Phase 2.1: flatten this wave's just-linked methods AT THE
-                        // BARRIER (quiescent) so the standing accumulator is bounded DURING the pass-1
-                        // giant wave — the actual peak, not just cross-pass memory. A pass-1 method is
-                        // linked exactly once, so no regeneration is needed here; later waves' field
-                        // analyzers read only the (preserved) last statement of these methods.
-                        if (flattenVariableData) flattenConsumed(waveElements);
+                        // flatten happens per-method in processElement (Phase 5), not at the barrier:
+                        // a giant SCC is one wave, so a barrier fires only at its end, after the peak.
                     }
                 } finally {
                     linkComputer.setLockComputeDisabled(false);
@@ -311,10 +306,6 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         LOGGER.info("Phase timing: main loop {} ms, abstract batch {} ms, 2nd type pass {} ms",
                 endLoop - startLoop, startSecondPass - startAbstract, end - startSecondPass);
         unionInWriteTargets();
-        // flatten-snapshot: this pass has consumed the methods' VariableData (links written, field/type
-        // analyzers done). Flatten each method's last-statement VD and drop the intermediates, so the
-        // container chain is collectible. Quiescent: after all joins, before the next pass.
-        if (flattenVariableData) flattenConsumed(analysisOrder);
     }
 
     // ---- VariableData flatten-snapshot helpers (DESIGN-vardata-flatten.md) --------------------------
@@ -335,16 +326,14 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         }
     }
 
-    private void flattenConsumed(List<Info> subset) {
-        for (Info info : subset) {
-            if (info instanceof MethodInfo mi && !failed.contains(mi) && flattenedMethods.add(mi)) {
-                try {
-                    if (!flattenOneMethod(mi)) flattenedMethods.remove(mi); // nothing flattened: don't track
-                } catch (RuntimeException | AssertionError e) {
-                    LOGGER.error("VariableData flatten failed for {}; keeping full VD", mi, e);
-                    flattenedMethods.remove(mi);
-                }
-            }
+    /** Called concurrently from processElement, once per method, right after its link is written. */
+    private void flattenMethod(MethodInfo mi) {
+        if (failed.contains(mi) || !flattenedMethods.add(mi)) return;
+        try {
+            if (!flattenOneMethod(mi)) flattenedMethods.remove(mi); // nothing flattened: don't track
+        } catch (RuntimeException | AssertionError e) {
+            LOGGER.error("VariableData flatten failed for {}; keeping full VD", mi, e);
+            flattenedMethods.remove(mi);
         }
     }
 
@@ -381,8 +370,10 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     }
 
     private static void setVariableData(PropertyValueMap analysis, VariableDataImpl flat) {
-        analysis.removeIf(p -> p == VariableDataImpl.VARIABLE_DATA); // write-once: clear before re-setting
-        analysis.set(VariableDataImpl.VARIABLE_DATA, flat);
+        // ATOMIC single put (PropertyValueMapImpl.overwrite is synchronized): a parallel FieldAnalyzer
+        // reading this statement's VD via the equally-synchronized getOrNull sees the old chained VD or
+        // the new flattened one — never a transient null, as a removeIf-then-set would leave.
+        analysis.overwrite(VariableDataImpl.VARIABLE_DATA, flat);
     }
 
     private static void clearVariableData(PropertyValueMap analysis) {
@@ -426,6 +417,13 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                             methodInfo)) {
                         propertiesChanged.incrementAndGet();
                     }
+                    // flatten-snapshot Phase 5: this method is fully linked (summary written), so flatten
+                    // its last-statement VD and drop the intermediates RIGHT HERE — concurrently, inside
+                    // the giant SCC wave, which is the only place the peak can actually be bounded. Safe
+                    // because the last-statement replacement is an atomic overwrite (a parallel
+                    // FieldAnalyzer read sees the old chained or new flattened VD, both valid) and nothing
+                    // cross-method reads this method's intermediate statements.
+                    if (flattenVariableData) flattenMethod(methodInfo);
                 }
             } else if (info instanceof FieldInfo fieldInfo) {
                 sourceContractMaterializer.materialize(fieldInfo);
