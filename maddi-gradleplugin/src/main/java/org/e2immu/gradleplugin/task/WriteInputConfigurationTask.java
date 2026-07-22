@@ -27,6 +27,7 @@ import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
+import org.gradle.work.DisableCachingByDefault;
 
 import java.io.File;
 import java.io.IOException;
@@ -37,6 +38,7 @@ import java.io.UncheckedIOException;
  * {@link Configuration}) to a JSON file. Modern lazy-property task: configuration-cache compatible, holds no
  * {@code Project} at execution.
  */
+@DisableCachingByDefault(because = "Trivial JSON re-serialization; cheaper to re-run than to cache and load.")
 public abstract class WriteInputConfigurationTask extends DefaultTask {
     private static final Logger LOGGER = Logging.getLogger(WriteInputConfigurationTask.class);
 
