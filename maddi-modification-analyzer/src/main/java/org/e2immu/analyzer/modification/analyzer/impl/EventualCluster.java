@@ -140,12 +140,28 @@ public class EventualCluster {
     // downward interface closure (Element/Statement round): positive cache only, like directCandidateCache
     private final Set<TypeInfo> interfaceCandidateCache = ConcurrentHashMap.newKeySet();
     // setter-bearing types (the haveSetters MUTABLE exit, mirrored); getSet marks are prepwork-stable, so
-    // caching both answers is safe
+    // caching both answers is safe. An abstract Builder interface carries no getset marks of its own --
+    // only the impl builders' bodies are recognized -- so the abstract method's IMPLEMENTATIONS are
+    // consulted too: an interface whose contract is implemented by setters is setter-bearing.
     private final Map<TypeInfo, Boolean> settersCache = new ConcurrentHashMap<>();
 
     private boolean hasSetters(TypeInfo typeInfo) {
-        return settersCache.computeIfAbsent(typeInfo, t ->
-                t.methodStream().anyMatch(mi -> mi.getSetField() != null && mi.getSetField().setter()));
+        return settersCache.computeIfAbsent(typeInfo,
+                t -> t.methodStream().anyMatch(EventualCluster::setterOrImplementedBySetter));
+    }
+
+    private static boolean setterOrImplementedBySetter(MethodInfo methodInfo) {
+        if (isSetter(methodInfo)) return true;
+        for (MethodInfo implementation : methodInfo.analysis()
+                .getOrDefault(PropertyImpl.IMPLEMENTATIONS, ValueImpl.SetOfMethodInfoImpl.EMPTY)
+                .methodInfoSet()) {
+            if (isSetter(implementation)) return true;
+        }
+        return false;
+    }
+
+    private static boolean isSetter(MethodInfo methodInfo) {
+        return methodInfo.getSetField() != null && methodInfo.getSetField().setter();
     }
 
     /**
@@ -270,6 +286,23 @@ public class EventualCluster {
             }
             LOGGER.debug("EC: {} optimistically assumes {} is eventually immutable", member, candidate);
         }
+    }
+
+    /**
+     * MODREACH re-derivation: the eventual layer was just cleared alongside the immutability family, so the
+     * witnessed edges, label provenance and candidacy caches -- all built by the cleared computations, some
+     * on pre-cutover optimistic modification values -- restart with it. The hierarchy map and setter cache
+     * are cheap, prepwork-stable facts, but clearing them too keeps the reset trivially complete.
+     */
+    public void resetForRederivation() {
+        if (!ENABLED) return;
+        assumptions.clear();
+        labelProvenance.clear();
+        directCandidateCache.clear();
+        inheritedCandidates.clear();
+        interfaceCandidateCache.clear();
+        settersCache.clear();
+        subclassesByParent.clear();
     }
 
     /** Open an assumption buffer for the computation that follows on this thread. Pair with exactly one
