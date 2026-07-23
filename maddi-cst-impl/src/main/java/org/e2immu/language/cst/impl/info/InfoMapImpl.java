@@ -220,13 +220,19 @@ public class InfoMapImpl implements InfoMap {
     public FieldInfo fieldInfo(FieldInfo fieldInfo) {
         Map<Info, Info> map = setOfPrimaryTypesToRewire.get(fieldInfo.owner().primaryType());
         if (map == null) return fieldInfo;
-        return (FieldInfo) Objects.requireNonNull(map.get(fieldInfo));
+        return (FieldInfo) Objects.requireNonNull(map.get(fieldInfo),
+                () -> "Cannot find " + fieldInfo.fullyQualifiedName() + ", owner " + fieldInfo.owner()
+                      + ", primary type " + fieldInfo.owner().primaryType()
+                      + " (in the rewire set, but this field was never registered)");
     }
 
     @Override
     public ParameterInfo parameterInfo(ParameterInfo parameterInfo) {
         Map<Info, Info> map = setOfPrimaryTypesToRewire.get(parameterInfo.typeInfo().primaryType());
         if (map == null) return parameterInfo;
-        return (ParameterInfo) Objects.requireNonNull(map.get(parameterInfo));
+        return (ParameterInfo) Objects.requireNonNull(map.get(parameterInfo),
+                () -> "Cannot find parameter " + parameterInfo + " of "
+                      + parameterInfo.methodInfo().fullyQualifiedName()
+                      + " (in the rewire set, but this parameter was never registered)");
     }
 }
