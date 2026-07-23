@@ -467,7 +467,13 @@ public record ExpressionVisitor(Runtime runtime,
         }
         Result result = new Result(builder.build(), LinkedVariablesImpl.EMPTY);
         result.addErase(a.variableTarget());
-        Set<Variable> scopeVariables = Util.scopeVariables(a.variableTarget());
+        // assigning an @IgnoreModifications field does not modify its owner: the disclaimed stratum
+        // (road §050) covers the slot as well as the content -- symmetric with the isIgnoreModifications
+        // filter MethodModification.go applies to call-through modification. No-op without the annotation.
+        Set<Variable> scopeVariables = a.variableTarget() instanceof FieldReference fr
+                                       && fr.fieldInfo().isIgnoreModifications()
+                ? Set.of()
+                : Util.scopeVariables(a.variableTarget());
         return result
                 .merge(rValue)
                 .merge(rTarget)

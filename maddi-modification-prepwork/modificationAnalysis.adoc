@@ -14,6 +14,17 @@ Prep work
 
 * part of construction
 ** final fields
+** LIMITATION (2026-07-24, observed on `FactoryImpl.precedenceMap` while dogfooding the eventual
+   cluster; computed in `callgraph/ComputePartOfConstructionFinalField`): the part-of-construction
+   exclusion covers ASSIGNMENTS to fields only, not content-modifying CALLS on them. A `final Map`
+   field filled with `put()` calls inside the constructor keeps `unmodified=false`, capping the
+   owner type at `@Mutable` even though the map is never touched after construction. Undecided
+   whether this should stay (the strict reading: a `put()` is a modification, wherever it happens;
+   builders should produce immutable values) or whether construction-phase content modification of
+   an own, non-escaping field should be excluded like the assignment is. Until decided, the
+   workaround is source-side: build into a local and assign an immutable copy
+   (`precedenceMap = Map.copyOf(pm)`, commit `f38b8b89`); the same applies to any ctor-filled
+   collection field.
 
 * method call graph, recursive methods, order of analysis
 

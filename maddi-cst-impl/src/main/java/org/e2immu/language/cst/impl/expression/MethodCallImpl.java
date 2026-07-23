@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.expression;
 
+import org.e2immu.annotation.rare.IgnoreModifications;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.Element;
@@ -53,6 +54,8 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
     private final ParameterizedType concreteReturnType;
     private final List<ParameterizedType> typeArguments;// X.<T1>someMethod(...)
     private final String modificationTimes;
+    // the analysis overlay is manual hidden content, exactly as on InfoImpl (road §050)
+    @IgnoreModifications
     private final PropertyValueMap propertyValueMap;
 
     public MethodCallImpl(List<Comment> comments, Source source,

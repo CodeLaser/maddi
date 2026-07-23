@@ -129,7 +129,13 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
     private Immutable computeImmutableType0(TypeInfo typeInfo, Independent independent, boolean activateCycleBreaking,
                                             AfterMark afterMark) {
         boolean dbg = ecTypeDebug(typeInfo);
-        boolean fieldsAssignable = typeInfo.fields().stream().anyMatch(fi -> !fi.isPropertyFinal());
+        // EXPERIMENTAL (EVENTUALCLUSTER), after-mark path only: an @IgnoreModifications non-final field is
+        // disclaimed memo state (the VariableImpl.cachedFqn/cachedHash idiom -- a private, idempotent lazy
+        // cache); its assignability does not bear on the level the type reaches after its marks. The
+        // UNCONDITIONAL verdict keeps the honest @Mutable -- the slot IS assignable -- so the plain layer
+        // is untouched; only the eventual relaxation looks past it, exactly like afterMark.fields().
+        boolean fieldsAssignable = typeInfo.fields().stream().anyMatch(fi -> !fi.isPropertyFinal()
+                && !(EventualCluster.ENABLED && !afterMark.isNone() && fi.isIgnoreModifications()));
         if (fieldsAssignable) {
             if (dbg) System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " MUTABLE: assignable fields "
                                         + typeInfo.fields().stream().filter(fi -> !fi.isPropertyFinal())

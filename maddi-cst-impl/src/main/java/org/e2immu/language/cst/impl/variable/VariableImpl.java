@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.variable;
 
+import org.e2immu.annotation.rare.IgnoreModifications;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -33,7 +34,11 @@ public abstract class VariableImpl implements Variable {
     // jstack profile). All implementations are immutable value objects with construction-time-stable FQNs
     // (LocalVariableImpl.name is final; FieldReference/DependentVariable components are final), so the FQN
     // is memoized here. Benign race: the computation is idempotent.
+    // @IgnoreModifications (road §050): idempotent memo state, disclaimed -- both the writes and the
+    // slot's assignability are invisible to the modification/immutability analysis
+    @IgnoreModifications
     private String cachedFqn;
+    @IgnoreModifications
     private int cachedHash;
 
     public VariableImpl(ParameterizedType parameterizedType) {
