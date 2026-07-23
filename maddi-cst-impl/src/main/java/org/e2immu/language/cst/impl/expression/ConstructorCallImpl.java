@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.expression;
 
+import org.e2immu.annotation.rare.IgnoreModifications;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.ArrayInitializer;
@@ -55,6 +56,8 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
     private final ArrayInitializer arrayInitializer;
     private final TypeInfo anonymousClass;
     private final ParameterizedType concreteReturnType;
+    // the analysis overlay is manual hidden content, exactly as on InfoImpl (road §050)
+    @IgnoreModifications
     private final PropertyValueMap analysis;
 
     public ConstructorCallImpl(List<Comment> comments, Source source, MethodInfo constructor,

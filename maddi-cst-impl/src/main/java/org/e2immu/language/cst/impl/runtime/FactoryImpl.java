@@ -59,7 +59,10 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     private final IntConstant minusOne;
     private final BooleanConstant constantTrue;
     private final BooleanConstant constantFalse;
-    private final Map<MethodInfo, Precedence> precedenceMap = new HashMap<>();
+    // built immutably in the constructor: content-modifying calls on a field do not enjoy the
+    // part-of-construction exclusion the way assignments do, and the mutable map capped FactoryImpl
+    // at @Mutable (the eventual cluster's Runtime lean root)
+    private final Map<MethodInfo, Precedence> precedenceMap;
 
     public FactoryImpl() {
         zero = new IntConstantImpl(List.of(), noSource(), intParameterizedType(), 0);
@@ -68,33 +71,35 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
         constantFalse = new BooleanConstantImpl(List.of(), noSource(), booleanParameterizedType(), false);
         constantTrue = new BooleanConstantImpl(List.of(), noSource(), booleanParameterizedType(), true);
 
-        precedenceMap.put(plusOperatorInt(), PrecedenceEnum.ADDITIVE);
-        precedenceMap.put(minusOperatorInt(), PrecedenceEnum.ADDITIVE);
-        precedenceMap.put(plusOperatorString(), PrecedenceEnum.ADDITIVE);
+        Map<MethodInfo, Precedence> pm = new HashMap<>();
+        pm.put(plusOperatorInt(), PrecedenceEnum.ADDITIVE);
+        pm.put(minusOperatorInt(), PrecedenceEnum.ADDITIVE);
+        pm.put(plusOperatorString(), PrecedenceEnum.ADDITIVE);
 
-        precedenceMap.put(multiplyOperatorInt(), PrecedenceEnum.MULTIPLICATIVE);
-        precedenceMap.put(divideOperatorInt(), PrecedenceEnum.MULTIPLICATIVE);
-        precedenceMap.put(remainderOperatorInt(), PrecedenceEnum.MULTIPLICATIVE);
-        precedenceMap.put(andOperatorInt(), PrecedenceEnum.AND);
-        precedenceMap.put(orOperatorInt(), PrecedenceEnum.OR);
-        precedenceMap.put(xorOperatorInt(), PrecedenceEnum.XOR);
-        precedenceMap.put(leftShiftOperatorInt(), PrecedenceEnum.SHIFT);
-        precedenceMap.put(signedRightShiftOperatorInt(), PrecedenceEnum.SHIFT);
-        precedenceMap.put(unsignedRightShiftOperatorInt(), PrecedenceEnum.SHIFT);
+        pm.put(multiplyOperatorInt(), PrecedenceEnum.MULTIPLICATIVE);
+        pm.put(divideOperatorInt(), PrecedenceEnum.MULTIPLICATIVE);
+        pm.put(remainderOperatorInt(), PrecedenceEnum.MULTIPLICATIVE);
+        pm.put(andOperatorInt(), PrecedenceEnum.AND);
+        pm.put(orOperatorInt(), PrecedenceEnum.OR);
+        pm.put(xorOperatorInt(), PrecedenceEnum.XOR);
+        pm.put(leftShiftOperatorInt(), PrecedenceEnum.SHIFT);
+        pm.put(signedRightShiftOperatorInt(), PrecedenceEnum.SHIFT);
+        pm.put(unsignedRightShiftOperatorInt(), PrecedenceEnum.SHIFT);
 
-        precedenceMap.put(lessEqualsOperatorInt(), PrecedenceEnum.RELATIONAL);
-        precedenceMap.put(lessOperatorInt(), PrecedenceEnum.RELATIONAL);
-        precedenceMap.put(greaterEqualsOperatorInt(), PrecedenceEnum.RELATIONAL);
-        precedenceMap.put(greaterOperatorInt(), PrecedenceEnum.RELATIONAL);
+        pm.put(lessEqualsOperatorInt(), PrecedenceEnum.RELATIONAL);
+        pm.put(lessOperatorInt(), PrecedenceEnum.RELATIONAL);
+        pm.put(greaterEqualsOperatorInt(), PrecedenceEnum.RELATIONAL);
+        pm.put(greaterOperatorInt(), PrecedenceEnum.RELATIONAL);
 
-        precedenceMap.put(equalsOperatorInt(), PrecedenceEnum.EQUALITY);
-        precedenceMap.put(notEqualsOperatorInt(), PrecedenceEnum.EQUALITY);
-        precedenceMap.put(equalsOperatorObject(), PrecedenceEnum.EQUALITY);
-        precedenceMap.put(notEqualsOperatorObject(), PrecedenceEnum.EQUALITY);
+        pm.put(equalsOperatorInt(), PrecedenceEnum.EQUALITY);
+        pm.put(notEqualsOperatorInt(), PrecedenceEnum.EQUALITY);
+        pm.put(equalsOperatorObject(), PrecedenceEnum.EQUALITY);
+        pm.put(notEqualsOperatorObject(), PrecedenceEnum.EQUALITY);
 
-        precedenceMap.put(andOperatorBool(), PrecedenceEnum.LOGICAL_AND);
-        precedenceMap.put(orOperatorBool(), PrecedenceEnum.LOGICAL_OR);
-        precedenceMap.put(xorOperatorBool(), PrecedenceEnum.XOR);
+        pm.put(andOperatorBool(), PrecedenceEnum.LOGICAL_AND);
+        pm.put(orOperatorBool(), PrecedenceEnum.LOGICAL_OR);
+        pm.put(xorOperatorBool(), PrecedenceEnum.XOR);
+        precedenceMap = Map.copyOf(pm);
     }
 
     @Override

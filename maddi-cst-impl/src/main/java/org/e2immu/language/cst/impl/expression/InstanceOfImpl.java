@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.expression;
 
+import org.e2immu.annotation.rare.IgnoreModifications;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.Expression;
@@ -47,6 +48,8 @@ public class InstanceOfImpl extends ExpressionImpl implements InstanceOf {
     private final ParameterizedType testType;
     private final RecordPattern patternVariable;
     private final ParameterizedType booleanParameterizedType;
+    // the analysis overlay is manual hidden content, exactly as on InfoImpl (road §050)
+    @IgnoreModifications
     private final PropertyValueMap propertyValueMap;
 
     public InstanceOfImpl(List<Comment> comments,

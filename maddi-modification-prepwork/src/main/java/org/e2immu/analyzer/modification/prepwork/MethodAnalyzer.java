@@ -356,14 +356,20 @@ public class MethodAnalyzer {
         }
         if (!methodInfo.isAbstract()) {
             methodInfo.overrides().stream()
-                    .filter(override -> override.isAbstract()
-                                        && !override.typeInfo().compilationUnit().externalLibrary())
+                    .filter(MethodInfo::isAbstract)
                     .forEach(override -> addImplementation(override, methodInfo));
         }
     }
 
     private static void addImplementation(MethodInfo override, MethodInfo implementation) {
-        Value.SetOfMethodInfo set = override.analysis().getOrCreate(PropertyImpl.IMPLEMENTATIONS,
+        // source abstracts collect their implementations for the abstract batches; EXTERNAL abstracts
+        // (Comparable.compareTo, Object.equals) collect them under a separate key -- the dispatch closure
+        // the eventual analyzer consults when a jar contract claims non-modifying but the codebase's own
+        // overrides honestly modify pre-mark. The batches never see the external key, so nothing is ever
+        // written onto jar methods.
+        boolean external = override.typeInfo().compilationUnit().externalLibrary();
+        Value.SetOfMethodInfo set = override.analysis().getOrCreate(
+                external ? PropertyImpl.EXTERNAL_IMPLEMENTATIONS : PropertyImpl.IMPLEMENTATIONS,
                 ValueImpl.SetOfMethodInfoImpl::new);
         set.add(implementation);
     }

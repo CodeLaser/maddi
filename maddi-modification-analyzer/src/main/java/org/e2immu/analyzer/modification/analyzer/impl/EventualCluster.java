@@ -208,7 +208,19 @@ public class EventualCluster {
         // Builders' own typeLevel computations and the last consumer leans on Builder types out of the
         // ledger entirely. (Safe only since the Builder-lean quest: the flagship rewire chains no longer
         // need Builder candidacy -- receiverProvablyNotRoot and the freshness fixpoint carry them.)
-        if (ENABLED && isCandidate(candidate) && !hasSetters(member) && !hasSetters(candidate)) {
+        // the SELF-assumption (candidate == member) is always available: the computation in flight is the
+        // very one that would make the type a candidate ("I will reach my own eventual verdict") -- this
+        // breaks the leaf impls' bare-this chicken-and-egg (translationMap.translateExpression(this),
+        // new CommonType(this): the owner-seed escape needed candidacy, candidacy needed a first enm).
+        // Witnessed like any edge: a type that never forms retracts everything that consumed its labels.
+        boolean admissible = ENABLED && (candidate == member || isCandidate(candidate))
+                             && !hasSetters(member) && !hasSetters(candidate);
+        if (!admissible && ENABLED && SITE_DEBUG && siteDebugMatches(debugContext.get())) {
+            sitePrint("[" + debugContext.get() + "] treatAs refusal: " + candidate.fullyQualifiedName()
+                      + " candidate=" + (candidate == member || isCandidate(candidate))
+                      + " memberSetters=" + hasSetters(member) + " candSetters=" + hasSetters(candidate));
+        }
+        if (admissible) {
             java.util.ArrayDeque<java.util.List<TypeInfo[]>> stack = assumptionBuffers.get();
             if (!stack.isEmpty()) {
                 // success-only witnessing: inside a buffered computation, the edge only reaches the ledger if
@@ -303,6 +315,16 @@ public class EventualCluster {
         interfaceCandidateCache.clear();
         settersCache.clear();
         subclassesByParent.clear();
+        opaqueSignatureCache.clear();
+    }
+
+    // mutable-but-opaque signature cache (the OutputBuilder shape): derived from IMMUTABLE_TYPE verdicts,
+    // which the modreach cutover clears and re-derives -- so this cache joins the rederivation reset with
+    // the other derived caches (a stale pre-cutover TRUE would be the abstract-union race all over again)
+    private final Map<TypeInfo, Boolean> opaqueSignatureCache = new ConcurrentHashMap<>();
+
+    public Map<TypeInfo, Boolean> opaqueSignatureCache() {
+        return opaqueSignatureCache;
     }
 
     /** Open an assumption buffer for the computation that follows on this thread. Pair with exactly one
