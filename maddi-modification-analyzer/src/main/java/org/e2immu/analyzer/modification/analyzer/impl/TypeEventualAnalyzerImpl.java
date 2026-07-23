@@ -583,11 +583,17 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
     private Set<String> computeEventuallyUnmodified(TypeInfo typeInfo, MethodInfo methodInfo, ParameterInfo pi) {
         if (methodInfo.isAbstract() || methodInfo.methodBody().isEmpty()) return null;
         Value.Bool unmodified = pi.analysis().getOrNull(UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.class);
-        if (unmodified == null || unmodified.isTrue()) return null;
+        if (unmodified == null || unmodified.isTrue()) {
+            if (siteDebug()) ecsite("eup guard: unmodified=" + (unmodified == null ? "null" : "true"));
+            return null;
+        }
         // the varargs array (and any array) is never committable; a type parameter has no label space
         if (pi.parameterizedType().arrays() > 0) return null;
         TypeInfo pType = pi.parameterizedType().bestTypeInfo();
-        if (pType == null) return null;
+        if (pType == null) {
+            if (siteDebug()) ecsite("eup guard: no pType");
+            return null;
+        }
         WalkRoot walk = WalkRoot.ofParameter(typeInfo, pType, pi);
         LocalContext localContext = buildLocalContext(walk, methodInfo);
         Set<String> labels = new HashSet<>();
@@ -1209,12 +1215,38 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 // a p-walk handing its own root to a parameter of the SAME declared type (the 5-arg -> 6-arg
                 // printer overload forward) stays in one label space: pass the labels through unchecked, the
                 // committability check is the ultimate this-walk consumer's job (an interface label type has
-                // no fields to check against)
+                // no fields to check against). An ANCESTOR interface spans the same promise space, one level
+                // wider (GreaterThanZero -> Expression: compareBinaryToGt0 forwarding into compareVariables)
+                // -- the downward-interface-closure argument, mirrored; interface roots only, a class root
+                // must pass committability (or the dispatch narrowing below).
                 boolean sameLabelSpace = walk.root() != null && !eup.isEmpty()
-                        && calleeParameterType(mc.methodInfo(), i) == walk.labelType();
+                        && (calleeParameterType(mc.methodInfo(), i) == walk.labelType()
+                            || EventualCluster.ENABLED && walk.labelType().isInterface()
+                               && isAncestorType(calleeParameterType(mc.methodInfo(), i), walk.labelType()));
                 if (!eup.isEmpty() && (sameLabelSpace || labelsCommittableOnRoot(walk, eup))) {
                     acc.addAll(eup);
                     eventualCluster.noteLabelInheritance(walk.member(), mc.methodInfo().typeInfo());
+                } else if (!eup.isEmpty() && EventualCluster.ENABLED) {
+                    // dispatch narrowing (spec §7): the abstract-union labels are per-implementation excuses;
+                    // a label naming no field anywhere in the argument's runtime cone (the root class + its
+                    // known subclasses, fields own or inherited) is vacuous for THIS argument -- the code
+                    // paths it excuses cannot execute on it. Fold the committable restriction only when the
+                    // entire residue is vacuous; anything less falls through unchanged.
+                    Set<String> narrowed = new HashSet<>();
+                    Set<String> residue = new HashSet<>();
+                    for (String label : eup) {
+                        if (labelsCommittableOnRoot(walk, Set.of(label))) narrowed.add(label);
+                        else residue.add(label);
+                    }
+                    if (!narrowed.isEmpty() && residueVacuousOnCone(walk.labelType(), residue)) {
+                        if (siteDebug()) ecsite("MC arg " + i + " eup narrowed=" + new TreeSet<>(narrowed)
+                                                + " at " + mc.methodInfo().fullyQualifiedName());
+                        acc.addAll(narrowed);
+                        eventualCluster.noteLabelInheritance(walk.member(), mc.methodInfo().typeInfo());
+                    } else if (siteDebug()) {
+                        ecsite("MC arg " + i + " eup not narrowable: narrowed=" + new TreeSet<>(narrowed)
+                               + " residue live at " + mc.methodInfo().fullyQualifiedName());
+                    }
                 }
             }
         }
@@ -1253,6 +1285,47 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             }
         }
         return true;
+    }
+
+    /** {@code ancestor} appears in {@code type}'s transitive parent/interface closure. */
+    private static boolean isAncestorType(TypeInfo ancestor, TypeInfo type) {
+        if (ancestor == null || type == null) return false;
+        for (ParameterizedType superType : type.parentAndInterfacesImplemented()) {
+            TypeInfo st = superType.typeInfo();
+            if (st == null || st.isJavaLangObject()) continue;
+            if (st == ancestor || isAncestorType(ancestor, st)) return true;
+        }
+        return false;
+    }
+
+    /** No residue label names a field -- own or inherited -- anywhere in {@code rootType}'s runtime cone
+     *  ({@code rootType} plus its transitively known subclasses): such labels belong to OTHER
+     *  implementations' excuses, and the code paths they excuse cannot execute on an argument of this cone. */
+    private boolean residueVacuousOnCone(TypeInfo rootType, Set<String> residue) {
+        if (residue.isEmpty()) return true;
+        java.util.ArrayDeque<TypeInfo> todo = new java.util.ArrayDeque<>();
+        Set<TypeInfo> seen = new HashSet<>();
+        todo.add(rootType);
+        while (!todo.isEmpty()) {
+            TypeInfo t = todo.poll();
+            if (!seen.add(t)) continue;
+            for (String label : residue) {
+                if (fieldInTypeOrAncestors(t, label)) return false;
+            }
+            todo.addAll(eventualCluster.knownSubclasses(t));
+        }
+        return true;
+    }
+
+    /** The named field exists on {@code type} or along its superclass chain. */
+    private static boolean fieldInTypeOrAncestors(TypeInfo type, String name) {
+        TypeInfo t = type;
+        while (t != null) {
+            if (t.getFieldByName(name, false) != null) return true;
+            ParameterizedType parent = t.parentClass();
+            t = parent == null ? null : parent.typeInfo();
+        }
+        return false;
     }
 
     /**
