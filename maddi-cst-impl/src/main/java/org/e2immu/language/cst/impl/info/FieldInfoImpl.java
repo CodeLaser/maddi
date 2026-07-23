@@ -161,6 +161,10 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
     @Override
     public boolean isPropertyFinal() {
         if (isFinal()) return true;
+        // JLS 9.3: every field declaration in the body of an interface is implicitly public, static, final --
+        // the modifier list only carries what was written, so an interface constant without the keyword
+        // (String CONSTRUCTOR_NAME = "<init>") must not read as assignable
+        if (owner.isInterface()) return true;
         return analysis().getOrDefault(PropertyImpl.FINAL_FIELD, ValueImpl.BoolImpl.FALSE).isTrue();
     }
 

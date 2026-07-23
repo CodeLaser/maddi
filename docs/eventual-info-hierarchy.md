@@ -875,3 +875,46 @@ interface clique: `api.info.MethodInfo` (19 leans), `ExpressionImpl` (19), `Elem
 `TypeInfoImpl` (8), `StatementImpl` (8), the Builders — breadth work over their remaining
 rewire/translate/print holdouts, plus the noted look-through gap for concrete superclass-declared
 accessors. Gate-off Fernflower A/B: byte-identical, 0 lines.
+
+## The interface clique round: the flagship family FORMS (2026-07-23, continued)
+
+Four changes, chasing the measured roots (`EC_RETRACT_DEBUG` lean counts) one instrument at a time
+(new env-gated diagnostics: `EC_TYPE_DEBUG=<fqn-substrings>` traces computeTypeLevel/immutableAfterMark/
+the supertype loop; `EC_ASSUME_DEBUG=<substring>` prints DIRECT assumption edges as they are recorded):
+
+1. **Concrete inherited accessor look-through** (gated): the same-class inline in `commitLabels` now
+   keys on the DECLARING type's label space, so `StatementImpl.comments()` inlines inside
+   `DoStatementImpl.rewire`.
+2. **Interface-constant finality** (UNGATED, JLS 9.3): `FieldInfoImpl.isPropertyFinal()` returns true
+   for interface fields — `String CONSTRUCTOR_NAME = "<init>"` read as an ASSIGNABLE field and made
+   `MethodInfo` (and every constants-carrying interface, in every corpus) unconditionally @Mutable via
+   the `fieldsAssignable` early exit. Fernflower A/B: exactly 3 constants-only interfaces strengthen
+   (+ the known flake); five suites green with no re-pins.
+3. **Markless-carrier container fields** (gated): `computeTypeLevel`'s ride-along loop and
+   `resolveExcusedFields` accept `containerContentCommittable` — `ExpressionImpl.comments`-style final
+   Lists of committable content join the mark labels. Survivors jumped 6→15 on that step alone
+   (all four remaining ModuleInfo members, DetailedSourcesImpl, MethodMapImpl, PerPackage, three
+   ValueImpl types).
+4. **Weak-verdict deferral** (gated): the `TypeInfo` interface froze `@FinalFields(after="inspection")`
+   in ITERATION 1 with 2 of its eventual 33 enm labels present — the verdict is write-once, and
+   `immutableSuper`'s `isMutable(@FinalFields)` check then hard-sank every subtype to MUTABLE. A
+   final-fields after-mark level computed before the cycle-breaking phase is now deferred to the
+   terminal iterations, when the method layer has converged.
+
+**Composed scoreboard (stable across two runs): survivors 11, retracted 92 — and for the first time
+the ENTIRE flagship family FORMS eventual verdicts** (TypeInfoImpl, MethodInfoImpl, FieldInfoImpl,
+ParameterInfoImpl, the TypeInfo/MethodInfo interfaces, ParameterizedTypeImpl — all now in the
+retracted set rather than the never-forms roots). The cascade is wider (four small survivors of the
+previous step are currently pulled under by the larger folded assumption sets), and the remaining
+ROOTS are precisely measured:
+
+- **The Builder interfaces** (ParameterInfo/MethodInfo/TypeInfo/FieldInfo/TypeParameter.Builder,
+  ~26 leans): direct assumers are the flagship impls themselves — their `builder()`-style PRE-MARK
+  accessor chains get excused by Builder candidacy, which can never prove (plain setters). The right
+  mechanism is @Only(before) classification for pre-mark accessors, not candidacy: a designed
+  feature, next quest.
+- **Element (9) / Statement (9)**: the print/rewire/variableStream* abstract-union breadth (the ~51
+  print implementations), unchanged.
+- **VariableImpl (7)**: assignable lazy-cache fields (`cachedFqn`, `cachedHash`) — needs its own
+  cache-exemption story (field finality is deliberately not relaxed by the mark).
+- FieldInspection (4) and a long interface tail.
