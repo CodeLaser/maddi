@@ -116,7 +116,12 @@ public class InfoMapImpl implements InfoMap {
     public TypeInfo typeInfo(TypeInfo typeInfo) {
         Map<Info, Info> map = setOfPrimaryTypesToRewire.get(typeInfo.primaryType());
         if (map == null) return typeInfo;
-        return (TypeInfo) Objects.requireNonNull(map.get(typeInfo), "Should have been present: " + typeInfo);
+        TypeInfo result = (TypeInfo) map.get(typeInfo);
+        if (result == null && registerAnonymousOnDemand(typeInfo)) {
+            result = (TypeInfo) map.get(typeInfo);
+        }
+        if (result == null && isRebuilt(typeInfo.primaryType())) return typeInfo;
+        return Objects.requireNonNull(result, "Should have been present: " + typeInfo);
     }
 
     @Override
@@ -165,8 +170,9 @@ public class InfoMapImpl implements InfoMap {
         assert map != null;
         TypeInfo inMap = (TypeInfo) map.get(typeInfo);
         if (inMap != null) return inMap;
-        // the enclosing type should already have been done
-        TypeInfo enclosingType = typeInfo(typeInfo.compilationUnitOrEnclosingType().getRight());
+        // the enclosing type should already have been done — except for a nested anonymous type, whose enclosing
+        // is itself an anonymous type that may not have been reached yet; recurse to register it first.
+        TypeInfo enclosingType = typeInfoRecurseAllPhases(typeInfo.compilationUnitOrEnclosingType().getRight());
         TypeInfo rewired = typeInfo.rewirePhase0(this, enclosingType);
         typeInfo.rewirePhase1(this);
         assert rewired != null : "Rewiring of " + typeInfo + " returns null";
@@ -182,10 +188,15 @@ public class InfoMapImpl implements InfoMap {
         if (methodInfo.isSyntheticArrayConstructor()) {
             return createSyntheticArrayConstructor(methodInfo);
         }
-        Map<Info, Info> map = setOfPrimaryTypesToRewire.get(methodInfo.typeInfo().primaryType());
+        TypeInfo owner = methodInfo.typeInfo();
+        Map<Info, Info> map = setOfPrimaryTypesToRewire.get(owner.primaryType());
         if (map == null) return methodInfo;
-        return (MethodInfo) Objects.requireNonNull(map.get(methodInfo),
-                "Cannot find " + methodInfo.fullyQualifiedName());
+        MethodInfo result = (MethodInfo) map.get(methodInfo);
+        if (result == null && registerAnonymousOnDemand(owner)) {
+            result = (MethodInfo) map.get(methodInfo);
+        }
+        if (result == null && isRebuilt(owner.primaryType())) return methodInfo;
+        return Objects.requireNonNull(result, "Cannot find " + methodInfo.fullyQualifiedName());
     }
 
     private MethodInfo createSyntheticArrayConstructor(MethodInfo methodInfo) {
@@ -218,21 +229,69 @@ public class InfoMapImpl implements InfoMap {
 
     @Override
     public FieldInfo fieldInfo(FieldInfo fieldInfo) {
-        Map<Info, Info> map = setOfPrimaryTypesToRewire.get(fieldInfo.owner().primaryType());
+        TypeInfo owner = fieldInfo.owner();
+        Map<Info, Info> map = setOfPrimaryTypesToRewire.get(owner.primaryType());
         if (map == null) return fieldInfo;
-        return (FieldInfo) Objects.requireNonNull(map.get(fieldInfo),
-                () -> "Cannot find " + fieldInfo.fullyQualifiedName() + ", owner " + fieldInfo.owner()
-                      + ", primary type " + fieldInfo.owner().primaryType()
+        FieldInfo result = (FieldInfo) map.get(fieldInfo);
+        if (result == null && registerAnonymousOnDemand(owner)) {
+            result = (FieldInfo) map.get(fieldInfo);
+        }
+        if (result == null && isRebuilt(owner.primaryType())) return fieldInfo;
+        return Objects.requireNonNull(result,
+                () -> "Cannot find " + fieldInfo.fullyQualifiedName() + ", owner " + owner
+                      + ", primary type " + owner.primaryType()
                       + " (in the rewire set, but this field was never registered)");
     }
 
     @Override
     public ParameterInfo parameterInfo(ParameterInfo parameterInfo) {
-        Map<Info, Info> map = setOfPrimaryTypesToRewire.get(parameterInfo.typeInfo().primaryType());
+        TypeInfo owner = parameterInfo.typeInfo();
+        Map<Info, Info> map = setOfPrimaryTypesToRewire.get(owner.primaryType());
         if (map == null) return parameterInfo;
-        return (ParameterInfo) Objects.requireNonNull(map.get(parameterInfo),
+        ParameterInfo result = (ParameterInfo) map.get(parameterInfo);
+        if (result == null && registerAnonymousOnDemand(owner)) {
+            result = (ParameterInfo) map.get(parameterInfo);
+        }
+        if (result == null && isRebuilt(owner.primaryType())) return parameterInfo;
+        return Objects.requireNonNull(result,
                 () -> "Cannot find parameter " + parameterInfo + " of "
                       + parameterInfo.methodInfo().fullyQualifiedName()
                       + " (in the rewire set, but this parameter was never registered)");
+    }
+
+    /**
+     * A primary type present in the map but <em>rebuilt</em> (reparsed and seeded onto itself), as opposed to one
+     * we rewire. Its members are already the new objects, so an absent seed entry (e.g. seed does not walk
+     * anonymous types) resolves to identity rather than a failure — see {@link #seed}.
+     */
+    private boolean isRebuilt(TypeInfo primaryType) {
+        return setOfPrimaryTypesToRewire.containsKey(primaryType) && !toRewire.contains(primaryType);
+    }
+
+    /**
+     * Anonymous and lambda types are not part of {@code subTypes()}, so the structural rewire phases
+     * ({@code rewirePhase0/1}) never register them: they are rewired lazily, when the constructor call in the
+     * method body or field initializer that creates them is rewired ({@code ConstructorCallImpl.rewire} ->
+     * {@link #typeInfoRecurseAllPhases}). A carried analysis value (e.g. {@code METHOD_LINKS}) can name such a
+     * member <em>before</em> that body has been rewired — across types in the rewire cone, or simply because
+     * within a type methods are rewired before fields ({@code TypeInfoImpl.rewirePhase3}). Rather than fail the
+     * lookup, register the anonymous owner on demand here. {@link #typeInfoRecurseAllPhases} is idempotent and
+     * recurses through the enclosing chain, so a fully-rewired outermost anonymous ancestor registers every
+     * nested anonymous type and subtype beneath it.
+     *
+     * @return true if it registered something, so the caller should retry its lookup.
+     */
+    private boolean registerAnonymousOnDemand(TypeInfo owner) {
+        TypeInfo primary = owner.primaryType();
+        if (!toRewire.contains(primary)) return false; // rebuilt/seeded types are new objects, never rewired
+        Map<Info, Info> map = setOfPrimaryTypesToRewire.get(primary);
+        TypeInfo outermostAbsentAnon = null;
+        for (TypeInfo t = owner; t != null;
+             t = t.compilationUnitOrEnclosingType().isRight() ? t.compilationUnitOrEnclosingType().getRight() : null) {
+            if (t.isAnonymous() && map.get(t) == null) outermostAbsentAnon = t;
+        }
+        if (outermostAbsentAnon == null) return false;
+        typeInfoRecurseAllPhases(outermostAbsentAnon);
+        return true;
     }
 }
