@@ -294,3 +294,47 @@ preload boundary; see `MODREACH_EXPLAIN` chains through `SetOfMethodInfoImpl.nic
 Langchain4j **0 lines**, Timefold 6 lines vs base — proven run-to-run noise by the base-vs-base
 technique (a second base run flips 6 lines of the identical class: `Testdata*Solution` /
 `ListIterableSelector` / propagator-field independence flips on this known-flaky corpus).
+
+---
+
+## 9. Second wave (2026-07-23): Stream.map resolved, default-method semantics mirrored, and the two
+## remaining Part B quests, precisely scoped
+
+**Stream.map (commit `edb033a4`).** No identity bug: the aapi deliberately marks stream
+intermediates `@Finalizer`, and `MethodModification.go` exempts finalizer callees from
+receiver-marking. The boundary seeding and the undecided-abstract mirror now carry the same guard.
+Upgrades 342→416, downgrades 1586→1377 on the dogfood.
+
+**Default-method dispatch union (commit `c198db8b`).** E6 edges now target ABSTRACT overridden
+methods only, mirroring the engine exactly (prepwork records IMPLEMENTATIONS only on abstract
+overrides; a default method's verdict is its own body). Unrestricted edges had made the shadow
+stricter than the engine — `Element.annotations()` (body `List.of()`) was being downgraded to a
+dispatch union nothing can label. Composed dogfood after both: downgrades 1209, upgrades 438,
+survivors 5 (`ParameterizedTypePrinter.TypeAndParameters` joins), `InfoImpl` stable.
+
+**What now blocks `Element` (and through it CompilationUnit, Expression, the flagship family),
+with the evidence chains read end-to-end — two design decisions, not mechanical work:**
+
+1. **The SAM-application-on-this shape** — `Element.visit(Predicate)`, `reject`,
+   `typesReferenced(Predicate)` and every implementation: bodies apply `predicate.test(this)`.
+   The jdk aapi gives `Predicate.test` NO nonModifying and NO unmodified on `arg0`, so both the
+   predicate receiver AND `this`-as-argument are conservatively (and in the open world HONESTLY —
+   a visitor may mutate) marked modified. Making these excusable is a modeling decision:
+   `@IgnoreModifications` on the functional parameters of maddi's own API (the §050 "manual
+   hidden content" disclaimer, the aapi's own style for jdk SAMs — cf. `/*@IgnoreModifications[T]*/`
+   throughout JavaUtilStream), swept across the interface AND the ~dozens of implementations
+   (there is no source-side parameter-contract inheritance), possibly plus `unmodifiedParameter`
+   on `Predicate.test:0` in the jdk aapi. Note the guard ALREADY reports these parameters as
+   `@Container`-contract violations on `Element` — the source contract and the disclaimers are
+   two halves of the same decision.
+2. **The static-helper-parameter shape** — `ParameterizedTypeImpl.fullyQualifiedName()/print(...)`
+   hand `this` to `ParameterizedTypePrinter.print(...)`, whose `parameterizedType` parameter is
+   HONESTLY modified (the printer reads `typeInfo().isStatic()` → `inspection.get()`, the
+   pre-mark modification). Excusing the CALLER needs parameter-level eventual reasoning — an
+   `EVENTUALLY_UNMODIFIED_PARAMETER` twin ("this parameter's object is not modified once its
+   marks have fired") computed on the helper and consumed by `commitLabels` when it judges
+   this-as-argument at such call sites. New property + computation + propagation: a designed
+   feature, spec before code.
+
+Everything gated (`MODREACH` / `EVENTUALCLUSTER`); module suites green at every commit; the only
+ungated surface remains the `Either` contracts certified in §8's three-corpus A/B.
