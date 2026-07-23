@@ -79,7 +79,7 @@ public interface Element {
     @NotNull
     Source source();
 
-    void visit(@NotNull Predicate<Element> predicate);
+    void visit(@NotNull @IgnoreModifications Predicate<Element> predicate);
 
     /**
      * this variant can go inside the variable hierarchy as well
@@ -162,7 +162,7 @@ public interface Element {
      * @return a stream of type references; may contain duplicates
      */
     @NotNull
-    Stream<TypeReference> typesReferenced(Predicate<Element> predicate);
+    Stream<TypeReference> typesReferenced(@IgnoreModifications Predicate<Element> predicate);
 
     default List<AnnotationExpression> annotations() {
         return List.of();
@@ -189,7 +189,7 @@ public interface Element {
         throw new UnsupportedOperationException();
     }
 
-    default boolean reject(Predicate<Element> predicate) {
+    default boolean reject(@IgnoreModifications Predicate<Element> predicate) {
         return predicate != null && !predicate.test(this);
     }
 }
