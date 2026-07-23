@@ -1565,6 +1565,8 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         TypeInfo fieldType = fieldInfo.type().bestTypeInfo();
         if (fieldType == null) return false;
         if (isEventuallyImmutableFieldType(member, fieldType)) return true;
+        if (siteDebug()) ecsite("fieldHolds refusal for " + fieldInfo.name() + ": type "
+                + fieldType.fullyQualifiedName() + " not committable for member " + member.simpleName());
         if (!immutableOf(fieldType).isAtLeastImmutableHC()) return false; // the wrapper read must not itself modify
         for (ParameterizedType arg : fieldInfo.type().parameters()) {
             TypeInfo argType = arg.bestTypeInfo();
