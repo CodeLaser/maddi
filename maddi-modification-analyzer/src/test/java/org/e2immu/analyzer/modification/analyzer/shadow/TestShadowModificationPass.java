@@ -19,8 +19,13 @@ import static org.junit.jupiter.api.Assertions.*;
  * (1) on the known frozen-saturation case (the deep capture chain of TestDeepCaptureChain), the
  * shadow must flag exactly the prematurely frozen TRUEs as divergences — and nothing else;
  * (2) on correctly-analyzed code (the functional-capture shapes), the shadow must agree with the
- * frozen properties in both directions. Reverse divergences (frozen modified, shadow unreached)
- * are a bug in the pass itself and must always be zero.
+ * frozen properties in both directions.
+ * <p>
+ * P3 (primitive seeding, docs/handoff-verification-residue.md §7.5): reverse divergences are no
+ * longer categorically "a bug in the pass" — with summary-fold seeding gone, they are the class
+ * of frozen pessimism the cutover repairs (recursion through abstract declarations, stale early-
+ * iteration conservatism the monotone write discipline cannot revisit). Each pinned reverse below
+ * is individually justified.
  */
 public class TestShadowModificationPass extends CommonTest {
 
@@ -170,7 +175,15 @@ public class TestShadowModificationPass extends CommonTest {
         report.divergences().forEach(d -> System.out.println("SHADOW DIV " + d + " || " + report.explain(d.info())));
         report.reverseDivergences().forEach(d -> System.out.println("SHADOW REV " + d));
 
-        assertEquals(List.of(), report.reverseDivergences(), "reverse divergences are shadow-pass bugs");
+        // P3 re-pin: the engine's own frozen state is internally inconsistent here —
+        // ThrowingFunction.apply:0 aggregates unmodified=TRUE from its sole implementation
+        // (methodBody never touches tryData), yet run:td / outer:td keep the stale FALSE written
+        // while apply was still undecided (the monotone discipline never revisits it). td is
+        // genuinely unmodified; these two reverses are exactly the class the cutover upgrades.
+        assertEquals(List.of(
+                        "unmodifiedParameter a.b.X.run(a.b.X.TryData):0:td",
+                        "unmodifiedParameter a.b.X.outer(a.b.X.TryData):0:td"),
+                report.reverseDivergences().stream().map(Object::toString).toList());
         assertEquals(List.of(), report.sortedDivergenceStrings(),
                 "correctly-analyzed code must diff clean");
     }

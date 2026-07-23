@@ -153,9 +153,16 @@ immutability verdicts are derived.
 - **Chapter 14 "Other annotations" is mostly aspirational — do not assume those annotations work.**
   Only `@Identity`/`@Fluent` are computed (`TypeModIndyAnalyzerImpl`). `@NotNull`/`@Nullable`,
   `@UtilityClass` and `@Finalizer` are read as *contracts* by `AnnotationToProperty` (and shown by
-  `DecoratorImpl`) but never inferred, and `@Finalizer`'s rules are not enforced. `@Singleton` and
-  `@ExtensionClass` exist in `maddi-support` but have no property and are read by nothing. The
-  chapter carries per-section "Not implemented" markers as of 2026-07-22.
+  `DecoratorImpl`) but never inferred. `@Singleton` and `@ExtensionClass` exist in `maddi-support`
+  but have no property and are read by nothing. The chapter carries per-section status markers as
+  of 2026-07-23.
+- **`@Finalizer`'s modification semantics ARE implemented and load-bearing** (its three life-cycle
+  sequencing rules are not): a call to a finalizer NEVER marks the receiver modified — the guard
+  `!methodInfo.isFinalizer()` in `MethodModification.go`, mirrored in `ShallowMethodLinkComputer`
+  and in the `ShadowModificationPass` boundary seeds (2026-07-23). The annotated APIs mark the
+  stream operations (`filter`/`map`/`collect`/…) `@Finalizer` with NO `@NotModified`; only the
+  exemption keeps `this.field.stream().map(...)` chains from conservatively modifying the field
+  and `this`. Any component that re-derives modification at call sites MUST mirror this guard.
 - Record accessors expose components → records of mutable types are at best FINAL_FIELDS (dependent),
   or IMMUTABLE_HC when unexposed; never hc-free @Immutable.
 - Interfaces: extensible ⇒ hidden content ⇒ at best `@Immutable(hc=true)`; a constants-only interface
