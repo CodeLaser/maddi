@@ -1129,3 +1129,22 @@ excuse (849 total, eup 339); zero regressions; flagships form; gate-off Fernflow
 The one remaining hop for the internalCompareTo union: `commitLabels(this.rhs)` bails although
 Expression is a direct candidate and rhs is an own final field -- next session's first probe is one
 print inside `fieldHoldsCommittableContent`'s refusal path for that exact site.
+
+## Session close (2026-07-23): the internalCompareTo probe resolves — convergence, not design
+
+The recorded probe (why `commitLabels(this.rhs)` bailed) resolved into ORDERING, not a rule gap:
+`isCandidate(Expression)` was false in the failing attempt and true one attempt later, and
+**`BinaryOperatorImpl.internalCompareTo` landed enm=[lhs, rhs]** in the same run under the
+dispatch-honest sites. The abstract union's remaining blocker is `GreaterThanZeroImpl.internalCompareTo`,
+which decodes to the ordinary eup chain one remove further: `compareBinaryToGt0(binary, this)` hands
+bare `this` to a static helper whose eup on parameter 1 has not landed yet -- a chase, not a decision.
+Diagnostics added and kept (gated): the `fieldHolds refusal` and `treatAs refusal` prints that made
+the probe decisive.
+
+**Where the arc stands at session close** (nine commits, `9a2f5ea3..`): the Builder root eliminated;
+the abstract-union race dead and the eventual layer fully deterministic; the honest baseline enm 849
+/ eup 339 with the flagship family forming in every run; Expression's rewire/translate/withSource
+unions landed and internalCompareTo one eup-chase away; the ∅-enm decision (dispatch-honest sites)
+taken with Bart and implemented. Next session: the GreaterThanZeroImpl eup chase, then Factory's
+lazy caches, TypeInfoImpl.print, VariableImpl caches -- and the cluster's survivors will start
+recovering as Expression forms.

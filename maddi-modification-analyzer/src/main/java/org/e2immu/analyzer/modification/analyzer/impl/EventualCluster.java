@@ -213,8 +213,14 @@ public class EventualCluster {
         // breaks the leaf impls' bare-this chicken-and-egg (translationMap.translateExpression(this),
         // new CommonType(this): the owner-seed escape needed candidacy, candidacy needed a first enm).
         // Witnessed like any edge: a type that never forms retracts everything that consumed its labels.
-        if (ENABLED && (candidate == member || isCandidate(candidate))
-            && !hasSetters(member) && !hasSetters(candidate)) {
+        boolean admissible = ENABLED && (candidate == member || isCandidate(candidate))
+                             && !hasSetters(member) && !hasSetters(candidate);
+        if (!admissible && ENABLED && SITE_DEBUG && siteDebugMatches(debugContext.get())) {
+            sitePrint("[" + debugContext.get() + "] treatAs refusal: " + candidate.fullyQualifiedName()
+                      + " candidate=" + (candidate == member || isCandidate(candidate))
+                      + " memberSetters=" + hasSetters(member) + " candSetters=" + hasSetters(candidate));
+        }
+        if (admissible) {
             java.util.ArrayDeque<java.util.List<TypeInfo[]>> stack = assumptionBuffers.get();
             if (!stack.isEmpty()) {
                 // success-only witnessing: inside a buffered computation, the edge only reaches the ledger if
