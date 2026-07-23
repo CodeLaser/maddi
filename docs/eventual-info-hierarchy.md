@@ -954,3 +954,46 @@ Composed dogfood: **Builder edges 0** (10 at characterization, 4 after round 1),
 now Builder-free -- led by Statement(7), Element(4), FieldInspection(3), VariableImpl: exactly the two
 remaining quests. Pins in `TestCommitLabels.INPUT_FLUENT`; gate-off Fernflower byte-identity; suites
 green.
+
+## The Element/Statement breadth quest, round 1 (2026-07-23, continued): the abstract unions start landing
+
+Measurement first (`EC_ASSUME_DEBUG` now takes a comma-list; a new `ECSITE "enm batch … blocked by …"`
+print in `AbstractMethodAnalyzerImpl` names the implementation that kills each abstract union): the 42
+Element/Statement/FieldInspection/VariableImpl edges are mostly typeLevel hierarchy propagation; the
+real roots were ~15 impl bodies blocking the abstract enm unions of `Element.complexity/print/rewire/
+typesReferenced/variableStream*` and `Statement.translate/rewire/withBlocks/withSource`. The per-body
+traces reduced the bails to four mechanisms, three of them now closed (all gated):
+
+1. **The downward interface closure**: candidacy closed upward only, so the markless sub-interfaces of
+   `Element` (`Block`, `Comment`, `LocalVariable`) never entered the cluster, and every statement/
+   expression field of those types bailed the walk (`CatchClauseImpl.complexity`'s `this.block`).
+   `isCandidate` now admits an INTERFACE whose superinterface is a member -- implementations still
+   earn membership the strict way. Setter-bearing interfaces (the Builders) are refused: `haveSetters`
+   is an unconditional MUTABLE exit, so their membership is pure doomed mass. The same refusal now
+   guards both ends of `treatAsEventuallyImmutable` (a setter-bearing member's optimism is wasted, a
+   setter-bearing candidate's is doomed) -- safe only since the Builder-lean quest, whose walk fixes
+   carry the rewire chains without Builder candidacy.
+2. **The accessor spelling of the container ride-along** (`rootContainerField`): the whole statement/
+   expression family hands its final lists around as `comments()`/`annotations()`, not `this.comments`
+   -- both ride-along positions now unwrap a plain non-setter accessor called on the bare root. This
+   is what let the rewire/translate/withX copy-constructor family land (`WhileStatementImpl.withBlocks`
+   enm=[annotations, comments, expression], `Statement.translate` union with 17 labels).
+3. **Primitive streams** (`isPrimitiveStream` in `returnTypeHoldsCommittableContent`): a `mapToInt`
+   reduction hands on VALUES only; parameterless, it had neither the immutable-hc route (streams are
+   contractually consumable) nor the type-parameter route. Unblocked `SwitchEntryImpl.complexity`,
+   and with it the honest 9-label `Element.complexity` union.
+
+**Composed scoreboard (es6): enm 657 -> 933, eup 307 -> 376; `Element.complexity`,
+`Statement.translate` (17 labels), `Statement.rewire` unions land; retracted 160, survivors 5, the
+flagship family forms throughout.** Survivors dip (10 -> 5: the `ModuleInfoImpl.*` nested types are
+pulled under by the larger folded assumption sets -- formation intact, pure cascade) because the
+cluster now spans the whole CST api; they return as the roots prove. Known instability, measured:
+the abstract-union write-once still races the modreach downgrade (`Element.complexity` lands the
+honest 9-label union in one run, the stale 2-label one in another) -- the race predates this round
+and is the natural next target. Residue: `Element.print` <- `TypeInfoImpl.print`, `Element.rewire`
+<- `BitwiseNegationImpl.rewire` (per-body chases), one doomed edge `EvalOr -> Or.Builder` (an
+adder-only Builder the setter proxy cannot catch -- harmless, witnessed, retracted), and the
+`VariableImpl` cache quest untouched. Pins: `TestCommitLabels.INPUT_BREADTH` (closure admit + setter
+refusal; the accessor spelling and primitive-stream mechanisms are corpus-validated only -- the
+aapi-less unit harness shallow-defaults JDK containers too leniently to discriminate). Gate-off
+Fernflower byte-identity; suites green.
