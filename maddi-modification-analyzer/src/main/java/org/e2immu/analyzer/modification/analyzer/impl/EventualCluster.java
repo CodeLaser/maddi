@@ -137,9 +137,59 @@ public class EventualCluster {
         }
     }
 
-    /** A cluster member: a direct candidate, or a supertype of one. */
+    // downward interface closure (Element/Statement round): positive cache only, like directCandidateCache
+    private final Set<TypeInfo> interfaceCandidateCache = ConcurrentHashMap.newKeySet();
+    // setter-bearing types (the haveSetters MUTABLE exit, mirrored); getSet marks are prepwork-stable, so
+    // caching both answers is safe. An abstract Builder interface carries no getset marks of its own --
+    // only the impl builders' bodies are recognized -- so the abstract method's IMPLEMENTATIONS are
+    // consulted too: an interface whose contract is implemented by setters is setter-bearing.
+    private final Map<TypeInfo, Boolean> settersCache = new ConcurrentHashMap<>();
+
+    private boolean hasSetters(TypeInfo typeInfo) {
+        return settersCache.computeIfAbsent(typeInfo,
+                t -> t.methodStream().anyMatch(EventualCluster::setterOrImplementedBySetter));
+    }
+
+    private static boolean setterOrImplementedBySetter(MethodInfo methodInfo) {
+        if (isSetter(methodInfo)) return true;
+        for (MethodInfo implementation : methodInfo.analysis()
+                .getOrDefault(PropertyImpl.IMPLEMENTATIONS, ValueImpl.SetOfMethodInfoImpl.EMPTY)
+                .methodInfoSet()) {
+            if (isSetter(implementation)) return true;
+        }
+        return false;
+    }
+
+    private static boolean isSetter(MethodInfo methodInfo) {
+        return methodInfo.getSetField() != null && methodInfo.getSetField().setter();
+    }
+
+    /**
+     * A cluster member: a direct candidate, a supertype of one, or -- the downward interface closure -- an
+     * INTERFACE whose superinterface is a member. A markless sub-interface of a candidate ({@code Block},
+     * {@code Comment}, {@code LocalVariable} under {@code Element}) carries no eventual intent of its own,
+     * but its content is the same promise space as its ancestor's: the statement/expression carriers hold
+     * fields of exactly these types, and without membership every such field read bails the commit walk.
+     * Implementations stay OUT unless they earn membership (intent or upward closure): only the recognition
+     * is optimistic, every genuine field/method check stays strict, and each use is witnessed for the
+     * contraction to retract.
+     */
     public boolean isCandidate(TypeInfo typeInfo) {
-        return isDirectCandidate(typeInfo) || inheritedCandidates.contains(typeInfo);
+        if (isDirectCandidate(typeInfo) || inheritedCandidates.contains(typeInfo)) return true;
+        if (!typeInfo.isInterface()) return false;
+        if (interfaceCandidateCache.contains(typeInfo)) return true;
+        // a setter-bearing interface (the Builders) can NEVER prove: haveSetters is an unconditional MUTABLE
+        // exit in computeImmutableType, before any after-mark relaxation. Admitting it is pure doomed mass
+        // for the contraction -- the same criterion, mirrored.
+        if (hasSetters(typeInfo)) return false;
+        for (ParameterizedType superType : typeInfo.parentAndInterfacesImplemented()) {
+            TypeInfo st = superType.typeInfo();
+            if (st != null && !st.isJavaLangObject() && isCandidate(st)) {
+                interfaceCandidateCache.add(typeInfo);
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -152,7 +202,13 @@ public class EventualCluster {
      */
     public boolean treatAsEventuallyImmutable(TypeInfo member, TypeInfo candidate, Value.EventuallyImmutable actual) {
         if (actual.isEventual()) return true; // proven on its own merits: no assumption
-        if (ENABLED && isCandidate(candidate)) {
+        // optimism spent on a setter-bearing MEMBER is wasted, and optimism spent on a setter-bearing
+        // CANDIDATE is doomed: haveSetters is an unconditional MUTABLE exit in computeImmutableType, before
+        // any after-mark relaxation, so no verdict can ever form on either end. Refusing both keeps the
+        // Builders' own typeLevel computations and the last consumer leans on Builder types out of the
+        // ledger entirely. (Safe only since the Builder-lean quest: the flagship rewire chains no longer
+        // need Builder candidacy -- receiverProvablyNotRoot and the freshness fixpoint carry them.)
+        if (ENABLED && isCandidate(candidate) && !hasSetters(member) && !hasSetters(candidate)) {
             java.util.ArrayDeque<java.util.List<TypeInfo[]>> stack = assumptionBuffers.get();
             if (!stack.isEmpty()) {
                 // success-only witnessing: inside a buffered computation, the edge only reaches the ledger if
@@ -173,17 +229,80 @@ public class EventualCluster {
             ThreadLocal.withInitial(java.util.ArrayDeque::new);
 
     // log-only diagnostic (MODREACH_EXPLAIN style): print DIRECT assumption edges whose candidate FQN
-    // matches the substring -- the ledger the contraction walks is otherwise only visible after folding
-    private static final String EC_ASSUME_DEBUG = System.getenv("EC_ASSUME_DEBUG");
+    // matches any comma-separated substring -- the ledger the contraction walks is otherwise only visible
+    // after folding
+    private static final String[] EC_ASSUME_DEBUG = System.getenv("EC_ASSUME_DEBUG") == null ? null
+            : System.getenv("EC_ASSUME_DEBUG").split(",");
+
+    private static boolean assumeDebugMatches(String name) {
+        if (EC_ASSUME_DEBUG == null || name == null) return false;
+        for (String s : EC_ASSUME_DEBUG) {
+            if (!s.isBlank() && name.contains(s.trim())) return true;
+        }
+        return false;
+    }
+    // log-only diagnostic: trace commit-walk site decisions and property-write timing for computations whose
+    // debug context (or method FQN) matches any comma-separated substring, e.g.
+    // EC_SITE_DEBUG=rewirePhase1,handleMethodOrConstructor,builder()
+    private static final String[] EC_SITE_DEBUG = System.getenv("EC_SITE_DEBUG") == null ? null
+            : System.getenv("EC_SITE_DEBUG").split(",");
+    public static final boolean SITE_DEBUG = EC_SITE_DEBUG != null;
+    // the iterating analyzer's current iteration, stamped into ECASSUME/ECSITE lines; log-only
+    public static volatile int ITERATION;
+    // the computation (method/parameter/type) the eventual analyzer is currently running, for ECASSUME
+    // site attribution; purely diagnostic, never read by any verdict path
+    private final ThreadLocal<String> debugContext = new ThreadLocal<>();
+
+    /** Diagnostic only: name the computation subsequent witnessed assumptions on this thread belong to. */
+    public void setDebugContext(String context) {
+        if (EC_ASSUME_DEBUG != null || SITE_DEBUG) debugContext.set(context);
+    }
+
+    /** Diagnostic only: the current computation's name, for ECSITE attribution. */
+    public String debugContext() {
+        return debugContext.get();
+    }
+
+    /** Diagnostic only: does {@code name} match any EC_SITE_DEBUG substring? */
+    public static boolean siteDebugMatches(String name) {
+        if (EC_SITE_DEBUG == null || name == null) return false;
+        for (String s : EC_SITE_DEBUG) {
+            if (!s.isBlank() && name.contains(s.trim())) return true;
+        }
+        return false;
+    }
+
+    /** Diagnostic only: an iteration-stamped ECSITE line. */
+    public static void sitePrint(String message) {
+        System.out.println("ECSITE it=" + ITERATION + " " + message);
+    }
 
     private void record(TypeInfo member, TypeInfo candidate) {
         if (assumptions.computeIfAbsent(member, m -> ConcurrentHashMap.newKeySet()).add(candidate)) {
-            if (EC_ASSUME_DEBUG != null && candidate.fullyQualifiedName().contains(EC_ASSUME_DEBUG)) {
-                System.out.println("ECASSUME " + member.fullyQualifiedName()
-                                   + " -> " + candidate.fullyQualifiedName());
+            if (assumeDebugMatches(candidate.fullyQualifiedName())) {
+                System.out.println("ECASSUME it=" + ITERATION + " " + member.fullyQualifiedName()
+                                   + " -> " + candidate.fullyQualifiedName()
+                                   + " at " + debugContext.get());
             }
             LOGGER.debug("EC: {} optimistically assumes {} is eventually immutable", member, candidate);
         }
+    }
+
+    /**
+     * MODREACH re-derivation: the eventual layer was just cleared alongside the immutability family, so the
+     * witnessed edges, label provenance and candidacy caches -- all built by the cleared computations, some
+     * on pre-cutover optimistic modification values -- restart with it. The hierarchy map and setter cache
+     * are cheap, prepwork-stable facts, but clearing them too keeps the reset trivially complete.
+     */
+    public void resetForRederivation() {
+        if (!ENABLED) return;
+        assumptions.clear();
+        labelProvenance.clear();
+        directCandidateCache.clear();
+        inheritedCandidates.clear();
+        interfaceCandidateCache.clear();
+        settersCache.clear();
+        subclassesByParent.clear();
     }
 
     /** Open an assumption buffer for the computation that follows on this thread. Pair with exactly one

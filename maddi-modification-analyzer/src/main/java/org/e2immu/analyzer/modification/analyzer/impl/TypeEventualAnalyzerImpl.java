@@ -37,8 +37,11 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.statement.AssertStatement;
+import org.e2immu.language.cst.api.statement.IfElseStatement;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
+import org.e2immu.language.cst.api.statement.ThrowStatement;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -47,6 +50,7 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -105,6 +109,16 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         this.eventualCluster = eventualCluster;
     }
 
+    /** Diagnostic only (EC_SITE_DEBUG): is the current computation one the user asked to trace? */
+    private boolean siteDebug() {
+        return EventualCluster.SITE_DEBUG && EventualCluster.siteDebugMatches(eventualCluster.debugContext());
+    }
+
+    /** Diagnostic only: an ECSITE line attributed to the current computation. */
+    private void ecsite(String message) {
+        EventualCluster.sitePrint("[" + eventualCluster.debugContext() + "] " + message);
+    }
+
     /**
      * The eventual contract of a called method. Reading {@code analysis()} is not enough: a compiled type is
      * shallow-analyzed lazily, per method, only where the link computer happened to need it, so a support class
@@ -140,9 +154,11 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             // in analysis(), and for a source method nothing else puts them there.
             Value.Eventual eventual = eventualOf(methodInfo);
             boolean contracted = eventual.isEventual();
+            eventualCluster.setDebugContext("eventual " + methodInfo.fullyQualifiedName());
             eventualCluster.beginAssumptionBuffer();
             if (!contracted) eventual = computeEventual(typeInfo, methodInfo);
             if (eventual != null && eventual.isEventual()) {
+                if (siteDebug()) ecsite("WRITE eventual=" + eventual);
                 methodInfo.analysis().set(EVENTUAL_METHOD, eventual);
                 DECIDE.debug("TE: {} eventual of method {} = {}", contracted ? "Contracted" : "Decide",
                         methodInfo, eventual);
@@ -154,8 +170,11 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         }
         for (MethodInfo methodInfo : typeInfo.methods()) {
             if (methodInfo.analysis().haveAnalyzedValueFor(EVENTUALLY_NON_MODIFYING_METHOD)) continue;
+            eventualCluster.setDebugContext("enm " + methodInfo.fullyQualifiedName());
             eventualCluster.beginAssumptionBuffer();
             Set<String> labels = computeEventuallyNonModifying(typeInfo, methodInfo);
+            if (siteDebug()) ecsite(labels != null && !labels.isEmpty()
+                    ? "WRITE enm=" + new TreeSet<>(labels) : "no enm (" + labels + ")");
             if (labels != null && !labels.isEmpty()) {
                 methodInfo.analysis().set(EVENTUALLY_NON_MODIFYING_METHOD,
                         new ValueImpl.SetOfStringsImpl(Set.copyOf(labels)));
@@ -173,8 +192,11 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             for (MethodInfo methodInfo : typeInfo.methods()) {
                 for (ParameterInfo pi : methodInfo.parameters()) {
                     if (pi.analysis().haveAnalyzedValueFor(EVENTUALLY_UNMODIFIED_PARAMETER)) continue;
+                    eventualCluster.setDebugContext("eup " + pi.fullyQualifiedName());
                     eventualCluster.beginAssumptionBuffer();
                     Set<String> labels = computeEventuallyUnmodified(typeInfo, methodInfo, pi);
+                    if (siteDebug()) ecsite(labels != null && !labels.isEmpty()
+                            ? "WRITE eup=" + new TreeSet<>(labels) : "no eup (" + labels + ")");
                     if (labels != null && !labels.isEmpty()) {
                         pi.analysis().set(EVENTUALLY_UNMODIFIED_PARAMETER,
                                 new ValueImpl.SetOfStringsImpl(Set.copyOf(labels)));
@@ -191,6 +213,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         // so its supertypes join the cluster (InfoImpl and the interfaces have no eventual method of their own).
         eventualCluster.noteCandidate(typeInfo);
         eventualCluster.noteHierarchy(typeInfo);
+        eventualCluster.setDebugContext("typeLevel " + typeInfo.fullyQualifiedName());
         eventualCluster.beginAssumptionBuffer();
         computeTypeLevel(typeInfo, activateCycleBreaking);
         if (typeInfo.analysis().haveAnalyzedValueFor(EVENTUALLY_IMMUTABLE_TYPE)) {
@@ -358,7 +381,11 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      *  EVENTUALCLUSTER gate -- a cluster candidate whose verdict is still circular (see {@link EventualCluster}).
      *  {@code member} is the type holding the field, recorded as the assumer when the excusal is optimistic. */
     private boolean isEventuallyImmutableFieldType(TypeInfo member, TypeInfo fieldType) {
-        return eventualCluster.treatAsEventuallyImmutable(member, fieldType, eventuallyImmutable(fieldType));
+        boolean result = eventualCluster.treatAsEventuallyImmutable(member, fieldType, eventuallyImmutable(fieldType));
+        if (result && siteDebug() && !eventuallyImmutable(fieldType).isEventual()) {
+            ecsite("lean on " + fieldType.fullyQualifiedName());
+        }
+        return result;
     }
 
     /** null when nothing can be concluded; never {@code NOT_EVENTUAL} (we do not record absence). */
@@ -371,6 +398,15 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         Set<String> marked = new HashSet<>();
         Set<String> onlyBefore = new HashSet<>();
         Set<String> onlyAfter = new HashSet<>();
+        // EVENTUALCLUSTER (handoff-builder-leans §4A): the PRECONDITION shape. A body guarded by a
+        // @TestMark observation -- 'assert inspection.isVariable();' or the if-throw variant -- belongs
+        // to the side the guard asserts: calling it on the other side throws. This is what classifies
+        // the builder() accessors @Only(before=inspection) instead of leaving them for the enm layer to
+        // mislabel via doomed Builder-candidacy leans. computeTestMark above keeps pure @TestMark
+        // forwards out of here; a guard elsewhere in the body is not a precondition and stays ignored.
+        if (EventualCluster.ENABLED) {
+            scanPreconditions(typeInfo, methodInfo, onlyBefore, onlyAfter);
+        }
         methodInfo.methodBody().visit(e -> {
             if (e instanceof MethodCall mc) {
                 Value.Eventual callee = eventualOf(mc.methodInfo());
@@ -390,6 +426,62 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             return true;
         });
         return combine(methodInfo, marked, onlyBefore, onlyAfter);
+    }
+
+    /**
+     * The leading guards of the body, read as preconditions: leading {@code assert <state test>} statements,
+     * and the two if-throw shapes ({@code if (!<test>) throw …; <live>} and {@code if (<test>) { <live> }
+     * throw …;}). Each contributes the guard's labels to the side the LIVE path requires.
+     */
+    private void scanPreconditions(TypeInfo typeInfo, MethodInfo methodInfo,
+                                   Set<String> onlyBefore, Set<String> onlyAfter) {
+        List<Statement> statements = methodInfo.methodBody().statements().stream()
+                .filter(s -> !s.isSynthetic()).toList();
+        for (Statement statement : statements) {
+            if (statement instanceof AssertStatement as) {
+                recordGuardSide(typeInfo, as.expression(), false, onlyBefore, onlyAfter);
+            } else {
+                break; // preconditions are the LEADING asserts only
+            }
+        }
+        if (!statements.isEmpty() && statements.getFirst() instanceof IfElseStatement ifElse
+            && ifElse.elseBlock().isEmpty()) {
+            boolean thenThrows = ifElse.block().statements().size() == 1
+                                 && ifElse.block().statements().getFirst() instanceof ThrowStatement;
+            boolean tailThrows = statements.size() == 2 && statements.get(1) instanceof ThrowStatement;
+            if (thenThrows) {
+                // if (<guard>) throw …; <live>  -- the live path requires the guard FALSE
+                recordGuardSide(typeInfo, ifElse.expression(), true, onlyBefore, onlyAfter);
+            } else if (tailThrows) {
+                // if (<guard>) { <live> } throw …;  -- the live path requires the guard TRUE
+                recordGuardSide(typeInfo, ifElse.expression(), false, onlyBefore, onlyAfter);
+            }
+        }
+    }
+
+    /** Resolve a guard expression to a {@code @TestMark} observation on this type's state and record its
+     *  labels on the side the (possibly negated) guard asserts. Anything else is silently ignored. */
+    private void recordGuardSide(TypeInfo typeInfo, Expression expression, boolean flip,
+                                 Set<String> onlyBefore, Set<String> onlyAfter) {
+        Expression expr = expression;
+        boolean negated = flip;
+        while (expr instanceof Negation negation) {
+            negated = !negated;
+            expr = negation.expression();
+        }
+        if (!(expr instanceof MethodCall mc)) return;
+        Value.Eventual callee = eventualOf(mc.methodInfo());
+        if (!callee.isTestMark()) return;
+        Set<String> labels = labelsOfReceiver(typeInfo, mc, callee);
+        if (labels == null) return;
+        // test() == TRUE: the observation returns true in the AFTER state (isSet); FALSE: in the BEFORE
+        // state (isVariable). The live path holds the guard true (modulo negations).
+        boolean trueMeansAfter = Boolean.TRUE.equals(callee.test()) ^ negated;
+        if (trueMeansAfter) {
+            onlyAfter.addAll(labels);
+        } else {
+            onlyBefore.addAll(labels);
+        }
     }
 
     /**
@@ -594,10 +686,14 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                                             LocalContext ctx) {
         // a @Mark or @Only(before) callee is the transition itself (setFinal, setVariable), not a post-mark
         // read; calling it after the mark throws -- UNLESS it acts on a provably fresh object's lifecycle
-        // (fi.inspection.setVariable(...) in withOwnerVariableBuilder), which is not this's transition at all
+        // (fi.inspection.setVariable(...) in withOwnerVariableBuilder), OR on a receiver that is provably not
+        // root-derived at all (handoff-builder-leans §4A: the rewire machinery filling ANOTHER object's
+        // builder): another object's transition cannot modify the root; only the arguments carry root-derived
+        // content, and they are committed below like any other call's
         Value.Eventual calleeEventual = eventualOf(mc.methodInfo());
         if ((calleeEventual.isMark() || calleeEventual.isOnly() && Boolean.FALSE.equals(calleeEventual.after()))
-            && !rootedInFresh(mc.object(), ctx)) {
+            && !rootedInFresh(mc.object(), ctx)
+            && !receiverProvablyNotRoot(walk, mc.object(), ctx)) {
             return null;
         }
         Set<String> labels = new HashSet<>();
@@ -617,7 +713,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             }
         }
         // a call may modify a root-derived argument (a @Modified parameter); commit each
-        return commitArguments(walk, mc, ctx, 0, labels);
+        return commitArguments(walk, mc, ctx, 0, labels, false);
     }
 
     /**
@@ -668,20 +764,60 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         static final LocalContext EMPTY = new LocalContext(Map.of(), Set.of());
     }
 
+    /**
+     * Is the object a call acts on provably not the root's? Unwraps a fluent chain
+     * ({@code copy.builder().setX(…).commit()}) to its base; true when the base is free of any root-derived
+     * content, or is a tracked local the walk itself judged committed-after-∅ (the rewire machinery's
+     * {@code infoMap.methodInfo(this)} copies). The bare root, root-scoped fields, and non-∅-tracked locals
+     * keep their bails: a transition on the root's own committed content stays {@code @Only(before)}
+     * business, not an enm excuse.
+     * <p>
+     * Two consumers: the transition-callee bail (a {@code @Mark}/{@code @Only(before)} callee on another
+     * object's lifecycle only needs its arguments committed), and the handed-on gauntlet (the value a chain
+     * on another object's graph hands on cannot reach the root except through the argument-fed content
+     * already committed by the accumulated labels -- so no candidacy lean on the return type is needed).
+     */
+    private boolean receiverProvablyNotRoot(WalkRoot walk, Expression receiver, LocalContext ctx) {
+        Expression base = receiver;
+        while (true) {
+            if (base instanceof MethodCall mc) {
+                base = mc.object();
+            } else if (base instanceof Cast cast) {
+                base = cast.expression();
+            } else if (base instanceof EnclosedExpression enclosed) {
+                base = enclosed.inner();
+            } else {
+                break;
+            }
+        }
+        if (base == null) return false;
+        if (!referencesRootOrTracked(walk, base, ctx.commit())) return true;
+        if (base instanceof VariableExpression ve && !walk.isRoot(ve.variable())) {
+            Set<String> tracked = ctx.commit().get(ve.variable());
+            return tracked != null && tracked.isEmpty();
+        }
+        return false;
+    }
+
     /** Is the expression's value rooted in an object constructed in this very method body (a plain constructor
      *  call, or a chain of reads off a local every assignment of which is one)? A transition call on such a
      *  receiver belongs to the fresh object's lifecycle, not to this's transition. */
     private static boolean rootedInFresh(Expression expr, LocalContext ctx) {
+        return rootedInFresh(expr, ctx.fresh());
+    }
+
+    private static boolean rootedInFresh(Expression expr, Set<Variable> fresh) {
         if (expr instanceof ConstructorCall cc) return cc.anonymousClass() == null;
         if (expr instanceof VariableExpression ve) {
-            if (ctx.fresh().contains(ve.variable())) return true;
-            return ve.variable() instanceof FieldReference fr && !fr.scopeIsThis() && rootedInFresh(fr.scope(), ctx);
+            if (fresh.contains(ve.variable())) return true;
+            return ve.variable() instanceof FieldReference fr && !fr.scopeIsThis()
+                   && rootedInFresh(fr.scope(), fresh);
         }
-        if (expr instanceof MethodCall mc) return rootedInFresh(mc.object(), ctx);
-        if (expr instanceof Cast cast) return rootedInFresh(cast.expression(), ctx);
-        if (expr instanceof EnclosedExpression enclosed) return rootedInFresh(enclosed.inner(), ctx);
+        if (expr instanceof MethodCall mc) return mc.object() != null && rootedInFresh(mc.object(), fresh);
+        if (expr instanceof Cast cast) return rootedInFresh(cast.expression(), fresh);
+        if (expr instanceof EnclosedExpression enclosed) return rootedInFresh(enclosed.inner(), fresh);
         if (expr instanceof InlineConditional inline) {
-            return rootedInFresh(inline.ifTrue(), ctx) && rootedInFresh(inline.ifFalse(), ctx);
+            return rootedInFresh(inline.ifTrue(), fresh) && rootedInFresh(inline.ifFalse(), fresh);
         }
         return false;
     }
@@ -780,10 +916,15 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         }
         if (expr instanceof MethodCall mc) {
             // an intermediate @Mark or @Only(before) call belongs to the transition; after the mark it throws
-            // -- unless it acts on a provably fresh object's lifecycle
+            // -- unless it acts on a provably fresh object's lifecycle, or on a receiver that is provably not
+            // root-derived (another object's transition; only the arguments matter here)
             Value.Eventual calleeEventual = eventualOf(mc.methodInfo());
+            if (siteDebug()) ecsite("MC " + mc.methodInfo().fullyQualifiedName()
+                    + " calleeEventual=" + calleeEventual);
             if ((calleeEventual.isMark() || calleeEventual.isOnly() && Boolean.FALSE.equals(calleeEventual.after()))
-                && !rootedInFresh(mc.object(), ctx)) {
+                && !rootedInFresh(mc.object(), ctx)
+                && !receiverProvablyNotRoot(walk, mc.object(), ctx)) {
+                if (siteDebug()) ecsite("transition bail: " + mc.methodInfo().fullyQualifiedName());
                 return null;
             }
             Set<String> acc = new HashSet<>();
@@ -806,7 +947,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                                 LocalContext.EMPTY, depth + 1);
                         if (through != null) {
                             acc.addAll(through);
-                            return commitArguments(walk, mc, ctx, depth, acc);
+                            return commitArguments(walk, mc, ctx, depth, acc, true);
                         }
                     }
                 }
@@ -818,7 +959,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 Set<String> bridged = abstractAccessorLabels(walk, mc.methodInfo(), depth);
                 if (bridged != null) {
                     acc.addAll(bridged);
-                    return commitArguments(walk, mc, ctx, depth, acc);
+                    return commitArguments(walk, mc, ctx, depth, acc, true);
                 }
                 // a genuinely non-modifying accessor contributes nothing; a modifying one must be
                 // eventually-non-modifying, and contributes its labels
@@ -836,12 +977,16 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                     // the container ride-along: a qualifying READ on a final container field of committable
                     // content commits after the field's label, even though the bare wrapper value does not
                     receiver = containerReadThroughLabels(walk, mc);
-                    if (receiver == null) return null;
+                    if (receiver == null) {
+                        if (siteDebug()) ecsite("receiver bail (" + mc.methodInfo().name() + ")");
+                        return null;
+                    }
                 }
+                if (siteDebug()) ecsite("receiver(" + mc.methodInfo().name() + ")=" + receiver);
                 if (receiver.isEmpty()) {
                     // the receiver is not root-derived; neither is anything obtained from it -- only the
                     // arguments still need committing
-                    return commitArguments(walk, mc, ctx, depth, acc);
+                    return commitArguments(walk, mc, ctx, depth, acc, true);
                 }
                 acc.addAll(receiver);
                 receiverCommitted = true;
@@ -859,11 +1004,26 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             // a chain rooted in a fresh object (the fluent newField.builder().setX(..).setY(..)) hands on
             // fresh-owned state; the root-derived values stored into it are committed by the labels in acc
             boolean freshRooted = rootedInFresh(mc.object(), ctx);
+            // EVENTUALCLUSTER (handoff-builder-leans §4b resolution): a chain whose BASE is provably not
+            // root-derived (the rewired copy's ∅-tracked builder local, the infoMap parameter) hands on a
+            // value of another object's graph. The root-derived content that flowed in via the arguments is
+            // already committed by the labels in acc -- the §060 ride-along stance -- so the handed-on
+            // judgment is settled without consulting the return type's candidacy: this is what kept the
+            // doomed Builder leans alive (a MODIFYING fluent setter never reaches handedOnValueSafe's
+            // independence branch and fell through to returnTypeHoldsCommittableContent). Checked BEFORE
+            // handedOnValueSafe so no optimistic edge is witnessed on the way to a verdict we can reach
+            // soundly.
+            boolean notRootReceiver = EventualCluster.ENABLED && receiverProvablyNotRoot(walk, mc.object(), ctx);
+            if (siteDebug()) ecsite("gauntlet " + mc.methodInfo().name()
+                    + " receiverCommitted=" + receiverCommitted + " ownerSeed=" + ownerSeedCoversResult
+                    + " freshRooted=" + freshRooted + " notRootReceiver=" + notRootReceiver);
             if (!isIgnoreModificationsAccessor(mc.methodInfo()) && !ownerSeedCoversResult && !freshRooted
+                && !notRootReceiver
                 && !handedOnValueSafe(walk, mc, receiverCommitted)) {
+                if (siteDebug()) ecsite("handedOnValueSafe bail: " + mc.methodInfo().name());
                 return null;
             }
-            return commitArguments(walk, mc, ctx, depth, acc);
+            return commitArguments(walk, mc, ctx, depth, acc, true);
         }
         return null; // any other root-referencing expression shape: conservative
     }
@@ -995,16 +1155,23 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
     }
 
     /**
-     * Commit each argument of the call, folding the labels into {@code acc}; null = bail. This is also where
+     * Commit each argument of the call, folding the labels into {@code acc}; null = bail. In EXCUSE position
+     * ({@code valuePosition == false}: the statement-level call the visitor excuses) this is also where
      * {@code EVENTUALLY_UNMODIFIED_PARAMETER} is CONSUMED (spec §4): the bare root handed to a parameter that
      * promises "unmodified once L has been committed on the argument" contributes L to the caller's label set,
      * provided every label in L is committable on the root's own type -- that is what turns the otherwise
      * label-less candidate excusal of {@code ParameterizedTypePrinter.print(…, this, …)} into a named,
      * type-level-usable promise. The callee's own excusals may lean on cluster assumptions, so the consumer
      * inherits the callee owner's assumption edges (label provenance), and the contraction cascades for free.
+     * <p>
+     * In VALUE position (the result feeds a chain, a tracked local, an outer argument) the eup labels are
+     * deliberately NOT folded in: they excuse THE CALL, they say nothing about when the RESULT's value
+     * commits. Folding them made {@code infoMap.methodInfo(this)} locals look root-derived-committed, which
+     * routed the rewire builder() chains into committed-receiver semantics and the doomed Builder-candidacy
+     * handed-on fallback (handoff-builder-leans §4b).
      */
     private Set<String> commitArguments(WalkRoot walk, MethodCall mc, LocalContext ctx, int depth,
-                                        Set<String> acc) {
+                                        Set<String> acc, boolean valuePosition) {
         List<Expression> args = mc.parameterExpressions();
         for (int i = 0; i < args.size(); i++) {
             Expression arg = args.get(i);
@@ -1016,7 +1183,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 if (argLabels == null) return null;
             }
             acc.addAll(argLabels);
-            if (arg instanceof VariableExpression ve && walk.isRoot(ve.variable())) {
+            if (!valuePosition && arg instanceof VariableExpression ve && walk.isRoot(ve.variable())) {
                 Set<String> eup = calleeParameterAfterLabels(mc.methodInfo(), i);
                 // a p-walk handing its own root to a parameter of the SAME declared type (the 5-arg -> 6-arg
                 // printer overload forward) stays in one label space: pass the labels through unchecked, the
@@ -1153,6 +1320,10 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         if (returnType.isPrimitiveExcludingVoid() || returnType.isVoid()) return true; // a value cannot alias
         TypeInfo rtType = returnType.bestTypeInfo();
         if (rtType == null) return false; // an unresolved type parameter: conservative
+        // a primitive pipeline (mapToInt reductions) hands on VALUES only: its hidden content is primitive,
+        // so nothing mutable can be laundered through it. The general immutable-hc route cannot admit it --
+        // a stream is contractually consumable -- and, parameterless, it has no type-parameter route either.
+        if (EventualCluster.ENABLED && isPrimitiveStream(rtType)) return true;
         if (isEventuallyImmutableFieldType(member, rtType)) return true;
         Value.Immutable immutable = immutableOf(rtType);
         if (immutable.isImmutable()) return true; // no hidden content at all: nothing mutable to alias
@@ -1179,22 +1350,36 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * {@code ∅}: a fresh {@code new ArrayList<>()} builder local stays excusable.
      */
     private LocalContext buildLocalContext(WalkRoot walk, MethodInfo methodInfo) {
-        // pass 1 -- freshness: a local is fresh when every (non-empty) assignment to it is a plain
-        // constructor call. Fresh + this-derived-tracked can coexist (the constructor args carry labels).
-        Set<Variable> freshCandidates = new HashSet<>();
-        Set<Variable> notFresh = new HashSet<>();
+        // pass 1 -- freshness, to a least fixpoint over the assignment graph: a local is fresh when every
+        // (non-empty) assignment to it is rooted in a fresh creation -- a plain constructor call, or a chain
+        // of reads off an already-fresh local. The transitive step is the local-variable spelling of the
+        // fluent chain rootedInFresh already excuses inline: 'TypeInfo.Builder b = typeInfo.builder();
+        // b.setX(…)' must behave exactly like 'typeInfo.builder().setX(…)'. Fresh + this-derived-tracked can
+        // coexist (the constructor args carry labels).
+        Map<Variable, List<Expression>> assignments = new HashMap<>();
         methodInfo.methodBody().visit(e -> {
             if (e instanceof LocalVariableCreation lvc) {
-                lvc.localVariableStream().forEach(lv -> classifyFreshness(lv, lv.assignmentExpression(),
-                        freshCandidates, notFresh));
+                lvc.localVariableStream().forEach(lv ->
+                        recordAssignment(assignments, lv, lv.assignmentExpression()));
             } else if (e instanceof Assignment a
                        && !(a.variableTarget() instanceof FieldReference)
                        && !(a.variableTarget() instanceof This)) {
-                classifyFreshness(a.variableTarget(), a.value(), freshCandidates, notFresh);
+                recordAssignment(assignments, a.variableTarget(), a.value());
             }
             return true;
         });
-        freshCandidates.removeAll(notFresh);
+        Set<Variable> freshCandidates = new HashSet<>();
+        boolean grew = true;
+        while (grew) {
+            grew = false;
+            for (Map.Entry<Variable, List<Expression>> entry : assignments.entrySet()) {
+                if (!freshCandidates.contains(entry.getKey())
+                    && entry.getValue().stream().allMatch(v -> rootedInFresh(v, freshCandidates))) {
+                    freshCandidates.add(entry.getKey());
+                    grew = true;
+                }
+            }
+        }
 
         // pass 2 -- commit labels, to a fixpoint for chained locals (var b = a;)
         Map<Variable, Set<String>> map = new HashMap<>();
@@ -1219,24 +1404,10 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         return ctx;
     }
 
-    private static void classifyFreshness(Variable target, Expression value,
-                                          Set<Variable> freshCandidates, Set<Variable> notFresh) {
+    private static void recordAssignment(Map<Variable, List<Expression>> assignments,
+                                         Variable target, Expression value) {
         if (value == null || value.isEmpty()) return; // a bare declaration neither makes nor breaks freshness
-        if (isFreshCreation(value)) {
-            freshCandidates.add(target);
-        } else {
-            notFresh.add(target);
-        }
-    }
-
-    private static boolean isFreshCreation(Expression value) {
-        if (value instanceof ConstructorCall cc) return cc.anonymousClass() == null;
-        if (value instanceof InlineConditional inline) {
-            return isFreshCreation(inline.ifTrue()) && isFreshCreation(inline.ifFalse());
-        }
-        if (value instanceof Cast cast) return isFreshCreation(cast.expression());
-        if (value instanceof EnclosedExpression enclosed) return isFreshCreation(enclosed.inner());
-        return false;
+        assignments.computeIfAbsent(target, t -> new ArrayList<>()).add(value);
     }
 
     /** Fold one assignment into the map; true when the map changed. Once poisoned (null), a variable stays so. */
@@ -1245,6 +1416,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         if (walk.isRoot(target)) return false; // rebinding the root is the outer walk's bail, not a tracked local
         if (!referencesRootOrTracked(walk, value, ctx.commit())) return false; // not root-derived: untracked (∅)
         Set<String> labels = commitLabels(walk, value, ctx);
+        if (siteDebug()) ecsite("track " + target.simpleName() + " = " + labels);
         Map<Variable, Set<String>> map = ctx.commit();
         if (map.containsKey(target)) {
             Set<String> existing = map.get(target);
@@ -1331,17 +1503,31 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      */
     private Set<String> containerReadThroughLabels(WalkRoot walk, MethodCall mc) {
         if (!EventualCluster.ENABLED) return null;
-        if (!(mc.object() instanceof VariableExpression ve)
-            || !(ve.variable() instanceof FieldReference fr)
-            || !walk.scopeIsRoot(fr)) {
-            return null;
-        }
+        FieldInfo fieldInfo = rootContainerField(walk, mc.object());
+        if (fieldInfo == null) return null;
         if (!isNonModifyingRead(mc.methodInfo())) return null;
         Value.Independent independent = independentOf(mc.methodInfo());
         if (independent == null || independent.isDependent()) return null;
-        FieldInfo fieldInfo = fr.fieldInfo();
         if (!containerContentCommittable(fieldInfo)) return null;
         return Set.of(fieldInfo.name());
+    }
+
+    /** The root's container field behind the expression: the bare read {@code this.f} / {@code p.f}, or its
+     *  accessor spelling {@code comments()} -- a plain non-setter accessor called on the bare root, the way
+     *  the whole statement/expression family hands its final lists around. Null when neither. */
+    private FieldInfo rootContainerField(WalkRoot walk, Expression expr) {
+        if (expr instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
+            && walk.scopeIsRoot(fr)) {
+            return fr.fieldInfo();
+        }
+        if (expr instanceof MethodCall mc
+            && mc.object() instanceof VariableExpression ve && walk.isRoot(ve.variable())) {
+            Value.FieldValue fieldValue = mc.methodInfo().getSetField();
+            if (fieldValue != null && fieldValue.field() != null && !fieldValue.setter()) {
+                return fieldValue.field();
+            }
+        }
+        return null;
     }
 
     /**
@@ -1354,11 +1540,8 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      */
     private Set<String> containerArgumentLabels(WalkRoot walk, MethodInfo callee, int index, Expression arg) {
         if (!EventualCluster.ENABLED) return null;
-        if (!(arg instanceof VariableExpression ve) || !(ve.variable() instanceof FieldReference fr)
-            || !walk.scopeIsRoot(fr)) {
-            return null;
-        }
-        FieldInfo fieldInfo = fr.fieldInfo();
+        FieldInfo fieldInfo = rootContainerField(walk, arg);
+        if (fieldInfo == null) return null;
         if (!containerContentCommittable(fieldInfo)) return null;
         List<ParameterInfo> parameters = callee.parameters();
         if (parameters.isEmpty()) return null;
@@ -1442,6 +1625,12 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
 
     private static boolean isParameter(Expression expression, ParameterInfo pi) {
         return expression instanceof VariableExpression ve && pi.equals(ve.variable());
+    }
+
+    private static boolean isPrimitiveStream(TypeInfo typeInfo) {
+        String fqn = typeInfo.fullyQualifiedName();
+        return "java.util.stream.IntStream".equals(fqn) || "java.util.stream.LongStream".equals(fqn)
+               || "java.util.stream.DoubleStream".equals(fqn);
     }
 
     /** Is the bare parameter (possibly behind casts, parentheses, or one of a ternary's branches) the value
