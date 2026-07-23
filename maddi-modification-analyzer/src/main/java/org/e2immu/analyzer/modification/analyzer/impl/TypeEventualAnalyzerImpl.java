@@ -387,6 +387,18 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 bail[0] = true; // assigning an own field is a finality/mark concern, not eventual non-modification
                 return false;
             }
+            if (e instanceof ConstructorCall cc && EventualCluster.ENABLED) {
+                // a constructor call captures its root-derived arguments into the fresh object: each must be
+                // committable (or a qualifying container handoff) -- the value-position discipline, applied
+                // at the site. Nested calls are still visited and excused individually below.
+                Set<String> excused = commitLabels(walk, cc, localContext);
+                if (excused == null) {
+                    bail[0] = true;
+                    return false;
+                }
+                labels.addAll(excused);
+                return true;
+            }
             if (e instanceof MethodCall mc) {
                 Value.Bool calleeNonMod = mc.methodInfo().analysis()
                         .getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
@@ -458,6 +470,16 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                     bail[0] = true;
                     return false;
                 }
+            }
+            if (e instanceof ConstructorCall cc) {
+                // capture of p-derived arguments into a fresh object: value-position discipline at the site
+                Set<String> excused = commitLabels(walk, cc, localContext);
+                if (excused == null) {
+                    bail[0] = true;
+                    return false;
+                }
+                labels.addAll(excused);
+                return true;
             }
             if (e instanceof MethodCall mc) {
                 Value.Bool calleeNonMod = mc.methodInfo().analysis()
@@ -696,8 +718,14 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             // stored into it here, each committed after its own labels
             if (cc.anonymousClass() != null) return null; // may capture this arbitrarily: conservative
             Set<String> acc = new HashSet<>();
-            for (Expression arg : cc.parameterExpressions()) {
+            List<Expression> ccArgs = cc.parameterExpressions();
+            for (int i = 0; i < ccArgs.size(); i++) {
+                Expression arg = ccArgs.get(i);
                 Set<String> argLabels = commitLabels(walk, arg, ctx, depth);
+                if (argLabels == null && cc.constructor() != null) {
+                    // the container ride-along, argument position (the fluent-copy constructor)
+                    argLabels = containerArgumentLabels(walk, cc.constructor(), i, arg);
+                }
                 if (argLabels == null) return null;
                 acc.addAll(argLabels);
             }
@@ -759,7 +787,12 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 receiverCommitted = false;
             } else {
                 Set<String> receiver = commitLabels(walk, mc.object(), ctx, depth);
-                if (receiver == null) return null;
+                if (receiver == null) {
+                    // the container ride-along: a qualifying READ on a final container field of committable
+                    // content commits after the field's label, even though the bare wrapper value does not
+                    receiver = containerReadThroughLabels(walk, mc);
+                    if (receiver == null) return null;
+                }
                 if (receiver.isEmpty()) {
                     // the receiver is not root-derived; neither is anything obtained from it -- only the
                     // arguments still need committing
@@ -931,7 +964,12 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         for (int i = 0; i < args.size(); i++) {
             Expression arg = args.get(i);
             Set<String> argLabels = commitLabels(walk, arg, ctx, depth);
-            if (argLabels == null) return null;
+            if (argLabels == null) {
+                // the container ride-along, argument position: the bare wrapper handed to a callee that
+                // provably neither mutates nor accessibly retains it
+                argLabels = containerArgumentLabels(walk, mc.methodInfo(), i, arg);
+                if (argLabels == null) return null;
+            }
             acc.addAll(argLabels);
             if (arg instanceof VariableExpression ve && walk.isRoot(ve.variable())) {
                 Set<String> eup = calleeParameterAfterLabels(mc.methodInfo(), i);
@@ -971,11 +1009,15 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
 
     /** Every label names an own field of the root's type holding committable content -- the receiver-labels
      *  rule: committing those fields on the argument commits, by the §060 ride-along, the content the callee
-     *  reads through them. */
+     *  reads through them. A container-ride-along label qualifies too: what callees read through the stable
+     *  wrapper is its (committable) element content. */
     private boolean labelsCommittableOnRoot(WalkRoot walk, Set<String> labels) {
         for (String label : labels) {
             FieldInfo fieldInfo = walk.labelType().getFieldByName(label, false);
-            if (fieldInfo == null || !fieldHoldsCommittableContent(fieldInfo)) return false;
+            if (fieldInfo == null
+                || !(fieldHoldsCommittableContent(fieldInfo) || containerContentCommittable(fieldInfo))) {
+                return false;
+            }
         }
         return true;
     }
@@ -1200,7 +1242,9 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * A field whose content becomes immutable after the mark on it: it is itself of eventually immutable type
      * (or a cluster candidate under the gate), or an immutable single-indirection wrapper ({@code Either},
      * {@code Option}) of such content -- once the wrapped object is committed, reads through the wrapper cannot
-     * modify anything.
+     * modify anything. A MUTABLE container of committable content deliberately does NOT qualify here: its
+     * wrapper layer never commits, so the bare value is never safe to hand out -- the weaker, per-read
+     * container ride-along lives in {@link #containerReadThroughLabels}.
      */
     private boolean fieldHoldsCommittableContent(FieldInfo fieldInfo) {
         // the member leaning on the field's type is the type that declares the field
@@ -1214,6 +1258,207 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             if (argType != null && isEventuallyImmutableFieldType(member, argType)) return true;
         }
         return false;
+    }
+
+    // positive cache only: wrapper stability becomes provable monotonically as callee verdicts decide
+    private final Set<FieldInfo> wrapperStableCache = ConcurrentHashMap.newKeySet();
+
+    /**
+     * EVENTUALCLUSTER: the <b>container ride-along</b> (spec-eventually-unmodified-parameter §8.3 item 1),
+     * the §060 ride-along one indirection deeper, granted PER READ rather than at the field level: a call on
+     * a root-scoped final container field of committable content ({@code children.get(0)},
+     * {@code parameters.stream()}) commits after the field's label -- once the elements commit, the read
+     * cannot hand on anything modifiable. Soundness is carried by three conditions the strong field rule
+     * does not need, because a mutable wrapper never commits:
+     * <ul>
+     * <li>the read is non-modifying AND not {@code @Dependent} -- a dependent view ({@code iterator()},
+     *     {@code subList()}) shares the wrapper's accessible layer and could mutate it downstream;</li>
+     * <li>{@link #ownerNeverMutatesWrapper}: no own non-construction code calls a modifying method directly
+     *     on the field (construction-phase fills are the fresh object's lifecycle). Aliased mutation needs
+     *     the bare wrapper value first, which stays non-committable ({@link #fieldHoldsCommittableContent})
+     *     and poisons the aliasing walk instead;</li>
+     * <li>exposure to OUTSIDE mutation remains the type-level analyzers' jurisdiction, as for every
+     *     accessible-content field: the labels minted here reach a verdict only through
+     *     {@code immutableAfterMark}, and cross-type consumers lean on the owner's witnessed,
+     *     contraction-validated verdict.</li>
+     * </ul>
+     * Null when the ride-along does not apply -- the caller bails as before.
+     */
+    private Set<String> containerReadThroughLabels(WalkRoot walk, MethodCall mc) {
+        if (!EventualCluster.ENABLED) return null;
+        if (!(mc.object() instanceof VariableExpression ve)
+            || !(ve.variable() instanceof FieldReference fr)
+            || !walk.scopeIsRoot(fr)) {
+            return null;
+        }
+        if (!isNonModifyingRead(mc.methodInfo())) return null;
+        Value.Independent independent = independentOf(mc.methodInfo());
+        if (independent == null || independent.isDependent()) return null;
+        FieldInfo fieldInfo = fr.fieldInfo();
+        if (!containerContentCommittable(fieldInfo)) return null;
+        return Set.of(fieldInfo.name());
+    }
+
+    /**
+     * The argument-position half of the container ride-along: the bare wrapper VALUE of a qualifying
+     * container field handed to a callee that provably does not mutate it ({@code UNMODIFIED_PARAMETER})
+     * and retains at most its element content (an independent or hc-independent parameter -- hidden content
+     * IS the committable elements), or stores it only into fields that are themselves qualifying containers
+     * (the fluent-copy constructor, {@code new ParameterizedTypeImpl(…, parameters, …)}: the wrapper moves
+     * between owners that never mutate it). Null when it does not apply.
+     */
+    private Set<String> containerArgumentLabels(WalkRoot walk, MethodInfo callee, int index, Expression arg) {
+        if (!EventualCluster.ENABLED) return null;
+        if (!(arg instanceof VariableExpression ve) || !(ve.variable() instanceof FieldReference fr)
+            || !walk.scopeIsRoot(fr)) {
+            return null;
+        }
+        FieldInfo fieldInfo = fr.fieldInfo();
+        if (!containerContentCommittable(fieldInfo)) return null;
+        List<ParameterInfo> parameters = callee.parameters();
+        if (parameters.isEmpty()) return null;
+        ParameterInfo pi = parameters.get(Math.min(index, parameters.size() - 1));
+        if (pi.isVarArgs() && index >= parameters.size() - 1) return null;
+        if (callee.isConstructor()) {
+            // a capturing constructor's parameter reads as modified (the capture joins the fresh object's
+            // initialization graph) and @Dependent even for a defensive copy, so the plain properties cannot
+            // answer the wrapper questions -- the body is asked directly for all three (mutation, onward
+            // handoff, capture target)
+            if (!ctorHandlesWrapperSafely(callee, pi)) return null;
+            return Set.of(fieldInfo.name());
+        }
+        Value.Bool unmodified = pi.analysis().getOrNull(UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.class);
+        if (unmodified == null || unmodified.isFalse()) return null;
+        Value.Independent independent = pi.analysis()
+                .getOrNull(PropertyImpl.INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.class);
+        if (independent != null && !independent.isDependent()) return Set.of(fieldInfo.name());
+        // dependent (or undecided): acceptable only when the retention is into qualifying container fields
+        Value.AssignedToField assigned = pi.analysis()
+                .getOrDefault(PropertyImpl.PARAMETER_ASSIGNED_TO_FIELD, ValueImpl.AssignedToFieldImpl.EMPTY);
+        if (assigned.fields().isEmpty()) return null;
+        for (FieldInfo target : assigned.fields()) {
+            if (!containerContentCommittable(target)) return null;
+        }
+        return Set.of(fieldInfo.name());
+    }
+
+    /**
+     * Does the constructor's body provably handle the wrapper handed in via {@code pi} safely? Three checks,
+     * all syntactic: only non-modifying reads with the parameter as receiver; every onward handoff to an
+     * unmodified, non-dependent callee parameter (a defensive {@code List.copyOf}); and every direct capture
+     * ({@code this.f = pi}, possibly through a ternary) into a field that is itself a qualifying container
+     * -- the wrapper then moves between owners that never mutate it. An alias into a local is refused.
+     */
+    private boolean ctorHandlesWrapperSafely(MethodInfo constructor, ParameterInfo pi) {
+        if (constructor.methodBody().isEmpty()) return false;
+        boolean[] bad = {false};
+        constructor.methodBody().visit(e -> {
+            if (bad[0]) return false;
+            if (e instanceof MethodCall mc) {
+                if (isParameter(mc.object(), pi) && !isNonModifyingRead(mc.methodInfo())) {
+                    bad[0] = true;
+                    return false;
+                }
+                List<Expression> args = mc.parameterExpressions();
+                for (int i = 0; i < args.size(); i++) {
+                    if (!isParameter(args.get(i), pi)) continue;
+                    List<ParameterInfo> calleeParams = mc.methodInfo().parameters();
+                    ParameterInfo cpi = calleeParams.isEmpty() ? null
+                            : calleeParams.get(Math.min(i, calleeParams.size() - 1));
+                    Value.Bool unmod = cpi == null ? null
+                            : cpi.analysis().getOrNull(UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.class);
+                    Value.Independent ind = cpi == null ? null
+                            : cpi.analysis().getOrNull(PropertyImpl.INDEPENDENT_PARAMETER,
+                            ValueImpl.IndependentImpl.class);
+                    if (unmod == null || unmod.isFalse() || ind == null || ind.isDependent()) {
+                        bad[0] = true;
+                        return false;
+                    }
+                }
+            } else if (e instanceof ConstructorCall cc
+                       && cc.parameterExpressions().stream().anyMatch(arg -> isParameter(arg, pi))) {
+                bad[0] = true; // nested capture: conservative
+                return false;
+            } else if (e instanceof MethodReference mr
+                       && isParameter(mr.scope(), pi) && !isNonModifyingRead(mr.methodInfo())) {
+                bad[0] = true;
+                return false;
+            } else if (e instanceof Assignment a && assignsParameter(a.value(), pi)) {
+                if (!(a.variableTarget() instanceof FieldReference fr)
+                    || !containerContentCommittable(fr.fieldInfo())) {
+                    bad[0] = true;
+                    return false;
+                }
+            }
+            return true;
+        });
+        return !bad[0];
+    }
+
+    private static boolean isParameter(Expression expression, ParameterInfo pi) {
+        return expression instanceof VariableExpression ve && pi.equals(ve.variable());
+    }
+
+    /** Is the bare parameter (possibly behind casts, parentheses, or one of a ternary's branches) the value
+     *  being assigned? Nested occurrences inside calls are the call scans' business, not a capture. */
+    private static boolean assignsParameter(Expression value, ParameterInfo pi) {
+        if (value == null) return false;
+        if (isParameter(value, pi)) return true;
+        if (value instanceof Cast cast) return assignsParameter(cast.expression(), pi);
+        if (value instanceof EnclosedExpression enclosed) return assignsParameter(enclosed.inner(), pi);
+        if (value instanceof InlineConditional inline) {
+            return assignsParameter(inline.ifTrue(), pi) || assignsParameter(inline.ifFalse(), pi);
+        }
+        return false;
+    }
+
+    /** The field-level half of the container ride-along: final, arrays-free, every type parameter
+     *  committable, wrapper provably never mutated by the owner. The per-read half (non-modifying,
+     *  non-dependent callee) is {@link #containerReadThroughLabels}'s. */
+    private boolean containerContentCommittable(FieldInfo fieldInfo) {
+        return EventualCluster.ENABLED
+               && fieldInfo.type().arrays() == 0 // array content stays rebindable whatever the element type
+               && fieldInfo.analysis().getOrDefault(FINAL_FIELD, ValueImpl.BoolImpl.FALSE).isTrue()
+               && typeParametersHoldCommittableContent(fieldInfo.owner(), fieldInfo.type())
+               && ownerNeverMutatesWrapper(fieldInfo);
+    }
+
+    /**
+     * Does the owner's non-construction code provably never mutate the wrapper object held in
+     * {@code fieldInfo}? Syntactic scan: no modifying (or still-undecided) call, and no method reference to
+     * one, with the field itself as receiver -- on ANY instance ({@code other.pool.add} breaks the promise
+     * for the whole class). Constructors are excluded on purpose: a construction-phase fill belongs to the
+     * fresh object's lifecycle, before any commitment is observable.
+     */
+    private boolean ownerNeverMutatesWrapper(FieldInfo fieldInfo) {
+        if (wrapperStableCache.contains(fieldInfo)) return true;
+        boolean[] mutated = {false};
+        for (MethodInfo methodInfo : fieldInfo.owner().methods()) {
+            if (mutated[0]) break;
+            if (methodInfo.methodBody().isEmpty()) continue;
+            methodInfo.methodBody().visit(e -> {
+                if (mutated[0]) return false;
+                if (e instanceof MethodCall mc && receiverIsField(mc.object(), fieldInfo)
+                    && !isNonModifyingRead(mc.methodInfo())) {
+                    mutated[0] = true;
+                    return false;
+                }
+                if (e instanceof MethodReference mr && receiverIsField(mr.scope(), fieldInfo)
+                    && !isNonModifyingRead(mr.methodInfo())) {
+                    mutated[0] = true;
+                    return false;
+                }
+                return true;
+            });
+        }
+        if (mutated[0]) return false;
+        wrapperStableCache.add(fieldInfo);
+        return true;
+    }
+
+    private static boolean receiverIsField(Expression object, FieldInfo fieldInfo) {
+        return object instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
+               && fr.fieldInfo().equals(fieldInfo);
     }
 
     /** {@code IMMUTABLE_TYPE}, with the {@link ContractReader} fallback for a jar type whose contract was never

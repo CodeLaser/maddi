@@ -233,3 +233,78 @@ modifying-unlabeled methods, which are new shapes, each a designed-mechanism dec
 bodies run through `OutputBuilder` chains and the printer interfaces (`TypePrinter`,
 `MethodPrinter`), and mostly hit shape 1/2 again. eup is a necessary ingredient (it closed the
 static-helper hop) but not sufficient for the print union.
+
+---
+
+## 9. §8.3 item 1 IMPLEMENTED — the container ride-along (2026-07-23, same day)
+
+### 9.1 The mechanism (all gated `EVENTUALCLUSTER`)
+
+The §060 ride-along one indirection deeper, granted **per site** rather than at the field level,
+because a mutable wrapper never commits and its bare value is never safe to hand out
+(`fieldHoldsCommittableContent` stays strong-only — that refusal is what poisons wrapper-aliasing
+locals):
+
+- **Read position** (`containerReadThroughLabels`): a call on a root-scoped final container field
+  of committable content (`children.get(0)`, `parameters.stream()`) commits after the field's
+  label, provided the read is non-modifying AND not `@Dependent` (an `iterator()`/`subList()` view
+  shares the wrapper's accessible layer and could mutate it downstream), and
+  `ownerNeverMutatesWrapper` holds: no own non-construction code calls a modifying method (or
+  holds a method reference to one) with the field as receiver, on any instance. `UNMODIFIED_FIELD`
+  cannot serve here — it is deep, and the pre-mark element modification being excused is exactly
+  what makes it FALSE.
+- **Argument position** (`containerArgumentLabels`): the bare wrapper handed to a callee that
+  provably does not mutate it (`UNMODIFIED_PARAMETER`) and retains at most element content
+  (independent/hc parameter), or — `@Dependent` — stores it only into fields that are themselves
+  qualifying containers. For CONSTRUCTORS the plain properties cannot answer (a capturing ctor's
+  parameter reads modified and `@Dependent` even for a defensive copy), so
+  `ctorHandlesWrapperSafely` asks the body directly: non-modifying reads only, onward handoffs to
+  unmodified+non-dependent parameters (`List.copyOf`), direct captures only into qualifying
+  container fields; a local alias refuses.
+- **ConstructorCall sites now visited**: the enm and eup walk visitors excuse `ConstructorCall`
+  nodes with the full `commitLabels` value discipline (previously they were ignored entirely — a
+  genuine capture hole: `new Foo(this.mutableThing)` cost nothing). This is the one
+  strictness-increasing edge of the round.
+- Consumption composes: `labelsCommittableOnRoot` accepts container labels
+  (`containerContentCommittable`), so eup labels naming container fields translate at bare-this
+  sites.
+
+Unit pins in `TestCommitLabels` (`INPUT_CONTAINER`): `firstSize=[children]`,
+`copyish=[children, inspection]` (ctor handoff via `List.copyOf`), `rawAppend=∅` (mutable element
+type), `poolFirstSize=∅` (owner mutates the wrapper), gate-off dormant.
+
+### 9.2 Measured outcome (composed dogfood; run-to-run FPDUMP noise ~28-30 lines applies)
+
+| metric | `6ebb7225` baseline | + eup (§8) | + container ride-along |
+|---|---|---|---|
+| enm-labeled methods | 548 | 567 | **663** |
+| eup-labeled parameters | – | 265 | 311 |
+| modifying-unlabeled | 1382 | 1365 | **1273** |
+| survivors | 5 | 5 | **6** |
+| retracted | 63 | 63 | 66 |
+
+- `ParameterizedTypeImpl.typesReferenced = [parameters, typeInfo, typeParameter]` — the §8.3-1
+  flagship; `replaceByTypeBounds`/`withNullable` excused via the argument-position rule; the only
+  remaining FALSE-unlabeled members of `ParameterizedTypeImpl` are its constructor and an
+  anonymous supplier. **`ParameterizedTypeImpl` forms its own eventual verdict for the first
+  time** — the contraction then retracts it on its lean on the `MethodInfo` INTERFACE
+  (`ECRETRACT … <- broken: [api.info.MethodInfo]`): the frontier has moved from method excusal to
+  the interface clique.
+- Survivors 6: `Element.TypeReference` + `ElementImpl.TypeReference` join;
+  `ParameterizedTypePrinter.TypeAndParameters` drops out by pure cascade this run (empty broken
+  list — survivor-set churn at the margin is within the known run-to-run envelope).
+- vs the certified baseline: enm **+122 / −7**; the 7 losses (`*Impl.rewire` ×5,
+  `InlineConditional(Impl).Builder.build` ×2) are labels that rested on ConstructorCall sites
+  being invisible — honest corrections, same class as §8.2's stale unions.
+- Retraction 63→66: MORE optimistic verdicts now form before the interface clique kills them —
+  movement toward the endgame, not away.
+
+### 9.3 The next front, measured
+
+Root broken candidates by lean count (never form a verdict; `EC_RETRACT_DEBUG` on the composed
+run): `api.info.MethodInfo` 19, `ExpressionImpl` 19, `Element` 9, `TypeInfoImpl` 8,
+`StatementImpl` 8, `ParameterInfo.Builder` 7, `VariableImpl` 6, plus the Builder interfaces and
+the long tail of expression/statement interfaces. Breadth work: each needs its remaining
+modifying-unlabeled methods excused (`rewire`/`translate`/print families — shapes 1–3 again, plus
+the noted look-through gap for CONCRETE superclass-declared accessors like `StatementImpl
+.comments()`, which neither the same-class inline nor the abstract bridge covers today).
