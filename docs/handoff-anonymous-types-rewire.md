@@ -1,6 +1,6 @@
 # Handoff — anonymous types are never registered in the rewire `InfoMap`
 
-**Status:** diagnosed, not fixed. **Date:** 2026-07-23.
+**Status:** fixed (2026-07-23, see §10). **Diagnosed:** 2026-07-23.
 **Scope:** `maddi-cst-impl` (`TypeInfoImpl.rewirePhase0/1`, `InfoMapImpl`), with the symptom surfacing in
 the refactor service's Tier 2 incremental reparse.
 **Companions:** [`rewiring.md`](rewiring.md) (parser-level reload/rewire),
@@ -140,7 +140,36 @@ their `typeInfo`/`methodInfo` siblings already had, plus owner and primary type.
 behaviour change. It is what turned an unattributed `NullPointerException` into a named member in a
 single run, and it is worth keeping whichever way the fix goes.
 
-## 9. Separately observed, not diagnosed
+## 9. Resolution
+
+Fixed in `InfoMapImpl` by making the strict lookups recover instead of failing, keeping the existing lazy
+design (anonymous types stay out of the structural phases). Two recovery routes, one per root cause the
+diagnosis turned up:
+
+- **Rebuilt (rescanned) owner — the dominant production trigger.** `seed` maps a rebuilt primary's members
+  onto themselves but never walks its anonymous types, so carrying a re-scanned sibling's analysis through an
+  anonymous member missed the map. A rebuilt object *is* the new object, so `typeInfo`/`methodInfo`/
+  `fieldInfo`/`parameterInfo` now return the argument unchanged (identity) when the owner's primary type is
+  rebuilt (`isRebuilt`: present in the map but not in `toRewire`). This is the §5 "seed looks vulnerable"
+  path, and it is what the fernflower run (200 rescanned types) actually hit.
+- **Rewired owner.** For a type we rewire, the anonymous owner is registered on demand via
+  `typeInfoRecurseAllPhases` (`registerAnonymousOnDemand`), which is idempotent and — after a small change to
+  resolve its enclosing type recursively — walks the enclosing chain so nested anonymous types resolve too.
+  Defensive against any ordering race the per-primary phase-3 sequencing could still create (a carried value
+  naming an anonymous member in a type whose body has not yet been rewired).
+
+`typeInfoNullIfAbsent` is deliberately left strict (it is the "is this being rewired?" probe used in
+assertions). The soundness question §6 raised — can a carried link legitimately outlive the anonymous type it
+names — is answered by construction: we never hand back a stale object; we register (or, for rebuilt types,
+identity-map onto) the live one.
+
+**Regression test:** `TestRewireAnonymousType` in `maddi-run-openjdk`, next to the early-cutoff tests.
+Deterministic, no fixture-resolution problems (the §4 abandoned-fixture trap): it reproduces the seed crash
+directly at the `InfoMap` level — a rebuilt type's anonymous member looked up through a seeded map (NPE
+"Cannot find a.T.$0.get()" before the fix, identity after) — and checks a full rewire still resolves
+anonymous members to fresh copies. Confirmed red before / green after.
+
+## 10. Separately observed, not diagnosed
 
 On the incremental path only (zero occurrences on a cold run of the same sources), the analyzer logs
 `TolerantWrite - Keeping immutableType=@FinalFields, refusing downgrade to @Mutable` — 24 times over 5
