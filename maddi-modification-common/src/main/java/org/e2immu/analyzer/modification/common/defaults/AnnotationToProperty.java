@@ -182,10 +182,10 @@ class AnnotationToProperty {
                 }
             } else if (NotModified.class.getCanonicalName().equals(fqn)) {
                 String after = isAbsent ? "" : ae.extractString("after", "");
-                if (!after.isBlank() && info instanceof MethodInfo) {
-                    // eventual non-modification: the method modifies BEFORE the mark (a lazy-loading getter
-                    // effects the transition), and is non-modifying only after it. Record the honest
-                    // unconditional floor (it does modify) plus the after-label; do NOT claim @NotModified.
+                if (!after.isBlank() && (info instanceof MethodInfo || info instanceof ParameterInfo)) {
+                    // eventual non-modification: the method modifies (the receiver resp. the argument) BEFORE
+                    // the mark, and no longer after it. Record the honest unconditional floor (it does modify)
+                    // plus the after-label; do NOT claim @NotModified.
                     unmodified = FALSE;
                     notModifiedAfter = after;
                 } else {
@@ -348,6 +348,10 @@ class AnnotationToProperty {
             if (unmodified != null) map.put(PropertyImpl.UNMODIFIED_PARAMETER, unmodified);
             if (ignoreModifications != null) map.put(PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER, ignoreModifications);
             if (eventual != null) map.put(PropertyImpl.EVENTUAL_PARAMETER, eventual);
+            if (notModifiedAfter != null && !notModifiedAfter.isBlank()) {
+                map.put(PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER,
+                        new ValueImpl.SetOfStringsImpl(ValueImpl.EventualImpl.labelToFields(notModifiedAfter)));
+            }
             return map;
         }
         throw new UnsupportedOperationException();
