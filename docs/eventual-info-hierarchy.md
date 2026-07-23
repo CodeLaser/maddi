@@ -1259,3 +1259,84 @@ canonical baseline, langchain4j A/B byte-identical, timefold identical modulo a 
 same-code run-to-run flake (two B-runs differ by 6 lines among `testdomain.*Solution` independence
 verdicts; the flipping set wanders). Composed dogfood determinism: 22 diff lines, all within the
 documented QualifiedNameImpl/SymbolEnum flake set; the eventual layer 0-diff.
+
+## The print quest (2026-07-24, continued): Element.print lands -- the opaque sink + the wrapper-capture fold
+
+The 51 unlabeled print methods decoded into two mechanisms, and both landed:
+
+1. **The opaque sink** (`contentTypeHarmless`, gated): the printer pipeline's chains hand on
+   `Stream<OutputBuilder>` / `OutputBuilder` values, and `handedOnValueSafe` refused them --
+   `OutputBuilder` is a genuinely mutable builder. But it is a mutable builder of `OutputElement`s,
+   which the analyzer itself certifies `@Immutable(hc=true)`, and its entire method surface exposes
+   only elements, Strings, primitives and itself: NOTHING root-typed can be stored into or read out
+   of one. Reachability, not commitment, is what the gauntlet protects -- a value through which the
+   root provably cannot be reached is safe to hand on. Implemented as `contentTypeHarmless`
+   (primitives; immutables; immutable-hc with harmless parameters; shallow containers with harmless
+   parameters; interfaces with an entirely-harmless signature -- `signatureOpaque`, cached in the
+   cluster and reset at rederivation, since it derives from IMMUTABLE_TYPE). One clause in
+   `returnTypeHoldsCommittableContent` + one in `typeParametersHoldCommittableContent`.
+   **+45 enm at once**: the whole printer family (`TypePrinterImpl.print`=[typeInfo] x3,
+   `MethodPrinterImpl.print`=[methodInfo, typeInfo], `FieldPrinterImpl.print`=[fieldInfo]).
+2. **The wrapper-capture fold** (`wrapperCaptureLabels`, gated): `TypeInfoImpl.print` is
+   `new TypePrinterImpl(this, false).print(...)` -- a modifying call on a fresh wrapper whose ctor
+   captured bare `this`, which the freshness shortcut excused with ∅ (the residual ∅-gap, wrapper
+   edition). The wrapper method's own enm labels name the wrapper's fields; translate each through
+   the constructor's capture map (computed syntactically, `this.f = pi` -- the
+   PARAMETER_ASSIGNED_TO_FIELD property is not reliably present): a bare-root capture owes the
+   ROOT'S FULL COMMITMENT (`rootCommitmentLabels`: every field committable -> its label, or
+   reachability-harmless / disclaimed -> nothing, or the promise fails -- committability checked
+   FIRST, before harmlessness, so lenient shallow verdicts on transition carriers cannot swallow
+   their labels: the unit pin caught exactly that ordering bug); any other captured expression owes
+   its own commit labels; non-captured labels are fresh-owned, vacuous. The fold only ever ADDS.
+
+Outcome: **the abstract `Element.print(Qualification)` union LANDS** (47 labels) -- the fourth
+flagship union -- and ZERO unlabeled print methods remain. `TypeInfo` left the retraction-root
+ranking entirely (was the top root at 38); remaining roots: MethodInfo 37, Comment 31, Runtime 21,
+Element 21, Block 18. Scoreboard: enm 866 -> 920, eup 361 -> 392, retractions 162, survivors 1.
+Diagnostics kept (gated): the enm guard prints (eventual/nonModifying early exits), the
+excuse-position transition-bail print, the wrapper-fold print. Validation: 19/19 TestCommitLabels
+(INPUT_WRAPPER pin -- discriminating via a second committable field, since the aapi-less plain layer
+does not trace modification through captures; opaque sink corpus-validated per the NOTE precedent);
+gate-off Fernflower identical modulo the documented ctor flake; composed determinism -- eventual
+layer 0-diff, plain diffs within the known flake family (two adjacent members observed:
+`Value.AssignedToField`/`AssignedToFieldImpl`).
+
+## The flagship convergence, round 1 (2026-07-24, continued): survivors 1 -> 42
+
+The remaining retraction roots (MethodInfo 37, Comment 31, Runtime 21, Element 21, Block 18) decoded
+into three mechanisms; the third was a one-line semantic bug with outsized reach.
+
+1. **The bare-root-argument commitment fold** (`commitArguments`, gated): the arg-position sibling of
+   the wrapper-capture fold. `ParameterInfoImpl.rewire` is `return infoMap.parameterInfo(this);` --
+   bare `this` handed to a plainly-modified parameter carrying NO eup promise was ∅-excused by the
+   self-assumption. It now owes the ROOT'S FULL COMMITMENT (`rootCommitmentLabels`); only ever adds.
+   `ParameterInfoImpl.rewire` = [inspection, methodInfo, parameterizedType] -> **the abstract
+   `Element.rewire` union LANDS (63 labels, the fifth flagship union)** -> `Element.print`'s sibling
+   完成 -> `Element` reaches `immutableAfterMark=@Immutable(hc=true)` (excusedM=13) and FORMS. The
+   existing `bailBareThis` pin updated: [peer] -> [inspection, peer], the honest named promise.
+2. **Part B -- super -> markless member label inheritance** (`computeTypeLevel`, gated): the downward
+   interface closure at VERDICT level, and its class twin. A markless cluster member (`Comment`;
+   `SingleLineCommentImpl`, a value object of Strings) has no transition of its own -- its only
+   blocker is the hierarchy, whose promise is the object's, not one type's. Inherit every eventual
+   supertype's labels (witnessed treatAs for the still-circular ones); soundness rests on
+   `immutableAfterMark` still checking the member's own fields and methods in full.
+3. **The degenerate AfterMark bug**: an inherited-marks type has EMPTY excused sets, and
+   `AfterMark(∅,∅).isNone()` read as NONE -- the entire after-mark relaxation silently degraded to
+   the unconditional path, letting the plain-@FinalFields super sink the member through the
+   `isMutable(@FinalFields)` hierarchy exit. The record gained an `inheritedMarks` component
+   (compat 2-arg constructor keeps every off-gate caller identical); the gated flow passes
+   `EventualCluster.ENABLED`. This was the dam: with it, `Comment` formed on its inherited labels,
+   the Element<->Comment mutual cycle closed inside the greatest fixpoint, and the whole
+   comment/module/expression/variable interface universe survived the contraction.
+
+**Survivors 1 -> 42**: the Comment family (Comment, SingleLineComment, MultiLineComment, JavaDoc,
+ImportStatement, ModuleInfo.Exports/Opens/Requires + impls), the expression interfaces
+(BinaryOperator, And, Or, Cast, ConstantExpression, InlineConditional, InstanceOf, MethodReference,
+Numeric, TypeExpression, UnaryOperator, Instance...), the variable interfaces (FieldReference, This,
+DependentVariable), CompilationUnit(+Stub, @FinalFields(after)), the CompilationUnitPrinter pair,
+TextBlockFormattingImpl. The flagship Impl family and the api.info interfaces still form-and-retract
+-- the next frontier (their ledger: MethodInfo, ParameterInfo, Runtime, java.util.Set, the statement
+interfaces). Scoreboard: enm 924, eup 398. Validation: 21/21 TestCommitLabels (INPUT_MARKLESS pin;
+the harness NOTE for sub-interfaces adding unimplemented abstract methods); gate-off Fernflower
+identical modulo the documented ctor flake; composed determinism -- eventual layer 0-diff,
+survivors 42 = 42 across runs.

@@ -341,6 +341,60 @@ public class TestCommitLabels extends CommonTest {
         }
     }
 
+    // Part B of the flagship-convergence round: the downward interface closure at VERDICT level. A
+    // markless sub-interface with no methods of its own (the Comment shape) inherits the super's
+    // eventual labels; its own (empty) field/method checks still run in full via immutableAfterMark.
+    // NOTE: a sub-interface ADDING abstract methods without analyzed implementations stays undecided
+    // in the harness (NON_MODIFYING never lands for them) -- the dogfood covers that case.
+    @Language("java")
+    private static final String INPUT_MARKLESS = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class P {
+              interface E { int size(); }
+              interface Marker extends E { }
+              static class T implements E {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                @Override public int size() { return inspection.get().length(); }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: a markless sub-interface inherits the super's eventual verdict")
+    @Test
+    public void testMarklessInterface() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo P = javaInspector.parse("P", INPUT_MARKLESS);
+            analyzer.go(prepWork(P));
+            var eEv = P.findSubType("E").analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                    ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+            assertTrue(eEv.isEventual(), "E carries the abstract enm union -> eventual");
+            var markerEv = P.findSubType("Marker").analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                    ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+            assertTrue(markerEv.isEventual(), "markless Marker inherits E's verdict labels");
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: neither interface forms")
+    @Test
+    public void testMarklessInterfaceGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo P = javaInspector.parse("P", INPUT_MARKLESS);
+            analyzer.go(prepWork(P));
+            assertFalse(P.findSubType("Marker").analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                    ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL).isEventual());
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
     @DisplayName("gate off: the breadth shapes stay unexcused")
     @Test
     public void testBreadthGateOff() {
@@ -522,8 +576,10 @@ public class TestCommitLabels extends CommonTest {
             assertEquals(Set.of("inspection"), nonModAfter(T, "len", 0));
             // peer.same(this): bare this handed out IS excusable for a cluster-candidate owner (post-marks it
             // is committed; the self-assumption is witnessed and the contraction validates) -- the receiver
-            // field contributes its label
-            assertEquals(Set.of("peer"), nonModAfter(T, "bailBareThis", 0));
+            // field contributes its label, and the bare-root-argument commitment fold (flagship-convergence
+            // round) now NAMES this's own commitment too: the callee plainly modifies the argument, so the
+            // honest promise is "after peer AND after this's own inspection"
+            assertEquals(Set.of("inspection", "peer"), nonModAfter(T, "bailBareThis", 0));
             // items.add: a plain mutable field is not committed by any mark
             assertEquals(Set.of(), nonModAfter(T, "bailMutableField", 0));
             // l = items; l.add(x): the local aliases the mutable field -- must NOT be excused even though the
@@ -674,6 +730,72 @@ public class TestCommitLabels extends CommonTest {
             // eventually-non-modifying, so fqn() is plainly modifying ONLY through size()'s pre-mark reads
             // -- the enm walk excuses it after [inspection]
             assertEquals(Set.of("inspection"), nonModAfter(T, "fqn", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    // the TypeInfoImpl.print shape: 'new TypePrinterImpl(this, ..).print(..)' -- a modifying call on a
+    // fresh wrapper whose constructor captured bare this. The wrapper method's own enm labels (its capture
+    // field) translate through the constructor's capture map to the ROOT'S full commitment
+    // (rootCommitmentLabels). NOTE: the opaque-sink clause (contentTypeHarmless -- the OutputBuilder shape)
+    // is corpus-validated only: the aapi-less harness shallow-defaults the JDK stream/collector types too
+    // leniently for a discriminating fixture.
+    @Language("java")
+    private static final String INPUT_WRAPPER = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class W {
+              static class T {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                private final EventuallyFinalOnDemand<String> data = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                public void commitData(String s) { data.setFinal(s); }
+                public int size() { return inspection.get().length(); }
+                // the direct site supplies [inspection]; the wrapper fold supplies the root's FULL
+                // commitment [data, inspection] -- the plainly-modifying size() call is needed because the
+                // aapi-less plain layer does not trace modification through the capture on its own
+                public int viaWrapper() { int a = size(); return a + new Wr(this).run(); }
+              }
+              static class Wr {
+                private final T t;
+                Wr(T t) { this.t = t; }
+                public int run() { return t.size(); }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: the wrapper-capture fold translates the wrapper's enm to the root's commitment")
+    @Test
+    public void testWrapperCapture() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo W = javaInspector.parse("W", INPUT_WRAPPER);
+            analyzer.go(prepWork(W));
+            // the wrapper's own promise: run() is non-modifying once its captured 't' commits
+            assertEquals(Set.of("t"), nonModAfter(W.findSubType("Wr"), "run", 0));
+            // the fold: 't' captured bare this, so the caller owes this's own FULL commitment
+            // [data, inspection] -- without the fold, only the direct site's [inspection] would land
+            assertEquals(Set.of("data", "inspection"), nonModAfter(W.findSubType("T"), "viaWrapper", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: the wrapper's own field read still lands (legacy route); the fold does not")
+    @Test
+    public void testWrapperCaptureGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo W = javaInspector.parse("W", INPUT_WRAPPER);
+            analyzer.go(prepWork(W));
+            // t.size(): the pre-cluster receiverAfterLabels route -- T is eventually immutable by its own
+            // mark, so the committable field read excuses off the gate too
+            assertEquals(Set.of("t"), nonModAfter(W.findSubType("Wr"), "run", 0));
+            // but the wrapper-capture fold is gated: the ∅-excused capture stays ∅
+            assertEquals(Set.of(), nonModAfter(W.findSubType("T"), "viaWrapper", 0));
         } finally {
             EventualCluster.ENABLED = saved;
         }
