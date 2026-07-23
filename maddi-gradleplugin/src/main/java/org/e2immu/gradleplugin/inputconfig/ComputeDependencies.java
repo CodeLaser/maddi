@@ -47,6 +47,16 @@ public class ComputeDependencies {
 
         LOGGER.info(" -- now recursing for source sets");
         recursionForSourceSets(builder, result, seen, jmodsAndExternalToMain);
+
+        // the edges AMONG source projects (cst-analysis/main -> cst-api/main): the recursion above only wired the
+        // consuming project to each of its dependency projects, not those dependency projects to one another
+        result.sourceProjectEdges().forEach((from, tos) -> {
+            String fromMain = from + "/main";
+            for (String to : tos) {
+                LOGGER.info("Adding SRC->SRC (transitive) {} -> {}", fromMain, to + "/main");
+                builder.add(fromMain, List.of(to + "/main"));
+            }
+        });
         return builder.build();
     }
 

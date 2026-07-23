@@ -48,6 +48,22 @@ public interface SourceSet {
     String name();
 
     /**
+     * Returns the identity of the build unit (Maven module, Gradle subproject, Bazel target, ...) that this
+     * source set belongs to, or {@code null} when the importer could not determine it.
+     * <p>
+     * Multiple source sets share a build unit: typically a {@code main} and a {@code test} set, sometimes more.
+     * The value is opaque, but must be unique across the build: importers use a fully qualified identifier
+     * (Maven {@code groupId:artifactId}, Gradle's project path, Bazel's label), <em>not</em> a leaf directory
+     * name. The leaf name is not unique, which is precisely why {@link #name()} cannot serve this purpose.
+     * <p>
+     * Note that this value plays no role in {@code equals}/{@code hashCode}: source sets are identified by
+     * their {@link #name()} throughout the system, including in serialized dependency references.
+     */
+    default String buildUnit() {
+        return null;
+    }
+
+    /**
      * If this source set represents sources, this path points to a directory structure that contain the sources.
      * In the case of Java, the directory structure must be compatible with the package of the compilation unit.
      * <p>
@@ -118,7 +134,20 @@ public interface SourceSet {
     /**
      * Returns a set of package name prefixes to which inspection of this source set is restricted.
      * An empty set means no restriction (all packages are inspected).
+     *
+     * @deprecated <b>Legacy; do not use in new code, and prefer removing it from existing
+     * configurations.</b> Package restriction dates from the hand-written parser, which could not yet
+     * process arbitrary code and needed a way to be pointed at the part it could manage. The current front
+     * ends have no such limitation, so the option now buys nothing but trouble.
+     * <p>
+     * Concretely, it is <em>fatal on any modular project</em>. A restriction makes
+     * {@code JavaInspectorImpl} place the source roots on javac's {@code SOURCE_PATH}; javac finds the
+     * {@code module-info.java} there and compiles it implicitly, even though {@code ParseOptions.ignoreModule}
+     * had deliberately excluded it from the compilation units. The compilation becomes a named module,
+     * everything on the class path lands in the unnamed module, and every cross-module reference fails with
+     * "package X does not exist". See {@code dogfood/README.md}.
      */
+    @Deprecated
     default Set<String> restrictToPackages() {
         return Set.of();
     }

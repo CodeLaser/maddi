@@ -1,0 +1,81 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same branch supersedes an in-flight run.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build + fast tests (JDK ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ['26']
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # No Gradle toolchain is declared, so the build runs on whatever JAVA_HOME provides.
+      # Development happens on JDK 26; the openjdk front end reaches into jdk.compiler
+      # internals, so running on an older JDK than the one that built it will not work.
+      # KEEP Temurin. It ships no `jmods/` directory, which makes this the only environment that
+      # actually exercises maddi's runtime-image fallback (JavaInspectorImpl case "jmod" ->
+      # addModuleFromRuntimeImage, via the jrt filesystem). TestRuntimeImageFallback skips itself
+      # whenever a jmods/ dir exists, so on a typical developer JDK it never runs at all.
+      # Confirmed: that test PASSED here on 2026-07-22, its first real execution.
+      # Switching to a jmods-shipping distribution (zulu, oracle, ...) would silence that coverage.
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      # Diagnostic, never fails: makes the jmods question answerable from the log alone,
+      # whichever way the build goes. Remove once CI is settled.
+      - name: Report JDK layout
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME"
+          java -version 2>&1
+          if [ -d "$JAVA_HOME/jmods" ]; then
+            echo "jmods present: $(ls "$JAVA_HOME/jmods" | wc -l) files"
+            ls "$JAVA_HOME/jmods" | head -5
+          else
+            echo "jmods ABSENT at $JAVA_HOME/jmods"
+            ls -la "$JAVA_HOME"
+          fi
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # `build` runs `test`, which excludes @Tag("slow") -- see
+      # buildSrc/src/main/kotlin/java-library-conventions.gradle.kts.
+      #
+      # Do NOT add `slowTest` here. The large-corpus smoke tests need external corpora
+      # (test-oss, testarchive) that do not exist on a runner; without them each test
+      # skips via a JUnit assumption and the job reports a green that proves nothing.
+      # See AGENTS.md "Commands" before changing this.
+      - name: Build and run fast tests
+        run: ./gradlew build --stacktrace
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports-jdk${{ matrix.java }}
+          path: |
+            **/build/reports/tests/**
+            **/build/test-results/**
+          retention-days: 7
+          if-no-files-found: ignore

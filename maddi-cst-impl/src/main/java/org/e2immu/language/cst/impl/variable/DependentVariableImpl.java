@@ -206,12 +206,15 @@ public class DependentVariableImpl extends VariableImpl implements DependentVari
     @Override
     public boolean scopeIsRecursively(Variable variable) {
         if (variable.equals(arrayVariable)) return true;
-        return arrayVariable.scopeIsRecursively(variable);
+        // arrayVariable is null whenever the array expression is not a variable, e.g. map.get(k)[0];
+        // the constructor, variables() and rewire() all treat that as normal, these two did not
+        return arrayVariable != null && arrayVariable.scopeIsRecursively(variable);
     }
 
     @Override
     public Stream<Variable> variableStreamDescendIntoScope() {
-        return Stream.concat(Stream.of(this), arrayVariable.variableStreamDescendIntoScope());
+        return arrayVariable == null ? Stream.of(this)
+                : Stream.concat(Stream.of(this), arrayVariable.variableStreamDescendIntoScope());
     }
 
     @Override

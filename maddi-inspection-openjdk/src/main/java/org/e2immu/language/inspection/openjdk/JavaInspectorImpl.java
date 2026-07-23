@@ -123,6 +123,9 @@ public class JavaInspectorImpl implements JavaInspector {
         }
         openFileManagers.clear();
         lastScanUnits = null;
+        // the lazy getOrLoad path can no longer serve compiled-type misses; tell the CTM to surface them
+        // (log/throw) instead of silently returning null. Re-armed by the next scan (see singleSourceSet).
+        if (compiledTypesManager instanceof CompiledTypesManagerImpl ctm) ctm.setLazyLoaderDisabled(true);
     }
 
     @Override
@@ -320,7 +323,12 @@ public class JavaInspectorImpl implements JavaInspector {
                 }
             }
         }
-        if (toRewire.isEmpty()) return;
+        // Build and expose the map whenever a set was RESCANNED, even with nothing to REWIRE (a single source set,
+        // no cross-set dependents). The map seeds each rebuilt (rescanned) type under itself, and Info equality is
+        // fqn + source-set, so a caller can resolve an OLD (pre-reparse) rescanned type to its new object by fqn --
+        // the basis of the same-source-set analysis carry (docs/analysis-rewiring). Only a no-op reparse (nothing
+        // invalidated, nothing rewired) exposes no map.
+        if (toRewire.isEmpty() && rescanned.isEmpty()) return;
 
         // the types the re-scan just produced. Without them the rewired copies would keep pointing at the objects
         // they replaced -- the very thing REWIRE exists to prevent (see InfoMap).
@@ -328,9 +336,15 @@ public class JavaInspectorImpl implements JavaInspector {
         Set<TypeInfo> rebuilt = rescanned.stream()
                 .flatMap(sourceSet -> afterRescan.getOrDefault(sourceSet, List.of()).stream())
                 .collect(Collectors.toUnmodifiableSet());
+        // newInfoMap seeds the rebuilt types (see InfoMapImpl); rewireAll is a no-op when toRewire is empty, so the
+        // seeded rescanned mappings are all this map carries in the rescan-only case.
         InfoMap infoMap = runtime.newInfoMap(toRewire, rebuilt);
         Set<TypeInfo> rewired = infoMap.rewireAll();
-        this.lastRewireInfoMap = infoMap; // expose the completed map (read-only view) for an outside-reload carry
+        // Handed out only as InfoMapView (read-only lookup facet): the reload consumer can resolve old->new but not
+        // put/rewireAll. The map is complete once built (rebuilt seeded in the ctor; rewireAll fills the rewire
+        // submaps and is not called again), and it is replaced wholesale by the next reparse -- so its lookups are
+        // pure and stable for its lifetime, mapping onto the live CST objects the carry writes analysis onto.
+        this.lastRewireInfoMap = infoMap;
 
         // every type it built, not just the primary ones: subtypes, and the anonymous/local/lambda types phase 3
         // rewires on demand. Registering only the primary types leaves the rest answering with stale objects.
@@ -489,6 +503,8 @@ public class JavaInspectorImpl implements JavaInspector {
             scanned = scanCompilationUnits.scan();
         }
         this.lastScanUnits = scanCompilationUnits; // keep the live task for on-demand getOrLoad
+        // a live task can serve getOrLoad misses again: undo any earlier drop-time disable (see invalidateAllSources)
+        if (compiledTypesManager instanceof CompiledTypesManagerImpl ctm) ctm.setLazyLoaderDisabled(false);
 
         // copy from scanned into summary
         // register the source set so it appears in ParseResult.sourceSetsByName() (mirrors the congocc inspector)

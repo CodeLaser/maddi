@@ -312,14 +312,14 @@ public class Main {
                       + Arrays.toString(InputConfigurationImpl.DEFAULT_MODULES) + "'.").get());
 
         options.addOption(Option.builder().longOpt(SOURCE_PACKAGES).hasArg().argName("PACKAGES")
-                .desc("Restrict the sources parsed to the paths" +
+                .desc("LEGACY, avoid: restrict the sources parsed to the paths" +
                       " specified in the argument. Use ',' to separate paths, or use this option multiple times." +
-                      " Use a dot at the end of a package name to accept sub-packages.").get());
+                      " Use a dot at the end of a package name to accept sub-packages." +
+                      " Dates from the hand-written parser and is fatal on modular projects;" +
+                      " see SourceSet.restrictToPackages().").get());
 
         options.addOption(Option.builder().longOpt(TEST_SOURCE_PACKAGES).hasArg().argName("PACKAGES")
-                .desc("Restrict the test sources parsed to the paths" +
-                      " specified in the argument. Use ',' to separate paths, or use this option multiple times." +
-                      " Use a dot at the end of a package name to accept sub-packages.").get());
+                .desc("LEGACY, avoid: as --" + SOURCE_PACKAGES + ", for test sources.").get());
 
         options.addOption(Option.builder().longOpt(EXCLUDE_FROM_CLASSPATH).hasArg().argName("PATH")
                 .desc("Jar names to be excluded from the classpath, to give priority to others").get());

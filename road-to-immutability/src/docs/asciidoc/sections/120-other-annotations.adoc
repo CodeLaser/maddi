@@ -3,8 +3,76 @@
 The {maddi} project defines a whole host of annotations complementary to the ones required for immutability.
 We discuss them briefly, and refer to the user manual for an in-depth analysis.
 
+[IMPORTANT]
+====
+*Implementation status varies across this chapter.*
+{identity} and {fluent} are **computed** by the analyzer, and are described first for that reason.
+
+Everything after them is **not implemented** at present:
+
+* {nn} / {nullable} and {utilityClass} are read as *contracts* — from explicit annotations and from
+annotated APIs — but are never inferred from your code;
+* {finalizer} is likewise read as a contract, and none of its rules are enforced;
+* {extensionClass} and {singleton} exist in `maddi-support`, but nothing in the analyzer reads them.
+
+Those sections describe the intended design, and are retained because the definitions still hold.
+Do not read them as a description of current behaviour.
+====
+
+[#identity-and-fluent]
+== Identity and fluent methods
+
+The analyzer marks methods which return their first parameter with `@Identity`, and methods which return
+`this` with `@Fluent`.
+The former are convenient to introduce preconditions, the latter occur frequently when chaining methods in builders.
+Here is an integrated example:
+
+.Example {counter:example}, methods marked {identity} and {fluent}
+[source,java]
+----
+@FinalFields(builds=List.class)
+class Builder {
+
+    @NotNull
+    @NotModified
+    @Identity
+    private static <T> T requireNonNull(@NotNull T t) {
+        if(t == null) throw new IllegalArgumentException();
+        return t;
+    }
+
+    private final List<String> list = new ArrayList<>();
+
+    @Modified
+    @Fluent
+    public Builder add(@NotNull String s) {
+        list.add(requireNonNull(s));
+        return this;
+    }
+
+    @Modified
+    @Fluent
+    public Builder add(int i) {
+        list.add(Integer.toString(i));
+        return this;
+    }
+
+    @NotModified
+    @ImmutableContainer
+    public List<String> build() {
+        return List.copyOf(list);
+    }
+
+    public static final Set<String> one23 = new Builder().add(1).add(2).add(3).add("go").build();
+}
+----
+
 [#nullable-section]
 == Nullable, not null
+
+NOTE: *Not implemented.* Not-null values that arrive from explicit annotations or from annotated APIs are
+stored and propagated, but the computational inference described in this section — context not-null, field
+not-null, external not-null — is not part of the analyzer.
 
 Nullability is a standard static code analyzer topic, which we approach from a computational side: the analyzer
 infers where possible, the user adds annotations to abstract methods.
@@ -62,56 +130,11 @@ Note how the map copy is only {nn}, while the entry set is not null, the entries
 and the keys and values are neither.
 There is currently no plan to implement beyond {nnContent}, however.
 
-[#identity-and-fluent]
-== Identity and fluent methods
-
-The analyzer marks methods which return their first parameter with `@Identity`, and methods which return
-`this` with `@Fluent`.
-The former are convenient to introduce preconditions, the latter occur frequently when chaining methods in builders.
-Here is an integrated example:
-
-.Example {counter:example}, methods marked {identity} and {fluent}
-[source,java]
-----
-@FinalFields(builds=List.class)
-class Builder {
-
-    @NotNull
-    @NotModified
-    @Identity
-    private static <T> T requireNonNull(@NotNull T t) {
-        if(t == null) throw new IllegalArgumentException();
-        return t;
-    }
-
-    private final List<String> list = new ArrayList<>();
-
-    @Modified
-    @Fluent
-    public Builder add(@NotNull String s) {
-        list.add(requireNonNull(s));
-        return this;
-    }
-
-    @Modified
-    @Fluent
-    public Builder add(int i) {
-        list.add(Integer.toString(i));
-        return this;
-    }
-
-    @NotModified
-    @ImmutableContainer
-    public List<String> build() {
-        return List.copyOf(list);
-    }
-
-    public static final Set<String> one23 = new Builder().add(1).add(2).add(3).add("go").build();
-}
-----
-
 [#finalizers]
 == Finalizers
+
+NOTE: *Not implemented.* {finalizer} is read as a contract and shown in output, but none of the three rules
+below are enforced by the analyzer.
 
 Up to now, we have focused on the distinction between the building phase of an object's life-cycle, and its
 subsequent immutable phase.
@@ -298,6 +321,9 @@ class Finisher {
 
 == Utility classes
 
+NOTE: *Not implemented.* {utilityClass} is read as a contract, but the analyzer never computes it: the three
+implications below are not checked.
+
 We use the simple and common definition:
 
 ****
@@ -311,6 +337,9 @@ These definitions imply
 . and its static fields (if it has any) are of immutable type.
 
 == Extension classes
+
+NOTE: *Not implemented.* {extensionClass} is defined in `maddi-support`, but no part of the analyzer reads it,
+and the criteria below are not applied.
 
 In Java, many classes cannot be extended easily.
 Implementations of extensions typically use a utility class with the convention that the first parameter of the
@@ -353,16 +382,19 @@ Note that extension classes will often not be {container}, since the first param
 [#singleton-classes]
 == Singleton classes
 
+NOTE: *Not implemented.* {singleton} is defined in `maddi-support`, but no part of the analyzer reads it, and
+neither of the two mechanisms below is currently recognized.
+
 A singleton class is a class which has a mechanism to limit the creation of instances to a maximum of one.
 The term 'singleton' then refers to this unique instance.
 
-The {maddi} analyzer currently recognizes two systems for limiting the number of instances:
+Two systems for limiting the number of instances are intended to be recognized:
 the creation of an instance in a single static field with a static constructor, and a precondition on a constructor
 using a private static boolean field.
 
 An example of the first strategy is:
 
-.Example {counter:example}, first mechanism recognized to enforce a singleton
+.Example {counter:example}, first mechanism to enforce a singleton
 [source,java]
 ----
 @Singleton
@@ -384,7 +416,7 @@ public class SingletonExample {
 
 An example of the second strategy is:
 
-.Example {counter:example}, second mechanism recognized to enforce a singleton
+.Example {counter:example}, second mechanism to enforce a singleton
 [source,java]
 ----
 @Singleton

@@ -29,9 +29,25 @@ public class PropertyImpl implements Property {
             = new PropertyImpl("immutableTypeDeterminedByParameters");
     public static final Property FINAL_TYPE = new PropertyImpl("finalType");
     public static final Property UTILITY_CLASS = new PropertyImpl("utilityClass");
+    /**
+     * Eventual immutability (road to immutability §060): the {@code after="…"} of {@code @Immutable},
+     * {@code @ImmutableContainer}, {@code @FinalFields}. Deliberately kept out of {@link #IMMUTABLE_TYPE}, which
+     * is combined with min/max all over the analyzer; an eventual value in that lattice would silently move
+     * independence and guard decisions. This property records the promise, the lattice keeps recording what holds
+     * unconditionally.
+     */
+    public static final Property EVENTUALLY_IMMUTABLE_TYPE = new PropertyImpl("eventuallyImmutableType",
+            ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
 
     // method
     public static final Property NON_MODIFYING_METHOD = new PropertyImpl("nonModifyingMethod");
+    /** the method has a STATIC SIDE EFFECT: it modifies static/global state belonging to a type other than its
+     * own primary type (a modifying call on, or assignment to, another type's static field). Informational — it
+     * does not by itself cap the type's immutability (immutability inspects only the type's own fields) — but it
+     * is the "global-escape" arm of the confinement guard: a modification reached through an {@code
+     * @IgnoreModifications} field that is a static side effect leaves the ignored stratum. See
+     * road-to-immutability section 050 ("Static side effects") and section 050 "confinement guard". */
+    public static final Property STATIC_SIDE_EFFECTS_METHOD = new PropertyImpl("staticSideEffectsMethod");
     /** the source-level analysis of this method was abandoned (cycle protection, work ceiling, fault
      * isolation) and its values come from the SHALLOW summary. Consumers that rely on per-call data
      * (e.g. VARIABLES_LINKED_TO_OBJECT for extract-interface) must treat such methods pessimistically. */
@@ -52,6 +68,17 @@ public class PropertyImpl implements Property {
     public static final Property INDEPENDENT_METHOD = new PropertyImpl("independentMethod",
             ValueImpl.IndependentImpl.DEPENDENT);
     public static final Property FINALIZER_METHOD = new PropertyImpl("finalizerMethod");
+    /** {@code @Mark}, {@code @Only}, {@code @TestMark} on a method: see {@link #EVENTUALLY_IMMUTABLE_TYPE}. */
+    public static final Property EVENTUAL_METHOD = new PropertyImpl("eventualMethod",
+            ValueImpl.EventualImpl.NOT_EVENTUAL);
+    /**
+     * The mark label(s) of {@code @NotModified(after="…")} on a method: the method modifies before the mark
+     * (typically a lazy-loading getter that effects the transition) and is non-modifying after it. The
+     * method-level twin of {@link #EVENTUALLY_FINAL_FIELD}. {@link #NON_MODIFYING_METHOD} keeps recording the
+     * unconditional verdict, which for such a method is {@code false} (it does modify, before the mark).
+     */
+    public static final Property EVENTUALLY_NON_MODIFYING_METHOD = new PropertyImpl("eventuallyNonModifyingMethod",
+            ValueImpl.SetOfStringsImpl.EMPTY_SET);
     // dynamic return type
     public static final Property IMMUTABLE_METHOD = new PropertyImpl("immutableMethod"
             , ValueImpl.ImmutableImpl.MUTABLE);
@@ -81,6 +108,9 @@ public class PropertyImpl implements Property {
     public static final Property IMMUTABLE_PARAMETER = new PropertyImpl("immutableParameter"
             , ValueImpl.ImmutableImpl.MUTABLE);
     public static final Property CONTAINER_PARAMETER = new PropertyImpl("containerParameter");
+    /** {@code @Mark} travelling to a parameter, when a marked method is called on it (road to immutability §060). */
+    public static final Property EVENTUAL_PARAMETER = new PropertyImpl("eventualParameter",
+            ValueImpl.EventualImpl.NOT_EVENTUAL);
     public static final Property INDEPENDENT_PARAMETER = new PropertyImpl("independentParameter",
             ValueImpl.IndependentImpl.DEPENDENT);
     public static final Property DOWNCAST_PARAMETER = new PropertyImpl("downcastParameter",
@@ -91,6 +121,13 @@ public class PropertyImpl implements Property {
     public static final Property FINAL_FIELD = new PropertyImpl("finalField", ValueImpl.BoolImpl.FALSE,
             AnalysisTier.INTRINSIC);
     public static final Property NOT_NULL_FIELD = new PropertyImpl("notNullField", ValueImpl.NotNullImpl.NULLABLE);
+    /**
+     * The mark label(s) of {@code @Final(after="…")} / {@code @NotModified(after="…")}: the field is not final
+     * (resp. is modified) before the mark, and is final (resp. unmodified) after it. {@link #FINAL_FIELD} keeps
+     * recording plain, unconditional finality.
+     */
+    public static final Property EVENTUALLY_FINAL_FIELD = new PropertyImpl("eventuallyFinalField",
+            ValueImpl.SetOfStringsImpl.EMPTY_SET);
     public static final Property IGNORE_MODIFICATIONS_FIELD = new PropertyImpl("ignoreModificationsField");
     public static final Property UNMODIFIED_FIELD = new PropertyImpl("unmodifiedField");
     public static final Property IMMUTABLE_FIELD = new PropertyImpl("immutableField"

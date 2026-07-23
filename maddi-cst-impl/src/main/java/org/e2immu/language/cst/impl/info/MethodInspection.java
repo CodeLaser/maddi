@@ -33,8 +33,6 @@ public interface MethodInspection extends Inspection {
 
     Set<MethodModifier> modifiers();
 
-    MethodInspection withSynthetic(boolean synthetic);
-
     enum OperatorType {
         NONE, INFIX, PREFIX, POSTFIX,
     }

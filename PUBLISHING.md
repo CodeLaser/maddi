@@ -1,8 +1,24 @@
 Publishing strategy
 ===================
 
-> **Status: not yet active.** Nothing is being published on a regular basis yet; this document
-> records the agreed strategy and the wiring completed so far, for when releases start.
+> **Status: partially active.** `io.codelaser:maddi-support` is on Maven Central — `0.9.0`
+> (2026-07-22, Apache-2.0) and `0.8.2` (2025-08-18, LGPL-3.0). Package 1's other two legs, the build
+> plugins and the CLI distributions, are wired but not yet pushed. This document records the agreed
+> strategy and the state of each leg.
+>
+> Two things learned publishing 0.9.0, worth knowing before the next release:
+>
+> * **The published artifact must stay dependency-free.** `maddi-support` deliberately does *not*
+>   apply `java-library-conventions`: that adds `api(platform(project(":platform")))` plus
+>   jetbrains-annotations and slf4j, all of which leak into the POM and Gradle module metadata. The
+>   internal `io.codelaser:platform` BOM is not on Central, so such a POM is unresolvable for a
+>   consumer. Check before every release: the POM must have no `<dependencies>`/`<dependencyManagement>`
+>   and all four module-metadata variants must be empty.
+> * **`Attempt N of 101` in the JReleaser log is a polling loop, not a retry after failure.** The
+>   deployment is already uploaded and publishing; do not re-run the deploy. Portal→`repo1` sync adds
+>   another 10-30 minutes, and `maven-metadata.xml` catches up later still. Verify with
+>   `repo1.maven.org`, never `search.maven.org` — the latter reported `numFound: 0` for an artifact
+>   that had been published for a year.
 
 This document describes *what* maddi publishes, *where*, and *why*. The concrete Maven Central
 credentials and commands are in the appendix at the bottom.

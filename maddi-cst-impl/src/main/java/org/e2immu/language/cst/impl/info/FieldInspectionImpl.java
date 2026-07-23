@@ -15,6 +15,7 @@
 package org.e2immu.language.cst.impl.info;
 
 
+import org.e2immu.annotation.rare.IgnoreModifications;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.Access;
@@ -29,9 +30,16 @@ import java.util.Set;
 public class FieldInspectionImpl extends InspectionImpl implements FieldInspection {
     private final Set<FieldModifier> fieldModifiers;
     private final Expression initializer;
+    // analyzer overlay for the initializer, same story as InfoImpl.propertyValueMap: derived metadata filled
+    // after commitment, manual hidden content (road-to-immutability §050) -- every Info analysis store carries
+    // @IgnoreModifications
+    @IgnoreModifications
     private final PropertyValueMap analysisOfInitializer = new PropertyValueMapImpl();
 
-    public FieldInspectionImpl(Inspection inspection, Set<FieldModifier> fieldModifiers, Expression initializer) {
+    // private: the Builder is the only construction route, so every caller of this constructor is inside
+    // this primary type. That is what lets the analyzer verify, rather than believe, that the collections it
+    // stores are immutable. See docs/dynamic-immutability-feasibility.md.
+    private FieldInspectionImpl(Inspection inspection, Set<FieldModifier> fieldModifiers, Expression initializer) {
         super(inspection.access(), inspection.comments(), inspection.source(), inspection.isSynthetic(),
                 inspection.annotations(), inspection.javaDoc());
         this.fieldModifiers = fieldModifiers;

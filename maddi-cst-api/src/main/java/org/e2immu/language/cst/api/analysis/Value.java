@@ -206,6 +206,80 @@ public interface Value extends Comparable<Value> {
         Expression expression();
     }
 
+    /**
+     * Eventual immutability at the level of a method or parameter: the {@code @Mark}, {@code @Only} and
+     * {@code @TestMark} family (road to immutability, §060). One value type carries all three, because a method is
+     * at most one of them and they share the mark label.
+     * <p>
+     * The label is the name, or comma-separated names, of the field(s) whose state transition the type is built
+     * around. We keep <em>names</em> rather than {@link FieldInfo} objects: a mark is frequently inherited, and the
+     * field is then not visible in the type carrying the annotation (e.g. {@code Freezable.frozen} seen from a
+     * subclass). Names also make the value trivially rewireable and language-agnostic.
+     */
+    interface Eventual extends Value {
+        /** the names of the fields carrying the state transition; empty when this element is not eventual */
+        Set<String> fields();
+
+        /** {@code @Mark}: this method effects the transition from 'before' to 'after' */
+        boolean mark();
+
+        /** {@code @Only(after=)} true, {@code @Only(before=)} false, null when this is not an {@code @Only} */
+        Boolean after();
+
+        /**
+         * {@code @TestMark}: true when the method returns true in the 'after' state, false for the inverted
+         * ({@code before=true}) sense; null when the method is not a test.
+         */
+        Boolean test();
+
+        default boolean isEventual() {
+            return !fields().isEmpty();
+        }
+
+        default boolean isMark() {
+            return mark();
+        }
+
+        default boolean isOnly() {
+            return isEventual() && !mark() && test() == null;
+        }
+
+        default boolean isTestMark() {
+            return test() != null;
+        }
+
+        /** the {@code value=}/{@code before=}/{@code after=} string of the annotation */
+        default String markLabel() {
+            return fields().stream().sorted().collect(java.util.stream.Collectors.joining(","));
+        }
+
+        /** two eventual values belong to the same state transition */
+        default boolean consistentWith(Eventual other) {
+            return fields().equals(other.fields());
+        }
+    }
+
+    /**
+     * Eventual immutability at the level of a type: the {@code after="…"} parameter of {@code @Immutable},
+     * {@code @ImmutableContainer} and {@code @FinalFields}. The type is mutable until the mark, and reaches
+     * {@link #immutableAfterMark()} once marked.
+     * <p>
+     * Deliberately separate from {@code IMMUTABLE_TYPE}: the immutability lattice is combined with min/max
+     * throughout the analyzer, so an eventual value inside it would silently change independence and guard
+     * decisions. This property carries the promise; the lattice keeps carrying what holds unconditionally.
+     */
+    interface EventuallyImmutable extends Value {
+        /** the name(s) of the field(s) carrying the state transition; blank when the type is not eventual */
+        String markLabel();
+
+        /** the immutability level the type reaches once it has been marked */
+        Immutable immutableAfterMark();
+
+        default boolean isEventual() {
+            return !markLabel().isBlank();
+        }
+    }
+
     // for parameters
 
     interface AssignedToField extends Value {

@@ -1,19 +1,33 @@
 /*
  * maddi: a modification analyzer for duplication detection and immutability.
- * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ * Copyright 2020-2026, Bart Naudts, https://github.com/CodeLaser/maddi
  *
- * This program is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later version.
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
- * more details. You should have received a copy of the GNU Lesser General Public
- * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.e2immu.support;
 
+import org.e2immu.annotation.ImmutableContainer;
+import org.e2immu.annotation.NotModified;
+import org.e2immu.annotation.eventual.Mark;
+import org.e2immu.annotation.eventual.Only;
+import org.e2immu.annotation.eventual.TestMark;
+
+/**
+ * As {@link EventuallyFinal}, but the <em>before</em> state may carry a loader that produces the final value on
+ * first access. The state transition is the same one: {@code isFinal}.
+ */
+@ImmutableContainer(after = "isFinal", hc = true)
 public class EventuallyFinalOnDemand<T> {
     private volatile T value;
     private volatile boolean isFinal;
@@ -24,6 +38,7 @@ public class EventuallyFinalOnDemand<T> {
     // reentrant, so the loader calling get() from inside run() (same thread) still works as in the original
     // unsynchronized design. It is important that only setFinal can clear onDemand, and set isFinal at the
     // same time; no value should be returned as long as onDemand != null.
+    @NotModified(after = "isFinal")
     public T get() {
         if (isFinal) return value; // fast path: a committed value never changes again
         Runnable runnable = onDemand;
@@ -38,6 +53,7 @@ public class EventuallyFinalOnDemand<T> {
         return value;
     }
 
+    @Mark("isFinal")
     public synchronized void setFinal(T value) {
         if (this.isFinal) {
             throw new IllegalStateException("Trying to overwrite final value");
@@ -47,20 +63,24 @@ public class EventuallyFinalOnDemand<T> {
         this.onDemand = null;
     }
 
+    @Only(before = "isFinal")
     public synchronized void setVariable(T value) {
         if (this.isFinal) throw new IllegalStateException("Value is already final");
         this.value = value;
     }
 
+    @Only(before = "isFinal")
     public synchronized void setOnDemand(Runnable onDemand) {
         assert !isFinal && this.onDemand == null;
         this.onDemand = onDemand;
     }
 
+    @TestMark("isFinal")
     public boolean isFinal() {
         return isFinal;
     }
 
+    @TestMark(value = "isFinal", before = true)
     public boolean isVariable() {
         return !isFinal;
     }

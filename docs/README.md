@@ -18,6 +18,12 @@ Each entry below is labeled:
 | [rewiring.md](rewiring.md) | note | How CST rewiring works in general, and its pitfalls. |
 | [partial-reparse-rewire.md](partial-reparse-rewire.md) | note | Emitting `.class` files from the openjdk inspection pass; partial re-parse/re-wire for IDE use. |
 | [guard-mode-analysis.md](guard-mode-analysis.md) | note | Guard mode (contract verification): analysis and design proposal. |
+| [dynamic-immutability-feasibility.md](dynamic-immutability-feasibility.md) | note | A field's dynamic immutability: materialized (part 1) and consumed (part 3) from a hand-written contract, with a local guard check; inference (part 2) still open. |
+| [independent-type-optimism.md](independent-type-optimism.md) | note | Reproduced defect: `INDEPENDENT_TYPE` can be frozen at an optimistic value; why the obvious fix unmasks a second inconsistency. |
+| [sam-linking-reconciliation.md](sam-linking-reconciliation.md) | note | What actually diverges between the two SAM conventions: contract vs inference, not virtual fields; retires two theories. |
+| [builder-interface-split-impact.md](builder-interface-split-impact.md) | note | Costing the two ways to stop the mutable Builder capping the read-only Inspection interfaces; measured, no refactor landed. |
+| [eventual-immutability.md](eventual-immutability.md) | plan | Bringing road-to-immutability §060 back into the engine: contract the support classes, propagate; no preconditions. |
+| [eventual-info-hierarchy.md](eventual-info-hierarchy.md) | note | Why the `Info`/`*InfoImpl` family is `@Mutable`, and the method-level `@NotModified(after=)` primitive built to unblock it (steps 1–5); the cross-reference cluster that remains. |
 | [formatter-analysis.md](formatter-analysis.md) | note | Analysis of the `maddi-cst-print` formatter. |
 | [formatter-doc-ir-plan.md](formatter-doc-ir-plan.md) | plan | Rewrite plan: a Doc IR for `maddi-cst-print`. |
 | [prep-analyzer hardening.md](prep-analyzer%20hardening.md) | plan | Robustness hardening roadmap for `maddi-modification-prepwork`. |
@@ -25,6 +31,7 @@ Each entry below is labeled:
 | [TEST_MIGRATION.md](TEST_MIGRATION.md) | plan | Migrating tests from `maddi-inspection-integration` to `maddi-java-openjdk`. |
 | [discrepancies openjdk-maddi parsers.md](discrepancies%20openjdk-maddi%20parsers.md) | note | Observed differences between the openjdk (javac) and hand-written (CongoCC) Java front ends. |
 | [regression-jdk-preload-jmodless-alternative-jre.md](regression-jdk-preload-jmodless-alternative-jre.md) | note | Regression report: JDK preload failing on a jmod-less `alternativeJREDirectory`. |
+| [landing-surface-checklist.md](landing-surface-checklist.md) | plan | Everything an outsider hits before reading any code: e2immu.org redirect, repo metadata, CI, publishing the book, the 0.9.0 release, the LGPL/permissive licence split. |
 | [eclipse-plugin-state.md](eclipse-plugin-state.md) | status | Eclipse plugin: state of the union. |
 | [ide-todo.md](ide-todo.md) | status | IDE front ends (IntelliJ/Eclipse/VS Code): what is *not* done yet. |
 

@@ -39,8 +39,12 @@ import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.IN
 
 public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements AbstractMethodAnalyzer {
 
-    public AbstractMethodAnalyzerImpl(IteratingAnalyzer.Configuration configuration, AtomicInteger propertiesChanged, List<Message> analyzerMessages) {
+    private final EventualCluster eventualCluster;
+
+    public AbstractMethodAnalyzerImpl(IteratingAnalyzer.Configuration configuration, AtomicInteger propertiesChanged,
+                                      List<Message> analyzerMessages, EventualCluster eventualCluster) {
         super(configuration, propertiesChanged, analyzerMessages);
+        this.eventualCluster = eventualCluster;
     }
 
     @Override
@@ -59,6 +63,8 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
                 }
                 methodNonModifying(concreteImplementations, methodInfo);
                 methodIndependent(concreteImplementations, methodInfo);
+                methodEventual(concreteImplementations, methodInfo);
+                methodEventuallyNonModifying(concreteImplementations, methodInfo);
             }
         }
     }
@@ -146,6 +152,89 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
         }
         if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), NON_MODIFYING_METHOD, fromImplementations, methodInfo)) {
             DECIDE.debug("AM: Decide non-modifying of method {} = {}", methodInfo, fromImplementations);
+        }
+    }
+
+    /**
+     * Eventual immutability travels from implementation to abstract method (road to immutability §060). An
+     * interface such as {@code TypeInfo} declares {@code commit}; the fact that it marks a state transition is
+     * only visible in {@code TypeInfoImpl}, which holds the eventually immutable field. Without this step the
+     * interface stays plain mutable, and -- by the hierarchy rule -- so does every implementation of it.
+     * <p>
+     * All implementations must agree, on the side of the transition <em>and</em> on the mark label. Labels are
+     * field names, and two implementations are free to name their state differently; that is a disagreement we
+     * cannot merge, so we conclude nothing.
+     */
+    private void methodEventual(Iterable<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
+        if (methodInfo.analysis().haveAnalyzedValueFor(EVENTUAL_METHOD)) return;
+        Value.Eventual fromImplementations = null;
+        for (MethodInfo implementation : concreteImplementations) {
+            Value.Eventual eventual = implementation.analysis().getOrDefault(EVENTUAL_METHOD,
+                    ValueImpl.EventualImpl.NOT_EVENTUAL);
+            if (!eventual.isEventual()) {
+                // EVENTUALCLUSTER: an implementation that never modifies at all (CompilationUnitStub's
+                // throwing setFingerPrint) cannot contradict the transition the real implementations declare
+                if (EventualCluster.ENABLED && implementation.analysis()
+                        .getOrDefault(NON_MODIFYING_METHOD, FALSE).isTrue()) {
+                    continue;
+                }
+                return; // one implementation without a mark: no promise to make
+            }
+            // the implementation's classification may lean on the cluster seed (labelsOfReceiver through a
+            // candidate-typed field); the abstract owner inherits those assumption edges (no-op off the gate)
+            eventualCluster.noteLabelInheritance(methodInfo.typeInfo(), implementation.typeInfo());
+            if (fromImplementations == null) {
+                fromImplementations = eventual;
+            } else if (!fromImplementations.equals(eventual)) {
+                return;
+            }
+        }
+        if (fromImplementations != null) {
+            methodInfo.analysis().set(EVENTUAL_METHOD, fromImplementations);
+            DECIDE.debug("AM: Decide eventual of abstract method {} = {}", methodInfo, fromImplementations);
+            propertyChanges.incrementAndGet();
+        }
+    }
+
+    /**
+     * Carry {@code @NotModified(after=)} up to the abstract method, the same way {@link #methodEventual} carries
+     * {@code @Mark}/{@code @Only}. This is what makes {@code Info.access()} (and the rest of the read-through
+     * accessors) non-modifying after the mark, so the interface can reach an eventual verdict at all.
+     * <p>
+     * Every implementation must be compatible: either eventually-non-modifying after the same label set, or
+     * unconditionally non-modifying (which holds after any mark). One implementation that modifies with no
+     * after-label -- or whose modification is still undecided -- is a promise we cannot make.
+     */
+    private void methodEventuallyNonModifying(Iterable<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
+        if (methodInfo.analysis().haveAnalyzedValueFor(EVENTUALLY_NON_MODIFYING_METHOD)) return;
+        Set<String> agreed = null;
+        for (MethodInfo implementation : concreteImplementations) {
+            Value.SetOfStrings evNonMod = implementation.analysis()
+                    .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET);
+            if (!evNonMod.set().isEmpty()) {
+                // the label rests on whatever the implementation's excusals assumed (commitLabels leans on the
+                // cluster seed): carry the provenance so the contraction can cascade a broken assumption here
+                eventualCluster.noteLabelInheritance(methodInfo.typeInfo(), implementation.typeInfo());
+                if (agreed == null) agreed = evNonMod.set();
+                else if (!agreed.equals(evNonMod.set())) {
+                    // EVENTUALCLUSTER: unlike a @Mark, whose label names THE transition, "non-modifying after L"
+                    // weakens monotonically -- once the union has passed, each implementation's own subset
+                    // certainly has. The union is the weakest common guarantee (ParameterInfoImpl says
+                    // 'methodInfo' where MethodInfoImpl says 'inspection' for the same abstract accessor).
+                    if (!EventualCluster.ENABLED) return; // implementations name different transitions
+                    Set<String> union = new HashSet<>(agreed);
+                    union.addAll(evNonMod.set());
+                    agreed = union;
+                }
+            } else {
+                Value.Bool nonMod = implementation.analysis().getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+                if (nonMod == null || nonMod.isFalse()) return; // modifies with no after-label, or undecided
+            }
+        }
+        if (agreed != null) {
+            methodInfo.analysis().set(EVENTUALLY_NON_MODIFYING_METHOD, new ValueImpl.SetOfStringsImpl(Set.copyOf(agreed)));
+            DECIDE.debug("AM: Decide eventually-non-modifying of abstract method {} after {}", methodInfo, agreed);
+            propertyChanges.incrementAndGet();
         }
     }
 
