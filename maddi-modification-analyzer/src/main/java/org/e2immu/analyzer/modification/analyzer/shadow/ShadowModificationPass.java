@@ -223,8 +223,14 @@ public class ShadowModificationPass {
 
     private void buildForMethod(MethodInfo mi) {
         methods++;
-        // E6: overrides, in the union-over-implementations direction
+        // E6: overrides, in the union-over-implementations direction — ABSTRACT targets only,
+        // mirroring the engine exactly (AbstractMethodAnalyzerImpl unions over abstract methods;
+        // a default/concrete overridden method's verdict is its OWN body — prepwork records
+        // IMPLEMENTATIONS only on abstract overrides). Unrestricted edges made the shadow
+        // stricter than the engine, downgrading e.g. Element.annotations() (default body
+        // List.of()) to the dispatch union the engine deliberately does not compute.
         for (MethodInfo overridden : mi.overrides()) {
+            if (!overridden.isAbstract()) continue;
             addEdge(mi, overridden);
             int n = Math.min(mi.parameters().size(), overridden.parameters().size());
             for (int i = 0; i < n; i++) {
