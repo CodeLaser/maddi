@@ -315,6 +315,16 @@ public class EventualCluster {
         interfaceCandidateCache.clear();
         settersCache.clear();
         subclassesByParent.clear();
+        opaqueSignatureCache.clear();
+    }
+
+    // mutable-but-opaque signature cache (the OutputBuilder shape): derived from IMMUTABLE_TYPE verdicts,
+    // which the modreach cutover clears and re-derives -- so this cache joins the rederivation reset with
+    // the other derived caches (a stale pre-cutover TRUE would be the abstract-union race all over again)
+    private final Map<TypeInfo, Boolean> opaqueSignatureCache = new ConcurrentHashMap<>();
+
+    public Map<TypeInfo, Boolean> opaqueSignatureCache() {
+        return opaqueSignatureCache;
     }
 
     /** Open an assumption buffer for the computation that follows on this thread. Pair with exactly one
