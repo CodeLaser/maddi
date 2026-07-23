@@ -1184,3 +1184,43 @@ quests, in that order. Unit pins: `TestCommitLabels.INPUT_CHAIN` (both mechanism
 the aapi-less harness; gate-off twin). The silent-skip fallback for a live residue remains, recorded
 here as the residual ∅-gap: a walk can still yield [] when a residue label names a real cone field
 -- honest per-site, but the spec's bail would be stricter.
+
+## The Factory quest (2026-07-24, continued): the self-call rule + the precedenceMap flip
+
+The `commonType`/`newInlineConditional` cap decoded in three layers:
+
+1. **Direct recursion poisoned the walk.** `CommonType.commonType`'s lattice descent calls itself
+   (`commonParameter = commonType(parameter, pt2Parameter)`); the enm walk read the callee's enm --
+   the very set under computation, write-once and unwritten -- got ∅, and bailed (the local context
+   pass showed it verbatim: `track commonParameter = null`). The SELF-CALL RULE (both root-receiver
+   branches, gated): a call to the method under analysis is excused by the fixpoint hypothesis -- its
+   excuse set IS the set in flight, it contributes nothing new; the result still runs the ordinary
+   handed-on gauntlet. `WalkRoot` now carries `underAnalysis`. Collateral: **+12 enm / +8 eup** --
+   the whole Eval recursion family (`EvalSum.expandTerms`, `wrapSum/wrapInSum/wrapInProduct`,
+   `EvalInlineConditional.eval`, `Eval.sortAndSimplify`) and the ImportComputer landed at once.
+   Unit pin: `TestCommitLabels.INPUT_RECURSION`.
+2. **`FactoryImpl.precedenceMap` was mutable by construction style, not by semantics.** The ctor
+   filled the `HashMap` field with `put()` calls -- and part-of-construction excludes only
+   ASSIGNMENTS, not content-modifying calls, so the plain layer honestly said `unmodified=false`
+   and capped FactoryImpl. The cst-impl refactor (build a local map, `Map.copyOf` into the final
+   field) flipped it to `unmodified=true independent=@Independent(hc=true)` -- the source now
+   follows its own rules. FINDING, recorded: ctor-`put()` maps read as mutable; build immutably.
+3. **The remaining cap is the interface-hierarchy cycle.** With the field flip, the ECTYPE trace
+   shows `FactoryImpl` REACHING `@Immutable(hc=true)` mid-run (markLabels include `precedenceMap`,
+   `excusedF=6`), but rounds with `afterMarkNone=true` collapse it to `@Mutable` via the hierarchy
+   rule -- the INTERFACE `Factory`'s `@FinalFields` verdict caps its own implementation through the
+   `isMutable(@FinalFields)` lattice quirk, circularly. `FactoryImpl` now forms-and-retracts on
+   named deps ([IntConstant, BooleanConstant, MethodInfo, TypeInfo, Factory, VariableImpl...]) --
+   the VariableImpl-caches and flagship quests, exactly the roadmap. `CommonType.commonType` itself
+   is now an honest ∅ (nothing this-rooted for the walk; the plain FALSE is world-graph reachability
+   through `runtime`) -- unwritable by design, waiting on the Runtime family's candidacy.
+
+Scoreboard: enm 851 -> 863, eup 344 -> 352, survivors 1, retractions 152 -> 155 (more of the world
+forms before the contraction). Validation: module suites green (16/16 TestCommitLabels), composed
+runs identical up to one documented plain-layer flake (`ValueImpl.IndependentImpl`), gate-off
+Fernflower identical modulo the 1-line ctor-nonModifying flake -- now known to be a FAMILY, not a
+single line: run 2 flipped `Exprent.<init>(int)`, run 3 flipped the documented
+`StatEdge.EdgeType.<init>(int)` back and forth. NEW FLAKE observed and cured: after heavy
+gradle-daemon reuse, javac emitted a burst of bogus syntax errors on valid Fernflower sources
+(`EXIT_PARSER_ERROR`); a daemon restart cleared it -- the parsing-stability.md process-wide-state
+story, now seen at corpus scale.

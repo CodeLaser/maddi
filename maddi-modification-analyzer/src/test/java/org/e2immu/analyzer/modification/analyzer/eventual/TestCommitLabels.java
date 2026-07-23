@@ -595,6 +595,57 @@ public class TestCommitLabels extends CommonTest {
         }
     }
 
+    // the CommonType.commonType shape: direct recursion inside the method whose enm is being computed --
+    // the callee's excuse set IS the set in flight (write-once, unwritten), so reading it bails. The
+    // self-call rule excuses it by the fixpoint hypothesis; the surrounding sites supply the labels.
+    @Language("java")
+    private static final String INPUT_RECURSION = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class R {
+              static class T {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                public int size() { return inspection.get().length(); }
+                public int recDepth(int n) {
+                  if (n <= 0) return size();
+                  int deeper = recDepth(n - 1);
+                  return deeper + size();
+                }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: a direct self-call is excused by the fixpoint hypothesis")
+    @Test
+    public void testSelfCall() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo R = javaInspector.parse("R", INPUT_RECURSION);
+            analyzer.go(prepWork(R));
+            // both the excuse-position and the value-position (local 'deeper') self-calls contribute
+            // nothing; size()'s forward supplies the label
+            assertEquals(Set.of("inspection"), nonModAfter(R.findSubType("T"), "recDepth", 1));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: the recursive method stays unexcused")
+    @Test
+    public void testSelfCallGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo R = javaInspector.parse("R", INPUT_RECURSION);
+            analyzer.go(prepWork(R));
+            assertEquals(Set.of(), nonModAfter(R.findSubType("T"), "recDepth", 1));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
     @DisplayName("gate off: the chain shapes stay unexcused")
     @Test
     public void testChainGateOff() {
