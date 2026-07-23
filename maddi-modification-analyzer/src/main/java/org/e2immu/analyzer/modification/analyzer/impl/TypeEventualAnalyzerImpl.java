@@ -1320,6 +1320,10 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         if (returnType.isPrimitiveExcludingVoid() || returnType.isVoid()) return true; // a value cannot alias
         TypeInfo rtType = returnType.bestTypeInfo();
         if (rtType == null) return false; // an unresolved type parameter: conservative
+        // a primitive pipeline (mapToInt reductions) hands on VALUES only: its hidden content is primitive,
+        // so nothing mutable can be laundered through it. The general immutable-hc route cannot admit it --
+        // a stream is contractually consumable -- and, parameterless, it has no type-parameter route either.
+        if (EventualCluster.ENABLED && isPrimitiveStream(rtType)) return true;
         if (isEventuallyImmutableFieldType(member, rtType)) return true;
         Value.Immutable immutable = immutableOf(rtType);
         if (immutable.isImmutable()) return true; // no hidden content at all: nothing mutable to alias
@@ -1499,17 +1503,31 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      */
     private Set<String> containerReadThroughLabels(WalkRoot walk, MethodCall mc) {
         if (!EventualCluster.ENABLED) return null;
-        if (!(mc.object() instanceof VariableExpression ve)
-            || !(ve.variable() instanceof FieldReference fr)
-            || !walk.scopeIsRoot(fr)) {
-            return null;
-        }
+        FieldInfo fieldInfo = rootContainerField(walk, mc.object());
+        if (fieldInfo == null) return null;
         if (!isNonModifyingRead(mc.methodInfo())) return null;
         Value.Independent independent = independentOf(mc.methodInfo());
         if (independent == null || independent.isDependent()) return null;
-        FieldInfo fieldInfo = fr.fieldInfo();
         if (!containerContentCommittable(fieldInfo)) return null;
         return Set.of(fieldInfo.name());
+    }
+
+    /** The root's container field behind the expression: the bare read {@code this.f} / {@code p.f}, or its
+     *  accessor spelling {@code comments()} -- a plain non-setter accessor called on the bare root, the way
+     *  the whole statement/expression family hands its final lists around. Null when neither. */
+    private FieldInfo rootContainerField(WalkRoot walk, Expression expr) {
+        if (expr instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
+            && walk.scopeIsRoot(fr)) {
+            return fr.fieldInfo();
+        }
+        if (expr instanceof MethodCall mc
+            && mc.object() instanceof VariableExpression ve && walk.isRoot(ve.variable())) {
+            Value.FieldValue fieldValue = mc.methodInfo().getSetField();
+            if (fieldValue != null && fieldValue.field() != null && !fieldValue.setter()) {
+                return fieldValue.field();
+            }
+        }
+        return null;
     }
 
     /**
@@ -1522,11 +1540,8 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      */
     private Set<String> containerArgumentLabels(WalkRoot walk, MethodInfo callee, int index, Expression arg) {
         if (!EventualCluster.ENABLED) return null;
-        if (!(arg instanceof VariableExpression ve) || !(ve.variable() instanceof FieldReference fr)
-            || !walk.scopeIsRoot(fr)) {
-            return null;
-        }
-        FieldInfo fieldInfo = fr.fieldInfo();
+        FieldInfo fieldInfo = rootContainerField(walk, arg);
+        if (fieldInfo == null) return null;
         if (!containerContentCommittable(fieldInfo)) return null;
         List<ParameterInfo> parameters = callee.parameters();
         if (parameters.isEmpty()) return null;
@@ -1610,6 +1625,12 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
 
     private static boolean isParameter(Expression expression, ParameterInfo pi) {
         return expression instanceof VariableExpression ve && pi.equals(ve.variable());
+    }
+
+    private static boolean isPrimitiveStream(TypeInfo typeInfo) {
+        String fqn = typeInfo.fullyQualifiedName();
+        return "java.util.stream.IntStream".equals(fqn) || "java.util.stream.LongStream".equals(fqn)
+               || "java.util.stream.DoubleStream".equals(fqn);
     }
 
     /** Is the bare parameter (possibly behind casts, parentheses, or one of a ternary's branches) the value

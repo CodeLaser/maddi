@@ -233,7 +233,15 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
                 }
             } else {
                 Value.Bool nonMod = implementation.analysis().getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
-                if (nonMod == null || nonMod.isFalse()) return; // modifies with no after-label, or undecided
+                if (nonMod == null || nonMod.isFalse()) {
+                    if (EventualCluster.SITE_DEBUG
+                        && EventualCluster.siteDebugMatches(methodInfo.fullyQualifiedName())) {
+                        EventualCluster.sitePrint("enm batch " + methodInfo.fullyQualifiedName()
+                                                  + " blocked by " + implementation.fullyQualifiedName()
+                                                  + " (nonMod=" + nonMod + ")");
+                    }
+                    return; // modifies with no after-label, or undecided
+                }
             }
         }
         if (agreed != null) {

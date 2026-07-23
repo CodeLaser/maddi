@@ -265,6 +265,85 @@ public class TestCommitLabels extends CommonTest {
         }
     }
 
+    // the Element/Statement breadth round: the downward interface closure -- a markless sub-interface
+    // of a candidate interface (Block/Comment under Element) is a cluster member, so a carrier field of
+    // that type excuses; a setter-bearing sub-interface (a Builder) is refused on both ends
+    @Language("java")
+    private static final String INPUT_BREADTH = """
+            import java.util.ArrayList;
+            import java.util.List;
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class J {
+              interface E { int size(); }
+              interface Sub extends E { int size2(); }
+              interface BuilderLike extends E { String foo(); void setFoo(String foo); }
+              static class T implements E {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                @Override public int size() { return inspection.get().length(); }
+              }
+              static class Carrier {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                private final Sub sub;
+                private final BuilderLike builderLike;
+                Carrier(Sub sub, BuilderLike builderLike) {
+                  this.sub = sub;
+                  this.builderLike = builderLike;
+                }
+                public void commit(String s) { inspection.setFinal(s); }
+                public int viaSub() { inspection.get(); return sub.size2(); }
+                public int viaBuilder() { inspection.get(); return builderLike.foo().length(); }
+              }
+            }
+            """;
+    // NOTE: the round's other two mechanisms -- the accessor spelling comments() of this.comments in the
+    // container ride-along, and the primitive-stream (mapToInt) handed-on admit -- are corpus-validated
+    // only: the unit harness runs without annotated APIs, and the shallow defaults it gives the JDK
+    // container/stream types make any fixture non-discriminating (the walk resolves through them with or
+    // without the mechanism under test).
+
+    @DisplayName("gate on: downward interface closure admits markless sub-interfaces, refuses setter-bearing ones")
+    @Test
+    public void testBreadthShapes() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo J = javaInspector.parse("J", INPUT_BREADTH);
+            // the full pipeline marks abstract Builder setters via the synthetic-fields step; the unit
+            // harness does not run it, so arrange the same GET_SET_FIELD property by hand
+            MethodInfo setFoo = J.findSubType("BuilderLike").findUniqueMethod("setFoo", 1);
+            setFoo.analysis().set(PropertyImpl.GET_SET_FIELD,
+                    new ValueImpl.GetSetValueImpl(null, true, -1, false));
+            analyzer.go(prepWork(J));
+            TypeInfo carrier = J.findSubType("Carrier");
+
+            // sub.size2(): Sub carries no eventual intent of its own, but extends the candidate interface E
+            // -- the downward closure admits it, and the field read excuses after [sub]
+            assertEquals(Set.of("inspection", "sub"), nonModAfter(carrier, "viaSub", 0));
+            // builderLike is a setter-bearing sub-interface: refused (haveSetters can never prove)
+            assertEquals(Set.of(), nonModAfter(carrier, "viaBuilder", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: the breadth shapes stay unexcused")
+    @Test
+    public void testBreadthGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo J = javaInspector.parse("J", INPUT_BREADTH);
+            analyzer.go(prepWork(J));
+            TypeInfo carrier = J.findSubType("Carrier");
+            assertEquals(Set.of(), nonModAfter(carrier, "viaSub", 0));
+            assertEquals(Set.of(), nonModAfter(carrier, "viaBuilder", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
     // the builder() accessor shape (handoff-builder-leans §4A): a body guarded by a @TestMark observation
     // is @Only on the side the guard asserts; and a transition on ANOTHER object's lifecycle (a parameter)
     // no longer bails the walk -- only the arguments carry root-derived content
