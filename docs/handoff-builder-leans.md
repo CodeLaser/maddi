@@ -1,5 +1,9 @@
 # Handoff — the Builder leans (the last structural gap before the flagship family can survive)
 
+> **STATUS UPDATE (2026-07-23, round 2): RESOLVED — all ten §2 edges gone, §4c below.** The write-once
+> ordering theory of §4b is falsified alongside the conflation theory; the real mechanism and the two
+> fixes are recorded in §4c. The Builder interfaces no longer appear among the retraction roots.
+
 **Audience:** a fresh model (or Bart) deciding and implementing the Builder mechanism without the
 2026-07-23 session context. Companion to `docs/spec-eventually-unmodified-parameter.md` §8–§9 and the
 running record in `docs/eventual-info-hierarchy.md` (read "The interface clique round" first).
@@ -145,6 +149,49 @@ receiver's tracked labels are at that moment (`EC_ASSUME_DEBUG` + a one-off prin
 `trackAssignment` for the specific locals) before designing further. Note the greatest-fixpoint
 also tolerates these four: they retract their members' verdicts, but the flagships still FORM —
 the cost is confined to survival, not formation.
+
+## 4c. Round 2 (2026-07-23) — RESOLVED: the residue was the modifying-fluent-setter fallback
+
+The §4b instrumentation mandate was executed with a new iteration-stamped site trace (`EC_SITE_DEBUG`,
+house pattern, log-only: per-computation MC/receiver/gauntlet/track lines plus WRITE stamps at every
+eventual-property landing, `EventualCluster.ITERATION` set by the iterating loop). The trace killed the
+write-once ordering theory immediately: **the abstract `builder()`'s `@Only(before="inspection")` is
+already written in iteration 1, before the leaning enm computations run** — every `builder()` call in
+the `rewirePhase1/3` walks shows `calleeEventual=@Only(before=…)`, and the transition bail is correctly
+rescued by `receiverProvablyNotRoot` (the copies' locals are ∅-tracked).
+
+**The real mechanism** (witnessed by a `lean on <type>` print inside `isEventuallyImmutableFieldType`):
+the fluent chain `builder.addComments(comments()).addAnnotations(annotations())…` folds ARGUMENT labels
+into the chain value, so the next link runs the handed-on gauntlet with `receiver=[inspection]`,
+`receiverCommitted=true` — and the callee is a MODIFYING Builder setter, which never reaches
+`handedOnValueSafe`'s independence branch (guarded by `isNonModifyingRead`) and falls through to
+`returnTypeHoldsCommittableContent(…Builder)`: the doomed candidacy lean, witnessed 6× per rewire body.
+
+**Fix 1 — the not-root gauntlet short-circuit** (gated): `receiverProvablyNotRoot` is consulted BEFORE
+`handedOnValueSafe`. A chain whose base is provably not root-derived (the copy's ∅-tracked builder
+local, the `infoMap` parameter) hands on a value of another object's graph; the root-derived content
+that flowed in via the arguments is already committed by the labels in acc — the §060 ride-along
+stance — so no candidacy lean on the return type is needed. This removed the three enm edges and the
+`handleMethodOrConstructor` eup edge, and let previously-bailing methods land labels
+(`Value.FieldValue.createVariable` enm=[field], `EvalEquals/EvalImpl` eup, `IsAssignableFrom` enm).
+
+**Fix 2 — transitive freshness** (gated): the surviving fifth edge
+(`TypeInfoImpl.copyAllButConstructorsMethodsFieldsSubTypesAnnotations`) was the same shape one
+indirection removed: `typeInfo` is FRESH (both branches construct) but tracked non-∅ (ctor args carry
+root content), and `TypeInfo.Builder b = typeInfo.builder()` is the local-variable spelling of a chain
+`rootedInFresh` excuses inline — the one-pass constructor-call-only freshness never chased through it.
+Freshness is now a least fixpoint of `rootedInFresh` over the method's assignment graph: a local is
+fresh when every assignment is rooted in a fresh creation, directly or through reads off already-fresh
+locals. This also returned the `InfoMapImpl.createSyntheticArrayConstructor:0:methodInfo` eup honestly.
+
+**Result (composed dogfood, stable):** `EC_ASSUME_DEBUG=.Builder` prints NOTHING — 0 edges (from 10 at
+§2, 4 after round 1). enm 654→657, eup 303→307, @Only 23, survivors 10, retracted 94; the flagship
+family still forms (all in the retracted set). The retraction-root list no longer contains any Builder:
+it is now led by `Statement`(7), `Element`(4), `FieldInspection`(3), `VariableImpl` — i.e. §6's quests.
+Survivors did not rise above 11 because the flagships also lean on those remaining roots; the Builder
+quest's cost was formation-side and is fully paid off. Pins: `TestCommitLabels.INPUT_FLUENT`
+(`rewire(Wr)` = the not-root chain, `fillFresh()` = the transitive-freshness local; both ∅ off the
+gate). Gate-off Fernflower byte-identity and green suites per the golden rule.
 
 ## 5. Definition of done (when someone picks this up)
 

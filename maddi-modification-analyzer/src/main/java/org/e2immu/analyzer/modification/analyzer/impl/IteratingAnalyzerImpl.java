@@ -405,6 +405,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         }
         while (true) {
             ++iterations;
+            EventualCluster.ITERATION = iterations; // log-only stamp for ECASSUME/ECSITE diagnostics
             LOGGER.info("{}, cycle breaking active? {}", highlight("Start iteration " + iterations),
                     cycleBreakingActive);
             TolerantWrite.resetChangeCounts();

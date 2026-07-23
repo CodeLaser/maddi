@@ -175,19 +175,46 @@ public class EventualCluster {
     // log-only diagnostic (MODREACH_EXPLAIN style): print DIRECT assumption edges whose candidate FQN
     // matches the substring -- the ledger the contraction walks is otherwise only visible after folding
     private static final String EC_ASSUME_DEBUG = System.getenv("EC_ASSUME_DEBUG");
+    // log-only diagnostic: trace commit-walk site decisions and property-write timing for computations whose
+    // debug context (or method FQN) matches any comma-separated substring, e.g.
+    // EC_SITE_DEBUG=rewirePhase1,handleMethodOrConstructor,builder()
+    private static final String[] EC_SITE_DEBUG = System.getenv("EC_SITE_DEBUG") == null ? null
+            : System.getenv("EC_SITE_DEBUG").split(",");
+    public static final boolean SITE_DEBUG = EC_SITE_DEBUG != null;
+    // the iterating analyzer's current iteration, stamped into ECASSUME/ECSITE lines; log-only
+    public static volatile int ITERATION;
     // the computation (method/parameter/type) the eventual analyzer is currently running, for ECASSUME
     // site attribution; purely diagnostic, never read by any verdict path
     private final ThreadLocal<String> debugContext = new ThreadLocal<>();
 
     /** Diagnostic only: name the computation subsequent witnessed assumptions on this thread belong to. */
     public void setDebugContext(String context) {
-        if (EC_ASSUME_DEBUG != null) debugContext.set(context);
+        if (EC_ASSUME_DEBUG != null || SITE_DEBUG) debugContext.set(context);
+    }
+
+    /** Diagnostic only: the current computation's name, for ECSITE attribution. */
+    public String debugContext() {
+        return debugContext.get();
+    }
+
+    /** Diagnostic only: does {@code name} match any EC_SITE_DEBUG substring? */
+    public static boolean siteDebugMatches(String name) {
+        if (EC_SITE_DEBUG == null || name == null) return false;
+        for (String s : EC_SITE_DEBUG) {
+            if (!s.isBlank() && name.contains(s.trim())) return true;
+        }
+        return false;
+    }
+
+    /** Diagnostic only: an iteration-stamped ECSITE line. */
+    public static void sitePrint(String message) {
+        System.out.println("ECSITE it=" + ITERATION + " " + message);
     }
 
     private void record(TypeInfo member, TypeInfo candidate) {
         if (assumptions.computeIfAbsent(member, m -> ConcurrentHashMap.newKeySet()).add(candidate)) {
             if (EC_ASSUME_DEBUG != null && candidate.fullyQualifiedName().contains(EC_ASSUME_DEBUG)) {
-                System.out.println("ECASSUME " + member.fullyQualifiedName()
+                System.out.println("ECASSUME it=" + ITERATION + " " + member.fullyQualifiedName()
                                    + " -> " + candidate.fullyQualifiedName()
                                    + " at " + debugContext.get());
             }

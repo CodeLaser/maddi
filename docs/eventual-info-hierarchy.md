@@ -934,3 +934,23 @@ family still forms; the survivor wobble is pure-cascade (`broken: []`). The four
 (`rewirePhase1/3`, `handleMethodOrConstructor:0`) are characterized down to the call path in the
 handoff §4b, with the conflation theory implemented-and-falsified and the write-once-ordering
 theory left as the pointed next investigation. Gate-off Fernflower A/B: 0 lines, twice.
+
+## The Builder-lean quest, round 2 (2026-07-23, continued): 4 -> 0 edges, the Builder root eliminated
+
+The §4b instrumentation mandate produced an iteration-stamped site trace (`EC_SITE_DEBUG`, log-only:
+per-computation MC/receiver/gauntlet/track lines, WRITE stamps at every eventual-property landing,
+`EventualCluster.ITERATION`), and the trace falsified the write-once-ordering theory on contact: the
+abstract `builder()`'s `@Only(before)` is written in iteration 1, BEFORE the leaning enm computations
+run. The real mechanism (`handoff-builder-leans.md` §4c): the fluent chains fold ARGUMENT labels into
+the chain value, so the outer link runs the handed-on gauntlet committed -- and a MODIFYING Builder
+setter never reaches `handedOnValueSafe`'s independence branch, falling through to the return-type
+candidacy lean. Two gated fixes: (1) `receiverProvablyNotRoot` consulted BEFORE `handedOnValueSafe`
+-- a chain based in another object's graph needs no lean, its inflowing root content is already
+committed by the accumulated labels; (2) freshness is now a least fixpoint over the assignment graph,
+so `TypeInfo.Builder b = typeInfo.builder(); b.setX(..)` behaves exactly like the inline chain
+(`copyAllButConstructorsMethodsFieldsSubTypesAnnotations` was the fifth, new, edge that exposed this).
+Composed dogfood: **Builder edges 0** (10 at characterization, 4 after round 1), enm 657, eup 307,
+@Only 23, survivors 10 / retracted 94, flagship family forms throughout; the retraction-root list is
+now Builder-free -- led by Statement(7), Element(4), FieldInspection(3), VariableImpl: exactly the two
+remaining quests. Pins in `TestCommitLabels.INPUT_FLUENT`; gate-off Fernflower byte-identity; suites
+green.
