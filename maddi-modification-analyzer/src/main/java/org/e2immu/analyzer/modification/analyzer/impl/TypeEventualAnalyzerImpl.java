@@ -517,6 +517,12 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         methodInfo.methodBody().visit(e -> {
             if (bail[0]) return false;
             if (e instanceof Assignment a && a.variableTarget() instanceof FieldReference fr && fr.scopeIsThis()) {
+                // an @IgnoreModifications own field is disclaimed memo state (the VariableImpl.cachedFqn
+                // idiom, road §050 extended to the slot): the write is invisible here exactly as it is to
+                // the plain modification layer
+                if (EventualCluster.ENABLED && fr.fieldInfo().isIgnoreModifications()) {
+                    return true;
+                }
                 bail[0] = true; // assigning an own field is a finality/mark concern, not eventual non-modification
                 return false;
             }
