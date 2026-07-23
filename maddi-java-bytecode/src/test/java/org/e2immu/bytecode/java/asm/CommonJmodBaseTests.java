@@ -28,6 +28,7 @@ import org.junit.jupiter.api.BeforeAll;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 public abstract class CommonJmodBaseTests {
@@ -40,13 +41,11 @@ public abstract class CommonJmodBaseTests {
     public static void beforeClass() throws IOException, URISyntaxException {
         Resources cp = new ResourcesImpl(Path.of("."));
         classPath = cp;
-        URI uri = URI.create("jar:file:" + System.getProperty("java.home") + "/jmods/java.base.jmod!/");
         SourceSet sourceSet = new SourceSetImpl.Builder().setName("java.base")
                 .setUri(URI.create("file:unknown")).setLibrary(true).setExternalLibrary(true).setPartOfJdk(true)
                 .setModule(true).build();
         sourceSet.computePriorityDependencies();
-        SourceFile sourceFile = new SourceFile(uri.getRawSchemeSpecificPart(), uri, sourceSet, null);
-        cp.addJmod(sourceFile);
+        addJavaBase(cp, sourceSet);
         CompiledTypesManagerImpl mgr = new CompiledTypesManagerImpl(sourceSet, classPath);
         compiledTypesManager = mgr;
         runtime = new RuntimeImpl();
@@ -58,4 +57,23 @@ public abstract class CommonJmodBaseTests {
         mgr.preload("java.lang");
     }
 
+    /**
+     * Index {@code java.base}, choosing the source the same way {@code JavaInspectorImpl} does for a
+     * {@code jmod:} class-path part: the {@code .jmod} file when the running JDK ships a {@code jmods/}
+     * directory, otherwise the runtime image over the {@code jrt} filesystem.
+     * <p>
+     * Not every JDK ships {@code jmods/} — Eclipse Temurin does not — and hard-coding the {@code .jmod}
+     * path made every test in this module fail there with {@code NoSuchFileException}, while the analyzer
+     * itself handled that JDK fine. See {@code TestRuntimeImageFallback} for the production-path coverage.
+     */
+    private static void addJavaBase(Resources cp, SourceSet sourceSet) throws IOException, URISyntaxException {
+        Path jmodFile = Path.of(System.getProperty("java.home"), "jmods", "java.base.jmod");
+        if (Files.isRegularFile(jmodFile)) {
+            URI uri = URI.create("jar:file:" + jmodFile + "!/");
+            cp.addJmod(new SourceFile(uri.getRawSchemeSpecificPart(), uri, sourceSet, null));
+        } else {
+            cp.addModuleFromRuntimeImage(new SourceFile("java.base", URI.create("jrt:/java.base"),
+                    sourceSet, null));
+        }
+    }
 }

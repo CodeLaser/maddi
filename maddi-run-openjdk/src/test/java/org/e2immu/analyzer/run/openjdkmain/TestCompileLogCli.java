@@ -15,6 +15,7 @@
 package org.e2immu.analyzer.run.openjdkmain;
 
 import org.e2immu.analyzer.run.config.util.JsonStreaming;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -59,6 +62,42 @@ public class TestCompileLogCli {
         assertFalse(ic.sourceSets().isEmpty(), "expected non-empty source sets");
         assertTrue(hasClassPathPart(ic, EXTRA_JMOD),
                 "expected the --extra-jmod " + EXTRA_JMOD + " in the derived classpath");
+    }
+
+    /**
+     * Every source set derived from a compile log must record its build unit, so that a multi-module reactor is
+     * recognisable as one. This is the only importer that sees a whole reactor at once; the Maven and Gradle
+     * plugins are invoked per module and see siblings as jars.
+     * <p>
+     * The build unit is the module directory, which is what pairs a module's main and test source sets. Their
+     * names cannot: {@code computeName} disambiguates collisions with a counter, so timefold-solver ends up with
+     * {@code quarkus/main} .. {@code quarkus/main5}, where {@code quarkus/main2} (deployment) pairs with
+     * {@code quarkus/test-classes} rather than with {@code quarkus/test-classes2}.
+     */
+    @Test
+    public void derivedSourceSetsRecordTheirBuildUnit(@TempDir Path tempDir) throws Exception {
+        File out = tempDir.resolve("input.json").toFile();
+        assertEquals(Main.EXIT_OK, Main.execute(new String[]{
+                "--" + Main.COMPILE_LOG, COMPILE_LOG,
+                "--" + Main.WRITE_INPUT_CONFIGURATION, out.getAbsolutePath()}));
+
+        List<SourceSet> own = read(out).sourceSets().stream().filter(SourceSet::parsedFromSource).toList();
+        assertFalse(own.isEmpty());
+        assertEquals(List.of(), own.stream().filter(s -> s.buildUnit() == null).map(SourceSet::name).toList(),
+                "every derived source set must record a build unit");
+
+        Map<String, List<String>> byBuildUnit = own.stream().collect(Collectors.groupingBy(SourceSet::buildUnit,
+                TreeMap::new, Collectors.mapping(SourceSet::name, Collectors.toList())));
+        assertTrue(byBuildUnit.size() > 10, "expected a multi-module reactor, got " + byBuildUnit.size());
+        assertTrue(byBuildUnit.size() < own.size(), "expected build units to group several source sets");
+
+        // the module directory groups main with its own test set, which the counter-suffixed names do not
+        String deployment = byBuildUnit.keySet().stream()
+                .filter(bu -> bu.endsWith("/quarkus/deployment")).findFirst().orElseThrow(
+                        () -> new AssertionError("no quarkus/deployment build unit in " + byBuildUnit.keySet()));
+        assertEquals(List.of("quarkus/main2", "quarkus/test-classes"),
+                byBuildUnit.get(deployment).stream().sorted().toList());
+        assertFalse(deployment.contains("/target"), "the build output directory must be stripped: " + deployment);
     }
 
     @Test

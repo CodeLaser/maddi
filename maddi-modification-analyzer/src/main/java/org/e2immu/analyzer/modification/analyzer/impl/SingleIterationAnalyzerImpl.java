@@ -19,9 +19,14 @@ import org.e2immu.analyzer.modification.analyzer.*;
 import org.e2immu.analyzer.modification.common.defaults.ShallowTypeAnalyzer;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
+import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.analysis.Message;
+import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.element.Element;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -52,11 +57,24 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final TypeIndependentAnalyzer typeIndependentAnalyzer;
     private final ShallowTypeAnalyzer shallowTypeAnalyzer;
     private final TypeContainerAnalyzer typeContainerAnalyzer;
+    private final TypeEventualAnalyzer typeEventualAnalyzer;
+    private final StaticSideEffectAnalyzerImpl staticSideEffectAnalyzer;
+    private final SourceContractMaterializer sourceContractMaterializer;
+    private final DynamicImmutabilityInference dynamicImmutabilityInference;
     private final AbstractMethodAnalyzer abstractMethodAnalyzer;
+    // EXPERIMENTAL greatest-fixpoint oracle (EVENTUALCLUSTER), exposed so IteratingAnalyzerImpl's post-convergence
+    // contraction phase can read the assumption ledger it accumulated
+    private final EventualCluster eventualCluster;
     private final AtomicInteger propertiesChanged;
     private final List<Message> messages;
     private final boolean faultTolerant;
     private final Set<Info> failed = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    // VariableData flatten-snapshot (Configuration.flattenVariableData; DESIGN-vardata-flatten.md):
+    // runtime rebuilds a method's VD via prepwork on regeneration; the set tracks methods whose
+    // intermediate-statement VD has been dropped, so a re-link regenerates it first.
+    private final Runtime runtime;
+    private final boolean flattenVariableData;
+    private final Set<MethodInfo> flattenedMethods = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     // Parallel per-element loop: iterations 2+ on a fixed pool, iteration 1 via call-graph strata waves.
     // DEFAULT ON since the 3-corpus proof (2026-07-17: certified + verdict-exact at 8 threads): min(8,
@@ -90,6 +108,15 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         this.waveCompletedCallback = callback;
     }
 
+    // per-element hook (AnalysisValueFeed.elementCompleted): fired once as each element's processElement
+    // finishes, on the (parallel) worker thread — must be cheap + thread-safe. Gives intra-wave progress
+    // when a giant SCC is one wave. Set by IteratingAnalyzerImpl when a feed exists.
+    private Runnable elementCompletedCallback;
+
+    public void setElementCompletedCallback(Runnable callback) {
+        this.elementCompletedCallback = callback;
+    }
+
     public static final String ANALYZER_CRASH = "analyzer-crash";
     public static final String LINK_CRASH = "link-crash";
 
@@ -103,16 +130,34 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         Runtime runtime = javaInspector.runtime();
         fieldAnalyzer = new FieldAnalyzerImpl(runtime, configuration, propertiesChanged, messages);
         typeModIndyAnalyzer = new TypeModIndyAnalyzerImpl(configuration, propertiesChanged, messages);
-        typeImmutableAnalyzer = new TypeImmutableAnalyzerImpl(configuration, propertiesChanged, messages);
-        typeIndependentAnalyzer = new TypeIndependentAnalyzerImpl(configuration, propertiesChanged, messages);
+        // the independent analyzer is built first: the immutable analyzer asks it for after-mark independence,
+        // because the dependence cap in computeImmutableType would otherwise fire before the AfterMark relaxation
+        typeIndependentAnalyzer = new TypeIndependentAnalyzerImpl(runtime, configuration, propertiesChanged, messages);
+        // EXPERIMENTAL greatest-fixpoint oracle for the eventual cluster (gated on EVENTUALCLUSTER), shared so the
+        // immutable analyzer's supertype step and the eventual analyzer's cross-reference step agree on membership
+        this.eventualCluster = new EventualCluster();
+        typeImmutableAnalyzer = new TypeImmutableAnalyzerImpl(typeIndependentAnalyzer, configuration,
+                propertiesChanged, messages, eventualCluster);
         shallowTypeAnalyzer = new ShallowTypeAnalyzer(runtime, Element::annotations, false);
         typeContainerAnalyzer = new TypeContainerAnalyzerImpl(configuration, propertiesChanged, messages);
-        abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, propertiesChanged, messages);
+        typeEventualAnalyzer = new TypeEventualAnalyzerImpl(runtime, typeImmutableAnalyzer, configuration, propertiesChanged, messages, eventualCluster);
+        staticSideEffectAnalyzer = new StaticSideEffectAnalyzerImpl(propertiesChanged);
+        sourceContractMaterializer = new SourceContractMaterializer(runtime, propertiesChanged);
+        dynamicImmutabilityInference = new DynamicImmutabilityInference(propertiesChanged);
+        abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, propertiesChanged, messages,
+                eventualCluster);
+        this.runtime = runtime;
+        this.flattenVariableData = configuration.flattenVariableData();
     }
 
     @Override
     public int propertiesChanged() {
         return propertiesChanged.get();
+    }
+
+    /** The greatest-fixpoint oracle (EVENTUALCLUSTER), for the post-convergence contraction phase. */
+    public EventualCluster eventualCluster() {
+        return eventualCluster;
     }
 
     @Override
@@ -153,6 +198,9 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         changedInfos.clear();
         summaryChangedInfos.clear();
         TolerantWrite.resetChangedTargets();
+        // flatten-snapshot: before this pass re-links any method whose intermediate VD was dropped,
+        // regenerate its full per-statement VD from the body (quiescent: before the parallel loop).
+        if (flattenVariableData && !flattenedMethods.isEmpty()) regenerateFlattened(analysisOrder);
         // first iteration only; concurrent for the strata-parallel path
         Set<TypeInfo> abstractTypes = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
@@ -192,6 +240,8 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                             List<Info> waveElements = wave.stream().flatMap(List::stream).toList();
                             waveCompletedCallback.accept(waveElements, waveIndex);
                         }
+                        // flatten happens per-method in processElement (Phase 5), not at the barrier:
+                        // a giant SCC is one wave, so a barrier fires only at its end, after the peak.
                     }
                 } finally {
                     linkComputer.setLockComputeDisabled(false);
@@ -278,6 +328,78 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         unionInWriteTargets();
     }
 
+    // ---- VariableData flatten-snapshot helpers (DESIGN-vardata-flatten.md) --------------------------
+    // Both regenerate and flatten run only at pass boundaries in go(), where the workers are quiescent,
+    // so neither races the parallel FieldAnalyzer reads of another method's last-statement VariableData.
+
+    private void regenerateFlattened(List<Info> subset) {
+        PrepAnalyzer prep = new PrepAnalyzer(runtime);
+        for (Info info : subset) {
+            if (info instanceof MethodInfo mi && flattenedMethods.remove(mi)) {
+                clearAllVariableData(mi);
+                try {
+                    prep.doMethod(mi);
+                } catch (RuntimeException | AssertionError e) {
+                    LOGGER.error("VariableData regeneration failed for {}", mi, e);
+                }
+            }
+        }
+    }
+
+    /** Called concurrently from processElement, once per method, right after its link is written. */
+    private void flattenMethod(MethodInfo mi) {
+        if (failed.contains(mi) || !flattenedMethods.add(mi)) return;
+        try {
+            if (!flattenOneMethod(mi)) flattenedMethods.remove(mi); // nothing flattened: don't track
+        } catch (RuntimeException | AssertionError e) {
+            LOGGER.error("VariableData flatten failed for {}; keeping full VD", mi, e);
+            flattenedMethods.remove(mi);
+        }
+    }
+
+    /** @return true iff the method's VariableData was flattened (false = abstract/empty, do not track). */
+    private boolean flattenOneMethod(MethodInfo mi) {
+        if (mi.methodBody() == null) return false;
+        List<Statement> statements = mi.methodBody().statements();
+        if (statements.isEmpty()) return false;
+        Statement last = statements.getLast(); // its VD is the method's consumed (last-block) VariableData
+        VariableData consumed = VariableDataImpl.of(last);
+        if (!(consumed instanceof VariableDataImpl vdi)) return false;
+        VariableDataImpl flat = vdi.flattened();
+        setVariableData(last.analysis(), flat);
+        if (VariableDataImpl.of(mi) != null) setVariableData(mi.analysis(), flat); // same anchor, method level
+        // consumers read only the last statement; drop the rest (recursing into sub-blocks)
+        walkStatements(statements, s -> {
+            if (s != last) clearVariableData(s.analysis());
+        });
+        return true;
+    }
+
+    private void clearAllVariableData(MethodInfo mi) {
+        clearVariableData(mi.analysis());
+        if (mi.methodBody() != null) {
+            walkStatements(mi.methodBody().statements(), s -> clearVariableData(s.analysis()));
+        }
+    }
+
+    private static void walkStatements(List<Statement> statements, java.util.function.Consumer<Statement> action) {
+        for (Statement s : statements) {
+            action.accept(s);
+            s.subBlockStream().forEach(b -> walkStatements(b.statements(), action));
+        }
+    }
+
+    private static void setVariableData(PropertyValueMap analysis, VariableDataImpl flat) {
+        // ATOMIC single put (PropertyValueMapImpl.overwrite is synchronized): a parallel FieldAnalyzer
+        // reading this statement's VD via the equally-synchronized getOrNull sees the old chained VD or
+        // the new flattened one — never a transient null, as a removeIf-then-set would leave.
+        analysis.overwrite(VariableDataImpl.VARIABLE_DATA, flat);
+    }
+
+    private static void clearVariableData(PropertyValueMap analysis) {
+        analysis.removeIf(p -> p == VariableDataImpl.VARIABLE_DATA);
+    }
+
     private static void joinAll(List<java.util.concurrent.Future<?>> futures) {
         for (java.util.concurrent.Future<?> future : futures) {
             try {
@@ -302,6 +424,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.setCurrent(info);
         try {
             if (info instanceof MethodInfo methodInfo) {
+                sourceContractMaterializer.materialize(methodInfo);
                 if (firstIteration && methodInfo.isAbstract() && abstractTypes.add(info.typeInfo())) {
                     shallowTypeAnalyzer.analyze(info.typeInfo());
                 }
@@ -314,8 +437,19 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                             methodInfo)) {
                         propertiesChanged.incrementAndGet();
                     }
+                    // flatten-snapshot Phase 5: this method is fully linked (summary written), so flatten
+                    // its last-statement VD and drop the intermediates RIGHT HERE — concurrently, inside
+                    // the giant SCC wave, which is the only place the peak can actually be bounded. Safe
+                    // because the last-statement replacement is an atomic overwrite (a parallel
+                    // FieldAnalyzer read sees the old chained or new flattened VD, both valid) and nothing
+                    // cross-method reads this method's intermediate statements.
+                    if (flattenVariableData) flattenMethod(methodInfo);
                 }
             } else if (info instanceof FieldInfo fieldInfo) {
+                sourceContractMaterializer.materialize(fieldInfo);
+                // after materialization (a contract wins over inference) and before fieldAnalyzer.go, which is
+                // the first consumer of IMMUTABLE_FIELD via DynamicImmutability
+                dynamicImmutabilityInference.infer(fieldInfo);
                 if (fieldInfo.owner().isAbstract() && firstIteration) {
                     shallowTypeAnalyzer.analyzeField(fieldInfo);
                 }
@@ -341,6 +475,9 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
             // under PARALLEL the delta can over-attribute (another thread's change lands in the window);
             // a superset of changed elements is safe for the worklist
             if (propertiesChanged.get() > changesBefore) changedInfos.add(info);
+            // intra-wave progress tick (in finally: a fault-tolerant crash still counts as processed)
+            Runnable ec = elementCompletedCallback;
+            if (ec != null) ec.run();
         }
     }
 
@@ -383,5 +520,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         typeIndependentAnalyzer.go(typeInfo, activateCycleBreaking);
         typeImmutableAnalyzer.go(typeInfo, activateCycleBreaking);
         typeContainerAnalyzer.go(typeInfo);
+        typeEventualAnalyzer.go(typeInfo, activateCycleBreaking);
+        staticSideEffectAnalyzer.go(typeInfo); // gated on env SSE; additive, writes only STATIC_SIDE_EFFECTS_METHOD
     }
 }

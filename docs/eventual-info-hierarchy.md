@@ -1,0 +1,788 @@
+# Making the `Info` hierarchy eventually immutable — diagnosis
+
+**Status: note (diagnosis, 2026-07-22). No fix landed yet.** Measured on the dogfood run
+(`cst-api` + `cst-impl` co-analyzed as source, with `--preload-analysis-results-dirs`).
+
+The goal: certify `TypeInfoImpl`, `MethodInfoImpl`, `FieldInfoImpl`, `ParameterInfoImpl`,
+`TypeParameterImpl` (and their `TypeInfo`/… interfaces) as eventually immutable, the way
+`ModuleInfo.Provides`/`Uses` already are. All of them carry their **marks** correctly today
+(`commit` = `@Mark("inspection")`, `hasBeenInspected`/`hasBeenCommitted` = `@TestMark`,
+`setOnDemandInspection` = `@Only(before)`), but **not one gets a type-level eventual verdict**.
+
+## The verdicts (FPDUMP, in-memory, not the codec)
+
+Every target — impl *and* interface — is concluded **`@Mutable` (0)**, written, not undecided:
+
+```
+@Mutable   TypeInfo, MethodInfo, FieldInfo, ParameterInfo, TypeParameter   (interfaces)
+@Mutable   TypeInfoImpl, MethodInfoImpl, FieldInfoImpl, ParameterInfoImpl, TypeParameterImpl
+@Mutable   InfoImpl                                                          (abstract base)
+```
+
+(`immutableType=None` in the JSON is ambiguous: `ImmutableImpl.encode` returns null for
+`value <= 0`, so both MUTABLE and undecided serialize as absent. FPDUMP disambiguates: all are
+written MUTABLE.)
+
+## The causal chain (verified end to end)
+
+1. **`EventuallyFinalOnDemand.get()` is modifying.** In the *before* state it runs the on-demand
+   loader (`onDemand.run()` → `setFinal`, `EventuallyFinalOnDemand.java:37`). It carries no
+   `@NotModified`, so both the shallow analyzer and inference conclude it modifies.
+2. **Every `*InfoImpl` accessor that reads through `inspection.get()` inherits `@Modified`** —
+   `access()`, `javaDoc()`, `fullyQualifiedName()`, `descriptor()`, `isSynthetic()`, `typeInfo()`,
+   `hasBeenAnalyzed()`, `translate()`. Verified contrast: `MethodInfoImpl.simpleName()` (returns a
+   plain final field) is `nonModifying=true`; `access()` (via `inspection.get()`) is `false`.
+3. **The abstract-method analyzer copies those `@Modified` verdicts up to the `Info` interface.**
+   `Info.access()`, `Info.fullyQualifiedName()`, … are all `@Modified`.
+4. **A type with modifying methods can't be immutable.** `Info` is fieldless and
+   `@Independent(hc=true)`, yet rule 1 fails → it caps at **`@FinalFields`**. Its parent `Element`
+   reaches `@Immutable(hc=true)` precisely because it has no such lazy-getter method (its
+   `analysis()` is a throwing default, `Element.java:188`).
+5. **A FINAL_FIELDS supertype counts as mutable** (`ImmutableImpl.isMutable()` is `value <= 1`) →
+   `TypeImmutableAnalyzerImpl.computeImmutableType` line 124 returns MUTABLE for every subtype.
+   So `InfoImpl` and every `*Info`/`*InfoImpl` are dragged to `@Mutable`.
+6. The eventual phase (`TypeEventualAnalyzerImpl.computeTypeLevel`) excuses `@Mark`/`@Only(before)`
+   methods but **not** plain `@Modified` accessors, so it cannot rescue the interface.
+
+### What is NOT the blocker
+
+- **The concrete impls' own accessors are not self-blocking.** They modify `inspection`, but
+  `inspection` is the *marked* field, and `loopOverFieldsAndMethods` already excuses a marked
+  field's modification (`TypeImmutableAnalyzerImpl.java:221`). The impls are dragged down purely by
+  their **supertypes** (`InfoImpl` + the `*Info` interface).
+- **`InfoImpl`'s own state is fine.** It is `@Independent(hc=true)`, `@Container`,
+  `propertyValueMap` is `unmodified=true`. Its only real blocker is the `Info` supertype.
+  (Secondary: `InfoImpl.analysis()` reads `nonModifying=false`, from the debug-gated
+  `ConsumptionEdgeRecorder.record(this)` call — worth a look, but not the dominant cause.)
+
+## The fix is a small tree, not one lever
+
+To certify the family, in dependency order:
+
+1. **Method-level eventual non-modification primitive.** A method that is non-modifying only after
+   a mark — `@NotModified(after="isFinal")` — as a first-class, computed property
+   (`EVENTUALLY_NON_MODIFYING_METHOD`, mirroring the field-level `EVENTUALLY_FINAL_FIELD`). Today
+   `AnnotationToProperty` parses `@NotModified(after=)` on a **method** by *dropping* the `after=`
+   and collapsing to an unconditional `@NotModified` (line 180–182; `finalAfter` is consumed only
+   for fields at line 317) — which is false in the before state. No method in the tree uses
+   `@NotModified(after=)` today, so fixing the parse regresses nothing.
+2. **Contract `get()`** as `@NotModified(after="isFinal")` (a jar support leaf — contracting is
+   correct; it flows through the shallow path).
+3. **Compute** the property on the source impl accessors: a method whose only modification flows
+   through `this.<eventually-immutable field>.<eventually-non-modifying call>` is
+   `@NotModified(after="<field>")`. Natural extension of `computeEventual`/`labelsOfReceiver`.
+   (Per `SourceContractMaterializer`'s philosophy, modification is *computed*, never trusted from a
+   source annotation — so the impl accessors must be computed, not hand-annotated.)
+4. **Propagate** impl → abstract via `AbstractMethodAnalyzerImpl`, so the `Info` interface's
+   abstract accessors become `@NotModified(after="inspection")`.
+5. **Type-level eventual verdict from after-labels.** `Info` has **no `@Mark` method** (its mark
+   lives on the subclasses' `inspection` field), so `computeTypeLevel` must derive the mark label
+   from its eventually-non-modifying methods' `after=` labels, then excuse those methods →
+   `Info` = `@Immutable(hc=true, after="inspection")`.
+6. **Inherited mark at the type level (subclass → abstract superclass).** `InfoImpl` also has no
+   mark of its own (the `inspection` field is in its subclasses), so it needs the subclass's
+   eventual verdict propagated onto the abstract base — the inverse of the old
+   `approvedPreconditionsFromParent`, the piece `docs/eventual-immutability.md` lists as not ported.
+   Without it, `immutableSuper(InfoImpl, afterMark)` returns `@Mutable` and line 124 keeps dragging
+   every concrete impl down.
+
+Steps 1–2 are unambiguous groundwork. Steps 3–4 are the `#1` computation/propagation. Steps 5–6
+are two *new* capabilities (label-from-non-modification; inherited-mark-from-subclass), step 6
+being an explicitly deferred item. The eventuality stays out of the `IMMUTABLE_TYPE` lattice
+throughout (`EVENTUALLY_IMMUTABLE_TYPE` only), as today.
+
+## Steps 1–5, as built (2026-07-22) — and the wall they hit
+
+Landed: property `EVENTUALLY_NON_MODIFYING_METHOD` (method-level twin of `EVENTUALLY_FINAL_FIELD`,
+codec-registered); `AnnotationToProperty` parses `@NotModified(after=)` on a method into it (was
+dropping the `after=` and asserting an unconditional, false, `@NotModified`); `EventuallyFinalOnDemand.get()`
+contracted `@NotModified(after="isFinal")`; `TypeEventualAnalyzerImpl.computeEventuallyNonModifying`
+computes it on source methods (a `@Modified` method whose every modification is a call on `this.<own
+eventually immutable field>` or a `this`-forward to another eventually-non-modifying method — never a
+`@Mark`/`@Only(before)` call, which *is* the transition); `AbstractMethodAnalyzerImpl.methodEventuallyNonModifying`
+propagates impl→abstract; `computeTypeLevel` derives the type mark label from the after-labels when
+there is no `@Mark` method (the `Info` case). Pinned by `TestEventualPropagation.test10`/`test11`;
+analyzer suite 224/0, modification-common 52/0; no deterministic regression (the `Value.*` interface
+cluster flips FINAL_FIELDS↔MUTABLE run-to-run on its own — confirmed by two identical reruns).
+
+Measured on the dogfood: **149 methods** now carry `EVENTUALLY_NON_MODIFYING_METHOD`, and it
+propagates to the `Info` interface for the clean read-through accessors — `Info.access()`,
+`javaDoc()`, `isSynthetic()` all carry `{inspection}`. `eventualMethod` 30, `eventuallyImmutableType`
+4 unchanged.
+
+But the `Info` interface still does **not** reach an eventual verdict, and the reason is *not* step 6.
+Five abstract accessors stay `@Modified` because they modify through a **cross-reference to another
+`Info` object**, not through `this.inspection`:
+
+- `MethodInfoImpl.descriptor()` → `this.typeInfo.descriptor()` (reads through another `TypeInfo`)
+- `ParameterInfoImpl.typeInfo()` → `this.methodInfo.typeInfo()`
+- `ParameterInfoImpl.fullyQualifiedName()` → `this.methodInfo.fullyQualifiedName()`
+- `translate(...)` genuinely constructs new objects
+- `hasBeenAnalyzed()` similar cross-reads
+
+`computeEventuallyNonModifying` excuses a call only on `this.<own eventually immutable field>`
+(`inspection`); it does not excuse `this.typeInfo.descriptor()`, because `typeInfo`'s type (`TypeInfo`)
+is itself the blocked interface (not yet eventually immutable) and, even if it were, its mark is a
+*different object's* lifecycle. The `Info` types form a **mutual-reference cluster** (parameter →
+method → type → …) whose eventual immutability is a joint fixpoint: each needs the others.
+
+## The cluster is an all-or-nothing greatest fixpoint (2026-07-22, deeper dig)
+
+Chasing the five accessors to the bottom (contrary to a first fear, they do **not** modify through a
+deep transitive graph — `ParameterInfoImpl.parameterizedType()` returns a plain field, the stream/lambda
+calls are non-modifying JDK, so `descriptor()` modifies *only* through `this.inspection` via
+`parameters()` and `this.typeInfo` via the cross-ref). The real obstruction is a **circular
+recognition** with three interlocking pieces, none of which can resolve first:
+
+1. **Cross-reference field recognition.** `MethodInfoImpl.descriptor()` → `this.typeInfo.descriptor()`,
+   `ParameterInfoImpl.typeInfo()` → `this.methodInfo.typeInfo()`, `…fullyQualifiedName()` →
+   `this.methodInfo.fullyQualifiedName()`. Each is excusable *iff* the cross-referenced field type
+   (`TypeInfo`, `MethodInfo`) is recognized eventually immutable — which is the blocked verdict itself.
+2. **Inherited mark, subclass → abstract superclass.** Every `*InfoImpl` extends `InfoImpl`, which has
+   **no mark of its own** (its accessors are abstract, implemented in the subclasses; verified: zero
+   `EVENTUAL_METHOD`/`EVENTUALLY_NON_MODIFYING_METHOD` on `InfoImpl` itself). So `InfoImpl` can only get
+   an eventual verdict *from* its subclasses — but by the hierarchy rule the subclasses need `InfoImpl`
+   eventual first (a FINAL_FIELDS/MUTABLE supertype forces them MUTABLE). This is the deferred
+   `approvedPreconditionsFromParent`, here in its subclass→parent direction.
+3. **Interface propagation** (already built: `methodEventuallyNonModifying`, and the type-level
+   label-from-after in `computeTypeLevel`).
+
+All three are mutually circular. A least-fixpoint monotone pass (what the analyzer runs) concludes
+nothing from nothing; the cluster only resolves as a **greatest fixpoint**: optimistically assume the
+whole cluster is eventually immutable, compute, and keep it iff nothing contradicts. That is sound as a
+*coinductive* eventual claim — `@Immutable(after="inspection,typeInfo,…")`, the joint transition of
+the cluster — but it cannot be reached by the write-once, monotone outer loop without an
+optimistic-seed-and-verify pass, i.e. the same shape as the engine's existing immutability cycle-breaking,
+extended to eventual immutability and to the subclass→superclass mark inheritance.
+
+**Assessment.** This is not an incremental extension of steps 1–5; it is one indivisible mechanism
+(optimistic cluster seeding + verification + subclass→parent mark inheritance) that has to break all
+three circles at once, and it touches the engine's most guarded part (cycle-breaking, whose golden rule
+is a byte-identical FPDUMP A/B on the certified corpus). It should be scoped and funded as its own
+piece, behind a gate until a corpus A/B clears it. Steps 1–5 are the correct, self-contained substrate
+it will build on — they land the entire self-field pattern and the interface method propagation; the
+cluster fixpoint is the distinct next investment.
+
+## Prototype: `EventualCluster`, gated on `EVENTUALCLUSTER` (2026-07-22)
+
+Built the optimistic half of the greatest fixpoint (`EventualCluster`, injected into the eventual and
+immutable analyzers). Cluster identification is candidates + upward hierarchy closure (§"how the cluster
+set is identified" above): a *direct* candidate has a `@Mark`/`@Only`/`@TestMark` method, an
+`EVENTUALLY_NON_MODIFYING_METHOD`, or an `EVENTUALLY_IMMUTABLE_TYPE`; its supertypes join by closure
+(the only way `InfoImpl` and the interfaces, with no eventual method, enter). Under the gate the eventual
+analyzer's cross-reference check and the immutable analyzer's `immutableSuper` treat a candidate as
+eventually immutable (capped at immutable-HC) before its verdict is proven.
+
+**Result — the circularity does break.** `eventuallyImmutableType` goes **4 → 17**, *stable across two
+reruns* (identical set), and the joint marks are exactly the predicted coinductive transitions:
+`TypeInfoImpl` after `inspection`, `MethodInfoImpl` after `inspection,typeInfo`, `FieldInfoImpl` after
+`inspection,owner`, `ParameterInfoImpl` after `inspection,methodInfo,parameterizedType`,
+`CompilationUnitImpl` after `fingerPrint,types`, plus `TypeParameterImpl`, `ModuleInfoImpl`,
+`FieldReferenceImpl`, `ParameterizedTypeImpl`, `ThisImpl` … Gate OFF returns exactly 4 (golden rule
+intact); analyzer suite 227/0 with the gate compiled in.
+
+**Two ceilings the prototype exposes, both worth the follow-up:**
+
+1. **Level caps at FINAL_FIELDS(1), not IMMUTABLE-HC(2).** `TypeInfoImpl`-after-`inspection` is level 1
+   with `independentType=2` — so independence is *not* the cap. The cap is a **cross-reference through a
+   wrapper**: `TypeInfoImpl.compilationUnitOrEnclosingType` is an `Either<CompilationUnit,TypeInfo>`, read
+   as `this.field.getLeft().method()`. The `nonModifyingLabels` pattern only reaches `this.field.m()`, not
+   `this.field.unwrap().m()`, so that field stays modified-content and holds the type at FINAL_FIELDS.
+   Generalising the excusal through immutable single-indirection wrappers (`Either`, `Option`) is the next
+   lever for the level.
+2. **Interfaces don't surface.** FINAL_FIELDS-after-mark does not beat their FINAL_FIELDS-*unconditional*,
+   so `computeTypeLevel`'s "must beat unconditional" guard suppresses the write. They would appear once
+   ceiling 1 lifts the level to IMMUTABLE-HC.
+
+**Soundness status.** The result is stable (evidence of a self-consistent fixpoint at level 1), but the
+greatest-fixpoint **removal pass is not yet implemented** — a member that concluded while relying on a
+candidate that ultimately did *not* is not yet retracted. That, plus the wrapper generalisation and
+promoting `InfoImpl` via subclass→parent inheritance, is the remaining work to make it default-worthy.
+The prototype's contribution is the proof that the cluster is genuinely resolvable and that the marks are
+the right ones; it lives behind `EVENTUALCLUSTER` until the removal pass and a corpus A/B clear it.
+
+## Wrapper generalisation → the level lifts to IMMUTABLE-HC (2026-07-22)
+
+Three additions (all under the gate, or A/B-verified neutral off it) took the flagship types from
+FINAL_FIELDS to genuine immutable-HC:
+
+1. **Chained reads through an immutable wrapper.** `nonModifyingLabels`/`receiverAfterLabels` now
+   follow a chain of *non-modifying* accessors from an own field:
+   `this.compilationUnitOrEnclosingType.getRight().descriptor()` resolves to the field
+   `compilationUnitOrEnclosingType`. `fieldHoldsCommittableContent` excuses a field that is an immutable
+   single-indirection wrapper (`Either`, `Option`) of candidate content. A `ContractReader` fallback
+   (`immutableOf`) supplies `Either`'s `@ImmutableContainer` verdict, which as a jar type is not
+   materialised into `analysis()` (the same trap `eventualOf` already handles). `Either.getRight()` is
+   recognised non-modifying because it is declared on an immutable type.
+2. **Immutable-typed fields are exempt from the `UNMODIFIED_FIELD` gate** (in `loopOverFieldsAndMethods`,
+   gated). A `private final String` field (`simpleName`, `fullyQualifiedName`, `MethodInfoImpl.name`)
+   was recorded `unmodified=false` in the baseline — spurious, since String content is unmodifiable —
+   and it was the true cap holding every flagship type at FINAL_FIELDS. An immutable-typed field's
+   content cannot be modified whatever the field analyzer recorded, so the check is skipped.
+3. **A final field of eventually-immutable/candidate type joins the mark** (§060: "will at some point
+   hold objects that are in their after state … act as immutable fields"). `FieldInfoImpl.type`
+   (a `ParameterizedType`) rides along even though no accessor reads through it. Only fires when a mark
+   was already found, so a type with no transition of its own is unaffected.
+
+**Result:** `eventuallyImmutableType` 4 → 17, **8 at IMMUTABLE-HC** (was 4), *stable across reruns*, gate
+OFF still exactly 4 (golden rule intact), suite 227/0. The three flagship types are certified
+`@Immutable(hc=true)` after their marks:
+
+- `TypeInfoImpl` after `compilationUnitOrEnclosingType, inspection`
+- `MethodInfoImpl` after `inspection, typeInfo`
+- `FieldInfoImpl` after `inspection, owner, type`
+
+**Still FINAL_FIELDS:** `ParameterInfoImpl` (after `inspection, methodInfo, parameterizedType`) is capped
+by its own `analysis` field — a mutable `PropertyValueMap`. Unlike the other three, `ParameterInfoImpl`
+does **not** extend `InfoImpl`; it holds the analysis store directly and reads it *on the field*
+(`analysis.getOrDefault(...)` in `isUnmodified`/`isIgnoreModifications`/`assignedToField`), whereas the
+three that extend `InfoImpl` can only reach the store through the `analysis()` accessor.
+
+The mechanism, confirmed: `PropertyValueMap.getOrDefault` has no `@NotModified` and its only implementation
+(`PropertyValueMapImpl`) is a **jar** here, so its non-modification is never established (`nonModifying=null`).
+The identical call is then non-modifying through the accessor (`InfoImpl.hasBeenAnalyzed` = `analysis().getOrDefault`
+→ true) but conservatively modifying on the direct field (`ParameterInfoImpl.isUnmodified` = `analysis.getOrDefault`
+→ false), because a possibly-mutating call on a *named own field* marks that field's content modified. So the
+store reads `unmodified=false` only in `ParameterInfoImpl`.
+
+Three fixes, in increasing scope:
+- **Annotate `PropertyValueMap.getOrDefault`/`getOrNull` `@NotModified`** — root cause, tiny, correct, helps
+  anywhere these are called on a field.
+- **Make `ParameterInfoImpl extends InfoImpl`** like its three siblings — removes the directly-readable store.
+- **Analyze `cst-analysis` as source** so `getOrDefault` is *computed* non-modifying (the "computed, not
+  contracted" path) — **done, see below**.
+
+`CompilationUnitImpl`, `ParameterizedTypeImpl`, `ModuleInfoImpl` remain at FINAL_FIELDS for similar per-type
+field reasons, each worth a look but none blocking the headline.
+
+## Plugin fix: transitive source-project edges, and cst-analysis as source (2026-07-22)
+
+The "analyze cst-analysis as source" route was blocked by a plugin gap:
+`ComputeSourceSets.dependentProjectResult` built each *transitive* dependency project as a flat leaf source
+set with `List.of()` inter-project dependencies, so the cst-analysis→cst-api edge was never wired —
+cst-analysis could not resolve cst-api (`package org.e2immu.language.cst.api.info does not exist`) and the
+front end dropped it. Fixed: `ComputeSourceSets.collectSourceProjectEdges` reconstructs the dependency DAG
+among source projects from the Gradle resolution result, and `ComputeDependencies` adds those edges to the
+graph. The dogfood now analyzes `cst-analysis` as a third source subproject.
+
+**Effect, confirmed:** `PropertyValueMapImpl.getOrDefault`/`getOrNull` are **computed** `@NotModified` from
+source, the interface methods inherit it, and `ParameterInfoImpl.analysis` can now read `unmodified=true` —
+exactly the "computed, not contracted" resolution.
+
+Also fixed here: **after-mark independence is floored at the unconditional verdict** (`immutableAfterMark`,
+gated). The mark only relaxes, so after-mark independence can never be below the unconditional — but
+`independentAfterMark` under-reported when a plain accessor leaks a not-yet-proven cluster candidate
+(`ParameterInfoImpl.parameterizedType`). Flooring lifted `TypeParameterImpl` to IMMUTABLE-HC.
+
+**State with the gate:** `eventuallyImmutableType` 4 → 17, **9 at IMMUTABLE-HC** (`TypeInfoImpl`,
+`MethodInfoImpl`, `FieldInfoImpl`, `TypeParameterImpl`, + the 4 base + `CompilationUnitStub`). Gate OFF still
+exactly 4 (golden rule intact), analyzer suite 227/0, plugin 6/0.
+
+**`ParameterInfoImpl` still does not reliably land**, for a subtler reason than before: its `analysis` field's
+`unmodified` verdict is now *non-deterministic* — it flips true/false across runs (the documented
+non-confluence), and because `PropertyValueMap` is `@FinalFields` (not immutable-HC) the field is checked, so
+the type reaches HC only when the coin lands right. The clean settle remains the structural one — make
+`ParameterInfoImpl extends InfoImpl` so it inherits the store instead of holding it directly — which also
+stops it reading the store through a direct field reference in the first place.
+
+## Getter ↔ variable equivalence, and the store is a red herring (2026-07-22, corrected)
+
+`extends InfoImpl` is explicitly off the table until every other means is exhausted. Chasing the store
+modification led to three corrections of the record above.
+
+**(a) The `analysis` store is NOT the `ParameterInfoImpl` cap.** Across 8 dogfood runs (gate on/off, with and
+without any change) `field unmodified=true …ParameterInfoImpl.analysis` is **stable** — the flip described
+above does not reproduce. The plugin fix (cst-analysis as source) made `getOrDefault`'s `NON_MODIFYING`
+verdict stably decided, which closes the provisional-`false` window that used to race. So there is no live
+modification non-determinism on that field.
+
+**(b) Getter ↔ variable equivalence — verified status.** The engine already models `x.f()` == `x.f` *exactly*,
+not approximately: `ApplyGetSetTranslation` (prepwork, run on every expression in `MethodAnalyzer.beforeExpression`)
+and its link-layer twin in `ExpressionVisitor` **rewrite** a recognised getter call into the field access
+before variable data / links are built, so there is a single `FieldReference` afterward — no separate "getter
+path" to diverge. Recognition is `GetSetHelper.doGetSetAnalysis`: the body's first statement must be a bare
+`return this.field;` (or the array/list-get shapes). Dogfood: 694 getters + 132 setters of 6271 methods.
+The **one real gap**: a leading side-effect-only statement defeats recognition. `InfoImpl.analysis()` and
+`ParameterInfoImpl.analysis()` open with `if (ConsumptionEdgeRecorder.ENABLED) { record(this); }`, so their
+first statement is an `IfStatement` → unrecognised → not rewritten; the accessor's receiver is a return-value
+intermediate and the field never surfaces as a `FieldReference` in the reader. (`TypeParameterImpl.analysis()`,
+`StatementImpl.analysis()`, … are bare returns → recognised.) This asymmetry is the latent fragility behind
+the historical flip, but a probe (making `ParameterInfoImpl.analysis()` a bare, recognised getter) left the
+verdict **byte-identical** `@FinalFields(after="inspection,methodInfo,parameterizedType")` — so it is *not*
+the cap either.
+
+**`GetSetHelper` guard-tolerance — DONE (2026-07-22).** Getter/setter recognition now sees through a *leading
+inert-guard* prefix: `doGetSetAnalysis` runs the return/assignment recognition on the first **non-inert**
+statement, not literally the first, so `if (ConsumptionEdgeRecorder.ENABLED) { record(this); } return
+propertyValueMap;` (the `InfoImpl.analysis()` / `ParameterInfoImpl.analysis()` shape) is recognised as the getter
+it plainly is, routing `x.analysis()` through the same unified `FieldReference` machinery (`ExpressionVisitor`
+call-site rewrite) as the other 694 getters. Engine/recognition only — no CST edits, no contact with the
+modification-convergence invariant; the single entry point keeps prepwork + link in agreement (both read
+`GET_SET_FIELD`).
+
+*Tolerance (see `GetSetHelper`'s class comment for the full soundness argument).* The check is purely syntactic
+(it sits in `PrepAnalyzer`, below any computed verdict, and its output is trusted stack-wide, incl.
+`ExpressionVisitor`, which *replaces* `x.m()` with a read of `x.field`, bypassing the body). A leading statement
+is an inert guard iff, across its whole subtree, it: (1) falls through — no return/yield/throw/break/continue;
+(2) writes no field of `this`; (3) references no field of `this` at all; (4) makes no call *on* `this`. A call
+that merely *passes* `this` to a static method (`record(this)`) is allowed — its only possible effect is on state
+the object does not own, a disclaimed static side effect (road §050) that cannot cap the object's immutability,
+so dropping it at the call site corrupts no verdict. Deliberately **not** tolerated: a guard that reads/writes an
+own field, calls a method on `this`, or can exit early (a second behaviour, not a getter with a benign prelude).
+`TestGetSetGuardTolerance` (positive: guarded getter/setter/fluent; negative: the four boundary violations).
+Suites: common 52/0, prepwork 209/0, link 402/0, analyzer 233/0. Consistent with (b)/(c): it closes the
+equivalence gap and removes the latent non-confluence source but does **not** by itself lift `ParameterInfoImpl`
+(the owned-store cap, already handled by the ignore-mod route).
+
+*Golden-rule corpus A/B (Fernflower FPDUMP, baseline vs change).* Not byte-identical, but **no verdict moved**:
+with the `getset=` classification tokens stripped the diff is **0 lines**. The single delta is one genuinely
+guarded setter that baseline missed — `ConstExprent.setConstType(VarType)`:
+`if (constType == null) { constType = VARTYPE_UNKNOWN; } this.constType = constType;` — now correctly classified
+`getset=constType(set)` (the guard reassigns the *parameter*, a local, which rule 2 permits; then the strict
+setter shape matches). Its `nonModifying=false` verdict is identical in both runs. So the A/B caught exactly the
+intended broadened classification, and it is correct and non-regressive — the feature working as designed, not a
+verdict regression.
+
+**Rejected — "wait-on-pending-callee" in `FieldAnalyzerImpl.computeUnmodified` (unsound, do not revisit as-is).**
+The idea was: when a `FieldReference`'s `UNMODIFIED_VARIABLE` is `false` only because the called method's
+`NON_MODIFYING_METHOD` is still undecided (`MethodModification.go` defaults an undecided callee to *modifying*),
+return "undecided" so the field waits and settles monotonically instead of committing the provisional `false`.
+It is unsound: an undecided field-modification is optimistically forced to **TRUE** by cycle-breaking
+(`FieldAnalyzerImpl.go`, `cycleBreakingActive`), and `TolerantWrite` then *refuses* the later correcting `false`
+as a weakening — so genuinely-modified collections (`ModuleInfoImpl.BuilderImpl.requiresList`,
+`AndImpl.Builder.expressions`, `ElementImpl.Builder.annotations`, `ExpressionComparator.cache`, …) were wrongly
+reported `unmodified=true`. The pessimistic "undecided callee = modifying" default exists precisely to prevent
+this. Lesson: converting a provisional-`false` field verdict to "undecided" is equivalent to *optimistically*
+assuming unmodified, which cycle-breaking then bakes in.
+
+**(c) The real cap is the directly-owned `analysis` store — probe-confirmed, and it is NOT independence.**
+`ParameterInfoImpl` is `@FinalFields(after="inspection,methodInfo,parameterizedType")` with
+`INDEPENDENT_TYPE=@Independent` (independence floors fine; the after-mark independence loop exempts the three
+mark fields, whose `afterMark.fields()=[parameterizedType, methodInfo, inspection]` — verified). The cap is in
+`TypeImmutableAnalyzerImpl.loopOverFieldsAndMethods`: it returns `false` on the **`analysis`** field
+(`PropertyValueMap`), read `unmodified=false` *at computation time* even though it settles `true` (FPDUMP
+final). That commits FINAL_FIELDS, which then does not upgrade. The four flagship types never face this: their
+store is **inherited from `InfoImpl`**, so it is not a declared field of the subtype and never enters
+`typeInfo.fields()` in the loop — contrast `MethodInfoImpl.afterMark.fields()=[inspection, typeInfo]`, no store.
+A probe that skips the `PropertyValueMap` store field in the loop lifts `ParameterInfoImpl` to
+`eventual=@Immutable(hc=true)` **deterministically** (HC count 9→10, stable across reruns). So the store —
+owned vs inherited — is the whole difference; `parameterizedType` (`ParameterizedType`, itself only
+`eventual=@FinalFields`) is correctly exempted via the mark and is *not* the cap.
+
+**PROPOSED — exempt the analysis-metadata store from the field-modification cap (gated).** The
+`PropertyValueMap analysis()` store is the mechanism of eventual immutability itself: filled during analysis,
+frozen after; every Info type has one, and for the four that extend `InfoImpl` it is provably never a
+modification cap (it is inherited, never looped). A directly-owned store should get the same treatment — skip a
+field of type `PropertyValueMap` in `loopOverFieldsAndMethods` (gated on `EVENTUALCLUSTER`), mirroring the
+structural exemption the flagship get for free. Sound: the field's `UNMODIFIED_FIELD` settles `true` (its only
+writers, external `set()` calls, are not in the analysed source); the `false` it is read as is a
+read-ordering artifact, not a real modification. Care point: key it on the store precisely (type
+`PropertyValueMap`), and keep it gated so the corpus A/B stays byte-identical off the gate.
+
+### Diagnostic: FPDUMP extended
+`FPDUMP` now also emits, per element: the after-mark `eventual=` verdict on each type
+(`EVENTUALLY_IMMUTABLE_TYPE`), `getset=<field>(get|set)` on each recognised getter/setter method
+(`GET_SET_FIELD`), and `independent=` / `ignoreMod=` on fields and types. All were essential to the corrections
+above — the flagship types read `type immutable=@Mutable` unconditionally, their HC-ness lives only in
+`eventual=`. (`maddi-modification-analyzer/.../IteratingAnalyzerImpl`.)
+
+## Resolution: `@IgnoreModifications`-as-hidden-content (2026-07-22, DONE)
+
+The "skip `PropertyValueMap` by type" proposal above was correctly diagnosed as a hack (it conflates two
+regimes and would hide a genuine modification once the analyzer's own sources are in scope). The principled
+replacement, worked out with Bart and written into `road-to-immutability` §050 ("Ignoring modifications as
+manual hidden content"): **`@IgnoreModifications` *is* the manual form of hidden content** — a field whose
+modifications the author disclaims, confined to the *ignored stratum*, so it does not bear on the type's
+immutability. `@StaticSideEffects` is the same guard's global-escape arm.
+
+Implemented in two parts:
+
+1. **Annotations** — every `Info` store carries `@IgnoreModifications` with the "analysis overlay is orthogonal
+   to CST-structure immutability" rationale at the site: `InfoImpl.propertyValueMap` (inherited by the four
+   `InfoImpl`-extending types), `ParameterInfoImpl.analysis` (owned), `TypeParameterImpl.analysis` (owned
+   override).
+2. **Engine** — (a) `SourceContractMaterializer` now materializes `IGNORE_MODIFICATIONS_FIELD` on source fields
+   (it is a pure contract, uncomputable, so a source annotation was previously read by nothing — the exact
+   asymmetry that made the annotation fire on shallow-analysed `InfoImpl` but not on source `ParameterInfoImpl`);
+   ungated, a no-op off maddi's own annotated code. (b) `TypeImmutableAnalyzerImpl.loopOverFieldsAndMethods`
+   treats an `@IgnoreModifications` field as hidden content — its `UNMODIFIED_FIELD` verdict is irrelevant —
+   gated on `EVENTUALCLUSTER`; the field still holds the type at `IMMUTABLE_HC` (concrete type not deeply
+   immutable), never hc-free.
+
+**Result:** `ParameterInfoImpl` reaches `eventual=@Immutable(hc=true)(after="inspection,methodInfo,
+parameterizedType")` **deterministically** — the fourth core `Info` type, and the first **without**
+`extends InfoImpl`. All five (`TypeInfoImpl`, `MethodInfoImpl`, `FieldInfoImpl`, `TypeParameterImpl`,
+`ParameterInfoImpl`) are now eventual-HC on maddi's own code. Dogfood HC 9→10; gate-off unchanged (4 eventual);
+analyzer suite 227/0. **Golden-rule corpus A/B: passed** — the three certified corpus tests
+(`TestFernflower`/`TestTimefoldSolver`/`TestLangchain4j`) ran gate-off, forced (`--rerun-tasks`), with real
+analysis time (147s / 179s / 36s) and 0 failures / 0 errors (Timefold's 1 skip is the pre-existing assumption).
+The ungated materialization is a corpus no-op (no e2immu annotations there) and the field-loop skip is gated off.
+
+**Follow-ons 1 & 2 (2026-07-22, DONE).**
+- **Ungated the field-loop skip.** `if (fieldInfo.isIgnoreModifications()) continue;` moved out of the
+  `EVENTUALCLUSTER` gate in `loopOverFieldsAndMethods` — honouring the contract is general correctness, and a
+  no-op wherever no field carries the annotation. **Corpus A/B green** (Fernflower/Timefold/Langchain4j, forced
+  rerun, real analysis time, 0 failures).
+- **Confinement guard, separation arm.** `GuardAnalyzerImpl.guardIgnoreModificationsSeparation` **warns**
+  (category `ignore-modifications-not-confined`, never caps) when an `@IgnoreModifications` field holds a
+  non-decoration link to an accessible (non-ignore-mod) field of the same primary type — content shared with the
+  accessible surface, so a modification through the ignored stratum could escape it. Conservative (a
+  reference-only/decoration link stays silent, so the analysis overlay's normal use is not flagged);
+  method-granularity / global-escape (`@StaticSideEffects`) is the deferred later arm.
+  `TestGuardIgnoreModifications`: the overlay shape is silent, a StringBuilder-content share is flagged once.
+  Analyzer suite 229/0.
+
+**Confinement guard, global-escape arm — DONE (2026-07-22).** Its mechanical core, `@StaticSideEffects`, did
+not exist in the engine (only in road §050) — now implemented as a computed `STATIC_SIDE_EFFECTS_METHOD`
+(`StaticSideEffectAnalyzerImpl`): a method has a static side effect when it modifies static/global state of a
+type *other* than its own primary type (first cut: assignment to, or a modifying call on, another type's static
+field; static-method reconfiguration like `System.setOut` needs an AAPI safe-surface declaration, left for
+later). Gated on env `SSE`, additive (writes only its own property). `GuardAnalyzerImpl`.
+`guardIgnoreModificationsContainment` then warns when a modifying call on an `@IgnoreModifications` field has a
+callee that is `@StaticSideEffects` — the modification reaches global state, so it left the ignored stratum.
+`TestStaticSideEffects` + `TestGuardIgnoreModifications.testGlobalEscapeIsWarned`; analyzer suite 231/0; corpus
+A/B (SSE off byte-identical / SSE on no-crash) green.
+
+**AAPI safe-surface — DONE (2026-07-22).** The callee-annotation half of the global-escape arm: a static
+*method* call that reconfigures global state (`System.setOut(other)` replacing the process-wide `System.out`)
+is invisible from JDK source, so it is recorded as a **contract** on the library's safe surface. Five pieces:
+1. **`@StaticSideEffects` annotation** (`maddi-support/.../annotation/rare/StaticSideEffects.java`) — contracted
+   on a library surface, `@Target(METHOD, CONSTRUCTOR)`, like `@IgnoreModifications`.
+2. **`AnnotationToProperty`** parses it → `STATIC_SIDE_EFFECTS_METHOD` (method map), so the shallow/AAPI path
+   materialises it automatically.
+3. **`SourceContractMaterializer.materialize(MethodInfo)`** materialises it on SOURCE methods too (parallel to
+   `IGNORE_MODIFICATIONS_FIELD` on fields) — a source author may assert it; ungated, a no-op where absent.
+4. **`StaticSideEffectAnalyzerImpl`** propagation: a call to a `@StaticSideEffects` callee makes the caller a
+   static-side-effect method too, transitively. `calleeStaticSideEffect` resolves the callee's verdict with a
+   has-body discriminator — a source callee not yet decided is UNDECIDED (wait, like the modifying-call case on
+   `NON_MODIFYING_METHOD`); a shallow/abstract callee with no contract is a decided FALSE (never stalls). This
+   is what makes the contract *bite*: it is how `System.setOut` reaches the guard.
+5. **AAPI declarations** — `System$.setOut/setErr/setIn` in `maddi-aapi-archive/.../jdk/JavaLang.java` annotated
+   `@StaticSideEffects`; the archive JSON regenerated via `./gradlew :maddi-aapi-parser:compileAnalysisHints`
+   (surgical 3-line diff in `JavaLang.json` — each setter gains `"staticSideEffectsMethod":1` — plus the
+   repackaged `openjdk.jar`; no other JSON changed).
+
+The `guardIgnoreModificationsContainment` arm needed no change — it already reads `STATIC_SIDE_EFFECTS_METHOD`
+on the direct callee, so propagation composes: `sink.reconfigure()` on an `@IgnoreModifications` field, where
+`reconfigure()` calls the contracted leaf, is flagged. Tests: `TestStaticSideEffects.testPropagation` (direct +
+transitive), `TestGuardIgnoreModifications.testGlobalEscapeViaContractIsWarned` (contract → propagate → guard).
+Analyzer suite 233/0, modification-common 52/0. Road §050 gained a "Recognising an invisible escape: the
+safe-surface contract" subsection. **Golden-rule corpus A/B: Fernflower FPDUMP byte-identical** off the SSE gate
+(the JSON delta is 3 JDK methods gaining a property no gate-off run reads).
+
+**`@StaticSideEffects` in the IDE — DONE (2026-07-22).** `DecoratorImpl.annotationAndProperties()` now emits
+`@StaticSideEffects` on a method whose `STATIC_SIDE_EFFECTS_METHOD` is true (mirroring the `@IgnoreModifications`
+emission), and `AnnotationTagger` tags it the `NEGATIVE` attention polarity — not a missing safety guarantee, but
+a genuine outward effect the designer should always see, rendered like the baseline cautions. Feeds
+DecoratorImpl → AnnotationTagger → all three front-ends + decorated-source printing. Not in the FPDUMP path and a
+no-op with the SSE gate off (no source method carries the property), so no corpus A/B needed.
+`TestDecorateStaticSideEffects` (prepwork, decorator seam), `TestStaticSideEffectPolarity` (daemon, end-to-end:
+gate on → decorate → tag NEGATIVE). prepwork 207/0, daemon 12/0.
+
+## Greatest-fixpoint removal pass (the remaining engine investment)
+
+The `EventualCluster` prototype supplies only the **optimistic seed** of the greatest fixpoint: it assumes each
+cluster candidate is eventually immutable and lets the two analyzers use that before the verdict is proven
+(`TypeImmutableAnalyzerImpl.immutableSuper` for a supertype contribution, `TypeEventualAnalyzerImpl.fieldHolds
+CommittableContent` for a cross-reference field type). It never does the other half — **contract**: remove any
+member whose verdict does not hold once its dependencies are restricted to the survivors, iterating to
+convergence. Today the result "happens to be" self-consistent (stable reruns; every member genuinely checks out),
+but that is proof-by-observation, not proof-by-construction. The removal pass makes it sound for arbitrary code
+and is the prerequisite to taking the whole cluster result (4→17 eventual, the five core `Info` types at
+eventual-HC) off the `EVENTUALCLUSTER` gate.
+
+Two architectural obstacles make this its own funded step, not an increment: (a) `EVENTUALLY_IMMUTABLE_TYPE` is
+**write-once** — set once in `computeTypeLevel` and NOT in `IteratingAnalyzerImpl.clearDerivedFamily`, so the
+outer loop never clears/recomputes it; retraction needs either adding it to the clearable family or a distinct
+post-convergence phase with its own clear. (b) analysis() writes are **monotone (strengthen-only)**; a retraction
+is a weakening the `TolerantWrite` guard refuses (the trap that killed "wait-on-pending-callee"), so the removal
+must run outside the monotone discipline as a controlled clear-and-recompute. It also overlaps the engine's
+existing immutability cycle-breaking and should extend it rather than run a parallel fixpoint — the most-guarded
+region, gated behind a byte-identical corpus A/B.
+
+**Step 1 — witness the optimism — IMPLEMENTED (2026-07-22, build/test pending gradle go-ahead).** For the
+contraction to have something to run on, every optimistic decision is now recorded. `EventualCluster.
+treatAsEventuallyImmutable(member, candidate, actual)` (signature extended with `member`) records the edge
+`member → candidate` in a new `assumptions()` ledger whenever it answers `true` only because of the seed
+(candidate not yet proven); both call sites thread the member (the subtype for `immutableSuper`, the field owner
+for the field-type check). Recording is a pure side effect read by nobody yet, so it changes no verdict — additive
+and gated (`ENABLED` made non-final, mirroring `StaticSideEffectAnalyzerImpl`, so tests can flip it).
+`TestEventualClusterAssumptions` pins: an optimistic call records the edge; a proven verdict and the gate-off case
+record nothing. *No corpus A/B needed (no verdict path touched).*
+
+**Step 2 — the contraction — IMPLEMENTED (2026-07-22, gate-ON dogfood validation pending gradle go-ahead).**
+`EventualClusterContraction` runs once at the terminal certification point (in `IteratingAnalyzerImpl`, before the
+verdict fingerprint and guard): it computes the largest subset of the eventual-verdict holders closed under "every
+candidate I assumed is retained" (`membersToRetract`, pure/generic so it is unit-testable), then **retracts**
+`EVENTUALLY_IMMUTABLE_TYPE` on the members that did not survive — dropping any that leaned on a candidate which did
+not itself prove eventually immutable, cascading to a fixpoint. Retraction is a `removeIf` on the property: it
+runs *outside* the monotone loop (a weakening `TolerantWrite` would refuse) as a post-convergence phase, which is
+sound precisely because the seed only ever influenced `EVENTUALLY_IMMUTABLE_TYPE` (the optimistic contribution
+fires solely in the after-mark branch of `immutableSuper` and in `fieldHoldsCommittableContent`), so clearing that
+one property is the whole retraction — no derived-family recompute. Conservative: the ledger is a superset of the
+final structural dependencies, so the pass never keeps an unsound verdict, though it could drop a justifiable one;
+on a self-consistent cluster it retracts nothing. Double-gated on `EVENTUALCLUSTER` (call site + early return) →
+off the gate the ledger is empty and it is a complete no-op, so the gate-off corpus A/B is byte-identical **by
+construction**. `TestEventualClusterContraction` (self-consistent cycle survives whole; broken assumption drops;
+cascade; independent verdict kept; mixed core-kept/sibling-dropped). analyzer 240/0.
+
+**Gate-ON dogfood — the contraction is NOT a no-op: it retracts 12 (2026-07-22).** Run with `EVENTUALCLUSTER=1`
+on maddi's own CST, the contraction retracted **12** of the 17 optimistic eventual verdicts — the *entire* `Info`
+flagship family (`TypeInfoImpl`, `MethodInfoImpl`, `FieldInfoImpl`, `ParameterInfoImpl`, `TypeParameterImpl`,
+`CompilationUnitImpl`, …). Only 5 self-contained verdicts survive (`ModuleInfo.Provides`/`Uses`, `Variable`,
+`ModuleInfoImpl.ProvidesImpl`/`UsesImpl`). This is the contraction *working correctly*, not a bug: `InfoImpl` and
+the `*Info` interfaces are all `eventual=null` — they never obtain a verdict (no `@Mark` of their own; the mark
+lives on the subclasses' `inspection` field, and the **subclass→superclass mark inheritance is the deferred
+piece**). Every flagship leans on `InfoImpl` (via `immutableSuper`) or an interface (via a cross-reference field)
+being eventual, and the greatest-fixpoint contraction soundly refuses to certify a verdict whose premise is never
+discharged. **So the seeded "4→17" was resting on undischarged premises** — the earlier "stable across reruns"
+observation was self-*consistency* of the optimism, not soundness; step 2 is exactly the tool that exposed it.
+
+**Roadmap, reordered.** The subclass→superclass mark inheritance is no longer optional/deferred — it is the
+**critical-path prerequisite**. Once `InfoImpl` (inheriting the shared `inspection` transition from its
+subclasses) and the interfaces obtain their own eventual verdicts, the flagships' assumptions discharge, the
+contraction retracts nothing, and the 17 survive *soundly* — which is what earns ungating.
+
+**Still open (in order):** (1) **interface eventual verdict (Part B)** — the diagnostic (FPDUMP now emits
+`eventuallyNonMod`) pinned the blocker: the interfaces' cross-reference read-through accessors (`isFactoryMethod`,
+`primaryType`, `descriptor`, the hierarchy streams) bail in `computeEventuallyNonModifying` because
+`receiverAfterLabels` only follows *genuinely* non-modifying chains, not the *eventually*-non-modifying
+`this`-accessor chains (`returnType()`, `enclosingMethod()`) the real accessors use. Fix = reframe
+`nonModifyingLabels`/`receiverAfterLabels` into a unified `commitLabels(owner, expr)` (commit every `this`-derived
+receiver **and** arg, not just root the receiver in a committed field). **Fully specified for handoff in
+`docs/handoff-eventual-interface-nonmodification.md`.** (2) **subclass→superclass mark inheritance (Part A)** —
+give `InfoImpl` its own eventual verdict from the subclasses' shared `inspection` mark (also in the handoff, §9).
+(3) re-run the dogfood → contraction retracts 0. (4) **Step 3 — ungate** behind a byte-identical corpus A/B.
+
+## Part B in progress: the `commitLabels` reframe (2026-07-22, evening session)
+
+The handoff's §5 reframe is **implemented** (all of it gated on `EVENTUALCLUSTER`; the gate-off visitor path is
+the old code verbatim): `computeEventuallyNonModifying` now excuses a call iff every `this`-derived value it
+touches — receiver *and* arguments — is committed by the collected marks (`commitExcusedLabels` /
+`commitLabels` in `TypeEventualAnalyzerImpl`). Beyond the handoff spec, the session added, each for a reason the
+dogfood forced:
+
+- **Local tracking** (`buildLocalCommitMap`): the spec's "a local is not `this`-derived → ∅" is the §6 aliasing
+  trap one hop removed (`var l = this.items; l.add(x)`); locals ever assigned a `this`-derived value carry its
+  commit labels (flow-insensitive fixpoint, null = poisoned). Fresh `new ArrayList<>()` builder locals stay ∅.
+- **`handedOnValueSafe`** replaces the blanket return-type gate on intermediate chain calls: decided by the
+  callee's **independence**. `@Independent` shares nothing mutable → safe; `@Dependent` returns accessible
+  content → safe iff the receiver is committed (NOT off bare `this` — the `getItems()` trap); `@Independent
+  (hc=true)` (Collection.stream, Either.getRight) → the wrapper layer is fresh by contract, safe iff the
+  concrete return type's parameters are committable-or-immutable-hc (`Stream<MethodModifier>`); anything
+  undecided falls back to `returnTypeHoldsCommittableContent` (the type itself committable — EFOD.get()
+  returning a candidate `MethodInspection`).
+- **Look-through of same-class single-`return` forwards** (depth-capped): the method boundary erases *which*
+  committed field a result was read through — `descriptor()` calling `this.parameters()` — so `commitLabels`
+  inlines a `return <expr>;` body one level and evaluates it in place.
+- **Abstract label union** (`AbstractMethodAnalyzerImpl.methodEventuallyNonModifying`, gated): implementations
+  legitimately name different transitions for the same abstract accessor (`[inspection]` vs `[methodInfo]` for
+  `Info.fullyQualifiedName`); unlike a `@Mark`, "non-modifying after L" weakens monotonically, so the union is
+  the sound meet.
+- **`EventualCluster` negative-cache bug fixed**: `isDirectCandidate` cached a *negative* verdict across
+  iterations, freezing `TypeInspectionImpl.Builder` out of the cluster when queried before its `@TestMark` was
+  computed. Eventual intent appears monotonically; only the positive answer may be cached.
+- **Contraction repairs** (both required *because of* Part B): the handoff's premise "the seed only ever
+  influenced `EVENTUALLY_IMMUTABLE_TYPE`" no longer holds — `commitLabels` leans on the seed for **method
+  labels** too. (a) *Discharge*: a candidate that ends up **unconditionally** ≥ immutable-hc (`MethodInspection`)
+  discharges assumptions on it a fortiori; previously its assumers were wrongly retracted. (b) *Label
+  provenance*: when an abstract method inherits enm labels from an implementation, the abstract owner inherits
+  the implementation owner's assumption edges (`EventualCluster.noteLabelInheritance` →
+  `effectiveAssumptions()`), so a broken assumption under an impl's labels cascades to the interface that
+  inherited them.
+
+**Dogfood scoreboard (gate ON), method level — the reframe works.** Both §5.4 worked traces land exactly as
+predicted: `isFactoryMethod → eventuallyNonMod=[inspection, typeInfo]`, `TypeInfoImpl.primaryType →
+[compilationUnitOrEnclosingType, inspection]`. Holdout counts (nonModifying=false, no label, not eventual/getset):
+`ParameterInfo` **19→0**, `Info` 3→2, `MethodInfo` 7→5, `FieldInfo` 3→3, `TypeInfo` ~19→12.
+`Info.fullyQualifiedName`, `isFinal`, `isSynchronized`, `isSAMOfStandardFunctionalInterface`, `isEnclosedIn`,
+`parameters`, and the whole modifier-Set/Stream chain class are excused.
+
+**Type level — the interfaces do NOT yet surface; retraction is now honest and large (34).** With enm labels
+leaning on the seed, the all-or-nothing fixpoint retracts nearly everything until *every* holdout clears — the
+optics got worse (survivors 5→2) precisely because the ledger got sound. The remaining blockers, precisely:
+
+1. **Fresh-object rewiring methods** — `withOwner`, `withOwnerVariableBuilder`, `withMethodType`,
+   `withSynthetic`, `translate` (blocks `Info`, `MethodInfo`, `FieldInfo`). They construct a fresh `*InfoImpl`
+   and call `setVariable`/`setFinal`/builder-commit **on the fresh object's own field** — excusable only with
+   freshness tracking: a `ConstructorCall` case in `commitLabels` (fresh, labels = union of args), field reads
+   scoped on fresh locals, and a transition-guard exception for marks on provably-fresh receivers. Sketched, not
+   implemented.
+2. **Streams over the hierarchy with `this`-capturing lambdas** — `constructorAndMethodStream`,
+   `recursiveSuperTypeStream`, … (blocks `TypeInfo`). Needs a `Lambda` case in `commitLabels` (the outer visitor
+   already excuses calls *inside* lambda bodies; the gap is the lambda **as argument value**).
+3. **The `@TestMark` staircase** — `TypeInspectionImpl.Builder.hasBeenCommitted()` forwards
+   `typeInfo.hasBeenInspected()` through a **cluster-interface-typed field**; `computeEventual`'s
+   `labelsOfReceiver` uses the *strict* eventual check, so the Builder's `@TestMark` (and with it the
+   candidacy of `TypeInspection`, and with *that* the excusal of `isSealed`/`isStatic`/…) only materialises in
+   whatever late iteration the seeded interface verdict happens to exist — order-dependent, converges partially.
+   Either `labelsOfReceiver` learns the seed (+ witnessing, + provenance for `EVENTUAL_METHOD`), or the
+   `TypeInspection` candidacy needs a non-circular source.
+4. **Part A** (`InfoImpl` subclass→superclass mark inheritance, handoff §9.3) — unchanged, still required.
+
+Unit tests: `TestCommitLabels` (cross-reference receiver/arg shapes, Either + local chains, all bail shapes,
+gate-off pins). Full `:maddi-modification-analyzer:test` green. Gate-OFF Fernflower corpus A/B: **0-line diff**
+against a base run (the one line that differed against the *first* base run — `StatEdge.EdgeType.<init>`
+nonModifying — flips identically between two base runs, i.e. pre-existing run-to-run nondeterminism, not the
+change).
+
+## Part B, second wave: METHOD LEVEL COMPLETE — 0 holdouts on all five interfaces (2026-07-22, late)
+
+The wave that followed took every remaining holdout class down; **all five `*Info` interfaces now have zero
+unexcused modifying methods**. What it took, in landing order (each verified by a gate-ON dogfood iteration,
+all gated):
+
+- **The `@TestMark` staircase, resolved**: `labelsOfReceiver` now uses `isEventuallyImmutableFieldType`
+  (seed + witness; off the gate this is the identical strict check), so
+  `TypeInspectionImpl.Builder.hasBeenCommitted()` — a `@TestMark` forward through a candidate-typed field —
+  classifies deterministically instead of waiting on the interface verdict it itself feeds.
+  `methodEventual` records label provenance like its enm twin.
+- **Freshness**: `LocalContext` tracks locals whose every assignment is a plain constructor call (through
+  ternaries and casts). `ConstructorCall` = fresh with the union of its args' labels; a field read scoped on
+  another object commits after the scope's labels; a `@Mark`/`@Only(before)` call whose receiver chain roots
+  in a fresh local is that object's lifecycle, not this's transition (`withOwnerVariableBuilder`'s
+  `fi.inspection.setVariable(...)`); a chain rooted in fresh skips the handed-on-value check (the fluent
+  `newField.builder().setX(..).setY(..)`).
+- **Lambdas and method references as argument values**: a lambda's body is walked with the full
+  `commitLabels` discipline (calls inside are additionally excused by the enclosing visitor as always); a
+  bound method reference mirrors the intermediate-call rules on its scope and declared return type.
+- **The owner-candidacy rule** (the deepest cut): when the owner itself is a cluster candidate — witnessed
+  as a self-assumption — a this-accessor's result, and even bare `this` handed out (`Stream.of(this)` in
+  `innerClassEnclosingStream`), is excusable: accessible content of `this` is committed once its own marks
+  pass, the trap shape (accessor handing out an unmarked mutable field) sinks the owner's own type verdict,
+  and the contraction cascades that retraction. This is the coinductive step that unlocked
+  `interfacesImplemented()`-style chains and with them every hierarchy stream.
+- **Value-type reasoning**: `handedOnValueSafe` accepts any call on a COMMITTED receiver whose return type's
+  parameters are committable (covers direct recursion — `parent.recursiveSuperTypeStream()` — where the
+  callee's independence is inherently undecided); `returnTypeHoldsCommittableContent` accepts parameterless
+  immutable-hc types (`MethodInspectionImpl`, `MethodType`) and rejects arrays; `commitLabels` short-circuits
+  ∅ for any expression whose TYPE cannot carry mutable state (an int arithmetic constructor argument, a
+  String concat) — the producing calls are excused independently by the visitor; ternary/cast/parenthesis
+  unwrapping; `@IgnoreModifications` reads are disclaimed (road §050).
+
+`translate`, `withMethodBody`, `withSynthetic`, `topOfOverloadingHierarchy`, the `with*` builders, the
+hierarchy streams: all excused. Also implemented: **Part A** (subclass→parent mark inheritance for abstract
+classes, `EventualCluster.noteHierarchy`/`knownSubclasses` + the shared-label intersection in
+`computeTypeLevel`, seeded + witnessed).
+
+**Where the wall is now (type level).** Retraction 37; the interfaces' (seeded) verdicts still retract
+because the assumption closure reaches a NEXT RING of candidates that neither prove eventually immutable nor
+discharge unconditionally: `ParameterizedTypeImpl` (@Mutable — a **markless carrier**: no transition of its
+own, all-final fields of candidate types; needs the §060 field-ride-along decoupled from an own mark, plus
+dynamic-immutability-aware field committability for its `List.copyOf`-style fields), `FieldInspectionImpl`
+(@Mutable, unlike its three sibling inspections — undiagnosed), `CompilationUnitImpl`, `TypeParameterImpl`.
+The all-or-nothing fixpoint holds until that ring closes.
+
+**Ring 2, mapped precisely (2026-07-22, closing).** Landed on top of the above: `FieldInspectionImpl
+.analysisOfInitializer` gains the `@IgnoreModifications` every Info analysis store carries (it was the one
+without it — the source of its @Mutable); the §060 field-ride-along fires without a prior own mark under the
+gate (**markless carriers**: `ParameterizedTypeImpl`); assumed candidates outside the analysis order
+(`java.lang.Record`, pulled in as every record's supertype) discharge through their preloaded unconditional
+verdict; and the contraction gained an env-gated diagnostic (`EC_RETRACT_DEBUG=1`) that prints, per retracted
+member, exactly which assumed candidates broke — use it first in any future session.
+
+The diagnostic shows the closure now spans the **entire CST**, and the remaining broken roots are:
+
+1. **The `Expression` hierarchy** (`api.expression.Expression` + every `*Impl` + `ExpressionImpl`): every
+   carrier assumed it; certifying it means the whole expression tree proves out — including the printer
+   methods that today CRASH with the known exit-5 `ANALYSER_ERROR` (cycle protection), leaving their
+   `NON_MODIFYING` undecided forever. Fixing those crashes is a hard prerequisite.
+2. **The API `Builder` interfaces** (`FieldInfo.Builder`, `MethodInfo.Builder`, …): they enter the cluster
+   through the upward closure (the `*InspectionImpl.Builder`s implement them and have `@TestMark` intent),
+   so `commitLabels`' RTHCC treats them as committable candidates and records assumptions — but a builder
+   interface full of plain `@Modified` setters can never prove eventually immutable. Candidacy (or at least
+   RTHCC-committability) needs to exclude builder-natured types, or the builders need their own eventual
+   story (their `commit()` IS a transition).
+3. `api.type.ParameterizedType` (interface): blocked by its default printing methods (see 1).
+4. `api.element.CompilationUnit`, `api.element.ModuleInfo`, `api.variable.*` — same pattern, smaller.
+
+So retraction-0 is equivalent to certifying essentially all of cst-api/cst-impl — the full "culmination"
+scope. The method-level machinery (this session) appears sufficient; the remaining work is (a) the printer
+crashes, (b) the builder-candidacy modeling decision, (c) grinding the expression/statement/variable
+hierarchies through the same dogfood loop with `EC_RETRACT_DEBUG` as the compass.
+
+## Ring 3: success-only witnessing; the first cross-reference type SURVIVES (2026-07-22, closing)
+
+Two more pieces, both gated:
+
+- **Success-only witnessing.** The assumption ledger recorded edges from *every* optimistic query — including
+  computations that bailed in iteration k and succeeded in iteration k+n via a different path (fresh-rooted,
+  look-through), leaving vestigial edges the contraction then cascaded on. Every computation in
+  `TypeEventualAnalyzerImpl.go` now runs inside a per-thread **assumption buffer**
+  (`EventualCluster.beginAssumptionBuffer`/`commit`/`discard`): edges reach the ledger only when the
+  computation lands its property. This removed the `java.lang.Record` and most Builder-interface edges from
+  the broken lists without any modeling decision.
+- **Throwing-stub compatibility in `methodEventual`** (mirrors the enm clause): an implementation that never
+  modifies at all — `CompilationUnitStub`'s throwing `setFingerPrint` — cannot contradict the transition the
+  real implementations declare, so it no longer vetoes the abstract method's `@Mark`.
+
+**Three-corpus gate-OFF A/B (2026-07-22, closing, at `54bd9859` vs base `523963fe`):** Fernflower
+**0-line diff**; Langchain4j **0-line diff**; Timefold 8 lines, every one of which flips identically
+between two BASE runs (`TestdataInvalidConstraintWeightOverridesSolution`,
+`TestdataFactorySortableSolution` independence, `ListIterableSelector`) — pre-existing run-to-run
+nondeterminism, verified with the A-vs-A2 technique. The whole session's engine surface is gate-off inert
+on the full certified proving ground.
+
+**Gate-ON stability (2026-07-22, two consecutive dogfoods at `54bd9859`):** the surviving core of **8** is
+identical across runs; ONE type flips in/out — `CompilationUnitPrinterImpl`, a printer-family type, i.e.
+exactly the verification-residue boundary (`docs/handoff-verification-residue.md`) — and the
+`eventuallyNonMod` method count wobbles (414 vs 402) for the same reason. Full stability is an ungate
+criterion and is expected to come with the residue fix, not before.
+
+**Result: `CompilationUnit` is the first cross-reference type to SURVIVE the contraction** —
+`eventual=@Immutable(hc=true)(after="fingerPrint,types")`, retained, not seeded-and-retracted. Survivors
+5→8. The remaining broken roots, per `EC_RETRACT_DEBUG`: `api.type.ParameterizedType` (18 dependents —
+holdouts `print`/`rewire`/`concreteSuperType`/`mostSpecific`/`replaceByTypeBounds`, i.e. the printing and
+rewiring machinery), `api.expression.Expression` + `ExpressionImpl` (17+12 — same machinery, plus the
+71-method `nonModifying=null` verification residue), `AnnotationExpression`, and the small tail
+(`VariableImpl`, `FieldInspection` cascades). The grind continues exactly there.
+
+## Task 4: surface the eventual verdicts to developers (the IDE path)
+
+The eventual verdicts are the novel output of this arc; today they are visible only via `FPDUMP` and the
+results JSON. The goal is to show them *in the editor* ("this type becomes `@Immutable` once `inspection` is
+committed"). Reconnaissance (2026-07-22) corrected the framing: **a full IDE stack already ships** — plugins for
+IntelliJ (`maddi-intellij`: inlay/gutter/annotator/findings-panel), Eclipse (`maddi-eclipse`: code minings),
+and VS Code (`maddi-vscode`: inlay hints + hover + diagnostics), all over a bespoke NDJSON daemon protocol
+(`maddi-ide-daemon` / `maddi-ide-client`, `DaemonProtocol`), **not** LSP. So this is not "build IDE
+integration"; it is "make the eventual verdicts flow through the surfaces that exist." They flow only
+**partially** today: the daemon ships each element's raw `properties` map (so `eventualMethod=…`/
+`eventuallyImmutableType=…` are already weakly visible in the **VS Code hover**), but the *rendered*
+annotations/inlays on every front-end come from `DecoratorImpl`, which emits **no eventual annotation at all**.
+
+**The single high-leverage seam — `DecoratorImpl.annotationAndProperties()`**
+(`maddi-modification-prepwork/.../io/DecoratorImpl.java`, ~128–383). It turns computed `analysis()` properties
+back into `@Annotation` decorations and feeds `AnnotationTagger` → `ResultCollector` → **all three front-ends**
+*and* decorated-source printing. It covers `@Immutable`/`@Independent`/`@NotModified`/`@Final`/… but no
+`EVENTUALLY_*`; for an eventually-immutable type it reads the optimistic unconditional `IMMUTABLE_TYPE` and
+prints a plain `@Immutable(hc=true)` with **no `after=`**, losing the eventual nature. Extend it to emit
+`EVENTUALLY_IMMUTABLE_TYPE` → `@Immutable(after="…")`, `EVENTUAL_METHOD`/`EVENTUAL_PARAMETER` →
+`@Mark`/`@Only`/`@TestMark`, `EVENTUALLY_FINAL_FIELD` → `@Final(after="…")`, `EVENTUALLY_NON_MODIFYING_METHOD` →
+`@NotModified(after="…")`. The exact inverse already exists — `AnnotationToProperty` (`maddi-modification-common/.../AnnotationToProperty.java`, ~134–335) parses these same annotations *into* the properties — so mirror its label/field
+semantics. Tests to extend: `TestWriteAnalysis2`, `TestAnalysisHintsComposer`.
+
+**Staging** (each step independently shippable, all downstream of the seam):
+1. **Decorate — DONE (2026-07-22).** `DecoratorImpl.annotationAndProperties()` now emits
+   `EVENTUALLY_IMMUTABLE_TYPE` → `@Immutable(hc?, after="…")`/`@FinalFields(after="…")`, `EVENTUAL_METHOD`/
+   `EVENTUAL_PARAMETER` → `@Mark`/`@Only`/`@TestMark`, `EVENTUALLY_NON_MODIFYING_METHOD` → `@NotModified(after="…")`,
+   `EVENTUALLY_FINAL_FIELD` → `@Final(after="…")`, mirroring `AnnotationToProperty`. `AnnotationTagger` tags
+   `@Immutable`/`@NotModified`/`@Final(after=)` POSITIVE (rendered inlays, `after=` visible) and the
+   `@Mark`/`@Only`/`@TestMark`/`@FinalFields` family NEUTRAL (carried, not dropped), so all three front-ends now
+   surface them. `TestDecorateEventual`; ungated & additive; prepwork 206/0, link 402/0 (decoration unchanged).
+2. **Polarity — DONE (2026-07-22).** `AnnotationTagger` tags `@Mark`/`@Only`/`@TestMark`/`@FinalFields` and the
+   `after=` forms of `@Immutable`/`@NotModified`/`@Final` with a new **`EVENTUAL`** polarity (detected
+   structurally from the `AnnotationExpression`, not by text-matching), distinct from the plain `POSITIVE` of a
+   proven-now verdict; and an eventual verdict is never a context default, so the default filter always shows it.
+   Verified safe on all three front-ends (each filters "show unless polarity == one excluded literal"; polarity
+   is a free-form String, so an unrecognised value renders everywhere but the explicit NONE mode — it can only
+   make eventual verdicts *more* visible). `TestEventualPolarity` (end-to-end: a `SetOnce` holder's
+   `@Immutable(after="value")`/`@Mark`/`@Only` come back `EVENTUAL`, unconditional `@Container`/`@NotModified`
+   stay `POSITIVE`); daemon 11/0. Front-end styling/filtering *on* `EVENTUAL` is a later refinement.
+3. **Typed protocol field** (optional) — `DaemonProtocol.ElementAnnotation` carries `displayAnnotations`,
+   `annotations`, and a stringly-typed `properties` map; a typed eventual field would let front-ends style the
+   `after="…"` labels rather than parse strings.
+4. **Round-trip is already done** — `WriteAnalysisResults` + `PropertyProviderImpl` + `ValueImpl` codecs
+   serialize/deserialize every eventual property, so a file-consuming tool needs no new work.
+
+No LSP is involved; the transport is the daemon's NDJSON. See `docs/ide-todo.md` for the separately-tracked IDE
+work (partial re-analysis, streaming).

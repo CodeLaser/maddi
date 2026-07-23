@@ -1,5 +1,5 @@
 [#in-the-analyzer]
-== Support classes in the analyzer
+= Support classes in the analyzer
 
 Practice what you preach, and all that.
 The {maddi} analyzer itself is written in the style this document advocates, and its central data

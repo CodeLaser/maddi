@@ -1,0 +1,83 @@
+maddi on maddi
+==============
+
+A **standalone** Gradle build — deliberately not listed in the root `settings.gradle.kts`, so nothing
+here can affect the normal maddi build. It exists to run the analyzer on maddi's own code, which is
+where eventual immutability (`docs/eventual-immutability.md`) has to prove itself: maddi is written in
+that style throughout.
+
+One subproject per maddi module, each pointing at that module's real source directory:
+
+| subproject | analyzed as | why |
+|---|---|---|
+| `:cst-api` | source | holds `TypeInfo`, the **interface** |
+| `:cst-analysis` | source | holds `PropertyValueMapImpl`; its `getOrDefault`/`getOrNull` must be **computed** `@NotModified` (a jar leaves them unproven, capping `ParameterInfoImpl`'s analysis store) |
+| `:cst-impl` | source | holds `TypeInfoImpl`, the **implementation** |
+| maddi-support, maddi-util | jars (flatDir) | maddi-support stays a jar so that reading `@Mark`/`@Only` out of **byte code** is exercised |
+
+When immutability is the focus, analyze as many dependencies as source as possible: a shallow jar leaves
+read accessors without a proven `@NotModified`, which conservatively caps immutability (see
+`road-to-immutability/llm-summary.md`). The plugin wires the transitive `cst-analysis → cst-api` source edge.
+
+Both interface and implementation must be analyzed *as source*: a jar type never enters the
+abstract-method batch, so nothing an implementation computes can travel up to its interface — and by
+the hierarchy rule an undecided or mutable supertype then drags every implementation down again.
+Carrying `:cst-api`'s sources into `:cst-impl`'s input configuration is what the plugin's
+`e2immuSourceElements` variant is for.
+
+How to run
+----------
+
+**Pass `--preload-analysis-results-dirs`, or every number you read will be wrong.**
+Without it the annotated-API results are not loaded, so JDK methods such as `List.copyOf` have no
+`immutableMethod` and anything that reasons from them silently infers nothing. The unit tests preload
+via `CommonTest`/`LoadAnalysisResults`, which is why fixtures can pass while the real run reports
+zeros. This went unnoticed for a whole working session and invalidated every dogfood figure taken
+before it: `eventuallyImmutableType` reads 0 without preloading and 4 with it.
+
+Current baseline (with preloading): `eventualMethod` 30, `eventuallyImmutableType` 4,
+`immutableField` 115, `immutableType` 202, `independentType` 471.
+
+Compare **aggregate counts only**. The per-file JSON is non-deterministic — the run is parallel and
+link lists come out in varying order, so two runs at the same revision differ in ~11 files, more than
+a real change does. A file-by-file diff of two dogfood runs is noise that looks like signal.
+
+```console
+$ ./gradlew :maddi-gradleplugin:publishAllPublicationsToLocalPluginRepoRepository
+$ ./gradlew build                                    # the dependency jars must exist
+$ cd dogfood && ../gradlew --refresh-dependencies :cst-impl:e2immu-write-input-configuration
+$ cd .. && ./gradlew :maddi-run-openjdk:run --args="\
+    --input-configuration $PWD/dogfood/cst-impl/build/inputConfiguration.json \
+    --preload-analysis-results-dirs $PWD/maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk,$PWD/maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs/test,$PWD/maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs/log \
+    --analysis-steps prep,modification \
+    --analysis-results-dir /tmp/dogfood-out"
+```
+
+After changing the plugin, re-publish it and pass `--refresh-dependencies`: the version does not
+change, so Gradle otherwise serves the cached jar. Exit code 5 is `ANALYSER_ERROR` (cycle protection
+trips on a few of the printer methods); the analysis results are still written.
+
+Why the modules are not merged
+------------------------------
+
+Every maddi module is a JPMS module. Merging several into one Gradle project puts several
+`module-info.java` in one compilation ("too many module declarations"); dropping them instead makes
+javac compile the merge as *one* of the modules, and every `requires`d package then comes back as
+"package org.slf4j is not visible".
+
+The jars are consumed through a `flatDir` repository rather than `files(...)`: the plugin records a
+dependency only when the resolved artifact has a module or project component identifier, so a plain
+file dependency never reaches the input configuration at all.
+
+`sourcePackages` is deliberately NOT set
+----------------------------------------
+
+Setting it triggers an analyzer bug that is fatal for any **modular** project. `ParseOptions.ignoreModule`
+(which the openjdk runner always sets) filters `module-info.java` out of the compilation units — but a
+package restriction makes `JavaInspectorImpl` put the source roots on javac's `SOURCE_PATH`, where javac
+finds that same `module-info.java` and compiles it *implicitly*. The compilation is then a named module
+after all, everything on the class path belongs to the unnamed module, and every cross-module reference
+fails with "package org.e2immu.language.cst.api.info does not exist".
+
+Symptom to recognise: `restrictToPackages` set + `module-info.java` present ⇒ a flood of "package X does
+not exist" that disappears the moment the restriction is dropped.

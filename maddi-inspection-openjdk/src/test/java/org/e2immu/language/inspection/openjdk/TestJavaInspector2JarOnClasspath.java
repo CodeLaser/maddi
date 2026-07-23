@@ -13,8 +13,10 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
@@ -37,11 +39,24 @@ public class TestJavaInspector2JarOnClasspath {
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSourceSets(sourceSet)
                 .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
-                .addClassPath(JAR_WITH_PATH_PREFIX + "maddi-support-0.8.2.jar")
+                // The openjdk front end matches `jar-on-classpath:` names against real jar FILE names
+                // (ClassSymbolScanner#sourceSetMap), so this needs the file name -- but not a hard-coded
+                // version: "maddi-support-0.8.2.jar" silently stopped matching when the release train
+                // moved to 0.9.0, and the unresolved annotations looked like a parser bug.
+                .addClassPath(JAR_WITH_PATH_PREFIX + maddiSupportJarName())
                 .addClassPath(JAR_WITH_PATH_PREFIX + "slf4j-api-2.0.17.jar")
                 .build();
         javaInspector.initialize(inputConfiguration);
         runtime = javaInspector.runtime();
+    }
+
+    /** The maddi-support jar as it appears on this test's runtime classpath, version and all. */
+    private static String maddiSupportJarName() {
+        for (String entry : System.getProperty("java.class.path").split(File.pathSeparator)) {
+            String name = Path.of(entry).getFileName().toString();
+            if (name.startsWith("maddi-support-") && name.endsWith(".jar")) return name;
+        }
+        throw new IllegalStateException("maddi-support jar not on the test classpath");
     }
 
     @Language("java")

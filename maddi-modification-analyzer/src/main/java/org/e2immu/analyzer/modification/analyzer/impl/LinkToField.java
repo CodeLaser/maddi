@@ -46,7 +46,23 @@ class LinkToField {
         Variable primaryTo = Util.firstRealVariable(link.to());
         if (!(primaryTo instanceof FieldReference fr) || !fr.scopeIsRecursivelyThis()) return null;
         ParameterizedType type = linkedType(link, primaryTo);
-        return type == null ? null : analysisHelper.typeImmutable(type);
+        if (type == null) return null;
+        Value.Immutable ofDeclaredType = analysisHelper.typeImmutable(type);
+        Value.Immutable dynamic = dynamicImmutabilityOfWholeField(link, primaryTo, fr);
+        if (dynamic == null) return ofDeclaredType;
+        return ofDeclaredType == null ? dynamic : ofDeclaredType.max(dynamic);
+    }
+
+    /**
+     * The field's dynamic immutability, but only when the link reaches the field as a WHOLE object: a content-tier
+     * link ({@code §es}, {@code ∋}, {@code ∈}) reaches an element, which a container-level promise says nothing
+     * about. See {@link DynamicImmutability} for the rule.
+     */
+    private static Value.Immutable dynamicImmutabilityOfWholeField(Link link, Variable primaryTo, FieldReference fr) {
+        boolean wholeField = primaryTo == link.to()
+                             && (link.linkNature().equals(LinkNatureImpl.IS_ASSIGNED_TO)
+                                 || link.linkNature().equals(LinkNatureImpl.IS_ASSIGNED_FROM));
+        return wholeField ? DynamicImmutability.ofField(fr.fieldInfo()) : null;
     }
 
     private static ParameterizedType linkedType(Link link, Variable primaryTo) {

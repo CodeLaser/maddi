@@ -81,4 +81,18 @@ public interface VariableInfoContainer {
     VariableInfo bestCurrentlyComputed();
 
     String indexOfDefinition();
+
+    /**
+     * A back-reference-free snapshot of this container: its {@code previousOrInitial} link into the
+     * previous statement's container is collapsed to a value snapshot, so this container no longer pins
+     * the chain of earlier statements' containers — the basis of the VariableData flatten-snapshot
+     * memory lever (see {@code maddi-modification-analyzer/DESIGN-vardata-flatten.md}). The value-bearing
+     * queries are preserved: {@link #best()}, {@link #best(Stage)}, {@link #has(Stage)},
+     * {@link #bestCurrentlyComputed()}, {@link #indexOfDefinition()} and {@link #getPreviousOrInitial()}
+     * all return what they did. Only the structural "where did this come from" queries change —
+     * {@link #isInitial()}/{@link #isPrevious()}/{@link #isRecursivelyInitial()}/
+     * {@link #getRecursiveInitial()} — whose callers are validated as none-external-that-matter in the
+     * design. Returns {@code this} when already back-reference-free.
+     */
+    VariableInfoContainer flattened();
 }

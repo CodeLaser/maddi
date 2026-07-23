@@ -14,6 +14,17 @@ chapter only when detail is missing here.
   - **hidden content** — content that exists but cannot be named structurally: type parameters,
     extensible (non-final) types, the elements of shallowly-analyzed containers. Leaf immutables
     (String, primitives, boxed) have NO hidden content; containers of immutables DO.
+- **`@IgnoreModifications` = manual hidden content** (road §050 "Ignoring modifications as manual hidden
+  content"): a field of concrete (mutable) type whose modifications the author disclaims. Same lattice effect
+  as a type-parameter field (→ at best `@Immutable(hc=true)`, never hc-free); it differs only in *provenance* —
+  erasure *derives* confinement, `@IgnoreModifications` *asserts* it, so soundness must be **checked** not
+  assumed. **Confinement guard**: a modification reached through the field must stay in the *ignored stratum*
+  (transitive content reachable only via that field). Writing into the stratum, and referencing accessible
+  content from it, are confined and fine (this is why an analyzer filling an `@IgnoreModifications analysis()`
+  overlay is legal); an *escape* into the type's own accessible content **caps immutability** (the separation
+  check), an escape into global/static state is a **`@StaticSideEffects`** — does NOT cap (not your field) but
+  flags a real outward effect. SSE is thus the global-escape arm of the same guard; `@IgnoreModifications` on
+  the *target* global field downgrades an SSE to a sanctioned disclaimer (the `System.out` story).
 - **Modification**: a method is *modifying* when it assigns, or modifies the content of, something in
   the object graph of its receiver's fields. Marked `@Modified` / `@NotModified`.
   - A *static* method mutating a parameter does not have a receiver to modify: the parameter is marked
@@ -49,13 +60,22 @@ Rules (each level requires the previous):
 - A mutable supertype makes the subtype mutable; an undecided supertype blocks the decision (see cycle
   breaking).
 
-## Eventual immutability — DESIGN ONLY
+## Eventual immutability — COMPUTED
 
 `@Mark`, `@Only(before/after)`, `@BeforeMark`, `@TestMark`, `@Immutable(after="...")` describe types
 that transition once from mutable to immutable (builders, freeze patterns, `SetOnce`/`FirstThen`
-support classes). Implemented in an earlier analyzer generation; the CURRENT engine does not compute
-them. The design chapter (060) is retained; the analyzer's own code still follows the pattern
-(builder-commit CST, write-once property maps).
+support classes). The CURRENT engine reads them as contracts (`Value.Eventual`/`Value.EventuallyImmutable`;
+properties `EVENTUAL_METHOD`, `EVENTUAL_PARAMETER`, `EVENTUALLY_IMMUTABLE_TYPE`,
+`EVENTUALLY_FINAL_FIELD`) **and computes them**, in `TypeEventualAnalyzer` (phase 4.3), without
+reviving preconditions: a type holding a field of eventually immutable type inherits the mark, because
+the callee's own contract says which side of the transition it belongs to. Marks travel from an
+implementation to its abstract method (`AbstractMethodAnalyzerImpl.methodEventual`), so interfaces are
+certified too. `@TestMark` implies `@NotModified` — observing the state is not changing it.
+Independence is relaxed after the mark only when the leaked object is ITSELF eventually immutable.
+Mark labels are field *names* (a mark is often inherited). Eventuality is deliberately kept OUT of the
+`IMMUTABLE_TYPE` lattice for now. `@BeforeMark` is not read yet. The analyzer's own code follows the
+pattern heavily (builder-commit CST, write-once property maps).
+Plan and staging: `docs/eventual-immutability.md`.
 
 ## The link system (chapter 105; module maddi-modification-link)
 
@@ -130,18 +150,31 @@ immutability verdicts are derived.
 
 - Compare `TypeInfo`/`MethodInfo`/`FieldInfo` with `==` (single instance per FQN + source set).
 - `unmodifiedField` is content-only by design; do not "fix" it to include assignment.
+- **Chapter 14 "Other annotations" is mostly aspirational — do not assume those annotations work.**
+  Only `@Identity`/`@Fluent` are computed (`TypeModIndyAnalyzerImpl`). `@NotNull`/`@Nullable`,
+  `@UtilityClass` and `@Finalizer` are read as *contracts* by `AnnotationToProperty` (and shown by
+  `DecoratorImpl`) but never inferred, and `@Finalizer`'s rules are not enforced. `@Singleton` and
+  `@ExtensionClass` exist in `maddi-support` but have no property and are read by nothing. The
+  chapter carries per-section "Not implemented" markers as of 2026-07-22.
 - Record accessors expose components → records of mutable types are at best FINAL_FIELDS (dependent),
   or IMMUTABLE_HC when unexposed; never hc-free @Immutable.
 - Interfaces: extensible ⇒ hidden content ⇒ at best `@Immutable(hc=true)`; a constants-only interface
   deserves immutability (no instance fields).
 - Stateless lambdas/anonymous classes currently stay at FINAL_FIELDS (known conservative gap).
+- **When immutability is the focus, analyze as many dependencies as SOURCE as possible, not as jars.**
+  A type read shallowly (a compiled jar without an annotated API) gets conservative modification
+  verdicts: an unannotated read accessor never establishes `@NotModified`, so a field read *directly*
+  through it (`this.store.getOrDefault(...)`) is conservatively `@Modified`, which caps the enclosing
+  type's immutability. The shallow/annotated-API path under-approximates the immutable side; source does
+  not. (Concretely: `ParameterInfoImpl.analysis` was capped only because `PropertyValueMap.getOrDefault`
+  lived in a jar — see `docs/eventual-info-hierarchy.md`.)
 - javac is not thread-safe: all JavacTask access must be single-threaded
   (`-XDuseUnsharedTable=true`, synchronized lazy `getOrLoad`).
 
 ## Document map (src/docs/asciidoc/sections/)
 
 Tutorial: 010 introduction · 020 final fields · 030 modification · 040 containers ·
-045 linking & dependence · 050 immutability · 060 eventual (design-only, see note) ·
+045 linking & dependence · 050 immutability · 060 eventual (contracted, not computed; see note) ·
 070 modification part 2 · 080 hidden content.
 Technical: **105 the link system** · **108 convergence (iterating analyzer)**.
 Practice: 110 support classes · 115 the analyzer's own code · 120 other annotations ·

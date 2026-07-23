@@ -1,19 +1,38 @@
 /*
  * maddi: a modification analyzer for duplication detection and immutability.
- * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ * Copyright 2020-2026, Bart Naudts, https://github.com/CodeLaser/maddi
  *
- * This program is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later version.
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
- * more details. You should have received a copy of the GNU Lesser General Public
- * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
+// NOTE: this module deliberately does NOT apply `java-library-conventions`.
+//
+// maddi-support is the only published, user-facing artifact, and it must stay dependency-free: it
+// contains annotations and small support classes and imports nothing outside java.base (see
+// module-info.java, which has no `requires`). The conventions plugin adds
+// `api(platform(project(":platform")))` plus org.jetbrains:annotations and org.slf4j:slf4j-api,
+// all of which leak into the published POM and Gradle module metadata. The internal
+// io.codelaser:platform BOM is not published to Maven Central, so a consumer of such a POM cannot
+// resolve it at all -- and slf4j would be dragged in as a runtime dependency of an annotations jar.
+//
+// 0.8.2 on Central has zero dependencies in every variant; keep it that way. The same reasoning is
+// why both build plugins strip <dependencies>/<dependencyManagement> from their POMs
+// (see maddi-gradleplugin/build.gradle.kts). Here we simply never add them.
+//
+// It is also the only module targeting Java 17 (the rest is 25/26), because it is the one library a
+// user's own code compiles against.
 plugins {
-    id("java-library-conventions")
+    `java-library`
     id("org.jreleaser") version "1.19.0"
     `maven-publish`
 }
@@ -23,6 +42,18 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
     withJavadocJar()
     withSourcesJar()
+}
+
+// Explicit versions rather than the platform BOM, so nothing enters the published metadata.
+// Test-only: these do not appear in any published variant.
+dependencies {
+    testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.0.3")
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
 }
 
 // group and version come from the root gradle.properties (single release train — see PUBLISHING.md)
@@ -41,10 +72,13 @@ publishing {
                 version = project.version.toString()
 
                 url.set("https://github.com/CodeLaser/maddi")
+                // maddi-support is the one artifact user code compiles against, so it is permissively
+                // licensed; the analyzer itself stays LGPL-3.0. Versions up to and including 0.8.2 were
+                // published under LGPL-3.0-or-later and remain so. See PUBLISHING.md.
                 licenses {
                     license {
-                        name.set("LGPL-3.0-or-later")
-                        url.set("https://www.gnu.org/licenses/lgpl-3.0.en.html")
+                        name.set("Apache-2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
                     }
                 }
                 developers {
@@ -74,9 +108,9 @@ jreleaser {
     project {
         name.set("maddi-support")
         description = "Support library for Maddi, a modification analyser for duplication detection and immutability."
-        license.set("LGPL-3.0-or-later")
+        license.set("Apache-2.0")
         authors.set(listOf("Bart Naudts"))
-        copyright.set("2020-2025 Bart Naudts")
+        copyright.set("2020-2026 Bart Naudts")
 
         links {
             homepage.set("https://github.com/CodeLaser/maddi")

@@ -689,7 +689,9 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
         if (synthetic == isSynthetic()) return this;
         if (inspection.isFinal()) {
             MethodInfoImpl mii = new MethodInfoImpl(methodType, name, typeInfo);
-            mii.inspection.setFinal(inspection.get().withSynthetic(synthetic));
+            // withSynthetic is no longer on MethodInspection; in this branch the field is final, so the
+            // inspection is the committed product, whose withSynthetic returns a fresh copy
+            mii.inspection.setFinal(((MethodInspectionImpl) inspection.get()).withSynthetic(synthetic));
             mii.analysis().setAll(analysis());
             return mii;
         }

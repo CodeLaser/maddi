@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
@@ -148,17 +148,25 @@ public class TestGrpcStub {
         assertNotEquals(so67.typeInfo(), so73.typeInfo());
     }
 
+    // Mirrors JavaInspectorImpl's `case "jmod"`: the .jmod file when the running JDK ships a jmods/
+    // directory, the runtime image (jrt) otherwise. Eclipse Temurin ships no jmods/.
     private static SourceSet addJmod(String name, Resources cp) throws URISyntaxException, IOException {
-        URL url = ResourcesImpl.constructJModURL(name, null);
+        boolean haveJmodFile = Files.isRegularFile(Path.of(System.getProperty("java.home"), "jmods", name + ".jmod"));
+        URI uri = haveJmodFile ? ResourcesImpl.constructJModURL(name, null).toURI()
+                : URI.create("jrt:/" + name);
         SourceSet jmodBase = new SourceSetImpl.Builder()
                 .setName("jmod:" + name)// TODO should we not remove "jmod:" ??
-                .setUri(url.toURI())
+                .setUri(uri)
                 .setLibrary(true)
                 .setExternalLibrary(true)
                 .setPartOfJdk(true)
                 .setModule(true)
                 .build();
-        cp.addJmod(new SourceFile("jmod:" + name, url.toURI(), jmodBase, null));
+        if (haveJmodFile) {
+            cp.addJmod(new SourceFile("jmod:" + name, uri, jmodBase, null));
+        } else {
+            cp.addModuleFromRuntimeImage(new SourceFile(name, uri, jmodBase, null));
+        }
         jmodBase.computePriorityDependencies();
         return jmodBase;
     }

@@ -82,7 +82,8 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                                     boolean faultTolerant,
                                     boolean warnNearMisses,
                                     NearMissPolicy nearMissPolicy,
-                                    boolean modificationViaReachability) implements Configuration {
+                                    boolean modificationViaReachability,
+                                    boolean flattenVariableData) implements Configuration {
     }
 
     public static class ConfigurationBuilder {
@@ -93,6 +94,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         private boolean faultTolerant;
         private boolean warnNearMisses;
         private boolean modificationViaReachability;
+        private boolean flattenVariableData;
         private NearMissPolicy nearMissPolicy = NearMissPolicy.STRICT;
         private CycleBreakingStrategy cycleBreakingStrategy = CycleBreakingStrategy.NONE;
 
@@ -142,10 +144,15 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             return this;
         }
 
+        public ConfigurationBuilder setFlattenVariableData(boolean flattenVariableData) {
+            this.flattenVariableData = flattenVariableData;
+            return this;
+        }
+
         public Configuration build() {
             return new ConfigurationImpl(maxIterations, stopWhenCycleDetectedAndNoImprovements, cycleBreakingStrategy,
                     trackObjectCreations, guardContracts, faultTolerant, warnNearMisses, nearMissPolicy,
-                    modificationViaReachability);
+                    modificationViaReachability, flattenVariableData);
         }
     }
 
@@ -231,15 +238,37 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                     if (info instanceof org.e2immu.language.cst.api.info.MethodInfo) {
                         var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
                                 org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
-                        v = "method nonModifying=" + b;
+                        var gs = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.GET_SET_FIELD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.GetSetValueImpl.class);
+                        String getset = gs != null && gs.field() != null
+                                ? " getset=" + gs.field().name() + (gs.setter() ? "(set)" : "(get)") : "";
+                        // eventual-cluster diagnostic: the after-mark non-modification label (why a read-through
+                        // accessor is excused after the mark) and the @Mark/@Only verdict, to see why an interface
+                        // does or does not surface an eventual type-level verdict
+                        var enm = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.SetOfStringsImpl.class);
+                        String evNonMod = enm != null && !enm.set().isEmpty()
+                                ? " eventuallyNonMod=" + new java.util.TreeSet<>(enm.set()) : "";
+                        var evm = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUAL_METHOD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.EventualImpl.class);
+                        String evMethod = evm != null && evm.isEventual() ? " eventual=" + evm : "";
+                        v = "method nonModifying=" + b + getset + evNonMod + evMethod;
                     } else if (info instanceof org.e2immu.language.cst.api.info.FieldInfo) {
                         var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_FIELD,
                                 org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
-                        v = "field unmodified=" + b;
+                        var ind = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_FIELD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.class);
+                        var igm = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_FIELD,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                        v = "field unmodified=" + b + " independent=" + ind + " ignoreMod=" + igm;
                     } else if (info instanceof org.e2immu.language.cst.api.info.TypeInfo) {
                         var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE,
                                 org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.class);
-                        v = "type immutable=" + b;
+                        var ev = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.EventuallyImmutableImpl.class);
+                        var ind = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_TYPE,
+                                org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.class);
+                        v = "type immutable=" + b + " eventual=" + ev + " independent=" + ind;
                     } else continue;
                     pw.println(v + " " + info.fullyQualifiedName());
                 }
@@ -301,6 +330,11 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             // cold first pass; the callback runs on the coordinator thread at the wave barrier
             sia.setWaveCompletedCallback((waveElements, wave) ->
                     feed(f -> f.waveCompleted(1, wave, waveElements)));
+            // per-element progress tick: lets the feed advance INSIDE a giant single-SCC wave, where the
+            // wave-barrier above fires only once (at the end). Method ref = no per-element allocation; feed()
+            // keeps the exception-swallowing contract. Runs on parallel workers, so the feed must be cheap.
+            sia.setElementCompletedCallback(() ->
+                    feed(org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed::elementCompleted));
         }
         boolean cycleBreakingActive = false;
         int previousPropertiesChanged = Integer.MAX_VALUE;
@@ -499,6 +533,15 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                                 : org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_MAX_ITERATIONS;
                         int it = iterations;
                         feed(f -> f.phase(terminal, it));
+                    }
+                    // EXPERIMENTAL (EVENTUALCLUSTER): the greatest-fixpoint contraction. The optimistic seed may
+                    // have concluded a member eventually immutable by assuming an unproven candidate; retract any
+                    // member whose assumption did not hold, iterating to the fixpoint. Off the gate the assumption
+                    // ledger is empty and this is a no-op; runs before the fingerprint/guard so both see the
+                    // contracted state.
+                    if (EventualCluster.ENABLED
+                        && singleIterationAnalyzer instanceof SingleIterationAnalyzerImpl sia) {
+                        EventualClusterContraction.retract(analysisOrder, sia.eventualCluster());
                     }
                     logVerdictFingerprint(analysisOrder);
                     if (configuration.guardContracts() || configuration.warnNearMisses()) {

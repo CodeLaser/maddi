@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -41,7 +42,9 @@ public class TestRunAnalyzer {
         Path cstApiPath = Path.of("../maddi-cst-api/src/main/java").toRealPath();
         assertTrue(Files.isDirectory(cstApiPath));
 
-        Path maddiSupportJar = Path.of("../maddi-support/build/libs/maddi-support-0.8.2.jar").toRealPath();
+        // located by glob rather than by version: a hard-coded "maddi-support-<version>.jar" breaks on
+        // every release bump (see gradle.properties), and toRealPath() then fails with NoSuchFileException
+        Path maddiSupportJar = findMaddiSupportJar();
 
         Main.main(new String[]{
                 "--debug=classpath",
@@ -50,5 +53,20 @@ public class TestRunAnalyzer {
                 "--source=" + cstApiPath,
                 "--analysis-steps=prep",
         });
+    }
+
+    private static Path findMaddiSupportJar() throws IOException {
+        Path libs = Path.of("../maddi-support/build/libs").toRealPath();
+        try (Stream<Path> stream = Files.list(libs)) {
+            return stream
+                    .filter(p -> {
+                        String n = p.getFileName().toString();
+                        return n.startsWith("maddi-support-") && n.endsWith(".jar")
+                               && !n.endsWith("-sources.jar") && !n.endsWith("-javadoc.jar");
+                    })
+                    .findFirst()
+                    .orElseThrow(() -> new IOException("no maddi-support jar in " + libs
+                                                       + "; run :maddi-support:jar first"));
+        }
     }
 }

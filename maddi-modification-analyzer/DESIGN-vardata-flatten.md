@@ -1,0 +1,186 @@
+# VariableData flatten-snapshot — bounding pass-1 peak heap on a single giant SCC
+
+Status: DESIGN, 2026-07-22. Owner: extract-interface engine-stress thread. Gated, OFF by default.
+
+## 1. Problem
+
+At elasticsearch scale the modification analyzer OOMs only when all 27 source sets are analysed
+together; any single module (even `server/main`, 138k elements) fits at 32G. But the **3M-line
+commercial target is a single module whose largest call-graph cycle touches ~2/3 of the code** — it
+cannot be split by module, and the standing accumulator during pass 1 is the per-statement
+`VariableData` of every method, which grows with total elements analysed. That is the case this design
+targets. (For ES itself, per-module / module-group spreading is the answer and needs none of this.)
+
+## 2. Why the cheap levers are dead (measured)
+
+Two studies (2026-07-22, in `EXTRACT-INTERFACE-CASES.md`): whole-method VD eviction and "evict all but
+the last statement" are both UNSOUND. The killer is the data structure: a statement's `VariableData` is
+a map `FQN → VariableInfoContainer`, and each VIC holds `previousOrInitial = Either.left(prevVic)` — a
+**strong back-reference to the previous statement's VIC for the same variable**
+(`VariableInfoContainerImpl.java:28`, populated at `MethodAnalyzer.java:542`). So the last statement's
+VICs transitively pin the entire O(statements × variables) chain alive. Dropping intermediate
+`VARIABLE_DATA` map entries (a) trips `assert vd != null` in re-linking (`LinkComputerImpl.java:664`,
+read every pass) and (b) frees almost nothing, because the chain keeps the payload reachable.
+
+## 3. The lever: break the chain, then drop + regenerate
+
+Three moves, per method, gated:
+
+1. **Flatten** the method's *consumed* VD (the last statement of the main block — the one anchored at
+   `methodInfo.analysis()` VARIABLE_DATA, `MethodAnalyzer.java:347`, and read by cross-method consumers)
+   into a **back-reference-free snapshot**: replace each VIC with one whose
+   `previousOrInitial = Either.right(oldVic.best())` and no eval/merge, so `best()` returns the same
+   final `VariableInfo` (same links) but the VIC no longer references the chain.
+2. **Drop** the intermediate statements' `VARIABLE_DATA`
+   (`statement.analysis().removeIf(p -> p == VARIABLE_DATA)` — the write-once guard is cleared by
+   `removeIf`, `PropertyValueMapImpl.java:143`). With both anchors gone (the chain from move 1, the map
+   entries from move 2), the intermediate VICs/`VariableInfo`/`Assignments`/`Reads`/`Links` become
+   GC-eligible.
+3. **Regenerate** before a re-link: worklist passes re-link dirty methods, and re-linking re-reads every
+   statement's VD (`LinkComputerImpl.java:663`). Before re-linking a method whose VD was flattened,
+   re-run prepwork for that one method to rebuild the full per-statement chain, then re-link, then
+   flatten+drop again.
+
+### Memory model
+
+Pass-1 standing accumulator drops from `Σ_methods O(N·M)` to `Σ_methods O(M)` (N = statements/method,
+M = live vars): one flattened last-statement VD per method, no chain, plus the *currently-linking*
+method's full chain + transient graph. On method-length-heavy code (the 10K-line methods) N is large,
+so the reduction is ~N-fold. That is what makes the single-SCC 3M target fit.
+
+### Cost model
+
+Regeneration re-runs prepwork's per-method VD build for each method **each pass it is dirty**. Pass 1
+(the memory-critical one) links every method once → no regeneration, full win. Passes 2+ operate on the
+worklist, which shrinks fast (framework: 15502 → 5279 → 1006 → 438 → …), so regeneration is bounded and
+mostly cheap. Net: memory bought with a bounded recompute in the tail passes. Measure both with the
+`AnalysisProgressFeed` heap curve + wall-clock A/B.
+
+## 4. Hazards and their containment (validated)
+
+- **`Either.right` snapshot flips `isInitial()`/`isRecursivelyInitial()` to true.** Blast radius
+  (grep, non-test, outside VIC itself): `isInitial` 0 callers, `isRecursivelyInitial` 0,
+  `getRecursiveInitial` 1 (`MethodAnalyzer.java:820` — prepwork, runs only on freshly-built chains,
+  never on flattened VD), `getPreviousOrInitial` 1, `indexOfDefinition` 6. `best()` (the hot path)
+  returns the snapshot value unchanged. So the semantic change is safe as long as flatten runs only on
+  the *consumed last statement* and regeneration restores a real chain before any prepwork re-touch.
+- **Cross-method reads during the loop** (`FieldAnalyzerImpl` ~:144/:162, `ShadowModificationPass`
+  ~:276/:334, extract-interface `CommonAnalyze.java:580`) read the **last** statement's VD/links —
+  exactly what flatten preserves. None call `isInitial`. Confirm during Phase 1 they read `best()`/
+  links only.
+- **Worklist re-link of the same method** needs its intermediates → move 3 regenerates them. A method
+  re-linked before its first flatten (still has full chain) skips regeneration (idempotent guard).
+- **Consumers that need statement-level VD after `analyze()` returns** (extract-interface `CommonAnalyze`
+  and the other refactorings). Flatten keeps only the *last* statement; intermediate statements are
+  gone. Any consumer that walks intermediate statements would see them absent → this is why the whole
+  feature is **gated OFF by default** and only turned on for a run whose only goal is the analysis
+  verdicts (or where a post-`analyze()` full prepwork re-run is acceptable to restore VD).
+
+## 5. Phasing (each phase independently testable)
+
+- **Phase 0 (spike — the load-bearing unknown): DONE (GO), commit `9a0fab0d`.** `PrepAnalyzer.doMethod`
+  is per-method re-invocable; `TestVariableDataRegeneration` proves drop (`removeIf` VARIABLE_DATA on
+  method + statements) then re-run rebuilds identical per-statement VD.
+- **Phase 1 (flatten mechanism, no wiring): DONE, commit `322e2033`.** `VariableInfoContainer.flattened()`
+  collapses `Either.left(prevVic)` to `Either.right(getPreviousOrInitial())` keeping own eval/merge;
+  `VariableDataImpl.flattened()` maps it. `TestVariableDataFlatten` asserts best()/getPreviousOrInitial/
+  indexOfDefinition/hasEvaluation/hasMerge preserved, `isPrevious()==false`, idempotent, over both
+  eval-having and previous-only containers.
+- **Phase 2 (drop + gate + regenerate): DONE, commit `4dab4377`.** `Configuration.flattenVariableData()`
+  default false. To avoid racing the parallel FieldAnalyzer reads, both operations run at **pass
+  boundaries** in `SingleIterationAnalyzerImpl.go` (quiescent): flatten each method's consumed
+  last-statement VD + drop intermediates at pass END; regenerate any flattened method about to be
+  re-linked at the next pass's START. (This makes passes-2+ safe and reduces cross-pass memory; it does
+  NOT yet reduce the pass-1 in-pass peak — that is Phase 2.1, moving the flatten to wave barriers.)
+  Validated: elasticsearch-fw stress runs ON to completion across 13 passes (regeneration works), same
+  candidate outcomes as OFF. Edit-count differences under ON are the ACCEPTED extract-interface consumer
+  degradation (`CommonAnalyze` reads intermediate links; user-accepted for large codebases).
+- **Phase 3 (the real correctness gate): TODO.** A maddi analyzer-level A/B: full `IteratingAnalyzer`
+  ON vs OFF must produce bit-identical ANALYSIS verdicts (METHOD_LINKS, modification, immutability) —
+  the framework stress measures the consumer, not the analysis, so it cannot settle this. Dump verdicts
+  for a small multi-type program both ways and assert equal; then fernflower/guava (mod non-confluence).
+- **Phase 2.1 (pass-1 peak): DONE.** Flatten each wave's just-linked methods at the pass-1 wave barrier
+  (quiescent, in `SingleIterationAnalyzerImpl.go`), so the accumulator is bounded DURING pass 1 — the
+  actual OOM fix. In single-pass mode (`EI_MAX_ITER=1`) no method re-links, so no regeneration runs.
+  Validated: elasticsearch-fw single-pass + flatten is **byte-identical** to single-pass without flatten
+  (flatten is transparent to EI output). Memory reduction at scale (server/main + a synthetic single
+  SCC) is Phase 4.
+- **Phase 4 (scale): MEASURED 2026-07-22 — wave granularity is TOO COARSE for a giant SCC.**
+  server/main single-pass + flatten completed (34 min, 8 OK + 2 NOT_SUPPORTED on the biggest ES module —
+  the engine's first full run there), but **peak 20.6G, NOT reduced**. The sampler shows why: the `done`
+  counter is pinned at 53,372 for the entire pass, then jumps to 138,385 at the end — i.e. a fast first
+  wave (53k) then **one giant wave (~85k elements, the SCC) with no barrier inside it**. Wave-barrier
+  flatten fires only at that wave's END, after the accumulator is already at peak. So Phases 2/2.1 free
+  cross-pass and cross-wave memory but NOT the in-giant-wave peak — which is the whole problem for a
+  single unsplittable SCC.
+
+  **The real fix (Phase 5): per-method flatten inside the giant wave.** Flatten method M right after its
+  own `linkComputer.doMethod` in `processElement` — concurrently. This reintroduces the race with the
+  parallel `FieldAnalyzer` reading M's last-statement VD, but it is tractable: (a) replace M's
+  last-statement/method VD with the flattened snapshot via an ATOMIC `overwrite` (a concurrent reader
+  then sees the old chained VD or the new flattened one — both have identical `best()`/links, both
+  correct); (b) dropping M's INTERMEDIATE statements' VD is safe because no cross-method reader reads
+  them, and a reader still walking M's old chained VD keeps the intermediate VICs alive via the chain
+  until it finishes (a transient blip, not corruption). Requires confirming `PropertyValueMap.overwrite`
+  is an atomic single-reference swap (no transient null). This is what actually bounds the peak on the
+  3M single-SCC target. server/main fits at 32G WITHOUT it (20.6G); it is needed only for the larger SCC.
+
+  **Phase 5 IMPLEMENTED 2026-07-22.** Confirmed `PropertyValueMapImpl` is a plain HashMap but every
+  accessor (getOrNull/set/overwrite/removeIf) is `synchronized`, so `overwrite` (a single synchronized
+  `map.put`) is an atomic swap and a concurrent `getOrNull` sees old-or-new, never null. `flattenMethod`
+  now runs per-method in `processElement` right after the link is written (concurrent, inside the wave);
+  the last-statement/method VD is replaced via `overwrite`, intermediates dropped via `removeIf` (no
+  cross-method reader reads them; a reader still holding the old chained VD keeps its VICs alive via the
+  chain until done). Wave-barrier (2.1) and pass-end flatten removed; pass-start regeneration kept for
+  the multi-pass case. Correctness: elasticsearch-fw single-pass + Phase-5 flatten is byte-identical to
+  no-flatten. **Peak-reduction MEASURED on server/main: 20.6G -> 16.0G (~22%), same 8 OK outcomes.**
+  Real and correct, but modest: the intermediate/nested statement chain was ~4.6G, NOT the dominant
+  accumulator. At ~5x scale (3M SCC) 16G extrapolates to ~80G — still over 32G. So flatten alone does
+  not make the 3M SCC fit; a heap histogram at peak is needed to find what holds the remaining 16G
+  (candidates: the flattened last-statement VDs across 138k methods, the parsed CST of 4875 types,
+  METHOD_LINKS summaries, the info/dependency graph). Next lever depends on that measurement — do NOT
+  guess. Note: in single-pass EI mode nothing reads statement VD after pass 1 (EI reads only
+  VARIABLES_LINKED_TO_OBJECT, method-call level), so dropping ALL VD at pass-1 end is possible but does
+  not lower the pass-1 peak, where field analyzers still need each method's last statement.
+
+  **Heap histogram at peak (jmap -histo:live, server/main single-pass+flatten, 2026-07-22) — the 16G
+  was GARBAGE, live set is 5.09G.** The 32G ceiling let churn accumulate; GC stayed at 1% so it never
+  reclaimed. Live rollup: JDK Object[]/collections 2115M (backing for the rest), parsed CST 993M,
+  **analysis() maps 798M (4M PropertyValueMapImpl, one per VariableInfo — mostly empty-map overhead,
+  lazy-allocate candidate)**, prepwork VD 430M (flatten already did its job — VD is only 8% of live),
+  **retained javac trees/symbols `com.sun.tools.javac.*` 407M (droppable if maddi keeps the javac AST
+  after building its CST)**, link engine 6M. Implications: (1) flatten's live-set impact is modest
+  because VD was never the bulk; its value is bounding churn/GC pressure. (2) 3M SCC extrapolates to
+  ~25G live at 5x — fits 32G, with the lazy-analysis-map and javac-drop levers as headroom. (3) the
+  earlier full-ES OOMs were MULTI-PASS + no flatten (churn across 30 passes); single-pass+flatten should
+  fit. Next validation: full ES (27 source sets) single-pass+flatten.
+
+## 5b. Single-pass EI mode and its trade-off (measured 2026-07-22)
+
+For the actual use case — breaking the 3M-line SCC with ExtractInterface — the analyzer's *verdicts*
+are not needed; EI's correctness is. Two facts make a **single link pass** the right runtime for EI,
+sidestepping regeneration entirely (one pass never re-links):
+
+- **The EI engine is single-pass-exact.** Its only analyzer input is `VARIABLES_LINKED_TO_OBJECT`
+  (`LinkComputerImpl:790`, **write-once** — its converged value *is* its pass-1 value) plus prepwork's
+  `INSTANCEOF_SCOPE`; everything else is syntactic (CST). Measured: 9/10 elasticsearch-fw candidates
+  byte-identical at 1 pass vs 30; the engine's output for a fixed slice never changed.
+- **The candidate search splits cleanly by objective.** Demand/cycle-breaking candidates are built from
+  the call graph + syntactic blockers (`UsageIndexImpl`, `extractableMethods`) and the `funnel`
+  (depender narrowing) — all convergence-INDEPENDENT, so single-pass preserves the cycle-breaking
+  candidate set and its ranking exactly. The only convergence-dependent candidates are the two
+  immutability-objective **seeds** (`CandidateSearchImpl.seeds`, `READ_ONLY_SEED`/`CONTAINER_SEED`),
+  built from `ModificationVerdicts.isNonModifying`/`allParametersUnmodified` — verdicts that refine
+  monotonically over passes. At 1 pass these seeds contain fewer methods (a conservative, sound subset;
+  convergence only ever adds).
+
+**The trade-off, stated plainly:** single-pass EI keeps 100% of the *cycle-breaking* (demand) candidate
+quality and the full engine fidelity, and spends only the *completeness of the read-only/`@Container`
+seed* candidates (the immutability objective) — which is exactly the analyzer outcome that is not
+needed here. The MockTransportService 1-vs-30 slice difference is one such seed. Recommended EI-on-huge-
+SCC invocation: `EI_MAX_ITER=1 EI_FLATTEN=1` (single pass + wave-barrier flatten, no regeneration).
+
+## 6. Non-goals
+
+Statement-level reuse across runs; changing the link algorithm; the ES-spreading path (separate, works
+today). This is purely a heap-footprint change to the analysis of one unsplittable SCC, behind a gate.
