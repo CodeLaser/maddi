@@ -1300,3 +1300,43 @@ does not trace modification through captures; opaque sink corpus-validated per t
 gate-off Fernflower identical modulo the documented ctor flake; composed determinism -- eventual
 layer 0-diff, plain diffs within the known flake family (two adjacent members observed:
 `Value.AssignedToField`/`AssignedToFieldImpl`).
+
+## The flagship convergence, round 1 (2026-07-24, continued): survivors 1 -> 42
+
+The remaining retraction roots (MethodInfo 37, Comment 31, Runtime 21, Element 21, Block 18) decoded
+into three mechanisms; the third was a one-line semantic bug with outsized reach.
+
+1. **The bare-root-argument commitment fold** (`commitArguments`, gated): the arg-position sibling of
+   the wrapper-capture fold. `ParameterInfoImpl.rewire` is `return infoMap.parameterInfo(this);` --
+   bare `this` handed to a plainly-modified parameter carrying NO eup promise was ∅-excused by the
+   self-assumption. It now owes the ROOT'S FULL COMMITMENT (`rootCommitmentLabels`); only ever adds.
+   `ParameterInfoImpl.rewire` = [inspection, methodInfo, parameterizedType] -> **the abstract
+   `Element.rewire` union LANDS (63 labels, the fifth flagship union)** -> `Element.print`'s sibling
+   完成 -> `Element` reaches `immutableAfterMark=@Immutable(hc=true)` (excusedM=13) and FORMS. The
+   existing `bailBareThis` pin updated: [peer] -> [inspection, peer], the honest named promise.
+2. **Part B -- super -> markless member label inheritance** (`computeTypeLevel`, gated): the downward
+   interface closure at VERDICT level, and its class twin. A markless cluster member (`Comment`;
+   `SingleLineCommentImpl`, a value object of Strings) has no transition of its own -- its only
+   blocker is the hierarchy, whose promise is the object's, not one type's. Inherit every eventual
+   supertype's labels (witnessed treatAs for the still-circular ones); soundness rests on
+   `immutableAfterMark` still checking the member's own fields and methods in full.
+3. **The degenerate AfterMark bug**: an inherited-marks type has EMPTY excused sets, and
+   `AfterMark(∅,∅).isNone()` read as NONE -- the entire after-mark relaxation silently degraded to
+   the unconditional path, letting the plain-@FinalFields super sink the member through the
+   `isMutable(@FinalFields)` hierarchy exit. The record gained an `inheritedMarks` component
+   (compat 2-arg constructor keeps every off-gate caller identical); the gated flow passes
+   `EventualCluster.ENABLED`. This was the dam: with it, `Comment` formed on its inherited labels,
+   the Element<->Comment mutual cycle closed inside the greatest fixpoint, and the whole
+   comment/module/expression/variable interface universe survived the contraction.
+
+**Survivors 1 -> 42**: the Comment family (Comment, SingleLineComment, MultiLineComment, JavaDoc,
+ImportStatement, ModuleInfo.Exports/Opens/Requires + impls), the expression interfaces
+(BinaryOperator, And, Or, Cast, ConstantExpression, InlineConditional, InstanceOf, MethodReference,
+Numeric, TypeExpression, UnaryOperator, Instance...), the variable interfaces (FieldReference, This,
+DependentVariable), CompilationUnit(+Stub, @FinalFields(after)), the CompilationUnitPrinter pair,
+TextBlockFormattingImpl. The flagship Impl family and the api.info interfaces still form-and-retract
+-- the next frontier (their ledger: MethodInfo, ParameterInfo, Runtime, java.util.Set, the statement
+interfaces). Scoreboard: enm 924, eup 398. Validation: 21/21 TestCommitLabels (INPUT_MARKLESS pin;
+the harness NOTE for sub-interfaces adding unimplemented abstract methods); gate-off Fernflower
+identical modulo the documented ctor flake; composed determinism -- eventual layer 0-diff,
+survivors 42 = 42 across runs.

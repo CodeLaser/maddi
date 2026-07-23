@@ -45,11 +45,20 @@ public interface TypeImmutableAnalyzer {
      *                modifies -- but an interface has nothing <em>but</em> abstract methods, which is exactly
      *                the case this exists for.
      */
-    record AfterMark(Set<FieldInfo> fields, Set<MethodInfo> methods) {
-        public static final AfterMark NONE = new AfterMark(Set.of(), Set.of());
+    record AfterMark(Set<FieldInfo> fields, Set<MethodInfo> methods, boolean inheritedMarks) {
+        public static final AfterMark NONE = new AfterMark(Set.of(), Set.of(), false);
 
+        public AfterMark(Set<FieldInfo> fields, Set<MethodInfo> methods) {
+            this(fields, methods, false);
+        }
+
+        /** {@code inheritedMarks}: an after-mark evaluation whose transition lives entirely on
+         *  supertypes (a markless sub-interface with inherited labels, EVENTUALCLUSTER) -- the excused
+         *  sets are empty, but the relaxation paths must still engage: the degenerate
+         *  {@code AfterMark(∅,∅)} otherwise reads as NONE and silently degrades to the unconditional
+         *  verdict, letting a plain-@FinalFields super sink the member. */
         public boolean isNone() {
-            return fields.isEmpty() && methods.isEmpty();
+            return fields.isEmpty() && methods.isEmpty() && !inheritedMarks;
         }
     }
 
