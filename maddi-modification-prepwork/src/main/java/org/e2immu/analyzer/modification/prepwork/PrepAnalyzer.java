@@ -170,6 +170,18 @@ public class PrepAnalyzer {
     }
 
     void doType(TypeInfo typeInfo) {
+        // Idempotency guard for the Tier-2 incremental reparse. A reparse re-runs make() over ALL primary types,
+        // but the KEEP set (types from source sets that did not change) are the SAME objects carried unchanged from
+        // the previous full prep — their methods already hold VariableData, so re-prepping them throws
+        // "Trying to overwrite variableData" (statement/field-initializer level, which unlike the method-level set
+        // at MethodAnalyzer:346 is not itself guarded). PART_OF_CONSTRUCTION is the per-type "already processed"
+        // marker (ComputePartOfConstructionFinalField sets it on every primary type + subtype and uses it as its
+        // own re-run guard); it is INTRINSIC tier, so it is never carried onto freshly rebuilt REWIRE objects, and
+        // it is set strictly after all doType() in a run — hence this guard is inert on the cold path and fires
+        // only for carried KEEP types, whose byte-identical source makes their prep output identical anyway.
+        if (typeInfo.analysis().haveAnalyzedValueFor(ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION)) {
+            return;
+        }
         try {
             List<MethodInfo> gettersAndSetters = new LinkedList<>();
             List<MethodInfo> otherConstructorsAndMethods = new LinkedList<>();
