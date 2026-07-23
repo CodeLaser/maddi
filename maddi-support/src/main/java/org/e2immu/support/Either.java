@@ -80,6 +80,7 @@ public class Either<A, B> {
      *
      * @return <code>true</code> when the left value has been initialised.
      */
+    @NotModified
     public boolean isLeft() {
         return left != null;
     }
@@ -89,6 +90,7 @@ public class Either<A, B> {
      *
      * @return <code>true</code> when the right value has been initialised.
      */
+    @NotModified
     public boolean isRight() {
         return right != null;
     }

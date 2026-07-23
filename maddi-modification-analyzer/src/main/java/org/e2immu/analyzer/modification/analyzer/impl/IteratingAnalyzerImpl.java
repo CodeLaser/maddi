@@ -169,7 +169,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
      * not-null) are modification-independent and stay; the three modification properties are frozen.
      */
     private static int clearDerivedFamily(List<Info> analysisOrder) {
-        java.util.Set<String> keys = java.util.Set.of(
+        java.util.Set<String> keys = new java.util.HashSet<>(java.util.Set.of(
                 org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE.key(),
                 org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_TYPE.key(),
                 org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_TYPE.key(),
@@ -181,7 +181,18 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                 org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_PARAMETER.key(),
                 org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_METHOD.key(),
                 org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_PARAMETER.key(),
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_FIELD.key());
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_FIELD.key()));
+        if (EventualCluster.ENABLED) {
+            // EVENTUALCLUSTER: the eventual layer derives from modification exactly like the immutability
+            // family. Computed pre-cutover, an abstract enm union freezes on optimistic TRUEs and survives
+            // the downgrade (the measured Element.complexity race: honest 9-label vs stale 2-label union
+            // depending on the run). Clear it with the family; contracts re-materialize on the next pass,
+            // and the cluster ledger is reset alongside (the witnessed edges belong to cleared computations).
+            keys.add(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUAL_METHOD.key());
+            keys.add(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD.key());
+            keys.add(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER.key());
+            keys.add(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE.key());
+        }
         int[] cleared = {0};
         for (Info info : analysisOrder) {
             info.analysis().removeIf(p -> {
@@ -277,6 +288,25 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                         v = "type immutable=" + b + " eventual=" + ev + " independent=" + ind;
                     } else continue;
                     pw.println(v + " " + info.fullyQualifiedName());
+                    // FPDUMP_PARAMS: parameter-level lines (separate gate so the A/B corpus format is unchanged)
+                    if (System.getenv("FPDUMP_PARAMS") != null
+                        && info instanceof org.e2immu.language.cst.api.info.MethodInfo mi) {
+                        for (org.e2immu.language.cst.api.info.ParameterInfo pi : mi.parameters()) {
+                            var um = pi.analysis().getOrNull(
+                                    org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                                    org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                            var ind = pi.analysis().getOrNull(
+                                    org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_PARAMETER,
+                                    org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.class);
+                            var eup = pi.analysis().getOrNull(
+                                    org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER,
+                                    org.e2immu.language.cst.impl.analysis.ValueImpl.SetOfStringsImpl.class);
+                            String evUnmod = eup != null && !eup.set().isEmpty()
+                                    ? " eventuallyUnmod=" + new java.util.TreeSet<>(eup.set()) : "";
+                            pw.println("param unmodified=" + um + " independent=" + ind + evUnmod
+                                       + " " + pi.fullyQualifiedName());
+                        }
+                    }
                 }
             } catch (java.io.IOException e) {
                 LOGGER.error("FPDUMP failed", e);
@@ -408,6 +438,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         }
         while (true) {
             ++iterations;
+            EventualCluster.ITERATION = iterations; // log-only stamp for ECASSUME/ECSITE diagnostics
             LOGGER.info("{}, cycle breaking active? {}", highlight("Start iteration " + iterations),
                     cycleBreakingActive);
             TolerantWrite.resetChangeCounts();
@@ -521,16 +552,40 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                     try {
                         var pass = new org.e2immu.analyzer.modification.analyzer.shadow.ShadowModificationPass();
                         var report = pass.go(analysisOrder);
+                        // MODREACH_DEBUG (presence-only): dump the reverse-divergence class — fixpoint says
+                        // modified, reachability finds no modifying frontier. Zero on the certified corpora;
+                        // any population is a fixpoint pessimism to root-cause (PLAN §14; dogfood: 231).
+                        if (System.getenv("MODREACH_DEBUG") != null) {
+                            report.reverseDivergences().stream()
+                                    .map(Object::toString).sorted()
+                                    .forEach(d -> System.out.println("MODREACH_REVERSE " + d));
+                        }
+                        // MODREACH_EXPLAIN=<substring>: print the BFS chain (node <- cause <- ... <- seed)
+                        // for every reached method receiver whose FQN contains the substring
+                        String explain = System.getenv("MODREACH_EXPLAIN");
+                        if (explain != null) {
+                            for (Object node : report.reached()) {
+                                if (node instanceof org.e2immu.language.cst.api.info.MethodInfo rm
+                                    && rm.fullyQualifiedName().contains(explain)) {
+                                    System.out.println("MODREACH_EXPLAIN " + report.explain(node));
+                                }
+                            }
+                        }
                         var counts = pass.writeVerdicts(analysisOrder, report);
                         TolerantWrite.freezeModificationProperties();
                         LOGGER.info("MODREACH round {}: {}", modReachRounds, counts.summary());
                         LOGGER.info("MODREACH round {}: {}", modReachRounds, report.summary());
-                        if (counts.downgraded() + counts.decidedFalse() + counts.decidedTrue() > 0) {
+                        if (counts.downgraded() + counts.decidedFalse() + counts.decidedTrue()
+                            + counts.reverseUpgraded() > 0) {
                             // P2.3b: the immutability family was derived from the pre-pass optimistic
                             // values; clear it and re-derive with modification frozen. Cycle breaking
                             // re-stages at its own certification point; the terminal phase (and
                             // certification) lands after the re-derivation converges — the §14 order.
                             int cleared = clearDerivedFamily(analysisOrder);
+                            if (EventualCluster.ENABLED
+                                && singleIterationAnalyzer instanceof SingleIterationAnalyzerImpl sia) {
+                                sia.eventualCluster().resetForRederivation();
+                            }
                             LOGGER.info("MODREACH cleared {} derived values; re-deriving with modification frozen",
                                     cleared);
                             cycleBreakingActive = false;

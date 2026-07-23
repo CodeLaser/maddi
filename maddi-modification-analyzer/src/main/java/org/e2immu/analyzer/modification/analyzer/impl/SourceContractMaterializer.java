@@ -83,6 +83,34 @@ public class SourceContractMaterializer {
         // so it is read from analysis() like every other consumer expects. It caps nothing (SSE is informational,
         // feeding only the @IgnoreModifications containment guard), so trusting it here is safe.
         materializeTrueBool(methodInfo, STATIC_SIDE_EFFECTS_METHOD);
+        // @IgnoreModifications on a SOURCE parameter is the same pure-contract gap as the field arm below:
+        // the author disclaims what the argument object does (typically a functional parameter applied to
+        // this — Element.visit(@IgnoreModifications Predicate)); it cannot be computed, and without
+        // materialization the annotation is read by nothing on source (AnnotationToProperty only runs for
+        // shallow/AAPI elements). ParameterInfoImpl.isIgnoreModifications() and MethodModification's
+        // disclaimer filters consume it. A contract on a declaration binds every override: the annotation
+        // is written once, on the interface (the shallow analyzer gives jar methods the same inheritance),
+        // so an implementation's parameter inherits the disclaimer from any overridden declaration.
+        for (org.e2immu.language.cst.api.info.ParameterInfo pi : methodInfo.parameters()) {
+            materializeTrueBool(pi, org.e2immu.language.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER);
+            if (!pi.analysis().haveAnalyzedValueFor(
+                    org.e2immu.language.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER)) {
+                for (MethodInfo overridden : methodInfo.overrides()) {
+                    if (pi.index() >= overridden.parameters().size()) continue;
+                    org.e2immu.language.cst.api.info.ParameterInfo opi = overridden.parameters().get(pi.index());
+                    if (opi.annotations().isEmpty()) continue;
+                    if (contractReader.contracts(opi).get(
+                            org.e2immu.language.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER)
+                                instanceof Value.Bool bool && bool.isTrue()) {
+                        pi.analysis().set(
+                                org.e2immu.language.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER, bool);
+                        CommonAnalyzerImpl.DECIDE.debug("SCM: Inherited @IgnoreModifications on {} from {}", pi, opi);
+                        propertyChanges.incrementAndGet();
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     public void materialize(FieldInfo fieldInfo) {
