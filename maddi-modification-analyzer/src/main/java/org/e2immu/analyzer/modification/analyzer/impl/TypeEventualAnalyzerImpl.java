@@ -509,7 +509,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
 
         Set<String> labels = new HashSet<>();
         boolean[] bail = {false};
-        WalkRoot walk = WalkRoot.ofThis(typeInfo);
+        WalkRoot walk = WalkRoot.ofThis(typeInfo, methodInfo);
         // EVENTUALCLUSTER: locals holding a 'this'-derived value (with committing labels; null = poisoned),
         // and locals holding provably fresh objects (every assignment a plain constructor call)
         LocalContext localContext = EventualCluster.ENABLED
@@ -712,11 +712,18 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         if (calleeModifies) {
             // only a modifying callee can modify its receiver
             if (mc.object() instanceof VariableExpression ve && walk.isRoot(ve.variable())) {
-                // root.<accessor>() forward: the accessor itself must be eventually-non-modifying
-                Set<String> enm = mc.methodInfo().analysis()
-                        .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET).set();
-                if (enm.isEmpty()) return null;
-                labels.addAll(enm);
+                if (EventualCluster.ENABLED && walk.isSelfCall(mc)) {
+                    // direct recursion (CommonType.commonType's lattice descent): the callee's excuse set IS
+                    // the set under computation (write-once, still in flight) -- by the fixpoint hypothesis
+                    // it contributes nothing new; only the arguments still need committing
+                    if (siteDebug()) ecsite("self-call excused: " + mc.methodInfo().name());
+                } else {
+                    // root.<accessor>() forward: the accessor itself must be eventually-non-modifying
+                    Set<String> enm = mc.methodInfo().analysis()
+                            .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET).set();
+                    if (enm.isEmpty()) return null;
+                    labels.addAll(enm);
+                }
             } else {
                 // top level: only the receiver needs committing; the call's own return value feeds nothing here
                 Set<String> receiver = commitLabels(walk, mc.object(), ctx);
@@ -738,13 +745,13 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * consumer onto {@code member}). For the receiver walk the three coincide with the historical
      * {@code owner} parameter, and the behavior is unchanged.
      */
-    private record WalkRoot(TypeInfo member, TypeInfo labelType, Variable root) {
-        static WalkRoot ofThis(TypeInfo typeInfo) {
-            return new WalkRoot(typeInfo, typeInfo, null);
+    private record WalkRoot(TypeInfo member, TypeInfo labelType, Variable root, MethodInfo underAnalysis) {
+        static WalkRoot ofThis(TypeInfo typeInfo, MethodInfo underAnalysis) {
+            return new WalkRoot(typeInfo, typeInfo, null, underAnalysis);
         }
 
         static WalkRoot ofParameter(TypeInfo analyzed, TypeInfo parameterType, ParameterInfo pi) {
-            return new WalkRoot(analyzed, parameterType, pi);
+            return new WalkRoot(analyzed, parameterType, pi, pi.methodInfo());
         }
 
         /** the root variable itself: bare {@code this}, resp. the bare parameter */
@@ -766,7 +773,12 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         /** the same walk, re-rooted at {@code this} of {@code type}: inlining an accessor body evaluates the
          *  callee's {@code this}, which IS the root object */
         WalkRoot inlineInto(TypeInfo type) {
-            return new WalkRoot(member, type, null);
+            return new WalkRoot(member, type, null, underAnalysis);
+        }
+
+        /** direct recursion: the call site's callee is the very method whose labels are being computed */
+        boolean isSelfCall(MethodCall mc) {
+            return underAnalysis != null && mc.methodInfo() == underAnalysis;
         }
     }
 
@@ -986,13 +998,19 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                     return commitArguments(walk, mc, ctx, depth, acc, true);
                 }
                 // a genuinely non-modifying accessor contributes nothing; a modifying one must be
-                // eventually-non-modifying, and contributes its labels
+                // eventually-non-modifying, and contributes its labels. A direct SELF-call is exempt from
+                // the empty-enm bail: its excuse set is the one under computation (write-once, in flight)
+                // -- the fixpoint hypothesis -- and the result still runs the handed-on gauntlet below.
                 if (!isNonModifyingRead(mc.methodInfo())) {
-                    Set<String> enm = mc.methodInfo().analysis()
-                            .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET)
-                            .set();
-                    if (enm.isEmpty()) return null;
-                    acc.addAll(enm);
+                    if (EventualCluster.ENABLED && walk.isSelfCall(mc)) {
+                        if (siteDebug()) ecsite("self-call excused (value): " + mc.methodInfo().name());
+                    } else {
+                        Set<String> enm = mc.methodInfo().analysis()
+                                .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET)
+                                .set();
+                        if (enm.isEmpty()) return null;
+                        acc.addAll(enm);
+                    }
                 }
                 receiverCommitted = false;
             } else {
