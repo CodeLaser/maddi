@@ -52,6 +52,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -67,6 +68,17 @@ import static org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARA
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.EventualImpl.NOT_EVENTUAL;
 
 public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements TypeEventualAnalyzer {
+
+    // log-only diagnostic gate (MODREACH_EXPLAIN style): substring of a type FQN to trace in computeTypeLevel
+    private static final String EC_TYPE_DEBUG = System.getenv("EC_TYPE_DEBUG");
+
+    private static boolean ecTypeDebug(TypeInfo typeInfo) {
+        if (EC_TYPE_DEBUG == null) return false;
+        for (String part : EC_TYPE_DEBUG.split(",")) {
+            if (!part.isBlank() && typeInfo.fullyQualifiedName().contains(part)) return true;
+        }
+        return false;
+    }
 
     /** which side of the state transition a call places its caller on; ordered by precedence */
     private enum Side {
@@ -243,7 +255,11 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             for (FieldInfo fieldInfo : typeInfo.fields()) {
                 if (fieldInfo.isStatic()) continue;
                 if (!fieldInfo.analysis().getOrDefault(FINAL_FIELD, ValueImpl.BoolImpl.FALSE).isTrue()) continue;
-                if (!excusedFields.contains(fieldInfo) && fieldHoldsCommittableContent(fieldInfo)) {
+                // the container ride-along extends the markless carrier: a final, owner-unmutated container
+                // of committable content (ExpressionImpl.comments) rides along exactly like a field of
+                // eventually immutable type -- once the elements commit, the stable wrapper acts immutable
+                if (!excusedFields.contains(fieldInfo)
+                    && (fieldHoldsCommittableContent(fieldInfo) || containerContentCommittable(fieldInfo))) {
                     markLabels.add(fieldInfo.name());
                     excusedFields.add(fieldInfo);
                 }
@@ -280,12 +296,23 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 }
             }
         }
-        if (markLabels.isEmpty()) return;
+        // EC_TYPE_DEBUG=<fqn substring>: print the type-level decision path (log-only, env-gated diagnostic
+        // in the MODREACH_EXPLAIN style) -- why does a type with fully excused methods still get no verdict?
+        boolean dbg = ecTypeDebug(typeInfo);
+        if (markLabels.isEmpty()) {
+            if (dbg) System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " no mark labels");
+            return;
+        }
 
         TypeImmutableAnalyzer.AfterMark afterMark =
                 new TypeImmutableAnalyzer.AfterMark(Set.copyOf(excusedFields), Set.copyOf(excusedMethods));
         Value.Immutable afterMarkLevel = typeImmutableAnalyzer.immutableAfterMark(typeInfo, afterMark,
                 activateCycleBreaking);
+        if (dbg) {
+            System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " markLabels=" + new TreeSet<>(markLabels)
+                               + " excusedM=" + excusedMethods.size() + " excusedF=" + excusedFields.size()
+                               + " afterMark=" + afterMarkLevel + " cycleBreaking=" + activateCycleBreaking);
+        }
         if (afterMarkLevel == null) {
             UNDECIDED.debug("TE: Eventual immutability of type {} undecided", typeInfo);
             return;
@@ -293,7 +320,20 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         Value.Immutable unconditional = typeInfo.analysis()
                 .getOrDefault(IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.MUTABLE);
         if (afterMarkLevel.compareTo(unconditional) <= 0) {
+            if (dbg) System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " buys nothing: afterMark="
+                                        + afterMarkLevel + " <= unconditional=" + unconditional);
             return; // the mark buys nothing; do not claim eventuality the type does not need
+        }
+        // EVENTUALCLUSTER: a weak (final-fields) after-mark level computed BEFORE the terminal phase is
+        // usually an artifact of enm labels still accumulating: the verdict is write-once, and
+        // immutableSuper's isMutable(@FinalFields) check then hard-sinks every subtype -- the TypeInfo
+        // interface froze @FinalFields(after="inspection") in iteration 1 with 2 of its eventual 33 labels
+        // present, making TypeInfoImpl MUTABLE forever. Defer weak verdicts to the cycle-breaking
+        // iterations, when the method layer has converged; a level still FINAL_FIELDS then is honest.
+        if (EventualCluster.ENABLED && afterMarkLevel.isFinalFields() && !activateCycleBreaking) {
+            if (dbg) System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
+                                        + " weak after-mark level deferred to the terminal phase");
+            return;
         }
         String label = markLabels.stream().sorted().collect(Collectors.joining(","));
         Value.EventuallyImmutable value = new ValueImpl.EventuallyImmutableImpl(label, afterMarkLevel);
@@ -307,7 +347,8 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
     private void resolveExcusedFields(TypeInfo typeInfo, Set<String> labels, Set<FieldInfo> excusedFields) {
         for (String label : labels) {
             FieldInfo fieldInfo = typeInfo.getFieldByName(label, false);
-            if (fieldInfo != null && fieldHoldsCommittableContent(fieldInfo)) {
+            if (fieldInfo != null
+                && (fieldHoldsCommittableContent(fieldInfo) || containerContentCommittable(fieldInfo))) {
                 excusedFields.add(fieldInfo);
             }
         }
@@ -753,11 +794,15 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 // root.<accessor>(): the method boundary erases WHICH committed field the result was read
                 // through, which handedOnValueSafe often needs -- so look through a same-class single-return
                 // forward first, evaluating its body expression in place (one level of inlining). Inside the
-                // inlined body, 'this' IS the root object, so the evaluation is re-rooted at this.
-                if (depth < MAX_LOOK_THROUGH && mc.methodInfo().typeInfo() == walk.labelType()) {
+                // inlined body, 'this' IS the root object, so the evaluation is re-rooted at this. The
+                // inlining is keyed on the DECLARING type's label space: a CONCRETE inherited accessor
+                // (StatementImpl.comments() called inside DoStatementImpl.rewire) inlines against the
+                // superclass's fields -- an unresolved superclass label simply excuses no own field at the
+                // subclass's type level, exactly like an inherited mark.
+                if (depth < MAX_LOOK_THROUGH && !mc.methodInfo().isAbstract()) {
                     Expression returned = singleReturnExpression(mc.methodInfo());
                     if (returned != null) {
-                        Set<String> through = commitLabels(walk.inlineInto(walk.labelType()), returned,
+                        Set<String> through = commitLabels(walk.inlineInto(mc.methodInfo().typeInfo()), returned,
                                 LocalContext.EMPTY, depth + 1);
                         if (through != null) {
                             acc.addAll(through);
