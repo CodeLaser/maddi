@@ -679,6 +679,72 @@ public class TestCommitLabels extends CommonTest {
         }
     }
 
+    // the TypeInfoImpl.print shape: 'new TypePrinterImpl(this, ..).print(..)' -- a modifying call on a
+    // fresh wrapper whose constructor captured bare this. The wrapper method's own enm labels (its capture
+    // field) translate through the constructor's capture map to the ROOT'S full commitment
+    // (rootCommitmentLabels). NOTE: the opaque-sink clause (contentTypeHarmless -- the OutputBuilder shape)
+    // is corpus-validated only: the aapi-less harness shallow-defaults the JDK stream/collector types too
+    // leniently for a discriminating fixture.
+    @Language("java")
+    private static final String INPUT_WRAPPER = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class W {
+              static class T {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                private final EventuallyFinalOnDemand<String> data = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                public void commitData(String s) { data.setFinal(s); }
+                public int size() { return inspection.get().length(); }
+                // the direct site supplies [inspection]; the wrapper fold supplies the root's FULL
+                // commitment [data, inspection] -- the plainly-modifying size() call is needed because the
+                // aapi-less plain layer does not trace modification through the capture on its own
+                public int viaWrapper() { int a = size(); return a + new Wr(this).run(); }
+              }
+              static class Wr {
+                private final T t;
+                Wr(T t) { this.t = t; }
+                public int run() { return t.size(); }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: the wrapper-capture fold translates the wrapper's enm to the root's commitment")
+    @Test
+    public void testWrapperCapture() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo W = javaInspector.parse("W", INPUT_WRAPPER);
+            analyzer.go(prepWork(W));
+            // the wrapper's own promise: run() is non-modifying once its captured 't' commits
+            assertEquals(Set.of("t"), nonModAfter(W.findSubType("Wr"), "run", 0));
+            // the fold: 't' captured bare this, so the caller owes this's own FULL commitment
+            // [data, inspection] -- without the fold, only the direct site's [inspection] would land
+            assertEquals(Set.of("data", "inspection"), nonModAfter(W.findSubType("T"), "viaWrapper", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: the wrapper's own field read still lands (legacy route); the fold does not")
+    @Test
+    public void testWrapperCaptureGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo W = javaInspector.parse("W", INPUT_WRAPPER);
+            analyzer.go(prepWork(W));
+            // t.size(): the pre-cluster receiverAfterLabels route -- T is eventually immutable by its own
+            // mark, so the committable field read excuses off the gate too
+            assertEquals(Set.of("t"), nonModAfter(W.findSubType("Wr"), "run", 0));
+            // but the wrapper-capture fold is gated: the ∅-excused capture stays ∅
+            assertEquals(Set.of(), nonModAfter(W.findSubType("T"), "viaWrapper", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
     @DisplayName("gate off: the recursive method stays unexcused")
     @Test
     public void testSelfCallGateOff() {
