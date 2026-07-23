@@ -349,3 +349,14 @@ override-inheritance in `SourceContractMaterializer`, and `Predicate.test:0`'s l
 Langchain4j 0 lines, Timefold 6 lines proven inside the base-vs-base flake envelope (A-vs-A2 flips the
 same `CustomPhase`/`Testdata*` lines). All four module suites green.
 **§9 item 2 SPEC'D:** `docs/spec-eventually-unmodified-parameter.md` — implement next session.
+
+**§9 item 2 IMPLEMENTED (2026-07-23, next session):** `EVENTUALLY_UNMODIFIED_PARAMETER` landed —
+the commit walk parameterized by root (`WalkRoot`), computation/consumption/propagation gated
+`EVENTUALCLUSTER`, annotation + codec twins, `TestEventuallyUnmodifiedParameter` (composed
+harness). Composed dogfood: 265 eup parameters; the §7.2 chain closes (`ParameterizedTypePrinter
+.print:1` and `TypeNameImpl.typeName:0` get labels; the whole `ParameterizedTypeImpl` print/fqn/
+descriptor family + `mostSpecific`/`formalToConcrete` gain enm, net +21). Scoreboard: survivors
+5→5 / retracted 63→63 (the spec's optimistic targets not reached), but `ModuleInfoImpl.Provides/
+UsesImpl` strengthen `@FinalFields(after=)` → `@Immutable(hc=true)(after=)`. The full record,
+including why the cascade now stops (List-of-candidate-content fields, the type-parameter-map
+family — the next designed mechanisms), is the spec's §8.
