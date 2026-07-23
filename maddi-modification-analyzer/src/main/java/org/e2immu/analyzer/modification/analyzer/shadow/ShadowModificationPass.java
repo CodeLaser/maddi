@@ -485,7 +485,7 @@ public class ShadowModificationPass {
             // whose only implementations are lambdas, never order elements — was treated as modifying
             // at this very call site; the pass must not read that undecidedness as absence of evidence
             if (callee.isAbstract()) {
-                if (!callee.isIgnoreModification()
+                if (!callee.isIgnoreModification() && !callee.isFinalizer()
                     && callee.analysis().getOrNull(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class) == null) {
                     seedWithOrigin(callee, mi, "undecided abstract callee");
                 }
@@ -498,7 +498,9 @@ public class ShadowModificationPass {
             }
             return;
         }
-        if (callee.isModifying() && !callee.isIgnoreModification()) {
+        // exact mirror of MethodModification.go's receiver guard: finalizer callees (the aapi marks
+        // stream intermediates @Finalizer) never implicate their receiver, whatever their verdict
+        if (callee.isModifying() && !callee.isIgnoreModification() && !callee.isFinalizer()) {
             seedWithOrigin(callee, mi, "non-analyzed modifying callee");
         }
         seedBoundaryCalleeParameters(mi, callee);
