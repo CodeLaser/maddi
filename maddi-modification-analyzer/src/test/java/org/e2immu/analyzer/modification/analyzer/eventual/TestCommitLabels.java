@@ -535,4 +535,80 @@ public class TestCommitLabels extends CommonTest {
             EventualCluster.ENABLED = saved;
         }
     }
+
+    private Set<String> unmodAfter(TypeInfo typeInfo, String methodName, int params, int paramIndex) {
+        return typeInfo.findUniqueMethod(methodName, params).parameters().get(paramIndex).analysis()
+                .getOrDefault(PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER, ValueImpl.SetOfStringsImpl.EMPTY_SET)
+                .set();
+    }
+
+    // the compareBinaryToGt0 shape (the internalCompareTo union's last blocker): a static helper chain over
+    // the interface hierarchy, consumed by a bare-this class-rooted caller. Two mechanisms under test: the
+    // ancestor label space (an interface-rooted eup walk handing its root to a param of an ANCESTOR interface
+    // passes the labels through, GreaterThanZero -> Expression), and the dispatch narrowing (a class-rooted
+    // consumer folds the union restricted to its own committable fields when the residue names no field
+    // anywhere in its runtime cone -- U's 'data' is vacuous for a T argument).
+    @Language("java")
+    private static final String INPUT_CHAIN = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class K {
+              interface E { int size(); }
+              interface Sub extends E { int size2(); }
+              static class T implements E {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                @Override public int size() { return inspection.get().length(); }
+                public int viaHelper() { return Helper.viaE(this); }
+              }
+              static class U implements E {
+                private final EventuallyFinalOnDemand<String> data = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { data.setFinal(s); }
+                @Override public int size() { return data.get().length(); }
+              }
+              static class Helper {
+                static int viaE(E e) { return e.size(); }
+                static int viaSub(Sub s) { return viaE(s); }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: eup crosses the ancestor label space; a class-rooted consumer narrows the union")
+    @Test
+    public void testChainShapes() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo K = javaInspector.parse("K", INPUT_CHAIN);
+            analyzer.go(prepWork(K));
+            TypeInfo helper = K.findSubType("Helper");
+
+            // e.size(): the abstract union over T (inspection) and U (data), passed through the interface root
+            assertEquals(Set.of("data", "inspection"), unmodAfter(helper, "viaE", 1, 0));
+            // viaE(s): the root of type Sub handed to a parameter of ANCESTOR type E -- same promise space
+            assertEquals(Set.of("data", "inspection"), unmodAfter(helper, "viaSub", 1, 0));
+            // Helper.viaE(this): the T-rooted consumer narrows [data, inspection] to its own reality --
+            // 'data' names no field in T's cone, those code paths cannot execute on a T argument
+            assertEquals(Set.of("inspection"), nonModAfter(K.findSubType("T"), "viaHelper", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: the chain shapes stay unexcused")
+    @Test
+    public void testChainGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo K = javaInspector.parse("K", INPUT_CHAIN);
+            analyzer.go(prepWork(K));
+            TypeInfo helper = K.findSubType("Helper");
+            assertEquals(Set.of(), unmodAfter(helper, "viaE", 1, 0));
+            assertEquals(Set.of(), unmodAfter(helper, "viaSub", 1, 0));
+            assertEquals(Set.of(), nonModAfter(K.findSubType("T"), "viaHelper", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
 }

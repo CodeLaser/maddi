@@ -1148,3 +1148,39 @@ unions landed and internalCompareTo one eup-chase away; the ∅-enm decision (di
 taken with Bart and implemented. Next session: the GreaterThanZeroImpl eup chase, then Factory's
 lazy caches, TypeInfoImpl.print, VariableImpl caches -- and the cluster's survivors will start
 recovering as Expression forms.
+
+## The GreaterThanZeroImpl eup chase (2026-07-24): the internalCompareTo union completes
+
+The chase decoded into two consumption gaps in the eup fold (`commitArguments`), both mechanical:
+
+1. **The ancestor label space.** `sameLabelSpace` demanded exact type identity between the callee's
+   parameter type and the walk's label type. The `GreaterThanZero`-rooted walk of
+   `compareBinaryToGt0:1:e2` hands its root to `compareVariables:1` declared as `Expression` -- an
+   ANCESTOR interface, the same promise space one level wider -- and fell through to
+   `labelsCommittableOnRoot`, which no interface can pass (no fields). Silent skip, walk yields ∅,
+   unwritable. The guard diagnostic (`eup guard: unmodified=...`) first ruled out the early exits:
+   pre-cutover the plain layer optimistically says `unmodified=true` (guard refuses, correctly);
+   post-cutover the walk ran and the `treatAs refusal` print (kept from the probe round) named the
+   real site. Fix: interface-rooted walks accept an ancestor parameter type (`isAncestorType`),
+   mirroring the downward-interface-closure argument; committability stays the ultimate consumer's
+   job, exactly as for the identity case.
+2. **Dispatch narrowing at the class-rooted consumer.** With eup(`compareBinaryToGt0:1`) = the full
+   Element union landed, `GreaterThanZeroImpl.internalCompareTo`'s enm walk hands bare `this` and
+   fails whole-set committability (`lhs` is no field of a GreaterThanZeroImpl). But the union labels
+   are per-implementation excuses: a label naming no field anywhere in the argument's runtime cone
+   (the root class plus its known subclasses, fields own or inherited) is VACUOUS for this argument
+   -- those code paths cannot execute on it. The consumer now folds the committable restriction when
+   the entire residue is vacuous (`residueVacuousOnCone`); anything less falls through unchanged.
+   This is the receiver analog the spec (§7) asked to mirror: a `this.foo()` call narrows naturally
+   via method resolution; the arg-position fold had no narrowing at all.
+
+Outcome (composed dogfood): **the abstract `Expression.internalCompareTo` union LANDS** -- every
+implementation plainly non-modifying or labeled (`GreaterThanZeroImpl` = `[expression]`, the
+narrowed fold). enm 849 -> 851, eup 339 -> 344; `GreaterThanZero` now forms-and-retracts with named
+broken deps instead of never forming. Survivors stay at 1: Expression's ledger entry lists its
+remaining lean roots, and the retraction ranking (`TypeInfo` 36, `MethodInfo` 33, `Runtime` 21,
+`Element` 20, `VariableImpl` 12) is exactly the recorded roadmap -- the Factory/print/VariableImpl
+quests, in that order. Unit pins: `TestCommitLabels.INPUT_CHAIN` (both mechanisms discriminate in
+the aapi-less harness; gate-off twin). The silent-skip fallback for a live residue remains, recorded
+here as the residual ∅-gap: a walk can still yield [] when a residue label names a real cone field
+-- honest per-site, but the spec's bail would be stricter.
