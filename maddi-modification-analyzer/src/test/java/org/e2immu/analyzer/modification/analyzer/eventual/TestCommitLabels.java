@@ -295,6 +295,17 @@ public class TestCommitLabels extends CommonTest {
                 public int viaSub() { inspection.get(); return sub.size2(); }
                 public int viaBuilder() { inspection.get(); return builderLike.foo().length(); }
               }
+              // the UnaryOperatorImpl.operator shape: a subclass method reading a SUPERCLASS field -- the
+              // walk owns inherited fields too; the label names the super's field, tolerated at type level
+              // exactly like an inherited mark
+              static class Base {
+                protected final T item;
+                Base(T item) { this.item = item; }
+              }
+              static class SubClass extends Base {
+                SubClass(T item) { super(item); }
+                public int subSize() { return item.size(); }
+              }
             }
             """;
     // NOTE: the round's other two mechanisms -- the accessor spelling comments() of this.comments in the
@@ -323,6 +334,8 @@ public class TestCommitLabels extends CommonTest {
             assertEquals(Set.of("inspection", "sub"), nonModAfter(carrier, "viaSub", 0));
             // builderLike is a setter-bearing sub-interface: refused (haveSetters can never prove)
             assertEquals(Set.of(), nonModAfter(carrier, "viaBuilder", 0));
+            // item is Base's field, read from SubClass: the inherited-field read is excusable by its label
+            assertEquals(Set.of("item"), nonModAfter(J.findSubType("SubClass"), "subSize", 0));
         } finally {
             EventualCluster.ENABLED = saved;
         }
@@ -339,6 +352,7 @@ public class TestCommitLabels extends CommonTest {
             TypeInfo carrier = J.findSubType("Carrier");
             assertEquals(Set.of(), nonModAfter(carrier, "viaSub", 0));
             assertEquals(Set.of(), nonModAfter(carrier, "viaBuilder", 0));
+            assertEquals(Set.of(), nonModAfter(J.findSubType("SubClass"), "subSize", 0));
         } finally {
             EventualCluster.ENABLED = saved;
         }

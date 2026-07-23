@@ -846,7 +846,10 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         if (expr instanceof VariableExpression ve) {
             if (ve.variable() instanceof FieldReference fr && walk.scopeIsRoot(fr)) {
                 FieldInfo fieldInfo = fr.fieldInfo();
-                if (isOwnField(walk.labelType(), fieldInfo) && fieldHoldsCommittableContent(fieldInfo)) {
+                // own field, or one inherited from a superclass (UnaryOperatorImpl.operator read inside
+                // BitwiseNegationImpl.rewire): the label then names the super's field, which the type level
+                // tolerates exactly like an inherited mark -- it excuses no own field of the subclass
+                if (isOwnOrInheritedField(walk.labelType(), fieldInfo) && fieldHoldsCommittableContent(fieldInfo)) {
                     return Set.of(fieldInfo.name());
                 }
                 // an @IgnoreModifications store is manual hidden content (road §050): modifications through
@@ -1751,6 +1754,18 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
 
     private static boolean isOwnField(TypeInfo typeInfo, FieldInfo fieldInfo) {
         return typeInfo.fields().contains(fieldInfo);
+    }
+
+    /** EVENTUALCLUSTER commit walk only: the walk's root object also owns its superclasses' fields; the
+     *  ungated legacy paths keep the strict own-field rule. */
+    private static boolean isOwnOrInheritedField(TypeInfo typeInfo, FieldInfo fieldInfo) {
+        if (typeInfo.fields().contains(fieldInfo)) return true;
+        ParameterizedType parent = typeInfo.parentClass();
+        while (parent != null && parent.typeInfo() != null && !parent.typeInfo().isJavaLangObject()) {
+            if (parent.typeInfo().fields().contains(fieldInfo)) return true;
+            parent = parent.typeInfo().parentClass();
+        }
+        return false;
     }
 
     private static Side side(Value.Eventual callee) {

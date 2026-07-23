@@ -1023,3 +1023,34 @@ eval-engine breadth: EvalOr/EvalNegation/... lean on expression interfaces), `Ty
 `Runtime`(12 folded -- the factory interface), `Element` down to 2; the per-body residue
 (`TypeInfoImpl.print`, `BitwiseNegationImpl.rewire`) persists in the honest world. Next quests
 should start from THIS list, re-measured with `EC_ASSUME_DEBUG=Expression,Runtime`.
+
+## The honest-roots quest, round 1 (2026-07-23, continued): measurement + inherited-field ownership
+
+`EC_ASSUME_DEBUG=Expression,Runtime,TypeInfo` on the honest baseline: 324 direct edges (Expression
+187, TypeInfo 81, Runtime 56) -- these are not batch blockers but the WIDESPREAD leans: the whole
+label layer rests on these three candidacies, discharged only by their proof or survival. TypeInfo
+FORMS (pure cascade victim). The actionable roots:
+
+- **Expression never forms because exactly four abstract unions fail**: `rewire`, `translate`,
+  `withSource`, `internalCompareTo` (every other Expression method landed). Blockers, per the batch
+  diagnostic: `InstanceOfImpl.translate` (the `translationMap.translateExpression(this)` BARE-THIS
+  handout -- a candidacy chicken-and-egg: the owner-seed escape needs the leaf impl to be a
+  candidate, which needs one enm to land first), `InstanceOfImpl.rewire`,
+  `ConstructorCallImpl.withSource`, `BinaryOperatorImpl.internalCompareTo`,
+  `UnaryOperatorImpl.rewire` -- each needs its own chase.
+- **Runtime is sunk by its supertypes**: zero modifying methods, zero dependent methods, but
+  `Factory`/`Eval` cap at @FinalFields (and `isMutable(@FinalFields)` sinks the extender). Factory
+  even carries a mark (`markLabels=[intParameterizedType]`, one excused method) yet
+  `afterMark=@FinalFields buys nothing` -- WHY the unconditional computation stops at FinalFields
+  for an all-non-modifying interface is the open question (needs a deeper EC_TYPE_DEBUG print
+  inside computeImmutableType0's hc rules).
+
+**Landed this round (gated): inherited-field ownership in the commit walk.** The
+`UnaryOperatorImpl.operator` shape: `BitwiseNegationImpl.rewire` reads `operator`/`precedence`/
+`expression` -- SUPERCLASS fields -- and the FieldReference branch demanded strict own-field
+membership, bailing silently. `isOwnOrInheritedField` walks the superclass chain; the label names
+the super's field, which the type level tolerates exactly like an inherited mark (the clique
+round's precedent for inherited accessors). Composed: enm 806 -> 824, BitwiseNegationImpl leaves
+the rewire blocker list. Pin: `INPUT_BREADTH.SubClass.subSize` = [item] (∅ off the gate).
+Also observed en route: a parameterless immutable-hc field type (Precedence, Diamond) is already
+harmless to the walk -- the flag interfaces were a false suspect.
