@@ -338,3 +338,14 @@ with the evidence chains read end-to-end — two design decisions, not mechanica
 
 Everything gated (`MODREACH` / `EVENTUALCLUSTER`); module suites green at every commit; the only
 ungated surface remains the `Either` contracts certified in §8's three-corpus A/B.
+
+**§9 item 1 DONE (2026-07-23, commit `6ebb7225`):** the `@IgnoreModifications` sweep — three interface
+annotations on `Element` (`visit(Predicate)`/`typesReferenced`/`reject`), the parameter arm +
+override-inheritance in `SourceContractMaterializer`, and `Predicate.test:0`'s long-commented
+`@NotModified` activated in the jdk aapi (surgical one-property JSON diff). Dogfood gate-off:
+`visit(Predicate)` impls 57 FALSE → 67 TRUE, violations 138→28, **`Element` unconditionally
+`@Immutable(hc=true)`**. Composed holdouts on `Element` down to 6 (`print`/`rewire`/`variableStream*`
+— §9 item 2's shape). Three-corpus A/B: Fernflower = the known `StatEdge.EdgeType.<init>` flake only,
+Langchain4j 0 lines, Timefold 6 lines proven inside the base-vs-base flake envelope (A-vs-A2 flips the
+same `CustomPhase`/`Testdata*` lines). All four module suites green.
+**§9 item 2 SPEC'D:** `docs/spec-eventually-unmodified-parameter.md` — implement next session.
