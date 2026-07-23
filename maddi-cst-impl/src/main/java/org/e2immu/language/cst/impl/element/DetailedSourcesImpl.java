@@ -129,7 +129,11 @@ public class DetailedSourcesImpl implements DetailedSources {
     }
 
     public Source detail(Object object) {
-        return (Source) identityHashMap.get(object);
+        Object o = identityHashMap.get(object);
+        if (o instanceof List<?> list) {
+            return list.isEmpty() ? null : (Source) list.getFirst();
+        }
+        return (Source) o;
     }
 
     @Override

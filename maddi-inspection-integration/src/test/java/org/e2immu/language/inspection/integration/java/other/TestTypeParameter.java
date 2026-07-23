@@ -496,6 +496,9 @@ public class TestTypeParameter extends CommonTest {
         List<Source> detailsOfB = ds.details(classBinListTypeInfo);
         assertEquals("5-32:5-32,5-41:5-41",
                 detailsOfB.stream().map(Source::compact2).collect(Collectors.joining(",")));
+        // detail() on a multi-element (List-valued) entry must return the first Source, not blindly cast the List
+        assertSame(detailsOfB.getFirst(), ds.detail(classBinListTypeInfo));
+        assertEquals("5-32:5-32", ds.detail(classBinListTypeInfo).compact2());
         assertTrue(ds.details(A).isEmpty());
     }
 
