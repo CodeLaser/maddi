@@ -858,3 +858,20 @@ to `@Immutable(hc=true)(after=…)`): the cascade now stops at three NEWLY EXPOS
 candidate-content fields (`typesReferenced` bails on `this.parameters`), the type-parameter-map builders,
 and `rewire`/`withNullable` — each of which is its own designed mechanism (spec §8.3). That is the next
 front.
+
+## The container ride-along lands: ParameterizedTypeImpl forms its verdict (2026-07-23, same day)
+
+Spec §8.3 item 1 is implemented (record: `docs/spec-eventually-unmodified-parameter.md` §9, gated
+`EVENTUALCLUSTER`): the §060 ride-along one indirection deeper, granted per SITE — read position
+(non-modifying, non-dependent calls on final container fields of committable content, wrapper
+stability proven syntactically), argument position (callee provably neither mutates nor accessibly
+retains the wrapper; constructors judged by direct body scan), and ConstructorCall sites now visited
+by both walks (closing a genuine capture hole). Composed dogfood: enm 567→663 (+122/−7 vs the
+certified baseline; the 7 losses are honest capture-hole corrections), modifying-unlabeled
+1382→1273, survivors 6 (the `TypeReference` pair joins). `ParameterizedTypeImpl` reaches 100%
+method excusal (ctor + one anonymous supplier aside) and FORMS ITS OWN EVENTUAL VERDICT for the
+first time — retracted by its lean on the `MethodInfo` interface. The frontier is now the
+interface clique: `api.info.MethodInfo` (19 leans), `ExpressionImpl` (19), `Element` (9),
+`TypeInfoImpl` (8), `StatementImpl` (8), the Builders — breadth work over their remaining
+rewire/translate/print holdouts, plus the noted look-through gap for concrete superclass-declared
+accessors. Gate-off Fernflower A/B: byte-identical, 0 lines.
