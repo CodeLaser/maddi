@@ -163,7 +163,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
      * not-null) are modification-independent and stay; the three modification properties are frozen.
      */
     private static int clearDerivedFamily(List<Info> analysisOrder) {
-        java.util.Set<String> keys = java.util.Set.of(
+        java.util.Set<String> keys = new java.util.HashSet<>(java.util.Set.of(
                 org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE.key(),
                 org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_TYPE.key(),
                 org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_TYPE.key(),
@@ -175,7 +175,18 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                 org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_PARAMETER.key(),
                 org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_METHOD.key(),
                 org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_PARAMETER.key(),
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_FIELD.key());
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_FIELD.key()));
+        if (EventualCluster.ENABLED) {
+            // EVENTUALCLUSTER: the eventual layer derives from modification exactly like the immutability
+            // family. Computed pre-cutover, an abstract enm union freezes on optimistic TRUEs and survives
+            // the downgrade (the measured Element.complexity race: honest 9-label vs stale 2-label union
+            // depending on the run). Clear it with the family; contracts re-materialize on the next pass,
+            // and the cluster ledger is reset alongside (the witnessed edges belong to cleared computations).
+            keys.add(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUAL_METHOD.key());
+            keys.add(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD.key());
+            keys.add(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER.key());
+            keys.add(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE.key());
+        }
         int[] cleared = {0};
         for (Info info : analysisOrder) {
             info.analysis().removeIf(p -> {
@@ -544,6 +555,10 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                             // re-stages at its own certification point; the terminal phase (and
                             // certification) lands after the re-derivation converges — the §14 order.
                             int cleared = clearDerivedFamily(analysisOrder);
+                            if (EventualCluster.ENABLED
+                                && singleIterationAnalyzer instanceof SingleIterationAnalyzerImpl sia) {
+                                sia.eventualCluster().resetForRederivation();
+                            }
                             LOGGER.info("MODREACH cleared {} derived values; re-deriving with modification frozen",
                                     cleared);
                             cycleBreakingActive = false;

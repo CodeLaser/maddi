@@ -997,3 +997,29 @@ adder-only Builder the setter proxy cannot catch -- harmless, witnessed, retract
 refusal; the accessor spelling and primitive-stream mechanisms are corpus-validated only -- the
 aapi-less unit harness shallow-defaults JDK containers too leniently to discriminate). Gate-off
 Fernflower byte-identity; suites green.
+
+## The Element/Statement breadth quest, round 2 (2026-07-23, continued): the race is dead — the honest baseline
+
+The abstract-union write-once vs modreach-downgrade race is closed STRUCTURALLY rather than by
+per-batch deferral: the eventual layer (EVENTUAL_METHOD, the enm/eup label layer,
+EVENTUALLY_IMMUTABLE_TYPE) now joins the immutability family in the post-cutover
+`clearDerivedFamily` (gated), and the cluster resets alongside (`resetForRederivation`: witnessed
+edges, label provenance, candidacy caches -- they belong to the cleared computations). The whole
+eventual layer re-derives on the honest, frozen modification state; contracts re-materialize on the
+next pass. Companion fix: `hasSetters` now consults each abstract method's IMPLEMENTATIONS (an
+abstract Builder interface carries no getset marks of its own), which refuses the honest world's
+re-appearing Builder leans (`FactoryImpl -> MethodInfo.Builder`).
+
+**The eventual layer is now fully DETERMINISTIC: two composed runs differ by 0 lines across
+enm/eup/eventual/after-mark** (the only dump diffs left are the known QualifiedName/SymbolEnum
+modification flake). `Element.complexity` lands the honest union every run. The honest price, now
+measured instead of raced-over: enm 933 -> 806, eup 376 -> 309 -- that much of the pre-fix layer
+rested on pre-cutover optimism -- and survivors drop to 1 (TextBlockFormattingImpl) with 147
+retracted, while THE FLAGSHIP FAMILY STILL FORMS in every run. Both re-derivation rounds converge
+("done? true"): this is the honest fixpoint, not budget starvation.
+
+**The honest retraction roots re-rank the roadmap:** `Expression` (~25 folded appearances -- the
+eval-engine breadth: EvalOr/EvalNegation/... lean on expression interfaces), `TypeInfo`(11),
+`Runtime`(12 folded -- the factory interface), `Element` down to 2; the per-body residue
+(`TypeInfoImpl.print`, `BitwiseNegationImpl.rewire`) persists in the honest world. Next quests
+should start from THIS list, re-measured with `EC_ASSUME_DEBUG=Expression,Runtime`.
