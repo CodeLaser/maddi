@@ -1078,3 +1078,30 @@ bodies, `ConstructorCallImpl.translate` and `MethodCallImpl.translate`) and `int
 (`BinaryOperatorImpl`). The Factory/Eval cap decomposed en route: exactly two abstract methods
 (`commonType`, `newInlineConditional`, both funneling into `CommonType.commonType`'s
 inspection-reading lattice walk plus FactoryImpl's own lazy caches) -- unresolved, next round.
+
+## The honest-roots quest, round 3 (2026-07-23, continued): Expression.translate lands — container
+## aliases, identity transparency, the two-round local context
+
+The remaining translate blockers (`MethodCallImpl`/`ConstructorCallImpl`) decomposed into three
+mechanical gaps, all closed (gated):
+
+1. **Container-alias tracking** (`LocalContext.containerAlias`, pass 3 of `buildLocalContext`): the
+   `list.isEmpty() ? list : rebuilt` short-circuit assigns the BARE field wrapper to a local in one
+   branch -- correctly uncommittable as a VALUE, but the local provably aliases one known container
+   field, and the per-site rescues (read-through, argument, constructor-capture) may judge it as the
+   field spelled inline. A subset guard on the other branch's labels keeps the minted label sound.
+2. **@Identity transparency** (`Objects.requireNonNull`, aapi `identityMethod`): the wrapper-safety
+   ctor scan treats an identity forward as the value itself -- `this.f = requireNonNull(p)` is the
+   capture, judged at the assignment; the call is not an onward handoff.
+3. **The two-round local context**: aliases discovered after the commit fixpoint un-poison DOWNSTREAM
+   locals (the copy built FROM the aliased local), so the fixpoint re-derives once with the aliases
+   in place.
+
+**Three of Expression's four abstract unions now land** (rewire, translate, withSource -- each the
+full union over the ~80 impls). Composed: enm 842, eup 339, flagships form. The LAST Expression
+blocker is `internalCompareTo` <- `BinaryOperatorImpl`, which is not mechanical: the walk SUCCEEDS
+with EMPTY labels (`rhs.compareTo(x)`: the direct callee is contract-non-modifying, so no excuse is
+demanded, while modreach honestly reaches the modification through the `internalCompareTo` dispatch)
+-- an ∅-enm on a decided-modifying method is currently unwritable, and deciding what it should MEAN
+(write ∅-enm as a first-class value? demand the receiver labels at contract-non-modifying dispatch
+sites whose implementations modify?) is a design question for the next session, ideally with Bart.
