@@ -36,6 +36,12 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
     private final JavaInspector javaInspector;
     private SingleIterationAnalyzer lastRun;
     private final List<Message> guardMessages = new ArrayList<>();
+    // read-only diagnostic (no effect on the analysis): did this run reach a clean certified fixpoint, i.e. terminate
+    // via a genuine certification with ZERO refused downgrades (no frozen optimistic values surviving)? A partial
+    // (subset) analysis reproduces a whole-project run byte-for-byte only when this holds — the refuse-to-lower guard
+    // is the sole starting-state-dependent step, so if it never fired the framework is confluent. See
+    // ModificationAnalysisResource#incrementalAnalyze.
+    private boolean certifiedWithoutFrozenValues;
 
     private org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed valueFeed;
 
@@ -284,6 +290,17 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                 guardMessages.stream()).toList();
     }
 
+    /**
+     * Did the last {@link #analyze} reach a clean certified fixpoint — terminating via a genuine certification with
+     * zero refused downgrades? Read-only diagnostic, no effect on the analysis. A partial (subset) analysis is
+     * byte-identical to a whole-project run exactly when this is true: the refuse-to-lower guard is the only step
+     * whose outcome depends on the starting state, so if it never fired the analysis is confluent and a closure read
+     * against its final boundary lands on the same fixpoint. False after a plateau / max-iterations stop.
+     */
+    public boolean certifiedWithoutFrozenValues() {
+        return certifiedWithoutFrozenValues;
+    }
+
     @Override
     public void analyze(List<Info> analysisOrder) {
         analyze(analysisOrder, null);
@@ -439,10 +456,11 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             // them; setting STRICTCERT (PRESENCE-only, any value — house convention for all engine gates)
             // additionally refuses certification (the run then ends at maxIterations, honestly uncertified).
             java.util.Map<String, Long> refused = TolerantWrite.refusedDowngrades();
+            long refusedSum = refused.values().stream().mapToLong(Long::longValue).sum();
             if (done && !refused.isEmpty()) {
                 LOGGER.error("Certification reached with {} refused downgrade attempt(s) — frozen optimistic "
                              + "values survive the fixpoint (see PLAN-modification-reachability): {}",
-                        refused.values().stream().mapToLong(Long::longValue).sum(), refused);
+                        refusedSum, refused);
                 if (System.getenv("STRICTCERT") != null) {
                     LOGGER.error("STRICTCERT=1: refusing certification");
                     done = false;
@@ -483,6 +501,10 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                               && System.getenv("NOPLATEAU") == null
                               && iterations >= 3 && propertiesChanged >= 0.95 * previousPropertiesChanged;
             if (iterations == maxIterations || done || plateau) {
+                // clean iff we terminate via a genuine certification (not plateau / maxIterations) with no frozen
+                // optimistic values; re-evaluated on each terminal pass, so a MODREACH re-derivation that continues
+                // overwrites it and the final pass wins.
+                certifiedWithoutFrozenValues = done && refusedSum == 0;
                 LOGGER.info("Stop iterating after {} iterations, done? {}{}", iterations, done,
                         plateau ? " (plateau: " + propertiesChanged + " vs " + previousPropertiesChanged + ")" : "");
                 if (configuration.modificationViaReachability() && modReachRounds < 3) {
