@@ -918,3 +918,19 @@ ROOTS are precisely measured:
 - **VariableImpl (7)**: assignable lazy-cache fields (`cachedFqn`, `cachedHash`) — needs its own
   cache-exemption story (field finality is deliberately not relaxed by the mark).
 - FieldInspection (4) and a long interface tail.
+
+## The Builder-lean quest, round 1 (2026-07-23, continued): 10 -> 4 edges, @Only via preconditions
+
+`docs/handoff-builder-leans.md` carries the full characterization and record. Implemented (gated):
+the precondition shapes -- leading `assert <state test>` and both if-throw guards -- classify a
+method `@Only` on the side the live path requires (23 methods on the dogfood, the `builder()`
+family among them, excused at type level through the `@Only(before)` route instead of mislabeled
+enm); the transition-callee bail is relaxed for receivers provably not root-derived (another
+object's lifecycle -- `other.commit(s)` on a parameter no longer bails the walk); and
+`commitArguments` separates call-excuse eup labels from value-commit labels (hygiene; measurably
+neutral). Composed dogfood: Builder assumption edges 10 -> 4, `@Only`-classified 23, enm 673 -> 654
+(the newly-@Only methods leave the enm layer by design), survivors 10 / retracted 93, the flagship
+family still forms; the survivor wobble is pure-cascade (`broken: []`). The four resistant edges
+(`rewirePhase1/3`, `handleMethodOrConstructor:0`) are characterized down to the call path in the
+handoff §4b, with the conflation theory implemented-and-falsified and the write-once-ordering
+theory left as the pointed next investigation. Gate-off Fernflower A/B: 0 lines, twice.
