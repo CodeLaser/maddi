@@ -201,6 +201,35 @@ public class TestInvalidate {
                 view.methodInfo(user1.findUniqueMethod("use", 1)), "the view maps members");
     }
 
+    @DisplayName("rescan-only (no REWIRE) still exposes a view mapping old rescanned objects to new")
+    @Test
+    public void testRescanOnlyExposesView() {
+        ParseResult pr1 = parseAll();
+        TypeInfo base1 = pr1.findType(BASE_FQN);
+        TypeInfo helper1 = pr1.findType(HELPER_FQN);
+        assertNotNull(base1);
+        assertNotNull(helper1);
+
+        // main (Base, Helper) is re-scanned; dependent (User) is KEEP -- nothing is REWIRE. Before, this exposed no
+        // view (toRewire empty); now it exposes the rescanned old->new mapping, which the same-source-set carry needs.
+        ParseResult pr2 = reparse(ti -> switch (ti.simpleName()) {
+            case "Base", "Helper" -> INVALID;
+            case "User" -> UNCHANGED;
+            default -> throw new UnsupportedOperationException(ti.fullyQualifiedName());
+        });
+        TypeInfo base2 = pr2.findType(BASE_FQN);
+        assertNotSame(base1, base2, "Base was re-scanned");
+
+        org.e2immu.language.cst.api.info.InfoMapView view = javaInspector.lastRewireInfoMap();
+        assertNotNull(view, "a rescanned set exposes a view even with nothing to rewire");
+        // the old rescanned type resolves to the new one by fqn+source-set equality (InfoMapImpl seeds rebuilt types)
+        assertSame(base2, view.typeInfo(base1), "the view maps the old rescanned Base to the new one");
+        assertSame(pr2.findType(HELPER_FQN), view.typeInfo(helper1), "and old Helper to the new one");
+        // members too, which the analysis carry rewires references through
+        assertSame(base2.findUniqueMethod("name", 0), view.methodInfo(base1.findUniqueMethod("name", 0)),
+                "the view maps rescanned members");
+    }
+
     @DisplayName("Base INVALID, User REWIRE: main is re-scanned, dependent is rewired, and Helper is rebuilt with it")
     @Test
     public void testInvalidAndRewire() {
