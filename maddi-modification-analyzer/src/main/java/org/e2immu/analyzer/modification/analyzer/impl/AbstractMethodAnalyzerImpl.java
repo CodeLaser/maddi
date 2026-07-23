@@ -191,6 +191,10 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
             }
         }
         if (fromImplementations != null) {
+            if (EventualCluster.SITE_DEBUG && EventualCluster.siteDebugMatches(methodInfo.fullyQualifiedName())) {
+                EventualCluster.sitePrint("WRITE abstract eventual " + methodInfo.fullyQualifiedName()
+                                          + " = " + fromImplementations);
+            }
             methodInfo.analysis().set(EVENTUAL_METHOD, fromImplementations);
             DECIDE.debug("AM: Decide eventual of abstract method {} = {}", methodInfo, fromImplementations);
             propertyChanges.incrementAndGet();

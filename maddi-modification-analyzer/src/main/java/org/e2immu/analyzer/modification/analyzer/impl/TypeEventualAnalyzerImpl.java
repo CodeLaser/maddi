@@ -50,6 +50,7 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -108,6 +109,16 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         this.eventualCluster = eventualCluster;
     }
 
+    /** Diagnostic only (EC_SITE_DEBUG): is the current computation one the user asked to trace? */
+    private boolean siteDebug() {
+        return EventualCluster.SITE_DEBUG && EventualCluster.siteDebugMatches(eventualCluster.debugContext());
+    }
+
+    /** Diagnostic only: an ECSITE line attributed to the current computation. */
+    private void ecsite(String message) {
+        EventualCluster.sitePrint("[" + eventualCluster.debugContext() + "] " + message);
+    }
+
     /**
      * The eventual contract of a called method. Reading {@code analysis()} is not enough: a compiled type is
      * shallow-analyzed lazily, per method, only where the link computer happened to need it, so a support class
@@ -147,6 +158,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             eventualCluster.beginAssumptionBuffer();
             if (!contracted) eventual = computeEventual(typeInfo, methodInfo);
             if (eventual != null && eventual.isEventual()) {
+                if (siteDebug()) ecsite("WRITE eventual=" + eventual);
                 methodInfo.analysis().set(EVENTUAL_METHOD, eventual);
                 DECIDE.debug("TE: {} eventual of method {} = {}", contracted ? "Contracted" : "Decide",
                         methodInfo, eventual);
@@ -161,6 +173,8 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             eventualCluster.setDebugContext("enm " + methodInfo.fullyQualifiedName());
             eventualCluster.beginAssumptionBuffer();
             Set<String> labels = computeEventuallyNonModifying(typeInfo, methodInfo);
+            if (siteDebug()) ecsite(labels != null && !labels.isEmpty()
+                    ? "WRITE enm=" + new TreeSet<>(labels) : "no enm (" + labels + ")");
             if (labels != null && !labels.isEmpty()) {
                 methodInfo.analysis().set(EVENTUALLY_NON_MODIFYING_METHOD,
                         new ValueImpl.SetOfStringsImpl(Set.copyOf(labels)));
@@ -181,6 +195,8 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                     eventualCluster.setDebugContext("eup " + pi.fullyQualifiedName());
                     eventualCluster.beginAssumptionBuffer();
                     Set<String> labels = computeEventuallyUnmodified(typeInfo, methodInfo, pi);
+                    if (siteDebug()) ecsite(labels != null && !labels.isEmpty()
+                            ? "WRITE eup=" + new TreeSet<>(labels) : "no eup (" + labels + ")");
                     if (labels != null && !labels.isEmpty()) {
                         pi.analysis().set(EVENTUALLY_UNMODIFIED_PARAMETER,
                                 new ValueImpl.SetOfStringsImpl(Set.copyOf(labels)));
@@ -365,7 +381,11 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      *  EVENTUALCLUSTER gate -- a cluster candidate whose verdict is still circular (see {@link EventualCluster}).
      *  {@code member} is the type holding the field, recorded as the assumer when the excusal is optimistic. */
     private boolean isEventuallyImmutableFieldType(TypeInfo member, TypeInfo fieldType) {
-        return eventualCluster.treatAsEventuallyImmutable(member, fieldType, eventuallyImmutable(fieldType));
+        boolean result = eventualCluster.treatAsEventuallyImmutable(member, fieldType, eventuallyImmutable(fieldType));
+        if (result && siteDebug() && !eventuallyImmutable(fieldType).isEventual()) {
+            ecsite("lean on " + fieldType.fullyQualifiedName());
+        }
+        return result;
     }
 
     /** null when nothing can be concluded; never {@code NOT_EVENTUAL} (we do not record absence). */
@@ -745,12 +765,17 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
     }
 
     /**
-     * Is the object a transition acts on provably not the root's? Unwraps a fluent chain
+     * Is the object a call acts on provably not the root's? Unwraps a fluent chain
      * ({@code copy.builder().setX(…).commit()}) to its base; true when the base is free of any root-derived
      * content, or is a tracked local the walk itself judged committed-after-∅ (the rewire machinery's
      * {@code infoMap.methodInfo(this)} copies). The bare root, root-scoped fields, and non-∅-tracked locals
-     * keep the transition bail: a transition on the root's own committed content stays {@code @Only(before)}
+     * keep their bails: a transition on the root's own committed content stays {@code @Only(before)}
      * business, not an enm excuse.
+     * <p>
+     * Two consumers: the transition-callee bail (a {@code @Mark}/{@code @Only(before)} callee on another
+     * object's lifecycle only needs its arguments committed), and the handed-on gauntlet (the value a chain
+     * on another object's graph hands on cannot reach the root except through the argument-fed content
+     * already committed by the accumulated labels -- so no candidacy lean on the return type is needed).
      */
     private boolean receiverProvablyNotRoot(WalkRoot walk, Expression receiver, LocalContext ctx) {
         Expression base = receiver;
@@ -778,16 +803,21 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      *  call, or a chain of reads off a local every assignment of which is one)? A transition call on such a
      *  receiver belongs to the fresh object's lifecycle, not to this's transition. */
     private static boolean rootedInFresh(Expression expr, LocalContext ctx) {
+        return rootedInFresh(expr, ctx.fresh());
+    }
+
+    private static boolean rootedInFresh(Expression expr, Set<Variable> fresh) {
         if (expr instanceof ConstructorCall cc) return cc.anonymousClass() == null;
         if (expr instanceof VariableExpression ve) {
-            if (ctx.fresh().contains(ve.variable())) return true;
-            return ve.variable() instanceof FieldReference fr && !fr.scopeIsThis() && rootedInFresh(fr.scope(), ctx);
+            if (fresh.contains(ve.variable())) return true;
+            return ve.variable() instanceof FieldReference fr && !fr.scopeIsThis()
+                   && rootedInFresh(fr.scope(), fresh);
         }
-        if (expr instanceof MethodCall mc) return rootedInFresh(mc.object(), ctx);
-        if (expr instanceof Cast cast) return rootedInFresh(cast.expression(), ctx);
-        if (expr instanceof EnclosedExpression enclosed) return rootedInFresh(enclosed.inner(), ctx);
+        if (expr instanceof MethodCall mc) return mc.object() != null && rootedInFresh(mc.object(), fresh);
+        if (expr instanceof Cast cast) return rootedInFresh(cast.expression(), fresh);
+        if (expr instanceof EnclosedExpression enclosed) return rootedInFresh(enclosed.inner(), fresh);
         if (expr instanceof InlineConditional inline) {
-            return rootedInFresh(inline.ifTrue(), ctx) && rootedInFresh(inline.ifFalse(), ctx);
+            return rootedInFresh(inline.ifTrue(), fresh) && rootedInFresh(inline.ifFalse(), fresh);
         }
         return false;
     }
@@ -889,9 +919,12 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             // -- unless it acts on a provably fresh object's lifecycle, or on a receiver that is provably not
             // root-derived (another object's transition; only the arguments matter here)
             Value.Eventual calleeEventual = eventualOf(mc.methodInfo());
+            if (siteDebug()) ecsite("MC " + mc.methodInfo().fullyQualifiedName()
+                    + " calleeEventual=" + calleeEventual);
             if ((calleeEventual.isMark() || calleeEventual.isOnly() && Boolean.FALSE.equals(calleeEventual.after()))
                 && !rootedInFresh(mc.object(), ctx)
                 && !receiverProvablyNotRoot(walk, mc.object(), ctx)) {
+                if (siteDebug()) ecsite("transition bail: " + mc.methodInfo().fullyQualifiedName());
                 return null;
             }
             Set<String> acc = new HashSet<>();
@@ -944,8 +977,12 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                     // the container ride-along: a qualifying READ on a final container field of committable
                     // content commits after the field's label, even though the bare wrapper value does not
                     receiver = containerReadThroughLabels(walk, mc);
-                    if (receiver == null) return null;
+                    if (receiver == null) {
+                        if (siteDebug()) ecsite("receiver bail (" + mc.methodInfo().name() + ")");
+                        return null;
+                    }
                 }
+                if (siteDebug()) ecsite("receiver(" + mc.methodInfo().name() + ")=" + receiver);
                 if (receiver.isEmpty()) {
                     // the receiver is not root-derived; neither is anything obtained from it -- only the
                     // arguments still need committing
@@ -967,8 +1004,23 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             // a chain rooted in a fresh object (the fluent newField.builder().setX(..).setY(..)) hands on
             // fresh-owned state; the root-derived values stored into it are committed by the labels in acc
             boolean freshRooted = rootedInFresh(mc.object(), ctx);
+            // EVENTUALCLUSTER (handoff-builder-leans §4b resolution): a chain whose BASE is provably not
+            // root-derived (the rewired copy's ∅-tracked builder local, the infoMap parameter) hands on a
+            // value of another object's graph. The root-derived content that flowed in via the arguments is
+            // already committed by the labels in acc -- the §060 ride-along stance -- so the handed-on
+            // judgment is settled without consulting the return type's candidacy: this is what kept the
+            // doomed Builder leans alive (a MODIFYING fluent setter never reaches handedOnValueSafe's
+            // independence branch and fell through to returnTypeHoldsCommittableContent). Checked BEFORE
+            // handedOnValueSafe so no optimistic edge is witnessed on the way to a verdict we can reach
+            // soundly.
+            boolean notRootReceiver = EventualCluster.ENABLED && receiverProvablyNotRoot(walk, mc.object(), ctx);
+            if (siteDebug()) ecsite("gauntlet " + mc.methodInfo().name()
+                    + " receiverCommitted=" + receiverCommitted + " ownerSeed=" + ownerSeedCoversResult
+                    + " freshRooted=" + freshRooted + " notRootReceiver=" + notRootReceiver);
             if (!isIgnoreModificationsAccessor(mc.methodInfo()) && !ownerSeedCoversResult && !freshRooted
+                && !notRootReceiver
                 && !handedOnValueSafe(walk, mc, receiverCommitted)) {
+                if (siteDebug()) ecsite("handedOnValueSafe bail: " + mc.methodInfo().name());
                 return null;
             }
             return commitArguments(walk, mc, ctx, depth, acc, true);
@@ -1294,22 +1346,36 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * {@code ∅}: a fresh {@code new ArrayList<>()} builder local stays excusable.
      */
     private LocalContext buildLocalContext(WalkRoot walk, MethodInfo methodInfo) {
-        // pass 1 -- freshness: a local is fresh when every (non-empty) assignment to it is a plain
-        // constructor call. Fresh + this-derived-tracked can coexist (the constructor args carry labels).
-        Set<Variable> freshCandidates = new HashSet<>();
-        Set<Variable> notFresh = new HashSet<>();
+        // pass 1 -- freshness, to a least fixpoint over the assignment graph: a local is fresh when every
+        // (non-empty) assignment to it is rooted in a fresh creation -- a plain constructor call, or a chain
+        // of reads off an already-fresh local. The transitive step is the local-variable spelling of the
+        // fluent chain rootedInFresh already excuses inline: 'TypeInfo.Builder b = typeInfo.builder();
+        // b.setX(…)' must behave exactly like 'typeInfo.builder().setX(…)'. Fresh + this-derived-tracked can
+        // coexist (the constructor args carry labels).
+        Map<Variable, List<Expression>> assignments = new HashMap<>();
         methodInfo.methodBody().visit(e -> {
             if (e instanceof LocalVariableCreation lvc) {
-                lvc.localVariableStream().forEach(lv -> classifyFreshness(lv, lv.assignmentExpression(),
-                        freshCandidates, notFresh));
+                lvc.localVariableStream().forEach(lv ->
+                        recordAssignment(assignments, lv, lv.assignmentExpression()));
             } else if (e instanceof Assignment a
                        && !(a.variableTarget() instanceof FieldReference)
                        && !(a.variableTarget() instanceof This)) {
-                classifyFreshness(a.variableTarget(), a.value(), freshCandidates, notFresh);
+                recordAssignment(assignments, a.variableTarget(), a.value());
             }
             return true;
         });
-        freshCandidates.removeAll(notFresh);
+        Set<Variable> freshCandidates = new HashSet<>();
+        boolean grew = true;
+        while (grew) {
+            grew = false;
+            for (Map.Entry<Variable, List<Expression>> entry : assignments.entrySet()) {
+                if (!freshCandidates.contains(entry.getKey())
+                    && entry.getValue().stream().allMatch(v -> rootedInFresh(v, freshCandidates))) {
+                    freshCandidates.add(entry.getKey());
+                    grew = true;
+                }
+            }
+        }
 
         // pass 2 -- commit labels, to a fixpoint for chained locals (var b = a;)
         Map<Variable, Set<String>> map = new HashMap<>();
@@ -1334,24 +1400,10 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         return ctx;
     }
 
-    private static void classifyFreshness(Variable target, Expression value,
-                                          Set<Variable> freshCandidates, Set<Variable> notFresh) {
+    private static void recordAssignment(Map<Variable, List<Expression>> assignments,
+                                         Variable target, Expression value) {
         if (value == null || value.isEmpty()) return; // a bare declaration neither makes nor breaks freshness
-        if (isFreshCreation(value)) {
-            freshCandidates.add(target);
-        } else {
-            notFresh.add(target);
-        }
-    }
-
-    private static boolean isFreshCreation(Expression value) {
-        if (value instanceof ConstructorCall cc) return cc.anonymousClass() == null;
-        if (value instanceof InlineConditional inline) {
-            return isFreshCreation(inline.ifTrue()) && isFreshCreation(inline.ifFalse());
-        }
-        if (value instanceof Cast cast) return isFreshCreation(cast.expression());
-        if (value instanceof EnclosedExpression enclosed) return isFreshCreation(enclosed.inner());
-        return false;
+        assignments.computeIfAbsent(target, t -> new ArrayList<>()).add(value);
     }
 
     /** Fold one assignment into the map; true when the map changed. Once poisoned (null), a variable stays so. */
@@ -1360,6 +1412,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         if (walk.isRoot(target)) return false; // rebinding the root is the outer walk's bail, not a tracked local
         if (!referencesRootOrTracked(walk, value, ctx.commit())) return false; // not root-derived: untracked (∅)
         Set<String> labels = commitLabels(walk, value, ctx);
+        if (siteDebug()) ecsite("track " + target.simpleName() + " = " + labels);
         Map<Variable, Set<String>> map = ctx.commit();
         if (map.containsKey(target)) {
             Set<String> existing = map.get(target);

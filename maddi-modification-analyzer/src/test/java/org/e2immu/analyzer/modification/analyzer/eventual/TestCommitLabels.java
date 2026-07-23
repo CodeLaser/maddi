@@ -345,6 +345,77 @@ public class TestCommitLabels extends CommonTest {
         }
     }
 
+    // the rewirePhase1/3 residue (handoff-builder-leans §4b resolution): a MODIFYING fluent chain on another
+    // object -- a parameter's copy, or a fresh local read through a chained local -- whose arguments carry
+    // root-derived committed content. The handed-on judgment must settle from the not-root (resp. fresh) base
+    // plus the accumulated labels, never from a candidacy lean on the wrapper's return type: Wr is
+    // deliberately NOT a cluster candidate, so without the excuse these methods bail to ∅
+    @Language("java")
+    private static final String INPUT_FLUENT = """
+            import java.util.ArrayList;
+            import java.util.List;
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class H {
+              static class Wr {
+                private final List<String> parts = new ArrayList<>();
+                Wr() { }
+                Wr(String first) { parts.add(first); }
+                Wr add(String s) { parts.add(s); return this; }
+                Wr self() { return this; }
+              }
+              static class T {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                public String data() { return inspection.get(); }
+                public void rewire(Wr copy) { copy.add(data()).add("x"); }
+                public void fillFresh() {
+                  Wr w = new Wr(data());
+                  Wr b = w.self();
+                  b.add("x");
+                }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: a modifying fluent chain on another object's graph needs no lean on the wrapper type")
+    @Test
+    public void testFluentChainOnForeignGraph() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo H = javaInspector.parse("H", INPUT_FLUENT);
+            analyzer.go(prepWork(H));
+            TypeInfo T = H.findSubType("T");
+
+            // copy.add(data()).add("x"): the outer add's receiver carries [inspection] (folded from the
+            // argument), but the chain's BASE is the copy parameter -- another object's graph; the
+            // modification cannot reach this except through content already committed by the labels
+            assertEquals(Set.of("inspection"), nonModAfter(T, "rewire", 1));
+            // Wr b = w.self(): the local-variable spelling of a fluent chain off a fresh local -- freshness
+            // must chase through the assignment graph, exactly as rootedInFresh chases the inline chain
+            assertEquals(Set.of("inspection"), nonModAfter(T, "fillFresh", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: the fluent-chain shapes stay unexcused")
+    @Test
+    public void testFluentChainGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo H = javaInspector.parse("H", INPUT_FLUENT);
+            analyzer.go(prepWork(H));
+            TypeInfo T = H.findSubType("T");
+            assertEquals(Set.of(), nonModAfter(T, "rewire", 1));
+            assertEquals(Set.of(), nonModAfter(T, "fillFresh", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
     @DisplayName("gate on: bare this, non-committable fields, and aliasing locals bail; fresh locals do not")
     @Test
     public void testBailShapes() {
