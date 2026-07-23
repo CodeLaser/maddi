@@ -838,3 +838,23 @@ against the honest modification state (EC_RETRACT_DEBUG + eventuallyNonMod score
 run), and one open engine question: jar `Stream.map` seeding as boundary-modifying despite the preloaded
 jdk aapi (suspected per-sourceSet Info identity mismatch; `MODREACH_EXPLAIN` chains through
 `SetOfMethodInfoImpl.nice()`).
+
+## EVENTUALLY_UNMODIFIED_PARAMETER lands: the static-helper hop closes (2026-07-23, follow-up session)
+
+The `docs/spec-eventually-unmodified-parameter.md` mechanism is implemented end-to-end — the commit walk
+parameterized by a `WalkRoot` (this-walk unchanged; a `ParameterInfo` root computes the parameter twin of
+`@NotModified(after=)`), the abstract-accessor bridge through IMPLEMENTATIONS (interface-typed roots
+resolve `p.typeInfo()` to implementation field labels), consumption at bare-root argument sites (with the
+same-label-space pass-through for overload forwards), gated batch propagation, annotation/codec twins, and
+`TestEventuallyUnmodifiedParameter` on the COMPOSED harness. The full record, measurements and honest
+misses live in the spec's §8; the residue handoff §9 carries the closing pointer.
+
+Headline: 265 eup parameters on the composed dogfood; the §7.2 evidence chain closes — the printer's
+`parameterizedType` and `TypeNameImpl.typeName`'s `typeInfo` carry labels, and the entire
+`ParameterizedType(Impl)` print/fullyQualifiedName/descriptor/mostSpecific family gains
+`enm=[typeInfo, typeParameter]` (net +21 enm, two stale optimistic unions honestly dropped). The
+scoreboard however does not move (survivors 5, retracted 63; `ModuleInfoImpl.Provides/UsesImpl` strengthen
+to `@Immutable(hc=true)(after=…)`): the cascade now stops at three NEWLY EXPOSED shapes — List-of-
+candidate-content fields (`typesReferenced` bails on `this.parameters`), the type-parameter-map builders,
+and `rewire`/`withNullable` — each of which is its own designed mechanism (spec §8.3). That is the next
+front.

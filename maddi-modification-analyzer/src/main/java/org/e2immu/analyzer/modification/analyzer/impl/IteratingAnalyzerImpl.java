@@ -281,7 +281,12 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                             var ind = pi.analysis().getOrNull(
                                     org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_PARAMETER,
                                     org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.class);
-                            pw.println("param unmodified=" + um + " independent=" + ind
+                            var eup = pi.analysis().getOrNull(
+                                    org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER,
+                                    org.e2immu.language.cst.impl.analysis.ValueImpl.SetOfStringsImpl.class);
+                            String evUnmod = eup != null && !eup.set().isEmpty()
+                                    ? " eventuallyUnmod=" + new java.util.TreeSet<>(eup.set()) : "";
+                            pw.println("param unmodified=" + um + " independent=" + ind + evUnmod
                                        + " " + pi.fullyQualifiedName());
                         }
                     }
