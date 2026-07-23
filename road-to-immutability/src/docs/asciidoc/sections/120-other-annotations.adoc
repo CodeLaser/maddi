@@ -8,11 +8,13 @@ We discuss them briefly, and refer to the user manual for an in-depth analysis.
 *Implementation status varies across this chapter.*
 {identity} and {fluent} are **computed** by the analyzer, and are described first for that reason.
 
-Everything after them is **not implemented** at present:
+Everything after them is **not implemented** at present, with one partial exception:
 
 * {nn} / {nullable} and {utilityClass} are read as *contracts* — from explicit annotations and from
 annotated APIs — but are never inferred from your code;
-* {finalizer} is likewise read as a contract, and none of its rules are enforced;
+* {finalizer} is read as a contract, and its *modification semantics* — a finalizer call does not count
+as a modification of the receiver — are implemented and load-bearing in the modification engine (see
+<<finalizers>>); the three life-cycle *sequencing rules* below are not enforced;
 * {extensionClass} and {singleton} exist in `maddi-support`, but nothing in the analyzer reads them.
 
 Those sections describe the intended design, and are retained because the definitions still hold.
@@ -133,8 +135,39 @@ There is currently no plan to implement beyond {nnContent}, however.
 [#finalizers]
 == Finalizers
 
-NOTE: *Not implemented.* {finalizer} is read as a contract and shown in output, but none of the three rules
-below are enforced by the analyzer.
+[NOTE]
+====
+*Partially implemented.* {finalizer} is a contract (parsed from source annotations and from the
+annotated APIs, and shown in output), and its modification semantics are implemented: the analyzer
+exempts finalizer callees from receiver modification, at every layer that judges call sites
+(`MethodModification`, the shallow method summaries, and the modification-reachability shadow pass).
+The three life-cycle *sequencing rules* below are not enforced.
+====
+
+=== Why the modification exemption matters
+
+A finalizer marks the end of an object's life-cycle: after the call, the object may not be used again.
+Whatever the finalizer does to the dying object is therefore invisible to the rest of the program — there
+is no "after" in which the change could be observed. The analyzer exploits this: *a call to a
+{finalizer} method never marks its receiver as modified*, whatever the method's own {nm}/{modified}
+status.
+
+This is not a corner case; it is what keeps stream-based code analyzable at all. The annotated APIs mark
+the stream operations — `filter`, `map`, `flatMap`, `collect`, and their relatives — as {finalizer}:
+each consumes the stream it is called on (using the receiver again afterwards is illegal), and none of
+them carries a {nm} contract. Without the exemption, every one of those calls would conservatively count
+as a modification of the receiver chain, and since a chain such as `this.elements.stream().map(...)`
+roots in a field, the false modification would climb to the field and to `this` — making essentially
+every method containing a stream pipeline {modified}, and sinking the immutability of its type. With the
+exemption, the pipeline is silent about its receivers, and only genuine evidence (the lambda's captures,
+the collector's target) determines the verdict.
+
+The same reasoning must be applied by *every* component that re-derives modification: when the
+modification-reachability pass (the post-convergence single writer) judges a call to a method outside
+the analysis scope, it mirrors the engine's guard exactly — a boundary callee that is a finalizer
+contributes no receiver-modification evidence, no matter that its conservative no-information default
+would otherwise read as "modifying". A mismatch here is not benign: it silently poisons whole call
+chains with false modification, in code as central as the printing of a parameterized type.
 
 Up to now, we have focused on the distinction between the building phase of an object's life-cycle, and its
 subsequent immutable phase.

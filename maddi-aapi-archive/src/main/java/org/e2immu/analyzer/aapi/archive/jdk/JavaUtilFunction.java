@@ -278,7 +278,10 @@ public class JavaUtilFunction {
     //public interface Predicate
     @Independent(hc = true)
     class Predicate$<T> {
-        boolean test(/*@Independent(hc=true)[T] @NotModified[T]*/ @Modified T t) { return false; }
+        // @NotModified activated 2026-07-23: a predicate must not modify what it tests. The conservative
+        // @Modified made every `predicate.test(this)` — the Element.visit/reject family — mark `this`
+        // modified, sinking the receiver types' immutability with no possible excuse.
+        boolean test(/*@Independent(hc=true)[T]*/ @NotModified T t) { return false; }
         @NotNull
         @NotModified Predicate<T> and(/*@IgnoreModifications[T]*/ @NotNull Predicate<? super T> other) { return null; }
         @NotNull

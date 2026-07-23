@@ -101,6 +101,16 @@ public class PropertyImpl implements Property {
 
     // parameter
     public static final Property UNMODIFIED_PARAMETER = new PropertyImpl("unmodifiedParameter");
+    /**
+     * The mark label(s) of {@code @NotModified(after="…")} on a parameter: the method modifies the argument's
+     * object graph only through chains the eventual machinery excuses -- once every label (field names in the
+     * parameter type's label space) has been committed on the argument, a call leaves the argument unmodified.
+     * The parameter twin of {@link #EVENTUALLY_NON_MODIFYING_METHOD}. {@link #UNMODIFIED_PARAMETER} keeps
+     * recording the unconditional verdict, which for such a parameter is {@code false} (it is modified, before
+     * the marks).
+     */
+    public static final Property EVENTUALLY_UNMODIFIED_PARAMETER = new PropertyImpl("eventuallyUnmodifiedParameter",
+            ValueImpl.SetOfStringsImpl.EMPTY_SET);
     public static final Property IGNORE_MODIFICATIONS_PARAMETER = new PropertyImpl("ignoreModsParameter");
     public static final Property PARAMETER_ASSIGNED_TO_FIELD = new PropertyImpl("parameterAssignedToField",
             ValueImpl.AssignedToFieldImpl.EMPTY);
