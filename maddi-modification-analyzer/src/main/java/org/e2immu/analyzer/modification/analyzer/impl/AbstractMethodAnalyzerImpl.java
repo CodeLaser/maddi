@@ -60,6 +60,7 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
                     unmodified(concreteImplementations, pi);
                     independent(concreteImplementations, pi);
                     collectDowncast(concreteImplementations, pi);
+                    if (EventualCluster.ENABLED) parameterEventuallyUnmodified(concreteImplementations, pi);
                 }
                 methodNonModifying(concreteImplementations, methodInfo);
                 methodIndependent(concreteImplementations, methodInfo);
@@ -252,6 +253,39 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
         }
         if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), INDEPENDENT_METHOD, fromImplementations, methodInfo)) {
             DECIDE.debug("AMA: Decide independent of method {} = {}", methodInfo, fromImplementations);
+        }
+    }
+
+    /**
+     * Carry {@code EVENTUALLY_UNMODIFIED_PARAMETER} up to the abstract method's parameter, mirroring
+     * {@link #methodEventuallyNonModifying} (EVENTUALCLUSTER only -- checked by the caller). Every
+     * implementation's parameter must be compatible: eventually-unmodified after some label set (the union is
+     * the weakest common guarantee), or unconditionally unmodified (which holds after any mark). One
+     * implementation that modifies its parameter with no after-labels -- or is still undecided -- is a promise
+     * we cannot make.
+     */
+    private void parameterEventuallyUnmodified(Iterable<MethodInfo> concreteImplementations, ParameterInfo pi) {
+        if (pi.analysis().haveAnalyzedValueFor(EVENTUALLY_UNMODIFIED_PARAMETER)) return;
+        Set<String> agreed = null;
+        for (MethodInfo implementation : concreteImplementations) {
+            ParameterInfo pii = implementation.parameters().get(pi.index());
+            Value.SetOfStrings evUnmod = pii.analysis()
+                    .getOrDefault(EVENTUALLY_UNMODIFIED_PARAMETER, ValueImpl.SetOfStringsImpl.EMPTY_SET);
+            if (!evUnmod.set().isEmpty()) {
+                // the labels rest on whatever the implementation's excusals assumed: carry the provenance so
+                // the contraction can cascade a broken assumption here
+                eventualCluster.noteLabelInheritance(pi.methodInfo().typeInfo(), implementation.typeInfo());
+                if (agreed == null) agreed = new HashSet<>(evUnmod.set());
+                else agreed.addAll(evUnmod.set());
+            } else {
+                Value.Bool unmod = pii.analysis().getOrNull(UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.class);
+                if (unmod == null || unmod.isFalse()) return; // modifies with no after-labels, or undecided
+            }
+        }
+        if (agreed != null) {
+            pi.analysis().set(EVENTUALLY_UNMODIFIED_PARAMETER, new ValueImpl.SetOfStringsImpl(Set.copyOf(agreed)));
+            DECIDE.debug("AM: Decide eventually-unmodified of abstract method parameter {} after {}", pi, agreed);
+            propertyChanges.incrementAndGet();
         }
     }
 

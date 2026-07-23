@@ -786,3 +786,135 @@ semantics. Tests to extend: `TestWriteAnalysis2`, `TestAnalysisHintsComposer`.
 
 No LSP is involved; the transport is the daemon's NDJSON. See `docs/ide-todo.md` for the separately-tracked IDE
 work (partial re-analysis, streaming).
+
+## The residue quest, characterized: recursion pessimism is the fulcrum (2026-07-22, night)
+
+The verification-residue handoff was executed as a characterization pass; the full record now lives in
+`docs/handoff-verification-residue.md` §7. The essentials for this arc:
+
+- The assumed buckets dissolved: no crashes anywhere; the "587-element residue" is the expected summary
+  fallout of cycle breaking activating mid-verification (genuine residue: 2 elements, a
+  `ParameterizedTypeImpl` lambda); exit code 5 is the guard reporting contract violations, not cycle
+  protection; and the 71 `nonModifying=null` methods are abstract cst-api methods without in-scope
+  implementations — `MODREACH=1` (the gated §14 shadow pass) already decides all 71.
+- The real blocker of `ParameterizedType`/`Expression`: **recursive pure methods can never compute
+  non-modifying**. `MethodInfoImpl.isNonModifying()` defaults undecided to modifying at call sites, so a
+  method's own first evaluation poisons its summary (receiver + receiver-rooted field into the modified
+  set), and the monotone write discipline keeps the FALSE forever. Minimal repro pinned in
+  `TestRecursionThroughAbstract` (`direct()`, plain self-recursion: FALSE). Through
+  `TypeInfoImpl.packageName()/descriptor()/fromPrimaryTypeDownwards()` → `TypeNameImpl.typeName` this
+  sinks the entire print family, which is what the eventual contraction keeps tripping over.
+- Composed gates measured: `MODREACH=1 EVENTUALCLUSTER=1` gives survivors 8→5, retracted 36→59, enm
+  labels 414→522 — the honest downgrades of the shadow pass remove verdicts the optimistic seed leaned
+  on. Method-level machinery is healthy; the type level dies exclusively on the recursion pessimism.
+- Candidate fixes (decision pending, spelled out in handoff §7.5): (A) shadow-pass primitive seeding +
+  reverse upgrade, corpus-inert behind MODREACH, recommended; (B) fixpoint-side optimism, rejected as it
+  fights the §14 monotone-write architecture.
+
+Session artifacts, all env-gated and verdict-inert (module suite green; dogfood A/B churn proven equal to
+same-state base-vs-base): `FPDUMP_PARAMS` (parameter lines in the FPDUMP), `MODREACH_DEBUG` (reverse-
+divergence dump), `MODREACH_EXPLAIN=<substring>` (BFS chain from a reached receiver back to its seed).
+
+## Design A landed: the shadow pass repairs the recursion pessimism (2026-07-22, night, commit 23a01d71)
+
+Bart approved handoff §7.5 design A; it is implemented, tested, and recorded in
+`docs/handoff-verification-residue.md` §8. In brief: primitive seeding (walkable bodies no longer seed
+receiver-rooted summary entries; assignments, boundary contracts, the undecided-abstract-callee mirror and
+the E1/E2/E6 edges carry the evidence), E6-aware abstract seeding, the FALSE→TRUE reverse upgrade at the
+cutover, the `@IgnoreModifications` mirror + immutable-variable cut in the projections, and `@NotModified`
+on `Either.isLeft()/isRight()` (maddi-support byte-code aapi gap — the one ungated change; Fernflower
+gate-off A/B **byte-identical, 0 lines**, suites analyzer/link/prepwork/common all green).
+
+Effects on the dogfood under `MODREACH=1`: reverse-kept 231→0, joint fixpoint clean, ~340 FALSE→TRUE
+upgrades, `nonModifying=null` stays 0; `TypeInfoImpl.packageName()`/`fromPrimaryTypeDownwards()` and the
+abstract `TypeInfo.packageName()` compute TRUE; `TestRecursionThroughAbstract.testModReach` pins the repro
+all-true. `descriptor()` and the `print` family remain FALSE **correctly** — their chains pass through
+`inspection.get()`, i.e. the pre-mark modification this whole arc exists to excuse.
+
+**Consequence for the eventual endgame:** composing `MODREACH=1 EVENTUALCLUSTER=1` still nets fewer
+survivors (4, retracted 61; `InfoImpl` survives for the first time): modreach's ~1586 honest TRUE→FALSE
+downgrades hand `commitLabels` more methods than it currently excuses. The next front is Part B coverage
+against the honest modification state (EC_RETRACT_DEBUG + eventuallyNonMod scoreboard on the composed
+run), and one open engine question: jar `Stream.map` seeding as boundary-modifying despite the preloaded
+jdk aapi (suspected per-sourceSet Info identity mismatch; `MODREACH_EXPLAIN` chains through
+`SetOfMethodInfoImpl.nice()`).
+
+## EVENTUALLY_UNMODIFIED_PARAMETER lands: the static-helper hop closes (2026-07-23, follow-up session)
+
+The `docs/spec-eventually-unmodified-parameter.md` mechanism is implemented end-to-end — the commit walk
+parameterized by a `WalkRoot` (this-walk unchanged; a `ParameterInfo` root computes the parameter twin of
+`@NotModified(after=)`), the abstract-accessor bridge through IMPLEMENTATIONS (interface-typed roots
+resolve `p.typeInfo()` to implementation field labels), consumption at bare-root argument sites (with the
+same-label-space pass-through for overload forwards), gated batch propagation, annotation/codec twins, and
+`TestEventuallyUnmodifiedParameter` on the COMPOSED harness. The full record, measurements and honest
+misses live in the spec's §8; the residue handoff §9 carries the closing pointer.
+
+Headline: 265 eup parameters on the composed dogfood; the §7.2 evidence chain closes — the printer's
+`parameterizedType` and `TypeNameImpl.typeName`'s `typeInfo` carry labels, and the entire
+`ParameterizedType(Impl)` print/fullyQualifiedName/descriptor/mostSpecific family gains
+`enm=[typeInfo, typeParameter]` (net +21 enm, two stale optimistic unions honestly dropped). The
+scoreboard however does not move (survivors 5, retracted 63; `ModuleInfoImpl.Provides/UsesImpl` strengthen
+to `@Immutable(hc=true)(after=…)`): the cascade now stops at three NEWLY EXPOSED shapes — List-of-
+candidate-content fields (`typesReferenced` bails on `this.parameters`), the type-parameter-map builders,
+and `rewire`/`withNullable` — each of which is its own designed mechanism (spec §8.3). That is the next
+front.
+
+## The container ride-along lands: ParameterizedTypeImpl forms its verdict (2026-07-23, same day)
+
+Spec §8.3 item 1 is implemented (record: `docs/spec-eventually-unmodified-parameter.md` §9, gated
+`EVENTUALCLUSTER`): the §060 ride-along one indirection deeper, granted per SITE — read position
+(non-modifying, non-dependent calls on final container fields of committable content, wrapper
+stability proven syntactically), argument position (callee provably neither mutates nor accessibly
+retains the wrapper; constructors judged by direct body scan), and ConstructorCall sites now visited
+by both walks (closing a genuine capture hole). Composed dogfood: enm 567→663 (+122/−7 vs the
+certified baseline; the 7 losses are honest capture-hole corrections), modifying-unlabeled
+1382→1273, survivors 6 (the `TypeReference` pair joins). `ParameterizedTypeImpl` reaches 100%
+method excusal (ctor + one anonymous supplier aside) and FORMS ITS OWN EVENTUAL VERDICT for the
+first time — retracted by its lean on the `MethodInfo` interface. The frontier is now the
+interface clique: `api.info.MethodInfo` (19 leans), `ExpressionImpl` (19), `Element` (9),
+`TypeInfoImpl` (8), `StatementImpl` (8), the Builders — breadth work over their remaining
+rewire/translate/print holdouts, plus the noted look-through gap for concrete superclass-declared
+accessors. Gate-off Fernflower A/B: byte-identical, 0 lines.
+
+## The interface clique round: the flagship family FORMS (2026-07-23, continued)
+
+Four changes, chasing the measured roots (`EC_RETRACT_DEBUG` lean counts) one instrument at a time
+(new env-gated diagnostics: `EC_TYPE_DEBUG=<fqn-substrings>` traces computeTypeLevel/immutableAfterMark/
+the supertype loop; `EC_ASSUME_DEBUG=<substring>` prints DIRECT assumption edges as they are recorded):
+
+1. **Concrete inherited accessor look-through** (gated): the same-class inline in `commitLabels` now
+   keys on the DECLARING type's label space, so `StatementImpl.comments()` inlines inside
+   `DoStatementImpl.rewire`.
+2. **Interface-constant finality** (UNGATED, JLS 9.3): `FieldInfoImpl.isPropertyFinal()` returns true
+   for interface fields — `String CONSTRUCTOR_NAME = "<init>"` read as an ASSIGNABLE field and made
+   `MethodInfo` (and every constants-carrying interface, in every corpus) unconditionally @Mutable via
+   the `fieldsAssignable` early exit. Fernflower A/B: exactly 3 constants-only interfaces strengthen
+   (+ the known flake); five suites green with no re-pins.
+3. **Markless-carrier container fields** (gated): `computeTypeLevel`'s ride-along loop and
+   `resolveExcusedFields` accept `containerContentCommittable` — `ExpressionImpl.comments`-style final
+   Lists of committable content join the mark labels. Survivors jumped 6→15 on that step alone
+   (all four remaining ModuleInfo members, DetailedSourcesImpl, MethodMapImpl, PerPackage, three
+   ValueImpl types).
+4. **Weak-verdict deferral** (gated): the `TypeInfo` interface froze `@FinalFields(after="inspection")`
+   in ITERATION 1 with 2 of its eventual 33 enm labels present — the verdict is write-once, and
+   `immutableSuper`'s `isMutable(@FinalFields)` check then hard-sank every subtype to MUTABLE. A
+   final-fields after-mark level computed before the cycle-breaking phase is now deferred to the
+   terminal iterations, when the method layer has converged.
+
+**Composed scoreboard (stable across two runs): survivors 11, retracted 92 — and for the first time
+the ENTIRE flagship family FORMS eventual verdicts** (TypeInfoImpl, MethodInfoImpl, FieldInfoImpl,
+ParameterInfoImpl, the TypeInfo/MethodInfo interfaces, ParameterizedTypeImpl — all now in the
+retracted set rather than the never-forms roots). The cascade is wider (four small survivors of the
+previous step are currently pulled under by the larger folded assumption sets), and the remaining
+ROOTS are precisely measured:
+
+- **The Builder interfaces** (ParameterInfo/MethodInfo/TypeInfo/FieldInfo/TypeParameter.Builder,
+  ~26 leans): direct assumers are the flagship impls themselves — their `builder()`-style PRE-MARK
+  accessor chains get excused by Builder candidacy, which can never prove (plain setters). The right
+  mechanism is @Only(before) classification for pre-mark accessors, not candidacy: a designed
+  feature, next quest.
+- **Element (9) / Statement (9)**: the print/rewire/variableStream* abstract-union breadth (the ~51
+  print implementations), unchanged.
+- **VariableImpl (7)**: assignable lazy-cache fields (`cachedFqn`, `cachedHash`) — needs its own
+  cache-exemption story (field finality is deliberately not relaxed by the mark).
+- FieldInspection (4) and a long interface tail.

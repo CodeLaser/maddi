@@ -174,7 +174,7 @@ public class DecoratorImpl implements Qualification.Decorator {
         Value.Eventual eventual = null;                    // EVENTUAL_METHOD / EVENTUAL_PARAMETER
         Value.EventuallyImmutable eventuallyImmutable = null;  // EVENTUALLY_IMMUTABLE_TYPE
         Set<String> eventuallyFinalLabels = null;          // EVENTUALLY_FINAL_FIELD
-        Set<String> eventuallyNonModifyingLabels = null;   // EVENTUALLY_NON_MODIFYING_METHOD
+        Set<String> eventuallyNonModifyingLabels = null;   // EVENTUALLY_NON_MODIFYING_METHOD / _UNMODIFIED_PARAMETER
         switch (info) {
             case MethodInfo methodInfo -> {
                 boolean noReturn = methodInfo.isConstructor() || !methodInfo.hasReturnValue();
@@ -245,6 +245,9 @@ public class DecoratorImpl implements Qualification.Decorator {
                     downcastValue = casts;
                 }
                 eventual = analysis.getOrDefault(EVENTUAL_PARAMETER, ValueImpl.EventualImpl.NOT_EVENTUAL);
+                Value.SetOfStrings eup = analysis.getOrDefault(EVENTUALLY_UNMODIFIED_PARAMETER,
+                        ValueImpl.SetOfStringsImpl.EMPTY_SET);
+                if (!eup.set().isEmpty()) eventuallyNonModifyingLabels = eup.set();
             }
             case TypeInfo typeInfo -> {
                 immutable = analysis.getOrDefault(IMMUTABLE_TYPE, MUTABLE);
@@ -462,7 +465,8 @@ public class DecoratorImpl implements Qualification.Decorator {
             AnnotationExpression nm = runtime.newAnnotationExpressionBuilder().setTypeInfo(notModifiedTi)
                     .addKeyValuePair("after", runtime.newStringConstant(joinLabels(eventuallyNonModifyingLabels)))
                     .build();
-            list.add(new AnnotationProperty(nm, EVENTUALLY_NON_MODIFYING_METHOD));
+            list.add(new AnnotationProperty(nm, info instanceof ParameterInfo
+                    ? EVENTUALLY_UNMODIFIED_PARAMETER : EVENTUALLY_NON_MODIFYING_METHOD));
         }
         if (eventuallyFinalLabels != null) {
             importsNeeded.add(Final.class);
