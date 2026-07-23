@@ -319,6 +319,32 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 }
             }
         }
+        // EVENTUALCLUSTER, Part B -- super -> markless member label inheritance (the downward interface
+        // closure at VERDICT level, and its class twin): a markless cluster member (the Comment
+        // sub-interface; SingleLineCommentImpl, a value object of Strings) has no transition of its own --
+        // its only blocker is the HIERARCHY, whose eventual promise is the object's, not one type's
+        // (the immutableSuper argument). Inherit the labels of every eventual supertype; a super whose
+        // verdict is still circular counts via the witnessed seed (labels arrive when it forms, and the
+        // walk simply returns empty-handed until then); an inadmissible super means no verdict, exactly as
+        // before. Soundness rests on immutableAfterMark below: the member's own fields and methods are
+        // still checked in full -- the inherited labels only NAME the transition.
+        if (markLabels.isEmpty() && EventualCluster.ENABLED) {
+            boolean admissible = true;
+            Set<String> inherited = new HashSet<>();
+            for (ParameterizedType superType : typeInfo.parentAndInterfacesImplemented()) {
+                TypeInfo st = superType.typeInfo();
+                if (st == null || st.isJavaLangObject()) continue;
+                Value.EventuallyImmutable sv = st.analysis().getOrDefault(
+                        EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+                if (sv.isEventual()) {
+                    inherited.addAll(Set.of(sv.markLabel().split(",")));
+                } else if (!eventualCluster.treatAsEventuallyImmutable(typeInfo, st, sv)) {
+                    admissible = false;
+                    break;
+                }
+            }
+            if (admissible) markLabels.addAll(inherited);
+        }
         // EC_TYPE_DEBUG=<fqn substring>: print the type-level decision path (log-only, env-gated diagnostic
         // in the MODREACH_EXPLAIN style) -- why does a type with fully excused methods still get no verdict?
         boolean dbg = ecTypeDebug(typeInfo);
@@ -327,8 +353,10 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             return;
         }
 
-        TypeImmutableAnalyzer.AfterMark afterMark =
-                new TypeImmutableAnalyzer.AfterMark(Set.copyOf(excusedFields), Set.copyOf(excusedMethods));
+        // under the gate, any attempt with mark labels IS an after-mark evaluation, even when nothing
+        // resolves to an own excused field or method (the inherited-marks shape: a markless sub-interface)
+        TypeImmutableAnalyzer.AfterMark afterMark = new TypeImmutableAnalyzer.AfterMark(
+                Set.copyOf(excusedFields), Set.copyOf(excusedMethods), EventualCluster.ENABLED);
         Value.Immutable afterMarkLevel = typeImmutableAnalyzer.immutableAfterMark(typeInfo, afterMark,
                 activateCycleBreaking);
         if (dbg) {
@@ -1382,10 +1410,32 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                         ecsite("MC arg " + i + " eup not narrowable: narrowed=" + new TreeSet<>(narrowed)
                                + " residue live at " + mc.methodInfo().fullyQualifiedName());
                     }
+                } else if (EventualCluster.ENABLED && calleeParameterPlainlyModified(mc.methodInfo(), i)) {
+                    // the bare-root-argument commitment fold (the arg-position sibling of the wrapper-capture
+                    // fold): the callee plainly modifies this parameter and carries NO eup promise -- the
+                    // ∅-excused self-assumption (infoMap.parameterInfo(this)) then owes the ROOT'S FULL
+                    // commitment: after all of the root's own marks, nothing the callee does can modify it.
+                    // Only ever ADDS labels; an uncommittable root keeps the current ∅ (the residual gap).
+                    Set<String> rc = rootCommitmentLabels(walk);
+                    if (rc != null && !rc.isEmpty()) {
+                        if (siteDebug()) ecsite("MC arg " + i + " root-commitment fold=" + new TreeSet<>(rc)
+                                                + " at " + mc.methodInfo().fullyQualifiedName());
+                        acc.addAll(rc);
+                    }
                 }
             }
         }
         return acc;
+    }
+
+    /** The callee's parameter receiving argument {@code i} is plainly modified ({@code unmodified=false}):
+     *  handing the bare root there is a genuine modification the eventual layer must account for. */
+    private static boolean calleeParameterPlainlyModified(MethodInfo callee, int i) {
+        List<ParameterInfo> parameters = callee.parameters();
+        if (parameters.isEmpty()) return false;
+        ParameterInfo pi = parameters.get(Math.min(i, parameters.size() - 1));
+        Value.Bool unmodified = pi.analysis().getOrNull(UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.class);
+        return unmodified != null && unmodified.isFalse();
     }
 
     /** The {@code EVENTUALLY_UNMODIFIED_PARAMETER} labels of the callee's parameter receiving argument

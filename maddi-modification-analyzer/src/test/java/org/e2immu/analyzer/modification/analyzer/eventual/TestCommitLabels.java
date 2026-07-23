@@ -341,6 +341,60 @@ public class TestCommitLabels extends CommonTest {
         }
     }
 
+    // Part B of the flagship-convergence round: the downward interface closure at VERDICT level. A
+    // markless sub-interface with no methods of its own (the Comment shape) inherits the super's
+    // eventual labels; its own (empty) field/method checks still run in full via immutableAfterMark.
+    // NOTE: a sub-interface ADDING abstract methods without analyzed implementations stays undecided
+    // in the harness (NON_MODIFYING never lands for them) -- the dogfood covers that case.
+    @Language("java")
+    private static final String INPUT_MARKLESS = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class P {
+              interface E { int size(); }
+              interface Marker extends E { }
+              static class T implements E {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                @Override public int size() { return inspection.get().length(); }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: a markless sub-interface inherits the super's eventual verdict")
+    @Test
+    public void testMarklessInterface() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo P = javaInspector.parse("P", INPUT_MARKLESS);
+            analyzer.go(prepWork(P));
+            var eEv = P.findSubType("E").analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                    ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+            assertTrue(eEv.isEventual(), "E carries the abstract enm union -> eventual");
+            var markerEv = P.findSubType("Marker").analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                    ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+            assertTrue(markerEv.isEventual(), "markless Marker inherits E's verdict labels");
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: neither interface forms")
+    @Test
+    public void testMarklessInterfaceGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo P = javaInspector.parse("P", INPUT_MARKLESS);
+            analyzer.go(prepWork(P));
+            assertFalse(P.findSubType("Marker").analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                    ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL).isEventual());
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
     @DisplayName("gate off: the breadth shapes stay unexcused")
     @Test
     public void testBreadthGateOff() {
@@ -522,8 +576,10 @@ public class TestCommitLabels extends CommonTest {
             assertEquals(Set.of("inspection"), nonModAfter(T, "len", 0));
             // peer.same(this): bare this handed out IS excusable for a cluster-candidate owner (post-marks it
             // is committed; the self-assumption is witnessed and the contraction validates) -- the receiver
-            // field contributes its label
-            assertEquals(Set.of("peer"), nonModAfter(T, "bailBareThis", 0));
+            // field contributes its label, and the bare-root-argument commitment fold (flagship-convergence
+            // round) now NAMES this's own commitment too: the callee plainly modifies the argument, so the
+            // honest promise is "after peer AND after this's own inspection"
+            assertEquals(Set.of("inspection", "peer"), nonModAfter(T, "bailBareThis", 0));
             // items.add: a plain mutable field is not committed by any mark
             assertEquals(Set.of(), nonModAfter(T, "bailMutableField", 0));
             // l = items; l.add(x): the local aliases the mutable field -- must NOT be excused even though the
