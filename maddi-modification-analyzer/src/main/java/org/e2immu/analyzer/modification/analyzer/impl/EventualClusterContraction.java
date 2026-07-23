@@ -91,18 +91,56 @@ public class EventualClusterContraction {
      */
     public static int retract(List<Info> analysisOrder, EventualCluster cluster) {
         if (!EventualCluster.ENABLED) return 0;
-        Map<TypeInfo, Set<TypeInfo>> assumptions = cluster.assumptions();
+        // the ledger with label provenance folded in: an interface whose abstract methods inherited their
+        // eventually-non-modifying labels also inherited the implementations' assumption edges
+        Map<TypeInfo, Set<TypeInfo>> assumptions = cluster.effectiveAssumptions();
         if (assumptions.isEmpty()) return 0;
 
-        Set<TypeInfo> haveVerdict = new HashSet<>();
+        // an assumption "treat candidate as eventually immutable" is discharged by an eventual verdict, or -- a
+        // fortiori -- by the candidate ending up UNCONDITIONALLY at least immutable-hc (MethodInspection): the
+        // optimism was only that the candidate's content would at some point stop changing
+        Set<TypeInfo> haveEventual = new HashSet<>();
+        Set<TypeInfo> discharged = new HashSet<>();
         for (Info info : analysisOrder) {
-            if (info instanceof TypeInfo t && t.analysis()
-                    .getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL)
-                    .isEventual()) {
-                haveVerdict.add(t);
+            if (info instanceof TypeInfo t) {
+                if (t.analysis()
+                        .getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL)
+                        .isEventual()) {
+                    haveEventual.add(t);
+                    discharged.add(t);
+                } else if (t.analysis()
+                        .getOrDefault(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.MUTABLE)
+                        .isAtLeastImmutableHC()) {
+                    discharged.add(t);
+                    // its own broken leans (if any) affected only method labels, which are vacuous on an
+                    // unconditionally immutable type; do not let them cascade through the closure
+                    assumptions.remove(t);
+                }
             }
         }
-        Set<TypeInfo> retract = membersToRetract(haveVerdict, assumptions);
+        // an assumed candidate OUTSIDE the analysis order (java.lang.Record, pulled in as a record's
+        // supertype) discharges through its preloaded unconditional verdict; it can never appear in the
+        // analysis-order scan above
+        for (Set<TypeInfo> assumed : assumptions.values()) {
+            for (TypeInfo candidate : assumed) {
+                if (!discharged.contains(candidate) && candidate.analysis()
+                        .getOrDefault(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.MUTABLE)
+                        .isAtLeastImmutableHC()) {
+                    discharged.add(candidate);
+                }
+            }
+        }
+        Set<TypeInfo> retract = membersToRetract(discharged, assumptions);
+        retract.retainAll(haveEventual); // only an eventual verdict can be retracted
+        if (System.getenv("EC_RETRACT_DEBUG") != null) {
+            for (TypeInfo t : retract) {
+                Set<TypeInfo> assumed = assumptions.getOrDefault(t, Set.of());
+                String broken = assumed.stream().filter(c -> !discharged.contains(c))
+                        .map(TypeInfo::fullyQualifiedName).sorted().collect(java.util.stream.Collectors.joining(", "));
+                System.out.println("ECRETRACT " + t.fullyQualifiedName() + " <- broken: ["
+                        + broken + "] (cascade if empty)");
+            }
+        }
         for (TypeInfo t : retract) {
             t.analysis().removeIf(p -> PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE.key().equals(p.key()));
             LOGGER.debug("EC contraction: retract eventual verdict of {} (unproven assumption)", t);
