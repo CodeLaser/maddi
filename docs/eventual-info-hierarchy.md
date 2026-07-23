@@ -1054,3 +1054,27 @@ round's precedent for inherited accessors). Composed: enm 806 -> 824, BitwiseNeg
 the rewire blocker list. Pin: `INPUT_BREADTH.SubClass.subSize` = [item] (∅ off the gate).
 Also observed en route: a parameterless immutable-hc field type (Precedence, Diamond) is already
 harmless to the walk -- the flag interfaces were a false suspect.
+
+## The honest-roots quest, round 2 (2026-07-23, continued): two Expression unions land
+
+Two coupled changes crack the bare-this deadlock and the expression family's real poison:
+
+1. **The self-assumption** (gated, `treatAsEventuallyImmutable`): a type may always lean on ITSELF --
+   the computation in flight is the very one that would make it a candidate. This breaks the leaf
+   impls' chicken-and-egg (`translationMap.translateExpression(this)`, `new CommonType(this)`: the
+   owner-seed escape needed candidacy, candidacy needed a first enm). Witnessed like any edge: a type
+   that never forms retracts everything that consumed its labels.
+2. **`@IgnoreModifications` on the expression trio's analysis maps** (cst-impl source, the InfoImpl
+   precedent applied consistently): `InstanceOfImpl`/`MethodCallImpl`'s `propertyValueMap` and
+   `ConstructorCallImpl`'s `analysis` are the same manual-hidden-content overlay (road §050) that
+   InfoImpl already declares; handed into every copy constructor, the unannotated field poisoned
+   every `translate`/`withSource` walk of those types. Only maddi's own source is affected -- corpus
+   inputs never see cst-impl annotations.
+
+**`Expression.rewire` and `Expression.withSource` abstract unions LAND** (the full union over the
+~80 expression impls); `InstanceOfImpl.translate` clears. Composed: enm 824 -> 839, eup 309 -> 328,
+flagships form throughout. Remaining for Expression: `translate` (blocked by the two most complex
+bodies, `ConstructorCallImpl.translate` and `MethodCallImpl.translate`) and `internalCompareTo`
+(`BinaryOperatorImpl`). The Factory/Eval cap decomposed en route: exactly two abstract methods
+(`commonType`, `newInlineConditional`, both funneling into `CommonType.commonType`'s
+inspection-reading lattice walk plus FactoryImpl's own lazy caches) -- unresolved, next round.
