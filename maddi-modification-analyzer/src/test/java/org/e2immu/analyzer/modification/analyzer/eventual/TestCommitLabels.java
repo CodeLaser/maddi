@@ -632,6 +632,53 @@ public class TestCommitLabels extends CommonTest {
         }
     }
 
+    // the VariableImpl.cachedFqn/cachedHash shape: a private @IgnoreModifications lazy memo. The disclaimer
+    // covers the slot (road §050 extended): the assignment does not modify the owner (ungated,
+    // contract-honoring), and -- under the gate, after-mark only -- the field's assignability does not
+    // block the eventual type-level verdict.
+    @Language("java")
+    private static final String INPUT_MEMO = """
+            import org.e2immu.annotation.rare.IgnoreModifications;
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class M {
+              static class T {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                @IgnoreModifications
+                private String cachedFqn;
+                public void commit(String s) { inspection.setFinal(s); }
+                public int size() { return inspection.get().length(); }
+                public String fqn() {
+                  String f = cachedFqn;
+                  if (f == null) {
+                    f = "T:" + size();
+                    cachedFqn = f;
+                  }
+                  return f;
+                }
+              }
+            }
+            """;
+
+    @DisplayName("memo disclaimer: assigning an @IgnoreModifications field does not modify the owner")
+    @Test
+    public void testMemoField() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo M = javaInspector.parse("M", INPUT_MEMO);
+            analyzer.go(prepWork(M));
+            TypeInfo T = M.findSubType("T");
+            MethodInfo fqn = T.findUniqueMethod("fqn", 0);
+            // ungated semantics: the only own-state write is the disclaimed memo slot; size() is
+            // eventually-non-modifying, so fqn() is plainly modifying ONLY through size()'s pre-mark reads
+            // -- the enm walk excuses it after [inspection]
+            assertEquals(Set.of("inspection"), nonModAfter(T, "fqn", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
     @DisplayName("gate off: the recursive method stays unexcused")
     @Test
     public void testSelfCallGateOff() {

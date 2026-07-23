@@ -1224,3 +1224,38 @@ single line: run 2 flipped `Exprent.<init>(int)`, run 3 flipped the documented
 gradle-daemon reuse, javac emitted a burst of bogus syntax errors on valid Fernflower sources
 (`EXIT_PARSER_ERROR`); a daemon restart cleared it -- the parsing-stability.md process-wide-state
 story, now seen at corpus scale.
+
+## The VariableImpl cache quest (2026-07-24, continued): the memo disclaimer
+
+The `cachedFqn`/`cachedHash` lazy memos -- a deliberate hot-path optimization (equals/hashCode on
+the link-graph probes; the fields cannot be made eager, the base ctor cannot call the virtual
+`fullyQualifiedName()`) -- sank `VariableImpl` at the very FIRST exit: non-final fields, MUTABLE
+before any after-mark relaxation, and their writes made `hashCode`/`equals`/`fqnForEquality`
+plainly modifying. The design: extend `@IgnoreModifications` (road §050, "manual hidden content")
+to the SLOT -- on a private idempotent memo, the disclaimer covers the assignment as well as the
+content. Four parts:
+
+1. **cst-impl**: `@IgnoreModifications` on both fields (the source annotates its own idiom).
+2. **Plain layer, UNGATED (contract-honoring, the `loopOverFieldsAndMethods` precedent)**:
+   `ExpressionVisitor.assignment` no longer marks the scope chain modified when the target field is
+   `@IgnoreModifications` -- symmetric with the filter `MethodModification.go` already applies to
+   call-through modification. No-op without the annotation.
+3. **Gated, after-mark only**: `computeImmutableType0`'s assignable-fields exit looks past
+   `@IgnoreModifications` fields when `!afterMark.isNone()` -- the UNCONDITIONAL verdict keeps the
+   honest `@Mutable` (the slot IS assignable), only the eventual relaxation sees through.
+4. **Gated**: the enm walk's own-field-assignment bail skips disclaimed fields.
+
+The unit pin (INPUT_MEMO) exposed part 4 and decoded the dogfood truth: `hashCode` is HONESTLY
+modifying through the abstract `fullyQualifiedName()` dispatch (lazy inspection), so the right
+outcome is not plain non-modification but a landed enm -- and it landed: all three methods carry
+**enm=[methodInfo]**. `VariableImpl` reaches `immutableAfterMark=@Immutable(hc=true)` and is GONE
+from the retraction-root ranking (was 12 lean edges): it now retracts only as a cascade victim of
+the flagships, `broken: []`. Remaining roots: TypeInfo 38, MethodInfo 33, Comment 24, Runtime 21,
+Element 20, Block 16 -- the flagship convergence itself.
+
+Scoreboard: enm 863 -> 866, retractions 155 -> 156, survivors 1. Validation: module suites green
+(17/17 TestCommitLabels), three-corpus A/B for the ungated part -- fernflower byte-identical to the
+canonical baseline, langchain4j A/B byte-identical, timefold identical modulo a DEMONSTRATED
+same-code run-to-run flake (two B-runs differ by 6 lines among `testdomain.*Solution` independence
+verdicts; the flipping set wanders). Composed dogfood determinism: 22 diff lines, all within the
+documented QualifiedNameImpl/SymbolEnum flake set; the eventual layer 0-diff.
