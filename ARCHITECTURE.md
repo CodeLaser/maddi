@@ -102,11 +102,31 @@ Essential reading before running or debugging anything on the javac front end:
 | Module | Purpose | Start reading |
 |---|---|---|
 | `maddi-modification-common` | Shared base: shallow/default analyzers that turn annotations into properties for library types; get/set handling. | `…modification.common.defaults.ShallowAnalyzer` |
-| `maddi-modification-prepwork` | Phase 0 per primary type: call graph, analysis order, part-of-construction, final-field status, hidden content, per-method variable data. | `…modification.prepwork.PrepAnalyzer`, `…prepwork.callgraph.ComputeCallGraph` |
+| `maddi-modification-prepwork` | Phase 0 per primary type: call graph, analysis order, part-of-construction, final-field status, hidden content, per-method variable data. **Consuming the call graph? read the two conventions below first.** | `…modification.prepwork.PrepAnalyzer`, `…prepwork.callgraph.ComputeCallGraph` |
 | `maddi-modification-link` | The **link engine**: computes `(from, nature, to)` links between variables, method-call linking, virtual fields (`§`), functional-interface lifting, shared-variable collapse. | `linking-manual.md` §5, then `…link.impl.LinkMethodCall`; `TestLinkMethodCall` is the spec-by-example |
 | `maddi-modification-analyzer` | The **orchestrator**: multi-phase fixpoint iteration with worklist, certification and cycle breaking; also guard (contract-check) mode. | `…analyzer.impl.IteratingAnalyzerImpl`, then `SingleIterationAnalyzerImpl`; `README.md` for the phases, `definitions.md` for the concept chain |
 | `maddi-aapi-archive` | The curated annotated-API content: hand-written annotated stubs for JDK/library packages + their compiled JSON under `src/main/resources`. Pure data. | `…aapi.archive.jdk.JavaUtil` |
 | `maddi-aapi-parser` | Compiles the archive's stubs into machine-readable JSON analysis results. | `…aapi.parser.AnalysisHintsCompiler` |
+
+#### Two call-graph conventions that will silently mislead a reader
+
+Both are deliberate, both are load-bearing, and both make a real relationship invisible to the obvious
+way of looking for it. Nothing is missing from the graph and nothing errors — the relation is simply not
+where you looked. Full detail in `ComputeCallGraph`'s edge-type comment (types A–E).
+
+1. **A method's access to its own type's fields is recorded backwards**: `field -> method`, not
+   `method -> field`. The arrow encodes "this value flows into that method", which is what the analysis
+   order needs; reversing it would put every accessor ahead of the state it reads. Access to *another*
+   type's field keeps the ordinary direction, so a single outgoing walk collects foreign access and
+   misses self-access.
+2. **A lambda or anonymous class is its own vertex.** Its outgoing edges belong to that synthetic
+   `TypeInfo`, not to the method it is written inside, so every dependency a lambda introduces looks
+   like a dependency of the *type declaration*. Fold them back with `TypeInfo.enclosingMethod` when
+   working at member granularity.
+
+If you are asking "what does this member touch", you need both corrections. Consumers have been caught
+by each of them; the second one silently under-reported every member-move lever in the refactoring
+metrics until it was found.
 
 ### Runners, plugins, IDE integration
 
