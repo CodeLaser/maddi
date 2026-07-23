@@ -1105,3 +1105,27 @@ demanded, while modreach honestly reaches the modification through the `internal
 -- an ∅-enm on a decided-modifying method is currently unwritable, and deciding what it should MEAN
 (write ∅-enm as a first-class value? demand the receiver labels at contract-non-modifying dispatch
 sites whose implementations modify?) is a design question for the next session, ideally with Bart.
+
+## The ∅-enm decision (2026-07-23, WITH BART): dispatch-honest excuse sites
+
+**Decision (Bart, option B): the site-level modification view must never be more optimistic than the
+dispatch closure.** A contract-non-modifying ABSTRACT callee (`Comparable.compareTo`, `Object.equals`)
+whose analyzed implementations honestly modify pre-mark counts as modifying at excuse sites -- the
+receiver's labels are demanded exactly as if the honest implementation were called directly. Option A
+(first-class ∅-enm) was rejected: it would invert the label lattice at one point ("∅ = after full
+commitment" vs everywhere else "fewer labels = weaker requirement") and leave the equals-family gap.
+
+Implementation: `implementationHonestlyModifies` consults IMPLEMENTATIONS -- and, NEW, the additive
+`EXTERNAL_IMPLEMENTATIONS` property: prepwork used to skip external-library overrides entirely, so a
+jar abstract (Comparable.compareTo) carried no dispatch closure at all. The external key is kept apart
+from IMPLEMENTATIONS so the abstract batches never write onto jar methods; the property is inert to
+everything but the gated predicate. The underlying FINDING stands on its own: maddi's CST honestly
+violates the JDK's "comparing/equality does not modify" contracts BEFORE the mark (comparison forces
+lazy inspection) -- something the guard could eventually report as a contract tension.
+
+Measured: the fake ∅-walks are gone (BinaryOperatorImpl.internalCompareTo now demands and honestly
+FAILS the rhs excuse instead of vacuously succeeding); +7 enm from dispatch-honest sites that CAN
+excuse (849 total, eup 339); zero regressions; flagships form; gate-off Fernflower byte-identity.
+The one remaining hop for the internalCompareTo union: `commitLabels(this.rhs)` bails although
+Expression is a direct candidate and rhs is an own final field -- next session's first probe is one
+print inside `fieldHoldsCommittableContent`'s refusal path for that exact site.

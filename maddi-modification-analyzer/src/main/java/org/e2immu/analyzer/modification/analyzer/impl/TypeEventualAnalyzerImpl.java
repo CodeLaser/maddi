@@ -537,7 +537,13 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                         .getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
                 boolean calleeModifies = calleeNonMod == null || calleeNonMod.isFalse();
                 if (EventualCluster.ENABLED) {
-                    Set<String> excused = commitExcusedLabels(walk, mc, calleeModifies, localContext);
+                    // the site-level modification view must not be more optimistic than the dispatch
+                    // closure (the ∅-enm gap, 2026-07-23): a contract-non-modifying ABSTRACT callee
+                    // (Comparable.compareTo, Object.equals) whose implementations honestly modify
+                    // pre-mark (ExpressionImpl.compareTo forces lazy inspection) still demands the
+                    // receiver's labels, exactly as if the honest implementation were called directly
+                    Set<String> excused = commitExcusedLabels(walk, mc,
+                            calleeModifies || implementationHonestlyModifies(mc.methodInfo()), localContext);
                     if (excused == null) {
                         bail[0] = true;
                         return false;
@@ -1515,6 +1521,26 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             return !found[0];
         });
         return found[0];
+    }
+
+    /** The dispatch-closure half of the site's modification view: an abstract callee with at least one
+     *  implementation honestly decided modifying. Deliberately uncached -- the honest FALSE arrives at the
+     *  modreach cutover, and the eventual layer re-derives after it. */
+    private static boolean implementationHonestlyModifies(MethodInfo methodInfo) {
+        if (!methodInfo.isAbstract()) return false;
+        return anyImplementationModifies(methodInfo, PropertyImpl.IMPLEMENTATIONS)
+               || anyImplementationModifies(methodInfo, PropertyImpl.EXTERNAL_IMPLEMENTATIONS);
+    }
+
+    private static boolean anyImplementationModifies(MethodInfo methodInfo,
+                                                     org.e2immu.language.cst.api.analysis.Property property) {
+        for (MethodInfo implementation : methodInfo.analysis()
+                .getOrDefault(property, ValueImpl.SetOfMethodInfoImpl.EMPTY).methodInfoSet()) {
+            Value.Bool nonModifying = implementation.analysis()
+                    .getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+            if (nonModifying != null && nonModifying.isFalse()) return true;
+        }
+        return false;
     }
 
     /** Non-modifying by its own verdict, or -- for a jar accessor whose verdict was never materialized --
