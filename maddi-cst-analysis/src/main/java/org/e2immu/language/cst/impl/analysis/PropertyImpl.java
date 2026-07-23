@@ -98,6 +98,12 @@ public class PropertyImpl implements Property {
             ValueImpl.GetSetEquivalentImpl.EMPTY);
     public static final Property IMPLEMENTATIONS = new PropertyImpl("implementations",
             ValueImpl.SetOfMethodInfoImpl.EMPTY);
+    /** the analyzed-source implementations of an EXTERNAL abstract method (Comparable.compareTo,
+     *  Object.equals): the dispatch closure the eventual analyzer consults when a jar contract claims
+     *  non-modifying but the codebase's own overrides honestly modify pre-mark. Kept apart from
+     *  {@link #IMPLEMENTATIONS} so the abstract batches never write onto jar methods. */
+    public static final Property EXTERNAL_IMPLEMENTATIONS = new PropertyImpl("externalImplementations",
+            ValueImpl.SetOfMethodInfoImpl.EMPTY);
 
     // parameter
     public static final Property UNMODIFIED_PARAMETER = new PropertyImpl("unmodifiedParameter");

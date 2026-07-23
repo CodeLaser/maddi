@@ -1023,3 +1023,239 @@ eval-engine breadth: EvalOr/EvalNegation/... lean on expression interfaces), `Ty
 `Runtime`(12 folded -- the factory interface), `Element` down to 2; the per-body residue
 (`TypeInfoImpl.print`, `BitwiseNegationImpl.rewire`) persists in the honest world. Next quests
 should start from THIS list, re-measured with `EC_ASSUME_DEBUG=Expression,Runtime`.
+
+## The honest-roots quest, round 1 (2026-07-23, continued): measurement + inherited-field ownership
+
+`EC_ASSUME_DEBUG=Expression,Runtime,TypeInfo` on the honest baseline: 324 direct edges (Expression
+187, TypeInfo 81, Runtime 56) -- these are not batch blockers but the WIDESPREAD leans: the whole
+label layer rests on these three candidacies, discharged only by their proof or survival. TypeInfo
+FORMS (pure cascade victim). The actionable roots:
+
+- **Expression never forms because exactly four abstract unions fail**: `rewire`, `translate`,
+  `withSource`, `internalCompareTo` (every other Expression method landed). Blockers, per the batch
+  diagnostic: `InstanceOfImpl.translate` (the `translationMap.translateExpression(this)` BARE-THIS
+  handout -- a candidacy chicken-and-egg: the owner-seed escape needs the leaf impl to be a
+  candidate, which needs one enm to land first), `InstanceOfImpl.rewire`,
+  `ConstructorCallImpl.withSource`, `BinaryOperatorImpl.internalCompareTo`,
+  `UnaryOperatorImpl.rewire` -- each needs its own chase.
+- **Runtime is sunk by its supertypes**: zero modifying methods, zero dependent methods, but
+  `Factory`/`Eval` cap at @FinalFields (and `isMutable(@FinalFields)` sinks the extender). Factory
+  even carries a mark (`markLabels=[intParameterizedType]`, one excused method) yet
+  `afterMark=@FinalFields buys nothing` -- WHY the unconditional computation stops at FinalFields
+  for an all-non-modifying interface is the open question (needs a deeper EC_TYPE_DEBUG print
+  inside computeImmutableType0's hc rules).
+
+**Landed this round (gated): inherited-field ownership in the commit walk.** The
+`UnaryOperatorImpl.operator` shape: `BitwiseNegationImpl.rewire` reads `operator`/`precedence`/
+`expression` -- SUPERCLASS fields -- and the FieldReference branch demanded strict own-field
+membership, bailing silently. `isOwnOrInheritedField` walks the superclass chain; the label names
+the super's field, which the type level tolerates exactly like an inherited mark (the clique
+round's precedent for inherited accessors). Composed: enm 806 -> 824, BitwiseNegationImpl leaves
+the rewire blocker list. Pin: `INPUT_BREADTH.SubClass.subSize` = [item] (∅ off the gate).
+Also observed en route: a parameterless immutable-hc field type (Precedence, Diamond) is already
+harmless to the walk -- the flag interfaces were a false suspect.
+
+## The honest-roots quest, round 2 (2026-07-23, continued): two Expression unions land
+
+Two coupled changes crack the bare-this deadlock and the expression family's real poison:
+
+1. **The self-assumption** (gated, `treatAsEventuallyImmutable`): a type may always lean on ITSELF --
+   the computation in flight is the very one that would make it a candidate. This breaks the leaf
+   impls' chicken-and-egg (`translationMap.translateExpression(this)`, `new CommonType(this)`: the
+   owner-seed escape needed candidacy, candidacy needed a first enm). Witnessed like any edge: a type
+   that never forms retracts everything that consumed its labels.
+2. **`@IgnoreModifications` on the expression trio's analysis maps** (cst-impl source, the InfoImpl
+   precedent applied consistently): `InstanceOfImpl`/`MethodCallImpl`'s `propertyValueMap` and
+   `ConstructorCallImpl`'s `analysis` are the same manual-hidden-content overlay (road §050) that
+   InfoImpl already declares; handed into every copy constructor, the unannotated field poisoned
+   every `translate`/`withSource` walk of those types. Only maddi's own source is affected -- corpus
+   inputs never see cst-impl annotations.
+
+**`Expression.rewire` and `Expression.withSource` abstract unions LAND** (the full union over the
+~80 expression impls); `InstanceOfImpl.translate` clears. Composed: enm 824 -> 839, eup 309 -> 328,
+flagships form throughout. Remaining for Expression: `translate` (blocked by the two most complex
+bodies, `ConstructorCallImpl.translate` and `MethodCallImpl.translate`) and `internalCompareTo`
+(`BinaryOperatorImpl`). The Factory/Eval cap decomposed en route: exactly two abstract methods
+(`commonType`, `newInlineConditional`, both funneling into `CommonType.commonType`'s
+inspection-reading lattice walk plus FactoryImpl's own lazy caches) -- unresolved, next round.
+
+## The honest-roots quest, round 3 (2026-07-23, continued): Expression.translate lands — container
+## aliases, identity transparency, the two-round local context
+
+The remaining translate blockers (`MethodCallImpl`/`ConstructorCallImpl`) decomposed into three
+mechanical gaps, all closed (gated):
+
+1. **Container-alias tracking** (`LocalContext.containerAlias`, pass 3 of `buildLocalContext`): the
+   `list.isEmpty() ? list : rebuilt` short-circuit assigns the BARE field wrapper to a local in one
+   branch -- correctly uncommittable as a VALUE, but the local provably aliases one known container
+   field, and the per-site rescues (read-through, argument, constructor-capture) may judge it as the
+   field spelled inline. A subset guard on the other branch's labels keeps the minted label sound.
+2. **@Identity transparency** (`Objects.requireNonNull`, aapi `identityMethod`): the wrapper-safety
+   ctor scan treats an identity forward as the value itself -- `this.f = requireNonNull(p)` is the
+   capture, judged at the assignment; the call is not an onward handoff.
+3. **The two-round local context**: aliases discovered after the commit fixpoint un-poison DOWNSTREAM
+   locals (the copy built FROM the aliased local), so the fixpoint re-derives once with the aliases
+   in place.
+
+**Three of Expression's four abstract unions now land** (rewire, translate, withSource -- each the
+full union over the ~80 impls). Composed: enm 842, eup 339, flagships form. The LAST Expression
+blocker is `internalCompareTo` <- `BinaryOperatorImpl`, which is not mechanical: the walk SUCCEEDS
+with EMPTY labels (`rhs.compareTo(x)`: the direct callee is contract-non-modifying, so no excuse is
+demanded, while modreach honestly reaches the modification through the `internalCompareTo` dispatch)
+-- an ∅-enm on a decided-modifying method is currently unwritable, and deciding what it should MEAN
+(write ∅-enm as a first-class value? demand the receiver labels at contract-non-modifying dispatch
+sites whose implementations modify?) is a design question for the next session, ideally with Bart.
+
+## The ∅-enm decision (2026-07-23, WITH BART): dispatch-honest excuse sites
+
+**Decision (Bart, option B): the site-level modification view must never be more optimistic than the
+dispatch closure.** A contract-non-modifying ABSTRACT callee (`Comparable.compareTo`, `Object.equals`)
+whose analyzed implementations honestly modify pre-mark counts as modifying at excuse sites -- the
+receiver's labels are demanded exactly as if the honest implementation were called directly. Option A
+(first-class ∅-enm) was rejected: it would invert the label lattice at one point ("∅ = after full
+commitment" vs everywhere else "fewer labels = weaker requirement") and leave the equals-family gap.
+
+Implementation: `implementationHonestlyModifies` consults IMPLEMENTATIONS -- and, NEW, the additive
+`EXTERNAL_IMPLEMENTATIONS` property: prepwork used to skip external-library overrides entirely, so a
+jar abstract (Comparable.compareTo) carried no dispatch closure at all. The external key is kept apart
+from IMPLEMENTATIONS so the abstract batches never write onto jar methods; the property is inert to
+everything but the gated predicate. The underlying FINDING stands on its own: maddi's CST honestly
+violates the JDK's "comparing/equality does not modify" contracts BEFORE the mark (comparison forces
+lazy inspection) -- something the guard could eventually report as a contract tension.
+
+Measured: the fake ∅-walks are gone (BinaryOperatorImpl.internalCompareTo now demands and honestly
+FAILS the rhs excuse instead of vacuously succeeding); +7 enm from dispatch-honest sites that CAN
+excuse (849 total, eup 339); zero regressions; flagships form; gate-off Fernflower byte-identity.
+The one remaining hop for the internalCompareTo union: `commitLabels(this.rhs)` bails although
+Expression is a direct candidate and rhs is an own final field -- next session's first probe is one
+print inside `fieldHoldsCommittableContent`'s refusal path for that exact site.
+
+## Session close (2026-07-23): the internalCompareTo probe resolves — convergence, not design
+
+The recorded probe (why `commitLabels(this.rhs)` bailed) resolved into ORDERING, not a rule gap:
+`isCandidate(Expression)` was false in the failing attempt and true one attempt later, and
+**`BinaryOperatorImpl.internalCompareTo` landed enm=[lhs, rhs]** in the same run under the
+dispatch-honest sites. The abstract union's remaining blocker is `GreaterThanZeroImpl.internalCompareTo`,
+which decodes to the ordinary eup chain one remove further: `compareBinaryToGt0(binary, this)` hands
+bare `this` to a static helper whose eup on parameter 1 has not landed yet -- a chase, not a decision.
+Diagnostics added and kept (gated): the `fieldHolds refusal` and `treatAs refusal` prints that made
+the probe decisive.
+
+**Where the arc stands at session close** (nine commits, `9a2f5ea3..`): the Builder root eliminated;
+the abstract-union race dead and the eventual layer fully deterministic; the honest baseline enm 849
+/ eup 339 with the flagship family forming in every run; Expression's rewire/translate/withSource
+unions landed and internalCompareTo one eup-chase away; the ∅-enm decision (dispatch-honest sites)
+taken with Bart and implemented. Next session: the GreaterThanZeroImpl eup chase, then Factory's
+lazy caches, TypeInfoImpl.print, VariableImpl caches -- and the cluster's survivors will start
+recovering as Expression forms.
+
+## The GreaterThanZeroImpl eup chase (2026-07-24): the internalCompareTo union completes
+
+The chase decoded into two consumption gaps in the eup fold (`commitArguments`), both mechanical:
+
+1. **The ancestor label space.** `sameLabelSpace` demanded exact type identity between the callee's
+   parameter type and the walk's label type. The `GreaterThanZero`-rooted walk of
+   `compareBinaryToGt0:1:e2` hands its root to `compareVariables:1` declared as `Expression` -- an
+   ANCESTOR interface, the same promise space one level wider -- and fell through to
+   `labelsCommittableOnRoot`, which no interface can pass (no fields). Silent skip, walk yields ∅,
+   unwritable. The guard diagnostic (`eup guard: unmodified=...`) first ruled out the early exits:
+   pre-cutover the plain layer optimistically says `unmodified=true` (guard refuses, correctly);
+   post-cutover the walk ran and the `treatAs refusal` print (kept from the probe round) named the
+   real site. Fix: interface-rooted walks accept an ancestor parameter type (`isAncestorType`),
+   mirroring the downward-interface-closure argument; committability stays the ultimate consumer's
+   job, exactly as for the identity case.
+2. **Dispatch narrowing at the class-rooted consumer.** With eup(`compareBinaryToGt0:1`) = the full
+   Element union landed, `GreaterThanZeroImpl.internalCompareTo`'s enm walk hands bare `this` and
+   fails whole-set committability (`lhs` is no field of a GreaterThanZeroImpl). But the union labels
+   are per-implementation excuses: a label naming no field anywhere in the argument's runtime cone
+   (the root class plus its known subclasses, fields own or inherited) is VACUOUS for this argument
+   -- those code paths cannot execute on it. The consumer now folds the committable restriction when
+   the entire residue is vacuous (`residueVacuousOnCone`); anything less falls through unchanged.
+   This is the receiver analog the spec (§7) asked to mirror: a `this.foo()` call narrows naturally
+   via method resolution; the arg-position fold had no narrowing at all.
+
+Outcome (composed dogfood): **the abstract `Expression.internalCompareTo` union LANDS** -- every
+implementation plainly non-modifying or labeled (`GreaterThanZeroImpl` = `[expression]`, the
+narrowed fold). enm 849 -> 851, eup 339 -> 344; `GreaterThanZero` now forms-and-retracts with named
+broken deps instead of never forming. Survivors stay at 1: Expression's ledger entry lists its
+remaining lean roots, and the retraction ranking (`TypeInfo` 36, `MethodInfo` 33, `Runtime` 21,
+`Element` 20, `VariableImpl` 12) is exactly the recorded roadmap -- the Factory/print/VariableImpl
+quests, in that order. Unit pins: `TestCommitLabels.INPUT_CHAIN` (both mechanisms discriminate in
+the aapi-less harness; gate-off twin). The silent-skip fallback for a live residue remains, recorded
+here as the residual ∅-gap: a walk can still yield [] when a residue label names a real cone field
+-- honest per-site, but the spec's bail would be stricter.
+
+## The Factory quest (2026-07-24, continued): the self-call rule + the precedenceMap flip
+
+The `commonType`/`newInlineConditional` cap decoded in three layers:
+
+1. **Direct recursion poisoned the walk.** `CommonType.commonType`'s lattice descent calls itself
+   (`commonParameter = commonType(parameter, pt2Parameter)`); the enm walk read the callee's enm --
+   the very set under computation, write-once and unwritten -- got ∅, and bailed (the local context
+   pass showed it verbatim: `track commonParameter = null`). The SELF-CALL RULE (both root-receiver
+   branches, gated): a call to the method under analysis is excused by the fixpoint hypothesis -- its
+   excuse set IS the set in flight, it contributes nothing new; the result still runs the ordinary
+   handed-on gauntlet. `WalkRoot` now carries `underAnalysis`. Collateral: **+12 enm / +8 eup** --
+   the whole Eval recursion family (`EvalSum.expandTerms`, `wrapSum/wrapInSum/wrapInProduct`,
+   `EvalInlineConditional.eval`, `Eval.sortAndSimplify`) and the ImportComputer landed at once.
+   Unit pin: `TestCommitLabels.INPUT_RECURSION`.
+2. **`FactoryImpl.precedenceMap` was mutable by construction style, not by semantics.** The ctor
+   filled the `HashMap` field with `put()` calls -- and part-of-construction excludes only
+   ASSIGNMENTS, not content-modifying calls, so the plain layer honestly said `unmodified=false`
+   and capped FactoryImpl. The cst-impl refactor (build a local map, `Map.copyOf` into the final
+   field) flipped it to `unmodified=true independent=@Independent(hc=true)` -- the source now
+   follows its own rules. FINDING, recorded: ctor-`put()` maps read as mutable; build immutably.
+3. **The remaining cap is the interface-hierarchy cycle.** With the field flip, the ECTYPE trace
+   shows `FactoryImpl` REACHING `@Immutable(hc=true)` mid-run (markLabels include `precedenceMap`,
+   `excusedF=6`), but rounds with `afterMarkNone=true` collapse it to `@Mutable` via the hierarchy
+   rule -- the INTERFACE `Factory`'s `@FinalFields` verdict caps its own implementation through the
+   `isMutable(@FinalFields)` lattice quirk, circularly. `FactoryImpl` now forms-and-retracts on
+   named deps ([IntConstant, BooleanConstant, MethodInfo, TypeInfo, Factory, VariableImpl...]) --
+   the VariableImpl-caches and flagship quests, exactly the roadmap. `CommonType.commonType` itself
+   is now an honest ∅ (nothing this-rooted for the walk; the plain FALSE is world-graph reachability
+   through `runtime`) -- unwritable by design, waiting on the Runtime family's candidacy.
+
+Scoreboard: enm 851 -> 863, eup 344 -> 352, survivors 1, retractions 152 -> 155 (more of the world
+forms before the contraction). Validation: module suites green (16/16 TestCommitLabels), composed
+runs identical up to one documented plain-layer flake (`ValueImpl.IndependentImpl`), gate-off
+Fernflower identical modulo the 1-line ctor-nonModifying flake -- now known to be a FAMILY, not a
+single line: run 2 flipped `Exprent.<init>(int)`, run 3 flipped the documented
+`StatEdge.EdgeType.<init>(int)` back and forth. NEW FLAKE observed and cured: after heavy
+gradle-daemon reuse, javac emitted a burst of bogus syntax errors on valid Fernflower sources
+(`EXIT_PARSER_ERROR`); a daemon restart cleared it -- the parsing-stability.md process-wide-state
+story, now seen at corpus scale.
+
+## The VariableImpl cache quest (2026-07-24, continued): the memo disclaimer
+
+The `cachedFqn`/`cachedHash` lazy memos -- a deliberate hot-path optimization (equals/hashCode on
+the link-graph probes; the fields cannot be made eager, the base ctor cannot call the virtual
+`fullyQualifiedName()`) -- sank `VariableImpl` at the very FIRST exit: non-final fields, MUTABLE
+before any after-mark relaxation, and their writes made `hashCode`/`equals`/`fqnForEquality`
+plainly modifying. The design: extend `@IgnoreModifications` (road §050, "manual hidden content")
+to the SLOT -- on a private idempotent memo, the disclaimer covers the assignment as well as the
+content. Four parts:
+
+1. **cst-impl**: `@IgnoreModifications` on both fields (the source annotates its own idiom).
+2. **Plain layer, UNGATED (contract-honoring, the `loopOverFieldsAndMethods` precedent)**:
+   `ExpressionVisitor.assignment` no longer marks the scope chain modified when the target field is
+   `@IgnoreModifications` -- symmetric with the filter `MethodModification.go` already applies to
+   call-through modification. No-op without the annotation.
+3. **Gated, after-mark only**: `computeImmutableType0`'s assignable-fields exit looks past
+   `@IgnoreModifications` fields when `!afterMark.isNone()` -- the UNCONDITIONAL verdict keeps the
+   honest `@Mutable` (the slot IS assignable), only the eventual relaxation sees through.
+4. **Gated**: the enm walk's own-field-assignment bail skips disclaimed fields.
+
+The unit pin (INPUT_MEMO) exposed part 4 and decoded the dogfood truth: `hashCode` is HONESTLY
+modifying through the abstract `fullyQualifiedName()` dispatch (lazy inspection), so the right
+outcome is not plain non-modification but a landed enm -- and it landed: all three methods carry
+**enm=[methodInfo]**. `VariableImpl` reaches `immutableAfterMark=@Immutable(hc=true)` and is GONE
+from the retraction-root ranking (was 12 lean edges): it now retracts only as a cascade victim of
+the flagships, `broken: []`. Remaining roots: TypeInfo 38, MethodInfo 33, Comment 24, Runtime 21,
+Element 20, Block 16 -- the flagship convergence itself.
+
+Scoreboard: enm 863 -> 866, retractions 155 -> 156, survivors 1. Validation: module suites green
+(17/17 TestCommitLabels), three-corpus A/B for the ungated part -- fernflower byte-identical to the
+canonical baseline, langchain4j A/B byte-identical, timefold identical modulo a DEMONSTRATED
+same-code run-to-run flake (two B-runs differ by 6 lines among `testdomain.*Solution` independence
+verdicts; the flipping set wanders). Composed dogfood determinism: 22 diff lines, all within the
+documented QualifiedNameImpl/SymbolEnum flake set; the eventual layer 0-diff.

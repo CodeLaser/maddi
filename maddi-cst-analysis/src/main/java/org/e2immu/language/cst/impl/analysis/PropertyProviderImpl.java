@@ -62,6 +62,7 @@ public class PropertyProviderImpl {
                 IMMUTABLE_TYPE,
                 IMMUTABLE_TYPE_INDEPENDENT_OF_TYPE_PARAMETERS,
                 IMPLEMENTATIONS,
+                EXTERNAL_IMPLEMENTATIONS,
                 INDEPENDENT_FIELD,
                 INDEPENDENT_METHOD,
                 INDEPENDENT_PARAMETER,

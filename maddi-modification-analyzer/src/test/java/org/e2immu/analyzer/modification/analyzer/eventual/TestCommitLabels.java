@@ -295,6 +295,17 @@ public class TestCommitLabels extends CommonTest {
                 public int viaSub() { inspection.get(); return sub.size2(); }
                 public int viaBuilder() { inspection.get(); return builderLike.foo().length(); }
               }
+              // the UnaryOperatorImpl.operator shape: a subclass method reading a SUPERCLASS field -- the
+              // walk owns inherited fields too; the label names the super's field, tolerated at type level
+              // exactly like an inherited mark
+              static class Base {
+                protected final T item;
+                Base(T item) { this.item = item; }
+              }
+              static class SubClass extends Base {
+                SubClass(T item) { super(item); }
+                public int subSize() { return item.size(); }
+              }
             }
             """;
     // NOTE: the round's other two mechanisms -- the accessor spelling comments() of this.comments in the
@@ -323,6 +334,8 @@ public class TestCommitLabels extends CommonTest {
             assertEquals(Set.of("inspection", "sub"), nonModAfter(carrier, "viaSub", 0));
             // builderLike is a setter-bearing sub-interface: refused (haveSetters can never prove)
             assertEquals(Set.of(), nonModAfter(carrier, "viaBuilder", 0));
+            // item is Base's field, read from SubClass: the inherited-field read is excusable by its label
+            assertEquals(Set.of("item"), nonModAfter(J.findSubType("SubClass"), "subSize", 0));
         } finally {
             EventualCluster.ENABLED = saved;
         }
@@ -339,6 +352,7 @@ public class TestCommitLabels extends CommonTest {
             TypeInfo carrier = J.findSubType("Carrier");
             assertEquals(Set.of(), nonModAfter(carrier, "viaSub", 0));
             assertEquals(Set.of(), nonModAfter(carrier, "viaBuilder", 0));
+            assertEquals(Set.of(), nonModAfter(J.findSubType("SubClass"), "subSize", 0));
         } finally {
             EventualCluster.ENABLED = saved;
         }
@@ -517,6 +531,180 @@ public class TestCommitLabels extends CommonTest {
             assertEquals(Set.of(), nonModAfter(T, "bailLocalAlias", 0));
             // sb = new StringBuilder(): a fresh object is not this-derived; only len()'s label remains
             assertEquals(Set.of("inspection"), nonModAfter(T, "freshLocal", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    private Set<String> unmodAfter(TypeInfo typeInfo, String methodName, int params, int paramIndex) {
+        return typeInfo.findUniqueMethod(methodName, params).parameters().get(paramIndex).analysis()
+                .getOrDefault(PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER, ValueImpl.SetOfStringsImpl.EMPTY_SET)
+                .set();
+    }
+
+    // the compareBinaryToGt0 shape (the internalCompareTo union's last blocker): a static helper chain over
+    // the interface hierarchy, consumed by a bare-this class-rooted caller. Two mechanisms under test: the
+    // ancestor label space (an interface-rooted eup walk handing its root to a param of an ANCESTOR interface
+    // passes the labels through, GreaterThanZero -> Expression), and the dispatch narrowing (a class-rooted
+    // consumer folds the union restricted to its own committable fields when the residue names no field
+    // anywhere in its runtime cone -- U's 'data' is vacuous for a T argument).
+    @Language("java")
+    private static final String INPUT_CHAIN = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class K {
+              interface E { int size(); }
+              interface Sub extends E { int size2(); }
+              static class T implements E {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                @Override public int size() { return inspection.get().length(); }
+                public int viaHelper() { return Helper.viaE(this); }
+              }
+              static class U implements E {
+                private final EventuallyFinalOnDemand<String> data = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { data.setFinal(s); }
+                @Override public int size() { return data.get().length(); }
+              }
+              static class Helper {
+                static int viaE(E e) { return e.size(); }
+                static int viaSub(Sub s) { return viaE(s); }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: eup crosses the ancestor label space; a class-rooted consumer narrows the union")
+    @Test
+    public void testChainShapes() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo K = javaInspector.parse("K", INPUT_CHAIN);
+            analyzer.go(prepWork(K));
+            TypeInfo helper = K.findSubType("Helper");
+
+            // e.size(): the abstract union over T (inspection) and U (data), passed through the interface root
+            assertEquals(Set.of("data", "inspection"), unmodAfter(helper, "viaE", 1, 0));
+            // viaE(s): the root of type Sub handed to a parameter of ANCESTOR type E -- same promise space
+            assertEquals(Set.of("data", "inspection"), unmodAfter(helper, "viaSub", 1, 0));
+            // Helper.viaE(this): the T-rooted consumer narrows [data, inspection] to its own reality --
+            // 'data' names no field in T's cone, those code paths cannot execute on a T argument
+            assertEquals(Set.of("inspection"), nonModAfter(K.findSubType("T"), "viaHelper", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    // the CommonType.commonType shape: direct recursion inside the method whose enm is being computed --
+    // the callee's excuse set IS the set in flight (write-once, unwritten), so reading it bails. The
+    // self-call rule excuses it by the fixpoint hypothesis; the surrounding sites supply the labels.
+    @Language("java")
+    private static final String INPUT_RECURSION = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class R {
+              static class T {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                public int size() { return inspection.get().length(); }
+                public int recDepth(int n) {
+                  if (n <= 0) return size();
+                  int deeper = recDepth(n - 1);
+                  return deeper + size();
+                }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: a direct self-call is excused by the fixpoint hypothesis")
+    @Test
+    public void testSelfCall() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo R = javaInspector.parse("R", INPUT_RECURSION);
+            analyzer.go(prepWork(R));
+            // both the excuse-position and the value-position (local 'deeper') self-calls contribute
+            // nothing; size()'s forward supplies the label
+            assertEquals(Set.of("inspection"), nonModAfter(R.findSubType("T"), "recDepth", 1));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    // the VariableImpl.cachedFqn/cachedHash shape: a private @IgnoreModifications lazy memo. The disclaimer
+    // covers the slot (road §050 extended): the assignment does not modify the owner (ungated,
+    // contract-honoring), and -- under the gate, after-mark only -- the field's assignability does not
+    // block the eventual type-level verdict.
+    @Language("java")
+    private static final String INPUT_MEMO = """
+            import org.e2immu.annotation.rare.IgnoreModifications;
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class M {
+              static class T {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                @IgnoreModifications
+                private String cachedFqn;
+                public void commit(String s) { inspection.setFinal(s); }
+                public int size() { return inspection.get().length(); }
+                public String fqn() {
+                  String f = cachedFqn;
+                  if (f == null) {
+                    f = "T:" + size();
+                    cachedFqn = f;
+                  }
+                  return f;
+                }
+              }
+            }
+            """;
+
+    @DisplayName("memo disclaimer: assigning an @IgnoreModifications field does not modify the owner")
+    @Test
+    public void testMemoField() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo M = javaInspector.parse("M", INPUT_MEMO);
+            analyzer.go(prepWork(M));
+            TypeInfo T = M.findSubType("T");
+            MethodInfo fqn = T.findUniqueMethod("fqn", 0);
+            // ungated semantics: the only own-state write is the disclaimed memo slot; size() is
+            // eventually-non-modifying, so fqn() is plainly modifying ONLY through size()'s pre-mark reads
+            // -- the enm walk excuses it after [inspection]
+            assertEquals(Set.of("inspection"), nonModAfter(T, "fqn", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: the recursive method stays unexcused")
+    @Test
+    public void testSelfCallGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo R = javaInspector.parse("R", INPUT_RECURSION);
+            analyzer.go(prepWork(R));
+            assertEquals(Set.of(), nonModAfter(R.findSubType("T"), "recDepth", 1));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: the chain shapes stay unexcused")
+    @Test
+    public void testChainGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo K = javaInspector.parse("K", INPUT_CHAIN);
+            analyzer.go(prepWork(K));
+            TypeInfo helper = K.findSubType("Helper");
+            assertEquals(Set.of(), unmodAfter(helper, "viaE", 1, 0));
+            assertEquals(Set.of(), unmodAfter(helper, "viaSub", 1, 0));
+            assertEquals(Set.of(), nonModAfter(K.findSubType("T"), "viaHelper", 0));
         } finally {
             EventualCluster.ENABLED = saved;
         }
