@@ -265,6 +265,86 @@ public class TestCommitLabels extends CommonTest {
         }
     }
 
+    // the builder() accessor shape (handoff-builder-leans §4A): a body guarded by a @TestMark observation
+    // is @Only on the side the guard asserts; and a transition on ANOTHER object's lifecycle (a parameter)
+    // no longer bails the walk -- only the arguments carry root-derived content
+    @Language("java")
+    private static final String INPUT_GUARD = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class G {
+              static class T {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                public String builderStyle() {
+                  assert inspection.isVariable();
+                  return inspection.get();
+                }
+                public String guarded() {
+                  if (inspection.isVariable()) return inspection.get();
+                  throw new UnsupportedOperationException();
+                }
+                public String afterGuard() {
+                  assert inspection.isFinal();
+                  return inspection.get();
+                }
+                public void fillOther(StringBuilder sb, T other) {
+                  inspection.get();
+                  other.commit(sb.toString());
+                }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: precondition guards classify @Only, and another object's transition is excusable")
+    @Test
+    public void testGuardsAndForeignTransitions() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo G = javaInspector.parse("G", INPUT_GUARD);
+            analyzer.go(prepWork(G));
+            TypeInfo T = G.findSubType("T");
+
+            var builderStyle = T.findUniqueMethod("builderStyle", 0).analysis()
+                    .getOrDefault(PropertyImpl.EVENTUAL_METHOD, ValueImpl.EventualImpl.NOT_EVENTUAL);
+            assertTrue(builderStyle.isOnly());
+            assertEquals(Boolean.FALSE, builderStyle.after());
+            assertEquals(Set.of("inspection"), builderStyle.fields());
+            var guarded = T.findUniqueMethod("guarded", 0).analysis()
+                    .getOrDefault(PropertyImpl.EVENTUAL_METHOD, ValueImpl.EventualImpl.NOT_EVENTUAL);
+            assertTrue(guarded.isOnly());
+            assertEquals(Boolean.FALSE, guarded.after());
+            var afterGuard = T.findUniqueMethod("afterGuard", 0).analysis()
+                    .getOrDefault(PropertyImpl.EVENTUAL_METHOD, ValueImpl.EventualImpl.NOT_EVENTUAL);
+            assertTrue(afterGuard.isOnly());
+            assertEquals(Boolean.TRUE, afterGuard.after());
+            // other.commit(...) is the PARAMETER's transition, not this's: the walk continues, and the
+            // method's own pre-mark read supplies the label
+            assertEquals(Set.of("inspection"), nonModAfter(T, "fillOther", 2));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: precondition guards are not read, foreign transitions still bail")
+    @Test
+    public void testGuardsGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo G = javaInspector.parse("G", INPUT_GUARD);
+            analyzer.go(prepWork(G));
+            TypeInfo T = G.findSubType("T");
+            var builderStyle = T.findUniqueMethod("builderStyle", 0).analysis()
+                    .getOrDefault(PropertyImpl.EVENTUAL_METHOD, ValueImpl.EventualImpl.NOT_EVENTUAL);
+            assertFalse(builderStyle.isEventual());
+            assertEquals(Set.of(), nonModAfter(T, "fillOther", 2));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
     @DisplayName("gate on: bare this, non-committable fields, and aliasing locals bail; fresh locals do not")
     @Test
     public void testBailShapes() {

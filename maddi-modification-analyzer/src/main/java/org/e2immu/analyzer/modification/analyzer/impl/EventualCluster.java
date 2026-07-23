@@ -175,12 +175,21 @@ public class EventualCluster {
     // log-only diagnostic (MODREACH_EXPLAIN style): print DIRECT assumption edges whose candidate FQN
     // matches the substring -- the ledger the contraction walks is otherwise only visible after folding
     private static final String EC_ASSUME_DEBUG = System.getenv("EC_ASSUME_DEBUG");
+    // the computation (method/parameter/type) the eventual analyzer is currently running, for ECASSUME
+    // site attribution; purely diagnostic, never read by any verdict path
+    private final ThreadLocal<String> debugContext = new ThreadLocal<>();
+
+    /** Diagnostic only: name the computation subsequent witnessed assumptions on this thread belong to. */
+    public void setDebugContext(String context) {
+        if (EC_ASSUME_DEBUG != null) debugContext.set(context);
+    }
 
     private void record(TypeInfo member, TypeInfo candidate) {
         if (assumptions.computeIfAbsent(member, m -> ConcurrentHashMap.newKeySet()).add(candidate)) {
             if (EC_ASSUME_DEBUG != null && candidate.fullyQualifiedName().contains(EC_ASSUME_DEBUG)) {
                 System.out.println("ECASSUME " + member.fullyQualifiedName()
-                                   + " -> " + candidate.fullyQualifiedName());
+                                   + " -> " + candidate.fullyQualifiedName()
+                                   + " at " + debugContext.get());
             }
             LOGGER.debug("EC: {} optimistically assumes {} is eventually immutable", member, candidate);
         }
