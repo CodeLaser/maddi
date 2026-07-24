@@ -45,6 +45,8 @@ public class TestAnalyzerPluginShadedJarIsolation {
     public void shadedPluginResolvesAndRunsFromLocalRepo(@TempDir Path projectDir) throws IOException {
         String localRepo = System.getProperty("e2immu.localPluginRepo");
         assertNotNull(localRepo, "system property e2immu.localPluginRepo must be set by the build");
+        String pluginVersion = System.getProperty("e2immu.pluginVersion");
+        assertNotNull(pluginVersion, "system property e2immu.pluginVersion must be set by the build");
 
         String repoUri = Path.of(localRepo).toUri().toString();
         // Resolve the plugin ONLY from the local repo (no withPluginClasspath, no other repositories),
@@ -60,14 +62,14 @@ public class TestAnalyzerPluginShadedJarIsolation {
         Files.writeString(projectDir.resolve("build.gradle.kts"), """
                 plugins {
                     java
-                    id("org.e2immu.analyzer-plugin") version "0.8.2"
+                    id("org.e2immu.analyzer-plugin") version "%s"
                 }
                 e2immu {
                     jmods = "java.base"
                     analysisSteps = "modification"
                     sourcePackages = "com.example"
                 }
-                """);
+                """.formatted(pluginVersion));
         Path pkg = Files.createDirectories(projectDir.resolve("src/main/java/com/example"));
         Files.writeString(pkg.resolve("Counter.java"), """
                 package com.example;
