@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Turns a list of {@link CompileInvocation}s (parsed {@code javac} or {@code kotlinc} command lines) into a
@@ -120,13 +121,22 @@ public class CompileListToSourceSets {
     private static Map<String, SourceSet> handleClasspath(List<? extends CompileInvocation> list,
                                                           Map<String, SourceSet> sourceSetsByPath,
                                                           Map<String, String> jarFileToDestinationModuleJars) {
+        // A jar is a module iff it appears on some invocation's --module-path. Precompute this over ALL invocations
+        // so the flag is correct regardless of the order we first meet the jar, or whether it also sits on some
+        // classpath elsewhere: a modular dependency must reach the module path for its module's requires to resolve.
+        Set<String> moduleJarNames = list.stream()
+                .filter(inv -> inv.modulePath() != null)
+                .flatMap(inv -> inv.modulePath().stream())
+                .filter(p -> p.endsWith(".jar"))
+                .map(CompileListToSourceSets::lastPart)
+                .collect(Collectors.toSet());
         Map<String, SourceSet> classPath = new HashMap<>();
         for (CompileInvocation inv : list) {
             String destination = inv.destination();
             if (inv.classpath() != null) {
                 for (String part : inv.classpath()) {
                     if (part.endsWith(".jar")) {
-                        handleJarInClasspath(sourceSetsByPath, part, classPath, destination);
+                        handleJarInClasspath(sourceSetsByPath, part, classPath, destination, moduleJarNames);
                     } else {
                         Path path = Path.of(part);
                         if (Files.isDirectory(path)) {
@@ -139,7 +149,7 @@ public class CompileListToSourceSets {
                 for (String part : inv.modulePath()) {
                     if (part.endsWith(".jar")) {
                         if (!jarFileToDestinationModuleJars.containsKey(part)) {
-                            handleJarInClasspath(sourceSetsByPath, part, classPath, destination);
+                            handleJarInClasspath(sourceSetsByPath, part, classPath, destination, moduleJarNames);
                         }
                     }
                 }
@@ -170,7 +180,8 @@ public class CompileListToSourceSets {
     private static void handleJarInClasspath(Map<String, SourceSet> sourceSetsByPath,
                                              String part,
                                              Map<String, SourceSet> classPath,
-                                             String destination) {
+                                             String destination,
+                                             Set<String> moduleJarNames) {
         String lastPart = lastPart(part);
         SourceSet inMap = classPath.get(lastPart);
         URI uri = URI.create("file:" + part);
@@ -181,6 +192,7 @@ public class CompileListToSourceSets {
                     .setUri(uri)
                     .setLibrary(true)
                     .setExternalLibrary(true)
+                    .setModule(moduleJarNames.contains(lastPart))
                     .build();
             classPath.put(lastPart, sourceSet);
             sourceSetsByPath.put(part, sourceSet);
@@ -292,6 +304,11 @@ public class CompileListToSourceSets {
         int newIndex = duplicateNamePrevention.merge(result.name(), 1, Integer::sum);
         String name = newIndex == 1 ? result.name() : result.name() + newIndex;
         boolean test = result.testName() != null || !inv.friendPaths().isEmpty();
+        // A compiled source set is a named module iff it was compiled in module mode: maven/gradle use a --module-path
+        // only for a (main) source set that declares a module-info. Test source sets are patched into their main
+        // module and stay non-module. (The source files aren't on the -X "Command line options:" line, so we can't key
+        // off a module-info.java argument; the module path is the reliable log-derivable signal.)
+        boolean isModule = !test && inv.modulePath() != null && !inv.modulePath().isEmpty();
         SourceSet sourceSet = new SourceSetImpl.Builder()
                 .setName(name)
                 .setBuildUnit(computeBuildUnit(destination))
@@ -299,6 +316,7 @@ public class CompileListToSourceSets {
                 .setUri(uri)
                 .setSourceEncoding(encoding)
                 .setTest(test)
+                .setModule(isModule)
                 .setDependencies(dependencies)
                 .build();
         sourceSetsByDestination.put(destination, sourceSet);

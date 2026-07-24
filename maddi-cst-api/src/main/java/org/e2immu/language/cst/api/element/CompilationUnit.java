@@ -109,7 +109,11 @@ public interface CompilationUnit extends Element {
     /** Returns {@code true} if this compilation unit belongs to an external library. {@link #partOfJdk()} implies this. */
     default boolean externalLibrary() {
         SourceSet set = sourceSet();
-        assert set != null;
-        return set.externalLibrary();
+        // Tolerate a null source set (as partOfJdk() already does: "null for primitives"), rather than asserting on it.
+        // This matters once module-info is part of the model (i.e. parsing with ignoreModule=false): the call graph
+        // then walks the module descriptors' annotations, and an annotation type can resolve to a compilation unit
+        // with no source set (a primitive/synthetic/unresolved unit). Such a unit is effectively external -- not a
+        // parsed-from-source type -- so treat null as external instead of throwing an AssertionError from here.
+        return set == null || set.externalLibrary();
     }
 }
