@@ -285,10 +285,14 @@ public class ComputeCallGraph {
     }
 
     private void doAnnotations(Info from, long weight) {
-        // references to classes
+        // references to classes: use accept(), not externalsToAccept, so that an annotation whose type is a
+        // source (internal) type -- e.g. a project-defined @Inject -- is recorded like any other declaration
+        // reference. externalsToAccept only decides which EXTERNAL types to keep; internal types are covered by
+        // the primaryTypes check inside accept(). Using externalsToAccept here silently dropped every internal
+        // annotation edge (addType, for ordinary references, correctly uses accept()).
         from.annotations().stream()
                 .map(AnnotationExpression::typeInfo)
-                .filter(externalsToAccept)
+                .filter(this::accept)
                 .forEach(to -> builder.mergeEdge(from, to, weight));
         // references to fields
         from.annotations().stream()
