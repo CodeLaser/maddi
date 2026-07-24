@@ -122,7 +122,9 @@ public record ResolveJavaDoc(Runtime runtime, TypeData typeData) {
         String fqn = pkg + "." + name;
         t = typeData.getType(fqn);
         if (t != null) {
-            detailedSourcesOfType(fqn, source, dsb, t);
+            // the source holds the (possibly partially-qualified) name as written, not the fqn we resolved to;
+            // stamping the detailed source with the fqn's length overshoots the token and overflows the line.
+            detailedSourcesOfType(name, source, dsb, t);
             return t;
         }
 
