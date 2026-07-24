@@ -17,6 +17,7 @@ package org.e2immu.gradleplugin;
 import org.gradle.testkit.runner.BuildResult;
 import org.gradle.testkit.runner.GradleRunner;
 import org.gradle.testkit.runner.TaskOutcome;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -38,13 +39,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * thing that carries the analyzer is the shaded jar. If a class were missing from the shadow jar (or a
  * dependency were left in the POM but not bundled), the run would fail with {@code NoClassDefFoundError} or
  * an unresolved dependency. A green run means the jar stands alone.
+ * <p>
+ * Slow: round-trips through a nested Gradle build (GradleTestKit spins up its own daemon to resolve
+ * and run the plugin), which can take minutes rather than seconds — excluded from the fast `test`
+ * suite, runs only under `slowTest`.
  */
+@Tag("slow")
 public class TestAnalyzerPluginShadedJarIsolation {
 
     @Test
     public void shadedPluginResolvesAndRunsFromLocalRepo(@TempDir Path projectDir) throws IOException {
         String localRepo = System.getProperty("e2immu.localPluginRepo");
         assertNotNull(localRepo, "system property e2immu.localPluginRepo must be set by the build");
+        String pluginVersion = System.getProperty("e2immu.pluginVersion");
+        assertNotNull(pluginVersion, "system property e2immu.pluginVersion must be set by the build");
 
         String repoUri = Path.of(localRepo).toUri().toString();
         // Resolve the plugin ONLY from the local repo (no withPluginClasspath, no other repositories),
@@ -60,14 +68,14 @@ public class TestAnalyzerPluginShadedJarIsolation {
         Files.writeString(projectDir.resolve("build.gradle.kts"), """
                 plugins {
                     java
-                    id("org.e2immu.analyzer-plugin") version "0.8.2"
+                    id("org.e2immu.analyzer-plugin") version "%s"
                 }
                 e2immu {
                     jmods = "java.base"
                     analysisSteps = "modification"
                     sourcePackages = "com.example"
                 }
-                """);
+                """.formatted(pluginVersion));
         Path pkg = Files.createDirectories(projectDir.resolve("src/main/java/com/example"));
         Files.writeString(pkg.resolve("Counter.java"), """
                 package com.example;

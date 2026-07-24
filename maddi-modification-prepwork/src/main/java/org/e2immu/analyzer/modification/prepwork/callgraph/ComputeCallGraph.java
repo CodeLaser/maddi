@@ -174,6 +174,33 @@ public class ComputeCallGraph {
     D. from method body/field initializer to any type, method or field referenced (as method call, constructor call,
        method reference).
 
+    !! E. THE ONE INVERTED EDGE — read this before consuming the graph !!
+
+       When a method reads or writes a field OF ITS OWN TYPE, the edge is recorded BACKWARDS:
+
+           field -> method          NOT   method -> field
+
+       (see handleFieldAccess). Every other reference in D points from the referring member to what it
+       references; this one does not. It is historical, it is deliberate, and it is load-bearing: the
+       analysis order must visit a field's value before the methods that consume it, so the arrow
+       encodes "the field's value flows into the method", not "the method depends on the field".
+
+       Consequence for anyone walking this graph: iterating only the OUTGOING edges of a member will
+       silently miss every access it makes to its own type's state. There is no error and no gap in the
+       vertex set — the relation is simply not where you looked. If you need "what does this member
+       touch", you must also scan incoming edges from FieldInfo vertices owned by the member's own type.
+       Two consumers have been caught by this.
+
+       Note the asymmetry is only for the OWNING type: a method reading another type's field produces the
+       ordinary method -> field edge, so the same walk gets self-access and foreign access from opposite
+       directions.
+
+       A related trap, different mechanism, same reader: a lambda or anonymous class is its own TypeInfo
+       vertex (see A), so ITS outgoing edges are attributed to that synthetic type and not to the method
+       it is written inside. A member-level walk has to fold them back into the enclosing method
+       (TypeInfo.enclosingMethod), or every dependency introduced by a lambda looks like a dependency of
+       the type declaration.
+
     FIXME
         we don't want types referenced as static type expressions, or types of 'this' when represents the type itself
 
@@ -191,6 +218,12 @@ public class ComputeCallGraph {
 
         typeInfo.interfacesImplemented().forEach(pt -> addType(typeInfo, pt, TYPE_HIERARCHY)); // B
         if (typeInfo.parentClass() != null) addType(typeInfo, typeInfo.parentClass(), TYPE_HIERARCHY); // B
+        // a sealed type's 'permits' names its subclasses: a real parent->child reference (and a compile-time
+        // dependency). addType() would drop it -- the child is assignable to the parent, so addType's
+        // self/supertype guard fires -- so add the hierarchy edge directly, like mergeEdge does elsewhere.
+        typeInfo.permittedWhenSealed().forEach(child -> {
+            if (child != typeInfo && accept(child)) builder.mergeEdge(typeInfo, child, TYPE_HIERARCHY); // B
+        });
         typeInfo.typeParameters().forEach(tp -> tp.typeBounds()
                 .forEach(pt -> addType(typeInfo, pt, TYPES_IN_DECLARATION))); // C
         doAnnotations(typeInfo, TYPES_IN_DECLARATION);
@@ -258,10 +291,14 @@ public class ComputeCallGraph {
     }
 
     private void doAnnotations(Info from, long weight) {
-        // references to classes
+        // references to classes: use accept(), not externalsToAccept, so that an annotation whose type is a
+        // source (internal) type -- e.g. a project-defined @Inject -- is recorded like any other declaration
+        // reference. externalsToAccept only decides which EXTERNAL types to keep; internal types are covered by
+        // the primaryTypes check inside accept(). Using externalsToAccept here silently dropped every internal
+        // annotation edge (addType, for ordinary references, correctly uses accept()).
         from.annotations().stream()
                 .map(AnnotationExpression::typeInfo)
-                .filter(externalsToAccept)
+                .filter(this::accept)
                 .forEach(to -> builder.mergeEdge(from, to, weight));
         // references to fields
         from.annotations().stream()
@@ -324,6 +361,12 @@ public class ComputeCallGraph {
                     for (MethodInfo mi : anonymousType.constructorsAndMethods()) {
                         handleMethodCall(info, mi);
                     }
+                    // the arguments to 'new X(...) { }' (and its scope) are NOT part of the anonymous body:
+                    // visit them explicitly, otherwise a type referenced only there -- e.g. 'new Y()' passed as
+                    // an argument, or 'Y::new' in an enum constant that has a body -- is dropped when we stop
+                    // descending here.
+                    if (cc.object() != null) cc.object().visit(this);
+                    cc.parameterExpressions().forEach(arg -> arg.visit(this));
                     return false;
                 }
                 if (cc.constructor() != null) {
@@ -365,9 +408,24 @@ public class ComputeCallGraph {
         }
     }
 
+    /**
+     * <b>Warning: this edge is inverted for a method's own fields, unlike every other reference edge.</b>
+     * <p>
+     * When {@code info} is a method of the very type that owns the field, the edge runs
+     * {@code field -> method}; in every other case it runs {@code info -> field}. The inversion is
+     * deliberate and load-bearing — the analysis order has to reach a field's value before the methods
+     * that consume it, so the arrow means "this value flows into that method", not "that method depends
+     * on this field". Reversing it would put every accessor ahead of the state it reads.
+     * <p>
+     * The cost is borne by readers: <b>walking only a member's outgoing edges misses every access it
+     * makes to its own type's state</b>, silently, since nothing is absent from the graph — the relation
+     * merely points the other way. Anything asking "what does this member touch" must also collect the
+     * incoming edges from {@code FieldInfo} vertices owned by that member's type. See edge type E in the
+     * class comment.
+     */
     private void handleFieldAccess(Info info, FieldReference fr) {
         if (info instanceof MethodInfo mi && mi.typeInfo() == fr.fieldInfo().owner()) {
-            builder.mergeEdge(fr.fieldInfo(), info, REFERENCES);
+            builder.mergeEdge(fr.fieldInfo(), info, REFERENCES); // INVERTED on purpose; see javadoc
         } else {
             builder.mergeEdge(info, fr.fieldInfo(), REFERENCES);
         }

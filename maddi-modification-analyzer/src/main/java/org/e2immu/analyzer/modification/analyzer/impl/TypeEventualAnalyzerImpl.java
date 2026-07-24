@@ -33,23 +33,30 @@ import org.e2immu.language.cst.api.expression.Negation;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.statement.AssertStatement;
+import org.e2immu.language.cst.api.statement.IfElseStatement;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
+import org.e2immu.language.cst.api.statement.ThrowStatement;
 import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -59,10 +66,23 @@ import static org.e2immu.language.cst.impl.analysis.PropertyImpl.FINAL_FIELD;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD;
+import static org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD;
+import static org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.EventualImpl.NOT_EVENTUAL;
 
 public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements TypeEventualAnalyzer {
+
+    // log-only diagnostic gate (MODREACH_EXPLAIN style): substring of a type FQN to trace in computeTypeLevel
+    private static final String EC_TYPE_DEBUG = System.getenv("EC_TYPE_DEBUG");
+
+    private static boolean ecTypeDebug(TypeInfo typeInfo) {
+        if (EC_TYPE_DEBUG == null) return false;
+        for (String part : EC_TYPE_DEBUG.split(",")) {
+            if (!part.isBlank() && typeInfo.fullyQualifiedName().contains(part)) return true;
+        }
+        return false;
+    }
 
     /** which side of the state transition a call places its caller on; ordered by precedence */
     private enum Side {
@@ -87,6 +107,16 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         this.contractReader = new ContractReader(runtime);
         this.typeImmutableAnalyzer = typeImmutableAnalyzer;
         this.eventualCluster = eventualCluster;
+    }
+
+    /** Diagnostic only (EC_SITE_DEBUG): is the current computation one the user asked to trace? */
+    private boolean siteDebug() {
+        return EventualCluster.SITE_DEBUG && EventualCluster.siteDebugMatches(eventualCluster.debugContext());
+    }
+
+    /** Diagnostic only: an ECSITE line attributed to the current computation. */
+    private void ecsite(String message) {
+        EventualCluster.sitePrint("[" + eventualCluster.debugContext() + "] " + message);
     }
 
     /**
@@ -124,9 +154,11 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             // in analysis(), and for a source method nothing else puts them there.
             Value.Eventual eventual = eventualOf(methodInfo);
             boolean contracted = eventual.isEventual();
+            eventualCluster.setDebugContext("eventual " + methodInfo.fullyQualifiedName());
             eventualCluster.beginAssumptionBuffer();
             if (!contracted) eventual = computeEventual(typeInfo, methodInfo);
             if (eventual != null && eventual.isEventual()) {
+                if (siteDebug()) ecsite("WRITE eventual=" + eventual);
                 methodInfo.analysis().set(EVENTUAL_METHOD, eventual);
                 DECIDE.debug("TE: {} eventual of method {} = {}", contracted ? "Contracted" : "Decide",
                         methodInfo, eventual);
@@ -138,8 +170,11 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         }
         for (MethodInfo methodInfo : typeInfo.methods()) {
             if (methodInfo.analysis().haveAnalyzedValueFor(EVENTUALLY_NON_MODIFYING_METHOD)) continue;
+            eventualCluster.setDebugContext("enm " + methodInfo.fullyQualifiedName());
             eventualCluster.beginAssumptionBuffer();
             Set<String> labels = computeEventuallyNonModifying(typeInfo, methodInfo);
+            if (siteDebug()) ecsite(labels != null && !labels.isEmpty()
+                    ? "WRITE enm=" + new TreeSet<>(labels) : "no enm (" + labels + ")");
             if (labels != null && !labels.isEmpty()) {
                 methodInfo.analysis().set(EVENTUALLY_NON_MODIFYING_METHOD,
                         new ValueImpl.SetOfStringsImpl(Set.copyOf(labels)));
@@ -150,10 +185,35 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 eventualCluster.discardAssumptionBuffer();
             }
         }
+        // EVENTUALLY_UNMODIFIED_PARAMETER (spec: docs/spec-eventually-unmodified-parameter.md): the parameter
+        // twin of the loop above -- the same commit walk, rooted in a parameter instead of this. Entirely under
+        // the gate: nothing here runs, and nothing is written, without EVENTUALCLUSTER.
+        if (EventualCluster.ENABLED) {
+            for (MethodInfo methodInfo : typeInfo.methods()) {
+                for (ParameterInfo pi : methodInfo.parameters()) {
+                    if (pi.analysis().haveAnalyzedValueFor(EVENTUALLY_UNMODIFIED_PARAMETER)) continue;
+                    eventualCluster.setDebugContext("eup " + pi.fullyQualifiedName());
+                    eventualCluster.beginAssumptionBuffer();
+                    Set<String> labels = computeEventuallyUnmodified(typeInfo, methodInfo, pi);
+                    if (siteDebug()) ecsite(labels != null && !labels.isEmpty()
+                            ? "WRITE eup=" + new TreeSet<>(labels) : "no eup (" + labels + ")");
+                    if (labels != null && !labels.isEmpty()) {
+                        pi.analysis().set(EVENTUALLY_UNMODIFIED_PARAMETER,
+                                new ValueImpl.SetOfStringsImpl(Set.copyOf(labels)));
+                        DECIDE.debug("TE: Decide eventually-unmodified of parameter {} after {}", pi, labels);
+                        propertyChanges.incrementAndGet();
+                        eventualCluster.commitAssumptionBuffer();
+                    } else {
+                        eventualCluster.discardAssumptionBuffer();
+                    }
+                }
+            }
+        }
         // EXPERIMENTAL (EVENTUALCLUSTER): once this type's method-level eventual intent is known, close it upward
         // so its supertypes join the cluster (InfoImpl and the interfaces have no eventual method of their own).
         eventualCluster.noteCandidate(typeInfo);
         eventualCluster.noteHierarchy(typeInfo);
+        eventualCluster.setDebugContext("typeLevel " + typeInfo.fullyQualifiedName());
         eventualCluster.beginAssumptionBuffer();
         computeTypeLevel(typeInfo, activateCycleBreaking);
         if (typeInfo.analysis().haveAnalyzedValueFor(EVENTUALLY_IMMUTABLE_TYPE)) {
@@ -218,7 +278,11 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             for (FieldInfo fieldInfo : typeInfo.fields()) {
                 if (fieldInfo.isStatic()) continue;
                 if (!fieldInfo.analysis().getOrDefault(FINAL_FIELD, ValueImpl.BoolImpl.FALSE).isTrue()) continue;
-                if (!excusedFields.contains(fieldInfo) && fieldHoldsCommittableContent(fieldInfo)) {
+                // the container ride-along extends the markless carrier: a final, owner-unmutated container
+                // of committable content (ExpressionImpl.comments) rides along exactly like a field of
+                // eventually immutable type -- once the elements commit, the stable wrapper acts immutable
+                if (!excusedFields.contains(fieldInfo)
+                    && (fieldHoldsCommittableContent(fieldInfo) || containerContentCommittable(fieldInfo))) {
                     markLabels.add(fieldInfo.name());
                     excusedFields.add(fieldInfo);
                 }
@@ -255,12 +319,51 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 }
             }
         }
-        if (markLabels.isEmpty()) return;
+        // EVENTUALCLUSTER, Part B -- super -> markless member label inheritance (the downward interface
+        // closure at VERDICT level, and its class twin): a markless cluster member (the Comment
+        // sub-interface; SingleLineCommentImpl, a value object of Strings) has no transition of its own --
+        // its only blocker is the HIERARCHY, whose eventual promise is the object's, not one type's
+        // (the immutableSuper argument). Inherit the labels of every eventual supertype; a super whose
+        // verdict is still circular counts via the witnessed seed (labels arrive when it forms, and the
+        // walk simply returns empty-handed until then); an inadmissible super means no verdict, exactly as
+        // before. Soundness rests on immutableAfterMark below: the member's own fields and methods are
+        // still checked in full -- the inherited labels only NAME the transition.
+        if (markLabels.isEmpty() && EventualCluster.ENABLED) {
+            boolean admissible = true;
+            Set<String> inherited = new HashSet<>();
+            for (ParameterizedType superType : typeInfo.parentAndInterfacesImplemented()) {
+                TypeInfo st = superType.typeInfo();
+                if (st == null || st.isJavaLangObject()) continue;
+                Value.EventuallyImmutable sv = st.analysis().getOrDefault(
+                        EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+                if (sv.isEventual()) {
+                    inherited.addAll(Set.of(sv.markLabel().split(",")));
+                } else if (!eventualCluster.treatAsEventuallyImmutable(typeInfo, st, sv)) {
+                    admissible = false;
+                    break;
+                }
+            }
+            if (admissible) markLabels.addAll(inherited);
+        }
+        // EC_TYPE_DEBUG=<fqn substring>: print the type-level decision path (log-only, env-gated diagnostic
+        // in the MODREACH_EXPLAIN style) -- why does a type with fully excused methods still get no verdict?
+        boolean dbg = ecTypeDebug(typeInfo);
+        if (markLabels.isEmpty()) {
+            if (dbg) System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " no mark labels");
+            return;
+        }
 
-        TypeImmutableAnalyzer.AfterMark afterMark =
-                new TypeImmutableAnalyzer.AfterMark(Set.copyOf(excusedFields), Set.copyOf(excusedMethods));
+        // under the gate, any attempt with mark labels IS an after-mark evaluation, even when nothing
+        // resolves to an own excused field or method (the inherited-marks shape: a markless sub-interface)
+        TypeImmutableAnalyzer.AfterMark afterMark = new TypeImmutableAnalyzer.AfterMark(
+                Set.copyOf(excusedFields), Set.copyOf(excusedMethods), EventualCluster.ENABLED);
         Value.Immutable afterMarkLevel = typeImmutableAnalyzer.immutableAfterMark(typeInfo, afterMark,
                 activateCycleBreaking);
+        if (dbg) {
+            System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " markLabels=" + new TreeSet<>(markLabels)
+                               + " excusedM=" + excusedMethods.size() + " excusedF=" + excusedFields.size()
+                               + " afterMark=" + afterMarkLevel + " cycleBreaking=" + activateCycleBreaking);
+        }
         if (afterMarkLevel == null) {
             UNDECIDED.debug("TE: Eventual immutability of type {} undecided", typeInfo);
             return;
@@ -268,7 +371,20 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         Value.Immutable unconditional = typeInfo.analysis()
                 .getOrDefault(IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.MUTABLE);
         if (afterMarkLevel.compareTo(unconditional) <= 0) {
+            if (dbg) System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " buys nothing: afterMark="
+                                        + afterMarkLevel + " <= unconditional=" + unconditional);
             return; // the mark buys nothing; do not claim eventuality the type does not need
+        }
+        // EVENTUALCLUSTER: a weak (final-fields) after-mark level computed BEFORE the terminal phase is
+        // usually an artifact of enm labels still accumulating: the verdict is write-once, and
+        // immutableSuper's isMutable(@FinalFields) check then hard-sinks every subtype -- the TypeInfo
+        // interface froze @FinalFields(after="inspection") in iteration 1 with 2 of its eventual 33 labels
+        // present, making TypeInfoImpl MUTABLE forever. Defer weak verdicts to the cycle-breaking
+        // iterations, when the method layer has converged; a level still FINAL_FIELDS then is honest.
+        if (EventualCluster.ENABLED && afterMarkLevel.isFinalFields() && !activateCycleBreaking) {
+            if (dbg) System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
+                                        + " weak after-mark level deferred to the terminal phase");
+            return;
         }
         String label = markLabels.stream().sorted().collect(Collectors.joining(","));
         Value.EventuallyImmutable value = new ValueImpl.EventuallyImmutableImpl(label, afterMarkLevel);
@@ -282,7 +398,8 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
     private void resolveExcusedFields(TypeInfo typeInfo, Set<String> labels, Set<FieldInfo> excusedFields) {
         for (String label : labels) {
             FieldInfo fieldInfo = typeInfo.getFieldByName(label, false);
-            if (fieldInfo != null && fieldHoldsCommittableContent(fieldInfo)) {
+            if (fieldInfo != null
+                && (fieldHoldsCommittableContent(fieldInfo) || containerContentCommittable(fieldInfo))) {
                 excusedFields.add(fieldInfo);
             }
         }
@@ -292,7 +409,11 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      *  EVENTUALCLUSTER gate -- a cluster candidate whose verdict is still circular (see {@link EventualCluster}).
      *  {@code member} is the type holding the field, recorded as the assumer when the excusal is optimistic. */
     private boolean isEventuallyImmutableFieldType(TypeInfo member, TypeInfo fieldType) {
-        return eventualCluster.treatAsEventuallyImmutable(member, fieldType, eventuallyImmutable(fieldType));
+        boolean result = eventualCluster.treatAsEventuallyImmutable(member, fieldType, eventuallyImmutable(fieldType));
+        if (result && siteDebug() && !eventuallyImmutable(fieldType).isEventual()) {
+            ecsite("lean on " + fieldType.fullyQualifiedName());
+        }
+        return result;
     }
 
     /** null when nothing can be concluded; never {@code NOT_EVENTUAL} (we do not record absence). */
@@ -305,6 +426,15 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         Set<String> marked = new HashSet<>();
         Set<String> onlyBefore = new HashSet<>();
         Set<String> onlyAfter = new HashSet<>();
+        // EVENTUALCLUSTER (handoff-builder-leans §4A): the PRECONDITION shape. A body guarded by a
+        // @TestMark observation -- 'assert inspection.isVariable();' or the if-throw variant -- belongs
+        // to the side the guard asserts: calling it on the other side throws. This is what classifies
+        // the builder() accessors @Only(before=inspection) instead of leaving them for the enm layer to
+        // mislabel via doomed Builder-candidacy leans. computeTestMark above keeps pure @TestMark
+        // forwards out of here; a guard elsewhere in the body is not a precondition and stays ignored.
+        if (EventualCluster.ENABLED) {
+            scanPreconditions(typeInfo, methodInfo, onlyBefore, onlyAfter);
+        }
         methodInfo.methodBody().visit(e -> {
             if (e instanceof MethodCall mc) {
                 Value.Eventual callee = eventualOf(mc.methodInfo());
@@ -327,6 +457,62 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
     }
 
     /**
+     * The leading guards of the body, read as preconditions: leading {@code assert <state test>} statements,
+     * and the two if-throw shapes ({@code if (!<test>) throw …; <live>} and {@code if (<test>) { <live> }
+     * throw …;}). Each contributes the guard's labels to the side the LIVE path requires.
+     */
+    private void scanPreconditions(TypeInfo typeInfo, MethodInfo methodInfo,
+                                   Set<String> onlyBefore, Set<String> onlyAfter) {
+        List<Statement> statements = methodInfo.methodBody().statements().stream()
+                .filter(s -> !s.isSynthetic()).toList();
+        for (Statement statement : statements) {
+            if (statement instanceof AssertStatement as) {
+                recordGuardSide(typeInfo, as.expression(), false, onlyBefore, onlyAfter);
+            } else {
+                break; // preconditions are the LEADING asserts only
+            }
+        }
+        if (!statements.isEmpty() && statements.getFirst() instanceof IfElseStatement ifElse
+            && ifElse.elseBlock().isEmpty()) {
+            boolean thenThrows = ifElse.block().statements().size() == 1
+                                 && ifElse.block().statements().getFirst() instanceof ThrowStatement;
+            boolean tailThrows = statements.size() == 2 && statements.get(1) instanceof ThrowStatement;
+            if (thenThrows) {
+                // if (<guard>) throw …; <live>  -- the live path requires the guard FALSE
+                recordGuardSide(typeInfo, ifElse.expression(), true, onlyBefore, onlyAfter);
+            } else if (tailThrows) {
+                // if (<guard>) { <live> } throw …;  -- the live path requires the guard TRUE
+                recordGuardSide(typeInfo, ifElse.expression(), false, onlyBefore, onlyAfter);
+            }
+        }
+    }
+
+    /** Resolve a guard expression to a {@code @TestMark} observation on this type's state and record its
+     *  labels on the side the (possibly negated) guard asserts. Anything else is silently ignored. */
+    private void recordGuardSide(TypeInfo typeInfo, Expression expression, boolean flip,
+                                 Set<String> onlyBefore, Set<String> onlyAfter) {
+        Expression expr = expression;
+        boolean negated = flip;
+        while (expr instanceof Negation negation) {
+            negated = !negated;
+            expr = negation.expression();
+        }
+        if (!(expr instanceof MethodCall mc)) return;
+        Value.Eventual callee = eventualOf(mc.methodInfo());
+        if (!callee.isTestMark()) return;
+        Set<String> labels = labelsOfReceiver(typeInfo, mc, callee);
+        if (labels == null) return;
+        // test() == TRUE: the observation returns true in the AFTER state (isSet); FALSE: in the BEFORE
+        // state (isVariable). The live path holds the guard true (modulo negations).
+        boolean trueMeansAfter = Boolean.TRUE.equals(callee.test()) ^ negated;
+        if (trueMeansAfter) {
+            onlyAfter.addAll(labels);
+        } else {
+            onlyBefore.addAll(labels);
+        }
+    }
+
+    /**
      * The labels after which a method is non-modifying, or null when nothing can be concluded. The method-level
      * twin of {@code @Final(after=)}: a getter such as {@code TypeInfoImpl.access()} is {@code @Modified} only
      * because it reads through {@code this.inspection.get()}, and {@code inspection} is eventually immutable, so
@@ -344,29 +530,61 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         if (methodInfo.isStatic() || methodInfo.isAbstract() || methodInfo.methodBody().isEmpty()) return null;
         // a method that effects the transition (@Mark) or is confined to one side (@Only) is not "non-modifying
         // after the mark": it belongs to the transition, and calling it after the mark throws. Leave it eventual.
-        if (methodInfo.analysis().getOrDefault(EVENTUAL_METHOD, NOT_EVENTUAL).isEventual()) return null;
+        if (methodInfo.analysis().getOrDefault(EVENTUAL_METHOD, NOT_EVENTUAL).isEventual()) {
+            if (siteDebug()) ecsite("enm guard: eventual="
+                    + methodInfo.analysis().getOrDefault(EVENTUAL_METHOD, NOT_EVENTUAL));
+            return null;
+        }
         // only relevant for a method that DOES modify: a plain non-modifying method needs no after-label
         Value.Bool nonModifying = methodInfo.analysis().getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
-        if (nonModifying == null || nonModifying.isTrue()) return null;
+        if (nonModifying == null || nonModifying.isTrue()) {
+            if (siteDebug()) ecsite("enm guard: nonModifying=" + (nonModifying == null ? "null" : "true"));
+            return null;
+        }
 
         Set<String> labels = new HashSet<>();
         boolean[] bail = {false};
+        WalkRoot walk = WalkRoot.ofThis(typeInfo, methodInfo);
         // EVENTUALCLUSTER: locals holding a 'this'-derived value (with committing labels; null = poisoned),
         // and locals holding provably fresh objects (every assignment a plain constructor call)
         LocalContext localContext = EventualCluster.ENABLED
-                ? buildLocalContext(typeInfo, methodInfo) : LocalContext.EMPTY;
+                ? buildLocalContext(walk, methodInfo) : LocalContext.EMPTY;
         methodInfo.methodBody().visit(e -> {
             if (bail[0]) return false;
             if (e instanceof Assignment a && a.variableTarget() instanceof FieldReference fr && fr.scopeIsThis()) {
+                // an @IgnoreModifications own field is disclaimed memo state (the VariableImpl.cachedFqn
+                // idiom, road §050 extended to the slot): the write is invisible here exactly as it is to
+                // the plain modification layer
+                if (EventualCluster.ENABLED && fr.fieldInfo().isIgnoreModifications()) {
+                    return true;
+                }
                 bail[0] = true; // assigning an own field is a finality/mark concern, not eventual non-modification
                 return false;
+            }
+            if (e instanceof ConstructorCall cc && EventualCluster.ENABLED) {
+                // a constructor call captures its root-derived arguments into the fresh object: each must be
+                // committable (or a qualifying container handoff) -- the value-position discipline, applied
+                // at the site. Nested calls are still visited and excused individually below.
+                Set<String> excused = commitLabels(walk, cc, localContext);
+                if (excused == null) {
+                    bail[0] = true;
+                    return false;
+                }
+                labels.addAll(excused);
+                return true;
             }
             if (e instanceof MethodCall mc) {
                 Value.Bool calleeNonMod = mc.methodInfo().analysis()
                         .getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
                 boolean calleeModifies = calleeNonMod == null || calleeNonMod.isFalse();
                 if (EventualCluster.ENABLED) {
-                    Set<String> excused = commitExcusedLabels(typeInfo, mc, calleeModifies, localContext);
+                    // the site-level modification view must not be more optimistic than the dispatch
+                    // closure (the ∅-enm gap, 2026-07-23): a contract-non-modifying ABSTRACT callee
+                    // (Comparable.compareTo, Object.equals) whose implementations honestly modify
+                    // pre-mark (ExpressionImpl.compareTo forces lazy inspection) still demands the
+                    // receiver's labels, exactly as if the honest implementation were called directly
+                    Set<String> excused = commitExcusedLabels(walk, mc,
+                            calleeModifies || implementationHonestlyModifies(mc.methodInfo()), localContext);
                     if (excused == null) {
                         bail[0] = true;
                         return false;
@@ -393,6 +611,76 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         });
         if (bail[0]) return null;
         return labels;
+    }
+
+    /**
+     * EVENTUALCLUSTER only. The labels after which a call leaves the ARGUMENT for {@code pi} unmodified
+     * ({@code EVENTUALLY_UNMODIFIED_PARAMETER}, spec: {@code docs/spec-eventually-unmodified-parameter.md}):
+     * the same commit walk as {@link #computeEventuallyNonModifying}, rooted in the parameter instead of
+     * {@code this}. Labels are field names in the parameter type's label space. Only meaningful when the plain
+     * verdict is an honest FALSE; the empty set is never written (it would coincide with plain
+     * {@code unmodified=true}), and null means: modified in ways the machinery cannot excuse.
+     */
+    private Set<String> computeEventuallyUnmodified(TypeInfo typeInfo, MethodInfo methodInfo, ParameterInfo pi) {
+        if (methodInfo.isAbstract() || methodInfo.methodBody().isEmpty()) return null;
+        Value.Bool unmodified = pi.analysis().getOrNull(UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.class);
+        if (unmodified == null || unmodified.isTrue()) {
+            if (siteDebug()) ecsite("eup guard: unmodified=" + (unmodified == null ? "null" : "true"));
+            return null;
+        }
+        // the varargs array (and any array) is never committable; a type parameter has no label space
+        if (pi.parameterizedType().arrays() > 0) return null;
+        TypeInfo pType = pi.parameterizedType().bestTypeInfo();
+        if (pType == null) {
+            if (siteDebug()) ecsite("eup guard: no pType");
+            return null;
+        }
+        WalkRoot walk = WalkRoot.ofParameter(typeInfo, pType, pi);
+        LocalContext localContext = buildLocalContext(walk, methodInfo);
+        Set<String> labels = new HashSet<>();
+        boolean[] bail = {false};
+        methodInfo.methodBody().visit(e -> {
+            if (bail[0]) return false;
+            if (e instanceof Assignment a) {
+                // rebinding the parameter breaks the rooting; a store through a p-rooted face (p.f = x,
+                // p.f[i] = x) is a modification no label excuses; and storing a p-derived value into a field
+                // of any object is capture the walk does not track -- all conservative bails
+                boolean targetRooted = a.variableTarget() instanceof FieldReference fr
+                                       && fr.scope() != null && referencesRootOrTracked(walk, fr.scope(), localContext.commit())
+                                       || a.variableTarget() instanceof DependentVariable dv
+                                          && dv.arrayExpression() != null
+                                          && referencesRootOrTracked(walk, dv.arrayExpression(), localContext.commit());
+                boolean capture = a.variableTarget() instanceof FieldReference
+                                  && referencesRootOrTracked(walk, a.value(), localContext.commit());
+                if (pi.equals(a.variableTarget()) || targetRooted || capture) {
+                    bail[0] = true;
+                    return false;
+                }
+            }
+            if (e instanceof ConstructorCall cc) {
+                // capture of p-derived arguments into a fresh object: value-position discipline at the site
+                Set<String> excused = commitLabels(walk, cc, localContext);
+                if (excused == null) {
+                    bail[0] = true;
+                    return false;
+                }
+                labels.addAll(excused);
+                return true;
+            }
+            if (e instanceof MethodCall mc) {
+                Value.Bool calleeNonMod = mc.methodInfo().analysis()
+                        .getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+                boolean calleeModifies = calleeNonMod == null || calleeNonMod.isFalse();
+                Set<String> excused = commitExcusedLabels(walk, mc, calleeModifies, localContext);
+                if (excused == null) {
+                    bail[0] = true;
+                    return false;
+                }
+                labels.addAll(excused);
+            }
+            return true;
+        });
+        return bail[0] ? null : labels;
     }
 
     /**
@@ -447,61 +735,166 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * guard, which bail on the real cross-reference accessors ({@code returnType().typeInfo().isEnclosedIn(this
      * .typeInfo)}). Null = bail: the enclosing method is not eventually-non-modifying via this path.
      */
-    private Set<String> commitExcusedLabels(TypeInfo typeInfo, MethodCall mc, boolean calleeModifies,
+    private Set<String> commitExcusedLabels(WalkRoot walk, MethodCall mc, boolean calleeModifies,
                                             LocalContext ctx) {
         // a @Mark or @Only(before) callee is the transition itself (setFinal, setVariable), not a post-mark
         // read; calling it after the mark throws -- UNLESS it acts on a provably fresh object's lifecycle
-        // (fi.inspection.setVariable(...) in withOwnerVariableBuilder), which is not this's transition at all
+        // (fi.inspection.setVariable(...) in withOwnerVariableBuilder), OR on a receiver that is provably not
+        // root-derived at all (handoff-builder-leans §4A: the rewire machinery filling ANOTHER object's
+        // builder): another object's transition cannot modify the root; only the arguments carry root-derived
+        // content, and they are committed below like any other call's
         Value.Eventual calleeEventual = eventualOf(mc.methodInfo());
         if ((calleeEventual.isMark() || calleeEventual.isOnly() && Boolean.FALSE.equals(calleeEventual.after()))
-            && !rootedInFresh(mc.object(), ctx)) {
+            && !rootedInFresh(mc.object(), ctx)
+            && !receiverProvablyNotRoot(walk, mc.object(), ctx)) {
+            if (siteDebug()) ecsite("transition bail (excuse): " + mc.methodInfo().fullyQualifiedName()
+                                    + " eventual=" + calleeEventual);
             return null;
         }
         Set<String> labels = new HashSet<>();
         if (calleeModifies) {
             // only a modifying callee can modify its receiver
-            if (mc.object() instanceof VariableExpression ve && ve.variable() instanceof This) {
-                // this.<accessor>() forward: the accessor itself must be eventually-non-modifying
-                Set<String> enm = mc.methodInfo().analysis()
-                        .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET).set();
-                if (enm.isEmpty()) return null;
-                labels.addAll(enm);
+            if (mc.object() instanceof VariableExpression ve && walk.isRoot(ve.variable())) {
+                if (EventualCluster.ENABLED && walk.isSelfCall(mc)) {
+                    // direct recursion (CommonType.commonType's lattice descent): the callee's excuse set IS
+                    // the set under computation (write-once, still in flight) -- by the fixpoint hypothesis
+                    // it contributes nothing new; only the arguments still need committing
+                    if (siteDebug()) ecsite("self-call excused: " + mc.methodInfo().name());
+                } else {
+                    // root.<accessor>() forward: the accessor itself must be eventually-non-modifying
+                    Set<String> enm = mc.methodInfo().analysis()
+                            .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET).set();
+                    if (enm.isEmpty()) return null;
+                    labels.addAll(enm);
+                }
             } else {
                 // top level: only the receiver needs committing; the call's own return value feeds nothing here
-                Set<String> receiver = commitLabels(typeInfo, mc.object(), ctx);
+                Set<String> receiver = commitLabels(walk, mc.object(), ctx);
                 if (receiver == null) return null;
                 labels.addAll(receiver);
+                if (receiver.isEmpty()) {
+                    // the fresh-wrapper shape in excuse position (return new TypePrinterImpl(this, ..).print(..)):
+                    // the ∅-excused constructor capture still owes the wrapper method's translated enm promise
+                    Set<String> wrapper = wrapperCaptureLabels(walk, mc, ctx, 0);
+                    if (wrapper != null) labels.addAll(wrapper);
+                }
             }
         }
-        // a call may modify a this-derived argument (a @Modified parameter); commit each
-        for (Expression arg : mc.parameterExpressions()) {
-            Set<String> argLabels = commitLabels(typeInfo, arg, ctx);
-            if (argLabels == null) return null;
-            labels.addAll(argLabels);
-        }
-        return labels;
+        // a call may modify a root-derived argument (a @Modified parameter); commit each
+        return commitArguments(walk, mc, ctx, 0, labels, false);
     }
 
-    /** Per-method context for {@link #commitLabels}: locals holding this-derived values (with the labels
-     *  committing them; a null value = poisoned), and locals holding provably FRESH objects. */
-    private record LocalContext(Map<Variable, Set<String>> commit, Set<Variable> fresh) {
-        static final LocalContext EMPTY = new LocalContext(Map.of(), Set.of());
+    /**
+     * The root of a commit walk: {@code this} ({@code root == null} -- the receiver walk of
+     * {@link #computeEventuallyNonModifying}) or a specific parameter (the eup walk of
+     * {@link #computeEventuallyUnmodified}). {@code labelType} spans the label space -- the analyzed type
+     * resp. the parameter's declared type; its (implementations') field names are the labels. {@code member}
+     * is always the ANALYZED type: the assumer recorded on witnessed cluster assumptions, so the contraction
+     * can cascade a broken candidate to whoever consumed this walk's conclusion (label provenance folds a
+     * consumer onto {@code member}). For the receiver walk the three coincide with the historical
+     * {@code owner} parameter, and the behavior is unchanged.
+     */
+    private record WalkRoot(TypeInfo member, TypeInfo labelType, Variable root, MethodInfo underAnalysis) {
+        static WalkRoot ofThis(TypeInfo typeInfo, MethodInfo underAnalysis) {
+            return new WalkRoot(typeInfo, typeInfo, null, underAnalysis);
+        }
+
+        static WalkRoot ofParameter(TypeInfo analyzed, TypeInfo parameterType, ParameterInfo pi) {
+            return new WalkRoot(analyzed, parameterType, pi, pi.methodInfo());
+        }
+
+        /** the root variable itself: bare {@code this}, resp. the bare parameter */
+        boolean isRoot(Variable v) {
+            return root == null ? v instanceof This : root.equals(v);
+        }
+
+        /** a field read directly off the root: {@code this.f}, resp. {@code p.f} */
+        boolean scopeIsRoot(FieldReference fr) {
+            if (root == null) return fr.scopeIsThis();
+            return fr.scope() instanceof VariableExpression ve && root.equals(ve.variable());
+        }
+
+        /** a variable that makes an expression root-derived (mirrors the historical referencesThis shapes) */
+        boolean matches(Variable v) {
+            return isRoot(v) || v instanceof FieldReference fr && scopeIsRoot(fr);
+        }
+
+        /** the same walk, re-rooted at {@code this} of {@code type}: inlining an accessor body evaluates the
+         *  callee's {@code this}, which IS the root object */
+        WalkRoot inlineInto(TypeInfo type) {
+            return new WalkRoot(member, type, null, underAnalysis);
+        }
+
+        /** direct recursion: the call site's callee is the very method whose labels are being computed */
+        boolean isSelfCall(MethodCall mc) {
+            return underAnalysis != null && mc.methodInfo() == underAnalysis;
+        }
+    }
+
+    /** Per-method context for {@link #commitLabels}: locals holding root-derived values (with the labels
+     *  committing them; a null value = poisoned), locals holding provably FRESH objects, and locals that
+     *  ALIAS a root container field (the {@code list.isEmpty() ? list : rebuilt} short-circuit): their VALUE
+     *  stays uncommittable exactly like the bare field's, but the per-site container rescues may judge them
+     *  as if the field were spelled inline. */
+    private record LocalContext(Map<Variable, Set<String>> commit, Set<Variable> fresh,
+                                Map<Variable, FieldInfo> containerAlias) {
+        static final LocalContext EMPTY = new LocalContext(Map.of(), Set.of(), Map.of());
+    }
+
+    /**
+     * Is the object a call acts on provably not the root's? Unwraps a fluent chain
+     * ({@code copy.builder().setX(…).commit()}) to its base; true when the base is free of any root-derived
+     * content, or is a tracked local the walk itself judged committed-after-∅ (the rewire machinery's
+     * {@code infoMap.methodInfo(this)} copies). The bare root, root-scoped fields, and non-∅-tracked locals
+     * keep their bails: a transition on the root's own committed content stays {@code @Only(before)}
+     * business, not an enm excuse.
+     * <p>
+     * Two consumers: the transition-callee bail (a {@code @Mark}/{@code @Only(before)} callee on another
+     * object's lifecycle only needs its arguments committed), and the handed-on gauntlet (the value a chain
+     * on another object's graph hands on cannot reach the root except through the argument-fed content
+     * already committed by the accumulated labels -- so no candidacy lean on the return type is needed).
+     */
+    private boolean receiverProvablyNotRoot(WalkRoot walk, Expression receiver, LocalContext ctx) {
+        Expression base = receiver;
+        while (true) {
+            if (base instanceof MethodCall mc) {
+                base = mc.object();
+            } else if (base instanceof Cast cast) {
+                base = cast.expression();
+            } else if (base instanceof EnclosedExpression enclosed) {
+                base = enclosed.inner();
+            } else {
+                break;
+            }
+        }
+        if (base == null) return false;
+        if (!referencesRootOrTracked(walk, base, ctx.commit())) return true;
+        if (base instanceof VariableExpression ve && !walk.isRoot(ve.variable())) {
+            Set<String> tracked = ctx.commit().get(ve.variable());
+            return tracked != null && tracked.isEmpty();
+        }
+        return false;
     }
 
     /** Is the expression's value rooted in an object constructed in this very method body (a plain constructor
      *  call, or a chain of reads off a local every assignment of which is one)? A transition call on such a
      *  receiver belongs to the fresh object's lifecycle, not to this's transition. */
     private static boolean rootedInFresh(Expression expr, LocalContext ctx) {
+        return rootedInFresh(expr, ctx.fresh());
+    }
+
+    private static boolean rootedInFresh(Expression expr, Set<Variable> fresh) {
         if (expr instanceof ConstructorCall cc) return cc.anonymousClass() == null;
         if (expr instanceof VariableExpression ve) {
-            if (ctx.fresh().contains(ve.variable())) return true;
-            return ve.variable() instanceof FieldReference fr && !fr.scopeIsThis() && rootedInFresh(fr.scope(), ctx);
+            if (fresh.contains(ve.variable())) return true;
+            return ve.variable() instanceof FieldReference fr && !fr.scopeIsThis()
+                   && rootedInFresh(fr.scope(), fresh);
         }
-        if (expr instanceof MethodCall mc) return rootedInFresh(mc.object(), ctx);
-        if (expr instanceof Cast cast) return rootedInFresh(cast.expression(), ctx);
-        if (expr instanceof EnclosedExpression enclosed) return rootedInFresh(enclosed.inner(), ctx);
+        if (expr instanceof MethodCall mc) return mc.object() != null && rootedInFresh(mc.object(), fresh);
+        if (expr instanceof Cast cast) return rootedInFresh(cast.expression(), fresh);
+        if (expr instanceof EnclosedExpression enclosed) return rootedInFresh(enclosed.inner(), fresh);
         if (expr instanceof InlineConditional inline) {
-            return rootedInFresh(inline.ifTrue(), ctx) && rootedInFresh(inline.ifFalse(), ctx);
+            return rootedInFresh(inline.ifTrue(), fresh) && rootedInFresh(inline.ifFalse(), fresh);
         }
         return false;
     }
@@ -514,149 +907,335 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * {@code this}-derived and cannot be shown committable -- bail. Bare {@code this} is never committable from
      * the inside: mid-transition, it still has its mutable half.
      */
-    private Set<String> commitLabels(TypeInfo owner, Expression expr, LocalContext ctx) {
-        return commitLabels(owner, expr, ctx, 0);
+    private Set<String> commitLabels(WalkRoot walk, Expression expr, LocalContext ctx) {
+        return commitLabels(walk, expr, ctx, 0);
     }
 
     // how many same-class single-return forwards commitLabels may look through (guards against recursion)
     private static final int MAX_LOOK_THROUGH = 3;
 
-    private Set<String> commitLabels(TypeInfo owner, Expression expr, LocalContext ctx, int depth) {
-        if (expr == null || !referencesThisOrTracked(expr, ctx.commit())) return Set.of();
+    private Set<String> commitLabels(WalkRoot walk, Expression expr, LocalContext ctx, int depth) {
+        if (expr == null || !referencesRootOrTracked(walk, expr, ctx.commit())) return Set.of();
         // a value whose TYPE cannot carry mutable state (an int, a String, a parameterless immutable-hc
         // MethodType) is harmless whatever produced it -- the producing calls are excused independently by
         // the enclosing visitor, which sees every MethodCall node
         if (expr.parameterizedType() != null && valueIsHarmless(expr.parameterizedType())) return Set.of();
         if (expr instanceof VariableExpression ve) {
-            if (ve.variable() instanceof FieldReference fr && fr.scopeIsThis()) {
+            if (ve.variable() instanceof FieldReference fr && walk.scopeIsRoot(fr)) {
                 FieldInfo fieldInfo = fr.fieldInfo();
-                if (isOwnField(owner, fieldInfo) && fieldHoldsCommittableContent(fieldInfo)) {
+                // own field, or one inherited from a superclass (UnaryOperatorImpl.operator read inside
+                // BitwiseNegationImpl.rewire): the label then names the super's field, which the type level
+                // tolerates exactly like an inherited mark -- it excuses no own field of the subclass
+                if (isOwnOrInheritedField(walk.labelType(), fieldInfo) && fieldHoldsCommittableContent(fieldInfo)) {
                     return Set.of(fieldInfo.name());
                 }
                 // an @IgnoreModifications store is manual hidden content (road §050): modifications through
-                // it are disclaimed by design, so its value cannot count as modifying this
+                // it are disclaimed by design, so its value cannot count as modifying the root
                 if (fieldInfo.analysis().getOrDefault(PropertyImpl.IGNORE_MODIFICATIONS_FIELD,
                         ValueImpl.BoolImpl.FALSE).isTrue()) {
                     return Set.of();
                 }
                 // a deeply immutable value (String, a primitive) offers nothing to modify through
                 if (valueIsHarmless(fieldInfo.type())) return Set.of();
-                return null; // a non-committable field of this
+                if (siteDebug()) ecsite("field bail: " + fieldInfo.name() + " (" + fieldInfo.type() + ")");
+                return null; // a non-committable field of the root
             }
-            if (ve.variable() instanceof FieldReference fr && !fr.scopeIsThis()) {
-                // a field read off another object (fi.inspection): the result is this-derived only insofar as
-                // this-derived content flowed into that object -- committed after the scope's labels
+            if (ve.variable() instanceof FieldReference fr && !walk.scopeIsRoot(fr)) {
+                // a field read off another object (fi.inspection): the result is root-derived only insofar as
+                // root-derived content flowed into that object -- committed after the scope's labels
                 if (fr.fieldInfo().isStatic()) return null; // static state: not ours to excuse
-                return commitLabels(owner, fr.scope(), ctx, depth);
+                return commitLabels(walk, fr.scope(), ctx, depth);
             }
             if (ctx.commit().containsKey(ve.variable())) return ctx.commit().get(ve.variable()); // may be null
-            if (ve.variable() instanceof This
-                && eventualCluster.treatAsEventuallyImmutable(owner, owner, eventuallyImmutable(owner))) {
-                // bare this handed out (Stream.of(this) in innerClassEnclosingStream): for a cluster candidate,
-                // this is committed once its own marks have passed -- before them the enclosing method is
-                // modifying anyway, and the owner's own verdict (validated by the contraction) carries the
+            if (walk.isRoot(ve.variable())
+                && eventualCluster.treatAsEventuallyImmutable(walk.member(), walk.labelType(),
+                    eventuallyImmutable(walk.labelType()))) {
+                // bare root handed out (Stream.of(this) in innerClassEnclosingStream): for a cluster candidate,
+                // the root is committed once its own marks have passed -- before them the enclosing method is
+                // modifying anyway, and the candidate's own verdict (validated by the contraction) carries the
                 // promise that post-mark aliases cannot modify it
                 return Set.of();
             }
-            return null; // bare this (mid-transition, no candidate owner), or another variable shape
+            return null; // bare root (mid-transition, no candidate), or another variable shape
         }
-        if (expr instanceof Cast cast) return commitLabels(owner, cast.expression(), ctx, depth);
-        if (expr instanceof EnclosedExpression enclosed) return commitLabels(owner, enclosed.inner(), ctx, depth);
+        if (expr instanceof Cast cast) return commitLabels(walk, cast.expression(), ctx, depth);
+        if (expr instanceof EnclosedExpression enclosed) return commitLabels(walk, enclosed.inner(), ctx, depth);
         if (expr instanceof InlineConditional inline) {
             // the value is one of the two branches; the condition's calls are excused by the outer visitor,
             // but its VALUE cannot leak (a boolean)
-            Set<String> ifTrue = commitLabels(owner, inline.ifTrue(), ctx, depth);
+            Set<String> ifTrue = commitLabels(walk, inline.ifTrue(), ctx, depth);
             if (ifTrue == null) return null;
-            Set<String> ifFalse = commitLabels(owner, inline.ifFalse(), ctx, depth);
+            Set<String> ifFalse = commitLabels(walk, inline.ifFalse(), ctx, depth);
             if (ifFalse == null) return null;
             Set<String> acc = new HashSet<>(ifTrue);
             acc.addAll(ifFalse);
             return acc;
         }
         if (expr instanceof ConstructorCall cc) {
-            // a fresh object; a call on it later cannot modify this except through the this-derived values
+            // a fresh object; a call on it later cannot modify the root except through the root-derived values
             // stored into it here, each committed after its own labels
             if (cc.anonymousClass() != null) return null; // may capture this arbitrarily: conservative
             Set<String> acc = new HashSet<>();
-            for (Expression arg : cc.parameterExpressions()) {
-                Set<String> argLabels = commitLabels(owner, arg, ctx, depth);
-                if (argLabels == null) return null;
+            List<Expression> ccArgs = cc.parameterExpressions();
+            for (int i = 0; i < ccArgs.size(); i++) {
+                Expression arg = ccArgs.get(i);
+                Set<String> argLabels = commitLabels(walk, arg, ctx, depth);
+                if (argLabels == null && cc.constructor() != null) {
+                    // the container ride-along, argument position (the fluent-copy constructor)
+                    argLabels = containerArgumentLabels(walk, cc.constructor(), i, arg, ctx);
+                }
+                if (argLabels == null) {
+                    if (siteDebug()) ecsite("CC arg " + i + " bail at "
+                            + (cc.constructor() == null ? "?" : cc.constructor().fullyQualifiedName()));
+                    return null;
+                }
                 acc.addAll(argLabels);
             }
             return acc;
         }
         if (expr instanceof Lambda lambda) {
-            return lambdaCommitLabels(owner, lambda, ctx, depth);
+            return lambdaCommitLabels(walk, lambda, ctx, depth);
         }
         if (expr instanceof MethodReference mr) {
-            return methodReferenceCommitLabels(owner, mr, ctx, depth);
+            return methodReferenceCommitLabels(walk, mr, ctx, depth);
         }
         if (expr instanceof MethodCall mc) {
             // an intermediate @Mark or @Only(before) call belongs to the transition; after the mark it throws
-            // -- unless it acts on a provably fresh object's lifecycle
+            // -- unless it acts on a provably fresh object's lifecycle, or on a receiver that is provably not
+            // root-derived (another object's transition; only the arguments matter here)
             Value.Eventual calleeEventual = eventualOf(mc.methodInfo());
+            if (siteDebug()) ecsite("MC " + mc.methodInfo().fullyQualifiedName()
+                    + " calleeEventual=" + calleeEventual);
             if ((calleeEventual.isMark() || calleeEventual.isOnly() && Boolean.FALSE.equals(calleeEventual.after()))
-                && !rootedInFresh(mc.object(), ctx)) {
+                && !rootedInFresh(mc.object(), ctx)
+                && !receiverProvablyNotRoot(walk, mc.object(), ctx)) {
+                if (siteDebug()) ecsite("transition bail: " + mc.methodInfo().fullyQualifiedName());
                 return null;
             }
             Set<String> acc = new HashSet<>();
-            // is the receiver a this-derived value that is COMMITTED once acc's labels have passed? (bare this
-            // never is: mid-transition it still has its mutable half)
+            // is the receiver a root-derived value that is COMMITTED once acc's labels have passed? (the bare
+            // root never is: mid-transition it still has its mutable half)
             boolean receiverCommitted;
-            if (mc.object() instanceof VariableExpression ve && ve.variable() instanceof This) {
-                // this.<accessor>(): the method boundary erases WHICH committed field the result was read
+            if (mc.object() instanceof VariableExpression ve && walk.isRoot(ve.variable())) {
+                // root.<accessor>(): the method boundary erases WHICH committed field the result was read
                 // through, which handedOnValueSafe often needs -- so look through a same-class single-return
-                // forward first, evaluating its body expression in place (one level of inlining)
-                if (depth < MAX_LOOK_THROUGH && mc.methodInfo().typeInfo() == owner) {
+                // forward first, evaluating its body expression in place (one level of inlining). Inside the
+                // inlined body, 'this' IS the root object, so the evaluation is re-rooted at this. The
+                // inlining is keyed on the DECLARING type's label space: a CONCRETE inherited accessor
+                // (StatementImpl.comments() called inside DoStatementImpl.rewire) inlines against the
+                // superclass's fields -- an unresolved superclass label simply excuses no own field at the
+                // subclass's type level, exactly like an inherited mark.
+                if (depth < MAX_LOOK_THROUGH && !mc.methodInfo().isAbstract()) {
                     Expression returned = singleReturnExpression(mc.methodInfo());
                     if (returned != null) {
-                        Set<String> through = commitLabels(owner, returned, LocalContext.EMPTY, depth + 1);
+                        Set<String> through = commitLabels(walk.inlineInto(mc.methodInfo().typeInfo()), returned,
+                                LocalContext.EMPTY, depth + 1);
                         if (through != null) {
                             acc.addAll(through);
-                            return commitArguments(owner, mc, ctx, depth, acc);
+                            return commitArguments(walk, mc, ctx, depth, acc, true);
                         }
                     }
                 }
+                // an ABSTRACT accessor (an interface-typed root: the eup walk's declared parameter type, or an
+                // inherited accessor) cannot be inlined directly -- bridge through its implementations: every
+                // implementation must inline, and the union of their labels is the answer (dynamic dispatch
+                // runs one of them; committing the union commits each). Labels are implementation field names,
+                // the same convention the enm batch uses on interface methods.
+                Set<String> bridged = abstractAccessorLabels(walk, mc.methodInfo(), depth);
+                if (bridged != null) {
+                    acc.addAll(bridged);
+                    return commitArguments(walk, mc, ctx, depth, acc, true);
+                }
                 // a genuinely non-modifying accessor contributes nothing; a modifying one must be
-                // eventually-non-modifying, and contributes its labels
+                // eventually-non-modifying, and contributes its labels. A direct SELF-call is exempt from
+                // the empty-enm bail: its excuse set is the one under computation (write-once, in flight)
+                // -- the fixpoint hypothesis -- and the result still runs the handed-on gauntlet below.
                 if (!isNonModifyingRead(mc.methodInfo())) {
-                    Set<String> enm = mc.methodInfo().analysis()
-                            .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET)
-                            .set();
-                    if (enm.isEmpty()) return null;
-                    acc.addAll(enm);
+                    if (EventualCluster.ENABLED && walk.isSelfCall(mc)) {
+                        if (siteDebug()) ecsite("self-call excused (value): " + mc.methodInfo().name());
+                    } else {
+                        Set<String> enm = mc.methodInfo().analysis()
+                                .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET)
+                                .set();
+                        if (enm.isEmpty()) return null;
+                        acc.addAll(enm);
+                    }
                 }
                 receiverCommitted = false;
             } else {
-                Set<String> receiver = commitLabels(owner, mc.object(), ctx, depth);
-                if (receiver == null) return null;
+                Set<String> receiver = commitLabels(walk, mc.object(), ctx, depth);
+                if (receiver == null) {
+                    // the container ride-along: a qualifying READ on a final container field of committable
+                    // content commits after the field's label, even though the bare wrapper value does not
+                    receiver = containerReadThroughLabels(walk, mc, ctx);
+                    if (receiver == null) {
+                        if (siteDebug()) ecsite("receiver bail (" + mc.methodInfo().name() + ")");
+                        return null;
+                    }
+                }
+                if (siteDebug()) ecsite("receiver(" + mc.methodInfo().name() + ")=" + receiver);
                 if (receiver.isEmpty()) {
-                    // the receiver is not this-derived; neither is anything obtained from it -- only the
-                    // arguments still need committing
-                    return commitArguments(owner, mc, ctx, depth, acc);
+                    // the receiver is not root-derived -- EXCEPT through a constructor capture, which
+                    // commitLabels excuses with ∅ (the fresh-wrapper shape): fold the wrapper method's
+                    // translated enm promise, if there is one
+                    Set<String> wrapper = wrapperCaptureLabels(walk, mc, ctx, depth);
+                    if (wrapper != null) acc.addAll(wrapper);
+                    // only the arguments still need committing
+                    return commitArguments(walk, mc, ctx, depth, acc, true);
                 }
                 acc.addAll(receiver);
                 receiverCommitted = true;
             }
             // the aliasing trap (handoff §6, caveat 1): the value an INTERMEDIATE call hands on must not be
-            // usable to modify this-derived state downstream. A getter of an @IgnoreModifications store is
+            // usable to modify root-derived state downstream. A getter of an @IgnoreModifications store is
             // exempt: modifications through that value are disclaimed by design (road §050). And when the
-            // OWNER itself is a cluster candidate (seed, witnessed as a self-assumption), a this-accessor's
-            // result is accessible content of this, committed once this's own marks have passed -- the trap
-            // shape (an accessor handing out an unmarked mutable field) then sinks the owner's own type
+            // root's type itself is a cluster candidate (seed, witnessed), a root-accessor's result is
+            // accessible content of the root, committed once the root's own marks have passed -- the trap
+            // shape (an accessor handing out an unmarked mutable field) then sinks the candidate's own type
             // verdict, and the contraction cascades the retraction to everything that leaned on it.
             boolean ownerSeedCoversResult = !receiverCommitted
-                    && eventualCluster.treatAsEventuallyImmutable(owner, owner, eventuallyImmutable(owner));
+                    && eventualCluster.treatAsEventuallyImmutable(walk.member(), walk.labelType(),
+                    eventuallyImmutable(walk.labelType()));
             // a chain rooted in a fresh object (the fluent newField.builder().setX(..).setY(..)) hands on
-            // fresh-owned state; the this-derived values stored into it are committed by the labels in acc
+            // fresh-owned state; the root-derived values stored into it are committed by the labels in acc
             boolean freshRooted = rootedInFresh(mc.object(), ctx);
+            // EVENTUALCLUSTER (handoff-builder-leans §4b resolution): a chain whose BASE is provably not
+            // root-derived (the rewired copy's ∅-tracked builder local, the infoMap parameter) hands on a
+            // value of another object's graph. The root-derived content that flowed in via the arguments is
+            // already committed by the labels in acc -- the §060 ride-along stance -- so the handed-on
+            // judgment is settled without consulting the return type's candidacy: this is what kept the
+            // doomed Builder leans alive (a MODIFYING fluent setter never reaches handedOnValueSafe's
+            // independence branch and fell through to returnTypeHoldsCommittableContent). Checked BEFORE
+            // handedOnValueSafe so no optimistic edge is witnessed on the way to a verdict we can reach
+            // soundly.
+            boolean notRootReceiver = EventualCluster.ENABLED && receiverProvablyNotRoot(walk, mc.object(), ctx);
+            if (siteDebug()) ecsite("gauntlet " + mc.methodInfo().name()
+                    + " receiverCommitted=" + receiverCommitted + " ownerSeed=" + ownerSeedCoversResult
+                    + " freshRooted=" + freshRooted + " notRootReceiver=" + notRootReceiver);
             if (!isIgnoreModificationsAccessor(mc.methodInfo()) && !ownerSeedCoversResult && !freshRooted
-                && !handedOnValueSafe(owner, mc, receiverCommitted)) {
+                && !notRootReceiver
+                && !handedOnValueSafe(walk, mc, receiverCommitted)) {
+                if (siteDebug()) ecsite("handedOnValueSafe bail: " + mc.methodInfo().name());
                 return null;
             }
-            return commitArguments(owner, mc, ctx, depth, acc);
+            return commitArguments(walk, mc, ctx, depth, acc, true);
         }
-        return null; // any other this-referencing expression shape: conservative
+        return null; // any other root-referencing expression shape: conservative
+    }
+
+    /**
+     * The look-through for an abstract accessor called on the bare root: inline each implementation's
+     * single-return body, re-rooted at the implementation's {@code this} (which is the root object under
+     * dynamic dispatch), and union the labels. Null when any implementation cannot be inlined or excused --
+     * the caller falls back to the generic accessor treatment.
+     */
+    private Set<String> abstractAccessorLabels(WalkRoot walk, MethodInfo accessor, int depth) {
+        if (!accessor.isAbstract() || depth >= MAX_LOOK_THROUGH) return null;
+        Value.SetOfMethodInfo implementations = accessor.analysis()
+                .getOrDefault(PropertyImpl.IMPLEMENTATIONS, ValueImpl.SetOfMethodInfoImpl.EMPTY);
+        if (implementations.isEmpty()) return null;
+        Set<String> acc = new HashSet<>();
+        for (MethodInfo implementation : implementations.methodInfoSet()) {
+            Expression returned = singleReturnExpression(implementation);
+            if (returned == null) return null;
+            Set<String> labels = commitLabels(walk.inlineInto(implementation.typeInfo()), returned,
+                    LocalContext.EMPTY, depth + 1);
+            if (labels == null) return null;
+            acc.addAll(labels);
+        }
+        return acc;
+    }
+
+    /**
+     * EVENTUALCLUSTER: the wrapper-capture fold. {@code new TypePrinterImpl(this, false).print(...)} -- a
+     * modifying call on a FRESH wrapper whose constructor captured root-derived arguments modifies the root
+     * THROUGH the capture, and the freshness shortcut used to excuse it with ∅. The wrapper method's own enm
+     * labels name the wrapper's fields; translate each through the constructor's capture map
+     * ({@code PARAMETER_ASSIGNED_TO_FIELD}): a label whose field captured the BARE ROOT contributes the
+     * root's full own commitment ({@link #rootCommitmentLabels}); one that captured any other expression
+     * contributes that expression's commit labels; one naming a non-captured field excuses fresh-owned
+     * wrapper state -- vacuous. Null (no fold, current behavior stands) when the callee is not modifying,
+     * has no enm promise, the receiver is not a plain constructor call, or a translation fails. The fold
+     * only ever ADDS labels: it turns a dishonest ∅ into the honest label set, never a new bail.
+     */
+    private Set<String> wrapperCaptureLabels(WalkRoot walk, MethodCall mc, LocalContext ctx, int depth) {
+        if (!EventualCluster.ENABLED || depth >= MAX_LOOK_THROUGH) return null;
+        Expression object = mc.object();
+        while (object instanceof EnclosedExpression ee) object = ee.inner();
+        if (object instanceof Cast cast) object = cast.expression();
+        if (!(object instanceof ConstructorCall cc) || cc.constructor() == null) return null;
+        Value.Bool calleeNonMod = mc.methodInfo().analysis()
+                .getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+        if (calleeNonMod != null && calleeNonMod.isTrue()) return null; // nothing to excuse
+        Set<String> calleeEnm = mc.methodInfo().analysis()
+                .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET).set();
+        if (calleeEnm.isEmpty()) return null; // no promise to translate
+        Map<String, ParameterInfo> captures = ctorCaptures(cc.constructor());
+        Set<String> labels = new HashSet<>();
+        for (String label : calleeEnm) {
+            ParameterInfo captured = captures.get(label);
+            if (captured == null) continue; // non-captured wrapper state: fresh-owned, vacuous here
+            if (captured.index() >= cc.parameterExpressions().size()) return null;
+            Expression arg = cc.parameterExpressions().get(captured.index());
+            if (arg instanceof VariableExpression ve && walk.isRoot(ve.variable())) {
+                Set<String> rc = rootCommitmentLabels(walk);
+                if (rc == null) return null; // the root is never fully committed: no honest translation
+                labels.addAll(rc);
+            } else {
+                Set<String> ls = commitLabels(walk, arg, ctx, depth + 1);
+                if (ls == null) return null;
+                labels.addAll(ls);
+            }
+        }
+        if (siteDebug()) ecsite("wrapper fold " + mc.methodInfo().name() + " -> " + new TreeSet<>(labels));
+        return labels;
+    }
+
+    /** The constructor's capture map, field name -> parameter, computed syntactically ({@code this.f = pi};
+     *  the {@code PARAMETER_ASSIGNED_TO_FIELD} property is not reliably present on source constructors). */
+    private static Map<String, ParameterInfo> ctorCaptures(MethodInfo constructor) {
+        Map<String, ParameterInfo> map = new HashMap<>();
+        if (constructor.methodBody().isEmpty()) return map;
+        constructor.methodBody().visit(e -> {
+            if (e instanceof Assignment a
+                && a.variableTarget() instanceof FieldReference fr && fr.scopeIsThis()
+                && a.value() instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo pi) {
+                map.put(fr.fieldInfo().name(), pi);
+            }
+            return true;
+        });
+        return map;
+    }
+
+    /**
+     * The labels after which the ROOT ITSELF is fully committed -- what a bare-root capture owes. Total by
+     * construction, or null: every non-static field of the root's type (and superclasses) must be
+     * committable (contributes its label), reachability-harmless ({@link #contentTypeHarmless}: primitives,
+     * immutables, opaque builders -- nothing to commit), or {@code @IgnoreModifications} (disclaimed). One
+     * mutable, uncommittable field means the root never fully commits, and the wrapper promise cannot be
+     * honored.
+     */
+    private Set<String> rootCommitmentLabels(WalkRoot walk) {
+        Set<String> labels = new HashSet<>();
+        TypeInfo t = walk.labelType();
+        while (t != null) {
+            for (FieldInfo fieldInfo : t.fields()) {
+                if (fieldInfo.isStatic()) continue;
+                // committability FIRST: an eventual transition carrier (an EventuallyFinalOnDemand
+                // 'inspection') may read immutable-hc by lenient shallow contract, but its label is the
+                // very commitment the promise is about -- harmlessness only rescues label-less fields
+                if (fieldHoldsCommittableContent(fieldInfo) || containerContentCommittable(fieldInfo)) {
+                    labels.add(fieldInfo.name());
+                    continue;
+                }
+                if (fieldInfo.isIgnoreModifications()) continue;
+                if (contentTypeHarmless(fieldInfo.type(), 0)) continue;
+                return null;
+            }
+            ParameterizedType parent = t.parentClass();
+            t = parent == null ? null : parent.typeInfo();
+        }
+        return labels;
     }
 
     /** A getter handing out an {@code @IgnoreModifications} store: the value is manual hidden content, and
@@ -687,19 +1266,20 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * full {@link #commitLabels} discipline (including the handed-on-value checks -- the lambda's return value
      * flows to the callee); a bare captured {@code this} bails.
      */
-    private Set<String> lambdaCommitLabels(TypeInfo owner, Lambda lambda, LocalContext ctx, int depth) {
+    private Set<String> lambdaCommitLabels(WalkRoot walk, Lambda lambda, LocalContext ctx, int depth) {
         Set<String> acc = new HashSet<>();
         boolean[] bail = {false};
         lambda.methodBody().visit(e -> {
             if (bail[0]) return false;
-            if (e instanceof Assignment a && a.variableTarget() instanceof FieldReference fr && fr.scopeIsThis()) {
-                bail[0] = true; // assigning an own field inside the lambda
+            if (e instanceof Assignment a && a.variableTarget() instanceof FieldReference fr
+                && walk.scopeIsRoot(fr)) {
+                bail[0] = true; // assigning a root field inside the lambda
                 return false;
             }
             if (e instanceof MethodCall || e instanceof ConstructorCall || e instanceof VariableExpression) {
                 Expression inner = (Expression) e;
-                if (referencesThisOrTracked(inner, ctx.commit())) {
-                    Set<String> labels = commitLabels(owner, inner, ctx, depth + 1);
+                if (referencesRootOrTracked(walk, inner, ctx.commit())) {
+                    Set<String> labels = commitLabels(walk, inner, ctx, depth + 1);
                     if (labels == null) {
                         bail[0] = true;
                         return false;
@@ -718,11 +1298,11 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * will invoke the referenced method on the bound scope. Unbound/static references without this-derived
      * content never reach here (the fast path returns ∅).
      */
-    private Set<String> methodReferenceCommitLabels(TypeInfo owner, MethodReference mr, LocalContext ctx,
+    private Set<String> methodReferenceCommitLabels(WalkRoot walk, MethodReference mr, LocalContext ctx,
                                                     int depth) {
         Value.Eventual mrEventual = eventualOf(mr.methodInfo());
         boolean transition = mrEventual.isMark() || mrEventual.isOnly() && Boolean.FALSE.equals(mrEventual.after());
-        if (mr.scope() instanceof VariableExpression ve && ve.variable() instanceof This) {
+        if (mr.scope() instanceof VariableExpression ve && walk.isRoot(ve.variable())) {
             if (transition) return null;
             Set<String> acc = new HashSet<>();
             if (!isNonModifyingRead(mr.methodInfo())) {
@@ -731,24 +1311,24 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 if (enm.isEmpty()) return null;
                 acc.addAll(enm);
             }
-            // the result flows to the callee: same discipline as an intermediate this-accessor
-            if (!returnTypeHoldsCommittableContent(owner, mr.methodInfo().returnType())) return null;
+            // the result flows to the callee: same discipline as an intermediate root-accessor
+            if (!returnTypeHoldsCommittableContent(walk.member(), mr.methodInfo().returnType())) return null;
             return acc;
         }
-        Set<String> scopeLabels = commitLabels(owner, mr.scope(), ctx, depth);
+        Set<String> scopeLabels = commitLabels(walk, mr.scope(), ctx, depth);
         if (scopeLabels == null) return null;
         if (rootedInFresh(mr.scope(), ctx)) return scopeLabels; // acts on the fresh object's lifecycle
         if (transition) return null;
-        if (scopeLabels.isEmpty()) return scopeLabels; // not this-derived at all
+        if (scopeLabels.isEmpty()) return scopeLabels; // not root-derived at all
         // committed receiver: mirror handedOnValueSafe on the declared return type
         if (isNonModifyingRead(mr.methodInfo())) {
             Value.Independent independent = independentOf(mr.methodInfo());
             if (independent != null && (independent.isIndependent() || independent.isDependent()
-                                        || typeParametersHoldCommittableContent(owner, mr.methodInfo().returnType()))) {
+                                        || typeParametersHoldCommittableContent(walk.member(), mr.methodInfo().returnType()))) {
                 return scopeLabels;
             }
         }
-        if (returnTypeHoldsCommittableContent(owner, mr.methodInfo().returnType())) return scopeLabels;
+        if (returnTypeHoldsCommittableContent(walk.member(), mr.methodInfo().returnType())) return scopeLabels;
         return null;
     }
 
@@ -761,15 +1341,176 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         return rs.expression();
     }
 
-    /** Commit each argument of the call, folding the labels into {@code acc}; null = bail. */
-    private Set<String> commitArguments(TypeInfo owner, MethodCall mc, LocalContext ctx, int depth,
-                                        Set<String> acc) {
-        for (Expression arg : mc.parameterExpressions()) {
-            Set<String> argLabels = commitLabels(owner, arg, ctx, depth);
-            if (argLabels == null) return null;
+    /**
+     * Commit each argument of the call, folding the labels into {@code acc}; null = bail. In EXCUSE position
+     * ({@code valuePosition == false}: the statement-level call the visitor excuses) this is also where
+     * {@code EVENTUALLY_UNMODIFIED_PARAMETER} is CONSUMED (spec §4): the bare root handed to a parameter that
+     * promises "unmodified once L has been committed on the argument" contributes L to the caller's label set,
+     * provided every label in L is committable on the root's own type -- that is what turns the otherwise
+     * label-less candidate excusal of {@code ParameterizedTypePrinter.print(…, this, …)} into a named,
+     * type-level-usable promise. The callee's own excusals may lean on cluster assumptions, so the consumer
+     * inherits the callee owner's assumption edges (label provenance), and the contraction cascades for free.
+     * <p>
+     * In VALUE position (the result feeds a chain, a tracked local, an outer argument) the eup labels are
+     * deliberately NOT folded in: they excuse THE CALL, they say nothing about when the RESULT's value
+     * commits. Folding them made {@code infoMap.methodInfo(this)} locals look root-derived-committed, which
+     * routed the rewire builder() chains into committed-receiver semantics and the doomed Builder-candidacy
+     * handed-on fallback (handoff-builder-leans §4b).
+     */
+    private Set<String> commitArguments(WalkRoot walk, MethodCall mc, LocalContext ctx, int depth,
+                                        Set<String> acc, boolean valuePosition) {
+        List<Expression> args = mc.parameterExpressions();
+        for (int i = 0; i < args.size(); i++) {
+            Expression arg = args.get(i);
+            Set<String> argLabels = commitLabels(walk, arg, ctx, depth);
+            if (argLabels == null) {
+                // the container ride-along, argument position: the bare wrapper handed to a callee that
+                // provably neither mutates nor accessibly retains it
+                argLabels = containerArgumentLabels(walk, mc.methodInfo(), i, arg, ctx);
+                if (argLabels == null) {
+                    if (siteDebug()) ecsite("MC arg " + i + " bail at " + mc.methodInfo().fullyQualifiedName());
+                    return null;
+                }
+            }
             acc.addAll(argLabels);
+            if (!valuePosition && arg instanceof VariableExpression ve && walk.isRoot(ve.variable())) {
+                Set<String> eup = calleeParameterAfterLabels(mc.methodInfo(), i);
+                // a p-walk handing its own root to a parameter of the SAME declared type (the 5-arg -> 6-arg
+                // printer overload forward) stays in one label space: pass the labels through unchecked, the
+                // committability check is the ultimate this-walk consumer's job (an interface label type has
+                // no fields to check against). An ANCESTOR interface spans the same promise space, one level
+                // wider (GreaterThanZero -> Expression: compareBinaryToGt0 forwarding into compareVariables)
+                // -- the downward-interface-closure argument, mirrored; interface roots only, a class root
+                // must pass committability (or the dispatch narrowing below).
+                boolean sameLabelSpace = walk.root() != null && !eup.isEmpty()
+                        && (calleeParameterType(mc.methodInfo(), i) == walk.labelType()
+                            || EventualCluster.ENABLED && walk.labelType().isInterface()
+                               && isAncestorType(calleeParameterType(mc.methodInfo(), i), walk.labelType()));
+                if (!eup.isEmpty() && (sameLabelSpace || labelsCommittableOnRoot(walk, eup))) {
+                    acc.addAll(eup);
+                    eventualCluster.noteLabelInheritance(walk.member(), mc.methodInfo().typeInfo());
+                } else if (!eup.isEmpty() && EventualCluster.ENABLED) {
+                    // dispatch narrowing (spec §7): the abstract-union labels are per-implementation excuses;
+                    // a label naming no field anywhere in the argument's runtime cone (the root class + its
+                    // known subclasses, fields own or inherited) is vacuous for THIS argument -- the code
+                    // paths it excuses cannot execute on it. Fold the committable restriction only when the
+                    // entire residue is vacuous; anything less falls through unchanged.
+                    Set<String> narrowed = new HashSet<>();
+                    Set<String> residue = new HashSet<>();
+                    for (String label : eup) {
+                        if (labelsCommittableOnRoot(walk, Set.of(label))) narrowed.add(label);
+                        else residue.add(label);
+                    }
+                    if (!narrowed.isEmpty() && residueVacuousOnCone(walk.labelType(), residue)) {
+                        if (siteDebug()) ecsite("MC arg " + i + " eup narrowed=" + new TreeSet<>(narrowed)
+                                                + " at " + mc.methodInfo().fullyQualifiedName());
+                        acc.addAll(narrowed);
+                        eventualCluster.noteLabelInheritance(walk.member(), mc.methodInfo().typeInfo());
+                    } else if (siteDebug()) {
+                        ecsite("MC arg " + i + " eup not narrowable: narrowed=" + new TreeSet<>(narrowed)
+                               + " residue live at " + mc.methodInfo().fullyQualifiedName());
+                    }
+                } else if (EventualCluster.ENABLED && calleeParameterPlainlyModified(mc.methodInfo(), i)) {
+                    // the bare-root-argument commitment fold (the arg-position sibling of the wrapper-capture
+                    // fold): the callee plainly modifies this parameter and carries NO eup promise -- the
+                    // ∅-excused self-assumption (infoMap.parameterInfo(this)) then owes the ROOT'S FULL
+                    // commitment: after all of the root's own marks, nothing the callee does can modify it.
+                    // Only ever ADDS labels; an uncommittable root keeps the current ∅ (the residual gap).
+                    Set<String> rc = rootCommitmentLabels(walk);
+                    if (rc != null && !rc.isEmpty()) {
+                        if (siteDebug()) ecsite("MC arg " + i + " root-commitment fold=" + new TreeSet<>(rc)
+                                                + " at " + mc.methodInfo().fullyQualifiedName());
+                        acc.addAll(rc);
+                    }
+                }
+            }
         }
         return acc;
+    }
+
+    /** The callee's parameter receiving argument {@code i} is plainly modified ({@code unmodified=false}):
+     *  handing the bare root there is a genuine modification the eventual layer must account for. */
+    private static boolean calleeParameterPlainlyModified(MethodInfo callee, int i) {
+        List<ParameterInfo> parameters = callee.parameters();
+        if (parameters.isEmpty()) return false;
+        ParameterInfo pi = parameters.get(Math.min(i, parameters.size() - 1));
+        Value.Bool unmodified = pi.analysis().getOrNull(UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.class);
+        return unmodified != null && unmodified.isFalse();
+    }
+
+    /** The {@code EVENTUALLY_UNMODIFIED_PARAMETER} labels of the callee's parameter receiving argument
+     *  {@code i}; empty when absent, or for the varargs position (the array is never committable). */
+    private static Set<String> calleeParameterAfterLabels(MethodInfo callee, int i) {
+        List<ParameterInfo> parameters = callee.parameters();
+        if (parameters.isEmpty()) return Set.of();
+        ParameterInfo pi = parameters.get(Math.min(i, parameters.size() - 1));
+        if (pi.isVarArgs() && i >= parameters.size() - 1) return Set.of();
+        return pi.analysis().getOrDefault(EVENTUALLY_UNMODIFIED_PARAMETER, ValueImpl.SetOfStringsImpl.EMPTY_SET)
+                .set();
+    }
+
+    /** The declared type of the callee's parameter receiving argument {@code i}; null when unresolved. */
+    private static TypeInfo calleeParameterType(MethodInfo callee, int i) {
+        List<ParameterInfo> parameters = callee.parameters();
+        if (parameters.isEmpty()) return null;
+        ParameterInfo pi = parameters.get(Math.min(i, parameters.size() - 1));
+        return pi.parameterizedType().bestTypeInfo();
+    }
+
+    /** Every label names an own field of the root's type holding committable content -- the receiver-labels
+     *  rule: committing those fields on the argument commits, by the §060 ride-along, the content the callee
+     *  reads through them. A container-ride-along label qualifies too: what callees read through the stable
+     *  wrapper is its (committable) element content. */
+    private boolean labelsCommittableOnRoot(WalkRoot walk, Set<String> labels) {
+        for (String label : labels) {
+            FieldInfo fieldInfo = walk.labelType().getFieldByName(label, false);
+            if (fieldInfo == null
+                || !(fieldHoldsCommittableContent(fieldInfo) || containerContentCommittable(fieldInfo))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** {@code ancestor} appears in {@code type}'s transitive parent/interface closure. */
+    private static boolean isAncestorType(TypeInfo ancestor, TypeInfo type) {
+        if (ancestor == null || type == null) return false;
+        for (ParameterizedType superType : type.parentAndInterfacesImplemented()) {
+            TypeInfo st = superType.typeInfo();
+            if (st == null || st.isJavaLangObject()) continue;
+            if (st == ancestor || isAncestorType(ancestor, st)) return true;
+        }
+        return false;
+    }
+
+    /** No residue label names a field -- own or inherited -- anywhere in {@code rootType}'s runtime cone
+     *  ({@code rootType} plus its transitively known subclasses): such labels belong to OTHER
+     *  implementations' excuses, and the code paths they excuse cannot execute on an argument of this cone. */
+    private boolean residueVacuousOnCone(TypeInfo rootType, Set<String> residue) {
+        if (residue.isEmpty()) return true;
+        java.util.ArrayDeque<TypeInfo> todo = new java.util.ArrayDeque<>();
+        Set<TypeInfo> seen = new HashSet<>();
+        todo.add(rootType);
+        while (!todo.isEmpty()) {
+            TypeInfo t = todo.poll();
+            if (!seen.add(t)) continue;
+            for (String label : residue) {
+                if (fieldInTypeOrAncestors(t, label)) return false;
+            }
+            todo.addAll(eventualCluster.knownSubclasses(t));
+        }
+        return true;
+    }
+
+    /** The named field exists on {@code type} or along its superclass chain. */
+    private static boolean fieldInTypeOrAncestors(TypeInfo type, String name) {
+        TypeInfo t = type;
+        while (t != null) {
+            if (t.getFieldByName(name, false) != null) return true;
+            ParameterizedType parent = t.parentClass();
+            t = parent == null ? null : parent.typeInfo();
+        }
+        return false;
     }
 
     /**
@@ -789,12 +1530,12 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * ({@link #returnTypeHoldsCommittableContent}), which also covers the hc-read whose result IS the hidden
      * content ({@code EventuallyFinalOnDemand.get()} returning a cluster candidate).
      */
-    private boolean handedOnValueSafe(TypeInfo owner, MethodCall mc, boolean receiverCommitted) {
+    private boolean handedOnValueSafe(WalkRoot walk, MethodCall mc, boolean receiverCommitted) {
         // on a COMMITTED receiver the result's wrapper layer is either fresh or immutable content of the
         // receiver's graph, whatever the callee's (possibly still undecided -- direct recursion!) independence;
         // the only content it can hand on is typed by the parameters. This is what lets
         // parent.recursiveSuperTypeStream() (Stream<TypeInfo>) and Stream.map chains (Stream<String>) through.
-        if (receiverCommitted && typeParametersHoldCommittableContent(owner, mc.concreteReturnType())) {
+        if (receiverCommitted && typeParametersHoldCommittableContent(walk.member(), mc.concreteReturnType())) {
             return true;
         }
         if (isNonModifyingRead(mc.methodInfo())) {
@@ -803,12 +1544,12 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 if (independent.isIndependent()) return true;
                 if (independent.isDependent()) {
                     if (receiverCommitted) return true;
-                } else if (typeParametersHoldCommittableContent(owner, mc.concreteReturnType())) {
+                } else if (typeParametersHoldCommittableContent(walk.member(), mc.concreteReturnType())) {
                     return true;
                 }
             }
         }
-        return returnTypeHoldsCommittableContent(owner, mc);
+        return returnTypeHoldsCommittableContent(walk.member(), mc);
     }
 
     /** All type parameters committable (seed + witness) or at least immutable-hc -- with at least one present:
@@ -819,11 +1560,68 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             TypeInfo paramType = param.bestTypeInfo();
             if (paramType == null) return false;
             if (!isEventuallyImmutableFieldType(owner, paramType)
-                && !immutableOf(paramType).isAtLeastImmutableHC()) {
+                && !immutableOf(paramType).isAtLeastImmutableHC()
+                && !(EventualCluster.ENABLED && contentTypeHarmless(param, 0))) {
                 return false;
             }
         }
         return true;
+    }
+
+    private static final int MAX_HARMLESS_DEPTH = 4;
+
+    /**
+     * EVENTUALCLUSTER. A type through which the root provably cannot be reached -- handing a value of it
+     * on (or modifying it) can never touch root-derived state, whoever holds it. Harmless: primitives and
+     * {@code void}; fully immutable types; immutable-hc types whose type parameters are harmless; shallow
+     * (external-library) parameterized containers whose parameters are harmless ({@code List<OutputElement>},
+     * {@code Stream<OutputBuilder>} -- the engine's world model reaches a shallow type's content through its
+     * type parameters only); and MUTABLE interfaces whose entire method surface is harmless
+     * ({@link #signatureOpaque}): the {@code OutputBuilder} shape, a mutable builder of immutable-hc
+     * elements. Arrays are stripped -- an array of harmless content is reachability-harmless even though it
+     * is never committable.
+     */
+    private boolean contentTypeHarmless(ParameterizedType pt, int depth) {
+        if (depth > MAX_HARMLESS_DEPTH) return false;
+        if (pt.isPrimitiveExcludingVoid() || pt.isVoid() || pt.isTypeOfNullConstant()) return true;
+        TypeInfo ti = pt.bestTypeInfo();
+        if (ti == null) return false; // an unresolved type parameter: conservative
+        Value.Immutable immutable = immutableOf(ti);
+        if (immutable.isImmutable()) return true;
+        if (immutable.isAtLeastImmutableHC()) {
+            for (ParameterizedType param : pt.parameters()) {
+                if (!contentTypeHarmless(param, depth + 1)) return false;
+            }
+            return true;
+        }
+        if (ti.compilationUnit().externalLibrary() && !pt.parameters().isEmpty()) {
+            // a shallow container: reachable references are its type parameters
+            for (ParameterizedType param : pt.parameters()) {
+                if (!contentTypeHarmless(param, depth + 1)) return false;
+            }
+            return true;
+        }
+        return ti.isInterface() && signatureOpaque(ti, depth);
+    }
+
+    /** Every method of the interface exposes only harmless types -- returns and parameters alike: nothing
+     *  mutable-non-self can be stored into or read out of a value of this type. Self-references are
+     *  tolerated (the fluent {@code add(OutputBuilder...)}): the in-progress cache entry is optimistic
+     *  during the recursion and settles with the overall answer. */
+    private boolean signatureOpaque(TypeInfo typeInfo, int depth) {
+        Boolean cached = eventualCluster.opaqueSignatureCache().get(typeInfo);
+        if (cached != null) return cached;
+        eventualCluster.opaqueSignatureCache().put(typeInfo, true); // self-recursion tolerance
+        boolean opaque = typeInfo.methodStream().allMatch(mi ->
+                harmlessStrippingArrays(mi.returnType(), depth + 1)
+                && mi.parameters().stream().allMatch(pi -> harmlessStrippingArrays(pi.parameterizedType(), depth + 1)));
+        eventualCluster.opaqueSignatureCache().put(typeInfo, opaque);
+        return opaque;
+    }
+
+    private boolean harmlessStrippingArrays(ParameterizedType pt, int depth) {
+        ParameterizedType base = pt.arrays() > 0 ? pt.copyWithoutArrays() : pt;
+        return contentTypeHarmless(base, depth);
     }
 
     // sentinel for "no verdict, no contract" -- must NOT read as dependent, which would skip the hidden-content
@@ -858,6 +1656,14 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         if (returnType.isPrimitiveExcludingVoid() || returnType.isVoid()) return true; // a value cannot alias
         TypeInfo rtType = returnType.bestTypeInfo();
         if (rtType == null) return false; // an unresolved type parameter: conservative
+        // a primitive pipeline (mapToInt reductions) hands on VALUES only: its hidden content is primitive,
+        // so nothing mutable can be laundered through it. The general immutable-hc route cannot admit it --
+        // a stream is contractually consumable -- and, parameterless, it has no type-parameter route either.
+        if (EventualCluster.ENABLED && isPrimitiveStream(rtType)) return true;
+        // the OutputBuilder shape: a value through which the root provably cannot be reached (a mutable
+        // builder of immutable-hc elements, or a shallow container of such) is safe to hand on even though
+        // it is not committable -- reachability, not commitment, is what the gauntlet protects
+        if (EventualCluster.ENABLED && contentTypeHarmless(returnType, 0)) return true;
         if (isEventuallyImmutableFieldType(member, rtType)) return true;
         Value.Immutable immutable = immutableOf(rtType);
         if (immutable.isImmutable()) return true; // no hidden content at all: nothing mutable to alias
@@ -883,72 +1689,129 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * ({@code var b = a;}). Locals never assigned anything this-derived stay untracked, which is the spec's
      * {@code ∅}: a fresh {@code new ArrayList<>()} builder local stays excusable.
      */
-    private LocalContext buildLocalContext(TypeInfo typeInfo, MethodInfo methodInfo) {
-        // pass 1 -- freshness: a local is fresh when every (non-empty) assignment to it is a plain
-        // constructor call. Fresh + this-derived-tracked can coexist (the constructor args carry labels).
-        Set<Variable> freshCandidates = new HashSet<>();
-        Set<Variable> notFresh = new HashSet<>();
+    private LocalContext buildLocalContext(WalkRoot walk, MethodInfo methodInfo) {
+        // pass 1 -- freshness, to a least fixpoint over the assignment graph: a local is fresh when every
+        // (non-empty) assignment to it is rooted in a fresh creation -- a plain constructor call, or a chain
+        // of reads off an already-fresh local. The transitive step is the local-variable spelling of the
+        // fluent chain rootedInFresh already excuses inline: 'TypeInfo.Builder b = typeInfo.builder();
+        // b.setX(…)' must behave exactly like 'typeInfo.builder().setX(…)'. Fresh + this-derived-tracked can
+        // coexist (the constructor args carry labels).
+        Map<Variable, List<Expression>> assignments = new HashMap<>();
         methodInfo.methodBody().visit(e -> {
             if (e instanceof LocalVariableCreation lvc) {
-                lvc.localVariableStream().forEach(lv -> classifyFreshness(lv, lv.assignmentExpression(),
-                        freshCandidates, notFresh));
+                lvc.localVariableStream().forEach(lv ->
+                        recordAssignment(assignments, lv, lv.assignmentExpression()));
             } else if (e instanceof Assignment a
                        && !(a.variableTarget() instanceof FieldReference)
                        && !(a.variableTarget() instanceof This)) {
-                classifyFreshness(a.variableTarget(), a.value(), freshCandidates, notFresh);
+                recordAssignment(assignments, a.variableTarget(), a.value());
             }
             return true;
         });
-        freshCandidates.removeAll(notFresh);
-
-        // pass 2 -- commit labels, to a fixpoint for chained locals (var b = a;)
-        Map<Variable, Set<String>> map = new HashMap<>();
-        LocalContext ctx = new LocalContext(map, Set.copyOf(freshCandidates));
-        boolean changed = true;
-        int guard = 0;
-        while (changed && guard++ < 10) {
-            boolean[] change = {false};
-            methodInfo.methodBody().visit(e -> {
-                if (e instanceof LocalVariableCreation lvc) {
-                    lvc.localVariableStream().forEach(lv ->
-                            change[0] |= trackAssignment(typeInfo, ctx, lv, lv.assignmentExpression()));
-                } else if (e instanceof Assignment a
-                           && !(a.variableTarget() instanceof FieldReference)
-                           && !(a.variableTarget() instanceof This)) {
-                    change[0] |= trackAssignment(typeInfo, ctx, a.variableTarget(), a.value());
+        Set<Variable> freshCandidates = new HashSet<>();
+        boolean grew = true;
+        while (grew) {
+            grew = false;
+            for (Map.Entry<Variable, List<Expression>> entry : assignments.entrySet()) {
+                if (!freshCandidates.contains(entry.getKey())
+                    && entry.getValue().stream().allMatch(v -> rootedInFresh(v, freshCandidates))) {
+                    freshCandidates.add(entry.getKey());
+                    grew = true;
                 }
-                return true;
-            });
-            changed = change[0];
+            }
         }
-        return ctx;
+
+        // passes 2+3, twice -- commit labels to a fixpoint for chained locals (var b = a;), then container
+        // aliases; a discovered alias un-poisons downstream locals (the copy built FROM the aliased local),
+        // so the commit fixpoint is re-derived once with the aliases in place.
+        // Pass 3, container aliases: a POISONED local whose every assignment is either the bare read of one
+        // root container field F (the list.isEmpty() ? list : rebuilt short-circuit), or a value already
+        // committed after a subset of {F}, aliases F. Its VALUE stays uncommittable (null in the commit map,
+        // exactly like the bare field), but the per-site container rescues may treat it as the field spelled
+        // inline. The subset guard keeps the minted label sound: claiming "safe after F" for a value that is
+        // in truth safe after less (or after F itself) only ever weakens.
+        Map<Variable, FieldInfo> aliases = Map.of();
+        Map<Variable, Set<String>> map = new HashMap<>();
+        Set<Variable> fresh = Set.copyOf(freshCandidates);
+        for (int round = 0; round < 2; round++) {
+            map = new HashMap<>();
+            LocalContext ctx = new LocalContext(map, fresh, aliases);
+            boolean changed = true;
+            int guard = 0;
+            while (changed && guard++ < 10) {
+                boolean[] change = {false};
+                methodInfo.methodBody().visit(e -> {
+                    if (e instanceof LocalVariableCreation lvc) {
+                        lvc.localVariableStream().forEach(lv ->
+                                change[0] |= trackAssignment(walk, ctx, lv, lv.assignmentExpression()));
+                    } else if (e instanceof Assignment a
+                               && !(a.variableTarget() instanceof FieldReference)
+                               && !(a.variableTarget() instanceof This)) {
+                        change[0] |= trackAssignment(walk, ctx, a.variableTarget(), a.value());
+                    }
+                    return true;
+                });
+                changed = change[0];
+            }
+            if (round == 1) break; // aliases already applied
+            Map<Variable, FieldInfo> found = new HashMap<>();
+            for (Map.Entry<Variable, List<Expression>> entry : assignments.entrySet()) {
+                if (ctx.commit().get(entry.getKey()) != null) continue; // only poisoned locals need the alias
+                FieldInfo alias = null;
+                boolean ok = true;
+                for (Expression value : entry.getValue()) {
+                    FieldInfo f = aliasedContainerField(walk, value, ctx);
+                    if (f == null || alias != null && !alias.equals(f)) {
+                        ok = false;
+                        break;
+                    }
+                    alias = f;
+                }
+                if (ok && alias != null) found.put(entry.getKey(), alias);
+                if (siteDebug()) ecsite("alias " + entry.getKey().simpleName() + " = "
+                        + (ok && alias != null ? alias.name() : "none"));
+            }
+            if (found.isEmpty()) break; // nothing would change in round 2
+            aliases = Map.copyOf(found);
+        }
+        return new LocalContext(map, fresh, aliases);
     }
 
-    private static void classifyFreshness(Variable target, Expression value,
-                                          Set<Variable> freshCandidates, Set<Variable> notFresh) {
-        if (value == null || value.isEmpty()) return; // a bare declaration neither makes nor breaks freshness
-        if (isFreshCreation(value)) {
-            freshCandidates.add(target);
-        } else {
-            notFresh.add(target);
+    /** The single root container field {@code value} aliases: the bare field read itself, or a ternary whose
+     *  branches each alias that field or commit after a subset of its label. Null when it is anything else. */
+    private FieldInfo aliasedContainerField(WalkRoot walk, Expression value, LocalContext ctx) {
+        if (value instanceof Cast cast) return aliasedContainerField(walk, cast.expression(), ctx);
+        if (value instanceof EnclosedExpression enclosed) return aliasedContainerField(walk, enclosed.inner(), ctx);
+        if (value instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
+            && walk.scopeIsRoot(fr) && containerContentCommittable(fr.fieldInfo())) {
+            return fr.fieldInfo();
         }
-    }
-
-    private static boolean isFreshCreation(Expression value) {
-        if (value instanceof ConstructorCall cc) return cc.anonymousClass() == null;
         if (value instanceof InlineConditional inline) {
-            return isFreshCreation(inline.ifTrue()) && isFreshCreation(inline.ifFalse());
+            FieldInfo t = aliasedContainerField(walk, inline.ifTrue(), ctx);
+            FieldInfo f = aliasedContainerField(walk, inline.ifFalse(), ctx);
+            FieldInfo field = t != null ? t : f;
+            if (field == null) return null;
+            if (t != null && f != null) return t.equals(f) ? t : null;
+            Expression other = t != null ? inline.ifFalse() : inline.ifTrue();
+            Set<String> otherLabels = commitLabels(walk, other, ctx);
+            return otherLabels != null && Set.of(field.name()).containsAll(otherLabels) ? field : null;
         }
-        if (value instanceof Cast cast) return isFreshCreation(cast.expression());
-        if (value instanceof EnclosedExpression enclosed) return isFreshCreation(enclosed.inner());
-        return false;
+        return null;
+    }
+
+    private static void recordAssignment(Map<Variable, List<Expression>> assignments,
+                                         Variable target, Expression value) {
+        if (value == null || value.isEmpty()) return; // a bare declaration neither makes nor breaks freshness
+        assignments.computeIfAbsent(target, t -> new ArrayList<>()).add(value);
     }
 
     /** Fold one assignment into the map; true when the map changed. Once poisoned (null), a variable stays so. */
-    private boolean trackAssignment(TypeInfo typeInfo, LocalContext ctx, Variable target, Expression value) {
+    private boolean trackAssignment(WalkRoot walk, LocalContext ctx, Variable target, Expression value) {
         if (value == null || value.isEmpty()) return false;
-        if (!referencesThisOrTracked(value, ctx.commit())) return false; // not this-derived: stays untracked (∅)
-        Set<String> labels = commitLabels(typeInfo, value, ctx);
+        if (walk.isRoot(target)) return false; // rebinding the root is the outer walk's bail, not a tracked local
+        if (!referencesRootOrTracked(walk, value, ctx.commit())) return false; // not root-derived: untracked (∅)
+        Set<String> labels = commitLabels(walk, value, ctx);
+        if (siteDebug()) ecsite("track " + target.simpleName() + " = " + labels);
         Map<Variable, Set<String>> map = ctx.commit();
         if (map.containsKey(target)) {
             Set<String> existing = map.get(target);
@@ -963,20 +1826,40 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         return true;
     }
 
-    /** {@link #referencesThis}, extended with the locals tracked as holding this-derived values. */
-    private boolean referencesThisOrTracked(Expression expression, Map<Variable, Set<String>> tracked) {
+    /** {@link #referencesThis} generalized to the walk's root, extended with the locals tracked as holding
+     *  root-derived values. */
+    private boolean referencesRootOrTracked(WalkRoot walk, Expression expression,
+                                            Map<Variable, Set<String>> tracked) {
         boolean[] found = {false};
         expression.visit(e -> {
             if (e instanceof VariableExpression ve
-                && (ve.variable() instanceof This
-                    || ve.variable() instanceof FieldReference fr && fr.scopeIsThis()
-                    || tracked.containsKey(ve.variable()))) {
+                && (walk.matches(ve.variable()) || tracked.containsKey(ve.variable()))) {
                 found[0] = true;
                 return false;
             }
             return !found[0];
         });
         return found[0];
+    }
+
+    /** The dispatch-closure half of the site's modification view: an abstract callee with at least one
+     *  implementation honestly decided modifying. Deliberately uncached -- the honest FALSE arrives at the
+     *  modreach cutover, and the eventual layer re-derives after it. */
+    private static boolean implementationHonestlyModifies(MethodInfo methodInfo) {
+        if (!methodInfo.isAbstract()) return false;
+        return anyImplementationModifies(methodInfo, PropertyImpl.IMPLEMENTATIONS)
+               || anyImplementationModifies(methodInfo, PropertyImpl.EXTERNAL_IMPLEMENTATIONS);
+    }
+
+    private static boolean anyImplementationModifies(MethodInfo methodInfo,
+                                                     org.e2immu.language.cst.api.analysis.Property property) {
+        for (MethodInfo implementation : methodInfo.analysis()
+                .getOrDefault(property, ValueImpl.SetOfMethodInfoImpl.EMPTY).methodInfoSet()) {
+            Value.Bool nonModifying = implementation.analysis()
+                    .getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+            if (nonModifying != null && nonModifying.isFalse()) return true;
+        }
+        return false;
     }
 
     /** Non-modifying by its own verdict, or -- for a jar accessor whose verdict was never materialized --
@@ -991,7 +1874,9 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * A field whose content becomes immutable after the mark on it: it is itself of eventually immutable type
      * (or a cluster candidate under the gate), or an immutable single-indirection wrapper ({@code Either},
      * {@code Option}) of such content -- once the wrapped object is committed, reads through the wrapper cannot
-     * modify anything.
+     * modify anything. A MUTABLE container of committable content deliberately does NOT qualify here: its
+     * wrapper layer never commits, so the bare value is never safe to hand out -- the weaker, per-read
+     * container ride-along lives in {@link #containerReadThroughLabels}.
      */
     private boolean fieldHoldsCommittableContent(FieldInfo fieldInfo) {
         // the member leaning on the field's type is the type that declares the field
@@ -999,12 +1884,255 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         TypeInfo fieldType = fieldInfo.type().bestTypeInfo();
         if (fieldType == null) return false;
         if (isEventuallyImmutableFieldType(member, fieldType)) return true;
+        if (siteDebug()) ecsite("fieldHolds refusal for " + fieldInfo.name() + ": type "
+                + fieldType.fullyQualifiedName() + " not committable for member " + member.simpleName());
         if (!immutableOf(fieldType).isAtLeastImmutableHC()) return false; // the wrapper read must not itself modify
         for (ParameterizedType arg : fieldInfo.type().parameters()) {
             TypeInfo argType = arg.bestTypeInfo();
             if (argType != null && isEventuallyImmutableFieldType(member, argType)) return true;
         }
         return false;
+    }
+
+    // positive cache only: wrapper stability becomes provable monotonically as callee verdicts decide
+    private final Set<FieldInfo> wrapperStableCache = ConcurrentHashMap.newKeySet();
+
+    /**
+     * EVENTUALCLUSTER: the <b>container ride-along</b> (spec-eventually-unmodified-parameter §8.3 item 1),
+     * the §060 ride-along one indirection deeper, granted PER READ rather than at the field level: a call on
+     * a root-scoped final container field of committable content ({@code children.get(0)},
+     * {@code parameters.stream()}) commits after the field's label -- once the elements commit, the read
+     * cannot hand on anything modifiable. Soundness is carried by three conditions the strong field rule
+     * does not need, because a mutable wrapper never commits:
+     * <ul>
+     * <li>the read is non-modifying AND not {@code @Dependent} -- a dependent view ({@code iterator()},
+     *     {@code subList()}) shares the wrapper's accessible layer and could mutate it downstream;</li>
+     * <li>{@link #ownerNeverMutatesWrapper}: no own non-construction code calls a modifying method directly
+     *     on the field (construction-phase fills are the fresh object's lifecycle). Aliased mutation needs
+     *     the bare wrapper value first, which stays non-committable ({@link #fieldHoldsCommittableContent})
+     *     and poisons the aliasing walk instead;</li>
+     * <li>exposure to OUTSIDE mutation remains the type-level analyzers' jurisdiction, as for every
+     *     accessible-content field: the labels minted here reach a verdict only through
+     *     {@code immutableAfterMark}, and cross-type consumers lean on the owner's witnessed,
+     *     contraction-validated verdict.</li>
+     * </ul>
+     * Null when the ride-along does not apply -- the caller bails as before.
+     */
+    private Set<String> containerReadThroughLabels(WalkRoot walk, MethodCall mc, LocalContext ctx) {
+        if (!EventualCluster.ENABLED) return null;
+        FieldInfo fieldInfo = rootContainerField(walk, mc.object(), ctx);
+        if (fieldInfo == null) return null;
+        if (!isNonModifyingRead(mc.methodInfo())) return null;
+        Value.Independent independent = independentOf(mc.methodInfo());
+        if (independent == null || independent.isDependent()) return null;
+        if (!containerContentCommittable(fieldInfo)) return null;
+        return Set.of(fieldInfo.name());
+    }
+
+    /** The root's container field behind the expression: the bare read {@code this.f} / {@code p.f}, its
+     *  accessor spelling {@code comments()} -- a plain non-setter accessor called on the bare root, the way
+     *  the whole statement/expression family hands its final lists around -- a local ALIASING the field
+     *  ({@link LocalContext#containerAlias}), or the ternary short-circuit shape. Null when none. */
+    private FieldInfo rootContainerField(WalkRoot walk, Expression expr, LocalContext ctx) {
+        if (expr instanceof VariableExpression ve) {
+            if (ve.variable() instanceof FieldReference fr && walk.scopeIsRoot(fr)) {
+                return fr.fieldInfo();
+            }
+            FieldInfo alias = ctx.containerAlias().get(ve.variable());
+            if (alias != null) return alias;
+        }
+        if (expr instanceof MethodCall mc
+            && mc.object() instanceof VariableExpression ve && walk.isRoot(ve.variable())) {
+            Value.FieldValue fieldValue = mc.methodInfo().getSetField();
+            if (fieldValue != null && fieldValue.field() != null && !fieldValue.setter()) {
+                return fieldValue.field();
+            }
+        }
+        if (expr instanceof InlineConditional) return aliasedContainerField(walk, expr, ctx);
+        return null;
+    }
+
+    /**
+     * The argument-position half of the container ride-along: the bare wrapper VALUE of a qualifying
+     * container field handed to a callee that provably does not mutate it ({@code UNMODIFIED_PARAMETER})
+     * and retains at most its element content (an independent or hc-independent parameter -- hidden content
+     * IS the committable elements), or stores it only into fields that are themselves qualifying containers
+     * (the fluent-copy constructor, {@code new ParameterizedTypeImpl(…, parameters, …)}: the wrapper moves
+     * between owners that never mutate it). Null when it does not apply.
+     */
+    private Set<String> containerArgumentLabels(WalkRoot walk, MethodInfo callee, int index, Expression arg,
+                                                LocalContext ctx) {
+        if (!EventualCluster.ENABLED) return null;
+        FieldInfo fieldInfo = rootContainerField(walk, arg, ctx);
+        if (fieldInfo == null) return null;
+        if (!containerContentCommittable(fieldInfo)) return null;
+        List<ParameterInfo> parameters = callee.parameters();
+        if (parameters.isEmpty()) return null;
+        ParameterInfo pi = parameters.get(Math.min(index, parameters.size() - 1));
+        if (pi.isVarArgs() && index >= parameters.size() - 1) return null;
+        if (callee.isConstructor()) {
+            // a capturing constructor's parameter reads as modified (the capture joins the fresh object's
+            // initialization graph) and @Dependent even for a defensive copy, so the plain properties cannot
+            // answer the wrapper questions -- the body is asked directly for all three (mutation, onward
+            // handoff, capture target)
+            if (!ctorHandlesWrapperSafely(callee, pi)) {
+                if (siteDebug()) ecsite("ctor wrapper-unsafe for " + fieldInfo.name()
+                        + " at " + callee.fullyQualifiedName());
+                return null;
+            }
+            return Set.of(fieldInfo.name());
+        }
+        Value.Bool unmodified = pi.analysis().getOrNull(UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.class);
+        if (unmodified == null || unmodified.isFalse()) return null;
+        Value.Independent independent = pi.analysis()
+                .getOrNull(PropertyImpl.INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.class);
+        if (independent != null && !independent.isDependent()) return Set.of(fieldInfo.name());
+        // dependent (or undecided): acceptable only when the retention is into qualifying container fields
+        Value.AssignedToField assigned = pi.analysis()
+                .getOrDefault(PropertyImpl.PARAMETER_ASSIGNED_TO_FIELD, ValueImpl.AssignedToFieldImpl.EMPTY);
+        if (assigned.fields().isEmpty()) return null;
+        for (FieldInfo target : assigned.fields()) {
+            if (!containerContentCommittable(target)) return null;
+        }
+        return Set.of(fieldInfo.name());
+    }
+
+    /**
+     * Does the constructor's body provably handle the wrapper handed in via {@code pi} safely? Three checks,
+     * all syntactic: only non-modifying reads with the parameter as receiver; every onward handoff to an
+     * unmodified, non-dependent callee parameter (a defensive {@code List.copyOf}); and every direct capture
+     * ({@code this.f = pi}, possibly through a ternary) into a field that is itself a qualifying container
+     * -- the wrapper then moves between owners that never mutate it. An alias into a local is refused.
+     */
+    private boolean ctorHandlesWrapperSafely(MethodInfo constructor, ParameterInfo pi) {
+        if (constructor.methodBody().isEmpty()) return false;
+        boolean[] bad = {false};
+        constructor.methodBody().visit(e -> {
+            if (bad[0]) return false;
+            if (e instanceof MethodCall mc) {
+                if (isParameter(mc.object(), pi) && !isNonModifyingRead(mc.methodInfo())) {
+                    bad[0] = true;
+                    return false;
+                }
+                List<Expression> args = mc.parameterExpressions();
+                for (int i = 0; i < args.size(); i++) {
+                    if (!isParameter(args.get(i), pi)) continue;
+                    // an @Identity forward (this.f = Objects.requireNonNull(p)) is transparent: the value is
+                    // judged where the RESULT lands (the assignment branch unwraps it), not here
+                    if (i == 0 && isIdentityMethod(mc.methodInfo())) continue;
+                    List<ParameterInfo> calleeParams = mc.methodInfo().parameters();
+                    ParameterInfo cpi = calleeParams.isEmpty() ? null
+                            : calleeParams.get(Math.min(i, calleeParams.size() - 1));
+                    Value.Bool unmod = cpi == null ? null
+                            : cpi.analysis().getOrNull(UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.class);
+                    Value.Independent ind = cpi == null ? null
+                            : cpi.analysis().getOrNull(PropertyImpl.INDEPENDENT_PARAMETER,
+                            ValueImpl.IndependentImpl.class);
+                    if (unmod == null || unmod.isFalse() || ind == null || ind.isDependent()) {
+                        bad[0] = true;
+                        return false;
+                    }
+                }
+            } else if (e instanceof ConstructorCall cc
+                       && cc.parameterExpressions().stream().anyMatch(arg -> isParameter(arg, pi))) {
+                bad[0] = true; // nested capture: conservative
+                return false;
+            } else if (e instanceof MethodReference mr
+                       && isParameter(mr.scope(), pi) && !isNonModifyingRead(mr.methodInfo())) {
+                bad[0] = true;
+                return false;
+            } else if (e instanceof Assignment a && assignsParameter(a.value(), pi)) {
+                if (!(a.variableTarget() instanceof FieldReference fr)
+                    || !containerContentCommittable(fr.fieldInfo())) {
+                    bad[0] = true;
+                    return false;
+                }
+            }
+            return true;
+        });
+        return !bad[0];
+    }
+
+    private static boolean isParameter(Expression expression, ParameterInfo pi) {
+        return expression instanceof VariableExpression ve && pi.equals(ve.variable());
+    }
+
+    private static boolean isPrimitiveStream(TypeInfo typeInfo) {
+        String fqn = typeInfo.fullyQualifiedName();
+        return "java.util.stream.IntStream".equals(fqn) || "java.util.stream.LongStream".equals(fqn)
+               || "java.util.stream.DoubleStream".equals(fqn);
+    }
+
+    /** Is the bare parameter (possibly behind casts, parentheses, one of a ternary's branches, or an
+     *  {@code @Identity} forward -- {@code Objects.requireNonNull(p)} IS p) the value being assigned?
+     *  Nested occurrences inside other calls are the call scans' business, not a capture. */
+    private static boolean assignsParameter(Expression value, ParameterInfo pi) {
+        if (value == null) return false;
+        if (isParameter(value, pi)) return true;
+        if (value instanceof Cast cast) return assignsParameter(cast.expression(), pi);
+        if (value instanceof EnclosedExpression enclosed) return assignsParameter(enclosed.inner(), pi);
+        if (value instanceof InlineConditional inline) {
+            return assignsParameter(inline.ifTrue(), pi) || assignsParameter(inline.ifFalse(), pi);
+        }
+        if (value instanceof MethodCall mc && isIdentityMethod(mc.methodInfo())
+            && !mc.parameterExpressions().isEmpty()) {
+            return assignsParameter(mc.parameterExpressions().getFirst(), pi);
+        }
+        return false;
+    }
+
+    /** {@code @Identity} (aapi: {@code Objects.requireNonNull}): the method returns its first parameter. */
+    private static boolean isIdentityMethod(MethodInfo methodInfo) {
+        return methodInfo.analysis().getOrDefault(PropertyImpl.IDENTITY_METHOD, ValueImpl.BoolImpl.FALSE).isTrue();
+    }
+
+    /** The field-level half of the container ride-along: final, arrays-free, every type parameter
+     *  committable, wrapper provably never mutated by the owner. The per-read half (non-modifying,
+     *  non-dependent callee) is {@link #containerReadThroughLabels}'s. */
+    private boolean containerContentCommittable(FieldInfo fieldInfo) {
+        return EventualCluster.ENABLED
+               && fieldInfo.type().arrays() == 0 // array content stays rebindable whatever the element type
+               && fieldInfo.analysis().getOrDefault(FINAL_FIELD, ValueImpl.BoolImpl.FALSE).isTrue()
+               && typeParametersHoldCommittableContent(fieldInfo.owner(), fieldInfo.type())
+               && ownerNeverMutatesWrapper(fieldInfo);
+    }
+
+    /**
+     * Does the owner's non-construction code provably never mutate the wrapper object held in
+     * {@code fieldInfo}? Syntactic scan: no modifying (or still-undecided) call, and no method reference to
+     * one, with the field itself as receiver -- on ANY instance ({@code other.pool.add} breaks the promise
+     * for the whole class). Constructors are excluded on purpose: a construction-phase fill belongs to the
+     * fresh object's lifecycle, before any commitment is observable.
+     */
+    private boolean ownerNeverMutatesWrapper(FieldInfo fieldInfo) {
+        if (wrapperStableCache.contains(fieldInfo)) return true;
+        boolean[] mutated = {false};
+        for (MethodInfo methodInfo : fieldInfo.owner().methods()) {
+            if (mutated[0]) break;
+            if (methodInfo.methodBody().isEmpty()) continue;
+            methodInfo.methodBody().visit(e -> {
+                if (mutated[0]) return false;
+                if (e instanceof MethodCall mc && receiverIsField(mc.object(), fieldInfo)
+                    && !isNonModifyingRead(mc.methodInfo())) {
+                    mutated[0] = true;
+                    return false;
+                }
+                if (e instanceof MethodReference mr && receiverIsField(mr.scope(), fieldInfo)
+                    && !isNonModifyingRead(mr.methodInfo())) {
+                    mutated[0] = true;
+                    return false;
+                }
+                return true;
+            });
+        }
+        if (mutated[0]) return false;
+        wrapperStableCache.add(fieldInfo);
+        return true;
+    }
+
+    private static boolean receiverIsField(Expression object, FieldInfo fieldInfo) {
+        return object instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
+               && fr.fieldInfo().equals(fieldInfo);
     }
 
     /** {@code IMMUTABLE_TYPE}, with the {@link ContractReader} fallback for a jar type whose contract was never
@@ -1063,6 +2191,18 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
 
     private static boolean isOwnField(TypeInfo typeInfo, FieldInfo fieldInfo) {
         return typeInfo.fields().contains(fieldInfo);
+    }
+
+    /** EVENTUALCLUSTER commit walk only: the walk's root object also owns its superclasses' fields; the
+     *  ungated legacy paths keep the strict own-field rule. */
+    private static boolean isOwnOrInheritedField(TypeInfo typeInfo, FieldInfo fieldInfo) {
+        if (typeInfo.fields().contains(fieldInfo)) return true;
+        ParameterizedType parent = typeInfo.parentClass();
+        while (parent != null && parent.typeInfo() != null && !parent.typeInfo().isJavaLangObject()) {
+            if (parent.typeInfo().fields().contains(fieldInfo)) return true;
+            parent = parent.typeInfo().parentClass();
+        }
+        return false;
     }
 
     private static Side side(Value.Eventual callee) {

@@ -135,7 +135,17 @@ afterEvaluate {
 }
 
 tasks.named<Test>("test") {
-    // the isolation test resolves the plugin from the local repo, so publish there first
-    dependsOn("publishAllPublicationsToLocalPluginRepoRepository")
+    // The isolation test (TestAnalyzerPluginShadedJarIsolation, the only consumer of these two
+    // properties) is @Tag("slow") and so excluded here — but java-library-conventions.gradle.kts
+    // mirrors test's systemProperties onto slowTest, so they still need to be set here, not there.
     systemProperty("e2immu.localPluginRepo", localPluginRepoDir.get().asFile.absolutePath)
+    systemProperty("e2immu.pluginVersion", project.version.toString())
+}
+
+tasks.named<Test>("slowTest") {
+    // The isolation test resolves the plugin from the local repo, so publish there first. Task
+    // dependencies are NOT part of what java-library-conventions.gradle.kts mirrors from test onto
+    // slowTest (only testClassesDirs/classpath/heap/jvmArgs/systemProperties are), so this needs
+    // stating here explicitly.
+    dependsOn("publishAllPublicationsToLocalPluginRepoRepository")
 }
