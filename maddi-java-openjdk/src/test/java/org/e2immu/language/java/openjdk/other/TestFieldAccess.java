@@ -424,8 +424,9 @@ public class TestFieldAccess extends CommonTest {
         DetailedSources maxDs = max.source().detailedSources();
         assertEquals("4-22:4-24", maxDs.detail(max.name()).compact2());
         // NOTE difference with maddi implementation: comment is not included in FIELD_DECLARATION
-        // NOTE difference with maddi implementation: first field = FIELD_DECLARATION up to first...
-        assertEquals("4-5:4-29", maxDs.detail(DetailedSources.FIELD_DECLARATION).compact2());
+        // FIELD_DECLARATION now spans the whole multi-declarator statement for every sibling,
+        // matching the native parser (see commit 53247bad).
+        assertEquals("4-5:4-38", maxDs.detail(DetailedSources.FIELD_DECLARATION).compact2());
 
         DetailedSources minDs = min.source().detailedSources();
         assertEquals("4-31:4-33", minDs.detail(min.name()).compact2());
