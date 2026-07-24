@@ -177,9 +177,10 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
     }
 
     private record ExportsImpl(Source source, List<Comment> comments, String packageName,
-                               String toPackageNameOrNull) implements Exports {
+                               List<String> toModulesOrEmpty) implements Exports {
         ExportsImpl {
             Objects.requireNonNull(packageName);
+            Objects.requireNonNull(toModulesOrEmpty);
         }
 
         @Override
@@ -229,9 +230,10 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
     }
 
     private record OpensImpl(Source source, List<Comment> comments, String packageName,
-                             String toPackageNameOrNull) implements Opens {
+                             List<String> toModulesOrEmpty) implements Opens {
         OpensImpl {
             Objects.requireNonNull(packageName);
+            Objects.requireNonNull(toModulesOrEmpty);
         }
 
         @Override
@@ -514,14 +516,14 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
-        public ModuleInfo.Builder addExports(Source source, List<Comment> comments, String packageName, String toPackageNameOrNull) {
-            exports.add(new ExportsImpl(source, comments, packageName, toPackageNameOrNull));
+        public ModuleInfo.Builder addExports(Source source, List<Comment> comments, String packageName, List<String> toModules) {
+            exports.add(new ExportsImpl(source, comments, packageName, List.copyOf(toModules)));
             return this;
         }
 
         @Override
-        public ModuleInfo.Builder addOpens(Source source, List<Comment> comments, String packageName, String toPackageNameOrNull) {
-            opens.add(new OpensImpl(source, comments, packageName, toPackageNameOrNull));
+        public ModuleInfo.Builder addOpens(Source source, List<Comment> comments, String packageName, List<String> toModules) {
+            opens.add(new OpensImpl(source, comments, packageName, List.copyOf(toModules)));
             return this;
         }
 

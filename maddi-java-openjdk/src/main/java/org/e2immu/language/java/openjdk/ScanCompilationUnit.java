@@ -153,6 +153,21 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         return null;
     }
 
+    // Collect all target modules of a qualified 'exports p to a, b, c' / 'opens p to a, b, c' directive, recording a
+    // detailed source for each target name so a single target can later be located (and renamed) individually.
+    private List<String> scanModuleTargets(Iterable<? extends JCTree.JCExpression> moduleNames,
+                                           DetailedSources.Builder dsb) {
+        List<String> toModules = new ArrayList<>();
+        if (moduleNames != null) {
+            for (JCTree.JCExpression mn : moduleNames) {
+                String moduleName = mn.toString();
+                dsb.put(moduleName, scanResult.find(moduleName, scanSource(mn)));
+                toModules.add(moduleName);
+            }
+        }
+        return toModules;
+    }
+
     private void visitDirective(DirectiveTree dt, ModuleInfo.Builder builder) {
         Source source = scanSource(dt);
         List<Comment> comments = commentsForNode(source);
@@ -167,20 +182,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             case JCTree.JCExports ed -> {
                 String packageName = ed.getPackageName().toString();
                 dsb.put(packageName, scanResult.find(packageName, scanSource(ed.getPackageName())));
-                String moduleName = ed.moduleNames == null ? null : ed.moduleNames.getFirst().toString();
-                if (moduleName != null) {
-                    dsb.put(moduleName, scanResult.find(moduleName, scanSource(ed.getModuleNames().getFirst())));
-                }
-                builder.addExports(source.withDetailedSources(dsb.build()), comments, packageName, moduleName);
+                List<String> toModules = scanModuleTargets(ed.moduleNames, dsb);
+                builder.addExports(source.withDetailedSources(dsb.build()), comments, packageName, toModules);
             }
             case JCTree.JCOpens od -> {
                 String packageName = od.getPackageName().toString();
                 dsb.put(packageName, scanResult.find(packageName, scanSource(od.getPackageName())));
-                String moduleName = od.moduleNames == null ? null : od.moduleNames.getFirst().toString();
-                if (moduleName != null) {
-                    dsb.put(moduleName, scanResult.find(moduleName, scanSource(od.getModuleNames().getFirst())));
-                }
-                builder.addOpens(source.withDetailedSources(dsb.build()), comments, packageName, moduleName);
+                List<String> toModules = scanModuleTargets(od.moduleNames, dsb);
+                builder.addOpens(source.withDetailedSources(dsb.build()), comments, packageName, toModules);
             }
             case JCTree.JCProvides p -> builder.addProvides(source, comments, p.getServiceName().toString(),
                     p.implNames == null ? null : p.implNames.getFirst().toString());

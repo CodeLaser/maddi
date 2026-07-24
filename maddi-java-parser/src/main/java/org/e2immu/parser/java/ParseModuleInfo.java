@@ -25,6 +25,9 @@ import org.parsers.java.Node;
 import org.parsers.java.Token;
 import org.parsers.java.ast.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class ParseModuleInfo extends CommonParse {
     public ParseModuleInfo(Runtime runtime, Parsers parsers) {
         super(runtime, parsers);
@@ -102,17 +105,10 @@ public class ParseModuleInfo extends CommonParse {
         Node packageNameNode = ed.get(1);
         String packageName = packageNameNode.getSource();
         if (dsb != null) dsb.put(packageName, source(packageNameNode));
-        String toPackageName;
-        if (ed.get(2) instanceof Token kwTo && Token.TokenType.TO == kwTo.getType()) {
-            Node toNode = ed.get(3);
-            toPackageName = toNode.getSource();
-            if (dsb != null) dsb.put(toPackageName, source(toNode));
-        } else {
-            toPackageName = null;
-        }
+        List<String> toModules = moduleTargets(ed, dsb);
         Source source = source(ed);
         builder.addOpens(dsb == null ? source : source.withDetailedSources(dsb.build()),
-                comments(ed), packageName, toPackageName);
+                comments(ed), packageName, toModules);
     }
 
 
@@ -121,17 +117,27 @@ public class ParseModuleInfo extends CommonParse {
         Node packageNameNode = ed.get(1);
         String packageName = packageNameNode.getSource();
         if (dsb != null) dsb.put(packageName, source(packageNameNode));
-        String toPackageName;
-        if (ed.get(2) instanceof Token kwTo && Token.TokenType.TO == kwTo.getType()) {
-            Node toNode = ed.get(3);
-            toPackageName = toNode.getSource();
-            if (dsb != null) dsb.put(toPackageName, source(toNode));
-        } else {
-            toPackageName = null;
-        }
+        List<String> toModules = moduleTargets(ed, dsb);
         Source source = source(ed);
         builder.addExports(dsb == null ? source : source.withDetailedSources(dsb.build()),
-                comments(ed), packageName, toPackageName);
+                comments(ed), packageName, toModules);
+    }
+
+    // Collect all target modules of a qualified 'exports/opens p to a, b, c' directive. The target names follow the
+    // 'to' keyword (index 2); the remaining children alternate name, comma, name, ... and end with a semicolon token,
+    // so skip the Token nodes. Each target's source is recorded so it can later be located individually.
+    private List<String> moduleTargets(Node directive, DetailedSources.Builder dsb) {
+        List<String> toModules = new ArrayList<>();
+        if (directive.get(2) instanceof Token kwTo && Token.TokenType.TO == kwTo.getType()) {
+            for (int i = 3; i < directive.size(); i++) {
+                Node n = directive.get(i);
+                if (n instanceof Token) continue;
+                String name = n.getSource();
+                toModules.add(name);
+                if (dsb != null) dsb.put(name, source(n));
+            }
+        }
+        return toModules;
     }
 
     private void processRequired(Context context, RequiresDirective rd, ModuleInfo.Builder builder) {
