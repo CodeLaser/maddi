@@ -138,4 +138,6 @@ tasks.named<Test>("test") {
     // the isolation test resolves the plugin from the local repo, so publish there first
     dependsOn("publishAllPublicationsToLocalPluginRepoRepository")
     systemProperty("e2immu.localPluginRepo", localPluginRepoDir.get().asFile.absolutePath)
+    // published version, so the isolation test never hardcodes a version that then rots on the next bump
+    systemProperty("e2immu.pluginVersion", project.version.toString())
 }
