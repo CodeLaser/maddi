@@ -164,8 +164,15 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 builder.addRequires(source.withDetailedSources(dsb.build()), comments,
                         moduleName, rd.isStatic(), rd.isTransitive());
             }
-            case JCTree.JCExports ed -> builder.addExports(source, comments, ed.getPackageName().toString(),
-                    ed.moduleNames == null ? null : ed.moduleNames.getFirst().toString());
+            case JCTree.JCExports ed -> {
+                String packageName = ed.getPackageName().toString();
+                dsb.put(packageName, scanResult.find(packageName, scanSource(ed.getPackageName())));
+                String moduleName = ed.moduleNames == null ? null : ed.moduleNames.getFirst().toString();
+                if (moduleName != null) {
+                    dsb.put(moduleName, scanResult.find(moduleName, scanSource(ed.getModuleNames().getFirst())));
+                }
+                builder.addExports(source.withDetailedSources(dsb.build()), comments, packageName, moduleName);
+            }
             case JCTree.JCOpens od -> {
                 String packageName = od.getPackageName().toString();
                 dsb.put(packageName, scanResult.find(packageName, scanSource(od.getPackageName())));
