@@ -53,18 +53,18 @@ public interface ModuleInfo extends Info {
     interface Builder extends Element.Builder<Builder> {
 
         /**
-         * Adds an {@code exports <packageName> [to <toPackageNameOrNull>]} directive.
+         * Adds an {@code exports <packageName> [to <toModules>]} directive.
          *
-         * @param toPackageNameOrNull the target module, or {@code null} for an unconditional export
+         * @param toModules the target modules of a qualified export, or an empty list for an unconditional export
          */
-        Builder addExports(Source source, List<Comment> comments, String packageName, String toPackageNameOrNull);
+        Builder addExports(Source source, List<Comment> comments, String packageName, List<String> toModules);
 
         /**
-         * Adds an {@code opens <packageName> [to <toPackageNameOrNull>]} directive.
+         * Adds an {@code opens <packageName> [to <toModules>]} directive.
          *
-         * @param toPackageNameOrNull the target module, or {@code null} for unconditional opening
+         * @param toModules the target modules of a qualified opens, or an empty list for unconditional opening
          */
-        Builder addOpens(Source source, List<Comment> comments, String packageName, String toPackageNameOrNull);
+        Builder addOpens(Source source, List<Comment> comments, String packageName, List<String> toModules);
 
         /** Adds a {@code uses <api>} directive, declaring a service dependency. */
         Builder addUses(Source source, List<Comment> comments, String api);
@@ -119,10 +119,18 @@ public interface ModuleInfo extends Info {
         String packageName();
 
         /**
-         * Returns the name of the module to which the package is exported,
-         * or {@code null} for an unconditional (all-modules) export.
+         * Returns the modules to which the package is exported (a qualified {@code exports p to a, b, c}),
+         * or an empty list for an unconditional (all-modules) export.
          */
-        String toPackageNameOrNull();
+        List<String> toModulesOrEmpty();
+
+        /**
+         * Returns the first target module of a qualified export, or {@code null} for an unconditional export.
+         * Prefer {@link #toModulesOrEmpty()}; this convenience keeps the first target only.
+         */
+        default String toPackageNameOrNull() {
+            return toModulesOrEmpty().isEmpty() ? null : toModulesOrEmpty().getFirst();
+        }
     }
 
     /**
@@ -135,10 +143,18 @@ public interface ModuleInfo extends Info {
         String packageName();
 
         /**
-         * Returns the name of the module to which the package is opened,
-         * or {@code null} for unconditional (all-modules) opening.
+         * Returns the modules to which the package is opened (a qualified {@code opens p to a, b, c}),
+         * or an empty list for unconditional (all-modules) opening.
          */
-        String toPackageNameOrNull();
+        List<String> toModulesOrEmpty();
+
+        /**
+         * Returns the first target module of a qualified opens, or {@code null} for unconditional opening.
+         * Prefer {@link #toModulesOrEmpty()}; this convenience keeps the first target only.
+         */
+        default String toPackageNameOrNull() {
+            return toModulesOrEmpty().isEmpty() ? null : toModulesOrEmpty().getFirst();
+        }
     }
 
     /**
