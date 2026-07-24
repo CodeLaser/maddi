@@ -27,6 +27,5 @@ import java.lang.annotation.Target;
 public @interface Docstring {
     Class<?> type();
     String summary();
-    String[] tags();
-    String embedding();
+    String[] tags() default {};
 }
