@@ -197,6 +197,372 @@ public class TestCommitLabels extends CommonTest {
             }
             """;
 
+    // the ParameterizedTypeImpl.typesReferenced shape (spec-eventually-unmodified-parameter §8.3 item 1):
+    // a final, never-modified List field of candidate content is committable one indirection deeper -- but a
+    // List of plain mutable content, or a List the owner mutates, is not
+    @Language("java")
+    private static final String INPUT_CONTAINER = """
+            import java.util.ArrayList;
+            import java.util.List;
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class F {
+              static class T {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                private final List<T> children;
+                private final List<StringBuilder> raw = new ArrayList<>();
+                private final List<T> pool = new ArrayList<>();
+                T(List<T> children) { this.children = List.copyOf(children); }
+                public void commit(String s) { inspection.setFinal(s); }
+                public int size() { return inspection.get().length(); }
+                public int firstSize() { return children.get(0).size(); }
+                public int rawAppend() { return raw.get(0).append('x').length(); }
+                public void grow(T t) { pool.add(t); }
+                public int poolFirstSize() { return pool.get(0).size(); }
+                public T copyish() { inspection.get(); return new T(children); }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: the container ride-along commits a final unmodified List of candidate content")
+    @Test
+    public void testContainerRideAlong() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo F = javaInspector.parse("F", INPUT_CONTAINER);
+            analyzer.go(prepWork(F));
+            TypeInfo T = F.findSubType("T");
+
+            // children.get(0).size(): the modifying element call is excused because the receiver chain roots
+            // in a final, owner-unmodified List of candidate content -- the ride-along one indirection deeper
+            assertEquals(Set.of("children"), nonModAfter(T, "firstSize", 0));
+            // raw: same wrapper shape, but StringBuilder content is not committable by any mark
+            assertEquals(Set.of(), nonModAfter(T, "rawAppend", 0));
+            // pool: candidate content, but the owner mutates the list (grow) -- wrapper stability fails
+            assertEquals(Set.of(), nonModAfter(T, "poolFirstSize", 0));
+            // the argument position at a constructor site: the wrapper handed to a ctor whose body provably
+            // handles it safely (List.copyOf -- a defensive copy, no capture)
+            assertEquals(Set.of("children", "inspection"), nonModAfter(T, "copyish", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: the container ride-along is dormant")
+    @Test
+    public void testContainerRideAlongGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo F = javaInspector.parse("F", INPUT_CONTAINER);
+            analyzer.go(prepWork(F));
+            TypeInfo T = F.findSubType("T");
+            assertEquals(Set.of("inspection"), nonModAfter(T, "size", 0));
+            assertEquals(Set.of(), nonModAfter(T, "firstSize", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    // the Element/Statement breadth round: the downward interface closure -- a markless sub-interface
+    // of a candidate interface (Block/Comment under Element) is a cluster member, so a carrier field of
+    // that type excuses; a setter-bearing sub-interface (a Builder) is refused on both ends
+    @Language("java")
+    private static final String INPUT_BREADTH = """
+            import java.util.ArrayList;
+            import java.util.List;
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class J {
+              interface E { int size(); }
+              interface Sub extends E { int size2(); }
+              interface BuilderLike extends E { String foo(); void setFoo(String foo); }
+              static class T implements E {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                @Override public int size() { return inspection.get().length(); }
+              }
+              static class Carrier {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                private final Sub sub;
+                private final BuilderLike builderLike;
+                Carrier(Sub sub, BuilderLike builderLike) {
+                  this.sub = sub;
+                  this.builderLike = builderLike;
+                }
+                public void commit(String s) { inspection.setFinal(s); }
+                public int viaSub() { inspection.get(); return sub.size2(); }
+                public int viaBuilder() { inspection.get(); return builderLike.foo().length(); }
+              }
+              // the UnaryOperatorImpl.operator shape: a subclass method reading a SUPERCLASS field -- the
+              // walk owns inherited fields too; the label names the super's field, tolerated at type level
+              // exactly like an inherited mark
+              static class Base {
+                protected final T item;
+                Base(T item) { this.item = item; }
+              }
+              static class SubClass extends Base {
+                SubClass(T item) { super(item); }
+                public int subSize() { return item.size(); }
+              }
+            }
+            """;
+    // NOTE: the round's other two mechanisms -- the accessor spelling comments() of this.comments in the
+    // container ride-along, and the primitive-stream (mapToInt) handed-on admit -- are corpus-validated
+    // only: the unit harness runs without annotated APIs, and the shallow defaults it gives the JDK
+    // container/stream types make any fixture non-discriminating (the walk resolves through them with or
+    // without the mechanism under test).
+
+    @DisplayName("gate on: downward interface closure admits markless sub-interfaces, refuses setter-bearing ones")
+    @Test
+    public void testBreadthShapes() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo J = javaInspector.parse("J", INPUT_BREADTH);
+            // the full pipeline marks abstract Builder setters via the synthetic-fields step; the unit
+            // harness does not run it, so arrange the same GET_SET_FIELD property by hand
+            MethodInfo setFoo = J.findSubType("BuilderLike").findUniqueMethod("setFoo", 1);
+            setFoo.analysis().set(PropertyImpl.GET_SET_FIELD,
+                    new ValueImpl.GetSetValueImpl(null, true, -1, false));
+            analyzer.go(prepWork(J));
+            TypeInfo carrier = J.findSubType("Carrier");
+
+            // sub.size2(): Sub carries no eventual intent of its own, but extends the candidate interface E
+            // -- the downward closure admits it, and the field read excuses after [sub]
+            assertEquals(Set.of("inspection", "sub"), nonModAfter(carrier, "viaSub", 0));
+            // builderLike is a setter-bearing sub-interface: refused (haveSetters can never prove)
+            assertEquals(Set.of(), nonModAfter(carrier, "viaBuilder", 0));
+            // item is Base's field, read from SubClass: the inherited-field read is excusable by its label
+            assertEquals(Set.of("item"), nonModAfter(J.findSubType("SubClass"), "subSize", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    // Part B of the flagship-convergence round: the downward interface closure at VERDICT level. A
+    // markless sub-interface with no methods of its own (the Comment shape) inherits the super's
+    // eventual labels; its own (empty) field/method checks still run in full via immutableAfterMark.
+    // NOTE: a sub-interface ADDING abstract methods without analyzed implementations stays undecided
+    // in the harness (NON_MODIFYING never lands for them) -- the dogfood covers that case.
+    @Language("java")
+    private static final String INPUT_MARKLESS = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class P {
+              interface E { int size(); }
+              interface Marker extends E { }
+              static class T implements E {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                @Override public int size() { return inspection.get().length(); }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: a markless sub-interface inherits the super's eventual verdict")
+    @Test
+    public void testMarklessInterface() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo P = javaInspector.parse("P", INPUT_MARKLESS);
+            analyzer.go(prepWork(P));
+            var eEv = P.findSubType("E").analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                    ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+            assertTrue(eEv.isEventual(), "E carries the abstract enm union -> eventual");
+            var markerEv = P.findSubType("Marker").analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                    ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+            assertTrue(markerEv.isEventual(), "markless Marker inherits E's verdict labels");
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: neither interface forms")
+    @Test
+    public void testMarklessInterfaceGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo P = javaInspector.parse("P", INPUT_MARKLESS);
+            analyzer.go(prepWork(P));
+            assertFalse(P.findSubType("Marker").analysis().getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                    ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL).isEventual());
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: the breadth shapes stay unexcused")
+    @Test
+    public void testBreadthGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo J = javaInspector.parse("J", INPUT_BREADTH);
+            analyzer.go(prepWork(J));
+            TypeInfo carrier = J.findSubType("Carrier");
+            assertEquals(Set.of(), nonModAfter(carrier, "viaSub", 0));
+            assertEquals(Set.of(), nonModAfter(carrier, "viaBuilder", 0));
+            assertEquals(Set.of(), nonModAfter(J.findSubType("SubClass"), "subSize", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    // the builder() accessor shape (handoff-builder-leans §4A): a body guarded by a @TestMark observation
+    // is @Only on the side the guard asserts; and a transition on ANOTHER object's lifecycle (a parameter)
+    // no longer bails the walk -- only the arguments carry root-derived content
+    @Language("java")
+    private static final String INPUT_GUARD = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class G {
+              static class T {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                public String builderStyle() {
+                  assert inspection.isVariable();
+                  return inspection.get();
+                }
+                public String guarded() {
+                  if (inspection.isVariable()) return inspection.get();
+                  throw new UnsupportedOperationException();
+                }
+                public String afterGuard() {
+                  assert inspection.isFinal();
+                  return inspection.get();
+                }
+                public void fillOther(StringBuilder sb, T other) {
+                  inspection.get();
+                  other.commit(sb.toString());
+                }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: precondition guards classify @Only, and another object's transition is excusable")
+    @Test
+    public void testGuardsAndForeignTransitions() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo G = javaInspector.parse("G", INPUT_GUARD);
+            analyzer.go(prepWork(G));
+            TypeInfo T = G.findSubType("T");
+
+            var builderStyle = T.findUniqueMethod("builderStyle", 0).analysis()
+                    .getOrDefault(PropertyImpl.EVENTUAL_METHOD, ValueImpl.EventualImpl.NOT_EVENTUAL);
+            assertTrue(builderStyle.isOnly());
+            assertEquals(Boolean.FALSE, builderStyle.after());
+            assertEquals(Set.of("inspection"), builderStyle.fields());
+            var guarded = T.findUniqueMethod("guarded", 0).analysis()
+                    .getOrDefault(PropertyImpl.EVENTUAL_METHOD, ValueImpl.EventualImpl.NOT_EVENTUAL);
+            assertTrue(guarded.isOnly());
+            assertEquals(Boolean.FALSE, guarded.after());
+            var afterGuard = T.findUniqueMethod("afterGuard", 0).analysis()
+                    .getOrDefault(PropertyImpl.EVENTUAL_METHOD, ValueImpl.EventualImpl.NOT_EVENTUAL);
+            assertTrue(afterGuard.isOnly());
+            assertEquals(Boolean.TRUE, afterGuard.after());
+            // other.commit(...) is the PARAMETER's transition, not this's: the walk continues, and the
+            // method's own pre-mark read supplies the label
+            assertEquals(Set.of("inspection"), nonModAfter(T, "fillOther", 2));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: precondition guards are not read, foreign transitions still bail")
+    @Test
+    public void testGuardsGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo G = javaInspector.parse("G", INPUT_GUARD);
+            analyzer.go(prepWork(G));
+            TypeInfo T = G.findSubType("T");
+            var builderStyle = T.findUniqueMethod("builderStyle", 0).analysis()
+                    .getOrDefault(PropertyImpl.EVENTUAL_METHOD, ValueImpl.EventualImpl.NOT_EVENTUAL);
+            assertFalse(builderStyle.isEventual());
+            assertEquals(Set.of(), nonModAfter(T, "fillOther", 2));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    // the rewirePhase1/3 residue (handoff-builder-leans §4b resolution): a MODIFYING fluent chain on another
+    // object -- a parameter's copy, or a fresh local read through a chained local -- whose arguments carry
+    // root-derived committed content. The handed-on judgment must settle from the not-root (resp. fresh) base
+    // plus the accumulated labels, never from a candidacy lean on the wrapper's return type: Wr is
+    // deliberately NOT a cluster candidate, so without the excuse these methods bail to ∅
+    @Language("java")
+    private static final String INPUT_FLUENT = """
+            import java.util.ArrayList;
+            import java.util.List;
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class H {
+              static class Wr {
+                private final List<String> parts = new ArrayList<>();
+                Wr() { }
+                Wr(String first) { parts.add(first); }
+                Wr add(String s) { parts.add(s); return this; }
+                Wr self() { return this; }
+              }
+              static class T {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                public String data() { return inspection.get(); }
+                public void rewire(Wr copy) { copy.add(data()).add("x"); }
+                public void fillFresh() {
+                  Wr w = new Wr(data());
+                  Wr b = w.self();
+                  b.add("x");
+                }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: a modifying fluent chain on another object's graph needs no lean on the wrapper type")
+    @Test
+    public void testFluentChainOnForeignGraph() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo H = javaInspector.parse("H", INPUT_FLUENT);
+            analyzer.go(prepWork(H));
+            TypeInfo T = H.findSubType("T");
+
+            // copy.add(data()).add("x"): the outer add's receiver carries [inspection] (folded from the
+            // argument), but the chain's BASE is the copy parameter -- another object's graph; the
+            // modification cannot reach this except through content already committed by the labels
+            assertEquals(Set.of("inspection"), nonModAfter(T, "rewire", 1));
+            // Wr b = w.self(): the local-variable spelling of a fluent chain off a fresh local -- freshness
+            // must chase through the assignment graph, exactly as rootedInFresh chases the inline chain
+            assertEquals(Set.of("inspection"), nonModAfter(T, "fillFresh", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: the fluent-chain shapes stay unexcused")
+    @Test
+    public void testFluentChainGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo H = javaInspector.parse("H", INPUT_FLUENT);
+            analyzer.go(prepWork(H));
+            TypeInfo T = H.findSubType("T");
+            assertEquals(Set.of(), nonModAfter(T, "rewire", 1));
+            assertEquals(Set.of(), nonModAfter(T, "fillFresh", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
     @DisplayName("gate on: bare this, non-committable fields, and aliasing locals bail; fresh locals do not")
     @Test
     public void testBailShapes() {
@@ -210,8 +576,10 @@ public class TestCommitLabels extends CommonTest {
             assertEquals(Set.of("inspection"), nonModAfter(T, "len", 0));
             // peer.same(this): bare this handed out IS excusable for a cluster-candidate owner (post-marks it
             // is committed; the self-assumption is witnessed and the contraction validates) -- the receiver
-            // field contributes its label
-            assertEquals(Set.of("peer"), nonModAfter(T, "bailBareThis", 0));
+            // field contributes its label, and the bare-root-argument commitment fold (flagship-convergence
+            // round) now NAMES this's own commitment too: the callee plainly modifies the argument, so the
+            // honest promise is "after peer AND after this's own inspection"
+            assertEquals(Set.of("inspection", "peer"), nonModAfter(T, "bailBareThis", 0));
             // items.add: a plain mutable field is not committed by any mark
             assertEquals(Set.of(), nonModAfter(T, "bailMutableField", 0));
             // l = items; l.add(x): the local aliases the mutable field -- must NOT be excused even though the
@@ -219,6 +587,246 @@ public class TestCommitLabels extends CommonTest {
             assertEquals(Set.of(), nonModAfter(T, "bailLocalAlias", 0));
             // sb = new StringBuilder(): a fresh object is not this-derived; only len()'s label remains
             assertEquals(Set.of("inspection"), nonModAfter(T, "freshLocal", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    private Set<String> unmodAfter(TypeInfo typeInfo, String methodName, int params, int paramIndex) {
+        return typeInfo.findUniqueMethod(methodName, params).parameters().get(paramIndex).analysis()
+                .getOrDefault(PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER, ValueImpl.SetOfStringsImpl.EMPTY_SET)
+                .set();
+    }
+
+    // the compareBinaryToGt0 shape (the internalCompareTo union's last blocker): a static helper chain over
+    // the interface hierarchy, consumed by a bare-this class-rooted caller. Two mechanisms under test: the
+    // ancestor label space (an interface-rooted eup walk handing its root to a param of an ANCESTOR interface
+    // passes the labels through, GreaterThanZero -> Expression), and the dispatch narrowing (a class-rooted
+    // consumer folds the union restricted to its own committable fields when the residue names no field
+    // anywhere in its runtime cone -- U's 'data' is vacuous for a T argument).
+    @Language("java")
+    private static final String INPUT_CHAIN = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class K {
+              interface E { int size(); }
+              interface Sub extends E { int size2(); }
+              static class T implements E {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                @Override public int size() { return inspection.get().length(); }
+                public int viaHelper() { return Helper.viaE(this); }
+              }
+              static class U implements E {
+                private final EventuallyFinalOnDemand<String> data = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { data.setFinal(s); }
+                @Override public int size() { return data.get().length(); }
+              }
+              static class Helper {
+                static int viaE(E e) { return e.size(); }
+                static int viaSub(Sub s) { return viaE(s); }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: eup crosses the ancestor label space; a class-rooted consumer narrows the union")
+    @Test
+    public void testChainShapes() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo K = javaInspector.parse("K", INPUT_CHAIN);
+            analyzer.go(prepWork(K));
+            TypeInfo helper = K.findSubType("Helper");
+
+            // e.size(): the abstract union over T (inspection) and U (data), passed through the interface root
+            assertEquals(Set.of("data", "inspection"), unmodAfter(helper, "viaE", 1, 0));
+            // viaE(s): the root of type Sub handed to a parameter of ANCESTOR type E -- same promise space
+            assertEquals(Set.of("data", "inspection"), unmodAfter(helper, "viaSub", 1, 0));
+            // Helper.viaE(this): the T-rooted consumer narrows [data, inspection] to its own reality --
+            // 'data' names no field in T's cone, those code paths cannot execute on a T argument
+            assertEquals(Set.of("inspection"), nonModAfter(K.findSubType("T"), "viaHelper", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    // the CommonType.commonType shape: direct recursion inside the method whose enm is being computed --
+    // the callee's excuse set IS the set in flight (write-once, unwritten), so reading it bails. The
+    // self-call rule excuses it by the fixpoint hypothesis; the surrounding sites supply the labels.
+    @Language("java")
+    private static final String INPUT_RECURSION = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class R {
+              static class T {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                public int size() { return inspection.get().length(); }
+                public int recDepth(int n) {
+                  if (n <= 0) return size();
+                  int deeper = recDepth(n - 1);
+                  return deeper + size();
+                }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: a direct self-call is excused by the fixpoint hypothesis")
+    @Test
+    public void testSelfCall() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo R = javaInspector.parse("R", INPUT_RECURSION);
+            analyzer.go(prepWork(R));
+            // both the excuse-position and the value-position (local 'deeper') self-calls contribute
+            // nothing; size()'s forward supplies the label
+            assertEquals(Set.of("inspection"), nonModAfter(R.findSubType("T"), "recDepth", 1));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    // the VariableImpl.cachedFqn/cachedHash shape: a private @IgnoreModifications lazy memo. The disclaimer
+    // covers the slot (road §050 extended): the assignment does not modify the owner (ungated,
+    // contract-honoring), and -- under the gate, after-mark only -- the field's assignability does not
+    // block the eventual type-level verdict.
+    @Language("java")
+    private static final String INPUT_MEMO = """
+            import org.e2immu.annotation.rare.IgnoreModifications;
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class M {
+              static class T {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                @IgnoreModifications
+                private String cachedFqn;
+                public void commit(String s) { inspection.setFinal(s); }
+                public int size() { return inspection.get().length(); }
+                public String fqn() {
+                  String f = cachedFqn;
+                  if (f == null) {
+                    f = "T:" + size();
+                    cachedFqn = f;
+                  }
+                  return f;
+                }
+              }
+            }
+            """;
+
+    @DisplayName("memo disclaimer: assigning an @IgnoreModifications field does not modify the owner")
+    @Test
+    public void testMemoField() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo M = javaInspector.parse("M", INPUT_MEMO);
+            analyzer.go(prepWork(M));
+            TypeInfo T = M.findSubType("T");
+            MethodInfo fqn = T.findUniqueMethod("fqn", 0);
+            // ungated semantics: the only own-state write is the disclaimed memo slot; size() is
+            // eventually-non-modifying, so fqn() is plainly modifying ONLY through size()'s pre-mark reads
+            // -- the enm walk excuses it after [inspection]
+            assertEquals(Set.of("inspection"), nonModAfter(T, "fqn", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    // the TypeInfoImpl.print shape: 'new TypePrinterImpl(this, ..).print(..)' -- a modifying call on a
+    // fresh wrapper whose constructor captured bare this. The wrapper method's own enm labels (its capture
+    // field) translate through the constructor's capture map to the ROOT'S full commitment
+    // (rootCommitmentLabels). NOTE: the opaque-sink clause (contentTypeHarmless -- the OutputBuilder shape)
+    // is corpus-validated only: the aapi-less harness shallow-defaults the JDK stream/collector types too
+    // leniently for a discriminating fixture.
+    @Language("java")
+    private static final String INPUT_WRAPPER = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class W {
+              static class T {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                private final EventuallyFinalOnDemand<String> data = new EventuallyFinalOnDemand<>();
+                public void commit(String s) { inspection.setFinal(s); }
+                public void commitData(String s) { data.setFinal(s); }
+                public int size() { return inspection.get().length(); }
+                // the direct site supplies [inspection]; the wrapper fold supplies the root's FULL
+                // commitment [data, inspection] -- the plainly-modifying size() call is needed because the
+                // aapi-less plain layer does not trace modification through the capture on its own
+                public int viaWrapper() { int a = size(); return a + new Wr(this).run(); }
+              }
+              static class Wr {
+                private final T t;
+                Wr(T t) { this.t = t; }
+                public int run() { return t.size(); }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: the wrapper-capture fold translates the wrapper's enm to the root's commitment")
+    @Test
+    public void testWrapperCapture() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo W = javaInspector.parse("W", INPUT_WRAPPER);
+            analyzer.go(prepWork(W));
+            // the wrapper's own promise: run() is non-modifying once its captured 't' commits
+            assertEquals(Set.of("t"), nonModAfter(W.findSubType("Wr"), "run", 0));
+            // the fold: 't' captured bare this, so the caller owes this's own FULL commitment
+            // [data, inspection] -- without the fold, only the direct site's [inspection] would land
+            assertEquals(Set.of("data", "inspection"), nonModAfter(W.findSubType("T"), "viaWrapper", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: the wrapper's own field read still lands (legacy route); the fold does not")
+    @Test
+    public void testWrapperCaptureGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo W = javaInspector.parse("W", INPUT_WRAPPER);
+            analyzer.go(prepWork(W));
+            // t.size(): the pre-cluster receiverAfterLabels route -- T is eventually immutable by its own
+            // mark, so the committable field read excuses off the gate too
+            assertEquals(Set.of("t"), nonModAfter(W.findSubType("Wr"), "run", 0));
+            // but the wrapper-capture fold is gated: the ∅-excused capture stays ∅
+            assertEquals(Set.of(), nonModAfter(W.findSubType("T"), "viaWrapper", 0));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: the recursive method stays unexcused")
+    @Test
+    public void testSelfCallGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo R = javaInspector.parse("R", INPUT_RECURSION);
+            analyzer.go(prepWork(R));
+            assertEquals(Set.of(), nonModAfter(R.findSubType("T"), "recDepth", 1));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: the chain shapes stay unexcused")
+    @Test
+    public void testChainGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo K = javaInspector.parse("K", INPUT_CHAIN);
+            analyzer.go(prepWork(K));
+            TypeInfo helper = K.findSubType("Helper");
+            assertEquals(Set.of(), unmodAfter(helper, "viaE", 1, 0));
+            assertEquals(Set.of(), unmodAfter(helper, "viaSub", 1, 0));
+            assertEquals(Set.of(), nonModAfter(K.findSubType("T"), "viaHelper", 0));
         } finally {
             EventualCluster.ENABLED = saved;
         }

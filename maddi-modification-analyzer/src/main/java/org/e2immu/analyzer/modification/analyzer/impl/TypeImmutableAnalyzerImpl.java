@@ -41,6 +41,17 @@ Phase 4.2 Primary type immutable
 
  */
 public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements TypeImmutableAnalyzer {
+
+    // log-only diagnostic gate, shared name with TypeEventualAnalyzerImpl
+    private static final String EC_TYPE_DEBUG = System.getenv("EC_TYPE_DEBUG");
+
+    private static boolean ecTypeDebug(TypeInfo typeInfo) {
+        if (EC_TYPE_DEBUG == null) return false;
+        for (String part : EC_TYPE_DEBUG.split(",")) {
+            if (!part.isBlank() && typeInfo.fullyQualifiedName().contains(part)) return true;
+        }
+        return false;
+    }
     private final AnalysisHelper analysisHelper = new AnalysisHelper();
     private final TypeIndependentAnalyzer typeIndependentAnalyzer;
     private final EventualCluster eventualCluster;
@@ -96,17 +107,51 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
             independent = independent.max(typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         }
         if (independent == null) return null; // undecided: never commit an eventual verdict on a guess
-        return computeImmutableType(typeInfo, independent, activateCycleBreaking, afterMark);
+        Immutable result = computeImmutableType(typeInfo, independent, activateCycleBreaking, afterMark);
+        if (ecTypeDebug(typeInfo)) {
+            System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " immutableAfterMark=" + result
+                               + " independent=" + independent + " excusedF=" + afterMark.fields().size()
+                               + " excusedM=" + afterMark.methods().size());
+        }
+        return result;
     }
 
     private Immutable computeImmutableType(TypeInfo typeInfo, Independent independent, boolean activateCycleBreaking,
                                            AfterMark afterMark) {
-        boolean fieldsAssignable = typeInfo.fields().stream().anyMatch(fi -> !fi.isPropertyFinal());
-        if (fieldsAssignable) return MUTABLE;
+        Immutable result = computeImmutableType0(typeInfo, independent, activateCycleBreaking, afterMark);
+        if (ecTypeDebug(typeInfo)) {
+            System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " computeImmutableType=" + result
+                               + " afterMarkNone=" + afterMark.isNone() + " cb=" + activateCycleBreaking);
+        }
+        return result;
+    }
+
+    private Immutable computeImmutableType0(TypeInfo typeInfo, Independent independent, boolean activateCycleBreaking,
+                                            AfterMark afterMark) {
+        boolean dbg = ecTypeDebug(typeInfo);
+        // EXPERIMENTAL (EVENTUALCLUSTER), after-mark path only: an @IgnoreModifications non-final field is
+        // disclaimed memo state (the VariableImpl.cachedFqn/cachedHash idiom -- a private, idempotent lazy
+        // cache); its assignability does not bear on the level the type reaches after its marks. The
+        // UNCONDITIONAL verdict keeps the honest @Mutable -- the slot IS assignable -- so the plain layer
+        // is untouched; only the eventual relaxation looks past it, exactly like afterMark.fields().
+        boolean fieldsAssignable = typeInfo.fields().stream().anyMatch(fi -> !fi.isPropertyFinal()
+                && !(EventualCluster.ENABLED && !afterMark.isNone() && fi.isIgnoreModifications()));
+        if (fieldsAssignable) {
+            if (dbg) System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " MUTABLE: assignable fields "
+                                        + typeInfo.fields().stream().filter(fi -> !fi.isPropertyFinal())
+                                                .map(FieldInfo::name).toList());
+            return MUTABLE;
+        }
         // sometimes, we have annotated setters on synthetic fields, which do not have the "final" property
         boolean haveSetters = typeInfo.methodStream()
                 .anyMatch(fi -> fi.getSetField() != null && fi.getSetField().setter());
-        if (haveSetters) return MUTABLE;
+        if (haveSetters) {
+            if (dbg) System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " MUTABLE: setters "
+                                        + typeInfo.methodStream().filter(fi -> fi.getSetField() != null
+                                                                               && fi.getSetField().setter())
+                                                .map(MethodInfo::name).toList());
+            return MUTABLE;
+        }
 
         // hierarchy BEFORE the dependence cap: a mutable supertype makes the type MUTABLE regardless of its own
         // final fields. The 'isDependent -> FINAL_FIELDS' early return that stood here committed a premature
@@ -118,6 +163,11 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
 
         for (ParameterizedType superType : typeInfo.parentAndInterfacesImplemented()) {
             Immutable immutableSuper = immutableSuper(typeInfo, superType.typeInfo(), afterMark);
+            if (ecTypeDebug(typeInfo)) {
+                System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " super=" +
+                                   superType.typeInfo().fullyQualifiedName() + " -> " + immutableSuper
+                                   + " afterMarkNone=" + afterMark.isNone());
+            }
             Immutable immutableSuperBroken;
             if (immutableSuper == null) {
                 if (activateCycleBreaking) {

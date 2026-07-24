@@ -98,9 +98,25 @@ public class PropertyImpl implements Property {
             ValueImpl.GetSetEquivalentImpl.EMPTY);
     public static final Property IMPLEMENTATIONS = new PropertyImpl("implementations",
             ValueImpl.SetOfMethodInfoImpl.EMPTY);
+    /** the analyzed-source implementations of an EXTERNAL abstract method (Comparable.compareTo,
+     *  Object.equals): the dispatch closure the eventual analyzer consults when a jar contract claims
+     *  non-modifying but the codebase's own overrides honestly modify pre-mark. Kept apart from
+     *  {@link #IMPLEMENTATIONS} so the abstract batches never write onto jar methods. */
+    public static final Property EXTERNAL_IMPLEMENTATIONS = new PropertyImpl("externalImplementations",
+            ValueImpl.SetOfMethodInfoImpl.EMPTY);
 
     // parameter
     public static final Property UNMODIFIED_PARAMETER = new PropertyImpl("unmodifiedParameter");
+    /**
+     * The mark label(s) of {@code @NotModified(after="…")} on a parameter: the method modifies the argument's
+     * object graph only through chains the eventual machinery excuses -- once every label (field names in the
+     * parameter type's label space) has been committed on the argument, a call leaves the argument unmodified.
+     * The parameter twin of {@link #EVENTUALLY_NON_MODIFYING_METHOD}. {@link #UNMODIFIED_PARAMETER} keeps
+     * recording the unconditional verdict, which for such a parameter is {@code false} (it is modified, before
+     * the marks).
+     */
+    public static final Property EVENTUALLY_UNMODIFIED_PARAMETER = new PropertyImpl("eventuallyUnmodifiedParameter",
+            ValueImpl.SetOfStringsImpl.EMPTY_SET);
     public static final Property IGNORE_MODIFICATIONS_PARAMETER = new PropertyImpl("ignoreModsParameter");
     public static final Property PARAMETER_ASSIGNED_TO_FIELD = new PropertyImpl("parameterAssignedToField",
             ValueImpl.AssignedToFieldImpl.EMPTY);
