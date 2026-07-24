@@ -17,6 +17,7 @@ package org.e2immu.gradleplugin;
 import org.gradle.testkit.runner.BuildResult;
 import org.gradle.testkit.runner.GradleRunner;
 import org.gradle.testkit.runner.TaskOutcome;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -38,7 +39,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * thing that carries the analyzer is the shaded jar. If a class were missing from the shadow jar (or a
  * dependency were left in the POM but not bundled), the run would fail with {@code NoClassDefFoundError} or
  * an unresolved dependency. A green run means the jar stands alone.
+ * <p>
+ * Slow: round-trips through a nested Gradle build (GradleTestKit spins up its own daemon to resolve
+ * and run the plugin), which can take minutes rather than seconds — excluded from the fast `test`
+ * suite, runs only under `slowTest`.
  */
+@Tag("slow")
 public class TestAnalyzerPluginShadedJarIsolation {
 
     @Test
