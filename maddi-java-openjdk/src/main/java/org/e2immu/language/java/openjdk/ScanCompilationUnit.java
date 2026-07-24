@@ -54,6 +54,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     private final Deque<BlockData> blockBuilders = new ArrayDeque<>();
     private Expression currentExpression;
     private final Map<StatementTree, String> statementLabels = new IdentityHashMap<>();
+    private final Map<JCTree.JCVariableDecl, Source> wholeFieldDeclarationSources = new IdentityHashMap<>();
     private final CompilationUnit.Builder compilationUnitBuilder;
     private CompilationUnit compilationUnit;
     private Source compilationUnitSource;
@@ -152,6 +153,21 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         return null;
     }
 
+    // Collect all target modules of a qualified 'exports p to a, b, c' / 'opens p to a, b, c' directive, recording a
+    // detailed source for each target name so a single target can later be located (and renamed) individually.
+    private List<String> scanModuleTargets(Iterable<? extends JCTree.JCExpression> moduleNames,
+                                           DetailedSources.Builder dsb) {
+        List<String> toModules = new ArrayList<>();
+        if (moduleNames != null) {
+            for (JCTree.JCExpression mn : moduleNames) {
+                String moduleName = mn.toString();
+                dsb.put(moduleName, scanResult.find(moduleName, scanSource(mn)));
+                toModules.add(moduleName);
+            }
+        }
+        return toModules;
+    }
+
     private void visitDirective(DirectiveTree dt, ModuleInfo.Builder builder) {
         Source source = scanSource(dt);
         List<Comment> comments = commentsForNode(source);
@@ -163,16 +179,17 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 builder.addRequires(source.withDetailedSources(dsb.build()), comments,
                         moduleName, rd.isStatic(), rd.isTransitive());
             }
-            case JCTree.JCExports ed -> builder.addExports(source, comments, ed.getPackageName().toString(),
-                    ed.moduleNames == null ? null : ed.moduleNames.getFirst().toString());
+            case JCTree.JCExports ed -> {
+                String packageName = ed.getPackageName().toString();
+                dsb.put(packageName, scanResult.find(packageName, scanSource(ed.getPackageName())));
+                List<String> toModules = scanModuleTargets(ed.moduleNames, dsb);
+                builder.addExports(source.withDetailedSources(dsb.build()), comments, packageName, toModules);
+            }
             case JCTree.JCOpens od -> {
                 String packageName = od.getPackageName().toString();
                 dsb.put(packageName, scanResult.find(packageName, scanSource(od.getPackageName())));
-                String moduleName = od.moduleNames == null ? null : od.moduleNames.getFirst().toString();
-                if (moduleName != null) {
-                    dsb.put(moduleName, scanResult.find(moduleName, scanSource(od.getModuleNames().getFirst())));
-                }
-                builder.addOpens(source.withDetailedSources(dsb.build()), comments, packageName, moduleName);
+                List<String> toModules = scanModuleTargets(od.moduleNames, dsb);
+                builder.addOpens(source.withDetailedSources(dsb.build()), comments, packageName, toModules);
             }
             case JCTree.JCProvides p -> builder.addProvides(source, comments, p.getServiceName().toString(),
                     p.implNames == null ? null : p.implNames.getFirst().toString());
@@ -418,6 +435,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         }
 
         // members: methods, fields
+        recordWholeFieldDeclarationSources(jcClassDecl.defs);
         for (var member : jcClassDecl.getMembers()) {
             currentMethod = null;
             scan(member, null);
@@ -588,7 +606,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                                                                JCTree.JCExpression expression,
                                                                DetailedSources.Builder dsb) {
         if (expression.type.tsym == owner) {
-            // self-reference! we must check, otherwise there'll be loops
+            // self-reference! we must build a loop-safe parameterized type rather than calling convertTree.
+            // But we still record the detailed source of the type-name identifier (keyed by the self type), which
+            // convertTree would otherwise have done; without it, rename/move cannot locate the reference in the
+            // bound (e.g. class A<X extends A<X>> -> the 'A' in the bound).
+            JCTree.JCExpression nameExpression = expression instanceof JCTree.JCTypeApply apply
+                    ? apply.clazz : expression;
+            dsb.put(tp.typeInfo(), sourceForNode(nameExpression));
             return runtime.newParameterizedType(tp.getOwner().getLeft(),
                     tp.typeInfo().typeParameters().stream().map(NamedType::asParameterizedType).toList());
         }
@@ -1174,9 +1198,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         } else throw new UnsupportedOperationException("NYI");
 
         Block block = parseBlock("0", node.getStatement());
+        Source source = statementSourceForNode(node);
         addStatement(runtime.newForEachBuilder()
                 .setLabel(statementLabels.get(node))
-                .setSource(statementSourceForNode(node))
+                .setSource(source)
+                .addComments(commentsForNode(source))
                 .setBlock(block)
                 .setExpression(iterable)
                 .setInitializer(lvc)
@@ -1504,7 +1530,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     } else {
                         scan(node.getInitializer(), p);
                         // must come after evaluation of initializer (when it creates a lambda, anonymous type)
-                        type = convertTypeWithAnnotations(variableDecl.vartype, dsb, annots::add);
+                        // For 'var', javac fills in the inferred type but its source points at the 'var' keyword;
+                        // recording a detailed source for it would make rename/move clobber the 'var <name>' text
+                        // (there is no explicit type token to rename). Resolve the type but discard its detailed
+                        // sources in that case.
+                        DetailedSources.Builder typeDsb = variableDecl.declaredUsingVar()
+                                ? runtime.newDetailedSourcesBuilder() : dsb;
+                        type = convertTypeWithAnnotations(variableDecl.vartype, typeDsb, annots::add);
                     }
                     if (currentExpression == null) {
                         currentExpression = runtime.newEmptyExpression();
@@ -1532,6 +1564,33 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         } catch (RuntimeException | AssertionError e) {
             LOGGER.error("Caught exception in visitVariable " + node + "; source " + sourceForNode(node));
             throw e;
+        }
+    }
+
+    // A multi-declarator field declaration such as 'private String a, b;' produces one JCVariableDecl per
+    // declarator; they share the same start position but each ends at its own comma/semicolon. So that every
+    // sibling reports the SAME whole-declaration FIELD_DECLARATION (as the native parser does), map each
+    // declarator to the span [first-declarator-start .. last-declarator-end].
+    private void recordWholeFieldDeclarationSources(List<JCTree> defs) {
+        int i = 0;
+        while (i < defs.size()) {
+            if (defs.get(i) instanceof JCTree.JCVariableDecl first) {
+                int j = i;
+                while (j + 1 < defs.size()
+                       && defs.get(j + 1) instanceof JCTree.JCVariableDecl next
+                       && next.getStartPosition() == first.getStartPosition()) {
+                    j++;
+                }
+                if (j > i) {
+                    Source whole = sourceForNode(first).max(sourceForNode(defs.get(j)));
+                    for (int k = i; k <= j; k++) {
+                        wholeFieldDeclarationSources.put((JCTree.JCVariableDecl) defs.get(k), whole);
+                    }
+                }
+                i = j + 1;
+            } else {
+                i++;
+            }
         }
     }
 
@@ -1568,7 +1627,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             // source, source of name
             Source vdSource = sourceForNode(variableDecl); // declaration, but only of one field
             Source nameSource = sourceOfIdentifier(name, variableDecl.pos);
-            dsb.put(name, nameSource);
+            // key by the canonical fieldInfo.name() instance: DetailedSources is identity-keyed and callers look up
+            // with fieldInfo.name(). The transient 'name' (varSymbol.toString()) is a fresh instance on each parse
+            // phase, so on a re-visit (inMap != null) it would no longer match fieldInfo.name(). Mirrors the
+            // parameter path (setParameterSource).
+            dsb.put(fieldInfo.name(), nameSource);
             Source nameAndInitSource;
             if (variableDecl.init != null) {
                 Source s = sourceForNode(variableDecl.init);
@@ -1586,7 +1649,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 // field modifiers are recorded per declarator under the same nameAndInitSource key
                 attachModifiers(nameAndInitSource, dsb, flagHelper::fieldModifier);
             }
-            dsb.put(DetailedSources.FIELD_DECLARATION, vdSource);
+            dsb.put(DetailedSources.FIELD_DECLARATION,
+                    wholeFieldDeclarationSources.getOrDefault(variableDecl, vdSource));
 
             fieldInfo.builder()
                     .addComments(commentsForNode(vdSource))
@@ -1701,7 +1765,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 namePos = namePos.withDetailedSources(nameDsb.build());
             }
         }
-        dsb.put(name, namePos);
+        // key by the canonical localVariable.simpleName() instance (DetailedSources is identity-keyed, callers look
+        // up with it), consistent with the field and parameter paths.
+        dsb.put(localVariable.simpleName(), namePos);
         Source statementSource = statementSourceForNode(variableDecl, dsb);
         lvcb.setSource(statementSource);
         elementStack.put(localVariable.simpleName(), localVariable);
@@ -2304,6 +2370,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
         } else throw new UnsupportedOperationException();
 
+        // the referenced method's simple name (the identifier after '::', the last identifier of the whole
+        // 'scope::name' span), so callers can do mr.source().detailedSources().detail(mr.methodInfo().name()) to
+        // locate/rename it, exactly as for a MethodCall. Keyed by method.name() (DetailedSources is identity-keyed
+        // and mr.methodInfo() == method). Skipped for constructor references (X::new has no method-name identifier).
+        if (!method.isConstructor()) {
+            dsb.put(method.name(), lastIdentifierSource(sourceForNode(node), method.name()));
+        }
         currentExpression = runtime.newMethodReferenceBuilder()
                 .setScope(scope)
                 .setMethod(method)
@@ -2682,6 +2755,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 throw new UnresolvedSymbolException(
                         "Compilation error in " + typeStack.getLast() + "? Cannot resolve " + newClass);
             }
+        }
+        if (scanResult != null) {
+            Source callSrc = scanSource(node);
+            dsb.putIfNotNull(DetailedSources.END_OF_ARGUMENT_LIST, scanResult.findEndOfArgumentList(callSrc));
+            dsb.putListIfNotNull(DetailedSources.ARGUMENT_COMMAS, scanResult.findArgumentCommas(callSrc));
         }
         currentExpression = runtime.newConstructorCallBuilder()
                 .setObject(object)

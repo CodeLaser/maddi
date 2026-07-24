@@ -100,6 +100,31 @@ public class TestCompileLogCli {
         assertFalse(deployment.contains("/target"), "the build output directory must be stripped: " + deployment);
     }
 
+    /**
+     * A source set that compiles a {@code module-info.java} must be flagged as a module, and a dependency jar that
+     * Maven placed on the {@code --module-path} must be flagged as a module too. Otherwise maddi cannot honour the
+     * corpus's {@code module-info} (it would have to parse with {@code ignoreModule}). Regression for the module path
+     * being read from the javac line but dropped when building the source sets.
+     */
+    @Test
+    public void derivedModulesAreFlagged(@TempDir Path tempDir) throws Exception {
+        File out = tempDir.resolve("input.json").toFile();
+        assertEquals(Main.EXIT_OK, Main.execute(new String[]{
+                "--" + Main.COMPILE_LOG, COMPILE_LOG,
+                "--" + Main.WRITE_INPUT_CONFIGURATION, out.getAbsolutePath()}));
+        InputConfiguration ic = read(out);
+
+        List<String> moduleSourceSets = ic.sourceSets().stream()
+                .filter(SourceSet::parsedFromSource).filter(SourceSet::isModule).map(SourceSet::name).sorted().toList();
+        assertFalse(moduleSourceSets.isEmpty(),
+                "expected the module-info-bearing source sets (e.g. core/main, quarkus-jackson) flagged as modules");
+
+        List<String> moduleJars = ic.classPathParts().stream()
+                .filter(s -> !s.partOfJdk()).filter(SourceSet::isModule).map(SourceSet::name).sorted().toList();
+        assertFalse(moduleJars.isEmpty(),
+                "expected --module-path dependency jars (e.g. jspecify, jackson-databind) flagged as modules");
+    }
+
     @Test
     public void inputConfigurationTakesPrecedenceOverCompileLog(@TempDir Path tempDir) throws Exception {
         // 1. derive a config that includes the extra jmod, and write it out
