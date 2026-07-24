@@ -709,7 +709,11 @@ public class JavaInspectorImpl implements JavaInspector {
                     && !classPathPart.name().startsWith(JAR_WITH_PATH_PREFIX) && !classPathPart.partOfJdk()) {
                     try {
                         File file = Path.of(classPathPart.uri()).toFile();
-                        if (ignoreModule || !classPathPart.isModule()) {
+                        // Route to the module path only when THIS source set is itself a module (has a module-info):
+                        // a non-modular source set compiles into the unnamed module, which reads its dependencies from
+                        // the classpath (a modular jar on the classpath is read as a plain jar). Putting a module on a
+                        // non-modular consumer's module path leaves it "not in the module graph" -> not visible.
+                        if (ignoreModule || !hasModuleInfo || !classPathPart.isModule()) {
                             jarsAndClassDirectories.add(file);
                         } else {
                             moduleJars.add(file);
@@ -728,7 +732,8 @@ public class JavaInspectorImpl implements JavaInspector {
                     URI uri = dependency.uri();
                     if (uri.isOpaque() || !"file".equals(uri.getScheme())) continue;
                     File file = Path.of(uri).toFile();
-                    if (ignoreModule || !dependency.isModule()) {
+                    // Same as above: only a modular consumer resolves a source-set dependency via the module path.
+                    if (ignoreModule || !hasModuleInfo || !dependency.isModule()) {
                         jarsAndClassDirectories.add(file);
                     } else {
                         moduleJars.add(file);
