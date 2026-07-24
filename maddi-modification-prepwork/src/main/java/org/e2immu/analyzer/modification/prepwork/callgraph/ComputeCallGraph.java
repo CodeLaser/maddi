@@ -218,6 +218,12 @@ public class ComputeCallGraph {
 
         typeInfo.interfacesImplemented().forEach(pt -> addType(typeInfo, pt, TYPE_HIERARCHY)); // B
         if (typeInfo.parentClass() != null) addType(typeInfo, typeInfo.parentClass(), TYPE_HIERARCHY); // B
+        // a sealed type's 'permits' names its subclasses: a real parent->child reference (and a compile-time
+        // dependency). addType() would drop it -- the child is assignable to the parent, so addType's
+        // self/supertype guard fires -- so add the hierarchy edge directly, like mergeEdge does elsewhere.
+        typeInfo.permittedWhenSealed().forEach(child -> {
+            if (child != typeInfo && accept(child)) builder.mergeEdge(typeInfo, child, TYPE_HIERARCHY); // B
+        });
         typeInfo.typeParameters().forEach(tp -> tp.typeBounds()
                 .forEach(pt -> addType(typeInfo, pt, TYPES_IN_DECLARATION))); // C
         doAnnotations(typeInfo, TYPES_IN_DECLARATION);
@@ -355,6 +361,12 @@ public class ComputeCallGraph {
                     for (MethodInfo mi : anonymousType.constructorsAndMethods()) {
                         handleMethodCall(info, mi);
                     }
+                    // the arguments to 'new X(...) { }' (and its scope) are NOT part of the anonymous body:
+                    // visit them explicitly, otherwise a type referenced only there -- e.g. 'new Y()' passed as
+                    // an argument, or 'Y::new' in an enum constant that has a body -- is dropped when we stop
+                    // descending here.
+                    if (cc.object() != null) cc.object().visit(this);
+                    cc.parameterExpressions().forEach(arg -> arg.visit(this));
                     return false;
                 }
                 if (cc.constructor() != null) {
