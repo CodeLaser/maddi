@@ -147,4 +147,41 @@ public class TestJavaDoc2 extends CommonTest {
             assertEquals("[a.A4[I]]", A4.javaDoc().typesReferenced(null).toList().toString());
         }
     }
+
+    // A refers to same-package sibling D by its SIMPLE name; the reference resolves via the package prefix.
+    @Language("java")
+    String aA5 = """
+            package a;
+            /**
+             * See {@link D}
+             */
+            public class A5 {
+                // empty
+            }
+            """;
+
+    @Language("java")
+    String aD5 = """
+            package a;
+            public class D {
+                // empty
+            }
+            """;
+
+    @Test
+    public void test4() {
+        Map<String, TypeInfo> pr1 = scan(false, "a.A5", aA5, "a.D", aD5);
+        TypeInfo A5 = pr1.get("a.A5");
+        JavaDoc.Tag tag = A5.javaDoc().tags().getFirst();
+        assertEquals("a.D", tag.resolvedReference().toString());
+        DetailedSources detailedSources = tag.source().detailedSources();
+        assertNotNull(detailedSources);
+        // regression: the detailed source of the resolved type must be exactly the simple-name token "D" as
+        // written, NOT sized to the resolved fqn ("a.D"), which would overshoot the token and overflow the line
+        // (the bug that made MoveType generate an edit spanning into the class declaration below).
+        assertEquals(tag.sourceOfReference().compact2(), detailedSources.detail(tag.resolvedReference()).compact2());
+        // single-column token: begin line/col equals end line/col
+        String c = detailedSources.detail(tag.resolvedReference()).compact2();
+        assertEquals(c.split(":")[0], c.split(":")[1]);
+    }
 }
