@@ -23,3 +23,15 @@ Deeper technical references, in reading order per topic:
   (link-nature combination table), `maddi-modification-link/src/main/java/.../vf/virtual-fields.md`.
 - Shared-variable reconstruction: `maddi-modification-link/sv-reconstruction-techniques.md`.
 - Parsing stability (javac thread-hostility): `maddi-inspection-openjdk/parsing-stability.md`.
+
+## ⚠️ Test corpora: use the locator, never hardcode a path
+
+When a test reads the clone-bench corpus, **do not** hardcode a path such as
+`"../../testarchive/…"`. Resolve it via `CloneBenchCorpus`
+(`maddi-modification-analyzer` test scope): `TESTARCHIVE_ROOT` / `-Dtestarchive.root`,
+else the default sibling checkout. Remember the corpus lives on the **`analyzed`
+branch** of `testarchive`.
+
+maddi is a standalone OSS project **upstream** of the jfocus repos, so it does **not**
+use their `CodeLaserCorpus` / `TEST_CODELASER_ROOT` test fixture — keep maddi's corpus
+handling self-contained here.
