@@ -126,7 +126,7 @@ public class KotlinExpressionPrinter {
     private static OutputBuilder lambdaBody(Block body, Qualification q) {
         List<Statement> statements = body.statements().stream().filter(s -> !s.isSynthetic()).toList();
         if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs
-            && rs.expression() != null && !rs.expression().isEmpty()) {
+            && !rs.hasNoValue()) {
             return print(rs.expression(), q); // single-expression lambda
         }
         return KotlinStatementPrinter.statementsNoBraces(body, q);

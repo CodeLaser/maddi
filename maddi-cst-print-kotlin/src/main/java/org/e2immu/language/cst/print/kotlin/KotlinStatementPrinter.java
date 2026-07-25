@@ -36,7 +36,7 @@ public class KotlinStatementPrinter {
             case Block block -> block(block, q);
             case ReturnStatement rs -> {
                 OutputBuilder b = new OutputBuilderImpl().add(KotlinKeyword.RETURN);
-                if (rs.expression() != null && !rs.expression().isEmpty()) {
+                if (!rs.hasNoValue()) {
                     b.add(SpaceEnum.ONE).add(KotlinExpressionPrinter.print(rs.expression(), q));
                 }
                 yield b;

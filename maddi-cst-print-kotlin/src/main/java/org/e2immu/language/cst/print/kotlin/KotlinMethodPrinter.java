@@ -94,7 +94,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     private static Expression expressionBody(Block body) {
         List<Statement> statements = body.statements().stream().filter(s -> !s.isSynthetic()).toList();
         if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs
-            && rs.expression() != null && !rs.expression().isEmpty()) {
+            && !rs.hasNoValue()) {
             return rs.expression();
         }
         return null;
