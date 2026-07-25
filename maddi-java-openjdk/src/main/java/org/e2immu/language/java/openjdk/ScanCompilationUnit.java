@@ -536,17 +536,28 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             Source source = sourceForNode(definition, dsbField);
             fieldInfo.builder().setSource(source).setAccess(runtime.accessPrivate());
 
-            if (notPresent(typeInfo, fieldName, 0)
-                && hasSyntheticMethod(jcClassDecl, fieldName, 0)) {
-                MethodInfo accessor = recordSynthetics.createAccessor(fieldInfo);
-                List<MethodInfo> overrides = computeMethodOverrides.findOverriddenMethods(rc.accessor)
-                        .stream()
-                        .map(typeData::getOrLoadMethod)
-                        .toList();
-                accessor.builder().addOverrides(overrides).commit();
-                // NOTE: we (currently) deviate from the Java spec here, we're not actually overriding.
-                builder.addMethod(accessor);
-                typeData.put(rc.accessor, accessor);
+            if (hasSyntheticMethod(jcClassDecl, fieldName, 0)) {
+                MethodInfo existing = typeInfo.methodStream()
+                        .filter(mi -> mi.name().equals(fieldName) && mi.parameters().isEmpty())
+                        .findFirst().orElse(null);
+                if (existing == null) {
+                    MethodInfo accessor = recordSynthetics.createAccessor(fieldInfo);
+                    List<MethodInfo> overrides = computeMethodOverrides.findOverriddenMethods(rc.accessor)
+                            .stream()
+                            .map(typeData::getOrLoadMethod)
+                            .toList();
+                    accessor.builder().addOverrides(overrides).commit();
+                    // NOTE: we (currently) deviate from the Java spec here, we're not actually overriding.
+                    builder.addMethod(accessor);
+                    typeData.put(rc.accessor, accessor);
+                } else {
+                    // A call-site resolution (ClassSymbolScanner.ensureMethod) can materialise a BARE accessor stub
+                    // for this record component — non-synthetic, empty body, no GET_SET_FIELD link — before this
+                    // record scan runs. Whether that happens is scan-order dependent, which used to make GET_SET_FIELD
+                    // non-deterministic (createAccessor sets it on line 94; the stub path never did). Set the link
+                    // here so it no longer depends on which path materialised the accessor first.
+                    runtime.setGetSetField(existing, fieldInfo, false, -1, false);
+                }
             }
             ++i;
         }
