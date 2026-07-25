@@ -27,7 +27,14 @@ public class TestJavacTimefoldSolverCore {
 
         InputConfiguration inputConfiguration = new ParseJavacList().inputConfiguration(javacList, List.of("java.sql"));
         ObjectMapper objectMapper = JsonStreaming.objectMapper();
-        File file = Path.of("src/test/resources/inputConfiguration/timefold-solver.json").toFile();
+        // write into the (git-ignored) build directory, NOT into src/test/resources: the serialized configuration
+        // embeds machine-specific absolute paths (~/.m2, the local test-oss checkout) and non-deterministic list
+        // order, so writing it into the source tree dirtied a committed file on every run. Nothing reads the file;
+        // the write only exercises the serialization path.
+        File dir = Path.of("build", "test-generated", "inputConfiguration").toFile();
+        //noinspection ResultOfMethodCallIgnored
+        dir.mkdirs();
+        File file = new File(dir, "timefold-solver.json");
         objectMapper.writerFor(InputConfigurationImpl.class).writeValue(file, inputConfiguration);
     }
 }

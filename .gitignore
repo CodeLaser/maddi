@@ -17,3 +17,6 @@ bazel-*
 
 # per-machine bazel config (JAVA_HOME pin etc.)
 user.bazelrc
+
+# machine-specific, non-deterministic generated input config (written to build/ by TestJavacTimefoldSolverCore)
+maddi-run-openjdk/src/test/resources/inputConfiguration/timefold-solver.json
