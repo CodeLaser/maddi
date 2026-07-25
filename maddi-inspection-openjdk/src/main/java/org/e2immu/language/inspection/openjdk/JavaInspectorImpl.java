@@ -3,7 +3,16 @@ package org.e2immu.language.inspection.openjdk;
 import com.sun.source.util.JavacTask;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.FingerPrint;
+import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.inspection.impl.parser.ContextImpl;
+import org.e2immu.language.inspection.impl.parser.ResolverImpl;
+import org.e2immu.language.inspection.impl.parser.TypeContextImpl;
+import org.e2immu.parser.java.ParseHelperImpl;
+import org.e2immu.parser.java.ParseModuleInfo;
+import org.parsers.java.JavaParser;
+import org.parsers.java.Node;
+import org.parsers.java.ast.ModularCompilationUnit;
 import org.e2immu.language.cst.api.info.ImportComputer;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -516,6 +525,15 @@ public class JavaInspectorImpl implements JavaInspector {
         recordSourceFiles(sourceSet, scanned.primaryTypes());
         if (!scanned.modules().isEmpty()) {
             summary.putSourceSetToModuleInfo(sourceSet, scanned.modules().getFirst());
+        } else {
+            // javac compiled with ignoreModule (everything in the unnamed module), so module-info.java was filtered
+            // out before compilation (see computeCompilationUnits) and javac produced no ModuleInfo. Refactorings
+            // (module-info export reconciliation) still need the module descriptor, so parse it directly with the
+            // home-made parser -- a purely syntactic parse of module-info.java, no javac, no module-path compilation.
+            ModuleInfo moduleInfo = parseModuleInfoDescriptor(summary, sourceSet, sourcesByFqn);
+            if (moduleInfo != null) {
+                summary.putSourceSetToModuleInfo(sourceSet, moduleInfo);
+            }
         }
         // Surface compilation units that ScanCompilationUnits had to drop (accumulate mode): an unresolved symbol
         // on the partial classpath is a *warning* (the run proceeds and preps over what parsed); anything else is a
@@ -874,6 +892,62 @@ public class JavaInspectorImpl implements JavaInspector {
                         inMemory.stream())
                 .filter(jfo -> accept(sourceSet, jfo))
                 .toList();
+    }
+
+    /**
+     * Parse a {@code module-info.java} into a {@link ModuleInfo} descriptor with the home-made (congocc) parser,
+     * for the case where javac ran with {@code ignoreModule} and therefore produced no module. This is a purely
+     * syntactic parse -- it never puts javac into module mode, so it cannot destabilise the unnamed-module
+     * compilation of the rest of the source set. Returns {@code null} when the source set ships no
+     * {@code module-info.java} (the common case), so it is a cheap no-op for non-modular source sets. In-memory
+     * sources (the test protocol) may supply the descriptor under the {@code "module-info"} key.
+     */
+    private ModuleInfo parseModuleInfoDescriptor(Summary summary, SourceSet sourceSet,
+                                                 Map<String, String> sourcesByFqn) {
+        String source;
+        URI uri;
+        String inMemory = sourcesByFqn.get("module-info");
+        if (inMemory != null) {
+            source = inMemory;
+            uri = URI.create("mem:" + sourceSet.name() + "/module-info.java");
+        } else {
+            Path workingDirectory = inputConfiguration == null ? null : inputConfiguration.workingDirectory();
+            Path found = null;
+            for (Path dir : sourceSet.sourceDirectories()) {
+                Path resolved = workingDirectory == null || dir.isAbsolute() ? dir : workingDirectory.resolve(dir);
+                Path candidate = resolved.resolve("module-info.java");
+                if (Files.isRegularFile(candidate)) {
+                    found = candidate;
+                    break;
+                }
+            }
+            if (found == null) return null;
+            uri = found.toUri();
+            try {
+                source = Files.readString(found);
+            } catch (IOException e) {
+                LOGGER.warn("Could not read module descriptor {}: {}", found, e.getMessage());
+                return null;
+            }
+        }
+        // A malformed or unexpected module-info must not sink the whole parse: degrade to "no descriptor" (the
+        // pre-fix behaviour) so at worst the module-info export reconciliation is skipped, never a crash.
+        try {
+            JavaParser parser = new JavaParser(source);
+            parser.setParserTolerant(false);
+            parser.ModularCompilationUnit();
+            Node root = parser.rootNode();
+            if (!(root instanceof ModularCompilationUnit mcu)) return null;
+            CompilationUnit compilationUnit = runtime.newCompilationUnitBuilder()
+                    .setURI(uri).setSourceSet(sourceSet).build();
+            var resolver = new ResolverImpl(runtime.computeMethodOverrides(), new ParseHelperImpl(runtime), false);
+            var typeContext = new TypeContextImpl(runtime, compiledTypesManager, false);
+            var context = ContextImpl.create(runtime, compiledTypesManager, summary, resolver, typeContext, true, false);
+            return new ParseModuleInfo(runtime, null).parse(mcu, compilationUnit, context);
+        } catch (RuntimeException re) {
+            LOGGER.warn("Could not parse module descriptor {}: {}", uri, re.toString());
+            return null;
+        }
     }
 
     /*

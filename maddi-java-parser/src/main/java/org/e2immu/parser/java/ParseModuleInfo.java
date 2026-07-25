@@ -37,6 +37,15 @@ public class ParseModuleInfo extends CommonParse {
         ModuleInfo.Builder builder = runtime.newModuleInfoBuilder();
         DetailedSources.Builder detailedSourcesBuilder = context.newDetailedSourcesBuilder();
         int i = 0;
+        // A module-info compilation unit may carry leading import declarations (imports are legal in module-info.java,
+        // used to shorten the names in 'uses'/'provides ... with') and comment nodes before the module declaration
+        // proper. Skip anything up to the 'open'/'module' keyword. (Real-world example: the Elasticsearch server
+        // module-info opens with a license comment, an import, and a Javadoc.)
+        while (i < mcu.size() && !(mcu.get(i) instanceof Token leading
+                                   && (leading.getType() == Token.TokenType.OPEN
+                                       || leading.getType() == Token.TokenType.MODULE))) {
+            ++i;
+        }
         boolean openModule;
         if (mcu.get(i) instanceof Token kwOpen && kwOpen.getType() == Token.TokenType.OPEN) {
             ++i;
