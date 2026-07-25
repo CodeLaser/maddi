@@ -24,6 +24,7 @@ import java.util.Map;
 
 import static org.e2immu.language.inspection.resource.SourceSetImpl.sourceSetModuleOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestJavaInspector5RealClasspathModule {
@@ -67,5 +68,20 @@ public class TestJavaInspector5RealClasspathModule {
 
         TypeInfo element = parseResult.findType("org.e2immu.language.cst.api.element.Element");
         assertTrue(element.isInterface());
+    }
+
+    // With ignoreModule the runner compiles everything in the unnamed module, so javac drops module-info.java and
+    // produces no ModuleInfo. Refactorings still need the module descriptor, so the inspector falls back to the
+    // home-made parser (JavaInspectorImpl.parseModuleInfoDescriptor). Before that fallback, moduleInfo(cstApi) was
+    // null here; now it is populated with the same exports as the javac path above.
+    @Test
+    public void test2IgnoreModuleStillGetsDescriptor() {
+        JavaInspector.ParseOptions options = new JavaInspector.ParseOptions.Builder()
+                .setFailFast(true).setDetailedSources(true).setIgnoreModule(true).build();
+        ParseResult parseResult = javaInspector.parse(Map.of(), options).parseResult();
+
+        ModuleInfo moduleInfo = parseResult.moduleInfo(cstApi);
+        assertNotNull(moduleInfo, "module descriptor must be parsed even under ignoreModule");
+        assertEquals(13, moduleInfo.exports().size());
     }
 }
