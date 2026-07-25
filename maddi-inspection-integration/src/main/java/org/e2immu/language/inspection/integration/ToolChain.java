@@ -1,17 +1,21 @@
 package org.e2immu.language.inspection.integration;
+
+import org.e2immu.language.inspection.resource.AnalyzedApiClassPath;
+
 import static org.e2immu.language.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
 
 public class ToolChain {
 
-    public static final String[] CLASSPATH_JUNIT = {
-            JAR_WITH_PATH_PREFIX + "org/junit/jupiter/api",
-            JAR_WITH_PATH_PREFIX + "org/apiguardian/api",
-            JAR_WITH_PATH_PREFIX + "org/junit/platform/commons",
-            JAR_WITH_PATH_PREFIX + "org/opentest4j"};
-    public static final String[] CLASSPATH_SLF4J_LOGBACK = {
-            JAR_WITH_PATH_PREFIX + "org/slf4j/event",
-            JAR_WITH_PATH_PREFIX + "ch/qos/logback/core",
-            JAR_WITH_PATH_PREFIX + "ch/qos/logback/classic"};
+    /**
+     * @deprecated the annotated-API library class-paths now live in {@link AnalyzedApiClassPath}, a single-purpose
+     * companion to the archive that consumers can depend on without pulling in the rest of {@code ToolChain}. These
+     * aliases forward to it while {@code ToolChain} is phased out; prefer {@link AnalyzedApiClassPath#JUNIT}.
+     */
+    @Deprecated
+    public static final String[] CLASSPATH_JUNIT = AnalyzedApiClassPath.JUNIT;
+    /** @deprecated use {@link AnalyzedApiClassPath#SLF4J_LOGBACK}; see {@link #CLASSPATH_JUNIT}. */
+    @Deprecated
+    public static final String[] CLASSPATH_SLF4J_LOGBACK = AnalyzedApiClassPath.SLF4J_LOGBACK;
 
     public static final String CLASSPATH_INTELLIJ_LANG = JAR_WITH_PATH_PREFIX + "org/intellij/lang/annotations";
 
