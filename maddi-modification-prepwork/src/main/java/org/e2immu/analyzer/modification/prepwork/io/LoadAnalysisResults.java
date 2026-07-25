@@ -39,6 +39,23 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
 import java.util.stream.Stream;
 
+/**
+ * Loads analysis-result ("annotated API") archives, applying each stored hint to the corresponding {@link Info}.
+ * <p>
+ * Loading is deliberately tolerant, so a single unusable hint never aborts a whole archive:
+ * <ul>
+ *   <li><b>module not on the classpath</b> &mdash; a primary type whose type cannot be resolved (its library is
+ *       simply absent from this project's deliberately partial classpath) has all its hints skipped; counted in
+ *       {@link #skippedPrimaryTypes()}.</li>
+ *   <li><b>unresolvable member reference</b> &mdash; a hint that names a field/method/parameter this reader cannot
+ *       resolve against the types actually loaded has that one element's hints dropped, with a warning, while the
+ *       rest of the archive still loads; counted in {@link #skippedUnresolvableHints()}. This chiefly covers the
+ *       in-flux {@code @GetSet}-on-an-interface analysis, where the writer emits a synthetic interface field (the
+ *       backing field lives on the implementation, not the interface) that the reader cannot reconstruct. Resolving
+ *       that disagreement is upstream immutability work; until then, dropping the individual hint keeps prep loading
+ *       instead of failing every project that references such a type.</li>
+ * </ul>
+ */
 public class LoadAnalysisResults {
     public static final String ANALYZED_RESULTS_JDK = "../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk";
     public static final String ANALYZED_RESULTS_LIBS = "../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs";
@@ -87,6 +104,10 @@ public class LoadAnalysisResults {
         if (skippedPrimaryTypes > 0) {
             LOGGER.info("Skipped analysis hints for {} primary types whose module is not on the classpath",
                     skippedPrimaryTypes);
+        }
+        if (skippedUnresolvableHints > 0) {
+            LOGGER.info("Skipped {} analysis hint(s) referencing an element not resolvable on the classpath",
+                    skippedUnresolvableHints);
         }
         return countPrimaryTypes;
     }
@@ -186,14 +207,24 @@ public class LoadAnalysisResults {
         return skippedPrimaryTypes;
     }
 
-    // returns false if the primary type's module is not on the classpath (its hints are skipped)
-    private static boolean processPrimaryType(Codec codec, JSONObject jo) {
+    // number of individual element hints dropped because they reference something this reader cannot resolve
+    // (chiefly the in-flux @GetSet synthetic interface field); the surrounding archive still loads. See the class note.
+    private int skippedUnresolvableHints;
+
+    public int skippedUnresolvableHints() {
+        return skippedUnresolvableHints;
+    }
+
+    // returns false if the primary type's hints are skipped whole (its module is not on the classpath)
+    private boolean processPrimaryType(Codec codec, JSONObject jo) {
         Codec.Context context = new CodecImpl.ContextImpl();
         return processSub(codec, context, jo, true);
     }
 
-    // returns false if 'jo' is a primary type whose type cannot be resolved (module absent from classpath)
-    private static boolean processSub(Codec codec, Codec.Context context, JSONObject jo, boolean topLevel) {
+    // Applies the hints for one element and recurses into its children. Returns false only for a primary type
+    // (topLevel) whose own type is not on the classpath, so the caller counts it as skipped; a nested element that
+    // cannot be applied is dropped in place (see the class note on tolerance) without failing its siblings.
+    private boolean processSub(Codec codec, Codec.Context context, JSONObject jo, boolean topLevel) {
         KeyValuePair nameKv = (KeyValuePair) jo.get(1);
         String fullyQualifiedWithType = CodecImpl.unquote(nameKv.get(2).getSource());
         KeyValuePair dataKv = (KeyValuePair) jo.get(3);
@@ -201,17 +232,28 @@ public class LoadAnalysisResults {
 
         char type = fullyQualifiedWithType.charAt(0);
         String name = fullyQualifiedWithType.substring(1);
+
+        Info info;
         try {
-            Info info = codec.decodeInfoInContext(context, type, name);
-            if (info == null) {
-                if (topLevel) {
-                    // the module carrying this type is not on the classpath; skip its analysis hints entirely
-                    LOGGER.debug("Skipping analysis hints for {}: type not on the classpath", name);
-                    return false;
-                }
-                throw new UnsupportedOperationException("Cannot find " + name);
+            info = codec.decodeInfoInContext(context, type, name);
+        } catch (Codec.DecoderException de) {
+            // The element itself names something this reader cannot resolve against the loaded types (chiefly a
+            // synthetic @GetSet interface field written by the in-flux immutability analyzer). Drop its hint and
+            // carry on rather than aborting the whole archive. See the class note.
+            LOGGER.warn("Skipping analysis hint for unresolvable element '{}': {}", name, de.getMessage());
+            ++skippedUnresolvableHints;
+            return !topLevel;
+        }
+        if (info == null) {
+            if (topLevel) {
+                // the module carrying this type is not on the classpath; skip its analysis hints entirely
+                LOGGER.debug("Skipping analysis hints for {}: type not on the classpath", name);
+                return false;
             }
-            context.push(info);
+            throw new UnsupportedOperationException("Cannot find " + name);
+        }
+        context.push(info);
+        try {
             processData(codec, context, info, dataJo);
             if (jo.size() > 5) {
                 KeyValuePair subs = (KeyValuePair) jo.get(5);
@@ -226,6 +268,14 @@ public class LoadAnalysisResults {
                     }
                 }
             }
+        } catch (Codec.DecoderException de) {
+            // A property of this element references something unresolvable (e.g. its @GetSet field). The property
+            // group is decoded as a unit, so this element's hints are dropped; its siblings still load. See the
+            // class note.
+            LOGGER.warn("Skipping analysis hints for '{}': {}", name, de.getMessage());
+            ++skippedUnresolvableHints;
+            context.pop();
+            return !topLevel;
         } catch (RuntimeException re) {
             LOGGER.error("Caught exception destreaming {}", name);
             throw re;
