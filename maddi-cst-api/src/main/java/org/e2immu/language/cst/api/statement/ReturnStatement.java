@@ -20,10 +20,21 @@ import org.e2immu.language.cst.api.expression.Expression;
 
 /**
  * The {@code return;} or {@code return expression;} statement. The returned value, when present, is
- * {@link Statement#expression()} (and {@code null} for a bare {@code return}). Always escapes
- * (see {@link Statement#alwaysEscapes()}).
+ * {@link Statement#expression()}; a bare {@code return;} has no value, in which case {@link #expression()} is
+ * {@code null} or an {@link Expression#isEmpty() empty} expression depending on the producer — so prefer
+ * {@link #hasNoValue()} to test for it. Always escapes (see {@link Statement#alwaysEscapes()}).
  */
 public interface ReturnStatement extends Statement {
+
+    /**
+     * @return {@code true} when this is a bare {@code return;} with no returned value, i.e. {@link #expression()}
+     * is absent ({@code null}) or {@link Expression#isEmpty() empty}. The null-safe, standard way to distinguish
+     * {@code return;} from {@code return expression;}.
+     */
+    default boolean hasNoValue() {
+        Expression e = expression();
+        return e == null || e.isEmpty();
+    }
 
     /**
      * @return an immutable copy of this statement with a different {@link Source}; this instance is
