@@ -323,7 +323,7 @@
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"notNullParameter":1}}},
   {"name": "MgetMappedValue(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
   {"name": "MhashCode(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
-  {"name": "Miterator(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{"-13":3}],"nonModifyingMethod":1,"notNullMethod":1}},
+  {"name": "Miterator(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.Iterator","Mremove(3)"]]],"nonModifyingMethod":1,"notNullMethod":1}},
   {"name": "Mremove(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
   {"name": "Mspliterator(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"notNullMethod":1}}]},
