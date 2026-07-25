@@ -203,8 +203,12 @@ public class SwitchEntryImpl implements SwitchEntry {
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         if (reject(predicate)) return Stream.of();
+        // the case labels ('case Kind.CONST ->') reference types too; without them, a type used only in a
+        // label is invisible to import maintenance
+        Stream<Element.TypeReference> s0 = conditions.stream().flatMap(c -> c.typesReferenced(predicate));
         Stream<Element.TypeReference> s1 = patternVariable == null ? Stream.of() : patternVariable.typesReferenced(predicate);
-        return Stream.concat(s1, Stream.concat(whenExpression.typesReferenced(predicate), statement.typesReferenced(predicate)));
+        return Stream.concat(s0, Stream.concat(s1,
+                Stream.concat(whenExpression.typesReferenced(predicate), statement.typesReferenced(predicate))));
     }
 
     public static class EntryBuilderImpl extends ElementImpl.Builder<Builder> implements Builder {
