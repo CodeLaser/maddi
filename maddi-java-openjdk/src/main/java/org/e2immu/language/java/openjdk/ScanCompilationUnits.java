@@ -522,6 +522,7 @@ public class ScanCompilationUnits {
             TypeInfo pt = classSymbolScanner.getType(fullyQualifiedName);
             if (pt == null) {
                 pt = classSymbolScanner.lazilyLoadPrimaryTypeFromClassFile(cs);
+                if (pt == null) return null; // off-classpath jar: a miss, which getOrLoad() and its callers handle
                 classSymbolScanner.loadType(cs, pt, ClassSymbolScanner.LoadMode.LOAD_MEMBERS);
             } else {
                 classSymbolScanner.loadType(cs, pt, ClassSymbolScanner.LoadMode.COMPLETE);

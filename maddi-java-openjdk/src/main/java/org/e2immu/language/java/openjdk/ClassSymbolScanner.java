@@ -276,8 +276,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         CompilationUnit cu;
         if (cs.classfile != null) {
             URI uri = cs.classfile.toUri();
-            cu = runtime.newCompilationUnitBuilder().setPackageName(packageName)
-                    .setSourceSet(ensureSourceSet(cs, uri)).setURI(uri).build();
+            SourceSet sourceSet = ensureSourceSet(cs, uri);
+            cu = sourceSet == null
+                    ? runtime.newCompilationUnitStub(packageName) // off-classpath jar: a minimal stub, as when there is no class file
+                    : runtime.newCompilationUnitBuilder().setPackageName(packageName)
+                    .setSourceSet(sourceSet).setURI(uri).build();
         } else {
             cu = runtime.newCompilationUnitStub(packageName);
         }
@@ -333,6 +336,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     uri = cs.classfile.toUri();
                 }
                 SourceSet sourceSet = ensureSourceSet(cs, uri);
+                if (sourceSet == null) {
+                    // off-classpath jar (see ensureSourceSet): report a miss rather than minting an unusable type
+                    return null;
+                }
                 cu = runtime.newCompilationUnitBuilder()
                         .setPackageName(packageName)
                         .setSourceSet(sourceSet)
@@ -599,8 +606,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             String jarName = m.group(2);
             SourceSet known = getSourceSet(jarName);
             if (known == null) {
-                throw new UnsupportedOperationException(
-                        "Cannot find class path source set interpreted as jar file: " + jarName);
+                // The jar is not among the configured class-path source sets: this type is genuinely off the
+                // (deliberately partial) classpath. Return null so the load resolves to a miss and callers can skip
+                // it -- e.g. analysis-hint loading skips hints for a library that is not on the project's classpath
+                // -- rather than throwing deep in the scanner.
+                LOGGER.debug("No class-path source set for jar {}; treating type as off-classpath", jarName);
+                return null;
             }
             return known;
         }
