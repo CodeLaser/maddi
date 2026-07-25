@@ -153,6 +153,26 @@ Severity: **H** high, **M** medium, **L** low.
 - [ ] **M** One shared `MethodAnalyzer` serves all parallel threads (`PrepAnalyzer.java:58,95,170-171`); safety
   depends on it + the CST `analysis()` stores being thread-safe. Unverified, no `parallel=true` test.
 
+## 9. `VariableData` ordering is non-deterministic across runs  (M→H, added 2026-07-25)
+- [ ] **H** `VariableDataImpl.variableInfoStream()` order is **identity-hashCode sensitive**, hence
+  non-deterministic across JVM runs. The order is the insertion order of the `vicByFqn` `LinkedHashMap`
+  (`variable/impl/VariableDataImpl.java:42,82-84,125-126`; `Builder.put` `:58-60`), which is populated during
+  `MethodAnalyzer` as variables are encountered. That encounter order depends on object-allocation order (it is
+  stable *within* one JVM but shifts when allocation shifts), so consumers that read `variableInfoStream()` /
+  `variableInfoContainerStream()` order get different output on different runs.
+  - **Evidence:** transforming one method in isolation is stable across 4 JVMs, but (a) adding a `println` in a
+    downstream consumer flipped the order, and (b) processing a whole corpus (shared inspector, unordered
+    `File.listFiles()`) produced a different order than the isolated run.
+  - **Where it bit:** jfocus-transform's Loop/Try lowering numbered its `.set(i, v)` builder slots from this
+    order, so regenerating the `testtransform` `_t.java` corpus produced spurious variable-slot-swap diffs.
+    Worked around downstream (order slots by declaration source position instead), but the maddi order is still
+    latent for any other order-dependent consumer.
+  - **Fix:** make `vicByFqn` insertion a stable function of the source (declaration source position, or a fixed
+    deterministic CST traversal) rather than allocation/encounter order. The class comment already *claims* the
+    intended order ("this, then fields, then parameters, then locals") — make it hold deterministically, and
+    ideally add a determinism test (parse+prep the same source twice in one JVM with an allocation perturbation
+    in between, assert identical `variableInfoStream()` FQN sequence).
+
 ## Cross-cutting
 - [ ] Many real invariants are `assert`-only and vanish in prod → NPE / silent-skip (`LinksImpl` virtual-field
   rules; `MethodAnalyzer.java:392,503`; `doInitializerExpression:408`).
@@ -172,3 +192,5 @@ Severity: **H** high, **M** medium, **L** low.
 4. **Switch merge completeness** (`default`-aware) and **labeled-break-in-old-switch** mis-attribution. §4.
 5. **IO robustness** (version marker + skip-unknown/stale) before the format is depended on more widely. §7.
 6. **Parallel-mode thread-safety** audit before enabling broadly. §8.
+7. **`VariableData` ordering determinism** — stabilize `vicByFqn` insertion; unblocks reproducible downstream
+   output (transform corpus, any order-dependent consumer). §9.
