@@ -369,7 +369,6 @@ public abstract class ValueImpl implements Value {
     }
 
     public static final int INDEX_RETURN_VALUE = -1;
-    public static final int START_INDEX_DEPENDENT = -10;
 
     public static class IndependentImpl implements Independent {
         private final int value;
@@ -431,15 +430,6 @@ public abstract class ValueImpl implements Value {
             return dependentExceptions;
         }
 
-        private static int methodIndex(MethodInfo methodInfo) {
-            int i = 0;
-            for (MethodInfo mi : methodInfo.typeInfo().methods()) {
-                if (mi == methodInfo) return i;
-                ++i;
-            }
-            throw new UnsupportedOperationException();
-        }
-
         @Override
         public Map<Integer, Integer> linkToParametersReturnValue() {
             return linkToParametersReturnValue;
@@ -491,17 +481,23 @@ public abstract class ValueImpl implements Value {
                 if (value == 0) return null;
                 return codec.encodeInt(context, value);
             }
-            Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap1 = linkToParametersReturnValue.entrySet().stream()
+            Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap = linkToParametersReturnValue.entrySet().stream()
                     .collect(Collectors.toUnmodifiableMap(e -> codec.encodeString(context, "" + e.getKey()),
                             e -> codec.encodeInt(context, e.getValue())));
-            Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap2 = dependentMethods().stream()
-                    .map(IndependentImpl::methodIndex)
-                    .collect(Collectors.toUnmodifiableMap(i -> codec.encodeString(context, "" + (START_INDEX_DEPENDENT - i)),
-                            i -> codec.encodeInt(context, +i)));
-
-            Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap = new HashMap<>(encodedMap1);
-            encodedMap.putAll(encodedMap2);
-            return codec.encodeList(context, List.of(codec.encodeInt(context, value), codec.encodeMap(context, encodedMap)));
+            Codec.EncodedValue encodedValue = codec.encodeInt(context, value);
+            Codec.EncodedValue encodedParameterMap = codec.encodeMap(context, encodedMap);
+            if (dependentExceptions.isEmpty()) {
+                return codec.encodeList(context, List.of(encodedValue, encodedParameterMap));
+            }
+            // Dependent-exception methods (methods on the return type that stay dependent, e.g. Iterator.remove())
+            // are written as self-contained MethodInfo references, not as positional indices into the return type's
+            // method list: at decode time that list may not be inspected yet. decodeMethodInfo re-inspects and falls
+            // back to name resolution, so this survives both load order and method-order drift.
+            List<Codec.EncodedValue> encodedMethods = dependentExceptions.stream()
+                    .map(mi -> codec.encodeMethodInfo(context, mi))
+                    .toList();
+            return codec.encodeList(context, List.of(encodedValue, encodedParameterMap,
+                    codec.encodeList(context, encodedMethods)));
         }
 
         @Override
@@ -597,16 +593,14 @@ public abstract class ValueImpl implements Value {
             int value = codec.decodeInt(context, encodedList.getFirst());
             Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap = codec.decodeMap(context, encodedList.get(1));
             Map<Integer, Integer> map = encodedMap.entrySet().stream()
-                    .filter(e -> Integer.parseInt(codec.decodeString(context, e.getKey())) > START_INDEX_DEPENDENT)
                     .collect(Collectors.toUnmodifiableMap(
                             e -> Integer.parseInt(codec.decodeString(context, e.getKey())),
                             e -> codec.decodeInt(context, e.getValue())));
-            List<MethodInfo> methods = encodedMap.keySet().stream()
-                    .map(ev -> Integer.parseInt(codec.decodeString(context, ev)))
-                    .filter(i -> i <= START_INDEX_DEPENDENT)
-                    .map(i -> context.currentMethod().returnType()
-                            .typeInfo().methods().get(START_INDEX_DEPENDENT - i))
-                    .toList();
+            List<MethodInfo> methods = encodedList.size() > 2
+                    ? codec.decodeList(context, encodedList.get(2)).stream()
+                    .map(ev -> codec.decodeMethodInfo(context, ev))
+                    .toList()
+                    : List.of();
             return new IndependentImpl(value, map, methods);
         }
         return IndependentImpl.from(codec.decodeInt(context, encodedValue));
