@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.prepwork.io;
 
+import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.element.SourceSet;
@@ -44,6 +45,14 @@ public class WriteAnalysisResults {
     // which analysis properties to serialise; the analysisFingerprint (docs/analysis-rewiring.md) passes a predicate
     // that keeps only the analyzer output. Default true = write everything, the production behaviour.
     private final Predicate<Property> propertyPredicate;
+
+    /**
+     * Per-run bookkeeping that must NEVER reach a file, whatever {@link #propertyPredicate} says.
+     * {@code PrepAnalyzer.PREPPED} records that prepwork has run over a type <em>in this process</em>; restoring
+     * it onto a freshly parsed universe would make prepwork skip types whose statements hold no
+     * {@code VariableData}, which is the very failure the marker exists to prevent.
+     */
+    private static final Predicate<Property> NEVER_SERIALISED = p -> p != PrepAnalyzer.PREPPED;
 
     public WriteAnalysisResults(Runtime runtime) {
         this(runtime, ti -> true);
@@ -143,7 +152,7 @@ public class WriteAnalysisResults {
     private Codec.EncodedValue write(Codec codec, Codec.Context context, Info info, int index) {
         Stream<Codec.EncodedPropertyValue> stream = info.analysis().propertyValueStream()
                 .filter(pv -> !pv.value().isDefault()) // not streaming default values
-                .filter(pv -> propertyPredicate.test(pv.property()))
+                .filter(pv -> NEVER_SERIALISED.test(pv.property()) && propertyPredicate.test(pv.property()))
                 .map(pv -> encodeOrSkip(codec, context, pv))
                 .filter(Objects::nonNull); // some properties will (temporarily) not be streamed
         return codec.encode(context, info, "" + index, stream, null);
@@ -160,7 +169,7 @@ public class WriteAnalysisResults {
         }
         Stream<Codec.EncodedPropertyValue> stream = methodInfo.analysis().propertyValueStream()
                 .filter(pv -> !pv.value().isDefault())
-                .filter(pv -> propertyPredicate.test(pv.property()))
+                .filter(pv -> NEVER_SERIALISED.test(pv.property()) && propertyPredicate.test(pv.property()))
                 .map(pv -> encodeOrSkip(codec, context, pv))
                 .filter(Objects::nonNull); // some properties will (temporarily) not be streamed
         return codec.encode(context, methodInfo, "" + index, stream, subs);
@@ -209,7 +218,7 @@ public class WriteAnalysisResults {
         }
         Stream<Codec.EncodedPropertyValue> stream = typeInfo.analysis().propertyValueStream()
                 .filter(pv -> !pv.value().isDefault())
-                .filter(pv -> propertyPredicate.test(pv.property()))
+                .filter(pv -> NEVER_SERIALISED.test(pv.property()) && propertyPredicate.test(pv.property()))
                 .map(pv -> encodeOrSkip(codec, context, pv))
                 .filter(Objects::nonNull); // some properties will (temporarily) not be streamed
         return codec.encode(context, typeInfo, "" + index, stream, subs);

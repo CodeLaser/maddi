@@ -58,6 +58,29 @@ Severity: **H** high, **M** medium, **L** low.
   body has no `VariableData` (e.g. `doNotRecurseIntoAnonymous`). Regression test
   `TestFinalFieldBranchAssignment` (lambda, anonymous, early-return, switch-expr, + final positive control).
   Note: link tests on the `openjdk` branch were **already failing before** this change (pre-existing).
+- [x] **H** ~~`PrepAnalyzer.doType`'s idempotency guard reads `PART_OF_CONSTRUCTION`, which does not mean
+  "prepped".~~ **Fixed 2026-07-26** (reported by the `ws/standardize` thread, `handoff-from-jfocus-standardize.md`
+  §1). `go()` stamps every primary type *reached through the call graph*, so a caller that preps one primary type
+  at a time over a shared type universe poisoned the next call's guard: the callee was marked processed without
+  being processed, kept no `VariableData`, and the link computer then tripped
+  `LinkComputerImpl$SourceMethodComputer.doStatement`'s bare `assert vd != null`. Order-dependent — callee-first
+  happened to work, caller-first did not. `PrepAnalyzer.PREPPED` is now set by `doType` itself (in a `finally`, so
+  a fault-tolerant half-prep also counts) and is what the guard reads; it is INTRINSIC and explicitly excluded
+  from serialisation (`WriteAnalysisResults.NEVER_SERIALISED`), because restoring it onto a freshly parsed
+  universe would recreate the bug. Tests: `TestPrepOnePrimaryTypeAtATime` (caller-first / callee-first / batch),
+  with `TestReprepKeepType` still pinning the KEEP-carry behaviour the guard exists for. This also covers the
+  method-less-type item below on the KEEP path: such types were never stamped, so a re-prep threw on their field
+  initializers.
+- [ ] **H** **The values computed for a merely-reached type are derived from a partial call graph** (added
+  2026-07-26, second half of the item above). `go()` still groups *every* method vertex by primary type, so a type
+  that was only reached gets `PART_OF_CONSTRUCTION` and `FINAL_FIELD` computed from whichever of its methods
+  happened to be reachable — and since `isAssigned` returns `false` on a body with no `VariableData` (`:171`, the
+  2026-06-27 change above), an assignment that would knock a **private** field off "effectively final" is silently
+  missed. `internalGo`'s own guard (`:84-87`) then blocks recomputation when the type is later prepped for real.
+  The error is in the unsound direction and `DynamicImmutabilityInference` gates on `isPropertyFinal()`. Failing
+  reproduction: `TestPrepOnePrimaryTypeAtATime.finalFieldOfAReachedType`, `@Disabled` with the analysis. The fix
+  is to restrict `go()` to the primary types actually passed in — which changes what library types get computed
+  under `acceptExternalsButNotJdk()`, so it needs the FPDUMP A/B that `AGENTS.md` §Working style requires.
 - [ ] **M** Method-less primary types (interface with only constants) never get `FINAL_FIELD` /
   `PART_OF_CONSTRUCTION` computed (`:58-74`).
 - [ ] **M** Cross-type / inherited-field assignment not modeled by the same-static-type narrowing

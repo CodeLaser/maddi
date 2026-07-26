@@ -5,6 +5,40 @@
 **Status:** all three found while diagnosing something else; none is fixed here. Issue 1 is worked around
 downstream, issues 2 and 3 are untouched.
 
+---
+
+## Reply from maddi, 2026-07-26 (`ws/python`)
+
+All three reproduced against the code as described; the line numbers, the mechanism and the two-type
+reproduction were accurate.
+
+**Issue 1: half fixed, half opened.** The reproduction is now
+`maddi-modification-prepwork/src/test/.../TestPrepOnePrimaryTypeAtATime` (caller-first fails, callee-first and
+batch pass — exactly your ordering claim). The guard now reads a marker `PrepAnalyzer.PREPPED` that `doType`
+itself sets, so a merely-reached type is no longer mistaken for a processed one; `TestReprepKeepType`, which
+pins the Tier-2 KEEP-carry behaviour the guard exists for, stays green. Your read of the suggested fixes was
+right, and so was your instinct to stop: the *other* suggestion (restricting
+`ComputePartOfConstructionFinalField.go`) turns out to be the necessary second half, and it is an engine
+change.
+
+What that second half is: fixing *who* gets prepped does not fix *what* was computed for the type that was
+wrongly stamped. `go()` still derives `PART_OF_CONSTRUCTION` and `FINAL_FIELD` for a merely-reached type from
+the subset of its methods that happened to be in the graph, and `isAssigned` returns `false` on a body with no
+`VariableData` — so an assignment that would knock a **private** field off "effectively final" is silently
+missed, `internalGo`'s own guard blocks recomputation later, and the error is in the unsound direction that
+`DynamicImmutabilityInference` gates on. Demonstrated by `finalFieldOfAReachedType` in the same test class,
+left `@Disabled` with the analysis; tracked in `docs/prep-analyzer hardening.md` §2. It needs the FPDUMP A/B
+`AGENTS.md` requires, because it changes what library types get computed under `acceptExternalsButNotJdk()`.
+
+**Note for your side:** your `ProjectIntake` batch workaround is still the right shape and should stay — not
+because the crash needs it any more, but because per-type prepping is what triggers the open second half above.
+`jfocus-stdbase`'s viewer `Processor:105-110` has the same per-type shape and is a candidate for the same
+treatment.
+
+Issues 2 and 3: still open, untouched. On issue 2 I can add one datum — the `Attribute.Constant` path is *not*
+where the 128 come from: a null-typed constant reaches `annotationConstant`, whose `switch` on the tag falls to
+`default -> null` without ever calling `convert`. So the swallow site is still unidentified.
+
 Everything below was measured, not inferred, unless explicitly marked. Where I am guessing, it says so.
 
 ---
