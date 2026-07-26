@@ -323,6 +323,8 @@ public class ParseHelperImpl extends CommonParse implements ParseHelper {
             int open = memberDescriptor.indexOf('(');
             String member;
             List<String> parameterTypes;
+            List<TypeInfo> referencedParameterTypes = resolveReferencedParameterTypes(context, tag,
+                    detailedSourcesBuilder);
             if (open < 0) {
                 member = memberDescriptor.trim();
                 parameterTypes = null;
@@ -337,7 +339,8 @@ public class ParseHelperImpl extends CommonParse implements ParseHelper {
                         detailedSourcesBuilder.put(resolved, makeSource(tag, member, hash + 1));
                         detailedSourcesBuilder.put(resolved.simpleName(), makeSource(tag, member, hash + 1));
                     }
-                    return tag.withResolvedReference(resolved);
+                    return tag.withResolvedReference(resolved)
+                            .withReferencedParameterTypes(referencedParameterTypes);
                 }
             } else {
                 member = memberDescriptor.substring(0, open);
@@ -368,9 +371,56 @@ public class ParseHelperImpl extends CommonParse implements ParseHelper {
                 detailedSourcesBuilder.put(methodInfo, makeSource(tag, tag.content().substring(hash + 1),
                         hash + 1));
             }
-            return tag.withResolvedReference(methodInfo);
+            return tag.withResolvedReference(methodInfo)
+                    .withReferencedParameterTypes(referencedParameterTypes);
         }
         return tag;
+    }
+
+    /**
+     * The types named in a member reference's parameter list — the {@code P} of {@code {@link T#m(P)}}. The file
+     * needs {@code P} to resolve exactly as it needs {@code T}, so it is a genuine reference; see
+     * {@link JavaDoc.Tag#referencedParameterTypes()}. Mirrors the javac front end
+     * ({@code ResolveJavaDoc.resolveParameterTypes}), so both produce the same model.
+     * <p>
+     * Offsets are taken on the tag content, whose index 0 coincides with {@code sourceOfReference}'s start, and are
+     * only turned into tokens for a single-line reference: {@link #makeSource} shifts by COLUMNS, so a reference
+     * broken across lines would place the token on the wrong one.
+     */
+    private List<TypeInfo> resolveReferencedParameterTypes(Context context, JavaDoc.Tag tag,
+                                                           DetailedSources.Builder detailedSourcesBuilder) {
+        String content = tag.content();
+        int hash = content.indexOf('#');
+        int open = content.indexOf('(', Math.max(hash, 0));
+        int close = content.lastIndexOf(')');
+        if (open < 0 || close < open) return List.of();
+        Source src = tag.sourceOfReference();
+        boolean singleLine = src != null && src.beginLine() == src.endLine();
+        List<TypeInfo> result = new ArrayList<>();
+        int from = open + 1;
+        while (from < close) {
+            int comma = content.indexOf(',', from);
+            int end = comma < 0 || comma > close ? close : comma;
+            int start = from;
+            while (start < end && Character.isWhitespace(content.charAt(start))) start++;
+            // the name stops at '[' (array), '<' (generics), or whitespace (an optional parameter name follows)
+            int nameEnd = start;
+            while (nameEnd < end && !Character.isWhitespace(content.charAt(nameEnd))
+                   && content.charAt(nameEnd) != '[' && content.charAt(nameEnd) != '<') nameEnd++;
+            if (nameEnd > start) {
+                String name = content.substring(start, nameEnd);
+                List<? extends NamedType> nts = context.typeContext().getWithQualification(name, false);
+                NamedType nt = nts == null ? null : nts.getLast();
+                if (nt instanceof TypeInfo t && !t.isPrimitive()) {
+                    if (!result.contains(t)) result.add(t);
+                    if (detailedSourcesBuilder != null && singleLine) {
+                        detailedSourcesBuilder.put(t, makeSource(tag, name, start));
+                    }
+                }
+            }
+            from = end + 1;
+        }
+        return result;
     }
 
     private void addDetailedSources(JavaDoc.Tag tag,

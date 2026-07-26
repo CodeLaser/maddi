@@ -49,15 +49,24 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
         private final Source source;
         private final Source sourceOfReference;
         private final boolean blockTag;
+        private final List<TypeInfo> referencedParameterTypes;
 
         public TagImpl(TagIdentifier tagIdentifier, String content, Element resolvedReference, Source source,
                        Source sourceOfReference,
                        boolean blockTag) {
+            this(tagIdentifier, content, resolvedReference, source, sourceOfReference, blockTag, List.of());
+        }
+
+        public TagImpl(TagIdentifier tagIdentifier, String content, Element resolvedReference, Source source,
+                       Source sourceOfReference,
+                       boolean blockTag,
+                       List<TypeInfo> referencedParameterTypes) {
             this.tagIdentifier = tagIdentifier;
             this.content = content;
             this.resolvedReference = resolvedReference;
             this.source = source;
             this.sourceOfReference = sourceOfReference;
+            this.referencedParameterTypes = List.copyOf(referencedParameterTypes);
             this.blockTag = blockTag;
         }
 
@@ -87,24 +96,40 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
         }
 
         @Override
+        public List<TypeInfo> referencedParameterTypes() {
+            return referencedParameterTypes;
+        }
+
+        @Override
         public String content() {
             return content;
         }
 
         @Override
         public Tag rewire(InfoMapView infoMap) {
-            if (resolvedReference == null) return this;
-            return new TagImpl(tagIdentifier, content, resolvedReference.rewire(infoMap), source,
-                    sourceOfReference, blockTag);
+            if (resolvedReference == null && referencedParameterTypes.isEmpty()) return this;
+            Element rewired = resolvedReference == null ? null : resolvedReference.rewire(infoMap);
+            List<TypeInfo> rewiredParams = referencedParameterTypes.stream()
+                    .map(t -> (TypeInfo) t.rewire(infoMap)).toList();
+            return new TagImpl(tagIdentifier, content, rewired, source, sourceOfReference, blockTag, rewiredParams);
         }
 
         @Override
         public Tag translate(TranslationMap translationMap) {
+            List<TypeInfo> translatedParams = referencedParameterTypes.stream()
+                    .map(t -> translationMap.translateType(t.asSimpleParameterizedType()).typeInfo())
+                    .toList();
+            boolean paramsChanged = !translatedParams.equals(referencedParameterTypes);
             if (resolvedReference instanceof Info info) {
                 List<? extends Info> infos = info.translate(translationMap);
                 if (infos.size() != 1 || infos.getFirst() != info) {
-                    return new TagImpl(tagIdentifier, content, infos.getFirst(), source, sourceOfReference, blockTag);
+                    return new TagImpl(tagIdentifier, content, infos.getFirst(), source, sourceOfReference, blockTag,
+                            translatedParams);
                 }
+            }
+            if (paramsChanged) {
+                return new TagImpl(tagIdentifier, content, resolvedReference, source, sourceOfReference, blockTag,
+                        translatedParams);
             }
             return this;
         }
@@ -119,12 +144,20 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
 
         @Override
         public Tag withResolvedReference(Element resolvedReference) {
-            return new TagImpl(tagIdentifier, content, resolvedReference, source, sourceOfReference, blockTag);
+            return new TagImpl(tagIdentifier, content, resolvedReference, source, sourceOfReference, blockTag,
+                    referencedParameterTypes);
+        }
+
+        @Override
+        public Tag withReferencedParameterTypes(List<TypeInfo> referencedParameterTypes) {
+            return new TagImpl(tagIdentifier, content, resolvedReference, source, sourceOfReference, blockTag,
+                    referencedParameterTypes);
         }
 
         @Override
         public Tag withSource(Source source) {
-            return new TagImpl(tagIdentifier, content, resolvedReference, source, sourceOfReference, blockTag);
+            return new TagImpl(tagIdentifier, content, resolvedReference, source, sourceOfReference, blockTag,
+                    referencedParameterTypes);
         }
     }
 
@@ -219,12 +252,26 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
     @Override
     public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
         if (reject(predicate)) return Stream.of();
-        return tags.stream().map(JavaDocImpl::typeReference).filter(Objects::nonNull);
+        return tags.stream().flatMap(JavaDocImpl::typesReferencedInTag).filter(Objects::nonNull);
+    }
+
+    // the reference target, plus the types named in a member reference's parameter list ({@link T#m(P)}): the file
+    // needs P to resolve exactly as it needs T, so P is a reference too
+    private static Stream<Element.TypeReference> typesReferencedInTag(Tag tag) {
+        Stream<Element.TypeReference> params = tag.referencedParameterTypes().stream()
+                .map(t -> typeReference(tag, t));
+        return Stream.concat(Stream.of(typeReference(tag)), params);
     }
 
     private static Element.TypeReference typeReference(Tag tag) {
         if (tag.resolvedReference() instanceof Info info) {
-            TypeInfo typeInfo = info.typeInfo();
+            return typeReference(tag, info.typeInfo());
+        }
+        return null;
+    }
+
+    private static Element.TypeReference typeReference(Tag tag, TypeInfo typeInfo) {
+        if (typeInfo != null) {
             TypeReferenceNature trn;
             TypeInfo qualifier;
             if (tag.source() == null || tag.source().detailedSources() == null) {

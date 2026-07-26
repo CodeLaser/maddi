@@ -16,12 +16,14 @@ package org.e2immu.language.java.openjdk.other;
 
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.JavaDoc;
+import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -101,6 +103,74 @@ public class TestJavaDocMemberRefNotUnique extends CommonTest {
 
         JavaDoc.Tag field = N.findUniqueMethod("m3", 0).javaDoc().tags().getFirst();
         assertEquals(over.getFieldByName("field", true), field.resolvedReference());
+    }
+
+    @Language("java")
+    String aParam = """
+            package a;
+            public class Param {
+                public static class Nested {}
+            }
+            """;
+
+    @Language("java")
+    String bP = """
+            package b;
+            import a.Over;
+            import a.Param;
+            public class P {
+                /**
+                 * see {@link Over#write(Param[])}
+                 */
+                public void m() {}
+                /**
+                 * see {@link Over#write(int)}
+                 */
+                public void m2() {}
+                /**
+                 * two of them {@link Over#write(Param, a.Param.Nested)}
+                 */
+                public void m3() {}
+            }
+            """;
+
+    @DisplayName("the types named in a reference's PARAMETER LIST are referenced, with their own tokens")
+    @Test
+    public void testReferencedParameterTypes() {
+        Map<String, TypeInfo> pr = scan(false, "a.Over", aOver, "a.Param", aParam, "b.P", bP);
+        TypeInfo P = pr.get("b.P");
+        TypeInfo param = pr.get("a.Param");
+
+        JavaDoc.Tag tag = P.findUniqueMethod("m", 0).javaDoc().tags().getFirst();
+        assertEquals(List.of(param), tag.referencedParameterTypes(), "array parameter type not resolved");
+        // the token is the name as written INSIDE the parentheses, not the start of the reference
+        DetailedSources ds = tag.source().detailedSources();
+        assertNotNull(ds);
+        Source paramToken = ds.detail(param);
+        assertNotNull(paramToken, "no source token for the parameter type");
+        // "     * see {@link Over#write(Param[])}": 'Param' occupies columns 30-34, inside the parentheses
+        assertEquals("6-30:6-34", paramToken.compact2());
+        // ... and it must not collide with the token of the referenced TYPE itself
+        assertEquals("6-19:6-22", ds.detail(pr.get("a.Over")).compact2());
+
+        // a primitive names no type
+        JavaDoc.Tag prim = P.findUniqueMethod("m2", 0).javaDoc().tags().getFirst();
+        assertEquals(List.of(), prim.referencedParameterTypes());
+
+        // several parameters, the second written fully qualified and nested
+        JavaDoc.Tag two = P.findUniqueMethod("m3", 0).javaDoc().tags().getFirst();
+        assertEquals(List.of(param, param.findSubType("Nested", true)), two.referencedParameterTypes());
+    }
+
+    @DisplayName("a parameter type is a genuine reference: it shows up in typesReferenced")
+    @Test
+    public void testParameterTypeIsReferenced() {
+        Map<String, TypeInfo> pr = scan(false, "a.Over", aOver, "a.Param", aParam, "b.P", bP);
+        TypeInfo P = pr.get("b.P");
+        TypeInfo param = pr.get("a.Param");
+        // without this, a javadoc-ONLY import of the parameter type looks unused and a move drops it
+        assertTrue(P.findUniqueMethod("m", 0).javaDoc().typesReferenced(null)
+                .anyMatch(tr -> tr.typeInfo() == param));
     }
 
     @DisplayName("a member that does not exist falls back to the type rather than resolving to nothing")

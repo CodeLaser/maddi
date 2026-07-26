@@ -16,6 +16,7 @@ package org.e2immu.language.cst.api.element;
 
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.InfoMapView;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 
 import java.util.List;
@@ -100,6 +101,22 @@ public interface JavaDoc extends MultiLineComment {
         /** Returns the CST element the reference in this tag was resolved to, or {@code null}. */
         Element resolvedReference();
 
+        /**
+         * The types named in the PARAMETER LIST of a member reference — the {@code P} of
+         * {@code {@link T#m(P)}} — as far as they could be resolved, in written order. Empty for a tag without a
+         * parameter list, and for parameters that name a primitive or an unresolvable type.
+         * <p>
+         * These are genuine references: the enclosing file needs {@code P} to be resolvable (by import or by being
+         * in the same package) exactly as it needs {@code T}, and javac reports "reference not found" when it is
+         * not. {@link #resolvedReference()} names the member or type the reference points AT, and can hold only
+         * one element, so it cannot carry them. Consumers that decide whether an import is still used, or that
+         * relocate a file, must consult both.
+         * <p>
+         * Each has its own token in {@code source().detailedSources()}, keyed by the {@code TypeInfo}, spanning
+         * the name as written inside the parentheses.
+         */
+        List<TypeInfo> referencedParameterTypes();
+
         /** Returns the text content of this tag. */
         String content();
 
@@ -109,6 +126,9 @@ public interface JavaDoc extends MultiLineComment {
 
         /** Returns a copy of this tag with the given resolved reference. */
         Tag withResolvedReference(Element resolvedReference);
+
+        /** Returns a copy of this tag with the given {@link #referencedParameterTypes()}. */
+        Tag withReferencedParameterTypes(List<TypeInfo> referencedParameterTypes);
 
         /** Returns a copy of this tag with the given source position. */
         Tag withSource(Source source);
