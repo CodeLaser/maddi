@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class ComputePartOfConstructionFinalField {
@@ -57,21 +58,53 @@ public class ComputePartOfConstructionFinalField {
     We must have all constructors and methods, also those in anonymous types. Extracting them from the call graph
     is cheaper than visiting
      */
-    public void go(G<Info> cg) {
+    /**
+     * @param bodiesAnalyzed a primary type for which this returns false is LEFT UNDECIDED — neither
+     *                       {@code PART_OF_CONSTRUCTION} nor {@code FINAL_FIELD} is written for it or its subtypes.
+     *                       <p>
+     *                       Both values are derived from method BODIES: {@link #isAssigned} reads the
+     *                       {@code VariableData} of a method's last statement, and returns {@code false} when there
+     *                       is none. That makes "no body analyzed" indistinguishable from "no assignment found", so
+     *                       computing over a type whose bodies we do not have silently manufactures evidence of
+     *                       absence — and since a private field starts at "effectively final" and is only knocked
+     *                       down by such evidence, the error runs in the UNSOUND direction, which
+     *                       {@code DynamicImmutabilityInference} gates on. Two populations reach the call graph
+     *                       without bodies: source types merely REACHED through it (the caller prepped one primary
+     *                       type at a time) — the case this was found through — and BINARY types whose methods
+     *                       {@code handleMethodCall} kept because {@code externalsToAccept} admitted them, which
+     *                       have no body at all. Measured, the second population is small: the whole
+     *                       jfocus-refactor-service suite leaves at most one binary type (a {@code java.util}
+     *                       collection class) undecided per run, and maddi's own runs none at all, since both
+     *                       {@code RunAnalyzer}s pass {@code externalsToAccept = _ -> false}.
+     *                       <p>
+     *                       Leaving them undecided is safe because absence degrades conservatively at every
+     *                       consumer: an absent {@code FINAL_FIELD} reads as "not final" through
+     *                       {@code FieldInfoImpl.isPropertyFinal}'s {@code getOrDefault}, and an absent
+     *                       {@code PART_OF_CONSTRUCTION} reads as the empty set, so every assignment counts. It
+     *                       costs precision on library-typed fields, never soundness. (Compare
+     *                       {@code GuardAnalyzerImpl}: "a default is not a decision".)
+     *                       <p>
+     *                       NOTE: the predicate is per primary type, but the evidence gap can be per method — under
+     *                       {@code doNotRecurseIntoAnonymous} a prepped type still holds lambda/anonymous methods
+     *                       without {@code VariableData}, and {@link #isAssigned} stays silent about those.
+     */
+    public void go(G<Info> cg, Predicate<TypeInfo> bodiesAnalyzed) {
         if (parallel) {
             cg.vertices().parallelStream()
                     .filter(v -> v.t() instanceof MethodInfo)
                     .map(v -> (MethodInfo) v.t())
                     .collect(Collectors.groupingByConcurrent(MethodInfo::primaryType, Collectors.toList()))
-                    .forEach((primaryType, methodsAndConstructors)
-                            -> internalGo(primaryType, methodsAndConstructors, cg));
+                    .forEach((primaryType, methodsAndConstructors) -> {
+                        if (bodiesAnalyzed.test(primaryType)) internalGo(primaryType, methodsAndConstructors, cg);
+                    });
         } else {
             cg.vertices().stream()
                     .filter(v -> v.t() instanceof MethodInfo)
                     .map(v -> (MethodInfo) v.t())
                     .collect(Collectors.groupingBy(MethodInfo::primaryType, Collectors.toList()))
-                    .forEach((primaryType, methodsAndConstructors)
-                            -> internalGo(primaryType, methodsAndConstructors, cg));
+                    .forEach((primaryType, methodsAndConstructors) -> {
+                        if (bodiesAnalyzed.test(primaryType)) internalGo(primaryType, methodsAndConstructors, cg);
+                    });
         }
     }
 

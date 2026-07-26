@@ -175,7 +175,10 @@ public class PrepAnalyzer {
         ccg.setRecursiveMethods();
         LOGGER.info("Start compute part of construction, final field");
         ComputePartOfConstructionFinalField cp = new ComputePartOfConstructionFinalField(options.parallel);
-        cp.go(cg);
+        // PREPPED is exactly "doType ran over this type", i.e. "its method bodies were analyzed" — the precondition
+        // the computation silently assumes. Types the graph merely REACHED (a caller prepping one primary type at a
+        // time) and binary types accepted by externalsToAccept are left undecided instead; see go()'s javadoc.
+        cp.go(cg, typeInfo -> typeInfo.analysis().haveAnalyzedValueFor(PREPPED));
         LOGGER.info("Done, returning ComputeCallGraph object");
         return ccg;
     }

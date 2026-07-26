@@ -71,16 +71,38 @@ Severity: **H** high, **M** medium, **L** low.
   with `TestReprepKeepType` still pinning the KEEP-carry behaviour the guard exists for. This also covers the
   method-less-type item below on the KEEP path: such types were never stamped, so a re-prep threw on their field
   initializers.
-- [ ] **H** **The values computed for a merely-reached type are derived from a partial call graph** (added
-  2026-07-26, second half of the item above). `go()` still groups *every* method vertex by primary type, so a type
-  that was only reached gets `PART_OF_CONSTRUCTION` and `FINAL_FIELD` computed from whichever of its methods
+- [x] **H** ~~**The values computed for a merely-reached type are derived from a partial call graph.**~~
+  **Fixed 2026-07-26**, second half of the item above. `go()` grouped *every* method vertex by primary type, so a
+  type that was only reached got `PART_OF_CONSTRUCTION` and `FINAL_FIELD` computed from whichever of its methods
   happened to be reachable — and since `isAssigned` returns `false` on a body with no `VariableData` (`:171`, the
-  2026-06-27 change above), an assignment that would knock a **private** field off "effectively final" is silently
-  missed. `internalGo`'s own guard (`:84-87`) then blocks recomputation when the type is later prepped for real.
-  The error is in the unsound direction and `DynamicImmutabilityInference` gates on `isPropertyFinal()`. Failing
-  reproduction: `TestPrepOnePrimaryTypeAtATime.finalFieldOfAReachedType`, `@Disabled` with the analysis. The fix
-  is to restrict `go()` to the primary types actually passed in — which changes what library types get computed
-  under `acceptExternalsButNotJdk()`, so it needs the FPDUMP A/B that `AGENTS.md` §Working style requires.
+  2026-06-27 change above), "no body analyzed" was indistinguishable from "no assignment found". A **private**
+  field starts at "effectively final" and is only knocked down by such evidence, so the error ran in the
+  **unsound** direction, and `internalGo`'s own guard (`:84-87`) then blocked recomputation when the type was
+  later prepped for real. `DynamicImmutabilityInference` gates on `isPropertyFinal()`.
+  <br>`go()` now takes a `bodiesAnalyzed` predicate — `PrepAnalyzer` passes `PREPPED` — and a type that fails it
+  is **left undecided** rather than decided on manufactured evidence. Undecided is the safe state at every
+  consumer: an absent `FINAL_FIELD` reads as "not final" through `FieldInfoImpl.isPropertyFinal`'s `getOrDefault`,
+  an absent `PART_OF_CONSTRUCTION` reads as the empty set so every assignment counts. It costs precision on
+  library-typed fields, never soundness (cf. `GuardAnalyzerImpl`: "a default is not a decision").
+  <br>It covers **binary** types by the same argument: a method kept by `externalsToAccept` has no body at all,
+  so `isAssigned` reads a null `lastStatement()` and every private non-final library field read "effectively
+  final" on zero evidence — permanently, rather than order-dependently. **Measured, that population is small**:
+  the whole jfocus-refactor-service suite leaves at most one binary type (a `java.util` collection class)
+  undecided per run and no source types, jfocus-metrics' cluster/cache tests none, and maddi none at all. The
+  merely-reached *source* case this was found through is the one that actually bites. Test:
+  `TestPrepOnePrimaryTypeAtATime.finalFieldOfAReachedType`, which asserts the merely-reached type is left
+  undecided and that per-type and batch prepping agree.
+  <br>**Still open, a narrower case:** the predicate is per primary type, but the evidence gap is per method.
+  Under `doNotRecurseIntoAnonymous` a prepped type still holds lambda/anonymous methods without `VariableData`,
+  and `isAssigned` stays silent about those. Closing that means gating on "every contributing method has an
+  analysed body", which declines considerably more often.
+  <br>A/B: maddi is unaffected by construction — both `RunAnalyzer`s pass `externalsToAccept = _ -> false`, so
+  every graph type is a passed-in, prepped primary type. Confirmed: `slowTest` byte-identical, including
+  `TestShadowCloneBench`'s 855 divergences / 263 reverse. Downstream, no assertion moved either
+  (jfocus-metrics 237 pass / 25 skip, jfocus-refactor-service 1212 pass / 84 skip), and the instrumented counts
+  above explain why. **Not measured:** jfocus-standardize's intake (not checked out in the `ws/python` worktree
+  set), `TestFootPrint`/`TestFootPrint2` (disabled), and any corpus with heavy third-party jar dependencies —
+  those are where `acceptExternalsButNotJdk()` would admit a real population of bodiless methods.
 - [ ] **M** Method-less primary types (interface with only constants) never get `FINAL_FIELD` /
   `PART_OF_CONSTRUCTION` computed (`:58-74`).
 - [ ] **M** Cross-type / inherited-field assignment not modeled by the same-static-type narrowing

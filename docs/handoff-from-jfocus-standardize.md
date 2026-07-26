@@ -12,7 +12,7 @@ downstream, issues 2 and 3 are untouched.
 All three reproduced against the code as described; the line numbers, the mechanism and the two-type
 reproduction were accurate.
 
-**Issue 1: half fixed, half opened.** The reproduction is now
+**Issue 1: fixed, both halves.** The reproduction is now
 `maddi-modification-prepwork/src/test/.../TestPrepOnePrimaryTypeAtATime` (caller-first fails, callee-first and
 batch pass — exactly your ordering claim). The guard now reads a marker `PrepAnalyzer.PREPPED` that `doType`
 itself sets, so a merely-reached type is no longer mistaken for a processed one; `TestReprepKeepType`, which
@@ -21,19 +21,40 @@ right, and so was your instinct to stop: the *other* suggestion (restricting
 `ComputePartOfConstructionFinalField.go`) turns out to be the necessary second half, and it is an engine
 change.
 
-What that second half is: fixing *who* gets prepped does not fix *what* was computed for the type that was
-wrongly stamped. `go()` still derives `PART_OF_CONSTRUCTION` and `FINAL_FIELD` for a merely-reached type from
-the subset of its methods that happened to be in the graph, and `isAssigned` returns `false` on a body with no
-`VariableData` — so an assignment that would knock a **private** field off "effectively final" is silently
-missed, `internalGo`'s own guard blocks recomputation later, and the error is in the unsound direction that
-`DynamicImmutabilityInference` gates on. Demonstrated by `finalFieldOfAReachedType` in the same test class,
-left `@Disabled` with the analysis; tracked in `docs/prep-analyzer hardening.md` §2. It needs the FPDUMP A/B
-`AGENTS.md` requires, because it changes what library types get computed under `acceptExternalsButNotJdk()`.
+What that second half was: fixing *who* gets prepped does not fix *what* was computed for the type that was
+wrongly stamped. `go()` derived `PART_OF_CONSTRUCTION` and `FINAL_FIELD` for a merely-reached type from the
+subset of its methods that happened to be in the graph, and `isAssigned` returns `false` on a body with no
+`VariableData` — so an assignment that would knock a **private** field off "effectively final" was silently
+missed, `internalGo`'s own guard blocked recomputation later, and the error ran in the unsound direction that
+`DynamicImmutabilityInference` gates on.
 
-**Note for your side:** your `ProjectIntake` batch workaround is still the right shape and should stay — not
-because the crash needs it any more, but because per-type prepping is what triggers the open second half above.
-`jfocus-stdbase`'s viewer `Processor:105-110` has the same per-type shape and is a candidate for the same
-treatment.
+Bart's call on the fix, and it is the better one: rather than restricting `go()` to the primary types passed
+in — a call convention — leave the values **undecided** for any type that has not been through full source
+prepping, which is the actual precondition. `go()` now takes a `bodiesAnalyzed` predicate and `PrepAnalyzer`
+passes `PREPPED`. Undecided is the safe state at every consumer (an absent `FINAL_FIELD` reads as "not final",
+an absent `PART_OF_CONSTRUCTION` as the empty set), so it costs precision, never soundness.
+
+That framing also catches a population neither of us had in scope: **binary** types. A method kept by
+`externalsToAccept` has no body at all, so `isAssigned` reads a null `lastStatement()` and every private
+non-final library field read "effectively final" on zero evidence — permanently, rather than
+order-dependently. I expected that to be the larger population and instrumented `go()` to check; it is not.
+Across the whole jfocus-refactor-service suite at most **one** binary type (a `java.util` collection class) is
+left undecided per run, and no source types; jfocus-metrics' cluster/cache tests and maddi's own runs leave
+none. The merely-reached source case you found is the one that actually bites. What is *not* measured: your
+own intake (jfocus-standardize is not checked out in the `ws/python` worktree set), the two disabled
+`TestFootPrint*`, and any corpus with heavy third-party jar dependencies — please shout if a number moves on
+your side.
+
+One narrower case stays open, recorded in `docs/prep-analyzer hardening.md` §2: the predicate is per primary
+type, but the evidence gap is per method — `doNotRecurseIntoAnonymous` leaves lambda/anonymous methods without
+`VariableData` inside a type that *is* prepped.
+
+**Note for your side:** with both halves fixed, per-type prepping is now equivalent to the batch call, so your
+`ProjectIntake` workaround is no longer load-bearing — keep it or not on its own merits (it is still the faster
+shape, one call graph instead of N). `jfocus-stdbase`'s viewer `Processor:105-110` has the same per-type shape
+and needs no change either. What you should expect instead: fewer `FINAL_FIELD` values on **library** types,
+because they are no longer inferred from bodies that do not exist. That is a precision loss in the sound
+direction, and measured here it is tiny (see above) — but your corpora are not the ones I could measure.
 
 Issues 2 and 3: still open, untouched. On issue 2 I can add one datum — the `Attribute.Constant` path is *not*
 where the 128 come from: a null-typed constant reaches `annotationConstant`, whose `switch` on the tag falls to

@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.prepwork;
 
+import org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.analysis.Value;
@@ -31,7 +32,6 @@ import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -136,7 +136,9 @@ public class TestPrepOnePrimaryTypeAtATime extends CommonTest {
 
     // ------------------------------------------------------------------------------------------------------
     // the second half of the same defect: what ComputePartOfConstructionFinalField COMPUTES for a type it was
-    // never asked about. FINAL_FIELD is a soundness gate for DynamicImmutabilityInference, not a hint.
+    // never asked about. FINAL_FIELD is a soundness gate for DynamicImmutabilityInference, not a hint, and
+    // isAssigned() cannot tell "no assignment" from "no body analyzed". go() is now gated on PREPPED: a type
+    // whose bodies we do not have is left UNDECIDED rather than decided on manufactured evidence.
 
     @Language("java")
     private static final String CALLER = """
@@ -161,21 +163,20 @@ public class TestPrepOnePrimaryTypeAtATime extends CommonTest {
 
     @DisplayName("effective finality of the callee's field must not depend on who was prepped first")
     @Test
-    @Disabled("OPEN, second half of the same defect: the PREPPED marker fixes WHO gets prepped, not what"
-              + " ComputePartOfConstructionFinalField COMPUTES for a type it was never asked about. go() still"
-              + " groups every call-graph method vertex by primary type, so a merely-reached type gets"
-              + " PART_OF_CONSTRUCTION and FINAL_FIELD derived from the subset of its methods that happened to be"
-              + " reachable — and isAssigned() returns false on a method whose body was never analyzed"
-              + " (ComputePartOfConstructionFinalField:171), so an assignment that would knock a private field off"
-              + " 'effectively final' is silently missed. internalGo's own guard then blocks recomputation when the"
-              + " type is later prepped for real. Fixing it means restricting go() to the primary types actually"
-              + " passed in, which changes what library types get computed under acceptExternalsButNotJdk() and"
-              + " therefore needs the FPDUMP A/B that AGENTS.md requires of engine changes.")
     public void finalFieldOfAReachedType() throws IOException {
         ParseResult perType = init(Map.of("proj.Caller", CALLER, "proj.Callee", CALLEE));
         TypeInfo callerA = perType.findType("proj.Caller");
         TypeInfo calleeA = perType.findType("proj.Callee");
+
         new PrepAnalyzer(runtime).doPrimaryType(callerA);
+        // Callee is in Caller's call graph (via sep()) but was not prepped: undecided, not decided-on-no-evidence
+        assertFalse(calleeA.analysis()
+                        .haveAnalyzedValueFor(ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION),
+                "a merely-reached type must be left undecided, not computed from bodies we never analyzed");
+        assertFalse(calleeA.getFieldByName("counter", true).analysis()
+                        .haveAnalyzedValueFor(PropertyImpl.FINAL_FIELD),
+                "and its fields with it — FINAL_FIELD is write-once, so a wrong value here would be permanent");
+
         new PrepAnalyzer(runtime).doPrimaryType(calleeA);
         boolean perTypeFinal = isFinal(calleeA, "counter");
 
