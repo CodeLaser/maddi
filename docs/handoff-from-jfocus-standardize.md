@@ -1,9 +1,9 @@
-# Handoff to maddi: two defects and a convention request
+# Handoff to maddi: three defects and a convention request
 
 **From:** the `ws/standardize` thread working on jfocus-standardize's deduplication intake
 **Date:** 2026-07-26
-**Status:** all three found while diagnosing something else; none is fixed here. Issue 1 is worked around
-downstream, issues 2 and 3 are untouched.
+**Status:** all found while diagnosing something else; none is fixed here. Issue 1 is worked around
+downstream; issues 2 and 3 are untouched. Issue 3 is likely the cheapest to close and has a clear test.
 
 Everything below was measured, not inferred, unless explicitly marked. Where I am guessing, it says so.
 
@@ -108,7 +108,28 @@ two cases want different treatment; today they are indistinguishable at the thro
 
 ---
 
-## 3. Request: make the two meanings of `NYI` distinguishable
+## 3. `ImportComputer` never emits static imports, so printed source does not re-parse
+
+`ImportComputerImpl` never calls `setIsStatic`; it carries a literal `// IMPROVE static fields and methods`
+at `:130`. The CST is not the problem — `ImportStatement.isStatic()` exists and the parse retains it — the
+computer just does not produce them.
+
+That makes `print2(cu, null, importComputer)` **not round-trip-safe** for any compilation unit relying on
+static imports: the references print unqualified, no static import is emitted, and the result does not
+re-parse. Measured on fernflower: 11 of 199 source files use static imports (`StructMethod` alone has 74),
+and **zero** of the 199 printed files have any. It is a direct cause of unresolved symbols such as
+`Type opc_iload not found` and `Type TYPE_OBJECT not found`, and it accounts for 5 of the 9 compilation
+units still lost in our intake.
+
+Either fix works for us: emit the static imports, or fully qualify the references at print time. The first
+preserves the source shape, which matters more to a deduplicator than to a compiler.
+
+This one is bounded and testable — print any type that uses a static import and re-parse the result — so it
+is probably the cheapest of the three to close.
+
+---
+
+## 4. Request: make the two meanings of `NYI` distinguishable
 
 `UnsupportedOperationException("NYI")` is used both for "not implemented yet" and for "this state should be
 unreachable". Those call for opposite responses — implement the missing case, versus find out why the input is
