@@ -56,9 +56,15 @@ and needs no change either. What you should expect instead: fewer `FINAL_FIELD` 
 because they are no longer inferred from bodies that do not exist. That is a precision loss in the sound
 direction, and measured here it is tiny (see above) — but your corpora are not the ones I could measure.
 
-Issues 2 and 3: still open, untouched. On issue 2 I can add one datum — the `Attribute.Constant` path is *not*
-where the 128 come from: a null-typed constant reaches `annotationConstant`, whose `switch` on the tag falls to
-`default -> null` without ever calling `convert`. So the swallow site is still unidentified.
+Issues 2 and 3: still open, and now written up in full for you in
+[`handoff-nulltype-classsymbolscanner.md`](handoff-nulltype-classsymbolscanner.md), since you are taking them
+on with access to maddi. The headline from that investigation: `Type$2` is javac's **recovery** type
+(confirmed from the JDK sources — `Type.java` declares `noType`/`recoveryType`/`stuckType` in that order, so
+the `"none"` string-match at `:1063` catches the first and misses the other two), and the throw at `:1064` is
+**unreachable in every maddi and jfocus-refactor-service path measured here** — fernflower corpus included,
+0 hits. So the 128 come from something your intake does differently, most plausibly an incomplete classpath,
+and finding that is likely worth more than the missing `switch` case. The document carries the probe, the
+paths already ruled out by reading, and maddi's non-obvious working rules.
 
 Everything below was measured, not inferred, unless explicitly marked. Where I am guessing, it says so.
 
