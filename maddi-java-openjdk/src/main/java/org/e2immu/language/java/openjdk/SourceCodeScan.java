@@ -294,22 +294,32 @@ public final class SourceCodeScan {
                     }
                 }
                 case ClassOrInterfaceBody _, EnumBody _, AnnotationTypeBody _, RecordBody _ -> {
-                    for (Node node2 : node.children()) {
-                        String string2 = node2.getSource();
-                        switch (node2) {
-                            case TypeDeclaration sub -> scanTypeDeclaration(sub);
-                            case ConstructorDeclaration cd -> scanMethodDeclaration(cd);
-                            case MethodDeclaration _, AnnotationMethodDeclaration _ -> scanMethodDeclaration(node2);
-                            case FieldDeclaration fd -> scanFieldDeclaration(fd);
-                            default -> {
-                            }
-                        }
-                    }
+                    scanTypeBody(node);
                     Node lastChild = node.getLastChild();
                     if (lastChild != null) {
                         addTrailingComments(source(td), lastChild);
                     }
                 }
+                default -> {
+                }
+            }
+        }
+    }
+
+    /**
+     * The members of a type body: nested types, constructors, methods, fields. Shared by a named type
+     * declaration and by an ANONYMOUS class body, which is not a {@link TypeDeclaration} — it hangs off the
+     * allocation expression that creates it, so it is reached from {@link #scanCodeBlock} instead. Its members
+     * are ordinary members and carry ordinary modifiers, and a consumer rewriting an access modifier needs
+     * their tokens.
+     */
+    private void scanTypeBody(Node body) {
+        for (Node node2 : body.children()) {
+            switch (node2) {
+                case TypeDeclaration sub -> scanTypeDeclaration(sub);
+                case ConstructorDeclaration cd -> scanMethodDeclaration(cd);
+                case MethodDeclaration _, AnnotationMethodDeclaration _ -> scanMethodDeclaration(node2);
+                case FieldDeclaration fd -> scanFieldDeclaration(fd);
                 default -> {
                 }
             }
@@ -380,6 +390,9 @@ public final class SourceCodeScan {
             }
         }
         scanVariableDeclarators(fd);
+        // and the initializers themselves: an anonymous class can be created there, directly or inside a lambda
+        // (`static final Parser P = new Parser(name -> new Builder(name) { ... })`, the Elasticsearch shape).
+        scanCodeBlock(fd);
     }
 
     // records PRECEDING_COMMA/SUCCEEDING_COMMA (keyed by the declarator) and SUCCEEDING_EQUALS (keyed by the
@@ -518,6 +531,13 @@ public final class SourceCodeScan {
             }
             if (child instanceof TypeDeclaration td) {
                 scanTypeDeclaration(td);
+                return false;
+            }
+            // an anonymous class body: `new X() { ... }`. Not a TypeDeclaration, so the branch above misses it;
+            // scanTypeBody recurses through scanMethodDeclaration -> scanCodeBlock, so nested ones are covered
+            // and there is no need to descend here again.
+            if (child instanceof ClassOrInterfaceBody body) {
+                scanTypeBody(body);
                 return false;
             }
             if (child instanceof LocalVariableDeclaration lvd) {
