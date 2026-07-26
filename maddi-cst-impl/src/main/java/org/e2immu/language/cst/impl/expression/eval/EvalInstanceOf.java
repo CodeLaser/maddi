@@ -42,6 +42,20 @@ public class EvalInstanceOf {
         }
         if (value instanceof VariableExpression ve) {
             ParameterizedType type = ve.variable().parameterizedType();
+            /*
+             An UNBOUNDED WILDCARD carries no type information at all: '?' stands for some unknown type, so a
+             test against it may very well succeed, and nothing may be concluded either way. Falling through to
+             the isAssignableFrom checks below folded it to FALSE, because nothing is assignable from '?'.
+
+             Concretely, for a List<?> parameter, 'list.get(i) instanceof String' became statically false, and
+             everything guarded by it was then eliminated as dead code: a six-statement method reduced to a
+             single 'return "no"'. The identical method taking List<Object> or a raw List was unaffected. Found
+             downstream, where it silently emptied the deduplication fingerprint of any method destructuring a
+             wildcard-typed collection.
+             */
+            if (type.typeInfo() == null && type.typeParameter() == null) {
+                return instanceOf;
+            }
             // trivial cast to same or higher type
             if (runtime.isAssignableFrom(testType, type)) {
                 return runtime.constantTrue();

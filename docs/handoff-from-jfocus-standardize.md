@@ -1,9 +1,13 @@
-# Handoff to maddi: two defects and a convention request
+# Handoff to maddi: three open defects, one fixed, and a convention request
 
 **From:** the `ws/standardize` thread working on jfocus-standardize's deduplication intake
 **Date:** 2026-07-26
-**Status:** all three found while diagnosing something else; none is fixed here. Issue 1 is worked around
-downstream, issues 2 and 3 are untouched.
+**Status:** all found while diagnosing something else. Issue 1b is fixed here. Issue 1 is worked around
+downstream. Issue 3 is untouched and is likely the cheapest to close, with a clear test.
+
+⛔ **Issue 2 (`BottomType`) is CLAIMED by another thread (Bart, 2026-07-26). Do not work on it.** It is kept
+here for context only. Issues 1 and 3 are unclaimed, and maddi changes are in scope for whoever picks them
+up -- they do not need to be handed further along.
 
 ---
 
@@ -142,7 +146,26 @@ skipped by `go`), and "early return assumes part-of-construction and final-field
 
 ---
 
-## 2. `ClassSymbolScanner.convert` has no case for javac's `BottomType` (the type of `null`)
+## 1b. FIXED HERE, listed for context: `EvalInstanceOf` folded `instanceof` to false for `?`
+
+Not a request -- this one is fixed in this repo (`c272ece0`), and is recorded because it is the most
+damaging of the set and shows the shape the others may share.
+
+`EvalInstanceOf`, having established the tested value is a `VariableExpression`, concluded `constantFalse`
+when the value's type was not assignable to the test type. An **unbounded wildcard** has neither a
+`typeInfo` nor a `typeParameter`, so nothing is assignable from it and every test against it folded to
+false. For a `List<?>` parameter, `list.get(i) instanceof String` became statically false and everything it
+guarded was eliminated as dead code: a six-statement method reduced to one operation. The same method
+taking `List<Object>` or a raw `List` was unaffected.
+
+It hides well: `EvalInstanceOf` returns early when a pattern variable is present, so the folding branch is
+only reached once the pattern has been split into a separate boolean, i.e. downstream of parsing.
+
+maddi 2814/0/56 after the fix; jfocus-standardize and jfocus-stdbase unchanged.
+
+---
+
+## 2. `ClassSymbolScanner.convert` has no case for javac's `BottomType` — ⛔ CLAIMED, another thread
 
 `convert(Type, Set<Type>)` falls through to `throw new UnsupportedOperationException("NYI")` at `:1064`.
 Instrumenting that line while parsing **unmodified upstream fernflower** (199 files, the raw parse, no
@@ -169,7 +192,28 @@ two cases want different treatment; today they are indistinguishable at the thro
 
 ---
 
-## 3. Request: make the two meanings of `NYI` distinguishable
+## 3. `ImportComputer` never emits static imports, so printed source does not re-parse
+
+`ImportComputerImpl` never calls `setIsStatic`; it carries a literal `// IMPROVE static fields and methods`
+at `:130`. The CST is not the problem — `ImportStatement.isStatic()` exists and the parse retains it — the
+computer just does not produce them.
+
+That makes `print2(cu, null, importComputer)` **not round-trip-safe** for any compilation unit relying on
+static imports: the references print unqualified, no static import is emitted, and the result does not
+re-parse. Measured on fernflower: 11 of 199 source files use static imports (`StructMethod` alone has 74),
+and **zero** of the 199 printed files have any. It is a direct cause of unresolved symbols such as
+`Type opc_iload not found` and `Type TYPE_OBJECT not found`, and it accounts for 5 of the 9 compilation
+units still lost in our intake.
+
+Either fix works for us: emit the static imports, or fully qualify the references at print time. The first
+preserves the source shape, which matters more to a deduplicator than to a compiler.
+
+This one is bounded and testable — print any type that uses a static import and re-parse the result — so it
+is probably the cheapest of the three to close.
+
+---
+
+## 4. Request: make the two meanings of `NYI` distinguishable
 
 `UnsupportedOperationException("NYI")` is used both for "not implemented yet" and for "this state should be
 unreachable". Those call for opposite responses — implement the missing case, versus find out why the input is
