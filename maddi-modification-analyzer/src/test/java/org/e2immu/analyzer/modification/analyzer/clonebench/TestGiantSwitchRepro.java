@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.analyzer.clonebench;
 
+import org.e2immu.analyzer.modification.common.CloneBenchCorpus;
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;

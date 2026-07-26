@@ -38,6 +38,7 @@ dependencies {
     file used it, while the other four were not in module-info at all and so could not be referenced by main even
     in principle -- main is compiled in module mode, where 'requires' is the whole of the visible world.
      */
+    testImplementation(testFixtures(project(":maddi-modification-common")))  // CloneBenchCorpus
     testImplementation(project(":maddi-inspection-integration"))
     testImplementation(project(":maddi-inspection-resource"))
     testImplementation(project(":maddi-inspection-openjdk"))
@@ -61,6 +62,12 @@ tasks.withType<Test> {
 
     // Pass it forward down to the worker JVM execution context
     systemProperty("maddi_parser", impl)
+
+    // the clone-bench corpus root, so TestCloneBenchMethodHistogram can find testarchive; same convention as
+    // maddi-modification-analyzer. Without forwarding, the property set on the Gradle JVM never reaches the
+    // worker and the test skips via CloneBenchCorpus.assumeAvailable().
+    System.getProperty("testarchive.root")?.let { systemProperty("testarchive.root", it) }
+    System.getenv("TESTARCHIVE_ROOT")?.let { environment("TESTARCHIVE_ROOT", it) }
 
     // Visual logging to your terminal so you always know which version is active
     logger.lifecycle("Project [${project.name}] executing test suite targeting: $impl")
