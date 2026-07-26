@@ -18,6 +18,7 @@ import org.e2immu.annotation.NotNull;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.impl.expression.NegationImpl;
 
 import java.util.List;
@@ -41,11 +42,29 @@ public class EvalNegation {
      cache outlives the Runtime, and a structurally-equal key from a different Runtime would hand back a
      negation built from foreign runtime objects. Concurrent (the analyzer evaluates in parallel); crude
      clear-on-cap eviction.
+
+     NOT keyed on expressions that mention a LOCAL VARIABLE: see the note in LocalVariableImpl -- a local's
+     fullyQualifiedName is its BARE NAME, so two same-named locals from different methods are equal() and
+     hash alike, while their TYPES may differ. One Runtime spans every method and compilation unit of a
+     session, which makes this cache exactly the "cross-method structure keyed by Variable" that note warns
+     against: method A caching the negation of `l0` (a Throwable) hands method B, which happens to name a
+     boolean `l0` too, A's expression -- and B then trips EvalAnd's "Non-boolean return type for l0 in And:
+     Type Throwable". Locals are the only variables whose FQN is not globally unique; descending covers the
+     ones reached through a scope or array (`a[i]`, `local.field`).
+
+     The screen sits on the PUT, not the GET, so the hit path stays O(1). That is sound because equality is
+     purely FQN-based (VariableImpl.fqnForEquality): a local's FQN is a bare name, a field's is dotted and a
+     parameter's is method-qualified, so a local-bearing expression can never be equal() to a local-free one.
+     Nothing local-bearing is ever stored, hence nothing local-bearing can ever hit.
      */
     private static final int CACHE_MIN_COMPLEXITY = 3;
     private static final int CACHE_MAX_SIZE = 8192;
     private final java.util.concurrent.ConcurrentHashMap<Expression, Expression> negationCache =
             new java.util.concurrent.ConcurrentHashMap<>();
+
+    private boolean mentionsLocalVariable(Expression v) {
+        return v.variables(runtime.descendModeYes()).anyMatch(x -> x instanceof LocalVariable);
+    }
 
     public Expression eval(@NotNull Expression v) {
         Objects.requireNonNull(v);
@@ -55,7 +74,7 @@ public class EvalNegation {
         Expression result = compute(v);
         // an over-budget compute yields a DEGRADED (unsimplified) result — never memoize those, or budget
         // state leaks nondeterministically across top-level operations (see EvalBudget.overBudget)
-        if (!EvalBudget.overBudget()) {
+        if (!EvalBudget.overBudget() && !mentionsLocalVariable(v)) {
             if (negationCache.size() >= CACHE_MAX_SIZE) negationCache.clear();
             negationCache.put(v, result);
         }

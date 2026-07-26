@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Tag;
 
 /*
-IMPORTANT: use "analyzed" branch of "testarchive".
+Corpus note: the former "analyzed" branch of "testarchive" was merged into main on 2026-07-26.
 A small number of files have been modified wrt the main branch, for this test to run.
  */
 @Tag("slow")

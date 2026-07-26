@@ -14,16 +14,18 @@ Performance regression guard for the Function18752956_file2311713 grind-to-halt 
 equal-quality witness ties are the COMMON case, and the witness-index tie-break/support machinery dominated).
 Baseline history: 583s (support-set printing in the tie-break) -> 100s (two-fact string keys) -> 48s (cheap
 vertex printer + witness key cache) -> 25s (lazy witness support, cached Fact hash) -> ~13s (structural
-tie-break via vertexComparator, no strings). Skipped when the testarchive checkout is absent.
+tie-break via vertexComparator, no strings). Skipped when the testarchive checkout is absent; the corpus is
+located via CloneBenchCorpus (-Dtestarchive.root / TESTARCHIVE_ROOT), never a hardcoded relative path.
  */
 public class TestGiantSwitchRepro extends CommonTest {
 
     @Test
     public void test() throws Exception {
-        Path file = Path.of(
-                "../../testarchive/switch_fors_compiles/src/main/java/Function18752956_file2311713.java");
+        Path file = CloneBenchCorpus.sourceDirectory("switch_fors_compiles")
+                .resolve("Function18752956_file2311713.java");
         org.junit.jupiter.api.Assumptions.assumeTrue(Files.exists(file),
-                "requires the testarchive checkout ('analyzed' branch)");
+                "requires the clone-bench corpus at " + CloneBenchCorpus.ROOT.toAbsolutePath().normalize()
+                + "; override with -Dtestarchive.root=... or TESTARCHIVE_ROOT");
         String source = Files.readString(file);
         long start = System.currentTimeMillis();
         TypeInfo t = javaInspector.parse("Function18752956_file2311713", source);
