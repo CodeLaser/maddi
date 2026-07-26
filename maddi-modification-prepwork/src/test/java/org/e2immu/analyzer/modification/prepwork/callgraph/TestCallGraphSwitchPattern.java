@@ -48,6 +48,9 @@ public class TestCallGraphSwitchPattern extends CommonTest {
                 static class ColonOnly {}
                 static class ArrowOnly {}
                 static class InstanceOfOnly {}
+                // the Elasticsearch shape: the tested type is a SUBTYPE of the class doing the testing
+                static class Base {}
+                static class Derived extends Base {}
 
                 // the Elasticsearch shape: an old-style switch STATEMENT whose labels are type patterns
                 static int colon(Object o) {
@@ -69,6 +72,12 @@ public class TestCallGraphSwitchPattern extends CommonTest {
                 static boolean negated(Object o) {
                     return o != null && o instanceof InstanceOfOnly == false;
                 }
+
+                static class BaseWithTest extends Base {
+                    // AggregatorBase:137 verbatim: a base class asking whether something is one of ITS OWN
+                    // subtypes. A reference to a subtype is a compile dependency like any other.
+                    boolean isDerived(Base b) { return b != null && b instanceof Derived == false; }
+                }
             }
             """;
 
@@ -87,5 +96,7 @@ public class TestCallGraphSwitchPattern extends CommonTest {
                 "instanceof (negated, inside &&): no REFERENCES edge into InstanceOfOnly");
         assertTrue(printed.matches("(?s).*->R->a\\.b\\.X\\.ColonOnly.*"),
                 "OLD-STYLE switch pattern: no REFERENCES edge into ColonOnly");
+        assertTrue(printed.matches("(?s).*->R->a\\.b\\.X\\.Derived.*"),
+                "a supertype naming its own SUBTYPE is a dependency too: no REFERENCES edge into Derived");
     }
 }

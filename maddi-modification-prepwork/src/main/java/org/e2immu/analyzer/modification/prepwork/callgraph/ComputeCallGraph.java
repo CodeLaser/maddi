@@ -457,18 +457,28 @@ public class ComputeCallGraph {
         return false;
     }
 
+    /*
+    The skip is a SELF-link check, and nothing wider: a member naming its own type -- or a type that encloses
+    it -- says nothing about what must exist first.
+
+    It used to be written as "is the referenced type assignable to the referring one", which also dropped every
+    reference from a supertype to its own SUBTYPE. That is a real compile dependency, and precisely the edge a
+    cycle or seam analysis is looking for: an abstraction naming its implementation. Elasticsearch,
+    AggregatorBase:137 -- `parent instanceof RandomSamplerAggregator == false`, where RandomSamplerAggregator
+    is (transitively) an AggregatorBase -- was invisible to path.seamVerdicts, which therefore called a seam
+    clean and let the carve break :server. The sealed-permits edge (Shape->H->Circle) was already recorded, so
+    the graph was inconsistent about the same direction.
+     */
     private void addType(Info from, ParameterizedType pt, long edgeValue) {
-        if (!runtime.isAssignableFrom(from.typeInfo().asParameterizedType(), pt)) {
-            TypeInfo best = pt.bestTypeInfo();
-            if (best != null) {
-                if (best != from && accept(best)) {
-                    builder.mergeEdge(from, best, edgeValue);
-                }
-                for (ParameterizedType parameter : pt.parameters()) {
-                    addType(from, parameter, TYPES_IN_DECLARATION);
-                }
+        TypeInfo best = pt.bestTypeInfo();
+        if (best != null) {
+            if (best != from && !from.typeInfo().isEnclosedIn(best) && accept(best)) {
+                builder.mergeEdge(from, best, edgeValue);
             }
-        } // else: avoid links to self, we want the type at the end
+            for (ParameterizedType parameter : pt.parameters()) {
+                addType(from, parameter, TYPES_IN_DECLARATION);
+            }
+        }
     }
 
     private boolean accept(TypeInfo typeInfo) {
