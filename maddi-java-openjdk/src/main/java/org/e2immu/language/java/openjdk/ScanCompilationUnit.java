@@ -298,6 +298,19 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         }
     }
 
+    /**
+     * Message for a javac node or symbol this scanner has no case for. A bare {@code "NYI"} cannot be acted on:
+     * the same throw serves both "this case is not implemented yet" and "this state should be unreachable", and
+     * those want opposite responses — implement the missing case, versus find out why the input is malformed.
+     * Naming the value settles it at the throw site, instead of costing a patched build and a re-run.
+     */
+    private static String unexpected(String where, Object node) {
+        if (node == null) return "Unexpected null " + where;
+        String s = String.valueOf(node).replace('\n', ' ');
+        if (s.length() > 160) s = s.substring(0, 160) + "...";
+        return "Unexpected " + where + ": '" + s + "', class " + node.getClass().getName();
+    }
+
     private ImportStatement parseImportStatement(ImportTree importTree) {
         boolean isStatic = importTree.isStatic();
         String im = importTree.getQualifiedIdentifier().toString();
@@ -405,7 +418,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         if (typeInfo.typeNature().isEnum() || typeInfo.typeNature().isRecord()) {
             if (jcClassDecl.type instanceof Type.ClassType ct) {
                 parentClass = convertType.convert(ct.supertype_field);
-            } else throw new UnsupportedOperationException("NYI");
+            } else throw new UnsupportedOperationException(unexpected("type of enum/record "
+                                                                     + jcClassDecl.name, jcClassDecl.type));
         } else {
             ParameterizedType explicitParentClass = convertType.convertTree(jcClassDecl.extending, dsb);
             parentClass = explicitParentClass.isVoid() ? runtime.objectParameterizedType()
@@ -1017,7 +1031,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         .addComments(commentsForNode(source))
                         .build();
             }
-            default -> throw new UnsupportedOperationException("NYI");
+            default -> throw new UnsupportedOperationException(unexpected("block node", node));
         }
         return parseBlock(blockIndex, statements, addToStatementsSize, blockAsStatement,
                 statementLabels.get(node), source, variablesToAdd);
@@ -1228,7 +1242,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             ParameterizedType type = convertTypeWithAnnotations(node.getVariable().getType(), dsb, annotations::add);
             currentExpression = runtime.newEmptyExpression();
             lvc = continueLocalVariableCreation(variableDecl, name, type, dsb, annotations);
-        } else throw new UnsupportedOperationException("NYI");
+        } else throw new UnsupportedOperationException(unexpected("for-each loop variable", node.getVariable()));
 
         Block block = parseBlock("0", node.getStatement());
         Source source = statementSourceForNode(node);
@@ -1262,7 +1276,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     if (first instanceof LocalVariableCreation f) {
                         built = built == null ? f : built.withAdditionalLocalVariable(f);
                         map.put(f.localVariable().simpleName(), f.localVariable());
-                    } else throw new UnsupportedOperationException("NYI");
+                    } else throw new UnsupportedOperationException(
+                            unexpected("for-loop initializer (expected a local variable creation)", first));
                 }
                 assert built != null;
                 forBuilder.addInitializer(built);
@@ -1272,7 +1287,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     Statement first = initBlock.statements().getFirst();
                     if (first instanceof ExpressionAsStatement eas) {
                         forBuilder.addInitializer(eas.expression());
-                    } else throw new UnsupportedOperationException("NYI");
+                    } else throw new UnsupportedOperationException(
+                            unexpected("for-loop initializer (expected an expression)", first));
                 }
             }
         }
@@ -1397,7 +1413,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                             expression = runtime.newEmptyExpression();
                             rpr.newVariables.forEach(lv -> elementStack.put(lv.simpleName(), lv));
                         }
-                        case null, default -> throw new UnsupportedOperationException("NYI");
+                        case null, default ->
+                                throw new UnsupportedOperationException(unexpected("case label", caseLabel));
                     }
 
                     currentExpression = null;
@@ -1476,7 +1493,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 if (s instanceof LocalVariableCreation lvc) {
                     lvc.localVariableStream().forEach(resourceVariables::add);
                     first = lvc.withSource(s.source().withIndex(index));
-                } else throw new UnsupportedOperationException("NYI");
+                } else throw new UnsupportedOperationException(unexpected("try-with-resources resource", s));
             }
             tryBuilder.addResource(first);
             ++resourceCount;
@@ -1911,7 +1928,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             case LEFT_SHIFT_ASSIGNMENT -> runtime.assignLeftShiftOperatorInt();
             case RIGHT_SHIFT_ASSIGNMENT -> runtime.assignSignedRightShiftOperatorInt();
             case UNSIGNED_RIGHT_SHIFT_ASSIGNMENT -> runtime.assignUnsignedRightShiftOperatorInt();
-            default -> throw new UnsupportedOperationException("NYI");
+            default -> throw new UnsupportedOperationException("Unexpected compound assignment operator: " + kind);
         };
         currentExpression = runtime.newAssignmentBuilder()
                 .setAssignmentOperator(operator)
@@ -1984,7 +2001,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             case SL -> runtime.leftShiftOperatorInt();
             case SR -> runtime.signedRightShiftOperatorInt();
             case USR -> runtime.unsignedRightShiftOperatorInt();
-            default -> throw new UnsupportedOperationException("NYI");
+            default -> throw new UnsupportedOperationException("Unexpected binary operator opcode: " + opcode);
         };
         Precedence precedence = switch (opcode) {
             case PLUS, MINUS -> runtime.precedenceAdditive();
@@ -2107,7 +2124,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             dsb.put(recordPattern, sourceForNode(anyPattern));
             return new RecordPatternResult(type, recordPattern, List.of());
         }
-        throw new UnsupportedOperationException("NYI");
+        throw new UnsupportedOperationException(unexpected("pattern", p));
     }
 
     @Override
@@ -2190,7 +2207,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 }
                 outputVariants.add(ov);
                 lambdaParameters.put(name, pi);
-            } else throw new UnsupportedOperationException("NYI");
+            } else throw new UnsupportedOperationException(unexpected("lambda parameter", parameter));
         }
         Block methodBody;
         if (lambda.getBodyKind() == LambdaExpressionTree.BodyKind.EXPRESSION) {
@@ -2210,7 +2227,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             methodBody = parseBlock("", lambda.body);
             currentMethod = outer;
         } else {
-            throw new UnsupportedOperationException("NYI");
+            throw new UnsupportedOperationException("Unexpected lambda body kind: " + lambda.getBodyKind());
         }
 
         elementStack.pop();
@@ -2339,7 +2356,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                                 .setDiamond(runtime.diamondNo()) // TODO
                                 .setParameterizedType(type)
                                 .build();
-                    } else throw new UnsupportedOperationException("NYI");
+                    } else throw new UnsupportedOperationException(
+                            unexpected("symbol for type '" + name + "' (expected a class symbol)", element));
                 }
                 case ENUM_CONSTANT -> {
                     if (element instanceof Symbol.VarSymbol vs) {
@@ -2348,7 +2366,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                                 .setSource(source)
                                 .setVariable(runtime.newFieldReference(fieldInfo))
                                 .build();
-                    } else throw new UnsupportedOperationException("NYI");
+                    } else throw new UnsupportedOperationException(
+                            unexpected("symbol for enum constant '" + name + "'", element));
                 }
                 case TYPE_PARAMETER -> {
                     if (element instanceof Symbol.TypeVariableSymbol tvs) {
@@ -2359,7 +2378,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                                 .build();
                     }
                 }
-                default -> throw new UnsupportedOperationException("NYI");
+                default -> throw new UnsupportedOperationException("Unexpected element kind " + element.getKind()
+                                                                   + " for identifier '" + name + "'");
             }
         }
         return null;// super.visitIdentifier(node, p);
@@ -2561,7 +2581,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     explicitConstructorInvocation = false;
                 }
                 objectIsImplicit = true;
-            } else throw new UnsupportedOperationException("NYI");
+            } else throw new UnsupportedOperationException(unexpected("symbol for unqualified call to '"
+                                                                     + methodName + "' (expected a method symbol)",
+                    it instanceof JCTree.JCIdent ji ? ji.sym : it));
         } else if (methodSelect instanceof MemberSelectTree mst) {
             scan(mst.getExpression(), p);
             object = currentExpression;
@@ -2576,11 +2598,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     methodInfo = typeData.getOrLoadMethod(methodSymbol);
                 } else if (fieldAccess.type instanceof Type.ErrorType) {
                     throw new UnresolvedSymbolException("Unresolved method call '" + methodName + "'");
-                } else throw new UnsupportedOperationException("NYI");
+                } else throw new UnsupportedOperationException(unexpected("symbol for qualified call to '"
+                                                                         + methodName + "' (expected a method"
+                                                                         + " symbol)", fieldAccess.sym));
             } else {
-                throw new UnsupportedOperationException("NYI");
+                throw new UnsupportedOperationException(unexpected("method-select tree for call to '"
+                                                                  + methodName + "'", methodInvocation.meth));
             }
-        } else throw new UnsupportedOperationException("NYI");
+        } else throw new UnsupportedOperationException(unexpected("method select", methodSelect));
 
         Source src = scanSource(node);
         if (scanResult != null) {
@@ -2889,7 +2914,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         // 14.11.1), so the arm body cannot reference a binding. The switch-entry model carries a
                         // single pattern, so keep the first and ignore the binding-free alternatives.
                     }
-                    case null, default -> throw new UnsupportedOperationException("NYI");
+                    case null, default ->
+                            throw new UnsupportedOperationException(unexpected("case label", caseLabel));
                 }
             }
             LocalVariable[] newVariablesArray = recordPatternResult == null

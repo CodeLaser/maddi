@@ -50,6 +50,10 @@ public class CommonTest {
     protected ParameterNameIndex parameterNameIndex;
     // mirrors JavaInspector.ParseOptions.syntheticListField; a test may set false before scan() to check the gate
     protected boolean syntheticListField = true;
+    // when non-empty, REPLACES javac's class path with exactly these entries (see createTask). A test uses this
+    // to parse against a deliberately partial class path -- the shape that produces javac's unresolved-symbol
+    // and unresolved-annotation-element markers, which the default (full test runtime) class path never does.
+    protected List<File> classPathOverride = List.of();
 
     public CommonTest() {
         this(List.of());
@@ -93,7 +97,7 @@ public class CommonTest {
             SourceSet lombok = sourceSetOf(Data.class, javaBase);
 
             MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
-            javacTask = createTask(sourcesByClassName, List.of(), diagnostics);
+            javacTask = createTask(sourcesByClassName, classPathOverride, diagnostics);
 
             InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                     .addSourceSets(sourceSet)
