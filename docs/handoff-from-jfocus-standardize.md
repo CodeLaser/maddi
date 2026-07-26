@@ -1,4 +1,4 @@
-# Handoff to maddi: three defects and a convention request
+# Handoff to maddi: three open defects, one fixed, and a convention request
 
 **From:** the `ws/standardize` thread working on jfocus-standardize's deduplication intake
 **Date:** 2026-07-26
@@ -78,6 +78,25 @@ Related, already in `docs/prep-analyzer hardening.md` §2 but **not the same ite
 never get `PART_OF_CONSTRUCTION` computed" is the opposite direction (types with no method vertices are
 skipped by `go`), and "early return assumes part-of-construction and final-field are set together" is about
 `internalGo`'s own guard at `:84-87`. This one is about the *`PrepAnalyzer`* guard keyed on that marker.
+
+---
+
+## 1b. FIXED HERE, listed for context: `EvalInstanceOf` folded `instanceof` to false for `?`
+
+Not a request -- this one is fixed in this repo (`c272ece0`), and is recorded because it is the most
+damaging of the set and shows the shape the others may share.
+
+`EvalInstanceOf`, having established the tested value is a `VariableExpression`, concluded `constantFalse`
+when the value's type was not assignable to the test type. An **unbounded wildcard** has neither a
+`typeInfo` nor a `typeParameter`, so nothing is assignable from it and every test against it folded to
+false. For a `List<?>` parameter, `list.get(i) instanceof String` became statically false and everything it
+guarded was eliminated as dead code: a six-statement method reduced to one operation. The same method
+taking `List<Object>` or a raw `List` was unaffected.
+
+It hides well: `EvalInstanceOf` returns early when a pattern variable is present, so the folding branch is
+only reached once the pattern has been split into a separate boolean, i.e. downstream of parsing.
+
+maddi 2814/0/56 after the fix; jfocus-standardize and jfocus-stdbase unchanged.
 
 ---
 
