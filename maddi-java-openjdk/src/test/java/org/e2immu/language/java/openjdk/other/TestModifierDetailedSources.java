@@ -15,11 +15,18 @@
 package org.e2immu.language.java.openjdk.other;
 
 import org.e2immu.language.cst.api.element.DetailedSources;
+import org.e2immu.language.cst.api.element.Element;
+import org.e2immu.language.cst.api.expression.ConstructorCall;
+import org.e2immu.language.cst.api.statement.LocalTypeDeclaration;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -168,5 +175,101 @@ public class TestModifierDetailedSources extends CommonTest {
         Source cName = count.source().detailedSources().detail(count.simpleName());
         assertNotNull(cName);
         assertEquals("2-29:2-33", cName.compact2()); // 'count'
+    }
+
+    // ------------------------------------------------------------------------------------------------------
+    // A member of an ANONYMOUS class carries modifiers like any other member, and a consumer that rewrites an
+    // access modifier needs its token. The scanner reached local classes (scanCodeBlock handles a
+    // TypeDeclaration) but not anonymous class BODIES, which are not TypeDeclarations -- and it never looked
+    // inside a field initializer at all, which is where Elasticsearch writes them:
+    //
+    //   public static final Parser PARSER = new Parser(name -> new RuntimeField.Builder(name) {
+    //       @Override protected RuntimeField createChildRuntimeField(...) { ... }
+    //   });
+    //
+    // Without the token, optimizeAccess cannot widen that override when it widens the method it overrides, and
+    // javac rejects the result with "attempting to assign weaker access privileges".
+
+    @Language("java")
+    private static final String ANON = """
+            package a.b;
+            import java.util.function.Function;
+            public abstract class Builder {
+              protected abstract String createChild(String name);
+
+              public static final Function<String, Builder> PARSER = name -> new Builder() {
+                @Override
+                protected String createChild(String n) { return n; }
+              };
+
+              public static Builder inBody() {
+                return new Builder() {
+                  @Override
+                  protected String createChild(String n) { return n; }
+                };
+              }
+
+              public static Runnable local() {
+                class Helper implements Runnable {
+                  @Override public void run() { }
+                }
+                return new Helper();
+              }
+            }
+            """;
+
+    /** The text the source range points at — proves the token position rather than restating a line:column. */
+    private static String textAt(String input, Source source) {
+        assertNotNull(source, "no detailed source recorded");
+        assertEquals(source.beginLine(), source.endLine(), "expected a single-line token");
+        String line = input.split("\n")[source.beginLine() - 1];
+        return line.substring(source.beginPos() - 1, source.endPos());
+    }
+
+    /** The anonymous class created inside {@code element}'s body or initializer. */
+    private static TypeInfo anonymousIn(Info element) {
+        List<TypeInfo> found = new ArrayList<>();
+        Predicate<Element> collector = e -> {
+            if (e instanceof ConstructorCall cc && cc.anonymousClass() != null) found.add(cc.anonymousClass());
+            return true;
+        };
+        if (element instanceof MethodInfo mi && mi.methodBody() != null) mi.methodBody().visit(collector);
+        if (element instanceof FieldInfo fi && fi.initializer() != null) fi.initializer().visit(collector);
+        return found.isEmpty() ? null : found.getFirst();
+    }
+
+    @Test
+    public void testAnonymousClassMemberModifier() {
+        TypeInfo builder = scan("a.b.Builder", ANON);
+
+        TypeInfo inBody = anonymousIn(builder.findUniqueMethod("inBody", 0));
+        assertNotNull(inBody, "fixture: the anonymous class in the method body");
+        MethodInfo m1 = inBody.findUniqueMethod("createChild", 1);
+        assertEquals("protected", textAt(ANON, m1.source().detailedSources()
+                .detail(runtime.methodModifierProtected())));
+
+        // the Elasticsearch shape: inside a lambda inside a static field initializer
+        TypeInfo inField = anonymousIn(builder.getFieldByName("PARSER", true));
+        assertNotNull(inField, "fixture: the anonymous class in the field initializer");
+        MethodInfo m2 = inField.findUniqueMethod("createChild", 1);
+        assertEquals("protected", textAt(ANON, m2.source().detailedSources()
+                .detail(runtime.methodModifierProtected())));
+    }
+
+    @Test
+    public void testLocalClassMemberModifier() {
+        // a LOCAL class was already reached (scanCodeBlock scans a TypeDeclaration); guard against a regression
+        TypeInfo builder = scan("a.b.Builder", ANON);
+        MethodInfo local = builder.findUniqueMethod("local", 0);
+        List<TypeInfo> locals = new ArrayList<>();
+        local.methodBody().visit(e -> {
+            if (e instanceof LocalTypeDeclaration ltd) locals.add(ltd.typeInfo());
+            return true;
+        });
+        TypeInfo helper = locals.isEmpty() ? null : locals.getFirst();
+        assertNotNull(helper, "fixture: the local class Helper");
+        MethodInfo run = helper.findUniqueMethod("run", 0);
+        assertEquals("public", textAt(ANON, run.source().detailedSources()
+                .detail(runtime.methodModifierPublic())));
     }
 }
