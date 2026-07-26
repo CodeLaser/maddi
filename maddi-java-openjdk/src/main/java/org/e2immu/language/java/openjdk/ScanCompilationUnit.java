@@ -2700,6 +2700,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             if (!anonBody.implementing.isEmpty() || anonBody.extending != null) {
                 JCTree.JCExpression newTypeExpression = anonBody.extending != null
                         ? anonBody.extending : anonBody.implementing.getFirst();
+                // Register the WRITTEN supertype's source token into dsb, mirroring the non-anonymous branch below
+                // (convertTree(newClass.clazz, dsb)). convert(Type) alone works off the resolved type and never
+                // touches dsb, so an anonymous-class supertype FQN ('new p.Moved(){}') carried no detailed source --
+                // a dependent-side MoveType rewrite then found no token and left the FQN stale (ES carve
+                // StableApiWrappers: interface anon supertypes not retargeted). Keep convert(type) for the precise
+                // (resolved) return type used downstream; convertTree runs purely for its dsb side effect.
+                convertType.convertTree(newTypeExpression, dsb);
                 concreteReturnType = convertType.convert(newTypeExpression.type);
                 constructor = null;
                 TypeInfo enclosingType = typeStack.getLast();
