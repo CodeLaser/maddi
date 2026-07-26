@@ -82,7 +82,7 @@ public class TestModuleInfo extends CommonTest {
                 uses d.D;
             
                 provides a.b.C with c.d.E;
-                provides c.d.D with c.d.F;
+                provides c.d.D with c.d.F, c.d.E;
             }
             """;
 
@@ -140,7 +140,11 @@ public class TestModuleInfo extends CommonTest {
         assertEquals(2, provides.size());
         ModuleInfo.Provides p0 = provides.getFirst();
         assertEquals("a.b.C", p0.api());
-        assertEquals("c.d.E", p0.implementation());
+        assertEquals(List.of("c.d.E"), p0.implementations());
+        // a multi-implementation 'provides c.d.D with c.d.F, c.d.E;' keeps EVERY implementation, in order
+        ModuleInfo.Provides p1 = provides.getLast();
+        assertEquals("c.d.D", p1.api());
+        assertEquals(List.of("c.d.F", "c.d.E"), p1.implementations());
 
         assertFalse(moduleInfo.open());
     }

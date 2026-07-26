@@ -383,8 +383,8 @@ public class TestCallGraph extends CommonTest {
         ModuleInfo moduleInfo = runtime.newModuleInfoBuilder()
                 .setName("a.b.module-info")
                 .addUses(runtime.noSource(), List.of(), "X.I")
-                .addProvides(runtime.noSource(), List.of(), "X.J", "X").build();
-        moduleInfo.provides().getFirst().setImplementationResolved(X);
+                .addProvides(runtime.noSource(), List.of(), "X.J", List.of("X")).build();
+        moduleInfo.provides().getFirst().addImplementationResolved(X);
         moduleInfo.uses().getFirst().setApiResolved(X.findSubType("I"));
         ComputeCallGraph ccg = new ComputeCallGraph(runtime, Set.of(X), List.of(moduleInfo), _ -> true);
         G<Info> graph = ccg.go().graph();

@@ -283,6 +283,10 @@ public class ScanCompilationUnits {
                 }
             }
         }
+        // fields of anonymous/local types are not in the subtype tree the loop above walks; commit the leftovers
+        for (ScanCompilationUnit scu : scanners) {
+            scu.commitDeferredFields();
+        }
         return new Result(List.copyOf(primaryTypes), List.copyOf(modules), List.copyOf(preloads),
                 List.copyOf(failures));
     }
@@ -383,6 +387,9 @@ public class ScanCompilationUnits {
         }
         for (FieldInfo fieldInfo : typeInfo.fields()) {
             if (!fieldInfo.hasBeenInspected()) {
+                if (fieldInfo.javaDoc() != null) {
+                    fieldInfo.builder().setJavaDoc(resolveJavaDoc.resolve(typeInfo, null, fieldInfo.javaDoc()));
+                }
                 if (fieldInfo.initializer() == null) {
                     fieldInfo.builder().setInitializer(runtime.newEmptyExpression());
                 }

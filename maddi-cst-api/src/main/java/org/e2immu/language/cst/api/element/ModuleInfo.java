@@ -69,8 +69,8 @@ public interface ModuleInfo extends Info {
         /** Adds a {@code uses <api>} directive, declaring a service dependency. */
         Builder addUses(Source source, List<Comment> comments, String api);
 
-        /** Adds a {@code provides <api> with <implementation>} directive. */
-        Builder addProvides(Source source, List<Comment> comments, String api, String implementation);
+        /** Adds a {@code provides <api> with <implementations>} directive (one or more service implementations). */
+        Builder addProvides(Source source, List<Comment> comments, String api, List<String> implementations);
 
         /**
          * Adds a {@code requires [static] [transitive] <name>} directive.
@@ -194,16 +194,21 @@ public interface ModuleInfo extends Info {
         /** Returns the resolved {@link TypeInfo} for the service interface, or {@code null} if not yet resolved. */
         TypeInfo apiResolved();
 
-        /** Returns the fully qualified name of the service implementation class. */
-        String implementation();
+        /**
+         * Returns the fully qualified names of the service implementation classes, in declaration order.
+         * A {@code provides <api> with A, B, C} directive lists more than one; a plain {@code provides <api> with A}
+         * lists exactly one.
+         */
+        List<String> implementations();
 
         /**
-         * Resolves and records the {@link TypeInfo} for the implementation class.
-         * Called once during type resolution; subsequent calls throw.
+         * Records a resolved {@link TypeInfo} for one implementation class. Called once per implementation during
+         * type resolution, in declaration order.
          */
-        void setImplementationResolved(TypeInfo typeInfo);
+        void addImplementationResolved(TypeInfo typeInfo);
 
-        /** Returns the resolved {@link TypeInfo} for the implementation class, or {@code null} if not yet resolved. */
-        TypeInfo implementationResolved();
+        /** Returns the resolved {@link TypeInfo}s for the implementation classes (may be shorter than {@link
+         *  #implementations()} if some did not resolve). */
+        List<TypeInfo> implementationsResolved();
     }
 }

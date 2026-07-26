@@ -86,7 +86,11 @@ public record ResolveJavaDoc(Runtime runtime, TypeData typeData) {
                 List<MethodInfo> methods = type.methods().stream()
                         .filter(m -> memberSig.equals(m.name())).toList();
                 if (methods.size() == 1) return methods.getFirst();
-                return null;
+                // overloaded ('{@link StreamOutput#write}'), inherited, or simply absent: the MEMBER cannot be
+                // pinned down, but the TYPE is certain. Resolve to it rather than to nothing, so the caller keeps
+                // the detailed sources of the type part -- a consumer that relocates the referring file must be
+                // able to rewrite that token (ES server-base carve: the simple name stopped resolving otherwise).
+                return type;
             }
             return fi;
         }
@@ -99,9 +103,10 @@ public record ResolveJavaDoc(Runtime runtime, TypeData typeData) {
                 : Arrays.stream(paramsPart.split(","))
                 .map(String::trim)
                 .toList();
-        return type.methods().stream().filter(mi ->
+        MethodInfo method = type.methods().stream().filter(mi ->
                         methodName.equals(mi.name()) && mi.parameters().size() == paramTypes.size())
                 .findFirst().orElse(null); // FIXME do actual param type check
+        return method != null ? method : type; // fall back to the type, see above
     }
 
     private TypeInfo resolveType(TypeInfo currentType, String name, Source source, DetailedSources.Builder dsb) {
