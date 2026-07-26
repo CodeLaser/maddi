@@ -19,12 +19,15 @@ import org.e2immu.analyzer.modification.common.getset.GetSetHelper;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField;
+import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
+import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.util.internal.graph.G;
 import org.e2immu.util.internal.graph.util.TimedLogger;
 import org.slf4j.Logger;
@@ -57,6 +60,18 @@ public class PrepAnalyzer {
     private static final TimedLogger TIMED_LOGGER = new TimedLogger(LOGGER, 1000);
     public static final Predicate<TypeInfo> DO_NOT_ACCEPT_EXTERNALS =
             t -> t.compilationUnit() != null && !t.compilationUnit().externalLibrary();
+
+    /**
+     * Per-type "this type has been through {@link #doType(TypeInfo)}" marker, and the idempotency guard for the
+     * Tier-2 incremental reparse; see the comment in {@code doType}.
+     * <p>
+     * INTRINSIC: prepwork sets it on every type it preps, on every run. It must never be carried onto a rewired
+     * type (which is a freshly built object whose statements hold no {@code VariableData} and therefore does need
+     * prepping), which the tier guarantees: {@code PropertyValueMapImpl} carries only {@code carryOnRewire}
+     * properties, and {@code AnalysisFingerprint} only fingerprints {@code CROSS_TYPE_DERIVED} ones.
+     */
+    public static final Property PREPPED = new PropertyImpl("typePrepped", ValueImpl.BoolImpl.FALSE,
+            Property.AnalysisTier.INTRINSIC);
 
     private final MethodAnalyzer methodAnalyzer;
     private final Runtime runtime;
@@ -160,7 +175,10 @@ public class PrepAnalyzer {
         ccg.setRecursiveMethods();
         LOGGER.info("Start compute part of construction, final field");
         ComputePartOfConstructionFinalField cp = new ComputePartOfConstructionFinalField(options.parallel);
-        cp.go(cg);
+        // PREPPED is exactly "doType ran over this type", i.e. "its method bodies were analyzed" — the precondition
+        // the computation silently assumes. Types the graph merely REACHED (a caller prepping one primary type at a
+        // time) and binary types accepted by externalsToAccept are left undecided instead; see go()'s javadoc.
+        cp.go(cg, typeInfo -> typeInfo.analysis().haveAnalyzedValueFor(PREPPED));
         LOGGER.info("Done, returning ComputeCallGraph object");
         return ccg;
     }
@@ -174,12 +192,23 @@ public class PrepAnalyzer {
         // but the KEEP set (types from source sets that did not change) are the SAME objects carried unchanged from
         // the previous full prep — their methods already hold VariableData, so re-prepping them throws
         // "Trying to overwrite variableData" (statement/field-initializer level, which unlike the method-level set
-        // at MethodAnalyzer:346 is not itself guarded). PART_OF_CONSTRUCTION is the per-type "already processed"
-        // marker (ComputePartOfConstructionFinalField sets it on every primary type + subtype and uses it as its
-        // own re-run guard); it is INTRINSIC tier, so it is never carried onto freshly rebuilt REWIRE objects, and
-        // it is set strictly after all doType() in a run — hence this guard is inert on the cold path and fires
-        // only for carried KEEP types, whose byte-identical source makes their prep output identical anyway.
-        if (typeInfo.analysis().haveAnalyzedValueFor(ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION)) {
+        // at MethodAnalyzer:346 is not itself guarded).
+        //
+        // The marker must mean "this type was prepped", which is why PREPPED is set below, by doType itself.
+        // This guard used to read PART_OF_CONSTRUCTION instead, which means something else:
+        // ComputePartOfConstructionFinalField.go() groups EVERY MethodInfo vertex of the call graph by primary
+        // type and stamps each one, so a type merely *reached* through the graph was marked processed without
+        // ever being processed. Within one doPrimaryTypes() call that is invisible (all doType() run before the
+        // graph is built), but a caller that preps one primary type at a time over a shared type universe — the
+        // viewer's Processor, jfocus-standardize's intake — poisoned the next call's guard with the previous
+        // call's stamping: the callee kept no VariableData while staying fully reachable, and the link computer
+        // then tripped LinkComputerImpl$SourceMethodComputer.doStatement's `assert vd != null`. Order-dependent,
+        // hence intermittent: prepping callees before callers happened to work. See TestPrepOnePrimaryTypeAtATime.
+        //
+        // A second, opposite defect went with it: go() never reaches a type with no method vertices at all, so
+        // method-less types were never stamped and a KEEP carry re-prepped them — throwing on their field
+        // initializers. Setting the marker here covers those too.
+        if (typeInfo.analysis().haveAnalyzedValueFor(PREPPED)) {
             return;
         }
         try {
@@ -221,6 +250,15 @@ public class PrepAnalyzer {
             } else {
                 LOGGER.error("Caught exception in prep analyzer. Processed {}, failing on type {}", typesProcessed, typeInfo);
                 throw t;
+            }
+        } finally {
+            // in finally, not at the end of the try: a fault-tolerant run leaves the type half-prepped, and
+            // re-prepping that is what throws "Trying to overwrite variableData". Marking it keeps a later pass
+            // off it, exactly as the old PART_OF_CONSTRUCTION marker did (go() stamps regardless of failures).
+            // Guarded because set() throws on a second write, and doType is re-entrant via MethodAnalyzer
+            // (lambdas, local classes).
+            if (!typeInfo.analysis().haveAnalyzedValueFor(PREPPED)) {
+                typeInfo.analysis().set(PREPPED, ValueImpl.BoolImpl.TRUE);
             }
         }
     }

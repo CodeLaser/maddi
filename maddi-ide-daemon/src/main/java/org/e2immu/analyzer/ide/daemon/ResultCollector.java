@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.ide.daemon;
 
+import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.SourceSet;
@@ -148,8 +149,11 @@ public class ResultCollector {
         List<String> displayAnnotations = annotations.stream().map(DaemonProtocol.Annotation::text).toList();
 
         Map<String, String> properties = new LinkedHashMap<>();
-        info.analysis().propertyValueStream().forEach(pv ->
-                properties.put(pv.property().key(), String.valueOf(pv.value())));
+        info.analysis().propertyValueStream()
+                // PrepAnalyzer.PREPPED is per-run bookkeeping, not a result: showing it would put a property on
+                // every prepped type and defeat the "nothing to show → skip" test just below
+                .filter(pv -> pv.property() != PrepAnalyzer.PREPPED)
+                .forEach(pv -> properties.put(pv.property().key(), String.valueOf(pv.value())));
 
         // nothing computed and nothing to show → skip, to keep the payload lean
         if (displayAnnotations.isEmpty() && properties.isEmpty()) return;
