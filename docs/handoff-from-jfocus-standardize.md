@@ -2,8 +2,12 @@
 
 **From:** the `ws/standardize` thread working on jfocus-standardize's deduplication intake
 **Date:** 2026-07-26
-**Status:** all found while diagnosing something else; none is fixed here. Issue 1 is worked around
-downstream; issues 2 and 3 are untouched. Issue 3 is likely the cheapest to close and has a clear test.
+**Status:** all found while diagnosing something else. Issue 1b is fixed here. Issue 1 is worked around
+downstream. Issue 3 is untouched and is likely the cheapest to close, with a clear test.
+
+⛔ **Issue 2 (`BottomType`) is CLAIMED by another thread (Bart, 2026-07-26). Do not work on it.** It is kept
+here for context only. Issues 1 and 3 are unclaimed, and maddi changes are in scope for whoever picks them
+up -- they do not need to be handed further along.
 
 Everything below was measured, not inferred, unless explicitly marked. Where I am guessing, it says so.
 
@@ -100,7 +104,7 @@ maddi 2814/0/56 after the fix; jfocus-standardize and jfocus-stdbase unchanged.
 
 ---
 
-## 2. `ClassSymbolScanner.convert` has no case for javac's `BottomType` (the type of `null`)
+## 2. `ClassSymbolScanner.convert` has no case for javac's `BottomType` — ⛔ CLAIMED, another thread
 
 `convert(Type, Set<Type>)` falls through to `throw new UnsupportedOperationException("NYI")` at `:1064`.
 Instrumenting that line while parsing **unmodified upstream fernflower** (199 files, the raw parse, no
