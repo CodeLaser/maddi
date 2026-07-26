@@ -545,10 +545,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         try {
             return switch (attribute) {
                 case Attribute.Constant c -> annotationConstant(c);
-                case Attribute.Enum en -> runtime.newVariableExpressionBuilder()
-                        .setSource(runtime.noSource())
-                        .setVariable(runtime.newFieldReference(getOrLoadField(en.value)))
-                        .build();
+                case Attribute.Enum en -> {
+                    if (unresolvedEnumConstant(en)) yield null;
+                    yield runtime.newVariableExpressionBuilder()
+                            .setSource(runtime.noSource())
+                            .setVariable(runtime.newFieldReference(getOrLoadField(en.value)))
+                            .build();
+                }
                 // a class literal 'X.class'; newClassExpressionBuilder wraps X as the Class<X> overall type
                 case Attribute.Class cl -> runtime.newClassExpressionBuilder(convert(cl.classType)).build();
                 case Attribute.Array arr -> {
@@ -567,6 +570,33 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         } catch (RuntimeException re) {
             return null;
         }
+    }
+
+    // one line per (enum type, constant), not one per annotated symbol: a single missing jar accounts for a
+    // constant on every type of the library that uses it (junit-jupiter-api's @API(status=...) alone is ~130)
+    private final Set<String> unresolvedEnumConstantsReported = new HashSet<>();
+
+    /**
+     * True for javac's marker for an enum constant it could not resolve, in an annotation read from a class
+     * file: when the enum's own class file is absent, {@code ClassReader.deproxy} substitutes
+     * {@code new VarSymbol(0, name, syms.botType, enumTypeSym)} and reports "unknown enum constant" as a
+     * <em>warning</em>. So the {@code <nulltype>} here is not the type of {@code null}; it is a failure marker,
+     * and the field it stands for does not exist. Converting {@code vs.type} would reach the no-case throw in
+     * {@link #convert}, and {@link #annotationValue}'s blanket catch would then drop the key/value pair with no
+     * trace at all — silently, because maddi's diagnostic collector keeps only javac ERRORs, not warnings.
+     * Skip the value deliberately instead, and say once what is missing: the annotation is still built, without
+     * this element, and the message names the jar to put on the classpath.
+     */
+    private boolean unresolvedEnumConstant(Attribute.Enum en) {
+        Symbol.VarSymbol vs = en.value;
+        if (vs == null || vs.type == null || !vs.type.hasTag(TypeTag.BOT)) return false;
+        String key = vs.owner + "." + vs.name;
+        if (unresolvedEnumConstantsReported.add(key)) {
+            LOGGER.warn("Unknown enum constant {} in an annotation read from a class file: the enum's own class"
+                        + " file is not on the classpath. Dropping this annotation value; add the library"
+                        + " declaring {} to the class path to keep it.", key, vs.owner);
+        }
+        return true;
     }
 
     private Expression annotationConstant(Attribute.Constant c) {
@@ -980,7 +1010,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             if (ict.supertype_field != null) {
                 return convert(ict.supertype_field, visited);
             }
-            throw new UnsupportedOperationException("NYI");
+            throw new UnsupportedOperationException(unexpectedJavacType("convert (intersection type"
+                                                                       + " without supertype_field)", type));
         }
         if (type instanceof Type.ClassType ct) {
             return classType(ct, visited);
@@ -1061,7 +1092,20 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             return runtime.newParameterizedType(typeParameter, 0, null);
         }
         if ("none".equals(type.toString()) || type instanceof Type.PackageType) return null; // parent of Object
-        throw new UnsupportedOperationException("NYI");
+        throw new UnsupportedOperationException(unexpectedJavacType("convert", type));
+    }
+
+    /**
+     * Message for a javac type this converter has no case for. It names the type rather than saying "NYI",
+     * because the two situations that reach such a throw want opposite responses: a genuine gap wants the
+     * missing case implemented, whereas one of javac's failure markers ({@code recoveryType},
+     * {@code stuckType}, or {@code botType} standing in for an unresolvable annotation element) means the
+     * input never resolved, and the answer is to fix the classpath. Without the type there is no way to tell
+     * them apart, and identifying it costs a patched build and a re-run.
+     */
+    private static String unexpectedJavacType(String where, Type type) {
+        return "Unexpected javac type in " + where + ": '" + type + "', class " + type.getClass().getName()
+               + ", tag " + type.getTag() + ", tsym " + (type.tsym == null ? "null" : type.tsym.toString());
     }
 
     private @NotNull TypeParameter findTypeParameter(Symbol.MethodSymbol methodSymbol, String typeParameterName) {
@@ -1202,7 +1246,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     .map(e -> convertTree(e, dsb)).toList();
             return runtime.newIntersectionType(null, bounds);
         }
-        throw new UnsupportedOperationException("NYI");
+        String resolved = type instanceof JCTree jct && jct.type != null
+                ? jct.type + " (" + jct.type.getClass().getName() + ", tag " + jct.type.getTag() + ")"
+                : "null";
+        throw new UnsupportedOperationException("Unexpected javac type tree in convertTree: '" + type
+                                                + "', class " + type.getClass().getName()
+                                                + ", resolved type " + resolved);
     }
 
     /*

@@ -1,5 +1,43 @@
 # Handoff: `<nulltype>` at `ClassSymbolScanner:1064`, and the `NYI` message problem
 
+> ## ✅ RESOLVED, 2026-07-26 (`ws/std2`) — read this box before the document
+>
+> Both issues are fixed. The document below is kept as written, because its §3 is the reason the answer was
+> found; but **three of its readings do not survive measurement**, and §6's prescription inverts. Full write-up,
+> with the numbers: [`maddi-java-openjdk/notes/nulltype-from-unresolved-annotation-enum-constant.md`](../maddi-java-openjdk/notes/nulltype-from-unresolved-annotation-enum-constant.md).
+>
+> **What it actually was.** Not the type of `null`, and not a parser gap. javac's
+> `ClassReader.AnnotationDeproxy.visitEnumAttributeProxy`
+> substitutes `syms.botType` for an **enum constant in an annotation on a class file that it cannot resolve**,
+> and reports it as a *warning* — which `MaddiDiagnosticCollector` drops, keeping only ERRORs. That is why the
+> parse reported `parse errors: false`. The path is `loadAnnotations → annotationExpression →
+> annotationValue(Attribute.Enum) → getOrLoadField → ensureField → convert(vs.type)`, and the swallow site is
+> `annotationValue`'s blanket catch at `:567`.
+>
+> **Where they came from (Q1).** `@org.apiguardian.api.API(status = Status.X)` on junit's own class files. The
+> jfocus-standardize fixture put junit-jupiter-api / junit-platform-commons on the analysis class path but not
+> apiguardian-api (junit declares it `compileOnly`, so it is not transitive). The corpus was irrelevant: the
+> annotations come from the **preloads**, so every test in that module reproduced it. 838 throws over
+> `TestIntakeAttrition`'s two tests; all five `API.Status` constants.
+>
+> **Was the class path incomplete (Q2)?** Yes — §3's instinct and Bart's prior were right. But the evidence is
+> not `Type$2`: an incomplete class path produces `ErrorType`s and javac ERROR diagnostics, and `recoveryType`
+> did not appear in any scenario measured here.
+>
+> **What was lost (Q3).** One annotation key/value pair per occurrence, on binary types. The annotation itself
+> survived. Bounded, and now reported.
+>
+> **The fix (Q4).** Recognise the marker in `annotationValue` and skip the value deliberately, with one warning
+> per constant naming the missing library. **`convert` deliberately did _not_ get the `BOT` case §6 proposes**:
+> `ensureField` would then add a fabricated field, typed "type of the null constant", to a real binary type. All
+> 23 bare `NYI` throws in the module now name the value they met. Root cause fixed too, in
+> jfocus-transform's `CommonTest`: 838 → 0.
+>
+> **Corrections to this document:** §2a (a failure marker here, not a real type), §4 (annotation values are *not*
+> ruled out — `Attribute.Enum` reaches `convert`; `:567` *is* the swallow site), §5 (javac infers `Object`, not
+> the null type, for `id(null)` — checked against the JDK 26 compiler). §3, §7 and §9 were exactly right and are
+> what made this cheap.
+
 **To:** the `ws/standardize` thread, who reported this and is getting write access to maddi
 **From:** the `ws/python` thread
 **Date:** 2026-07-26
