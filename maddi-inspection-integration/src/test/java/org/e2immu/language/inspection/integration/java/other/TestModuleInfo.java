@@ -70,7 +70,7 @@ public class TestModuleInfo {
                 uses d.D;
             
                 provides a.b.C with c.d.E;
-                provides c.d.D with c.d.F;
+                provides c.d.D with c.d.F, c.d.E;
             }
             """;
 
@@ -127,7 +127,14 @@ public class TestModuleInfo {
         assertEquals(2, provides.size());
         ModuleInfo.Provides p0 = provides.getFirst();
         assertEquals("a.b.C", p0.api());
-        assertEquals("c.d.E", p0.implementation());
+        assertEquals(List.of("c.d.E"), p0.implementations());
+        // the home-made (congocc) parser keeps EVERY implementation of a multi-impl 'provides ... with A, B'
+        ModuleInfo.Provides p1 = provides.getLast();
+        assertEquals("c.d.D", p1.api());
+        assertEquals(List.of("c.d.F", "c.d.E"), p1.implementations());
+        // each impl name keeps its own detailed source (identity-keyed: pass the model's own string instance)
+        assertNotNull(p1.source().detailedSources().detail(p1.implementations().getFirst()));
+        assertNotNull(p1.source().detailedSources().detail(p1.implementations().getLast()));
 
         assertTrue(moduleInfo.open());
     }

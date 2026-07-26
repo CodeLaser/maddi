@@ -87,17 +87,22 @@ public class ParseModuleInfo extends CommonParse {
         Node apiNode = pd.get(1);
         String api = apiNode.getSource();
         if (dsb != null) dsb.put(api, source(apiNode));
-        String implementation;
+        // 'provides <api> with A, B, C;' -- collect EVERY implementation name (indices 3, 5, 7, ... ; the even
+        // indices in between are the commas). Keeping only the first (the old behaviour) silently dropped B, C, so a
+        // later repackage never retargeted them.
+        List<String> implementations = new ArrayList<>();
         if (pd.get(2) instanceof Token kwTo && Token.TokenType.WITH == kwTo.getType()) {
-            Node iNode = pd.get(3);
-            implementation = iNode.getSource();
-            if (dsb != null) dsb.put(implementation, source(iNode));
-        } else {
-            implementation = null;
+            for (int i = 3; i < pd.size(); i++) {
+                Node iNode = pd.get(i);
+                if (iNode instanceof Token) continue; // comma or terminating semicolon
+                String implementation = iNode.getSource();
+                implementations.add(implementation);
+                if (dsb != null) dsb.put(implementation, source(iNode));
+            }
         }
         Source source = source(pd);
         builder.addProvides(dsb == null ? source : source.withDetailedSources(dsb.build()),
-                comments(pd), api, implementation);
+                comments(pd), api, implementations);
     }
 
     private void processUsesDirective(Context context, UsesDirective ud, ModuleInfo.Builder builder) {

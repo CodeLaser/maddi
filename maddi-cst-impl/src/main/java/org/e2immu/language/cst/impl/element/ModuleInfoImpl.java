@@ -376,15 +376,15 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         private final Source source;
         private final List<Comment> comments;
         private final String api;
-        private final String implementation;
+        private final List<String> implementations;
         private final SetOnce<TypeInfo> apiResolved = new SetOnce<>();
-        private final SetOnce<TypeInfo> implementationResolved = new SetOnce<>();
+        private final List<TypeInfo> implementationsResolved = new ArrayList<>();
 
-        ProvidesImpl(Source source, List<Comment> comments, String api, String implementation) {
+        ProvidesImpl(Source source, List<Comment> comments, String api, List<String> implementations) {
             this.source = source;
             this.comments = comments;
             this.api = Objects.requireNonNull(api);
-            this.implementation = Objects.requireNonNull(implementation);
+            this.implementations = List.copyOf(Objects.requireNonNull(implementations));
         }
 
         @Override
@@ -403,8 +403,8 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
-        public String implementation() {
-            return implementation;
+        public List<String> implementations() {
+            return implementations;
         }
 
         @Override
@@ -418,13 +418,13 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
-        public void setImplementationResolved(TypeInfo typeInfo) {
-            this.implementationResolved.set(typeInfo);
+        public void addImplementationResolved(TypeInfo typeInfo) {
+            this.implementationsResolved.add(typeInfo);
         }
 
         @Override
-        public TypeInfo implementationResolved() {
-            return implementationResolved.getOrDefaultNull();
+        public List<TypeInfo> implementationsResolved() {
+            return implementationsResolved;
         }
 
         @Override
@@ -470,7 +470,8 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         @Override
         public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
             Stream<Element.TypeReference> s1 = typeReference(apiResolved(), source);
-            Stream<Element.TypeReference> s2 = typeReference(implementationResolved(), source);
+            Stream<Element.TypeReference> s2 = implementationsResolved.stream()
+                    .flatMap(impl -> typeReference(impl, source));
             return Stream.concat(s1, s2);
         }
     }
@@ -534,8 +535,8 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
-        public ModuleInfo.Builder addProvides(Source source, List<Comment> comments, String api, String implementation) {
-            provides.add(new ProvidesImpl(source, comments, api, implementation));
+        public ModuleInfo.Builder addProvides(Source source, List<Comment> comments, String api, List<String> implementations) {
+            provides.add(new ProvidesImpl(source, comments, api, implementations));
             return this;
         }
     }

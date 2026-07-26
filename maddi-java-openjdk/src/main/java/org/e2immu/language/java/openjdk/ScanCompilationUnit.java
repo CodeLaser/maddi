@@ -192,7 +192,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 builder.addOpens(source.withDetailedSources(dsb.build()), comments, packageName, toModules);
             }
             case JCTree.JCProvides p -> builder.addProvides(source, comments, p.getServiceName().toString(),
-                    p.implNames == null ? null : p.implNames.getFirst().toString());
+                    p.implNames == null ? List.of()
+                            : p.implNames.stream().map(Object::toString).toList());
             case JCTree.JCUses u -> builder.addUses(source, comments, u.getServiceName().toString());
             case null, default -> throw new UnsupportedOperationException();
         }

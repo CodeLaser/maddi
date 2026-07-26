@@ -273,9 +273,10 @@ public class ComputeCallGraph {
             if (api != null) {
                 builder.mergeEdge(moduleInfo, api, REFERENCES);
             }
-            TypeInfo implementation = provides.implementationResolved();
-            if (implementation != null) {
-                builder.mergeEdge(moduleInfo, implementation, REFERENCES);
+            for (TypeInfo implementation : provides.implementationsResolved()) {
+                if (implementation != null) {
+                    builder.mergeEdge(moduleInfo, implementation, REFERENCES);
+                }
             }
         }
     }
