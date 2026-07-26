@@ -52,7 +52,7 @@ public class CloneBenchCorpus {
 
     public static void assumeAvailable() {
         Assumptions.assumeTrue(Files.isDirectory(ROOT),
-                "requires the clone-bench corpus ('analyzed' branch of testarchive) at "
+                "requires the clone-bench corpus (testarchive) at "
                 + ROOT.toAbsolutePath().normalize()
                 + "; override with -Dtestarchive.root=... or TESTARCHIVE_ROOT");
     }

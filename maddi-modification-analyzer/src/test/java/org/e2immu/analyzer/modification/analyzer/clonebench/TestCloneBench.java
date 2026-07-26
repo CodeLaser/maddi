@@ -58,7 +58,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import org.junit.jupiter.api.Tag;
 
 /*
-IMPORTANT: use "analyzed" branch of "testarchive".
+Corpus: "testarchive" (the former "analyzed" branch was merged into main on 2026-07-26).
 A small number of files have been modified wrt the main branch, for this test to run.
 
 All directories are parsed ONCE, up front, in a single JavaInspector/runtime (one source set per directory so that

@@ -33,7 +33,7 @@ import org.junit.jupiter.api.Tag;
 
 /**
  * PLAN-modification-reachability phase 1: the shadow diff over the clone-bench corpus (testarchive,
- * 'analyzed' branch) — real-world snippets, analyzed per primary type exactly like TestCloneBench,
+ * main branch) — real-world snippets, analyzed per primary type exactly like TestCloneBench,
  * but with trackObjectCreations (the shadow's E1 needs LINKED_VARIABLES_ARGUMENTS) and without
  * writing analyzed sources. Aggregates divergences (frozen optimistic TRUE, shadow says modified)
  * for classification, and reverse divergences (frozen modified, shadow unreached), which indicate
