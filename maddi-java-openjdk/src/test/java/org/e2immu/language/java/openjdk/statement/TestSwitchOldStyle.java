@@ -17,12 +17,15 @@ package org.e2immu.language.java.openjdk.statement;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.element.RecordPattern;
 import org.e2immu.language.cst.api.statement.SwitchStatementOldStyle;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -267,4 +270,48 @@ public class TestSwitchOldStyle extends CommonTest {
                 .map(Object::toString).sorted().collect(Collectors.joining(", ")));
     }
 
+    // A type named ONLY by an old-style switch pattern must be reachable through visit(): every consumer that
+    // asks "what does this method touch" -- the call graph, and through it every periphery and seam analysis --
+    // walks the element tree that way.
+    //
+    // The javac front end represents a pattern label's literal as an EMPTY EXPRESSION rather than null (see
+    // ScanCompilationUnit, JCPatternCaseLabel), so a visit written as "literal != null ? literal : pattern"
+    // takes the literal branch and never reaches the pattern. The congocc front end leaves the literal null,
+    // so the same code walks it correctly -- and the two front ends disagreed silently.
+    //
+    // Elasticsearch: `case KnnRetrieverBuilder knn:` was the ONLY mention of that type in a staying class, the
+    // seam analysis therefore called the seam clean, and :server stopped compiling once the type was moved.
+    @Language("java")
+    private static final String INPUT_PATTERN = """
+            package a.b;
+            class D {
+              static class ColonOnly {}
+              static int kind(Object o) {
+                switch (o) {
+                  case ColonOnly c:
+                    return 1;
+                  default:
+                    return 0;
+                }
+              }
+            }
+            """;
+
+    @DisplayName("visit() reaches the type pattern of an old-style switch label")
+    @Test
+    public void testPatternLabelIsVisited() {
+        TypeInfo typeInfo = scan("a.b.D", INPUT_PATTERN);
+        MethodInfo kind = typeInfo.findUniqueMethod("kind", 1);
+
+        List<String> patternTypes = new ArrayList<>();
+        kind.methodBody().visit(e -> {
+            if (e instanceof RecordPattern rp && rp.localVariable() != null) {
+                patternTypes.add(rp.localVariable().parameterizedType().typeInfo().simpleName());
+            }
+            return true;
+        });
+        assertEquals(List.of("ColonOnly"), patternTypes,
+                "the pattern of `case ColonOnly c:` must be visited; a consumer that never sees it cannot know"
+                + " the method names that type");
+    }
 }

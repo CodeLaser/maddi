@@ -196,17 +196,24 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
     }
 
 
+    /*
+    Both visits take the literal and the pattern INDEPENDENTLY, rather than one or the other.
+
+    A pattern label has no constant expression, but the two front ends express that differently: the congocc
+    parser leaves the literal null, while the javac scanner stores an EMPTY EXPRESSION (see
+    ScanCompilationUnit, JCPatternCaseLabel). An either/or written as "literal != null ? literal : pattern"
+    therefore walked the pattern on one front end and silently skipped it on the other -- and a type named
+    only by `case Type t:` then looked unreferenced to every consumer that walks the element tree, the call
+    graph included. Elasticsearch lost a seam analysis to it.
+     */
     @Override
     public void visit(Predicate<Element> predicate) {
         if (predicate.test(this)) {
             selector.visit(predicate);
             block.visit(predicate);
             switchLabels.forEach(sl -> {
-                if (sl.literal() != null) {
-                    sl.literal().visit(predicate);
-                } else {
-                    sl.patternVariable().visit(predicate);
-                }
+                if (sl.literal() != null) sl.literal().visit(predicate);
+                if (sl.patternVariable() != null) sl.patternVariable().visit(predicate);
             });
         }
     }
@@ -218,7 +225,7 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
             visitor.startSubBlock(0);
             switchLabels.forEach(sl -> {
                 if (sl.literal() != null) sl.literal().visit(visitor);
-                else sl.patternVariable().visit(visitor);
+                if (sl.patternVariable() != null) sl.patternVariable().visit(visitor);
             });
             block.visit(visitor);
             visitor.endSubBlock(0);
