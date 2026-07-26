@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.prepwork.clonebench;
 
+import org.e2immu.analyzer.modification.common.CloneBenchCorpus;
 import org.e2immu.analyzer.modification.prepwork.CommonTest;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.language.cst.api.element.SourceSet;
@@ -33,15 +34,26 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Tag;
 
 /*
-Corpus note: the former "analyzed" branch of "testarchive" was merged into main on 2026-07-26.
-A small number of files have been modified wrt the main branch, for this test to run.
+Frequency histogram of EXTERNAL (JDK/library) method calls over the clone-bench corpus, to see which APIs
+real-world code leans on -- it asserts nothing, it reports. Reads "testarchive" via CloneBenchCorpus.
+
+It used to read "../../testtransform", which was wrong twice over: a hardcoded relative path, and a
+CodeLaser-internal corpus that maddi (standalone, upstream of the jfocus repos) has no business depending
+on. It only ever read the ORIGINAL sources there anyway -- the "_t"/"_o" transform outputs were filtered
+out -- and those originals are a fork of these same testarchive files.
+
+The move was measured, not assumed. The nine testtransform directories map 1:1 onto the nine below, with
+identical file counts. 1125 of 9154 files differ textually (12%: imports, a stray negation, renamed
+classes), yet the histogram is invariant: per directory, dowhile gave 805 vs 806 calls / 221 vs 222
+distinct methods and switch_fors gave 1487 vs 1487 / 135 vs 135, with identical top-15 in both. testarchive
+also parses with zero failures, which retires the old "a small number of files have been modified for this
+test to run" caveat (those fixes landed when the 'analyzed' branch merged into main, 2026-07-26).
  */
 @Tag("slow")
 public class TestCloneBenchMethodHistogram extends CommonTest {
@@ -59,23 +71,29 @@ public class TestCloneBenchMethodHistogram extends CommonTest {
                 "jmod:java.management");
     }
 
+    /** The clone-bench directories sampled, in testarchive naming. */
+    private static final List<String> CORPUS_DIRECTORIES = List.of(
+            "dowhile_pure_compiles", "fors_pure_compiles", "bubblesort_for_withunit",
+            "foreach_pure_compiles", "switch_fors_compiles", "switch_pure_compiles",
+            "try_pure_compiles", "try_wr_compiles", "while_pure_compiles");
+
     // the per-directory source sets parsed by this test; under openjdk each must be registered (and distinct) so
     // its classpath resolves and identically-named clone-bench types in different directories do not collide.
     @Override
     protected List<String> openJdkExtraSourceSetNames() {
-        return List.of("testDoWhile", "testFor", "testForBubbleSort", "testForeachPureCompiles",
-                "testSwitchFor", "testSwitchPureCompiles", "testTry", "testTryResource", "testWhile");
+        return CORPUS_DIRECTORIES;
     }
 
     public void process(String name, Map<String, Integer> methodHistogram) throws IOException {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
 
-        String directory = "../../testtransform/" + name + "/src/main/java/";
-        File src = new File(directory);
-        assertTrue(src.isDirectory());
-        File[] javaFiles = src.listFiles(f -> f.getName().endsWith(".java") && !isProcessed(f.getName()));
+        File src = CloneBenchCorpus.sourceDirectory(name).toFile();
+        assertTrue(src.isDirectory(), "clone-bench directory not found: " + src);
+        // no "_t"/"_o" filter needed: testarchive holds the original sources only, the transform outputs live
+        // in the (separate, CodeLaser-owned) testtransform repository.
+        File[] javaFiles = src.listFiles(f -> f.getName().endsWith(".java"));
         assertNotNull(javaFiles);
-        LOGGER.info("Found {} java files in {}", javaFiles.length, directory);
+        LOGGER.info("Found {} java files in {}", javaFiles.length, src);
         // the openjdk parser resolves the classpath via the source set's dependencies and asserts the source set
         // is registered in the input configuration; use the per-directory source set built (and registered) at
         // setup, which carries javaBase + the jmods and is distinct per directory (so identically-named clone-bench
@@ -93,12 +111,6 @@ public class TestCloneBenchMethodHistogram extends CommonTest {
         for (File javaFile : javaFiles) {
             process(sourceSet, analyzer, javaFile, methodHistogram);
         }
-    }
-
-    private static final Pattern PROCESSED = Pattern.compile(".+_t(_o\\d)?.java");
-
-    private static boolean isProcessed(String name) {
-        return PROCESSED.matcher(name).matches();
     }
 
     private void process(SourceSet sourceSet, PrepAnalyzer analyzer, File javaFile, Map<String, Integer> methodHistogram) {
@@ -120,16 +132,11 @@ public class TestCloneBenchMethodHistogram extends CommonTest {
 
     @Test
     public void test() throws IOException {
+        CloneBenchCorpus.assumeAvailable();
         Map<String, Integer> methodHistogram = new HashMap<>();
-        process("testDoWhile", methodHistogram);
-        process("testFor", methodHistogram);
-        process("testForBubbleSort", methodHistogram);
-        process("testForeachPureCompiles", methodHistogram);
-        process("testSwitchFor", methodHistogram);
-        process("testSwitchPureCompiles", methodHistogram);
-        process("testTry", methodHistogram);
-        process("testTryResource", methodHistogram);
-        process("testWhile", methodHistogram);
+        for (String directory : CORPUS_DIRECTORIES) {
+            process(directory, methodHistogram);
+        }
 
         methodHistogram.entrySet().stream()
                 .sorted((e1, e2) -> e2.getValue() - e1.getValue())

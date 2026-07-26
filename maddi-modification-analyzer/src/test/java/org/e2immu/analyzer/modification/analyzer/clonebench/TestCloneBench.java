@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.analyzer.clonebench;
 
+import org.e2immu.analyzer.modification.common.CloneBenchCorpus;
 import ch.qos.logback.classic.Level;
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
 import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;

@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.clonebench;
+package org.e2immu.analyzer.modification.common;
 
 import org.junit.jupiter.api.Assumptions;
 
@@ -21,7 +21,10 @@ import java.nio.file.Path;
 
 /**
  * The clone-bench corpus root, resolved exactly as {@code TestOssCorpus} resolves the test-oss root, so the two
- * large corpora are configured the same way:
+ * large corpora are configured the same way. It lives in <b>test fixtures</b> rather than one module's test
+ * scope because more than one module's corpus tests need it, and they are not all downstream of each other:
+ * {@code maddi-modification-prepwork} is UPSTREAM of {@code maddi-modification-analyzer}, so it cannot borrow
+ * the analyzer's test classes. Resolution order:
  * <ol>
  *   <li>system property {@code -Dtestarchive.root=...}</li>
  *   <li>environment variable {@code TESTARCHIVE_ROOT}</li>
