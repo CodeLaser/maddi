@@ -55,6 +55,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     private Expression currentExpression;
     private final Map<StatementTree, String> statementLabels = new IdentityHashMap<>();
     private final Map<JCTree.JCVariableDecl, Source> wholeFieldDeclarationSources = new IdentityHashMap<>();
+    // fields whose commit createField deferred, so that ScanCompilationUnits can resolve their javadoc first
+    private final List<FieldInfo> deferredFieldCommits = new ArrayList<>();
     private final CompilationUnit.Builder compilationUnitBuilder;
     private CompilationUnit compilationUnit;
     private Source compilationUnitSource;
@@ -124,6 +126,25 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
     public List<ModuleInfo> modules() {
         return collectedModules;
+    }
+
+    /**
+     * Commit the fields whose commit {@code createField} deferred and that the end-of-scan pass in
+     * {@link ScanCompilationUnits} did not reach. That pass walks the named subtype tree of each primary type;
+     * fields of ANONYMOUS and LOCAL types are outside it (the same blind spot the anonymous-body member-type
+     * commit and {@code handleLocalType}'s {@code recursivelyCommit} already work around). Their javadoc is
+     * therefore left unresolved — as it already is for the types and methods declared there.
+     * Exactly the inverse of the deferral, so no construct can slip through uncommitted.
+     */
+    public void commitDeferredFields() {
+        for (FieldInfo fieldInfo : deferredFieldCommits) {
+            if (!fieldInfo.hasBeenInspected()) {
+                if (fieldInfo.initializer() == null) {
+                    fieldInfo.builder().setInitializer(runtime.newEmptyExpression());
+                }
+                fieldInfo.builder().commit();
+            }
+        }
     }
 
     // -- Class declarations ----------------------------------------------
@@ -1636,6 +1657,16 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 fieldInfo.builder().addAnnotation(ae);
             }
 
+            // javadoc, exactly as for types and methods: the congocc pre-scan drops '/**' comments
+            // (SourceCodeScan.commentsFromTerminal), so addComment is what carries it. Its references are resolved at
+            // the end of ScanCompilationUnits, which is why the commit below is deferred to there.
+            DocCommentTree docComment = docTrees.getDocCommentTree(getCurrentPath());
+            if (docComment != null) {
+                JavaDoc javaDoc = scanJavaDoc.scan(docComment);
+                fieldInfo.builder().addComment(javaDoc);
+                fieldInfo.builder().setJavaDoc(javaDoc);
+            }
+
             // source, source of name
             Source vdSource = sourceForNode(variableDecl); // declaration, but only of one field
             Source nameSource = sourceOfIdentifier(name, variableDecl.pos);
@@ -1668,8 +1699,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     .addComments(commentsForNode(vdSource))
                     .setSource(nameAndInitSource.withDetailedSources(dsb.build()))
                     .setInitializer(initializer)
-                    .computeAccess()
-                    .commit();
+                    .computeAccess();
+            // don't commit yet, happens at the end of ScanCompilationUnits, after JavaDoc resolution
+            deferredFieldCommits.add(fieldInfo);
             assert fieldInfo.access() != null;
         } // else: non-static record components are dealt with in the type visitor
     }
