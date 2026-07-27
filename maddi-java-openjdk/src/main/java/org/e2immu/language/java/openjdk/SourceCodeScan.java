@@ -290,6 +290,22 @@ public final class SourceCodeScan {
                     for (Node child : rh.children()) {
                         if (child instanceof Delimiter d && d.getType() == Token.TokenType.RPAREN) {
                             argumentLists.put(source(td), Map.of(DetailedSources.END_OF_PARAMETER_LIST, source(d)));
+                        } else if (child instanceof RecordComponent rc) {
+                            // the commas around each record component, keyed by the component's source (mirrors how
+                            // formal parameters and field declarators are recorded); a consumer removing a component
+                            // needs the adjacent comma to take with it.
+                            Map<Object, Object> commaMap = new HashMap<>();
+                            Node preceding = rc.previousSibling();
+                            if (preceding != null && preceding.getType() == Token.TokenType.COMMA) {
+                                commaMap.put(DetailedSources.PRECEDING_COMMA, source(preceding));
+                            }
+                            Node succeeding = rc.nextSibling();
+                            if (succeeding != null && succeeding.getType() == Token.TokenType.COMMA) {
+                                commaMap.put(DetailedSources.SUCCEEDING_COMMA, source(succeeding));
+                            }
+                            if (!commaMap.isEmpty()) {
+                                argumentLists.put(source(rc), Map.copyOf(commaMap));
+                            }
                         }
                     }
                 }

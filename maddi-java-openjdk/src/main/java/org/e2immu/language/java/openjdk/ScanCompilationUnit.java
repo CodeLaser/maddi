@@ -564,6 +564,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         .addFieldModifier(runtime.fieldModifierFinal())
                         .addFieldModifier(runtime.fieldModifierPrivate());
             }
+            // the commas around this component in the record header, so a consumer removing a component can take the
+            // adjacent comma with it (SourceCodeScan records them keyed by the component's source; mirrors formal
+            // parameters and field declarators).
+            if (scanResult != null) {
+                Source componentKey = scanSource(definition);
+                dsbField.putIfNotNull(DetailedSources.PRECEDING_COMMA, scanResult.findPrecedingComma(componentKey));
+                dsbField.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, scanResult.findSucceedingComma(componentKey));
+            }
             // the field-name identifier, as for a regular field (detail(fieldInfo.name())). A record component is
             // modelled by javac as a constructor parameter rather than a field declaration, so the name detail is
             // not otherwise recorded; add it explicitly, keyed by the canonical name instance so a consumer's
