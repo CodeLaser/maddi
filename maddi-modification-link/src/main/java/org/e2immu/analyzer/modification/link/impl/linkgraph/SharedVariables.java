@@ -466,14 +466,16 @@ public class SharedVariables {
     public java.util.Set<Variable> assignmentSources(Variable variable) {
         SharedVariable sv = memberToGroup.get(variable);
         if (sv == null) return java.util.Set.of();
-        java.util.Map<Variable, java.util.List<Variable>> fwd = new java.util.HashMap<>();
-        for (SharedVariable.Assignment a : sv.assignments()) {
-            fwd.computeIfAbsent(a.from(), k -> new java.util.ArrayList<>()).add(a.to());
-        }
-        boolean deep = variable instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
-        java.util.Set<Variable> result = new java.util.LinkedHashSet<>(reachable(variable, fwd, deep));
-        result.retainAll(sv.variables());
-        return result;
+        // memoized on the group: FollowGraph asks this once per sibling, per rep expansion, per graph vertex, and
+        // that walk runs per method call in a statement -- so recomputing it is cubic in the length of a
+        // straight-line method (task #22). The memo is dropped by every mutator of SharedVariable.
+        return sv.assignmentSources(variable, v -> {
+            boolean deep = v instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+            java.util.Set<Variable> result =
+                    new java.util.LinkedHashSet<>(reachable(v, sv.forwardAssignments(), deep));
+            result.retainAll(sv.variables());
+            return result;
+        });
     }
 
     // A member that only appears on the 'to' (upstream) side of its group's assignments is a PURE SOURCE: a value
@@ -547,7 +549,7 @@ public class SharedVariables {
             memberToGroup.put(v, sv1);
             variableTranslationMap.put(v, sv1);
         }
-        sv1.assignments().addAll(sv2.assignments());
+        sv1.addAssignments(sv2.assignments());
         sv1.addAssignment(from, to, statementIndex);
         sharedVariablesByName.remove(sv2.fullyQualifiedName());
         lastMergedAway = sv2;
