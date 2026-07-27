@@ -99,6 +99,16 @@ public final class IncrementalFixpointEngine<V, L> {
         return graph.isKnown(from);
     }
 
+    /** Edge visits spent on this method so far, against {@link #workCeiling()}. Read for diagnostics only. */
+    public long work() {
+        return work;
+    }
+
+    /** The ceiling {@link #work()} is measured against; {@code Long.MAX_VALUE} when opted out. */
+    public static long workCeiling() {
+        return NO_WORK_CEILING ? Long.MAX_VALUE : WORK_CEILING;
+    }
+
     public int sizeOfClosure() {
         return closure.countFacts();
     }
