@@ -3,6 +3,7 @@ package org.e2immu.analyzer.modification.link.impl;
 import org.e2immu.analyzer.modification.common.defaults.ShallowMethodAnalyzer;
 import org.e2immu.analyzer.modification.common.util.TolerantWrite;
 import org.e2immu.analyzer.modification.link.LinkComputer;
+import org.e2immu.analyzer.modification.link.impl.graph.DegradedAnalysisException;
 import org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine;
 import org.e2immu.analyzer.modification.link.impl.linkgraph.FollowGraph;
 import org.e2immu.analyzer.modification.link.impl.linkgraph.Graph;
@@ -266,12 +267,16 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                         }
                     }
                 } catch (UnsupportedOperationException uoe) {
-                    if (!"cycle protection".equals(uoe.getMessage())) throw uoe;
+                    if (!(uoe instanceof DegradedAnalysisException dae)) throw uoe;
                     // a statement's link graph refused to settle (generated bulk-converter loaders,
                     // camel-base): a SHALLOW summary beats both a dead element (the old behaviour) and the
                     // minutes-long grind on the huge partial graph. The partially built per-method graph is
                     // discarded with the SourceMethodComputer instance.
-                    LOGGER.warn("Cycle protection tripped in {}; falling back to shallow links", methodInfo);
+                    // The REASON is logged: expansion-rounds is structural, work-ceiling is a budget, and
+                    // a corpus that degrades in bulk (elasticsearch: 111 methods) is only actionable once
+                    // you know which of the two it was.
+                    LOGGER.warn("Cycle protection tripped in {} [{}]; falling back to shallow links",
+                            methodInfo, dae.reason().label());
                     // mark the degradation: per-call data (VL2O) is absent inside this method, and consumers
                     // like extract-interface must know to go pessimistic (task #36)
                     if (!methodInfo.analysis().haveAnalyzedValueFor(

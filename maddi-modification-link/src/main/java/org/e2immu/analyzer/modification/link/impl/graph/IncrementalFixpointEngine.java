@@ -59,13 +59,15 @@ public final class IncrementalFixpointEngine<V, L> {
     // fact's propagation loops, so the ceiling counts per EDGE VISIT in propagateForward/Backward.
     // Tripping throws the established "cycle protection" contract, which LinkComputerImpl catches and
     // degrades to the method's shallow summary. Opt-out: NOWORKCEILING=1; tune with -Dmaddi.workCeiling=N.
+    // The reason is carried on the exception: this ceiling is a BUDGET (raise it and the method may well
+    // complete), whereas LinkGraph's round limit is structural, and a degraded corpus needs to tell them apart.
     private static final long WORK_CEILING = Long.getLong("maddi.workCeiling", 10_000_000L);
     private static final boolean NO_WORK_CEILING = Gate.isSet("NOWORKCEILING");
     private long work;
 
     private void countWork() {
         if (!NO_WORK_CEILING && ++work > WORK_CEILING) {
-            throw new UnsupportedOperationException("cycle protection");
+            throw new DegradedAnalysisException(DegradedAnalysisException.Reason.WORK_CEILING);
         }
     }
 

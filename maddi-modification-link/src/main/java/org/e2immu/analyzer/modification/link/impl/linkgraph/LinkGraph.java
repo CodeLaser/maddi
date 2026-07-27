@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
+import org.e2immu.analyzer.modification.link.impl.graph.DegradedAnalysisException;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
@@ -111,7 +112,7 @@ public class LinkGraph {
                 // loaders >20. Keeping the partial graph is NOT an option (its size makes everything
                 // downstream minutes-slow: measured 5s -> 30min on camel-base); the throw is caught at the
                 // method level, which degrades to a SHALLOW summary (LinkComputerImpl.doMethod).
-                throw new UnsupportedOperationException("cycle protection");
+                throw new DegradedAnalysisException(DegradedAnalysisException.Reason.EXPANSION_ROUNDS);
             }
             change = makeGraph.expandGraph(statementIndex, modifiedInThisEvaluation.keySet());
         }
