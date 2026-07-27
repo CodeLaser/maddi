@@ -258,9 +258,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
         MethodLinkedVariables tlv;
         if (recursionPrevention.sourceAllowed(methodInfo)) {
+            SourceMethodComputer computer = new SourceMethodComputer(methodInfo);
             try {
                 try {
-                    tlv = new SourceMethodComputer(methodInfo).go();
+                    tlv = computer.go();
+                    reportWork(methodInfo, computer, false);
                     if (write) {
                         if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, tlv, methodInfo)) {
                             propertiesChanged.incrementAndGet();
@@ -277,6 +279,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     // you know which of the two it was.
                     LOGGER.warn("Cycle protection tripped in {} [{}]; falling back to shallow links",
                             methodInfo, dae.reason().label());
+                    reportWork(methodInfo, computer, true);
                     // mark the degradation: per-call data (VL2O) is absent inside this method, and consumers
                     // like extract-interface must know to go pessimistic (task #36)
                     if (!methodInfo.analysis().haveAnalyzedValueFor(
@@ -296,6 +299,45 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             tlv = doMethod(methodInfo, true, false, false);
         }
         return tlv;
+    }
+
+    /**
+     * What one method cost the fixpoint engine, for the methods where that is worth knowing (task #31).
+     * <p>
+     * The work ceiling degrades 110 elasticsearch methods, and until this existed the only visible fact was
+     * that they tripped. It is not the length of the method: {@code ClusterState.copyAndUpdateMetadata} is ONE
+     * line and {@code ClusterStateUpdaters.setLocalNode} is four. So the cost has to be attributed to
+     * something else, and that needs the distribution — where the tail sits, and what the graph looked like
+     * when it got there — not another guess.
+     * <p>
+     * Reported above {@code -Dmaddi.workReport} (default 100k, i.e. 1% of the ceiling) so the line count stays
+     * bounded on a big corpus; everything is at DEBUG regardless.
+     */
+    private static final long WORK_REPORT = Long.getLong("maddi.workReport", 100_000L);
+
+    /**
+     * Method-name substring whose link graph is dumped in full (variables + closure). Two plausible
+     * reductions of the saturated ES methods — a fluent accumulator and concatenated exception messages —
+     * both stayed flat, so the next step is not a third guess but reading what is actually in the closure.
+     */
+    private static final String WORK_DUMP = System.getProperty("maddi.workDump");
+
+    private void reportWork(MethodInfo methodInfo, SourceMethodComputer computer, boolean tripped) {
+        Graph graph = computer.linkGraph.graph();
+        long work = graph.engine().work();
+        if (WORK_DUMP != null && methodInfo.fullyQualifiedName().contains(WORK_DUMP)) {
+            LOGGER.info("LINKDUMP method={} work={} variables={}\n{}", methodInfo.fullyQualifiedName(), work,
+                    graph.size(), graph.engine().printClosure());
+        }
+        if (tripped || work >= WORK_REPORT) {
+            LOGGER.info("LINKWORK {} work={} ceilingPct={} graph={} closure={} witnesses={} method={}",
+                    tripped ? "TRIPPED" : "ok", work,
+                    100 * work / Math.max(1, IncrementalFixpointEngine.workCeiling()),
+                    graph.size(), graph.sizeOfClosure(), graph.sizeOfWitnesses(),
+                    methodInfo.fullyQualifiedName());
+        } else if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("LINKWORK ok work={} method={}", work, methodInfo.fullyQualifiedName());
+        }
     }
 
     public class SourceMethodComputer {
