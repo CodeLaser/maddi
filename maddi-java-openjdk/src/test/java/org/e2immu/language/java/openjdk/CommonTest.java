@@ -64,8 +64,16 @@ public class CommonTest {
         this.runtime = new RuntimeImpl();
     }
 
+    // Returns the type NAMED by fqn, not simply the first one parsed. A compilation unit may legally declare
+    // several top-level types (at most one public), and getFirst() then hands back whichever was declared first
+    // -- silently, and ignoring the fqn the caller passed. That cost a day: a test asserting on 'a.b.C' was
+    // reading 'a.b.InterfaceC' declared above it, saw empty overrides(), and was written up as a parser defect.
     public TypeInfo scan(String fqn, String content) {
-        return scan(false, Map.of(fqn, content)).primaryTypes().getFirst();
+        List<TypeInfo> primaryTypes = scan(false, Map.of(fqn, content)).primaryTypes();
+        return primaryTypes.stream().filter(t -> fqn.equals(t.fullyQualifiedName())).findFirst()
+                .orElseThrow(() -> new AssertionError("No type " + fqn + " among the primary types "
+                                                      + primaryTypes.stream().map(TypeInfo::fullyQualifiedName)
+                                                              .toList()));
     }
 
     public Map<String, TypeInfo> scan(boolean ignoreErrorss, String... fqnContentPairs) {

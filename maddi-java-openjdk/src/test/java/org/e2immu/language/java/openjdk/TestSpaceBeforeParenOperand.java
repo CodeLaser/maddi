@@ -41,7 +41,7 @@ public class TestSpaceBeforeParenOperand extends CommonTest {
 
     @Test
     public void binaryOperatorKeepsSpaceBeforeParenOperand() {
-        TypeInfo ti = scan("X", SRC);
+        TypeInfo ti = scan("a.b.X", SRC);
         for (FormattingOptions.WrapStyle style : FormattingOptions.WrapStyle.values()) {
             String wide = printAt(ti, 120, style);
             assertTrue(wide.contains("(a > 0) && (b < 0)"),

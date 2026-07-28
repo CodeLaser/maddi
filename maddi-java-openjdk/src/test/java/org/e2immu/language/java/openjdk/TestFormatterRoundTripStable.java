@@ -52,7 +52,7 @@ public class TestFormatterRoundTripStable extends CommonTest {
     // Parse in a FRESH inspector each time: a given fqn can only be inspected once per runtime.
     private String parseAndPrint(String src, int width, FormattingOptions.WrapStyle style) {
         TestFormatterRoundTripStable h = new TestFormatterRoundTripStable();
-        TypeInfo ti = h.scan("X", src);
+        TypeInfo ti = h.scan("a.b.X", src);
         return h.printAt(ti, h.runtime, width, style);
     }
 

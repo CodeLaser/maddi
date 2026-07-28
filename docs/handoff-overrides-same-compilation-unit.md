@@ -1,69 +1,63 @@
-# `overrides()` is empty for types sharing a compilation unit, 2026-07-28
+# `overrides()` for types sharing a compilation unit — RESOLVED: there was no defect, 2026-07-28
 
-> **Update 2026-07-28, later the same day.** A *second*, unrelated override defect has since been found and
-> **fixed**: an uncommitted method's fully qualified name was `?.?.<name>`, and since that name is a method's
-> identity, two same-signature interface methods were equal while scanning, so the `Set` of overrides kept one.
-> That one — not this one — was the cause of the splitclass non-determinism. See
-> `MethodInspectionImpl.Builder.fullyQualifiedName` and `TestOverridesUnitOrder`, and read the corrected trap
-> section at the bottom of this file before using it. **The defect described below is still open.**
+**Status: closed the same day it was written. The reported defect does not exist.** `overrides()` resolves
+correctly when several top-level types share one compilation unit. The reproducer was reading the wrong type.
 
-## The defect
+Kept because the way it was wrong is worth more than the claim was.
 
-A compilation unit may legally declare several top-level types, as long as at most one is public. When it does,
-**every method of those types reports an empty `overrides()`**.
+## What was reported
 
-Reproducer, already in the repo and `@Disabled`:
-`maddi-java-openjdk/src/test/java/org/e2immu/language/java/openjdk/method/TestOverridesTwoInterfaces.java`,
-method `sameCompilationUnit`. Remove the `@Disabled` and it fails; the file's other two tests are the same
-scenario split across three compilation units, and they pass (verified over 6 runs).
+> A compilation unit may legally declare several top-level types, as long as at most one is public. When it
+> does, **every method of those types reports an empty `overrides()`** — not just the two-interface one, but
+> `cm1`, which implements a single interface declared three lines above it.
 
-```java
-package a.b;
-interface InterfaceC  { void cm1(); void cm3common(); }
-interface InterfaceIC { void cm3common(); void method3(); }
-class C implements InterfaceC, InterfaceIC {
-    @Override public void cm1() { }          // overrides() == []  <-- expected [a.b.InterfaceC]
-    @Override public void cm3common() { }    // overrides() == []  <-- expected both interfaces
-    @Override public void method3() { }      // overrides() == []
-}
+## What was actually happening
+
+`CommonTest.scan(String fqn, String content)` answered `primaryTypes().getFirst()` — **ignoring the `fqn` it
+was handed**. With three top-level types in one unit, that is whichever was declared first: `a.b.InterfaceC`.
+So `C.findUniqueMethod("cm1", 0)` was `InterfaceC`'s own `cm1()`, an abstract interface method that correctly
+overrides nothing. Every assertion in the test was pointed at the wrong type.
+
+The parser was right throughout. Instrumenting `ScanCompilationUnit` at the point of `addOverrides` shows it,
+for the single-unit input:
+
+```
+OVR a.b.C.cm1()       raw=[a.b.InterfaceC.cm1]                                  mapped=[a.b.InterfaceC.cm1()]
+OVR a.b.C.cm3common() raw=[a.b.InterfaceC.cm3common, a.b.InterfaceIC.cm3common] mapped=[both]
+OVR a.b.C.method3()   raw=[a.b.InterfaceIC.method3]                             mapped=[a.b.InterfaceIC.method3()]
 ```
 
-Note it is not limited to the two-interface case: `cm1` implements a single interface declared three lines
-above it and still reports nothing. So this is about the compilation-unit boundary, not about multiple
-inheritance of a signature.
+javac's `elements.overrides(...)` returns `true` for exactly the right pairs, `findOverriddenMethods` returns
+both symbols, and both map to the right `MethodInfo`. Nothing is lost anywhere in the chain.
 
-## Why it matters
+## What changed
 
-`overrides()` is how a consumer answers "which interface does this member belong to". jfocus's splitclass reads
-it in `SplitAlongInterfaces.computeInterfaceTypes` to group members by implemented interface; with an empty
-result every such method is attributed to *no* interface and silently lands in the common part. Any analysis
-keyed on interface membership degrades the same way, without an error.
+- `CommonTest.scan(fqn, content)` now returns the type **named by `fqn`**, and throws listing the primary types
+  if there is none. The trap is gone rather than documented.
+- Eight call sites passed an `fqn` that did not match what their source declares (`"X"` for `a.b.X`, `"A.b.Y"`
+  for `a.b.Y`, `"a.b.C"` for a `C` in the default package, `"a.b.C"` for a type actually called `a.b.X`). All
+  corrected; they were harmless only because the argument was being ignored.
+- `TestOverridesTwoInterfaces.sameCompilationUnit` is un-`@Disabled` and **passes**, kept as a regression test
+  on both facts: several top-level types per unit resolve their overrides, and the harness returns the type you
+  asked for.
 
-## Where to start
+## Why this is worth keeping
 
-`ScanCompilationUnit` in `maddi-java-openjdk`. The two passing tests differ from the failing one **only** in
-whether the types arrive as one unit or three, so the divergence is in how the scanner resolves a type
-reference to a sibling declared in the same unit — most likely the interfaces are not yet inspected (or not yet
-registered under their fully-qualified names) at the point where the implementing class's methods are matched
-against them. Compare with the type-resolution path that already works for the multi-unit case.
+Two false conclusions were drawn from this test in one day, in opposite directions.
 
-Worth checking whether the same boundary affects other hierarchy-derived queries
-(`typeHierarchyExcludingJLO`, `interfacesImplemented`) or only `overrides()`.
+1. It was first written up as *"a harness artefact, not a defect"* — correct, but for no articulated reason and
+   without evidence.
+2. That was then retracted and it was recorded as a genuine parser defect, on the reasoning that several
+   top-level types per unit is legal Java and nothing about them sharing a file should change what a method
+   overrides. Sound reasoning; the premise — that `overrides()` was empty for `a.b.C` — had never been checked.
 
-## A trap, recorded because it cost real time — and then corrected
+The lesson is not "the harness was at fault". It is that **a failing test is a claim about the test, not only
+about the code**, and until you have looked at the value the assertion actually received, you do not know which
+of the two you are holding. The instrumentation that settled it took ten minutes and could have been run on day
+one, before either write-up.
 
-Originally recorded as: *"this shape reproduces 'overrides() lost one of two interfaces' perfectly, and it is
-not that; the two-interface behaviour is correct and deterministic."*
-
-**The second half of that was wrong.** The two-interface behaviour was *not* deterministic: `overrides()` did
-lose an interface, whenever the implementing class was scanned before an interface it implements. It was
-invisible here because the two passing tests in `TestOverridesTwoInterfaces` build their source map with a
-`HashMap`, whose order is fixed for fixed keys, and that fixed order happens to be a good one. Callers that
-build it with `Map.of(...)` get an order the JDK randomises per JVM run, which is how splitclass saw it and
-this file did not. `TestOverridesUnitOrder` pins all six orders; the fix is in
-`MethodInspectionImpl.Builder.fullyQualifiedName`.
-
-What survives of the original warning: the single-compilation-unit shape still reproduces "lost an interface"
-and is still a *different* defect from anything about multiple inheritance of a signature. And the lesson under
-it is now sharper — **a test that fixes one arbitrary order of the inputs proves nothing about the others.**
-Probe `overrides()` across orders, not in one.
+A companion defect found the same day *was* real, and is fixed: an uncommitted method's fully qualified name
+was `?.?.<name>`, and since the FQN is a method's identity, two same-signature interface methods compared equal
+while scanning, so a `Set` of overrides kept one — see `MethodInspectionImpl.Builder.fullyQualifiedName` and
+`TestOverridesUnitOrder`. **That** one is why splitclass was non-deterministic. The two shared a symptom and
+nothing else, which is exactly why the first was mistaken for more of the second.

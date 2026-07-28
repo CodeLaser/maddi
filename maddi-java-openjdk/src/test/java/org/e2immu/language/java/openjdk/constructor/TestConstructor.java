@@ -404,7 +404,7 @@ public class TestConstructor extends CommonTest {
 
     @Test
     public void test11() {
-        TypeInfo typeInfo = scan("a.b.C", INPUT11);
+        TypeInfo typeInfo = scan("C", INPUT11);
         MethodInfo copy = typeInfo.findUniqueMethod("copy", 1);
         if (copy.methodBody().statements().getFirst() instanceof ReturnStatement rs
             && rs.expression() instanceof ConstructorCall cc) {

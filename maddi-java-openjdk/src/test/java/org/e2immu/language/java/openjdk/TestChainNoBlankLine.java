@@ -41,7 +41,7 @@ public class TestChainNoBlankLine extends CommonTest {
 
     @Test
     public void noBlankLineBeforeAChainContinuation() {
-        TypeInfo ti = scan("X", SRC);
+        TypeInfo ti = scan("a.b.X", SRC);
         for (int width = 12; width <= 40; width++) {
             String out = printAt(ti, width);
             String[] lines = out.split("\n", -1);

@@ -115,16 +115,17 @@ public class TestOverridesTwoInterfaces extends CommonTest {
 
     /**
      * The same three types in ONE compilation unit, which is legal Java: one file may declare several top-level
-     * types as long as at most one is public. Every method then reports an EMPTY {@code overrides()} -- not just
-     * the two-interface one, but {@code cm1}, which implements a single interface declared three lines above it.
+     * types as long as at most one is public. The overrides resolve exactly as they do across three units.
      * <p>
-     * Recorded as a defect rather than a quirk of the harness: nothing about the declaration being in the same
-     * file should change what a method overrides, and a consumer that groups members by implemented interface
-     * (splitclass) silently attributes every such method to no interface at all. It is also an expensive trap
-     * when hunting something else -- this shape reproduces "overrides() lost an interface" perfectly, while
-     * actually testing the compilation-unit boundary.
+     * This test spent a day recorded as a *failing* reproducer of a parser defect ("overrides() is empty for
+     * every method of a type sharing a compilation unit"), and there was no defect. {@code CommonTest.scan(fqn,
+     * content)} used to answer {@code primaryTypes().getFirst()} — ignoring the fqn it was handed — so the
+     * assertions were reading {@code a.b.InterfaceC}, declared first in the file, whose {@code cm1()} correctly
+     * overrides nothing. The harness now selects by fully qualified name.
+     * <p>
+     * Kept as a regression test on both facts: several top-level types per unit resolve their overrides, and
+     * the harness hands back the type you asked for.
      */
-    @Disabled("known defect: overrides() is empty for types sharing a compilation unit; see the handoff")
     @DisplayName("types sharing one compilation unit still resolve their overrides")
     @Test
     public void sameCompilationUnit() {
