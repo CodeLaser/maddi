@@ -153,9 +153,21 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         return ob;
     }
 
+    /*
+    Comma-separated, WITHOUT the joining collector's guides.
+
+    joining() wraps its result in guideGenerator.start()/end(), and the formatter renders that trailing guide as a
+    split point -- which came out as `exports p to a, b, c ;`, a space before the semicolon. A directive is short
+    and never wants to be split, so the separator is written out instead. The space is explicit, which also makes
+    the MINIMAL rendering (toString) match how the directive is actually written in a file.
+     */
     private static OutputBuilder commaSeparated(List<String> names) {
-        return names.stream().map(n -> (OutputBuilder) new OutputBuilderImpl().add(new TextImpl(n)))
-                .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA));
+        OutputBuilder ob = new OutputBuilderImpl();
+        for (int i = 0; i < names.size(); i++) {
+            if (i > 0) ob.add(SymbolEnum.COMMA).add(SpaceEnum.ONE);
+            ob.add(new TextImpl(names.get(i)));
+        }
+        return ob;
     }
 
     private static OutputBuilder printPackageDirective(Qualification qualification, List<Comment> comments,
@@ -256,6 +268,11 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         @Override
         public void visit(Visitor visitor) {
 
+        }
+
+        @Override
+        public Exports withToModules(List<String> toModules) {
+            return new ExportsImpl(source, comments, packageName, List.copyOf(toModules));
         }
 
         @Override

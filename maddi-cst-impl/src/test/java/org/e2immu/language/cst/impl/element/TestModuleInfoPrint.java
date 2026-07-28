@@ -36,12 +36,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * fixes {@code static} before {@code transitive}), the presence or absence of a {@code to} clause, and a
  * {@code provides} with more than one implementation.
  * <p>
- * The expected strings carry NO space after a comma. That is not an oversight: {@code OutputBuilder.toString()}
- * renders {@code OutputElement::minimal}, and {@code SymbolEnum.COMMA} leaves the following space to the formatter
- * ({@code Formatter2Impl}, in maddi-cst-print). {@code exports p to a,b,c;} is the minimal rendering and is valid
- * Java. A caller that writes a directive INTO AN EXISTING FILE should therefore format rather than call toString,
- * or it will not match the surrounding style — and a long {@code to} list, like Elasticsearch's five-target
- * {@code exports org.elasticsearch.simdvec}, is exactly where the formatter's line splitting is wanted.
+ * The separator is written out — comma then space — rather than left to the joining collector. That collector
+ * wraps its result in guides, and the formatter renders the trailing guide as a split point, which came out as
+ * {@code exports p to a, b, c ;}. A directive is short and never wants splitting, so the space is explicit, and
+ * the minimal rendering below therefore matches how a directive is actually written in a file.
  */
 public class TestModuleInfoPrint {
 
@@ -85,7 +83,7 @@ public class TestModuleInfoPrint {
                 "an empty target list is NOT `to ;`");
         assertEquals("exports p.one to m.a;",
                 m.exports().get(1).print(QualificationImpl.FULLY_QUALIFIED_NAMES).toString());
-        assertEquals("exports p.many to m.a,m.b,m.c;",
+        assertEquals("exports p.many to m.a, m.b, m.c;",
                 m.exports().get(2).print(QualificationImpl.FULLY_QUALIFIED_NAMES).toString());
     }
 
@@ -98,7 +96,7 @@ public class TestModuleInfoPrint {
         });
         assertEquals("opens p.reflect;",
                 m.opens().get(0).print(QualificationImpl.FULLY_QUALIFIED_NAMES).toString());
-        assertEquals("opens p.to to m.a,m.b;",
+        assertEquals("opens p.to to m.a, m.b;",
                 m.opens().get(1).print(QualificationImpl.FULLY_QUALIFIED_NAMES).toString());
     }
 
@@ -114,7 +112,7 @@ public class TestModuleInfoPrint {
                 m.uses().getFirst().print(QualificationImpl.FULLY_QUALIFIED_NAMES).toString());
         assertEquals("provides p.Service with p.OnlyImpl;",
                 m.provides().get(0).print(QualificationImpl.FULLY_QUALIFIED_NAMES).toString());
-        assertEquals("provides p.Other with p.A,p.B,p.C;",
+        assertEquals("provides p.Other with p.A, p.B, p.C;",
                 m.provides().get(1).print(QualificationImpl.FULLY_QUALIFIED_NAMES).toString(),
                 "keeping only the head is the shape that stranded implementations in the ES carve");
     }
