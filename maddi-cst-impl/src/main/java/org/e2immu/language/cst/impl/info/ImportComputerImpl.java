@@ -121,7 +121,12 @@ public class ImportComputerImpl implements ImportComputer {
         doNotImport.forEach(qualification::addTypeNotImported);
         typesReferenced.forEach(ti -> {
             String packageName = ti.packageName();
-            if (packageName != null && !myPackage.equals(packageName) && !doNotImport.contains(ti)) {
+            // Sharing a package puts a TOP-LEVEL type's simple name in scope, but not a nested one's: to write
+            // 'PaymentDocumentValues' for 'GenerateCompletePDParameters.PaymentDocumentValues' you need the
+            // import even from inside its own package. Only a type declared in THIS compilation unit needs none.
+            boolean inScopeWithoutImport = ti.primaryType().compilationUnit() == compilationUnit
+                                           || myPackage.equals(packageName) && ti.isPrimaryType();
+            if (packageName != null && !inScopeWithoutImport && !doNotImport.contains(ti)) {
                 boolean doImport = qualification.addTypeReturnImport(ti);
                 LOGGER.debug("Do import of {}? {}", ti, doImport);
                 if (doImport) {

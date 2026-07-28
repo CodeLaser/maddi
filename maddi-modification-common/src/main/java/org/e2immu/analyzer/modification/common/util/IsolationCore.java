@@ -384,6 +384,40 @@ abstract class IsolationCore {
     // a concrete class stub that implements an interface ('LongVector implements Iterable<Long>') and is
     // instantiated ('new LongVector()') cannot be abstract, so it must provide (dummy) implementations of the
     // interface's abstract methods, or it does not compile
+/**
+     * A stub that another stub extends must offer a no-argument constructor.
+     * <p>
+     * {@code class TwoChannelAxisOperation extends AxisOperation { }} has an implicit constructor, which calls an
+     * implicit {@code super()} — and the reproduced {@code AxisOperation} has only the constructor an actual
+     * {@code new AxisOperation(int)} in the isolated code caused us to stub. The subclass then does not compile,
+     * and four Axis2 class isolates were dropped on it.
+     * <p>
+     * Only stubs that are actually extended get one, and only when they have constructors but no no-arg one: a
+     * stub extending {@code Object} already has what it needs, so the ordinary isolate is unchanged.
+     */
+    void addDefaultConstructorsWhereExtended() {
+        Set<TypeInfo> extended = new HashSet<>();
+        for (TypeInfo stub : typeMap.values()) {
+            ParameterizedType parent = stub.parentClass();
+            if (parent != null && parent.typeInfo() != null) extended.add(parent.typeInfo());
+        }
+        for (TypeInfo stub : typeMap.values()) {
+            if (!extended.contains(stub) || interfaceStubs.contains(stub) || annotationStubs.contains(stub)) continue;
+            List<MethodInfo> constructors = stub.builder().constructors();
+            if (constructors.isEmpty()) continue;      // the implicit no-arg constructor is there already
+            if (constructors.stream().anyMatch(c -> c.parameters().isEmpty())) continue;
+            MethodInfo noArg = runtime.newConstructor(stub);
+            noArg.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
+                    .setSource(runtime.noSource())
+                    .setMethodBody(runtime.emptyBlock())
+                    .setAccess(stubsCrossPackageBoundaries() ? runtime.accessPublic() : runtime.accessPackage());
+            if (stubsCrossPackageBoundaries()) noArg.builder().addMethodModifier(runtime.methodModifierPublic());
+            noArg.builder().commit();
+            stub.builder().addMethod(noArg);
+            LOGGER.info("Added a no-arg constructor to {}, which is extended by another stub", stub);
+        }
+    }
+
     void addDummyInterfaceMethods() {
         // fixpoint: adding a dummy implementation can reference a type that was not stubbed during the visit
         // (e.g. it appears only in an interface method's signature), creating a new stub which itself may need
