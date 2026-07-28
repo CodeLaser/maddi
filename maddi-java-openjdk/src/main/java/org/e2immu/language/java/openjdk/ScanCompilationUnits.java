@@ -13,9 +13,11 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.FingerPrint;
 import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -39,6 +41,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -371,7 +374,6 @@ public class ScanCompilationUnits {
     private void scanJavaDocsAndCommit(TypeInfo typeInfo) {
         for (TypeInfo sub : typeInfo.subTypes()) {
             scanJavaDocsAndCommit(sub);
-            // TODO javadoc inside lambdas/anonymous types? we should be able to do that efficiently
         }
         if (typeInfo.javaDoc() != null) {
             typeInfo.builder().setJavaDoc(resolveJavaDoc.resolve(typeInfo, null, typeInfo.javaDoc()));
@@ -396,6 +398,63 @@ public class ScanCompilationUnits {
                 assert fieldInfo.access() != null : "Null access for " + fieldInfo;
                 fieldInfo.builder().commit();
             }
+        }
+        resolveJavaDocOfAnonymousTypes(typeInfo);
+    }
+
+    /**
+     * An ANONYMOUS class is not among {@code subTypes()} — it lives in an expression, in a field initialiser or a
+     * method body — so the recursion above never reaches it and the Javadoc on its members stays UNRESOLVED: no
+     * {@code resolvedReference()}, and no detailed sources on the tag. Both are what a consumer needs to act on a
+     * link, so every such Javadoc was invisible to everything downstream.
+     * <p>
+     * Found by a refactoring that repackages types: Elasticsearch's {@code Store.OnClose.EMPTY} is
+     * {@code new OnClose() { … }} in a field initialiser, and its {@code accept()} documents
+     * {@code {@link org.elasticsearch.env.ShardLock}} by fully qualified name. When ShardLock moved, the link was
+     * left naming a package that no longer holds it — a doclint error, and the last one of a 541-type move.
+     * <p>
+     * Deliberately best-effort: an anonymous type's members may already be committed (they are built while the
+     * enclosing body is parsed, not here), and a builder that refuses a late {@code setJavaDoc} must not bring the
+     * whole scan down over documentation. The unresolved Javadoc that results is exactly what we had before.
+     */
+    private void resolveJavaDocOfAnonymousTypes(TypeInfo typeInfo) {
+        List<TypeInfo> anonymous = new ArrayList<>();
+        Predicate<Element> collect = element -> {
+            if (element instanceof ConstructorCall cc && cc.anonymousClass() != null) {
+                anonymous.add(cc.anonymousClass());
+            }
+            return true;
+        };
+        for (FieldInfo fieldInfo : typeInfo.fields()) {
+            if (fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty()) {
+                fieldInfo.initializer().visit(collect);
+            }
+        }
+        for (MethodInfo methodInfo : typeInfo.constructorsAndMethods()) {
+            if (methodInfo.methodBody() != null) methodInfo.methodBody().visit(collect);
+        }
+        // an anonymous type can hold anonymous types of its own; the collector above only saw one level
+        for (int i = 0; i < anonymous.size(); i++) {
+            TypeInfo anon = anonymous.get(i);
+            try {
+                if (anon.javaDoc() != null) {
+                    anon.builder().setJavaDoc(resolveJavaDoc.resolve(anon, null, anon.javaDoc()));
+                }
+                for (MethodInfo methodInfo : anon.constructorsAndMethods()) {
+                    if (methodInfo.javaDoc() != null) {
+                        methodInfo.builder().setJavaDoc(resolveJavaDoc.resolve(anon, methodInfo,
+                                methodInfo.javaDoc()));
+                    }
+                }
+                for (FieldInfo fieldInfo : anon.fields()) {
+                    if (fieldInfo.javaDoc() != null) {
+                        fieldInfo.builder().setJavaDoc(resolveJavaDoc.resolve(anon, null, fieldInfo.javaDoc()));
+                    }
+                }
+            } catch (RuntimeException | AssertionError e) {
+                LOGGER.warn("Cannot resolve javadoc of anonymous type in {}: {}", typeInfo, e.toString());
+            }
+            resolveJavaDocOfAnonymousTypes(anon);
         }
     }
 
