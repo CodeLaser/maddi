@@ -243,15 +243,36 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
         throw new InternalCompareToException();
     }
 
+    /*
+    NEITHER overload descends into anonymousClass, and that is a DESIGN CHOICE, not an omission.
+
+    An anonymous class body is written here but does not run here: its methods run when the object is invoked
+    through its supertype, which is elsewhere and may be never. A walk over a method body asks about THIS
+    scope, so folding in code from another one silently changes the answer, and the caller cannot tell that it
+    happened. Two concrete failures when this was briefly made automatic (2026-07-28, reverted):
+
+      - jfocus-transform's ComputeCheckedExceptions asks what the code here can throw, and began attributing
+        'new PrivilegedExceptionAction<>() { public Object run() throws IOException {...} }' to the enclosing
+        method, which then declared IOException it cannot receive;
+      - five walkers that ALREADY recursed into the anonymous class by hand started traversing it twice, so a
+        list, a queue and an emitted edge stream each acquired duplicates.
+
+    The second point is the argument. Descending into a type is the CALLER's decision, and the callers had
+    already made it -- uniformly, in about a dozen places, with the idiom
+
+        if (e instanceof ConstructorCall cc && cc.anonymousClass() != null) { ...walk its members... }
+
+    and 'return false' when the walker takes the recursion over entirely. Callers legitimately disagree about
+    the answer: ComputeCheckedExceptions must NOT enter, while Matcher.collect in jfocus-metrics must, because
+    a call site inside an anonymous class is a call site like any other. A framework default cannot be right
+    for both, so there is none; see IsolationCore, EdgeReferenceScanner, RenameField and Matcher.collect.
+     */
     @Override
     public void visit(Predicate<Element> predicate) {
         if (predicate.test(this)) {
             if (object != null) object.visit(predicate);
             parameterExpressions.forEach(p -> p.visit(predicate));
             if (arrayInitializer != null) arrayInitializer.visit(predicate);
-            // an anonymous class body is code written inside this expression; not descending made it
-            // invisible to every caller that walks a method body (TypeInfoImpl.visit(Predicate))
-            if (anonymousClass != null) anonymousClass.visit(predicate);
         }
     }
 
@@ -261,9 +282,8 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
             if (object != null) object.visit(visitor);
             parameterExpressions.forEach(p -> p.visit(visitor));
             if (arrayInitializer != null) arrayInitializer.visit(visitor);
-            // deliberately NOT descending: the Visitor protocol has no hook for entering a type, so the
-            // anonymous class's statements would arrive with no signal that the scope changed. See the
-            // comment on TypeInfoImpl.visit(Visitor). The Predicate overload above does descend.
+            // as above, and additionally: the Visitor protocol has no hook for entering a type, so the
+            // anonymous class's statements would arrive with no signal that the scope changed.
         }
         visitor.afterExpression(this);
     }
