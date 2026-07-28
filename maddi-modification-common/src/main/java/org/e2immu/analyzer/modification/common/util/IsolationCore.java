@@ -68,6 +68,31 @@ abstract class IsolationCore {
     void recordPlacementEvidence(TypeInfo typeInfo, DetailedSources ds) {
     }
 
+    /**
+     * A stub nested inside one frame can stay package-private, and {@link IsolateMethod} leaves it so. A stub that
+     * lives in its own compilation unit in its own package cannot: every reference to it crosses a package
+     * boundary, so the type, its members and any nested stub have to be public — and a nested one static, or it
+     * cannot be named without an enclosing instance.
+     */
+    boolean stubsCrossPackageBoundaries() {
+        return false;
+    }
+
+    void applyStubTypeAccess(TypeInfo stub) {
+        if (stubsCrossPackageBoundaries()) {
+            stub.builder().addTypeModifier(runtime.typeModifierPublic());
+            if (enclosingTypeOrNull(stub) != null) stub.builder().addTypeModifier(runtime.typeModifierStatic());
+            stub.builder().setAccess(runtime.accessPublic());
+        } else {
+            stub.builder().setAccess(runtime.accessPackage());
+        }
+    }
+
+    /** package-private members are unreachable once a stub lives in its own package; see above */
+    void applyStubMemberAccess(MethodInfo.Builder builder) {
+        if (stubsCrossPackageBoundaries()) builder.addMethodModifier(runtime.methodModifierPublic());
+    }
+
     final Map<TypeInfo, TypeInfo> typeMap = new HashMap<>();
     // keyed by (owner, method), NOT by method alone: the same declared method can be reached through two
     // different receiver types ('customerCtx.theCustomers.getObjectInfo()' and another CustomerPar-like
@@ -129,8 +154,8 @@ abstract class IsolationCore {
                 .setTypeNature(typeInfo.isAnnotation() ? runtime.typeNatureAnnotation()
                         : isInterface ? runtime.typeNatureInterface()
                         : runtime.typeNatureClass())
-                .setSource(runtime.noSource())
-                .setAccess(runtime.accessPackage());
+                .setSource(runtime.noSource());
+        applyStubTypeAccess(stub);
         if (typeInfo.isAnnotation()) {
             // an annotation type must implement java.lang.annotation.Annotation (asserted on commit)
             TypeInfo annotation = javaInspector.compiledTypesManager()
@@ -234,7 +259,10 @@ abstract class IsolationCore {
                 : isInterfaceField ? runtime.nullValue(newPt)
                 : runtime.newEmptyExpression();
         FieldInfo.Builder fieldBuilder = newField.builder().setInitializer(initializer)
-                .setAccess(runtime.accessPackage());
+                .setAccess(stubsCrossPackageBoundaries() ? runtime.accessPublic() : runtime.accessPackage());
+        if (stubsCrossPackageBoundaries() && !isInterfaceField) {
+            fieldBuilder.addFieldModifier(runtime.fieldModifierPublic());
+        }
         if (fieldInfo.isStatic()) fieldBuilder.addFieldModifier(runtime.fieldModifierStatic());
         // a class numeric constant needs 'final' to be a constant variable usable as a switch 'case' label;
         // an interface field is implicitly final, so no explicit modifier is needed (or printed) there
@@ -333,7 +361,7 @@ abstract class IsolationCore {
         // computeAccess() derives the access from the modifier; an interface method is public implicitly
         boolean overridesPublic = methodInfo.isOverloadOfJLOMethod()
                                   || methodInfo.overrides().stream().anyMatch(o -> o.access().isPublic());
-        if (!ownerIsInterface && overridesPublic) {
+        if (!ownerIsInterface && (overridesPublic || stubsCrossPackageBoundaries())) {
             newMethod.builder().addMethodModifier(runtime.methodModifierPublic());
         }
         newMethod.builder()
