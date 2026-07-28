@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
@@ -33,6 +35,7 @@ public class TestIsolateMethod16NamespaceReferences extends CommonIsolateMethodT
             package a.b;
             public class Holder {
                 public p.q.Value value;
+                public p.q.Value get() { return null; }
             }
             """;
 
@@ -78,5 +81,44 @@ public class TestIsolateMethod16NamespaceReferences extends CommonIsolateMethodT
         assertEquals(expected, out);
         javaInspector.invalidateAllSources();
         assertNotNull(javaInspector.parse("X_method", out));
+    }
+
+    @Language("java")
+    public static final String X2 = """
+            package a.b;
+            public class X2 {
+                void method(Holder holder, Object o) {
+                    Object first = holder.get();
+                    holder.value = (p.q.Value) o;
+                }
+            }
+            """;
+
+    /**
+     * The reconstructed reference comes <b>first</b>: {@code holder.get()} reaches {@code p.q.Value} through a
+     * stubbed return type, which carries no detailed sources and so constrains nothing. Deciding placement on
+     * that first reference put the type in the frame, and the verbatim cast on the next line then named
+     * {@code p.q.Value} — which did not exist. closed-core {@code RecordDTO.set} is the real case:
+     * thirteen package-siblings in the namespace chain, {@code ObjectId} alone in the frame.
+     */
+    @DisplayName("a reconstructed reference seen before the written one must not decide the placement")
+    @Test
+    public void reconstructedReferenceFirst() {
+        TypeInfo x2 = javaInspector.parse(Map.of(
+                        "p.q.Value", VALUE,
+                        "a.b.Holder", HOLDER,
+                        "a.b.X2", X2
+                ), new JavaInspector.ParseOptions.Builder().setDetailedSources(true).build())
+                .parseResult().findType("a.b.X2");
+        String m = """
+                void method(Holder holder, Object o) {
+                    Object first = holder.get();
+                    holder.value = (p.q.Value) o;
+                }""";
+        String out = isolate(x2, "method", 2, m);
+        assertTrue(out.contains("class p { class q { class Value"), out);
+        assertFalse(out.contains("class Value { }\n"), "Value must not be nested directly in the frame:\n" + out);
+        javaInspector.invalidateAllSources();
+        assertNotNull(javaInspector.parse("X2_method", out));
     }
 }

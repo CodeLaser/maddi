@@ -117,26 +117,30 @@ public class IsolateMethod {
         return isolate(methodInfo, null);
     }
 
-    public Result isolate(MethodInfo methodInfo, String customClassName) {
+    /**
+     * One traversal: a fresh compilation unit, a fresh frame, and every stub the method reaches. Run twice per
+     * isolate — see {@link #isolate(MethodInfo, String)} for why — so it must not touch anything outside the
+     * {@link Data} it returns. It does not: it only reads the original CST and constructs new, uncommitted CST
+     * objects, which the probe round simply drops.
+     *
+     * @param known the placement evidence of a previous round, or null to decide on the reference at hand
+     */
+    private Data buildData(MethodInfo methodInfo, org.e2immu.language.cst.api.runtime.Runtime runtime,
+                           String simpleName, Placement known) {
         TypeInfo originalType = methodInfo.typeInfo().primaryType();
-        org.e2immu.language.cst.api.runtime.Runtime runtime = javaInspector.runtime();
         CompilationUnit newCu = runtime.newCompilationUnitBuilder()
                 .setPackageName(targetPackage)
                 .setSourceSet(originalType.compilationUnit().sourceSet())
                 .setURI(originalType.compilationUnit().uri())
                 .build();
-        String simpleName = customClassName == null
-                ? originalType.simpleName() + "_" + methodInfo.name()
-                : customClassName;
-        TypeInfo frame = runtime
-                .newTypeInfo(newCu, simpleName);
+        TypeInfo frame = runtime.newTypeInfo(newCu, simpleName);
         frame.builder().setSource(runtime.noSource())
                 .setTypeNature(runtime.typeNatureClass())
                 .setParentClass(runtime.objectParameterizedType())
                 .addTypeModifier(runtime.typeModifierPublic())
                 .computeAccess();
 
-        Data data = new Data(methodInfo, frame);
+        Data data = new Data(methodInfo, frame, known);
         // The frame stands in for the type that declares the method, so it must stand in for that type's type
         // parameters too. A method of 'class Query<T>' whose body says 'T' is pasted verbatim into the frame,
         // and with no '<T>' on the frame that T resolves to nothing -- the unit is dropped on "Type T not
@@ -159,6 +163,33 @@ public class IsolateMethod {
         }
         visit(data, methodInfo);
         data.addDummyInterfaceMethods();
+        return data;
+    }
+
+    public Result isolate(MethodInfo methodInfo, String customClassName) {
+        TypeInfo originalType = methodInfo.typeInfo().primaryType();
+        org.e2immu.language.cst.api.runtime.Runtime runtime = javaInspector.runtime();
+        String simpleName = customClassName == null
+                ? originalType.simpleName() + "_" + methodInfo.name()
+                : customClassName;
+
+        /*
+         Where a stub goes is decided by how the VERBATIM text names it, and one type can be named more than once.
+         Deciding on the first reference is wrong whenever a reconstructed one -- which carries no evidence at all
+         -- happens to arrive before a written one: the type lands in the frame, and a later
+         'com.example.legacy.parameter.ObjectId' in the pasted body then names something that does not exist.
+         (closed-core RecordDTO.set: thirteen package-siblings in the namespace chain, that one in the frame.)
+
+         A stub's enclosing type is final, set when it is constructed, so placement cannot be corrected afterwards.
+         Instead the whole traversal runs twice: a probe round whose stubs are thrown away and whose only output is
+         the Placement evidence, then the round that keeps them, seeded with it. Both rounds execute exactly the
+         same code, so -- unlike a scan-only mode, or a second visitor that re-implements which constructs carry a
+         written type name -- there is nothing that can drift out of step with the traversal it describes.
+         */
+        Data probe = buildData(methodInfo, runtime, simpleName, null);
+        Data data = buildData(methodInfo, runtime, simpleName, probe.observed);
+        TypeInfo frame = data.frame;
+        CompilationUnit newCu = frame.compilationUnit();
 
         data.fieldMap.values().stream().sorted(Comparator.comparing(FieldInfo::name)).forEach(field -> {
             // add each field to its actual owner (the frame, or a stub type), mirroring how methods are added
@@ -266,9 +297,30 @@ public class IsolateMethod {
         return superType;
     }
 
+    /**
+     * How the pasted text spells each type it names. Gathered by a probe round over the very same traversal that
+     * builds the stubs, and fed back into the round that keeps them; see {@link #isolate(MethodInfo, String)}.
+     * <p>
+     * A written reference is verbatim text whose spelling cannot be changed, so it dictates where the stub has to
+     * be declared: {@code Helper} needs the type nested directly in the frame (a class inside a namespace chain is
+     * not in scope by its simple name), {@code p.q.Helper} needs the chain. A reference we reconstruct carries no
+     * such constraint — {@code OutOfScopeQualified} prints it whichever way resolves.
+     */
+    static final class Placement {
+        final Set<TypeInfo> writtenQualified = new HashSet<>();
+        final Set<TypeInfo> writtenSimply = new HashSet<>();
+        // a member type named through its enclosing type ('Outer.Inner'), which requires the nesting be reproduced
+        final Set<TypeInfo> writtenWithEnclosing = new HashSet<>();
+    }
+
     class Data {
         private final TypeInfo originalType;
         private final TypeInfo frame;
+        // what this round observes; becomes the 'known' of the next round
+        final Placement observed = new Placement();
+        // what the probe round observed, or null in the probe round itself (then placement falls back to deciding
+        // on the reference at hand, which is what it did before this was introduced)
+        private final Placement known;
         final Map<TypeInfo, TypeInfo> typeMap = new HashMap<>();
         // keyed by (owner, method), NOT by method alone: the same declared method can be reached through two
         // different receiver types ('customerCtx.theCustomers.getObjectInfo()' and another CustomerPar-like
@@ -311,12 +363,38 @@ public class IsolateMethod {
         // gives that name back. Created lazily, only when such a reference is seen
         TypeInfo originalTypeStub;
 
-        Data(MethodInfo originalMethod, TypeInfo frame) {
+        Data(MethodInfo originalMethod, TypeInfo frame, Placement known) {
             this.originalType = originalMethod.primaryType();
             this.frame = frame;
+            this.known = known;
             originalType.recursiveSubTypeStream()
                     .filter(t -> t != originalType)
                     .forEach(t -> originalMemberSimpleNames.add(t.simpleName()));
+        }
+
+        /**
+         * Where {@code typeInfo} has to be declared, over <i>all</i> the references the pasted text makes to it:
+         * {@code TRUE} for a namespace chain, {@code FALSE} for directly in the frame, {@code null} when the text
+         * never names it (every reference is reconstructed) and the caller is free to choose.
+         */
+        private Boolean writtenPlacement(TypeInfo typeInfo) {
+            if (known == null) return null;
+            boolean simply = known.writtenSimply.contains(typeInfo);
+            boolean qualified = known.writtenQualified.contains(typeInfo);
+            if (simply && qualified) {
+                // no single declaration is in scope both ways. The simple spelling is by far the commoner one, so
+                // it keeps the frame slot and the qualified reference is the one that will not resolve
+                LOGGER.warn("{} is written both simply and package-qualified; the qualified references will not"
+                            + " resolve in the isolate", typeInfo);
+                return Boolean.FALSE;
+            }
+            return simply ? Boolean.FALSE : qualified ? Boolean.TRUE : null;
+        }
+
+        private boolean enclosingWrittenOverAllReferences(TypeInfo typeInfo, TypeInfo enclosingType,
+                                                          DetailedSources ds) {
+            if (known == null) return enclosingWritten(enclosingType, ds);
+            return known.writtenWithEnclosing.contains(typeInfo);
         }
 
         // a chain of empty stub types reproducing a package, e.g. "org.slf4j" -> frame.org.slf4j
@@ -350,6 +428,19 @@ public class IsolateMethod {
             return originalTypeStub;
         }
 
+        // no detailed sources means the reference is reconstructed, not written, and constrains nothing
+        private void recordPlacementEvidence(TypeInfo typeInfo, DetailedSources ds) {
+            if (ds == null) return;
+            var enclosing = typeInfo.compilationUnitOrEnclosingType();
+            if (enclosing.isRight()) {
+                if (enclosingWritten(enclosing.getRight(), ds)) observed.writtenWithEnclosing.add(typeInfo);
+            } else if (ds.detail(typeInfo.packageName()) != null) {
+                observed.writtenQualified.add(typeInfo);
+            } else {
+                observed.writtenSimply.add(typeInfo);
+            }
+        }
+
         // 'ds' are the detailed sources of the element that references 'typeInfo' in the pasted method text (or null
         // if unavailable); they tell us how the reference was written, which decides where to place a primary type.
         private TypeInfo ensureType(TypeInfo typeInfo, DetailedSources ds) {
@@ -365,6 +456,10 @@ public class IsolateMethod {
                 return typeInfo;
             }
 
+            // record how THIS reference is written, before the typeMap short-circuit: a later reference is exactly
+            // what the first one may have got wrong, so its evidence has to be collected too
+            recordPlacementEvidence(typeInfo, ds);
+
             TypeInfo inMap = typeMap.get(typeInfo);
             if (inMap != null) return inMap;
             LOGGER.info("Creating type {}", typeInfo);
@@ -376,7 +471,8 @@ public class IsolateMethod {
             if (enclosing.isRight() && enclosing.getRight() == originalType) {
                 // nested in the original type: the frame stands in for that type, so nest directly in it
                 enclosingStub = frame;
-            } else if (enclosing.isRight() && !enclosingWritten(enclosing.getRight(), ds)
+            } else if (enclosing.isRight()
+                       && !enclosingWrittenOverAllReferences(typeInfo, enclosing.getRight(), ds)
                        && nestingWouldHide(typeInfo)) {
                 // A MEMBER TYPE REACHED WITHOUT SYNTACTIC EVIDENCE (ds == null): the reference comes from the
                 // reconstructed model -- a stubbed field's type, a supertype, a type argument -- not from a
@@ -394,12 +490,15 @@ public class IsolateMethod {
                 enclosingStub = frame;
             } else if (enclosing.isRight()) {
                 enclosingStub = ensureType(enclosing.getRight(), ds);
-            } else if (ds != null && ds.detail(typeInfo.packageName()) != null) {
-                // detailed sources say the package was written out (fully-qualified, e.g. 'a.b.C'): reproduce its
-                // package as a chain of namespace stubs so the qualified reference still resolves
+            } else if (Boolean.TRUE.equals(writtenPlacement(typeInfo))
+                       || known == null && ds != null && ds.detail(typeInfo.packageName()) != null) {
+                // the text writes the package out (fully-qualified, e.g. 'a.b.C') SOMEWHERE -- not necessarily in
+                // the reference that got us here first: reproduce the package as a chain of namespace stubs so the
+                // qualified reference still resolves
                 enclosingStub = namespaceStub(typeInfo.packageName());
-            } else if (ds != null) {
-                // detailed sources present and the package was not written: referenced simply -> nest in the frame
+            } else if (Boolean.FALSE.equals(writtenPlacement(typeInfo)) || known == null && ds != null) {
+                // the text names it simply somewhere: only a type nested directly in the frame is in scope by its
+                // simple name throughout the frame
                 frameSimpleNameClaims.put(typeInfo.simpleName(), typeInfo);
                 enclosingStub = frame;
             } else {
