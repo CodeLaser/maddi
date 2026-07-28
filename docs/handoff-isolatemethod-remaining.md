@@ -186,22 +186,41 @@ This is a general defect, not specific to this type: any type whose first refere
 later reference is written package-qualified lands wrong. It is only rarely fatal, because the fully-qualified
 spelling has to actually occur in the pasted text.
 
-**Two designs, and the second is newly available.**
+**The constraint, before any design.** An isolate has two kinds of reference to a stubbed type, and they pull
+in opposite directions:
 
-1. **A pre-pass.** Walk the method once collecting, per type, whether *any* reference writes its package;
-   place with that global answer. Faithful to the source and minimally disruptive to existing output — but it
-   means either a scan-only mode through `ensureType` (which risks the two passes drifting) or a second
-   visitor that duplicates `MyVisitor`'s knowledge of which elements carry written type names.
+- a **written** reference is verbatim text and its spelling cannot be changed. `IOrderService orderService =
+  ...` requires the type nested *directly in the frame*, because a class buried in a namespace chain is not in
+  scope by simple name — that is what `TestIsolateMethod9Imports` pins, and its header comment says so.
+  `(com.example.legacy.parameter.ObjectId) value` requires exactly the opposite.
+- a **reconstructed** reference is ours to print, and since issue 2 `OutOfScopeQualified` qualifies it wherever
+  the simple name would not resolve.
 
-2. **Place every non-JDK primary type in its namespace chain, uniformly.** Order-independent by construction,
-   and it deletes the `nestingWouldHide` / `frameSimpleNameClaims` heuristics rather than adding to them.
-   **This only became possible with issue 2's fix**: those heuristics exist precisely because namespace
-   placement used to break reconstructed references that print with simple names, and `OutOfScopeQualified`
-   now qualifies exactly those. The cost is noisier output (`X_method.p.q.Helper` in every reconstructed
-   signature) and roughly ten expected-output tests to update.
+So issue 2 freed the reconstructed side only. **Written references still dictate placement**, and there is one
+declaration site per type. Placing everything in the namespace chain uniformly is therefore *not* an option:
+it would break every isolate whose body names an imported type by its simple name, which is most of them.
+(An earlier revision of this document recommended exactly that. It is wrong.)
 
-I would try 2. It removes a class of bug instead of a bug, and the reason it was not an option before is gone.
-Validate on the corpus, not on the unit tests: the unit tests never had two references to one type disagreeing.
+**So the fix is fixed in shape — gather all written evidence, then place — and the choice is how.**
+
+| | Approach | Cost |
+|---|---|---|
+| A | A scan-only pass through the existing `ensureType` / `MyVisitor`, recording evidence without building stubs | No duplicated knowledge, but it runs mutating code in a non-mutating mode; the two passes can drift apart silently |
+| B | A separate lightweight visitor that only collects "was this type's package written out" | Clean separation, but duplicates `MyVisitor`'s knowledge of which constructs carry a written type name — miss one and a type is misplaced with no error |
+| C | Defer stub creation: collect every reference first, then create and place in one pass | Conceptually right, largest change — stub identity is needed *during* traversal, since fields and methods are attached to stubs as they are discovered |
+
+I would take **B**. The set of constructs that can carry a written type name is short and stable, and it leaves
+the mutating pass untouched; A's failure mode is invisible drift between two passes that must agree. C is the
+right end state if `IsolateClass` needs it anyway.
+
+**The residual case, currently unreachable.** A type written *both* simply and package-qualified in one body
+cannot be satisfied at all: no single declaration is in scope both ways. Either accept and log it, or declare
+it at frame level with a subclass alias in the chain (`class ObjectId extends X.ObjectId {}`) — casts
+and calls would resolve through inheritance, but it is a distinct type, so `instanceof` and assignment
+compatibility go subtly wrong. Not needed for the corpus: `ObjectId` is written once, so A, B and C all fix
+it today. This only matters if the guarantee is wanted.
+
+Validate on the corpus, not on the unit tests: no unit test has two references to one type disagreeing.
 
 **Where.** `Data.ensureType` (the placement branches), `Data.namespaceStub`, `Data.nestingWouldHide`,
 `Data.frameSimpleNameClaims`.
