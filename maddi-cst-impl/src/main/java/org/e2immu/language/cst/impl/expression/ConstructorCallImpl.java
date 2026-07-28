@@ -249,7 +249,9 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
             if (object != null) object.visit(predicate);
             parameterExpressions.forEach(p -> p.visit(predicate));
             if (arrayInitializer != null) arrayInitializer.visit(predicate);
-            //currently not implemented. if (anonymousClass != null) anonymousClass.visit(predicate);
+            // an anonymous class body is code written inside this expression; not descending made it
+            // invisible to every caller that walks a method body (TypeInfoImpl.visit(Predicate))
+            if (anonymousClass != null) anonymousClass.visit(predicate);
         }
     }
 
@@ -259,7 +261,9 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
             if (object != null) object.visit(visitor);
             parameterExpressions.forEach(p -> p.visit(visitor));
             if (arrayInitializer != null) arrayInitializer.visit(visitor);
-            //currently not implemented. if (anonymousClass != null) anonymousClass.visit(visitor);
+            // deliberately NOT descending: the Visitor protocol has no hook for entering a type, so the
+            // anonymous class's statements would arrive with no signal that the scope changed. See the
+            // comment on TypeInfoImpl.visit(Visitor). The Predicate overload above does descend.
         }
         visitor.afterExpression(this);
     }

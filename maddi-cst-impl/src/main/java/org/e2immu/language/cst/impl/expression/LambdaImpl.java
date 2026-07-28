@@ -28,6 +28,8 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
+import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
+import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.DescendMode;
@@ -192,7 +194,19 @@ public class LambdaImpl extends ExpressionImpl implements Lambda {
     public Expression singleExpression() {
         List<Statement> statements = methodInfo.methodBody().statements();
         if (statements.size() == 1) {
-            return statements.getFirst().expression();
+            Statement statement = statements.getFirst();
+            /*
+             The `x -> expr` form parses to exactly one statement whose whole content IS that expression:
+             a ReturnStatement when the lambda yields a value, an ExpressionAsStatement when it is void.
+             Any other single statement -- an if, a loop, a try, a switch -- has sub-blocks that
+             expression() does not reach: for an if it is the CONDITION. Returning it claimed the lambda
+             was `() -> condition` and the body vanished, silently, from both print() and visit().
+             */
+            if (statement instanceof ReturnStatement || statement instanceof ExpressionAsStatement) {
+                Expression expression = statement.expression();
+                // `() -> { return; }` has a return with nothing to return; that is not the single-expression form
+                if (expression != null && !expression.isEmpty()) return expression;
+            }
         }
         return null;
     }
