@@ -236,6 +236,9 @@ public class IsolateMethod {
         // stub types of interface nature: a method added to one must be 'default' (not abstract), so that classes
         // implementing the interface need not override it
         final Set<TypeInfo> interfaceStubs = new HashSet<>();
+        // stub types of annotation nature: their members are attributes, not methods (see ensureAnnotationAttribute).
+        // Kept as a set rather than asking the stub, because the stub's nature is only readable once it is committed
+        final Set<TypeInfo> annotationStubs = new HashSet<>();
         // a stub carrying the original type's simple name (e.g. 'C'), nested in the frame ('C_method'). The frame is
         // renamed, so a self-reference written with the original name ('C.DAYS') no longer resolves to it; this stub
         // gives that name back. Created lazily, only when such a reference is seen
@@ -347,6 +350,7 @@ public class IsolateMethod {
             typeMap.put(typeInfo, stub); // before recursion: type bounds / fields may refer back to this stub
             boolean isInterface = typeInfo.isInterface() && !typeInfo.isAnnotation();
             if (isInterface) interfaceStubs.add(stub);
+            if (typeInfo.isAnnotation()) annotationStubs.add(stub);
             stub.builder().setParentClass(reproducedParentClass(typeInfo))
                     // reproduce the nature: an annotation must stay '@interface' (a use '@Marker' would not compile),
                     // an interface must stay 'interface' (so subtypes 'implements'/'extends' it and overload
@@ -530,6 +534,11 @@ public class IsolateMethod {
             if (isJdkType(methodInfo.typeInfo())) return;
             MethodInfo inMap = methodMap.get(new OwnedMethod(owner, methodInfo));
             if (inMap != null) return;
+            // a member of an '@interface' is an attribute, which has a shape of its own
+            if (annotationStubs.contains(owner)) {
+                ensureAnnotationAttribute(owner, methodInfo);
+                return;
+            }
             // a non-static method on an interface stub becomes 'default' (keeps the body): an abstract method would
             // force every implementing class stub to override it
             boolean ownerIsInterface = interfaceStubs.contains(owner);
@@ -724,23 +733,39 @@ public class IsolateMethod {
                 for (AnnotationExpression.KV kv : ae.keyValuePairs()) {
                     MethodInfo origAttr = annotationType.methodStream()
                             .filter(mm -> mm.name().equals(kv.key())).findFirst().orElse(null);
-                    if (origAttr != null && !attributeMap.containsKey(origAttr)) {
-                        MethodInfo newAttr = runtime.newMethod(stub, origAttr.name(),
-                                runtime.methodTypeAbstractMethod());
-                        newAttr.builder()
-                                .setReturnType(ensureTypes(origAttr.returnType()))
-                                .setAccess(runtime.accessPackage())
-                                .setSource(runtime.noSource())
-                                // empty (not null) body: it is printed as ';' since the method is abstract, but a
-                                // null body would trip the import computer's methodBody().typesReferenced()
-                                .setMethodBody(runtime.emptyBlock())
-                                .commit();
-                        stub.builder().addMethod(newAttr);
+                    if (origAttr != null) {
+                        MethodInfo newAttr = ensureAnnotationAttribute(stub, origAttr);
                         attributeMap.put(origAttr, newAttr);
                     }
                     kv.value().visit(visitor);
                 }
             }
+        }
+
+        /**
+         * A member of an {@code @interface} is an attribute, not a method: implicitly abstract, and it may have
+         * neither parameters nor a body. It is reached two ways — from an annotation use in the pasted text
+         * ({@code @Named("x")}, via {@link #ensureAnnotations}) and from a read on an annotation instance
+         * ({@code named.value()}, via {@link #ensureMethodInfo}) — which is why both go through here: the ordinary
+         * stub shape (a body returning null) yields an {@code @interface} that will not compile, and that the
+         * printer cannot even render.
+         */
+        private MethodInfo ensureAnnotationAttribute(TypeInfo stub, MethodInfo origAttr) {
+            OwnedMethod key = new OwnedMethod(stub, origAttr);
+            MethodInfo inMap = methodMap.get(key);
+            if (inMap != null) return inMap;
+            MethodInfo newAttr = runtime.newMethod(stub, origAttr.name(), runtime.methodTypeAbstractMethod());
+            newAttr.builder()
+                    .setReturnType(ensureTypes(origAttr.returnType()))
+                    .setAccess(runtime.accessPackage())
+                    .setSource(runtime.noSource())
+                    // empty (not null) body: it is printed as ';' since the method is abstract, but a
+                    // null body would trip the import computer's methodBody().typesReferenced()
+                    .setMethodBody(runtime.emptyBlock())
+                    .commit();
+            stub.builder().addMethod(newAttr);
+            methodMap.put(key, newAttr);
+            return newAttr;
         }
     }
 

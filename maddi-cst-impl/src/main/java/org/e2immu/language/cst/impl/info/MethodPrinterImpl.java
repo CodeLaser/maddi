@@ -16,9 +16,11 @@ package org.e2immu.language.cst.impl.info;
 
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
+import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
+import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -120,19 +122,32 @@ public record MethodPrinterImpl(TypeInfo typeInfo, MethodInfo methodInfo, boolea
         if (methodInfo.isAbstract()) {
             builder.add(SymbolEnum.SEMICOLON);
         } else if (typeInfo.typeNature().isAnnotation()) {
-            // default value when the method is not abstract
-            OutputBuilder expression = methodInfo.methodBody().asInstanceOf(ReturnStatement.class).expression()
-                    .print(qualification);
-            builder.add(SpaceEnum.ONE)
-                    .add(new TextImpl(KeywordImpl.DEFAULT.minimal()))
-                    .add(SpaceEnum.ONE)
-                    .add(expression).add(SymbolEnum.SEMICOLON);
+            // an attribute of an '@interface' is implicitly abstract, so it usually leaves via the branch above.
+            // A non-abstract one carries its 'default' value as a single return statement; without one it prints
+            // like an abstract attribute, which is what an attribute stub is. Note that the body is a Block, so
+            // it is never itself the ReturnStatement
+            Expression defaultValue = annotationDefaultValue();
+            if (defaultValue == null) {
+                builder.add(SymbolEnum.SEMICOLON);
+            } else {
+                builder.add(SpaceEnum.ONE)
+                        .add(new TextImpl(KeywordImpl.DEFAULT.minimal()))
+                        .add(SpaceEnum.ONE)
+                        .add(defaultValue.print(qualification)).add(SymbolEnum.SEMICOLON);
+            }
         } else {
             Qualification bodyQualification = makeBodyQualification(qualification);
             builder.add(methodInfo.methodBody().print(bodyQualification));
         }
         if (formatter2) builder.add(gg.end());
         return builder;
+    }
+
+    private Expression annotationDefaultValue() {
+        Block body = methodInfo.methodBody();
+        if (body == null || body.statements().size() != 1) return null;
+        ReturnStatement returnStatement = body.statements().getFirst().asInstanceOf(ReturnStatement.class);
+        return returnStatement == null ? null : returnStatement.expression();
     }
 
     private List<MethodModifier> minimalModifiers() {
