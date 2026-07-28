@@ -676,8 +676,16 @@ public class IsolateMethod {
             String packageName = owner.packageName();
             if (packageName == null) return true;
             if (!partOfJdk(owner) && !packageName.startsWith("java.")) return false;
-            // java.lang is imported implicitly; anything else needs an explicit import in the frame
-            if (!"java.lang".equals(packageName)) jdkTypesToImport.add(owner);
+            // java.lang is imported implicitly; anything else needs an explicit import in the frame. For a
+            // NESTED JDK type, import its enclosing types too: the pasted text is verbatim source and may write
+            // either form, and 'import java.util.Map.Entry' does not make a written 'Map.Entry' resolve -- the
+            // parser then invents a stub type 'Map.Entry' with no methods and the call 'entry.getKey()' is
+            // unresolved, taking the whole frame with it.
+            for (TypeInfo t = owner; t != null; ) {
+                if (!"java.lang".equals(t.packageName())) jdkTypesToImport.add(t);
+                var enclosing = t.compilationUnitOrEnclosingType();
+                t = enclosing.isRight() ? enclosing.getRight() : null;
+            }
             return true;
         }
 
