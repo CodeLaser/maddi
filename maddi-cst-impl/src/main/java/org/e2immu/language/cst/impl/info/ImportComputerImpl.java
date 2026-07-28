@@ -36,6 +36,7 @@ public class ImportComputerImpl implements ImportComputer {
     private final int minStar;
     private final Function<String, Collection<TypeInfo>> typesPerPackage;
     private final Set<TypeInfo> extra = new HashSet<>();
+    private final Set<TypeInfo> doNotImport = new HashSet<>();
 
     public ImportComputerImpl() {
         this(4, null);
@@ -49,6 +50,11 @@ public class ImportComputerImpl implements ImportComputer {
     @Override
     public void add(TypeInfo typeInfo) {
         extra.add(typeInfo);
+    }
+
+    @Override
+    public void doNotImport(TypeInfo typeInfo) {
+        doNotImport.add(typeInfo);
     }
 
     private static class PerPackage {
@@ -110,9 +116,12 @@ public class ImportComputerImpl implements ImportComputer {
 
         String myPackage = compilationUnit.packageName();
         Map<String, PerPackage> typesPerPackage = new HashMap<>();
+        // a type the caller has vetoed keeps its place in typesReferenced -- so conflict() still sees it and can
+        // suppress an on-demand import that would collide with it -- but is never imported itself
+        doNotImport.forEach(qualification::addTypeNotImported);
         typesReferenced.forEach(ti -> {
             String packageName = ti.packageName();
-            if (packageName != null && !myPackage.equals(packageName)) {
+            if (packageName != null && !myPackage.equals(packageName) && !doNotImport.contains(ti)) {
                 boolean doImport = qualification.addTypeReturnImport(ti);
                 LOGGER.debug("Do import of {}? {}", ti, doImport);
                 if (doImport) {

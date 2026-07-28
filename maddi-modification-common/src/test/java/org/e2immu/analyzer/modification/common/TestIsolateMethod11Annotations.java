@@ -86,4 +86,39 @@ public class TestIsolateMethod11Annotations extends CommonIsolateMethodTest {
         javaInspector.invalidateAllSources();
         assertNotNull(javaInspector.parse("X_method", out));
     }
+
+    @Language("java")
+    public static final String A3 = """
+            package a.b;
+            public class X {
+                String method(Named named) {
+                    return named.value() + named.count();
+                }
+            }
+            @interface Named { String value(); int count(); }
+            """;
+
+    @DisplayName("an attribute read on an annotation instance: the stub must stay abstract")
+    @Test
+    public void a3() {
+        TypeInfo x = parse("a.b.X", A3);
+        String m = """
+                String method(Named named) {
+                    return named.value() + named.count();
+                }""";
+        String out = isolate(x, "method", 1, m);
+        @Language("java")
+        String expected = """
+                import java.lang.annotation.Annotation;
+                public class X_method {
+                    @interface Named {String value();int count(); }
+                    String method(Named named) {
+                    return named.value() + named.count();
+                }
+                }
+                """;
+        assertEquals(expected, out);
+        javaInspector.invalidateAllSources();
+        assertNotNull(javaInspector.parse("X_method", out));
+    }
 }

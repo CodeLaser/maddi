@@ -333,6 +333,13 @@ public interface Factory {
 
     MethodPrinter newMethodPrinter(MethodInfo methodInfo);
 
+    /**
+     * As {@link #newMethodPrinter(MethodInfo)}, but with the owner and the formatter2 flag that
+     * {@link org.e2immu.language.cst.api.info.TypePrinter.MethodPrinterFactory} hands out — the single-argument
+     * version silently formats as if formatter2 were false, which changes the layout of the printed method.
+     */
+    MethodPrinter newMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, boolean formatter2);
+
     MethodReference.Builder newMethodReferenceBuilder();
 
     ModuleInfo.Builder newModuleInfoBuilder();

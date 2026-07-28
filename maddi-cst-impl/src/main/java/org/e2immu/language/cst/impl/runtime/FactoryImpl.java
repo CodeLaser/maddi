@@ -825,6 +825,11 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     }
 
     @Override
+    public MethodPrinter newMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, boolean formatter2) {
+        return new MethodPrinterImpl(typeInfo, methodInfo, formatter2);
+    }
+
+    @Override
     public MethodReference.Builder newMethodReferenceBuilder() {
         return new MethodReferenceImpl.Builder();
     }
