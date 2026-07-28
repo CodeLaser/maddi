@@ -1,20 +1,18 @@
 # IsolateMethod: the three issues, resolved — and the one they were hiding, 2026-07-28
 
-The three issues handed over earlier on 2026-07-28 are fixed (`c94b5d2f`, `78524232`). Isolating the 40 biggest
-methods of closed-core now writes **40 of 40** frames and **39 of them parse back**, against a baseline of 39
-written and 37 parsing back.
+The three issues handed over earlier on 2026-07-28 are fixed (`c94b5d2f`, `78524232`), and so is the defect the
+second of them turned out to be masking (`§4`). Isolating the 40 biggest methods of closed-core now writes
+**40 of 40** frames, and **all 40 parse back** — the corpus is clean for the first time.
 
-Each was reproduced as a unit test first — 2 to 4 seconds each, against an 85 s / 16 G corpus run — so all three
-are now permanent regression tests rather than corpus observations.
-
-| | was | now |
+| | baseline | now |
 |---|---|---|
 | isolates written / requested | 39 / 40 | **40 / 40** |
-| parse back cleanly | 37 | **39** |
+| parse back cleanly | 37 | **40** |
 
-One frame still fails, on a defect the `ParamDouble` error was masking. It is described in
-[§4](#4-still-open-placement-is-decided-by-the-first-reference-not-by-all-of-them), and it is the interesting
-one: the fix for issue 2 has changed what the right design for it is.
+Every one was reproduced as a unit test first — 2 to 4 seconds each, against a 100 s / 16 G corpus run — so all
+four are now permanent regression tests rather than corpus observations. Where a frame stays valid Java either
+way and only its *meaning* changes (§1 and §4 are both of that kind), the test asserts on the output, not just
+on "it reparsed": both would have passed a reparse check.
 
 ---
 
@@ -61,6 +59,11 @@ Two things the corpus taught us the hard way, both already encoded in the harnes
 And one learned this round: **a fixed error can reveal a worse one.** `RecordDTO_set_31` moved from
 "Type ParamDouble not found" to "Unresolved method call 'getObjectID'". The frame count did not change, and a
 run that only counts would have read as "issue 2 not fixed". Read the reasons, not the totals.
+
+The same caution applies to the unit tests. For §1 and §4 the frame is valid Java either way — only what a
+name *means* changes — so `assertNotNull(javaInspector.parse(...))` passes with the bug present. Both tests
+assert on the printed output. When adding a test here, ask what the frame would look like with the defect
+still in: if the answer is "it would still parse", the reparse assertion is not the test.
 
 ---
 
@@ -157,9 +160,9 @@ caught it. This is why no *parsed* annotation reaches the branch above either.
 
 ---
 
-## 4. Still open: placement is decided by the first reference, not by all of them
+## 4. Placement was decided by the first reference, not by all of them — fixed
 
-**Symptom.** `RecordDTO_set_31`, the one frame of 40 that still does not parse back:
+**Was.** `RecordDTO_set_31`, the last frame of 40 that did not parse back:
 `Unresolved method call 'getObjectID'`.
 
 **What the frame contains.**
@@ -186,25 +189,63 @@ This is a general defect, not specific to this type: any type whose first refere
 later reference is written package-qualified lands wrong. It is only rarely fatal, because the fully-qualified
 spelling has to actually occur in the pasted text.
 
-**Two designs, and the second is newly available.**
+**The constraint, before any design.** An isolate has two kinds of reference to a stubbed type, and they pull
+in opposite directions:
 
-1. **A pre-pass.** Walk the method once collecting, per type, whether *any* reference writes its package;
-   place with that global answer. Faithful to the source and minimally disruptive to existing output — but it
-   means either a scan-only mode through `ensureType` (which risks the two passes drifting) or a second
-   visitor that duplicates `MyVisitor`'s knowledge of which elements carry written type names.
+- a **written** reference is verbatim text and its spelling cannot be changed. `IOrderService orderService =
+  ...` requires the type nested *directly in the frame*, because a class buried in a namespace chain is not in
+  scope by simple name — that is what `TestIsolateMethod9Imports` pins, and its header comment says so.
+  `(com.example.legacy.parameter.ObjectId) value` requires exactly the opposite.
+- a **reconstructed** reference is ours to print, and since issue 2 `OutOfScopeQualified` qualifies it wherever
+  the simple name would not resolve.
 
-2. **Place every non-JDK primary type in its namespace chain, uniformly.** Order-independent by construction,
-   and it deletes the `nestingWouldHide` / `frameSimpleNameClaims` heuristics rather than adding to them.
-   **This only became possible with issue 2's fix**: those heuristics exist precisely because namespace
-   placement used to break reconstructed references that print with simple names, and `OutOfScopeQualified`
-   now qualifies exactly those. The cost is noisier output (`X_method.p.q.Helper` in every reconstructed
-   signature) and roughly ten expected-output tests to update.
+So issue 2 freed the reconstructed side only. **Written references still dictate placement**, and there is one
+declaration site per type. Placing everything in the namespace chain uniformly is therefore *not* an option:
+it would break every isolate whose body names an imported type by its simple name, which is most of them.
+(An earlier revision of this document recommended exactly that. It is wrong.)
 
-I would try 2. It removes a class of bug instead of a bug, and the reason it was not an option before is gone.
-Validate on the corpus, not on the unit tests: the unit tests never had two references to one type disagreeing.
+**The fix: a probe round.** Three options were on the table — a scan-only mode through `ensureType`, a separate
+evidence-only visitor, or deferring stub creation until every reference is known. The third is the principled
+one, and it looked like the expensive one: a stub's `compilationUnitOrEnclosingType` is **final**, set when it
+is constructed, so placement cannot be corrected afterwards, and fields and methods are attached to stubs as
+they are discovered — so genuinely deferring creation would mean an intermediate representation for the whole
+stub graph.
 
-**Where.** `Data.ensureType` (the placement branches), `Data.namespaceStub`, `Data.nestingWouldHide`,
-`Data.frameSimpleNameClaims`.
+It is available much more cheaply. The whole traversal runs **twice**: a probe round whose stubs are discarded
+and whose only output is the `Placement` evidence, then the round that keeps them, seeded with it. Both rounds
+execute exactly the same code, so — unlike a scan-only mode, which runs mutating code in a non-mutating
+configuration, or a second visitor, which re-implements which constructs carry a written type name — there is
+nothing that can drift out of step with the traversal it describes. `buildData` is the extracted round; it
+reads the original CST and constructs new, uncommitted CST objects, and touches nothing else, which is what
+makes the probe's output safe to throw away.
+
+Evidence is recorded **before** the `typeMap` short-circuit: a later reference is exactly what the first one
+may have got wrong, so its evidence has to count too.
+
+Measured cost of the second traversal on the full corpus: **3 seconds on a 1 m 43 s run** — the parse dominates.
+
+**The residual case is real, and it fired on the first corpus run.** A type written *both* simply and
+package-qualified in one body cannot be satisfied at all: no single declaration is in scope both ways.
+`Data.writtenPlacement` gives the frame slot to the simple spelling, since that is by far the commoner one, and
+logs a warning naming the type. closed-core has one:
+
+```
+com.example.core.mgr.productcomponent.FinancialMovementData is written both simply and
+package-qualified; the qualified references will not resolve in the isolate
+```
+
+That frame parses back, so the tie-break chose correctly there — but the case is not hypothetical, and had it
+stayed silent it would have become a future mystery. If the guarantee is ever wanted, the way out is a subclass
+alias in the chain (`class FinancialMovementData extends Frame.FinancialMovementData {}`): casts and calls
+would resolve through inheritance, at the price of a distinct type, so `instanceof` and assignment
+compatibility would go subtly wrong. Not worth it until a frame actually fails on it.
+
+Regression test: `TestIsolateMethod16NamespaceReferences.reconstructedReferenceFirst`. Note that the frame is
+valid Java with or without the fix — only the cast target changes — so the test asserts on the placement, not
+on the reparse; a reparse check passes either way. Verified by disabling the seeding and watching it fail.
+
+**Where.** `IsolateMethod.buildData`, `IsolateMethod.Placement`, `Data.writtenPlacement`,
+`Data.recordPlacementEvidence`, `Data.ensureType` (the placement branches).
 
 ---
 
@@ -215,12 +256,12 @@ Baseline of 2026-07-28, after the fixes, all measured on this machine:
 | | |
 |---|---|
 | isolates written / requested | **40 / 40** |
-| parse back cleanly | **39** (§4 blocks one) |
+| parse back cleanly | **40** — none dropped |
 | parse errors in the corpus | 0 |
-| split frames exercised | 39 (the frame of §4 produces no type, and the driver says so) |
+| split frames exercised | 40 |
 | split attempts / applied / failed | 1,476 / 1,374 / **0** — of which logged-not-thrown: 0 |
 | splits written and re-parsed | 37, **0 parse errors** |
-| `IsolateMethod` unit tests | 49, 0 failures, 1 skipped |
+| `IsolateMethod` unit tests | 50, 0 failures, 1 skipped |
 | whole maddi `test` | green |
 
 Do not compare the split counts to the earlier 9,573 / 8,863: the corpus changed and the candidate bounds
@@ -234,15 +275,23 @@ needed to carry several values out. Reproduce with `-Dtest.split.only=Factory_pa
 
 ## A note for IsolateClass
 
-Ten of the eleven earlier fixes, and all three of these, landed in the reusable core — `Data` (`ensureType`,
-`ensureTypes`, `ensureMethodInfo`, `ensureField`, `ensureAnnotationAttribute`, `addDummyInterfaceMethods`) and
-`MyVisitor` — so they carry over. The `OwnedMethod` dedup key matters more for a class isolate, where many kept
-methods reach the same declared method through different receivers. The only method-shaped code is
-`isolate(MethodInfo, String)`: frame naming, mapping the declaring type's type parameters onto the frame, the
-single `_method_to_be_replaced_` marker, and the `@Override` supertype. That is the seam to generalise — seed
-`visit` per kept member, and grow the printer to a marker per method.
+Ten of the eleven earlier fixes, and all four of these, landed in the reusable core — `Data` (`ensureType`,
+`ensureTypes`, `ensureMethodInfo`, `ensureField`, `ensureAnnotationAttribute`, `addDummyInterfaceMethods`),
+`MyVisitor`, and now `buildData` — so they carry over. The `OwnedMethod` dedup key matters more for a class
+isolate, where many kept methods reach the same declared method through different receivers.
 
-Issue 2's fix matters more for `IsolateClass` than for `IsolateMethod`: a class isolate reconstructs many more
-signatures, so many more references print with simple names, and `OutOfScopeQualified` is what keeps them
-resolving. §4 matters more too, for the same reason — more reconstructed first-encounters racing ahead of the
-written ones. Settling §4 before that work starts is worth it.
+The method-shaped code is `isolate(MethodInfo, String)` and `buildData`: frame naming, mapping the declaring
+type's type parameters onto the frame, the single `_method_to_be_replaced_` marker, and the `@Override`
+supertype. That is the seam to generalise — seed `visit` per kept member, and grow the printer to a marker per
+method. `buildData` is the *right* seam for it: a class isolate wants the same probe-then-build shape, with the
+probe seeded from every kept member rather than one.
+
+Both §2 and §4 matter more for `IsolateClass` than they did here, for the same reason: a class isolate
+reconstructs many more signatures, so many more references print with simple names (which is what
+`OutOfScopeQualified` keeps resolving) and many more reconstructed first-encounters race ahead of the written
+ones (which is what the probe round settles). Both are now in place before that work starts, rather than being
+discovered through it.
+
+The one thing that will bite is the residual case of §4 — a type written both simply and package-qualified.
+closed-core already has one occurrence in a single method; across a whole class the odds rise. The warning names
+the type, so it will not be silent, but the subclass-alias escape hatch may become worth building.
