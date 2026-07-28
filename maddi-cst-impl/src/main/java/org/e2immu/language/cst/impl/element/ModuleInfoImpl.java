@@ -25,7 +25,10 @@ import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.DescendMode;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.impl.output.GuideImpl;
 import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
+import org.e2immu.language.cst.impl.output.SpaceEnum;
+import org.e2immu.language.cst.impl.output.SymbolEnum;
 import org.e2immu.language.cst.impl.output.TextImpl;
 import org.e2immu.support.SetOnce;
 
@@ -124,6 +127,38 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         throw new UnsupportedOperationException("NYI");
     }
 
+    /*
+    Shared by the five directive printers below.
+
+    Every directive is `<word> <name> [<connector> a, b, c];`, so the only thing that differs between exports and
+    opens is one word. Printing from the CST rather than concatenating strings is the point: a lever that has to
+    add one target to `exports p to a, b;` should hand back a directive, not a rewritten substring.
+     */
+    private static OutputBuilder printComments(Qualification qualification, List<Comment> comments) {
+        OutputBuilder ob = new OutputBuilderImpl();
+        if (comments != null && !comments.isEmpty()) {
+            ob.add(comments.stream().map(c -> c.print(qualification))
+                    .collect(OutputBuilderImpl.joining(SpaceEnum.NONE, GuideImpl.multipleComments())));
+        }
+        return ob;
+    }
+
+    private static OutputBuilder commaSeparated(List<String> names) {
+        return names.stream().map(n -> (OutputBuilder) new OutputBuilderImpl().add(new TextImpl(n)))
+                .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA));
+    }
+
+    private static OutputBuilder printPackageDirective(Qualification qualification, List<Comment> comments,
+                                                       String word, String packageName, List<String> toModules) {
+        OutputBuilder ob = printComments(qualification, comments)
+                .add(new TextImpl(word)).add(SpaceEnum.ONE).add(new TextImpl(packageName));
+        // an UNQUALIFIED directive has no `to` clause at all; an empty target list is not `to ;`
+        if (toModules != null && !toModules.isEmpty()) {
+            ob.add(SpaceEnum.ONE).add(new TextImpl("to")).add(SpaceEnum.ONE).add(commaSeparated(toModules));
+        }
+        return ob.add(SymbolEnum.SEMICOLON);
+    }
+
     private record RequiresImpl(Source source, List<Comment> comments, String name, boolean isStatic,
                                 boolean isTransitive) implements Requires {
         RequiresImpl {
@@ -150,9 +185,19 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
 
         }
 
+        /*
+        A module directive prints from the CST, so a lever never has to build its text by hand. These words are
+        RESTRICTED keywords -- contextual to a module declaration and legal identifiers everywhere else -- so they
+        are TextImpl and not KeywordImpl, the same choice ImportStatementImpl makes for `import`.
+         */
         @Override
         public OutputBuilder print(Qualification qualification) {
-            return null;
+            OutputBuilder ob = printComments(qualification, comments)
+                    .add(new TextImpl("requires")).add(SpaceEnum.ONE);
+            if (isStatic) ob.add(new TextImpl("static")).add(SpaceEnum.ONE);
+            // JLS 7.7.1 fixes this order: `requires static transitive M`, never the reverse
+            if (isTransitive) ob.add(new TextImpl("transitive")).add(SpaceEnum.ONE);
+            return ob.add(new TextImpl(name)).add(SymbolEnum.SEMICOLON);
         }
 
         @Override
@@ -205,7 +250,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
 
         @Override
         public OutputBuilder print(Qualification qualification) {
-            return null;
+            return printPackageDirective(qualification, comments, "exports", packageName, toModulesOrEmpty);
         }
 
         @Override
@@ -258,7 +303,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
 
         @Override
         public OutputBuilder print(Qualification qualification) {
-            return null;
+            return printPackageDirective(qualification, comments, "opens", packageName, toModulesOrEmpty);
         }
 
         @Override
@@ -341,7 +386,8 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
 
         @Override
         public OutputBuilder print(Qualification qualification) {
-            return null;
+            return printComments(qualification, comments).add(new TextImpl("uses")).add(SpaceEnum.ONE)
+                    .add(new TextImpl(api)).add(SymbolEnum.SEMICOLON);
         }
 
         @Override
@@ -449,7 +495,11 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
 
         @Override
         public OutputBuilder print(Qualification qualification) {
-            return null;
+            OutputBuilder ob = printComments(qualification, comments).add(new TextImpl("provides")).add(SpaceEnum.ONE)
+                    .add(new TextImpl(api)).add(SpaceEnum.ONE).add(new TextImpl("with")).add(SpaceEnum.ONE);
+            // every implementation, not just the first: `provides X with A, B, C` losing B and C is the shape that
+            // stranded implementations in the Elasticsearch carve
+            return ob.add(commaSeparated(implementations)).add(SymbolEnum.SEMICOLON);
         }
 
         @Override
