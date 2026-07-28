@@ -95,7 +95,7 @@ public class TestSelfReferentialBound extends CommonTest {
     @Test
     public void byteCodeBoundKeepsAllArguments() {
         // parse a snippet that references AbstractAssert, so the compiled type is loaded
-        TypeInfo Y = scan("A.b.Y", INPUT_ASSERTJ);
+        TypeInfo Y = scan("a.b.Y", INPUT_ASSERTJ);
         TypeInfo abstractAssert = Y.getFieldByName("field", true).type().typeInfo();
         assertNotNull(abstractAssert);
         assertEquals(AbstractAssert.class.getCanonicalName(), abstractAssert.fullyQualifiedName());

@@ -94,7 +94,7 @@ public class TestTryCatch extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo typeInfo = scan("a.b.C", INPUT2);
+        TypeInfo typeInfo = scan("a.b.X", INPUT2);
 
         MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 2);
         TryStatement ts = (TryStatement) methodInfo.methodBody().statements().getFirst();

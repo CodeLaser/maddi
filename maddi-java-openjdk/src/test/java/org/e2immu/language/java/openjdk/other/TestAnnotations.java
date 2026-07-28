@@ -362,7 +362,7 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test7() {
-        TypeInfo C = scan("a.b.C", INPUT7);
+        TypeInfo C = scan("C", INPUT7);
         MethodInfo u = C.findUniqueMethod("u", 2);
         Statement ifElse = u.methodBody().statements().getFirst().block().statements().get(5);
         Statement s = ifElse.block().statements().getFirst();

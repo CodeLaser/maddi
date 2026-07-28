@@ -398,7 +398,7 @@ public class TestTypeParameter extends CommonTest {
 
     @Test
     public void test10() {
-        TypeInfo C = scan("a.b.C", INPUT10);
+        TypeInfo C = scan("C", INPUT10);
         MethodInfo method = C.findUniqueMethod("method", 1);
         assertEquals("Type param T extends Number&Comparable<T>&java.io.Serializable", method.returnType().toString());
     }
