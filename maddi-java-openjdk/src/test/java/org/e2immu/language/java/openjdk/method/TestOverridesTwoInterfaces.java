@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -92,5 +93,46 @@ public class TestOverridesTwoInterfaces extends CommonTest {
                 .map(m -> m.typeInfo().fullyQualifiedName()).sorted().toList());
         assertEquals(List.of("a.b.InterfaceIC"), C.findUniqueMethod("method3", 0).overrides().stream()
                 .map(m -> m.typeInfo().fullyQualifiedName()).sorted().toList());
+    }
+
+    @Language("java")
+    private static final String ALL_IN_ONE = """
+            package a.b;
+            interface InterfaceC {
+                void cm1();
+                void cm3common();
+            }
+            interface InterfaceIC {
+                void cm3common();
+                void method3();
+            }
+            class C implements InterfaceC, InterfaceIC {
+                @Override public void cm1() { }
+                @Override public void cm3common() { }
+                @Override public void method3() { }
+            }
+            """;
+
+    /**
+     * The same three types in ONE compilation unit, which is legal Java: one file may declare several top-level
+     * types as long as at most one is public. Every method then reports an EMPTY {@code overrides()} -- not just
+     * the two-interface one, but {@code cm1}, which implements a single interface declared three lines above it.
+     * <p>
+     * Recorded as a defect rather than a quirk of the harness: nothing about the declaration being in the same
+     * file should change what a method overrides, and a consumer that groups members by implemented interface
+     * (splitclass) silently attributes every such method to no interface at all. It is also an expensive trap
+     * when hunting something else -- this shape reproduces "overrides() lost an interface" perfectly, while
+     * actually testing the compilation-unit boundary.
+     */
+    @Disabled("known defect: overrides() is empty for types sharing a compilation unit; see the handoff")
+    @DisplayName("types sharing one compilation unit still resolve their overrides")
+    @Test
+    public void sameCompilationUnit() {
+        TypeInfo C = scan("a.b.C", ALL_IN_ONE);
+        assertEquals(List.of("a.b.InterfaceC"), C.findUniqueMethod("cm1", 0).overrides().stream()
+                .map(m -> m.typeInfo().fullyQualifiedName()).sorted().toList());
+        assertEquals(List.of("a.b.InterfaceC", "a.b.InterfaceIC"),
+                C.findUniqueMethod("cm3common", 0).overrides().stream()
+                        .map(m -> m.typeInfo().fullyQualifiedName()).sorted().toList());
     }
 }
