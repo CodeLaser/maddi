@@ -123,7 +123,12 @@ whether or not that type is in the import list. A class isolate therefore never 
   `new RowFilter<...>()` for a member type got no `import a.b.Outer.Inner`. Five differently-named
   failures, one predicate.
 - **Same-package nested types need an import too.** Sharing a package puts a *top-level* type's simple name in
-  scope, never a nested one's. Fixed in `ImportComputerImpl` as a general correctness change.
+  scope, never a nested one's. Fixed in `ImportComputerImpl` — but **only for a type the caller asks for
+  explicitly**. Granting it unconditionally broke splitclass, which prints such a type qualified and wants no
+  import (`Front.Helpers` became `import a.b.Front.Helpers` plus a bare `Helpers`); granting it only to the
+  isolated unit then cost 20 of the 94 trees, because stub units are ordinary printing and ask for nothing.
+  `IsolateClass.printUnit` therefore asks, for every unit it writes. The distinction that matters is not
+  isolated-vs-stub but *does the caller paste verbatim text the computer cannot read* — the isolators do.
 - **Inherited fields were thrown away** by a guard meant to suppress duplicates of the type's own fields.
 - **A stub extended by another stub needs a no-arg constructor**, or the subclass's implicit `super()` fails.
 - **A type named only in a `catch` clause** is reached no other way — the body mentions the variable, never the
