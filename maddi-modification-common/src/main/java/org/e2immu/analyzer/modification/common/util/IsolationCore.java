@@ -184,6 +184,15 @@ abstract class IsolationCore {
                     .map(this::ensureTypes).toList();
             newTps.get(i).builder().setTypeBounds(newBounds).commit();
         }
+        // A FUNCTIONAL interface must keep its single abstract method, or a lambda in the verbatim text has
+        // nothing to target: 'ParameterUtil.filter(ctx, null, x -> ...)' against an empty
+        // 'interface RowFilter<T> { }' cannot be typed, and maddi's scanner NPEs on it. ensureMethodInfo
+        // would make it 'default' (interface stubs keep their bodies so implementors need not override), which
+        // leaves the interface non-functional -- so the SAM is reproduced abstract, here.
+        if (isInterface) {
+            MethodInfo sam = typeInfo.singleAbstractMethod();
+            if (sam != null) ensureAbstractMethod(stub, sam);
+        }
         return stub;
     }
 
@@ -393,9 +402,68 @@ abstract class IsolationCore {
                 .computeAccess()
                 .setMethodBody(mb.build())
                 .commit();
+        // Two DIFFERENT original methods can reduce to the same stub signature: ParameterUtil declares
+        // '<T extends IParameterCtx> T filterByID(T, long[])' and '<T extends IParameter> T
+        // filterByID(T, long[])', which erase to the same thing, so stubbing both gives the owner a duplicate
+        // method. Reuse the one already there: the call sites resolve to it just the same, and the alternative
+        // is a unit that does not compile -- or maddi's own MethodMapImpl.addToReturn assertion, which is what
+        // stopped six of the hundred class isolates from being produced at all.
+        MethodInfo clash = erasureClash(owner, newMethod);
+        if (clash != null) {
+            LOGGER.info("Stub of {} would duplicate {} on {}; reusing it", methodInfo, clash, owner);
+            methodMap.put(new OwnedMethod(owner, methodInfo), clash);
+            return;
+        }
         LOGGER.info("Adding method {}", newMethod);
         owner.builder().addMethod(newMethod);
         methodMap.put(new OwnedMethod(owner, methodInfo), newMethod);
+    }
+
+    /** Reproduce {@code sam} on {@code stub} as an abstract method, so the stub stays a functional interface. */
+    private void ensureAbstractMethod(TypeInfo stub, MethodInfo sam) {
+        OwnedMethod key = new OwnedMethod(stub, sam);
+        if (methodMap.containsKey(key)) return;
+        MethodInfo newMethod = runtime.newMethod(stub, sam.name(), runtime.methodTypeAbstractMethod());
+        sam.parameters().forEach(pi -> {
+            ParameterInfo np = newMethod.builder().addParameter(pi.name(), ensureTypes(pi.parameterizedType()));
+            np.builder().setVarArgs(pi.isVarArgs()).setIsFinal(pi.isFinal()).commit();
+        });
+        newMethod.builder()
+                .setReturnType(ensureTypes(sam.returnType()))
+                .setAccess(runtime.accessPublic())
+                .setSource(runtime.noSource())
+                .setMethodBody(runtime.emptyBlock())
+                .commit();
+        if (erasureClash(stub, newMethod) != null) return;
+        stub.builder().addMethod(newMethod);
+        methodMap.put(key, newMethod);
+    }
+
+    /**
+     * A method already on {@code owner} that {@code candidate} would duplicate: same name, same arity, and the
+     * same erased parameter types. Java resolves overloads on erasures, so two stubs agreeing there cannot both
+     * be declared.
+     */
+    private static MethodInfo erasureClash(TypeInfo owner, MethodInfo candidate) {
+        String key = erasureKey(candidate);
+        return Stream.concat(owner.builder().constructors().stream(), owner.builder().methods().stream())
+                .filter(m -> m != candidate && erasureKey(m).equals(key))
+                .findFirst().orElse(null);
+    }
+
+    private static String erasureKey(MethodInfo m) {
+        StringBuilder sb = new StringBuilder(m.name()).append('(');
+        for (ParameterInfo pi : m.parameters()) {
+            ParameterizedType pt = pi.parameterizedType();
+            TypeParameter tp = pt.typeParameter();
+            // a type parameter erases to its first bound, or Object; that is what overload resolution sees
+            String erased = tp != null
+                    ? tp.typeBounds().isEmpty() || tp.typeBounds().getFirst().typeInfo() == null
+                    ? "java.lang.Object" : tp.typeBounds().getFirst().typeInfo().fullyQualifiedName()
+                    : pt.typeInfo() == null ? "?" : pt.typeInfo().fullyQualifiedName();
+            sb.append(erased).append('[').append(pt.arrays()).append("],");
+        }
+        return sb.append(')').toString();
     }
 
     // an interface's abstract method together with the type-argument map that turns its (interface) type

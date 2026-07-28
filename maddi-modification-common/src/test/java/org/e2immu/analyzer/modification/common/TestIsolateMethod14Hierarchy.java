@@ -357,7 +357,7 @@ public class TestIsolateMethod14Hierarchy extends CommonIsolateMethodTest {
                 public class X_method {
                     class Holder implements Sink {Holder() { }public void accept(IDataType t) { } }
                     class IDataType implements Comparable<IDataType> {public int compareTo(IDataType arg0) { return 0; } }
-                    interface Sink { }
+                    interface Sink {void accept(IDataType t); }
                     Object method() {
                     Holder h = new Holder();
                     return h;
