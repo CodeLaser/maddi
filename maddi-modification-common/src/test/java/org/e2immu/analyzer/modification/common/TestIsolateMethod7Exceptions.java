@@ -125,4 +125,42 @@ public class TestIsolateMethod7Exceptions extends CommonIsolateMethodTest {
         javaInspector.invalidateAllSources();
         assertNotNull(javaInspector.parse("X_method", out));
     }
+
+    @Language("java")
+    public static final String E4 = """
+            package a.b;
+            import java.util.EmptyStackException;
+            public class X {
+                String method(java.util.Stack<String> stack) {
+                    try {
+                        return stack.pop();
+                    } catch (EmptyStackException e) {
+                        return null;
+                    }
+                }
+            }
+            """;
+
+    /**
+     * A type named ONLY in a catch clause: the body mentions the variable, never the type, so nothing else in
+     * the traversal reaches it and the frame was left without the import. Same shape as the throws-clause case
+     * of {@link #e3()}, and it cost 21 of the 37 units still failing on the hundred-class corpus of IsolateClass.
+     */
+    @DisplayName("an exception named only in a catch clause is still imported")
+    @Test
+    public void e4() {
+        TypeInfo x = parse("a.b.X", E4);
+        String m = """
+                String method(java.util.Stack<String> stack) {
+                    try {
+                        return stack.pop();
+                    } catch (EmptyStackException e) {
+                        return null;
+                    }
+                }""";
+        String out = isolate(x, "method", 1, m);
+        assertTrue(out.contains("import java.util.EmptyStackException;"), out);
+        javaInspector.invalidateAllSources();
+        assertNotNull(javaInspector.parse("X_method", out));
+    }
 }

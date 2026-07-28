@@ -14,6 +14,7 @@ import org.e2immu.language.cst.api.output.TypeNameRequired;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
+import org.e2immu.language.cst.api.statement.TryStatement;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -27,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 /**
  * The stub graph that {@link IsolateMethod} and {@link IsolateClass} both build: every type, method, field and
  * annotation the isolated code reaches, reduced to something that compiles on the JDK alone.
@@ -296,6 +298,26 @@ abstract class IsolationCore {
         return runtime.newParameterizedType(pt.typeInfo(), pt.arrays(), pt.wildcard(), params);
     }
 
+    /**
+     * The stub that a {@code super.m()} call should declare {@code m} on: the stub of the type that really
+     * declares it, when we have one, else the stub of the isolated type's own parent.
+     */
+    TypeInfo superTypeStubOf(MethodInfo methodInfo) {
+        TypeInfo declaring = methodInfo.typeInfo();
+        TypeInfo stub = typeMap.get(declaring);
+        if (stub != null) return stub;
+        if (declaring != originalType) {
+            TypeInfo created = ensureType(declaring, null);
+            if (created != declaring) return created;
+        }
+        ParameterizedType parent = originalType.parentClass();
+        if (parent != null && parent.typeInfo() != null) {
+            TypeInfo parentStub = typeMap.get(parent.typeInfo());
+            if (parentStub != null) return parentStub;
+        }
+        return selfType();
+    }
+
     /** A type parameter is usable in a method declared on {@code owner} if the method itself declares it, or
      *  the declaring type does — including an enclosing type, whose parameters are in scope in nested ones. */
     private boolean inScope(TypeParameter tp, TypeInfo owner, MethodInfo newMethod) {
@@ -396,16 +418,27 @@ abstract class IsolationCore {
      * stub extending {@code Object} already has what it needs, so the ordinary isolate is unchanged.
      */
     void addDefaultConstructorsWhereExtended() {
+        // read the hierarchy from the ORIGINALS, which are committed: a stub's parentClass() is not yet
+        // readable at this point, so asking the stubs found nothing at all and this pass silently did nothing
         Set<TypeInfo> extended = new HashSet<>();
-        for (TypeInfo stub : typeMap.values()) {
-            ParameterizedType parent = stub.parentClass();
-            if (parent != null && parent.typeInfo() != null) extended.add(parent.typeInfo());
+        Set<TypeInfo> originals = new HashSet<>(typeMap.keySet());
+        originals.add(originalType);
+        for (TypeInfo original : originals) {
+            ParameterizedType parent = original.parentClass();
+            if (parent == null || parent.typeInfo() == null) continue;
+            TypeInfo parentStub = typeMap.get(parent.typeInfo());
+            if (parentStub != null) extended.add(parentStub);
         }
         for (TypeInfo stub : typeMap.values()) {
             if (!extended.contains(stub) || interfaceStubs.contains(stub) || annotationStubs.contains(stub)) continue;
-            List<MethodInfo> constructors = stub.builder().constructors();
+            // BOTH lists: TypeInfo.Builder.addMethod files everything under methods(), addConstructor under
+            // constructors(), and ensureMethodInfo adds constructor stubs with addMethod -- so constructors()
+            // alone is empty here and this pass quietly did nothing
+            List<MethodInfo> constructors = Stream.concat(stub.builder().constructors().stream(),
+                            stub.builder().methods().stream())
+                    .filter(MethodInfo::isConstructor).toList();
             if (constructors.isEmpty()) continue;      // the implicit no-arg constructor is there already
-            if (constructors.stream().anyMatch(c -> c.parameters().isEmpty())) continue;
+            if (constructors.stream().anyMatch(ctor -> ctor.parameters().isEmpty())) continue;
             MethodInfo noArg = runtime.newConstructor(stub);
             noArg.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
                     .setSource(runtime.noSource())
@@ -664,8 +697,19 @@ abstract class IsolationCore {
                     }
                     lambda.methodBody().visit(this);
                 }
+                // a type named ONLY in a catch clause is reached no other way: the body mentions the variable,
+                // never the type. 'catch (EmptyStackException e)' then leaves the frame without the import and
+                // the whole unit is dropped -- the throws-clause case with the same shape is handled in
+                // visitMethod. 21 of the 37 units still failing on the hundred-class corpus were this.
+                case TryStatement ts -> ts.catchClauses().forEach(cc ->
+                        cc.exceptionTypes().forEach(et -> ensureTypes(et, ds(ts))));
                 case ConstructorCall cc -> {
                     if (cc.anonymousClass() != null) {
+                        // the supertype is what the verbatim text names ('new Comparator<X>() {...}'), and an
+                        // interface has no constructor, so the cc.constructor() branch below never reaches it
+                        TypeInfo anonymous = cc.anonymousClass();
+                        if (anonymous.parentClass() != null) ensureTypes(anonymous.parentClass(), ds(cc));
+                        anonymous.interfacesImplemented().forEach(itf -> ensureTypes(itf, ds(cc)));
                         // TypeInfo.visit() is unsupported, so descend into the bodies of its members ourselves,
                         // to reach references (types, calls, fields) that live only inside the anonymous class
                         cc.anonymousClass().constructorAndMethodStream().forEach(mi -> {
@@ -687,7 +731,14 @@ abstract class IsolationCore {
                     // an unqualified static self-call ('helper()') has a synthetic type-expression object (no source)
                     // and belongs on the frame; a written 'C.helper()' has a real source and is routed through the
                     // original-type stub via ensureTypes(object) below, so 'C.' keeps resolving
-                    if (mc.object() == null
+                    if (mc.object() instanceof VariableExpression sve
+                        && sve.variable() instanceof This thisVar && thisVar.writeSuper()) {
+                        // 'super.getSession(...)': the method has to land on the SUPERTYPE's stub, not on the
+                        // isolated type -- which usually declares a method of that very name, that being why the
+                        // body writes 'super.' at all. Sending it to selfType() left the supertype without the
+                        // declaration, and the unit was dropped (maddi's scanner NPEs rather than reporting it)
+                        owner = superTypeStubOf(mc.methodInfo());
+                    } else if (mc.object() == null
                         || mc.object().source() == null
                            && mc.methodInfo().isStatic() && mc.methodInfo().typeInfo() == originalType
                         || mc.object() instanceof VariableExpression ve && ve.variable() instanceof This) {
