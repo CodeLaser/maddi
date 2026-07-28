@@ -287,14 +287,18 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
         private String computeFQN() {
             String owner = methodInfo.typeInfo().fullyQualifiedName();
             try {
-                return owner + "." + methodInfo.name() + "(" + parameters.stream()
-                        .map(p -> p.parameterizedType().erasedForFQN().printForMethodFQN())
-                        .collect(Collectors.joining(",")) + ")";
+                return owner + "." + methodInfo.name() + "(" + parameterTypesForFQN() + ")";
             } catch (RuntimeException re) {
                 LOGGER.error("Cannot compute fully qualified method name, type {}, method {}, {} params",
                         owner, methodInfo.name(), parameters.size());
                 throw re;
             }
+        }
+
+        private String parameterTypesForFQN() {
+            return parameters.stream()
+                    .map(p -> p.parameterizedType().erasedForFQN().printForMethodFQN())
+                    .collect(Collectors.joining(","));
         }
 
         @Override
@@ -358,9 +362,29 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
             return this;
         }
 
+        /*
+        A method's IDENTITY is its fully qualified name: MethodInfoImpl.equals/hashCode delegate to this method.
+        Until commitParameters() runs it used to answer "?.?." + name -- which made every uncommitted method of
+        that name equal to, and share a hash with, every other one. Any hash-based collection holding methods
+        mid-scan then silently kept one of them: a class implementing two interfaces that both declare void m()
+        ended up with ONE override instead of two (ScanCompilationUnit collects them into a Set), and which one
+        survived depended on the order the compilation units happened to be scanned in.
+
+        The commit is deferred on purpose -- a source method's declaration is visited later and must still be
+        able to attach parameter sources (see ClassSymbolScanner.addMethodToType, TestParameterInfoSource) -- so
+        the fix is not to commit earlier but to answer the real name meanwhile. The parameters are already
+        present and typed by the time anything hashes the method; only if a parameter type is not yet resolvable
+        do we fall back to the old placeholder. Note this can only ever make two methods LESS equal than before.
+         */
         @Override
         public String fullyQualifiedName() {
-            return fullyQualifiedName.getOrDefault("?.?." + methodInfo.name());
+            if (fullyQualifiedName.isSet()) return fullyQualifiedName.get();
+            try {
+                return methodInfo.typeInfo().fullyQualifiedName() + "." + methodInfo.name()
+                       + "(" + parameterTypesForFQN() + ")";
+            } catch (RuntimeException re) {
+                return "?.?." + methodInfo.name();
+            }
         }
 
         @Override
