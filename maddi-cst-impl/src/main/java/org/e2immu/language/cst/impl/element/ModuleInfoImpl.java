@@ -87,6 +87,16 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         return compilationUnit;
     }
 
+    /*
+    Identity, not source. ElementImpl derives toString() from print(), so implementing the declaration printer
+    silently turned every module-info label -- graph vertices among them -- into the whole `module N { ... }` body.
+    TypeInfo draws the same line by returning its fully qualified name here.
+     */
+    @Override
+    public String toString() {
+        return name;
+    }
+
     @Override
     public String simpleName() {
         return name;
@@ -639,9 +649,29 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         visitor.afterModule();
     }
 
+    /*
+    The whole declaration: `[open] module N { <directives> }`, in JLS 7.7 order.
+
+    This used to print the module NAME alone, which is why nothing downstream could render a module-info and every
+    lever that touched one built its text by hand. The body is joined with generatorForBlock, the same generator a
+    type body uses, so the formatter indents and splits it like any other block -- in particular a long qualified
+    export, which is where hand-built text goes wrong first.
+     */
     @Override
     public OutputBuilder print(Qualification qualification) {
-        return new OutputBuilderImpl().add(new TextImpl(name));
+        OutputBuilder outputBuilder = new OutputBuilderImpl();
+        comments().forEach(c -> outputBuilder.add(c.print(qualification)));
+        if (open) outputBuilder.add(new TextImpl("open")).add(SpaceEnum.ONE);
+        outputBuilder.add(new TextImpl("module")).add(SpaceEnum.ONE).add(new TextImpl(name)).add(SpaceEnum.ONE);
+        // JLS 7.7: requires, exports, opens, uses, provides -- the order a reader expects, and the order the
+        // parser hands them back within each kind
+        OutputBuilder body = Stream.of(requires.stream(), exports.stream(), opens.stream(), uses.stream(),
+                        provides.stream())
+                .flatMap(st -> st)
+                .map(d -> d.print(qualification))
+                .collect(OutputBuilderImpl.joining(SpaceEnum.NONE, SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE,
+                        GuideImpl.generatorForBlock()));
+        return outputBuilder.add(body);
     }
 
     @Override

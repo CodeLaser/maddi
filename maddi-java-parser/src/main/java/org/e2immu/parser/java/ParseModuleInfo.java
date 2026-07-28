@@ -75,11 +75,15 @@ public class ParseModuleInfo extends CommonParse {
             }
         }
         Source source = source(mcu);
-        return builder
+        ModuleInfo moduleInfo = builder
                 .setOpen(openModule)
                 .setCompilationUnit(compilationUnit)
                 .setSource(detailedSourcesBuilder == null ? source : source.withDetailedSources(detailedSourcesBuilder.build()))
                 .addComments(comments(mcu)).build();
+        // the link back, so that anything starting from the compilation unit can reach the declaration -- printing
+        // in particular. A ModuleInfo is not a TypeInfo, so it never appears in compilationUnit.types().
+        compilationUnit.setModuleInfo(moduleInfo);
+        return moduleInfo;
     }
 
     private void processProvidesDirective(Context context, ProvidesDirective pd, ModuleInfo.Builder builder) {

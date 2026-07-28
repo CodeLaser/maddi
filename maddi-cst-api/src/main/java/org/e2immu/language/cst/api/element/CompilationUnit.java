@@ -64,6 +64,16 @@ public interface CompilationUnit extends Element {
     List<TypeInfo> types();
 
     /**
+     * Returns the module declaration of a {@code module-info.java} compilation unit, or {@code null} for an
+     * ordinary one. A {@link ModuleInfo} is not a {@link TypeInfo}, so it is not in {@link #types()}, and without
+     * this link nothing that starts from a compilation unit -- printing in particular -- can reach it.
+     */
+    ModuleInfo moduleInfo();
+
+    /** Records the module declaration; see {@link #moduleInfo()}. Set once, during parsing. */
+    void setModuleInfo(ModuleInfo moduleInfo);
+
+    /**
      * Sets the source fingerprint. Can be called only once; calling it again throws.
      * If a fingerprint was already set via the builder, this method must not be called.
      *

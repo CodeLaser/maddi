@@ -84,4 +84,36 @@ public class TestJavaInspector5RealClasspathModule {
         assertNotNull(moduleInfo, "module descriptor must be parsed even under ignoreModule");
         assertEquals(13, moduleInfo.exports().size());
     }
+
+    /*
+    print2 renders a compilation unit through the real formatter, and a module-info.java is a compilation unit with
+    a module declaration and no types. It used to emit nothing of the module at all: the directives answered
+    print() with null, ModuleInfo.print() gave the bare name, and CompilationUnitPrinterImpl only walked types().
+
+    This is the round trip a refactoring lever needs -- parse a descriptor, change a directive, print it back --
+    so it is asserted against the real file rather than a fixture.
+     */
+    @Test
+    public void test3Print2RendersTheModuleDeclaration() throws IOException {
+        JavaInspector.ParseOptions options = new JavaInspector.ParseOptions.Builder()
+                .setFailFast(true).setDetailedSources(true).setIgnoreModule(true).build();
+        ParseResult parseResult = javaInspector.parse(Map.of(), options).parseResult();
+        ModuleInfo moduleInfo = parseResult.moduleInfo(cstApi);
+
+        String printed = javaInspector.print2(moduleInfo.compilationUnit());
+        String onDisk = Files.readString(Path.of("../maddi-cst-api/src/main/java/module-info.java"));
+
+        // non-vacuity: normalise() must not be comparing two empty strings, and the body must really be there
+        assertTrue(printed.contains("module org.e2immu.language.cst.api {"), printed);
+        assertTrue(printed.contains("requires org.jetbrains.annotations;"), printed);
+        assertTrue(printed.contains("exports org.e2immu.language.cst.api.element;"), printed);
+
+        assertEquals(normalise(onDisk), normalise(printed));
+    }
+
+    // the file carries a licence header the descriptor does not model; compare the declaration itself
+    private static String normalise(String s) {
+        int module = s.indexOf("module ");
+        return s.substring(module < 0 ? 0 : module).replaceAll("[ \t]+", " ").strip();
+    }
 }
