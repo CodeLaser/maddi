@@ -565,23 +565,15 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
     }
 
     /*
-     Walks the type's own code: field initialisers, constructor and method bodies, and nested types.
-     Exists so that ConstructorCallImpl can descend into an ANONYMOUS class -- code that is written inside
-     an expression, and was therefore invisible to every caller walking a method body with a predicate.
-     Declarations (signatures, annotations, the hierarchy) are not visited: this walk is over Elements, and
-     the callers that need declarations reach them through the Info API instead.
+     Not implemented, for either overload. Entering a type from an Element walk hands the caller a new
+     scope's code with no signal that the scope changed, and a caller asking "what happens here" gets a
+     different answer than it asked for. A caller that genuinely wants a type's bodies iterates its members
+     itself -- see IsolationCore, which does exactly that. Briefly implemented on 2026-07-28 so that
+     ConstructorCallImpl could descend into an anonymous class; reverted after two regressions downstream.
      */
     @Override
     public void visit(Predicate<Element> predicate) {
-        if (predicate.test(this)) {
-            for (FieldInfo fieldInfo : fields()) {
-                Expression initializer = fieldInfo.initializer();
-                if (initializer != null && !initializer.isEmpty()) initializer.visit(predicate);
-            }
-            for (MethodInfo methodInfo : constructors()) methodInfo.methodBody().visit(predicate);
-            for (MethodInfo methodInfo : methods()) methodInfo.methodBody().visit(predicate);
-            for (TypeInfo subType : subTypes()) subType.visit(predicate);
-        }
+        throw new UnsupportedOperationException();
     }
 
     /*
