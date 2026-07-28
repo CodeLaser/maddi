@@ -464,6 +464,44 @@ public class IsolateMethod {
             fieldMap.put(fieldInfo, newField);
         }
 
+        /**
+         * Replace type parameters that are not in scope where the stub method is being declared by their
+         * erasure — the first bound, or {@code Object}.
+         * <p>
+         * A stub method is placed on the type the call went THROUGH, which need not be the type that declares
+         * it. {@code class Filter implements RowFilter} (raw) inherits {@code accept(T)} from a generic
+         * interface; the stub lands on {@code Filter}, where {@code T} is not in scope, and the frame is dropped
+         * on "Type T not found". The compiler erases in exactly this situation, so do we. Measured on
+         * closed-core: three isolates, all raw implementations of a generic filter/command interface.
+         */
+        private ParameterizedType eraseOutOfScope(ParameterizedType pt, TypeInfo owner, MethodInfo newMethod) {
+            TypeParameter tp = pt.typeParameter();
+            if (tp != null) {
+                if (inScope(tp, owner, newMethod)) return pt;
+                ParameterizedType bound = tp.typeBounds().isEmpty() ? null : tp.typeBounds().getFirst();
+                TypeInfo erased = bound != null && bound.typeInfo() != null
+                        ? bound.typeInfo() : runtime.objectParameterizedType().typeInfo();
+                return runtime.newParameterizedType(erased, pt.arrays(), pt.wildcard(), List.of());
+            }
+            if (pt.typeInfo() == null || pt.parameters().isEmpty()) return pt;
+            List<ParameterizedType> params = pt.parameters().stream()
+                    .map(p -> eraseOutOfScope(p, owner, newMethod)).toList();
+            return runtime.newParameterizedType(pt.typeInfo(), pt.arrays(), pt.wildcard(), params);
+        }
+
+        /** A type parameter is usable in a method declared on {@code owner} if the method itself declares it, or
+         *  the declaring type does — including an enclosing type, whose parameters are in scope in nested ones. */
+        private boolean inScope(TypeParameter tp, TypeInfo owner, MethodInfo newMethod) {
+            var tpOwner = tp.getOwner();
+            if (tpOwner.isRight()) return tpOwner.getRight() == newMethod;
+            for (TypeInfo t = owner; t != null; ) {
+                if (t == tpOwner.getLeft()) return true;
+                var enclosing = t.compilationUnitOrEnclosingType();
+                t = enclosing.isRight() ? enclosing.getRight() : null;
+            }
+            return false;
+        }
+
         private void ensureMethodInfo(TypeInfo owner, MethodInfo methodInfo) {
             if (isJdkType(owner)) return;
             // a method inherited from a JDK supertype (e.g. ArrayList.get() from java.util.ArrayList on a custom
@@ -495,12 +533,12 @@ public class IsolateMethod {
                 newMethodTps.get(i).builder().setTypeBounds(newBounds).commit();
             }
             methodInfo.parameters().forEach(pi -> {
-                ParameterizedType newType = ensureTypes(pi.parameterizedType());
+                ParameterizedType newType = eraseOutOfScope(ensureTypes(pi.parameterizedType()), owner, newMethod);
                 ParameterInfo newParam = newMethod.builder().addParameter(pi.name(), newType);
                 newParam.builder().setVarArgs(pi.isVarArgs()).setIsFinal(pi.isFinal()).commit();
             });
             Block.Builder mb = runtime.newBlockBuilder();
-            ParameterizedType newReturnType = ensureTypes(methodInfo.returnType());
+            ParameterizedType newReturnType = eraseOutOfScope(ensureTypes(methodInfo.returnType()), owner, newMethod);
             if (!methodInfo.isConstructor() && !methodInfo.returnType().isVoid()) {
                 Expression expression = runtime.nullValue(newReturnType);
                 mb.addStatement(runtime.newReturnBuilder().setExpression(expression).build());
@@ -585,13 +623,19 @@ public class IsolateMethod {
         private void addDummyImplementation(TypeInfo stub, AbstractMethod am) {
             MethodInfo abstractMethod = am.method;
             MethodInfo dummy = runtime.newMethod(stub, abstractMethod.name(), runtime.methodTypeMethod());
+            // eraseOutOfScope: a RAW 'implements RowFilter' has no type arguments, so applyTranslation
+            // substitutes nothing and the interface's own 'T' survives into a dummy implementation on a class
+            // that does not declare it -- the frame is then dropped on "Type T not found". Erasing to the
+            // bound is what the compiler does for a raw supertype. (Three closed-core isolates.)
             abstractMethod.parameters().forEach(pi -> {
-                ParameterizedType type = ensureTypes(pi.parameterizedType().applyTranslation(runtime, am.typeArguments));
+                ParameterizedType type = eraseOutOfScope(
+                        ensureTypes(pi.parameterizedType().applyTranslation(runtime, am.typeArguments)),
+                        stub, dummy);
                 ParameterInfo np = dummy.builder().addParameter(pi.name(), type);
                 np.builder().setVarArgs(pi.isVarArgs()).setIsFinal(false).commit();
             });
-            ParameterizedType returnType = ensureTypes(abstractMethod.returnType()
-                    .applyTranslation(runtime, am.typeArguments));
+            ParameterizedType returnType = eraseOutOfScope(ensureTypes(abstractMethod.returnType()
+                    .applyTranslation(runtime, am.typeArguments)), stub, dummy);
             Block.Builder mb = runtime.newBlockBuilder();
             if (!returnType.isVoid()) {
                 mb.addStatement(runtime.newReturnBuilder().setExpression(runtime.nullValue(returnType)).build());
