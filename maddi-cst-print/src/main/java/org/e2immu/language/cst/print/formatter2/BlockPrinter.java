@@ -162,6 +162,17 @@ public class BlockPrinter {
             prevOutput = output;
             prevHasNestedGuide = currentHasNestedGuide;
         }
+        // A guide block whose LAST element ends in a newline space level ends in a '//' comment (see
+        // SingleLineCommentImpl.print, which closes with SpaceEnum.NEWLINE) -- for a method body, the block's
+        // trailingComments. Without this the level is recomputed from hasBeenSplit alone, the comment's newline
+        // is discarded, and the caller appends the closing brace onto the same line, INSIDE the comment:
+        //     Helper.R method() { return new Helper.R(C1 + Helper.C2, 1); // C2 should be replaced }
+        // which does not compile. A line comment runs to end of line, so the block has to be split.
+        // The check just above handles the same thing mid-block, but only when the split level happens to be
+        // SINGLE_NEWLINE; as the last element there is no following element to give it one.
+        if (prevOutput != null && prevOutput.spaceLevel().isNewLine()) {
+            hasBeenSplit = true;
+        }
         Line.SpaceLevel spaceLevel = hasBeenSplit ? Line.SpaceLevel.NEWLINE : Line.SpaceLevel.NO_SPACE;
         return new Output(sb.toString(), hasBeenSplit, splitInfo, spaceLevel);
     }
@@ -277,7 +288,13 @@ public class BlockPrinter {
         // "brace on its own line" layout rather than the compact single-line-if-it-fits default.
         boolean forcePriorityBreak = options.alwaysBreakPriorityBlocks()
                 && sub.guide() != null && sub.guide().prioritySplit();
-        if (output.hasBeenSplit || addToLine > line.available() || forcePriorityBreak) {
+        // A block whose last element is a '//' comment ends in a NEWLINE space level (see
+        // SingleLineCommentImpl.print). Inlining drops that -- the space level of an inlined output is never
+        // transferred to the line -- so whatever comes next, in practice the block's own closing brace, is
+        // appended after the '//' and ends up inside the comment. The result does not compile. A line comment
+        // runs to end of line, so such a block can only be split.
+        boolean endsInLineComment = output.spaceLevel().isNewLine();
+        if (output.hasBeenSplit || addToLine > line.available() || forcePriorityBreak || endsInLineComment) {
             splitOutputOfBlock(line, output, indent, splits, options);
             return true;
         }
