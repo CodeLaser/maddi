@@ -163,6 +163,7 @@ public class IsolateMethod {
         }
         data.visitMethod(methodInfo);
         data.addDummyInterfaceMethods();
+        data.addDefaultConstructorsWhereExtended();
         return data;
     }
 

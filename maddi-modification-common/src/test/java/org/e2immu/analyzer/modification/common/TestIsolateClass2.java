@@ -61,6 +61,23 @@ public class TestIsolateClass2 {
             """;
 
     @Language("java")
+    public static final String BASE = """
+            package four;
+            public class Base {
+                public Base(int dim) { }
+                public String describe() { return null; }
+            }
+            """;
+
+    @Language("java")
+    public static final String DERIVED = """
+            package four;
+            public class Derived extends Base {
+                public Derived() { super(1); }
+            }
+            """;
+
+    @Language("java")
     public static final String OUTER = """
             package three;
             public class Outer {
@@ -90,13 +107,18 @@ public class TestIsolateClass2 {
                 public int total(two.Entry other) {
                     return other.size() + entries.size() + (int) inner.id();
                 }
+                public String viaDerived(four.Derived d) {
+                    four.Base b = new four.Base(1);
+                    return d.describe() + b.describe();
+                }
             }
             """;
 
     private Map<String, String> isolate() {
         TypeInfo type = javaInspector.parse(Map.of(
                                 "one.Entry", ENTRY_A, "two.Entry", ENTRY_B,
-                                "three.Outer", OUTER, "a.b.X", X),
+                                "three.Outer", OUTER, "four.Base", BASE, "four.Derived", DERIVED,
+                                "a.b.X", X),
                         new JavaInspector.ParseOptions.Builder().setDetailedSources(true).setFailFast(true).build())
                 .parseResult().findType("a.b.X");
         IsolateClass.Result r = isolateClass.isolate(type);
@@ -111,6 +133,11 @@ public class TestIsolateClass2 {
                 case "total" -> """
                         public int total(two.Entry other) {
                             return other.size() + entries.size() + (int) inner.id();
+                        }""";
+                case "viaDerived" -> """
+                        public String viaDerived(four.Derived d) {
+                            four.Base b = new four.Base(1);
+                            return d.describe() + b.describe();
                         }""";
                 default -> "";
             });
@@ -142,6 +169,12 @@ public class TestIsolateClass2 {
         String outer = project.get("three/Outer.java");
         assertTrue(outer.contains("class Inner"), outer);
         assertTrue(outer.contains("Sink"), outer);
+
+        // 'Derived extends Base' has an implicit super(); Base is only ever reached through a 'Base(int)', so
+        // without a no-arg constructor of its own the subclass stub does not compile. 189 of the 223 failures of
+        // the first hundred-class corpus run were this, all of them 'class X extends Y { }'
+        String base = project.get("four/Base.java");
+        assertTrue(base.contains("Base() { }"), "Base must offer a no-arg constructor to its subclass:\n" + base);
     }
 
     @DisplayName("the emitted project parses back on the JDK alone")

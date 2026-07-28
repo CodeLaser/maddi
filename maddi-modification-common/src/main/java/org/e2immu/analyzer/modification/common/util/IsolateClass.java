@@ -24,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * Lifts one <b>type</b> out of its project into a small standalone source tree that compiles against the JDK
@@ -71,16 +72,16 @@ public class IsolateClass {
      * @param isolated     the compilation unit of the isolated type itself
      * @param stubs        one compilation unit per stubbed dependency, in the package its original came from
      * @param markers      marker method -> the original method whose source replaces it
-     * @param jdkToImport  JDK types that may be imported
-     * @param jdkNoImport  JDK types that must be printed fully qualified (a simple-name clash)
+     * @param toImport     stub and JDK types the isolated unit may import
+     * @param toQualify    types that lost a simple-name clash and must be printed fully qualified
+     * @param staticImports fully-qualified {@code owner.member} names the isolated unit must import statically
      */
     public record Result(CompilationUnit isolated,
                          List<CompilationUnit> stubs,
                          Map<MethodInfo, MethodInfo> markers,
-                         Set<TypeInfo> stubsToImport,
-                         Set<TypeInfo> stubsNoImport,
-                         Set<TypeInfo> jdkToImport,
-                         Set<TypeInfo> jdkNoImport) {
+                         Set<TypeInfo> toImport,
+                         Set<TypeInfo> toQualify,
+                         Set<String> staticImports) {
 
         /** every compilation unit of the emitted project, the isolated type first */
         public List<CompilationUnit> all() {
@@ -115,6 +116,18 @@ public class IsolateClass {
 
         @Override
         boolean stubsCrossPackageBoundaries() {
+            return true;
+        }
+
+        // 'owner.member' pairs the verbatim text names WITHOUT a scope, and that some other type declares: they
+        // need an 'import static'. The import computer has no notion of static imports (its own source says
+        // "IMPROVE static fields and methods"), so they are emitted alongside its output.
+        final Set<String> staticImports = new java.util.TreeSet<>();
+
+        @Override
+        boolean recordStaticImport(TypeInfo owner, String memberName) {
+            if (isJdkType(owner) && "java.lang".equals(owner.packageName())) return false;
+            staticImports.add(owner.fullyQualifiedName() + "." + memberName);
             return true;
         }
 
@@ -186,6 +199,7 @@ public class IsolateClass {
 
         // the isolated type's own fields keep their declared types (stubbed), but not their initializers: an
         // initializer can reach arbitrarily far into the project, and nothing in the isolate needs it to run
+        Set<FieldInfo> ownFields = new HashSet<>();
         for (FieldInfo fieldInfo : typeInfo.fields()) {
             ParameterizedType newType = data.ensureTypes(fieldInfo.type(),
                     IsolationCore.detailedSources(fieldInfo.source()));
@@ -196,6 +210,7 @@ public class IsolateClass {
             if (fieldInfo.isStatic()) newField.builder().addFieldModifier(runtime.fieldModifierStatic());
             newField.builder().commit();
             isolated.builder().addField(newField);
+            ownFields.add(newField);
             // seed the map: a body that reads 'this.value' would otherwise have ensureField declare it a second
             // time, package-private and without the modifiers we just reproduced
             data.fieldMap.put(fieldInfo, newField);
@@ -229,9 +244,13 @@ public class IsolateClass {
             markers.put(marker, methodInfo);
         }
         data.addDummyInterfaceMethods();
+        data.addDefaultConstructorsWhereExtended();
 
         data.fieldMap.values().stream().sorted(Comparator.comparing(FieldInfo::name))
-                .filter(field -> field.owner() != isolated)   // the isolated type's own were added above
+                // exclude exactly the ones added above, NOT everything the isolated type owns: a field inherited
+                // from a stubbed supertype and read unqualified ('_service') is placed here by ensureField, and
+                // filtering on the owner threw it away -- four Axis2 isolates died on "Type _service not found"
+                .filter(field -> !ownFields.contains(field))
                 .forEach(field -> field.owner().builder().addField(field));
 
         // deepest first, so a nested stub is committed and attached before its (still open) enclosing stub
@@ -260,46 +279,81 @@ public class IsolateClass {
         // The pasted bodies are raw text, so the import computer cannot see that they name 'Helper' or 'Value'.
         // Every stub the isolate reaches has to be offered to it explicitly, or the isolated unit compiles
         // against types it never imports. IsolateMethod never needed this: its stubs are nested in the frame.
-        Map<Boolean, Set<TypeInfo>> stubImports = arbitrateStubImports(data);
+        Map<Boolean, Set<TypeInfo>> imports = arbitrateImports(data);
         return new Result(isolatedCu, stubUnits, markers,
-                stubImports.get(Boolean.TRUE), stubImports.get(Boolean.FALSE), importable, notImportable);
+                imports.get(Boolean.TRUE), imports.get(Boolean.FALSE), Set.copyOf(data.staticImports));
     }
 
     /**
-     * Two stubs can share a simple name — {@code one.Entry} and {@code two.Entry} — and only one of them can hold
-     * it in the isolated unit. Exactly the {@code arbitrateJdkImports} problem, and the same answer: the verbatim
-     * text cannot be respelled, so the type it names simply keeps the import and the others are vetoed into their
-     * fully-qualified form. In a single-frame isolate this clash had no good answer at all; here it is just an
-     * import.
+     * Which types the isolated unit may import, and which have to be printed fully qualified.
+     * <p>
+     * Candidates are the stubs (one per emitted compilation unit) and the JDK types the isolate keeps. They are
+     * arbitrated <b>together</b>, because a stub and a JDK type collide just as readily as two stubs:
+     * closed-core's own {@code com.example.core.general.util.ArrayList} against {@code java.util.ArrayList} is
+     * the case that dropped four class isolates. Only one type can hold a simple name, the verbatim text cannot
+     * be respelled, so the one it names simply keeps the import and the rest are vetoed into their qualified
+     * form — the same rule as {@code IsolateMethod.arbitrateJdkImports}, over one merged candidate set.
      *
      * @return TRUE -> may be imported, FALSE -> must be printed fully qualified
      */
-    private static Map<Boolean, Set<TypeInfo>> arbitrateStubImports(ClassStubs data) {
-        Map<String, List<TypeInfo>> bySimpleName = new LinkedHashMap<>();
+    private static Map<Boolean, Set<TypeInfo>> arbitrateImports(ClassStubs data) {
+        Set<String> singleImportedByOriginal = data.originalType.compilationUnit() == null ? Set.of()
+                : data.originalType.compilationUnit().importStatements().stream()
+                .filter(is -> !is.isStar())
+                .map(is -> is.importString())
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        // candidate -> was it named by its simple name in the verbatim text?
+        Map<TypeInfo, Boolean> candidates = new LinkedHashMap<>();
         data.typeMap.forEach((original, stub) -> {
-            if (stub.isPrimaryType()) {
-                bySimpleName.computeIfAbsent(stub.simpleName(), _ -> new ArrayList<>()).add(original);
-            }
+            // NOT just the primary stubs: a member type is named by its simple name in the verbatim text just as
+            // readily ('new RowFilter<...>()' for DataUtil.RowFilter), and needs its own
+            // 'import a.b.Outer.Inner'. Restricting the candidates to primary types left every such reference
+            // unresolved -- all five remaining causes of the second class-isolate corpus run were this one bug.
+            candidates.put(stub, data.namedSimplyInSource.contains(original));
         });
+        data.jdkTypesToImport.forEach(t -> candidates.put(t, data.jdkNamedSimplyInSource.contains(t)));
+
+        Map<String, List<TypeInfo>> bySimpleName = new LinkedHashMap<>();
+        candidates.keySet().forEach(t ->
+                bySimpleName.computeIfAbsent(t.simpleName(), _ -> new ArrayList<>()).add(t));
+
         Set<TypeInfo> importable = new HashSet<>();
         Set<TypeInfo> qualify = new HashSet<>();
         for (Map.Entry<String, List<TypeInfo>> entry : bySimpleName.entrySet()) {
-            List<TypeInfo> originals = entry.getValue();
-            if (originals.size() == 1) {
-                importable.add(data.typeMap.get(originals.getFirst()));
+            List<TypeInfo> claimants = entry.getValue();
+            if (claimants.size() == 1) {
+                importable.add(claimants.getFirst());
                 continue;
             }
-            List<TypeInfo> sorted = originals.stream()
+            // sorted first, so the outcome does not depend on the iteration order of a hash set
+            List<TypeInfo> sorted = claimants.stream()
                     .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
-            TypeInfo winner = sorted.stream().filter(data.namedSimplyInSource::contains)
-                    .findFirst().orElse(sorted.getFirst());
-            LOGGER.info("Simple name '{}' claimed by {} stubs; importing {}, qualifying the rest",
-                    entry.getKey(), originals.size(), winner.fullyQualifiedName());
-            for (TypeInfo original : sorted) {
-                (original == winner ? importable : qualify).add(data.typeMap.get(original));
-            }
+            // The original file compiled, so what IT single-imported is what that simple name meant there. This
+            // decides the case where several claimants are all named simply -- 'Assert.assertEquals(...)' with
+            // both org.junit.Assert and org.assertj.core.api.Assert stubbed, where falling back to alphabetical
+            // order picked assertj's Assert, which has no assertEquals.
+            TypeInfo winner = sorted.stream().filter(t -> singleImportedByOriginal.contains(t.fullyQualifiedName()))
+                    .findFirst()
+                    .orElseGet(() -> sorted.stream().filter(t -> Boolean.TRUE.equals(candidates.get(t)))
+                            .findFirst().orElse(sorted.getFirst()));
+            LOGGER.info("Simple name '{}' claimed by {}; importing {}, qualifying the rest",
+                    entry.getKey(), claimants.size(), winner.fullyQualifiedName());
+            for (TypeInfo t : sorted) (t == winner ? importable : qualify).add(t);
         }
         return Map.of(Boolean.TRUE, importable, Boolean.FALSE, qualify);
+    }
+
+    /**
+     * Insert the static imports after the package declaration. Textual, because the import computer produces the
+     * import block and has no concept of a static import; inserting them here keeps that one gap contained.
+     */
+    private static String withStaticImports(String printed, Set<String> staticImports) {
+        if (staticImports.isEmpty()) return printed;
+        int newline = printed.indexOf('\n');
+        if (newline < 0 || !printed.startsWith("package ")) return printed;
+        StringBuilder sb = new StringBuilder(printed.substring(0, newline + 1));
+        staticImports.stream().sorted().forEach(si -> sb.append("import static ").append(si).append(";\n"));
+        return sb.append(printed, newline + 1, printed.length()).toString();
     }
 
     /** constructors first, then methods, in declaration order */
@@ -356,21 +410,54 @@ public class IsolateClass {
         return sources;
     }
 
+    /**
+     * Single-type imports only, never {@code p.q.*}.
+     * <p>
+     * An on-demand import creates simple-name clashes that nothing can then arbitrate. closed-core declares its
+     * own {@code com.example.core.general.util.ArrayList}; collapse four types of that package and four of
+     * {@code java.util}, and the isolated unit carries {@code import java.util.*} beside
+     * {@code import com.example.core.general.util.*} — every bare {@code ArrayList} in the verbatim body is
+     * then ambiguous, and the unit is dropped. Vetoing one of the two does not help, because the collapse offers
+     * the name implicitly whether or not that type is in the import list. With single-type imports the winner of
+     * {@link #arbitrateImports} is the only claimant, which is exactly what the original file expressed.
+     */
+    private static final int NEVER_COLLAPSE_TO_STAR = Integer.MAX_VALUE;
+
     private String printUnit(CompilationUnit cu, Result result, Map<MethodInfo, String> memberSources) {
-        ImportComputer importComputer = javaInspector.importComputer(4, javaInspector.mainSources());
+        ImportComputer importComputer =
+                javaInspector.importComputer(NEVER_COLLAPSE_TO_STAR, javaInspector.mainSources());
         Set<String> declaredSimpleNames = new HashSet<>();
         cu.types().forEach(t -> t.recursiveSubTypeStream().forEach(st -> declaredSimpleNames.add(st.simpleName())));
+        // A referenced type whose simple name is DECLARED in this unit by something else must print qualified:
+        // log4j's 'AbstractOutputStreamAppender.Builder extends AbstractAppender.Builder' emitted
+        // 'extends Builder<B>', which resolves to the nested Builder itself -- a class extending itself. Leaving
+        // such a type out of the import list is not enough, since it then prints as the bare shadowed name; the
+        // import computer has to be told to qualify it.
+        Stream.concat(result.toImport.stream(), result.toQualify.stream())
+                .filter(t -> declaredSimpleNames.contains(t.simpleName()))
+                .filter(t -> t.primaryType().compilationUnit() != cu)
+                .forEach(importComputer::doNotImport);
+        // A nested type of ANOTHER unit in the same package: the computer skips same-package types unless the
+        // caller asks, and its simple name is not in scope merely by sharing a package. This holds for stub
+        // units too, which otherwise add nothing explicitly -- restricting the request to the isolated unit
+        // cost 20 of the 94 clean trees.
+        result.toImport.stream()
+                .filter(t -> !declaredSimpleNames.contains(t.simpleName()))
+                .filter(t -> t.primaryType().compilationUnit() != cu)
+                .filter(t -> !t.isPrimaryType() && cu.packageName().equals(t.packageName()))
+                .forEach(importComputer::add);
         if (cu == result.isolated) {
             // only the isolated unit holds verbatim text, which the import computer cannot read; a stub unit's
             // references are real CST, so it works those out for itself and an explicit list would only add
             // unused imports
-            java.util.stream.Stream.concat(result.jdkToImport.stream(), result.stubsToImport.stream())
+            result.toImport.stream()
                     .filter(t -> !declaredSimpleNames.contains(t.simpleName()))
-                    .filter(t -> !cu.packageName().equals(t.packageName()))
+                    // a stub declared in this very unit needs no import; a member type of another unit does,
+                    // even when its package matches, because the simple name does not reach across types
+                    .filter(t -> t.primaryType().compilationUnit() != cu)
                     .forEach(importComputer::add);
-            result.stubsNoImport.forEach(importComputer::doNotImport);
         }
-        result.jdkNoImport.forEach(importComputer::doNotImport);
+        result.toQualify.forEach(importComputer::doNotImport);
         if (cu != result.isolated) {
             // a stub unit has no verbatim text in it, so the ordinary printer is enough
             return javaInspector.print2(cu, runtime.qualificationSimpleNames(), importComputer);
@@ -388,6 +475,7 @@ public class IsolateClass {
                 .print(importComputer, runtime.qualificationSimpleNames(),
                         runtime::newTypePrinter, methodPrinterFactory,
                         runtime::newFieldPrinter, runtime::newTypePrinter);
-        return new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build()).write(ob);
+        String printed = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build()).write(ob);
+        return withStaticImports(printed, result.staticImports);
     }
 }

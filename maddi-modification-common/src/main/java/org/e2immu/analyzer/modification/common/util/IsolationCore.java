@@ -14,6 +14,7 @@ import org.e2immu.language.cst.api.output.TypeNameRequired;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
+import org.e2immu.language.cst.api.statement.TryStatement;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -27,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 /**
  * The stub graph that {@link IsolateMethod} and {@link IsolateClass} both build: every type, method, field and
  * annotation the isolated code reaches, reduced to something that compiles on the JDK alone.
@@ -60,6 +62,17 @@ abstract class IsolationCore {
 
     /** The type owning an unqualified self-reference ({@code helper()}, {@code this.field}). */
     abstract TypeInfo selfType();
+
+    /**
+     * A static member named without a scope in the verbatim text, and declared by some OTHER type: only a static
+     * import makes that spelling resolve. {@link IsolateMethod} does not need it — it puts such a member on the
+     * frame, which is in scope for the whole pasted body — but a class isolate cannot, because the member belongs
+     * to a stub in another compilation unit. Returns true if the member was taken over by the isolator, meaning
+     * the caller must NOT also declare it on {@link #selfType()}.
+     */
+    boolean recordStaticImport(TypeInfo owner, String memberName) {
+        return false;
+    }
 
     /**
      * Told how every reference spells a type, before the {@code typeMap} short-circuit. Only an isolator whose
@@ -182,6 +195,15 @@ abstract class IsolationCore {
                     .map(this::ensureTypes).toList();
             newTps.get(i).builder().setTypeBounds(newBounds).commit();
         }
+        // A FUNCTIONAL interface must keep its single abstract method, or a lambda in the verbatim text has
+        // nothing to target: 'ParameterUtil.filter(ctx, null, x -> ...)' against an empty
+        // 'interface RowFilter<T> { }' cannot be typed, and maddi's scanner NPEs on it. ensureMethodInfo
+        // would make it 'default' (interface stubs keep their bodies so implementors need not override), which
+        // leaves the interface non-functional -- so the SAM is reproduced abstract, here.
+        if (isInterface) {
+            MethodInfo sam = typeInfo.singleAbstractMethod();
+            if (sam != null) ensureAbstractMethod(stub, sam);
+        }
         return stub;
     }
 
@@ -242,8 +264,9 @@ abstract class IsolationCore {
         return runtime.newParameterizedType(newTypeInfo, pt.arrays(), pt.wildcard(), params);
     }
 
-    void ensureField(TypeInfo owner, FieldInfo fieldInfo) {
-        if (isJdkType(owner)) return;
+    void ensureField(TypeInfo ownerIn, FieldInfo fieldInfo) {
+        TypeInfo owner = stubFor(ownerIn);
+        if (owner == null || isJdkType(owner)) return;
         FieldInfo inMap = fieldMap.get(fieldInfo);
         if (inMap != null) return;
         ParameterizedType newPt = ensureTypes(fieldInfo.type());
@@ -296,6 +319,26 @@ abstract class IsolationCore {
         return runtime.newParameterizedType(pt.typeInfo(), pt.arrays(), pt.wildcard(), params);
     }
 
+    /**
+     * The stub that a {@code super.m()} call should declare {@code m} on: the stub of the type that really
+     * declares it, when we have one, else the stub of the isolated type's own parent.
+     */
+    TypeInfo superTypeStubOf(MethodInfo methodInfo) {
+        TypeInfo declaring = methodInfo.typeInfo();
+        TypeInfo stub = typeMap.get(declaring);
+        if (stub != null) return stub;
+        if (declaring != originalType) {
+            TypeInfo created = ensureType(declaring, null);
+            if (created != declaring) return created;
+        }
+        ParameterizedType parent = originalType.parentClass();
+        if (parent != null && parent.typeInfo() != null) {
+            TypeInfo parentStub = typeMap.get(parent.typeInfo());
+            if (parentStub != null) return parentStub;
+        }
+        return selfType();
+    }
+
     /** A type parameter is usable in a method declared on {@code owner} if the method itself declares it, or
      *  the declaring type does — including an enclosing type, whose parameters are in scope in nested ones. */
     private boolean inScope(TypeParameter tp, TypeInfo owner, MethodInfo newMethod) {
@@ -309,8 +352,9 @@ abstract class IsolationCore {
         return false;
     }
 
-    void ensureMethodInfo(TypeInfo owner, MethodInfo methodInfo) {
-        if (isJdkType(owner)) return;
+    void ensureMethodInfo(TypeInfo ownerIn, MethodInfo methodInfo) {
+        TypeInfo owner = stubFor(ownerIn);
+        if (owner == null || isJdkType(owner)) return;
         // a method inherited from a JDK supertype (e.g. ArrayList.get() from java.util.ArrayList on a custom
         // subclass) resolves via the reproduced real supertype; stubbing it would leak that supertype's type
         // parameters (e.g. 'E get(int)') into the stub, which are not in scope
@@ -371,9 +415,87 @@ abstract class IsolationCore {
                 .computeAccess()
                 .setMethodBody(mb.build())
                 .commit();
+        // Two DIFFERENT original methods can reduce to the same stub signature: ParameterUtil declares
+        // '<T extends IParameterCtx> T filterByID(T, long[])' and '<T extends IParameter> T
+        // filterByID(T, long[])', which erase to the same thing, so stubbing both gives the owner a duplicate
+        // method. Reuse the one already there: the call sites resolve to it just the same, and the alternative
+        // is a unit that does not compile -- or maddi's own MethodMapImpl.addToReturn assertion, which is what
+        // stopped six of the hundred class isolates from being produced at all.
+        MethodInfo clash = erasureClash(owner, newMethod);
+        if (clash != null) {
+            LOGGER.info("Stub of {} would duplicate {} on {}; reusing it", methodInfo, clash, owner);
+            methodMap.put(new OwnedMethod(owner, methodInfo), clash);
+            return;
+        }
         LOGGER.info("Adding method {}", newMethod);
         owner.builder().addMethod(newMethod);
         methodMap.put(new OwnedMethod(owner, methodInfo), newMethod);
+    }
+
+    /**
+     * The stub we are allowed to add members to, for a type we were handed as an owner.
+     * <p>
+     * Owners are supposed to be stubs, and normally are. But a receiver typed by a type parameter erases to that
+     * parameter's bound ({@code erasedOwner}), and a type parameter the isolated code declares itself is kept as
+     * it is — so its bound is the REAL type. log4j's builder idiom, {@code B extends FileAppender.Builder<B>},
+     * produces exactly that, and adding a method to the real committed type trips
+     * {@code "Inspection of X has already been committed"}, losing the whole isolate. Four of the hundred
+     * class isolates were failing this way.
+     *
+     * @return a stub safe to modify, or null when there is nothing sensible to modify
+     */
+    private TypeInfo stubFor(TypeInfo owner) {
+        if (owner == null || !owner.hasBeenInspected()) return owner;   // already a stub of ours
+        if (isJdkType(owner)) return owner;                             // caller drops it
+        TypeInfo stub = ensureType(owner, null);
+        return stub != null && !stub.hasBeenInspected() ? stub : null;
+    }
+
+    /** Reproduce {@code sam} on {@code stub} as an abstract method, so the stub stays a functional interface. */
+    private void ensureAbstractMethod(TypeInfo stub, MethodInfo sam) {
+        OwnedMethod key = new OwnedMethod(stub, sam);
+        if (methodMap.containsKey(key)) return;
+        MethodInfo newMethod = runtime.newMethod(stub, sam.name(), runtime.methodTypeAbstractMethod());
+        sam.parameters().forEach(pi -> {
+            ParameterInfo np = newMethod.builder().addParameter(pi.name(), ensureTypes(pi.parameterizedType()));
+            np.builder().setVarArgs(pi.isVarArgs()).setIsFinal(pi.isFinal()).commit();
+        });
+        newMethod.builder()
+                .setReturnType(ensureTypes(sam.returnType()))
+                .setAccess(runtime.accessPublic())
+                .setSource(runtime.noSource())
+                .setMethodBody(runtime.emptyBlock())
+                .commit();
+        if (erasureClash(stub, newMethod) != null) return;
+        stub.builder().addMethod(newMethod);
+        methodMap.put(key, newMethod);
+    }
+
+    /**
+     * A method already on {@code owner} that {@code candidate} would duplicate: same name, same arity, and the
+     * same erased parameter types. Java resolves overloads on erasures, so two stubs agreeing there cannot both
+     * be declared.
+     */
+    private static MethodInfo erasureClash(TypeInfo owner, MethodInfo candidate) {
+        String key = erasureKey(candidate);
+        return Stream.concat(owner.builder().constructors().stream(), owner.builder().methods().stream())
+                .filter(m -> m != candidate && erasureKey(m).equals(key))
+                .findFirst().orElse(null);
+    }
+
+    private static String erasureKey(MethodInfo m) {
+        StringBuilder sb = new StringBuilder(m.name()).append('(');
+        for (ParameterInfo pi : m.parameters()) {
+            ParameterizedType pt = pi.parameterizedType();
+            TypeParameter tp = pt.typeParameter();
+            // a type parameter erases to its first bound, or Object; that is what overload resolution sees
+            String erased = tp != null
+                    ? tp.typeBounds().isEmpty() || tp.typeBounds().getFirst().typeInfo() == null
+                    ? "java.lang.Object" : tp.typeBounds().getFirst().typeInfo().fullyQualifiedName()
+                    : pt.typeInfo() == null ? "?" : pt.typeInfo().fullyQualifiedName();
+            sb.append(erased).append('[').append(pt.arrays()).append("],");
+        }
+        return sb.append(')').toString();
     }
 
     // an interface's abstract method together with the type-argument map that turns its (interface) type
@@ -384,6 +506,51 @@ abstract class IsolationCore {
     // a concrete class stub that implements an interface ('LongVector implements Iterable<Long>') and is
     // instantiated ('new LongVector()') cannot be abstract, so it must provide (dummy) implementations of the
     // interface's abstract methods, or it does not compile
+/**
+     * A stub that another stub extends must offer a no-argument constructor.
+     * <p>
+     * {@code class TwoChannelAxisOperation extends AxisOperation { }} has an implicit constructor, which calls an
+     * implicit {@code super()} — and the reproduced {@code AxisOperation} has only the constructor an actual
+     * {@code new AxisOperation(int)} in the isolated code caused us to stub. The subclass then does not compile,
+     * and four Axis2 class isolates were dropped on it.
+     * <p>
+     * Only stubs that are actually extended get one, and only when they have constructors but no no-arg one: a
+     * stub extending {@code Object} already has what it needs, so the ordinary isolate is unchanged.
+     */
+    void addDefaultConstructorsWhereExtended() {
+        // read the hierarchy from the ORIGINALS, which are committed: a stub's parentClass() is not yet
+        // readable at this point, so asking the stubs found nothing at all and this pass silently did nothing
+        Set<TypeInfo> extended = new HashSet<>();
+        Set<TypeInfo> originals = new HashSet<>(typeMap.keySet());
+        originals.add(originalType);
+        for (TypeInfo original : originals) {
+            ParameterizedType parent = original.parentClass();
+            if (parent == null || parent.typeInfo() == null) continue;
+            TypeInfo parentStub = typeMap.get(parent.typeInfo());
+            if (parentStub != null) extended.add(parentStub);
+        }
+        for (TypeInfo stub : typeMap.values()) {
+            if (!extended.contains(stub) || interfaceStubs.contains(stub) || annotationStubs.contains(stub)) continue;
+            // BOTH lists: TypeInfo.Builder.addMethod files everything under methods(), addConstructor under
+            // constructors(), and ensureMethodInfo adds constructor stubs with addMethod -- so constructors()
+            // alone is empty here and this pass quietly did nothing
+            List<MethodInfo> constructors = Stream.concat(stub.builder().constructors().stream(),
+                            stub.builder().methods().stream())
+                    .filter(MethodInfo::isConstructor).toList();
+            if (constructors.isEmpty()) continue;      // the implicit no-arg constructor is there already
+            if (constructors.stream().anyMatch(ctor -> ctor.parameters().isEmpty())) continue;
+            MethodInfo noArg = runtime.newConstructor(stub);
+            noArg.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
+                    .setSource(runtime.noSource())
+                    .setMethodBody(runtime.emptyBlock())
+                    .setAccess(stubsCrossPackageBoundaries() ? runtime.accessPublic() : runtime.accessPackage());
+            if (stubsCrossPackageBoundaries()) noArg.builder().addMethodModifier(runtime.methodModifierPublic());
+            noArg.builder().commit();
+            stub.builder().addMethod(noArg);
+            LOGGER.info("Added a no-arg constructor to {}, which is extended by another stub", stub);
+        }
+    }
+
     void addDummyInterfaceMethods() {
         // fixpoint: adding a dummy implementation can reference a type that was not stubbed during the visit
         // (e.g. it appears only in an interface method's signature), creating a new stub which itself may need
@@ -630,8 +797,19 @@ abstract class IsolationCore {
                     }
                     lambda.methodBody().visit(this);
                 }
+                // a type named ONLY in a catch clause is reached no other way: the body mentions the variable,
+                // never the type. 'catch (EmptyStackException e)' then leaves the frame without the import and
+                // the whole unit is dropped -- the throws-clause case with the same shape is handled in
+                // visitMethod. 21 of the 37 units still failing on the hundred-class corpus were this.
+                case TryStatement ts -> ts.catchClauses().forEach(cc ->
+                        cc.exceptionTypes().forEach(et -> ensureTypes(et, ds(ts))));
                 case ConstructorCall cc -> {
                     if (cc.anonymousClass() != null) {
+                        // the supertype is what the verbatim text names ('new Comparator<X>() {...}'), and an
+                        // interface has no constructor, so the cc.constructor() branch below never reaches it
+                        TypeInfo anonymous = cc.anonymousClass();
+                        if (anonymous.parentClass() != null) ensureTypes(anonymous.parentClass(), ds(cc));
+                        anonymous.interfacesImplemented().forEach(itf -> ensureTypes(itf, ds(cc)));
                         // TypeInfo.visit() is unsupported, so descend into the bodies of its members ourselves,
                         // to reach references (types, calls, fields) that live only inside the anonymous class
                         cc.anonymousClass().constructorAndMethodStream().forEach(mi -> {
@@ -653,7 +831,22 @@ abstract class IsolationCore {
                     // an unqualified static self-call ('helper()') has a synthetic type-expression object (no source)
                     // and belongs on the frame; a written 'C.helper()' has a real source and is routed through the
                     // original-type stub via ensureTypes(object) below, so 'C.' keeps resolving
-                    if (mc.object() == null
+                    if (mc.object() instanceof VariableExpression sve
+                        && sve.variable() instanceof This thisVar && thisVar.writeSuper()) {
+                        // 'super.getSession(...)': the method has to land on the SUPERTYPE's stub, not on the
+                        // isolated type -- which usually declares a method of that very name, that being why the
+                        // body writes 'super.' at all. Sending it to selfType() left the supertype without the
+                        // declaration, and the unit was dropped (maddi's scanner NPEs rather than reporting it)
+                        owner = superTypeStubOf(mc.methodInfo());
+                    } else if ((mc.object() == null || mc.object().source() == null)
+                               && mc.methodInfo().isStatic()
+                               && mc.methodInfo().typeInfo() != originalType
+                               && recordStaticImport(mc.methodInfo().typeInfo(), mc.methodInfo().name())) {
+                        // taken over by a static import: stub it on its real owner, not on the isolated type
+                        TypeInfo declaringStub = ensureType(mc.methodInfo().typeInfo(), null);
+                        ensureMethodInfo(declaringStub, mc.methodInfo());
+                        return true;
+                    } else if (mc.object() == null
                         || mc.object().source() == null
                            && mc.methodInfo().isStatic() && mc.methodInfo().typeInfo() == originalType
                         || mc.object() instanceof VariableExpression ve && ve.variable() instanceof This) {
@@ -687,7 +880,13 @@ abstract class IsolationCore {
                         // and 'this.customerCtx' in the pasted body then resolved to nothing, because the frame
                         // does not extend that stub. The MethodCall branch above already treats 'this.' this way;
                         // this branch did not (closed-core ExportJob.insertRecords).
-                        if (fr.isDefaultScope() || fr.scope() instanceof VariableExpression sve
+                        if (fr.isDefaultScope() && fr.fieldInfo().isStatic()
+                            && fr.fieldInfo().owner() != originalType
+                            && recordStaticImport(fr.fieldInfo().owner(), fr.fieldInfo().name())) {
+                            // 'REMOVE_SHARES' with no scope, declared on FormulaOperatorConstant: a
+                            // static import is the only thing that makes the verbatim spelling resolve
+                            owner = ensureType(fr.fieldInfo().owner(), null);
+                        } else if (fr.isDefaultScope() || fr.scope() instanceof VariableExpression sve
                                                    && sve.variable() instanceof This) {
                             owner = selfType();
                         } else {
