@@ -437,6 +437,15 @@ public class IsolateClass {
                 .filter(t -> declaredSimpleNames.contains(t.simpleName()))
                 .filter(t -> t.primaryType().compilationUnit() != cu)
                 .forEach(importComputer::doNotImport);
+        // A nested type of ANOTHER unit in the same package: the computer skips same-package types unless the
+        // caller asks, and its simple name is not in scope merely by sharing a package. This holds for stub
+        // units too, which otherwise add nothing explicitly -- restricting the request to the isolated unit
+        // cost 20 of the 94 clean trees.
+        result.toImport.stream()
+                .filter(t -> !declaredSimpleNames.contains(t.simpleName()))
+                .filter(t -> t.primaryType().compilationUnit() != cu)
+                .filter(t -> !t.isPrimaryType() && cu.packageName().equals(t.packageName()))
+                .forEach(importComputer::add);
         if (cu == result.isolated) {
             // only the isolated unit holds verbatim text, which the import computer cannot read; a stub unit's
             // references are real CST, so it works those out for itself and an explicit list would only add

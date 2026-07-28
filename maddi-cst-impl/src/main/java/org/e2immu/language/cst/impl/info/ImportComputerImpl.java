@@ -123,9 +123,17 @@ public class ImportComputerImpl implements ImportComputer {
             String packageName = ti.packageName();
             // Sharing a package puts a TOP-LEVEL type's simple name in scope, but not a nested one's: to write
             // 'PaymentDocumentValues' for 'GenerateCompletePDParameters.PaymentDocumentValues' you need the
-            // import even from inside its own package. Only a type declared in THIS compilation unit needs none.
-            boolean inScopeWithoutImport = ti.primaryType().compilationUnit() == compilationUnit
-                                           || myPackage.equals(packageName) && ti.isPrimaryType();
+            // import even from inside its own package.
+            //
+            // Only for a type the CALLER asked for, though. When the computer merely discovers a same-package
+            // nested type by walking the unit, the printer renders it 'Outer.Inner' and no import is wanted --
+            // importing it anyway rewrites perfectly good output ('Front.Helpers' -> 'import a.b.Front.Helpers'
+            // plus a bare 'Helpers'). A caller that pastes verbatim text the computer cannot read, as the
+            // isolators do, adds such a type explicitly and does get the import.
+            boolean sameUnit = ti.primaryType().compilationUnit() == compilationUnit;
+            boolean inScopeWithoutImport = sameUnit
+                                           || myPackage.equals(packageName)
+                                              && (ti.isPrimaryType() || !extra.contains(ti));
             if (packageName != null && !inScopeWithoutImport && !doNotImport.contains(ti)) {
                 boolean doImport = qualification.addTypeReturnImport(ti);
                 LOGGER.debug("Do import of {}? {}", ti, doImport);
