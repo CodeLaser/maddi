@@ -564,11 +564,32 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         throw new UnsupportedOperationException();
     }
 
+    /*
+     Walks the type's own code: field initialisers, constructor and method bodies, and nested types.
+     Exists so that ConstructorCallImpl can descend into an ANONYMOUS class -- code that is written inside
+     an expression, and was therefore invisible to every caller walking a method body with a predicate.
+     Declarations (signatures, annotations, the hierarchy) are not visited: this walk is over Elements, and
+     the callers that need declarations reach them through the Info API instead.
+     */
     @Override
     public void visit(Predicate<Element> predicate) {
-        throw new UnsupportedOperationException();
+        if (predicate.test(this)) {
+            for (FieldInfo fieldInfo : fields()) {
+                Expression initializer = fieldInfo.initializer();
+                if (initializer != null && !initializer.isEmpty()) initializer.visit(predicate);
+            }
+            for (MethodInfo methodInfo : constructors()) methodInfo.methodBody().visit(predicate);
+            for (MethodInfo methodInfo : methods()) methodInfo.methodBody().visit(predicate);
+            for (TypeInfo subType : subTypes()) subType.visit(predicate);
+        }
     }
 
+    /*
+     Not implemented on purpose, unlike visit(Predicate) above. The Visitor protocol has hooks for modules,
+     statements, expressions and variables, but none for a type, so descending into one would hand the
+     visitor a new scope's statements with no way to know the scope had changed. Giving it that hook is a
+     design decision for the Visitor interface, not something to slip in behind a traversal fix.
+     */
     @Override
     public void visit(Visitor visitor) {
         throw new UnsupportedOperationException();
