@@ -701,6 +701,18 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 // when already known, a number of source details are missed out! (e.g. return type)
                 if (!methodInfo.isConstructor()) {
                     convertType.convertTree(jcMethod.getReturnType(), dsb);
+                    // Exactly the parameter situation handled below, for the return type. This method was created
+                    // earlier from its symbol -- e.g. via a method reference scanned before this declaration is
+                    // reached -- so methodInfo.returnType() is a symbol-built instance, while convertTree just
+                    // keyed the tree-built one into dsb. DetailedSources is identity-keyed, so a consumer asking
+                    // for the source of the method's OWN return type misses. It needs that source to place a
+                    // type-replacement edit when the method is moved to another class; without it the rewrite is
+                    // silently skipped and the moved code keeps a name that no longer resolves there.
+                    // See TestReturnTypeSource.
+                    Source returnTypeSource = sourceForNode(jcMethod.getReturnType());
+                    if (returnTypeSource != null && !returnTypeSource.isNoSource()) {
+                        dsb.put(methodInfo.returnType(), returnTypeSource);
+                    }
                 }
                 jcMethod.thrown.forEach(e -> convertType.convertTree(e, dsb));
 
