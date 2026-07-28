@@ -36,8 +36,7 @@ public class TestIsolateMethod12Override extends CommonIsolateMethodTest {
         String out = isolate(x, "validate", 1, m);
         @Language("java")
         String expected = """
-                abstract class X_validate_super { abstract boolean validate(String s);
-                    } public class X_validate extends X_validate_super {
+                abstract class X_validate_super {abstract boolean validate(String s); } public class X_validate extends X_validate_super {
                     @Override
                 public boolean validate(String s) {
                     return s != null;

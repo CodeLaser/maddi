@@ -10,6 +10,7 @@ import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.output.Formatter;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
+import org.e2immu.language.cst.api.output.TypeNameRequired;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
@@ -17,6 +18,7 @@ import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.print.FormattingOptionsImpl;
 import org.e2immu.language.cst.print.formatter2.Formatter2Impl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -33,14 +35,23 @@ public class IsolateMethod {
     private final JavaInspector javaInspector;
     private final Runtime runtime;
     private final String targetPackage;
+    // 'Frame.p.q.Value' rather than 'Value'; see OutOfScopeQualified
+    private final TypeNameRequired qualifiedFromPrimaryType;
 
     public IsolateMethod(JavaInspector javaInspector, String targetPackage) {
         this.javaInspector = javaInspector;
         this.runtime = javaInspector.runtime();
         this.targetPackage = targetPackage;
+        this.qualifiedFromPrimaryType = runtime.qualificationQualifyFromPrimaryType().typeNameRequired();
     }
 
-    public record Result(TypeInfo typeInfo, Set<TypeInfo> jdkTypesToImport) {
+    /**
+     * @param jdkTypesToImport    the JDK types the frame references and that may be imported
+     * @param jdkTypesNotToImport JDK types the frame references whose simple name is owned by another type in
+     *                            {@code jdkTypesToImport}; they must be printed fully qualified. See
+     *                            {@link #arbitrateJdkImports}
+     */
+    public record Result(TypeInfo typeInfo, Set<TypeInfo> jdkTypesToImport, Set<TypeInfo> jdkTypesNotToImport) {
     }
 
     public String print(Result result) {
@@ -59,6 +70,10 @@ public class IsolateMethod {
         result.jdkTypesToImport.stream()
                 .filter(t -> !declaredSimpleNames.contains(t.simpleName()))
                 .forEach(importComputer::add);
+        // adding the winner is not enough: the computer also collects the types it finds while walking the unit, so
+        // the loser would be imported anyway -- and a single-type import beats the on-demand one the winner may
+        // have been collapsed into. It has to be vetoed explicitly.
+        result.jdkTypesNotToImport.forEach(importComputer::doNotImport);
     }
 
     public String print(Result result, String methodString) {
@@ -70,21 +85,30 @@ public class IsolateMethod {
         // type, so the frame-nested types it references resolve as 'Frame.Nested' (simple names everywhere else)
         TypeInfo overrideSuper = compilationUnit.types().stream()
                 .filter(t -> t != result.typeInfo).findFirst().orElse(null);
+        TypePrinter.MethodPrinterFactory methodPrinterFactory = (owner, mi, formatter2) -> {
+            if (mi.name().equals(METHOD_MARKER_NAME)) {
+                return _ -> runtime.newOutputBuilder().add(runtime.newText(methodString));
+            }
+            if (overrideSuper != null && mi.typeInfo() == overrideSuper) {
+                return _ -> runtime.newMethodPrinter(owner, mi, formatter2)
+                        .print(runtime.qualificationQualifyFromPrimaryType());
+            }
+            return q -> runtime.newMethodPrinter(owner, mi, formatter2)
+                    .print(new OutOfScopeQualified(q, owner));
+        };
+        TypePrinter.FieldPrinterFactory fieldPrinterFactory =
+                (fi, formatter2) -> (q, asRecordParameter) -> runtime.newFieldPrinter(fi, formatter2)
+                        .print(new OutOfScopeQualified(q, fi.owner()), asRecordParameter);
+        // the nested stubs are where the out-of-scope references live, and a nested type is printed by the
+        // *enclosed* factory -- whose two-argument print() resets to the default printers. Re-inject on the way down
+        TypePrinter.EnclosedTypePrinterFactory enclosedTypePrinterFactory =
+                new PropagatingTypePrinterFactory(methodPrinterFactory, fieldPrinterFactory);
         OutputBuilder ob = runtime.newCompilationUnitPrinter(compilationUnit, true)
                 .print(importComputer, qualification,
                         runtime::newTypePrinter,
-                        (_, mi, _) -> {
-                            if (mi.name().equals(METHOD_MARKER_NAME)) {
-                                return _ -> runtime.newOutputBuilder().add(runtime.newText(methodString));
-                            }
-                            if (overrideSuper != null && mi.typeInfo() == overrideSuper) {
-                                return _ -> runtime.newMethodPrinter(mi)
-                                        .print(runtime.qualificationQualifyFromPrimaryType());
-                            }
-                            return runtime.newMethodPrinter(mi);
-                        },
-                        runtime::newFieldPrinter,
-                        runtime::newTypePrinter);
+                        methodPrinterFactory,
+                        fieldPrinterFactory,
+                        enclosedTypePrinterFactory);
         Formatter formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
         return formatter.write(ob);
     }
@@ -164,7 +188,46 @@ public class IsolateMethod {
                 .addMethod(methodMarker)
                 .commit();
         newCu.setTypes(overrideSuper == null ? List.of(frame) : List.of(overrideSuper, frame));
-        return new Result(frame, data.jdkTypesToImport);
+        Set<TypeInfo> importable = arbitrateJdkImports(data);
+        Set<TypeInfo> notImportable = new HashSet<>(data.jdkTypesToImport);
+        notImportable.removeAll(importable);
+        return new Result(frame, importable, notImportable);
+    }
+
+    /**
+     * Two JDK types can share a simple name — {@code java.sql.Date} and {@code java.util.Date} being the case that
+     * cost us an isolate. Only one of them can be imported into the frame, because a single-type import beats an
+     * on-demand one: with both {@code import java.sql.*} (the import computer collapses four or more types of a
+     * package) and {@code import java.util.Date} in scope, every bare {@code Date} in the pasted text means
+     * {@code java.util.Date}, and {@code PreparedStatement.setDate(int, java.sql.Date)} then rejects it.
+     * <p>
+     * The pasted text is verbatim and cannot be respelled, so the type it names by its simple name is the one that
+     * has to own the name. The loser is simply left out of the import computer, which prints it fully qualified
+     * wherever a reconstructed signature mentions it — the same mechanism {@link #addJdkImports} already relies on
+     * for a stub that shadows its own JDK supertype.
+     */
+    private static Set<TypeInfo> arbitrateJdkImports(Data data) {
+        Map<String, List<TypeInfo>> bySimpleName = new HashMap<>();
+        for (TypeInfo t : data.jdkTypesToImport) {
+            bySimpleName.computeIfAbsent(t.simpleName(), _ -> new ArrayList<>()).add(t);
+        }
+        Set<TypeInfo> importable = new HashSet<>();
+        for (Map.Entry<String, List<TypeInfo>> entry : bySimpleName.entrySet()) {
+            List<TypeInfo> candidates = entry.getValue();
+            if (candidates.size() == 1) {
+                importable.add(candidates.getFirst());
+                continue;
+            }
+            // sorted first, so the outcome does not depend on the iteration order of a hash set
+            List<TypeInfo> sorted = candidates.stream()
+                    .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
+            TypeInfo winner = sorted.stream().filter(data.jdkNamedSimplyInSource::contains)
+                    .findFirst().orElse(sorted.getFirst());
+            importable.add(winner);
+            LOGGER.info("Simple name '{}' claimed by {} JDK types; importing {}, qualifying the rest",
+                    entry.getKey(), candidates.size(), winner);
+        }
+        return importable;
     }
 
     private static boolean isOverride(MethodInfo methodInfo) {
@@ -221,6 +284,10 @@ public class IsolateMethod {
         // original type parameter -> the freshly created one on the corresponding stub type
         final Map<TypeParameter, TypeParameter> typeParameterMap = new HashMap<>();
         final Set<TypeInfo> jdkTypesToImport = new HashSet<>(); // TODO
+        // the JDK types the pasted text names by their simple name ('Date', not 'java.sql.Date'). That spelling is
+        // verbatim source and cannot be changed, so on a simple-name clash this is the type that keeps the import;
+        // see arbitrateJdkImports
+        final Set<TypeInfo> jdkNamedSimplyInSource = new HashSet<>();
         // a running counter handing every numeric constant a distinct value: such constants can be used as switch
         // 'case' labels, which the compiler evaluates and requires to be distinct
         int nextNumericConstant;
@@ -290,7 +357,13 @@ public class IsolateMethod {
             // the original type, referenced by its own name (a 'C' parameter/local, 'new C()', 'C.staticMethod()'),
             // resolves to the stub carrying that name -- the frame has been renamed and no longer answers to 'C'
             if (typeInfo == originalType) return originalTypeStub();
-            if (isJdkType(typeInfo)) return typeInfo;
+            if (isJdkType(typeInfo)) {
+                // written out in the pasted text, and without its package: that simple name is now spoken for
+                if (ds != null && ds.detail(typeInfo.packageName()) == null) {
+                    jdkNamedSimplyInSource.add(typeInfo);
+                }
+                return typeInfo;
+            }
 
             TypeInfo inMap = typeMap.get(typeInfo);
             if (inMap != null) return inMap;
@@ -908,6 +981,161 @@ public class IsolateMethod {
             }
             return true;
         }
+    }
+
+    /**
+     * The pasted body and a reconstructed signature disagree about how deeply nested stubs are spelled, and both
+     * have to reach the same declaration.
+     * <p>
+     * A type written fully qualified in the source ({@code (com.example.legacy.parameter.ParamDouble) value}) is
+     * reproduced as a namespace stub, nested {@code frame → be → closed-core → legacy → parameter}: the body is
+     * verbatim text, so nothing else would keep it resolving. But a signature we reconstruct — a stub field, a
+     * stub method's return or parameter type — is printed with simple names, and {@code ParamDouble} does not
+     * resolve from a sibling branch of the nesting tree. Flattening the type into the frame is not an option: it
+     * would break the 18 fully-qualified casts in that one method alone.
+     * <p>
+     * So the reconstructed side is the one that gives way. This qualification prints a referenced stub as
+     * {@code Frame.com.example.legacy.parameter.ParamDouble} — but only where the simple name genuinely does not
+     * resolve, so the ordinary isolate stays as readable as it was.
+     */
+    /**
+     * {@link TypePrinter}'s two-argument {@code print} falls back to the default method/field/type printers, so a
+     * custom printer handed to the compilation-unit printer only ever reaches the top-level types. This factory
+     * hands it back down at every level of nesting, which is where the stubs -- and therefore the out-of-scope
+     * references of {@link OutOfScopeQualified} -- actually are.
+     */
+    private class PropagatingTypePrinterFactory implements TypePrinter.EnclosedTypePrinterFactory {
+        private final TypePrinter.MethodPrinterFactory methodPrinterFactory;
+        private final TypePrinter.FieldPrinterFactory fieldPrinterFactory;
+
+        private PropagatingTypePrinterFactory(TypePrinter.MethodPrinterFactory methodPrinterFactory,
+                                              TypePrinter.FieldPrinterFactory fieldPrinterFactory) {
+            this.methodPrinterFactory = methodPrinterFactory;
+            this.fieldPrinterFactory = fieldPrinterFactory;
+        }
+
+        @Override
+        public TypePrinter create(TypeInfo typeInfo, boolean formatter2) {
+            TypePrinter delegate = runtime.newTypePrinter(typeInfo, formatter2);
+            return new TypePrinter() {
+                @Override
+                public List<TypeModifier> minimalModifiers(TypeInfo typeInfo) {
+                    return delegate.minimalModifiers(typeInfo);
+                }
+
+                @Override
+                public OutputBuilder print(ImportComputer importComputer, Qualification qualification,
+                                           boolean doTypeDeclaration) {
+                    return delegate.print(importComputer, qualification, doTypeDeclaration);
+                }
+
+                @Override
+                public OutputBuilder print(CompilationUnitPrinter.ImportData importData, boolean doTypeDeclaration) {
+                    return delegate.print(importData, doTypeDeclaration, methodPrinterFactory, fieldPrinterFactory,
+                            PropagatingTypePrinterFactory.this);
+                }
+
+                @Override
+                public OutputBuilder print(CompilationUnitPrinter.ImportData importData, boolean doTypeDeclaration,
+                                           MethodPrinterFactory mpf, FieldPrinterFactory fpf,
+                                           EnclosedTypePrinterFactory etpf) {
+                    return delegate.print(importData, doTypeDeclaration, mpf, fpf, etpf);
+                }
+            };
+        }
+    }
+
+    private class OutOfScopeQualified implements Qualification {
+        private final Qualification delegate;
+        private final TypeInfo from;
+
+        private OutOfScopeQualified(Qualification delegate, TypeInfo from) {
+            this.delegate = delegate;
+            this.from = from;
+        }
+
+        @Override
+        public TypeNameRequired qualifierRequired(TypeInfo typeInfo) {
+            if (outOfScope(typeInfo)) return qualifiedFromPrimaryType;
+            return delegate.qualifierRequired(typeInfo);
+        }
+
+        /**
+         * Is {@code typeInfo}'s simple name unreachable from {@link #from}? A member type is in scope in its own
+         * enclosing type and in everything nested inside it, so we walk {@code from} outwards and look for the
+         * type itself or its enclosing type. Supertype members are not considered: over-qualifying is harmless
+         * (the qualified form resolves wherever the simple one does), under-qualifying is what breaks the parse.
+         */
+        private boolean outOfScope(TypeInfo typeInfo) {
+            // not declared here (a JDK type, or the @Override supertype): the import computer decides
+            if (typeInfo.compilationUnit() != from.compilationUnit()) return false;
+            if (typeInfo.isPrimaryType()) return false;
+            TypeInfo enclosing = enclosingTypeOrNull(typeInfo);
+            for (TypeInfo t = from; t != null; t = enclosingTypeOrNull(t)) {
+                if (t == typeInfo || t == enclosing) return false;
+            }
+            return true;
+        }
+
+        @Override
+        public boolean doNotQualifyImplicit() {
+            return delegate.doNotQualifyImplicit();
+        }
+
+        @Override
+        public boolean isFullyQualifiedNames() {
+            return delegate.isFullyQualifiedNames();
+        }
+
+        @Override
+        public boolean isSimpleOnly() {
+            return delegate.isSimpleOnly();
+        }
+
+        @Override
+        public boolean qualifierRequired(MethodInfo methodInfo) {
+            return delegate.qualifierRequired(methodInfo);
+        }
+
+        @Override
+        public boolean qualifierRequired(Variable variable) {
+            return delegate.qualifierRequired(variable);
+        }
+
+        @Override
+        public TypeNameRequired typeNameRequired() {
+            return delegate.typeNameRequired();
+        }
+
+        @Override
+        public Decorator decorator() {
+            return delegate.decorator();
+        }
+
+        @Override
+        public void addField(FieldInfo fieldInfo) {
+            delegate.addField(fieldInfo);
+        }
+
+        @Override
+        public void addUnqualifiedType(TypeInfo typeInfo) {
+            delegate.addUnqualifiedType(typeInfo);
+        }
+
+        @Override
+        public void addThis(This thisVar) {
+            delegate.addThis(thisVar);
+        }
+
+        @Override
+        public void addMethodUnlessOverride(MethodInfo methodInfo) {
+            delegate.addMethodUnlessOverride(methodInfo);
+        }
+    }
+
+    private static TypeInfo enclosingTypeOrNull(TypeInfo typeInfo) {
+        var e = typeInfo.compilationUnitOrEnclosingType();
+        return e.isRight() ? e.getRight() : null;
     }
 
     // number of enclosing types up to the compilation unit (a primary type has depth 0)

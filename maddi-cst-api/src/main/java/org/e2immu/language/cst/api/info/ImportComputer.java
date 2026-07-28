@@ -41,5 +41,16 @@ public interface ImportComputer {
 
     void add(TypeInfo typeInfo);
 
+    /**
+     * Never import this type: print it fully qualified wherever it occurs.
+     * <p>
+     * Needed when the caller, not the computer, knows which of two types sharing a simple name must own it. The
+     * computer resolves such a clash by first-come-first-served over a hash set, so without this the outcome is
+     * arbitrary; and its own {@code conflict} check cannot see the contents of a JDK package, so it will happily
+     * emit {@code import java.sql.*} next to {@code import java.util.Date} — where the single-type import wins,
+     * and every bare {@code Date} silently changes meaning.
+     */
+    void doNotImport(TypeInfo typeInfo);
+
     Result go(CompilationUnit compilationUnit, Qualification qualification);
 }

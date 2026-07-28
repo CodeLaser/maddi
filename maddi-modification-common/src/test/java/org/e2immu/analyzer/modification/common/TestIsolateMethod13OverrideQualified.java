@@ -37,7 +37,7 @@ public class TestIsolateMethod13OverrideQualified extends CommonIsolateMethodTes
         String out = isolate(x, "cc", 1, m);
         @Language("java")
         String expected = """
-                abstract class X_cc_super { abstract X_cc.Q cc(X_cc.ST token); } public class X_cc extends X_cc_super {
+                abstract class X_cc_super {abstract X_cc.Q cc(X_cc.ST token); } public class X_cc extends X_cc_super {
                     class Q { }
                     class ST { }
                     @Override
