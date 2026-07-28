@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 // exception types: a custom exception thrown/caught must be stubbed as a Throwable subtype so the text compiles
 public class TestIsolateMethod7Exceptions extends CommonIsolateMethodTest {
@@ -90,6 +91,37 @@ public class TestIsolateMethod7Exceptions extends CommonIsolateMethodTest {
                 }
                 """;
         assertEquals(expected, out);
+        javaInspector.invalidateAllSources();
+        assertNotNull(javaInspector.parse("X_method", out));
+    }
+
+    @Language("java")
+    public static final String E3 = """
+            package a.b;
+            import java.io.IOException;
+            public class X {
+                void helper() throws IOException { }
+                void method() throws IOException {
+                    helper();
+                }
+            }
+            """;
+
+    // The throws clause is the ONLY mention: the body calls a helper that declares it, so nothing the body
+    // visitor sees names IOException. Before the fix in IsolateMethod.visit(Data, MethodInfo) the frame came
+    // out without the import and the pasted signature did not resolve, which drops the whole unit on an
+    // unresolved symbol. Found on closed-core (ExportJob.insertRecords, 'throws SQLException').
+    @DisplayName("checked exception mentioned only in the throws clause")
+    @Test
+    public void e3() {
+        TypeInfo X = parse("a.b.X", E3);
+        String m = """
+                void method() throws IOException {
+                    helper();
+                }""";
+        String out = isolate(X, "method", 0, m);
+        assertTrue(out.contains("import java.io.IOException;"),
+                "the throws type must be imported, otherwise the frame does not resolve:\n" + out);
         javaInspector.invalidateAllSources();
         assertNotNull(javaInspector.parse("X_method", out));
     }

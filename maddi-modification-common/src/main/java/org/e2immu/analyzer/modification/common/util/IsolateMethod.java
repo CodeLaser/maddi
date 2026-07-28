@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.common.util;
 
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Source;
@@ -112,6 +113,26 @@ public class IsolateMethod {
                 .computeAccess();
 
         Data data = new Data(methodInfo, frame);
+        // The frame stands in for the type that declares the method, so it must stand in for that type's type
+        // parameters too. A method of 'class Query<T>' whose body says 'T' is pasted verbatim into the frame,
+        // and with no '<T>' on the frame that T resolves to nothing -- the unit is dropped on "Type T not
+        // found". Mapping them as well lets ensureTypes translate reconstructed signatures onto the frame's own
+        // parameters instead of leaving the originals dangling. (Three of closed-core's isolates, including
+        // GetInvoiceQuery.getInvoiceQuery on a generic query class.)
+        List<TypeParameter> declaringTps = methodInfo.typeInfo().typeParameters();
+        List<TypeParameter> frameTps = new ArrayList<>(declaringTps.size());
+        for (TypeParameter origTp : declaringTps) {
+            TypeParameter newTp = runtime.newTypeParameter(origTp.getIndex(), origTp.simpleName(), frame);
+            data.typeParameterMap.put(origTp, newTp);
+            frame.builder().addOrSetTypeParameter(newTp);
+            frameTps.add(newTp);
+        }
+        // bounds in a second pass: a bound may reference a sibling parameter, or this one ('T extends X<T>')
+        for (int i = 0; i < frameTps.size(); i++) {
+            List<ParameterizedType> bounds = declaringTps.get(i).typeBounds().stream()
+                    .map(data::ensureTypes).toList();
+            frameTps.get(i).builder().setTypeBounds(bounds).commit();
+        }
         visit(data, methodInfo);
         data.addDummyInterfaceMethods();
 
@@ -186,7 +207,16 @@ public class IsolateMethod {
         private final TypeInfo originalType;
         private final TypeInfo frame;
         final Map<TypeInfo, TypeInfo> typeMap = new HashMap<>();
-        final Map<MethodInfo, MethodInfo> methodMap = new HashMap<>();
+        // keyed by (owner, method), NOT by method alone: the same declared method can be reached through two
+        // different receiver types ('customerCtx.theCustomers.getObjectInfo()' and another CustomerPar-like
+        // holder both inheriting it), and each receiver's stub needs its own copy. Keying by the method alone
+        // gave the first owner the stub and left every later one without it, so the call did not resolve and the
+        // whole frame was dropped (closed-core ExportJob.insertRecords).
+        record OwnedMethod(TypeInfo owner, MethodInfo method) {
+        }
+        final Map<OwnedMethod, MethodInfo> methodMap = new HashMap<>();
+        // annotation attributes are keyed by method alone: they are always stubbed on their own annotation type
+        final Map<MethodInfo, MethodInfo> attributeMap = new HashMap<>();
         final Map<FieldInfo, FieldInfo> fieldMap = new HashMap<>();
         // original type parameter -> the freshly created one on the corresponding stub type
         final Map<TypeParameter, TypeParameter> typeParameterMap = new HashMap<>();
@@ -267,9 +297,26 @@ public class IsolateMethod {
             // and primary types, are nested directly in the frame.
             var enclosing = typeInfo.compilationUnitOrEnclosingType();
             TypeInfo enclosingStub;
-            if (enclosing.isRight()) {
-                // a member type: nest in the frame (if nested in the original type) or in the enclosing type's stub
-                enclosingStub = enclosing.getRight() == originalType ? frame : ensureType(enclosing.getRight(), ds);
+            if (enclosing.isRight() && enclosing.getRight() == originalType) {
+                // nested in the original type: the frame stands in for that type, so nest directly in it
+                enclosingStub = frame;
+            } else if (enclosing.isRight() && ds == null && nestingWouldHide(typeInfo)) {
+                // A MEMBER TYPE REACHED WITHOUT SYNTACTIC EVIDENCE (ds == null): the reference comes from the
+                // reconstructed model -- a stubbed field's type, a supertype, a type argument -- not from a
+                // written-out 'Outer.Inner' in the pasted text. Reproducing the nesting there puts the
+                // declaration in a sibling branch of the frame, where Java's scoping does not resolve its simple
+                // name, and the whole unit is dropped on "Type Inner not found". Measured on closed-core:
+                // ParamDouble declared five levels deep and used two levels deep; RowFilter and
+                // DataSourceType likewise -- four of the ten isolates that would not parse back.
+                //
+                // A type nested DIRECTLY in the frame is in scope throughout the frame, including inside every
+                // other stub, so that is where such a reference has to go. When ds IS present the reference was
+                // written out and the nesting is what makes it resolve, so the branch below reproduces it --
+                // the same evidence rule the primary-type branches use.
+                frameSimpleNameClaims.put(typeInfo.simpleName(), typeInfo);
+                enclosingStub = frame;
+            } else if (enclosing.isRight()) {
+                enclosingStub = ensureType(enclosing.getRight(), ds);
             } else if (ds != null && ds.detail(typeInfo.packageName()) != null) {
                 // detailed sources say the package was written out (fully-qualified, e.g. 'a.b.C'): reproduce its
                 // package as a chain of namespace stubs so the qualified reference still resolves
@@ -336,6 +383,23 @@ public class IsolateMethod {
                 newTps.get(i).builder().setTypeBounds(newBounds).commit();
             }
             return stub;
+        }
+
+        /**
+         * Would nesting this member type under its enclosing type's stub put its simple name out of scope?
+         * <p>
+         * It would, unless the frame already needs that name for something else. Java resolves a nested type's
+         * simple name only inside its own enclosing type, so a stub nested two or more levels deep is invisible
+         * to stubs in other branches -- while a stub nested directly in the frame is visible everywhere in it.
+         * The one case where the nesting must be kept is a genuine simple-name collision: two different types
+         * with the same simple name cannot both occupy the frame's top level, and in the original source such a
+         * reference is necessarily written qualified, which the nested placement reproduces.
+         */
+        private boolean nestingWouldHide(TypeInfo typeInfo) {
+            String simpleName = typeInfo.simpleName();
+            if (originalMemberSimpleNames.contains(simpleName)) return false;
+            TypeInfo claimer = frameSimpleNameClaims.get(simpleName);
+            return claimer == null || claimer == typeInfo;
         }
 
         // reproduce the real superclass so the subtype chain holds (e.g. a custom exception keeps 'extends Exception',
@@ -409,13 +473,51 @@ public class IsolateMethod {
             fieldMap.put(fieldInfo, newField);
         }
 
+        /**
+         * Replace type parameters that are not in scope where the stub method is being declared by their
+         * erasure — the first bound, or {@code Object}.
+         * <p>
+         * A stub method is placed on the type the call went THROUGH, which need not be the type that declares
+         * it. {@code class Filter implements RowFilter} (raw) inherits {@code accept(T)} from a generic
+         * interface; the stub lands on {@code Filter}, where {@code T} is not in scope, and the frame is dropped
+         * on "Type T not found". The compiler erases in exactly this situation, so do we. Measured on
+         * closed-core: three isolates, all raw implementations of a generic filter/command interface.
+         */
+        private ParameterizedType eraseOutOfScope(ParameterizedType pt, TypeInfo owner, MethodInfo newMethod) {
+            TypeParameter tp = pt.typeParameter();
+            if (tp != null) {
+                if (inScope(tp, owner, newMethod)) return pt;
+                ParameterizedType bound = tp.typeBounds().isEmpty() ? null : tp.typeBounds().getFirst();
+                TypeInfo erased = bound != null && bound.typeInfo() != null
+                        ? bound.typeInfo() : runtime.objectParameterizedType().typeInfo();
+                return runtime.newParameterizedType(erased, pt.arrays(), pt.wildcard(), List.of());
+            }
+            if (pt.typeInfo() == null || pt.parameters().isEmpty()) return pt;
+            List<ParameterizedType> params = pt.parameters().stream()
+                    .map(p -> eraseOutOfScope(p, owner, newMethod)).toList();
+            return runtime.newParameterizedType(pt.typeInfo(), pt.arrays(), pt.wildcard(), params);
+        }
+
+        /** A type parameter is usable in a method declared on {@code owner} if the method itself declares it, or
+         *  the declaring type does — including an enclosing type, whose parameters are in scope in nested ones. */
+        private boolean inScope(TypeParameter tp, TypeInfo owner, MethodInfo newMethod) {
+            var tpOwner = tp.getOwner();
+            if (tpOwner.isRight()) return tpOwner.getRight() == newMethod;
+            for (TypeInfo t = owner; t != null; ) {
+                if (t == tpOwner.getLeft()) return true;
+                var enclosing = t.compilationUnitOrEnclosingType();
+                t = enclosing.isRight() ? enclosing.getRight() : null;
+            }
+            return false;
+        }
+
         private void ensureMethodInfo(TypeInfo owner, MethodInfo methodInfo) {
             if (isJdkType(owner)) return;
             // a method inherited from a JDK supertype (e.g. ArrayList.get() from java.util.ArrayList on a custom
             // subclass) resolves via the reproduced real supertype; stubbing it would leak that supertype's type
             // parameters (e.g. 'E get(int)') into the stub, which are not in scope
             if (isJdkType(methodInfo.typeInfo())) return;
-            MethodInfo inMap = methodMap.get(methodInfo);
+            MethodInfo inMap = methodMap.get(new OwnedMethod(owner, methodInfo));
             if (inMap != null) return;
             // a non-static method on an interface stub becomes 'default' (keeps the body): an abstract method would
             // force every implementing class stub to override it
@@ -440,12 +542,12 @@ public class IsolateMethod {
                 newMethodTps.get(i).builder().setTypeBounds(newBounds).commit();
             }
             methodInfo.parameters().forEach(pi -> {
-                ParameterizedType newType = ensureTypes(pi.parameterizedType());
+                ParameterizedType newType = eraseOutOfScope(ensureTypes(pi.parameterizedType()), owner, newMethod);
                 ParameterInfo newParam = newMethod.builder().addParameter(pi.name(), newType);
                 newParam.builder().setVarArgs(pi.isVarArgs()).setIsFinal(pi.isFinal()).commit();
             });
             Block.Builder mb = runtime.newBlockBuilder();
-            ParameterizedType newReturnType = ensureTypes(methodInfo.returnType());
+            ParameterizedType newReturnType = eraseOutOfScope(ensureTypes(methodInfo.returnType()), owner, newMethod);
             if (!methodInfo.isConstructor() && !methodInfo.returnType().isVoid()) {
                 Expression expression = runtime.nullValue(newReturnType);
                 mb.addStatement(runtime.newReturnBuilder().setExpression(expression).build());
@@ -468,7 +570,7 @@ public class IsolateMethod {
                     .commit();
             LOGGER.info("Adding method {}", newMethod);
             owner.builder().addMethod(newMethod);
-            methodMap.put(methodInfo, newMethod);
+            methodMap.put(new OwnedMethod(owner, methodInfo), newMethod);
         }
 
         // an interface's abstract method together with the type-argument map that turns its (interface) type
@@ -530,13 +632,19 @@ public class IsolateMethod {
         private void addDummyImplementation(TypeInfo stub, AbstractMethod am) {
             MethodInfo abstractMethod = am.method;
             MethodInfo dummy = runtime.newMethod(stub, abstractMethod.name(), runtime.methodTypeMethod());
+            // eraseOutOfScope: a RAW 'implements RowFilter' has no type arguments, so applyTranslation
+            // substitutes nothing and the interface's own 'T' survives into a dummy implementation on a class
+            // that does not declare it -- the frame is then dropped on "Type T not found". Erasing to the
+            // bound is what the compiler does for a raw supertype. (Three closed-core isolates.)
             abstractMethod.parameters().forEach(pi -> {
-                ParameterizedType type = ensureTypes(pi.parameterizedType().applyTranslation(runtime, am.typeArguments));
+                ParameterizedType type = eraseOutOfScope(
+                        ensureTypes(pi.parameterizedType().applyTranslation(runtime, am.typeArguments)),
+                        stub, dummy);
                 ParameterInfo np = dummy.builder().addParameter(pi.name(), type);
                 np.builder().setVarArgs(pi.isVarArgs()).setIsFinal(false).commit();
             });
-            ParameterizedType returnType = ensureTypes(abstractMethod.returnType()
-                    .applyTranslation(runtime, am.typeArguments));
+            ParameterizedType returnType = eraseOutOfScope(ensureTypes(abstractMethod.returnType()
+                    .applyTranslation(runtime, am.typeArguments)), stub, dummy);
             Block.Builder mb = runtime.newBlockBuilder();
             if (!returnType.isVoid()) {
                 mb.addStatement(runtime.newReturnBuilder().setExpression(runtime.nullValue(returnType)).build());
@@ -556,14 +664,38 @@ public class IsolateMethod {
             return m.name() + "/" + m.parameters().size();
         }
 
+        /**
+         * Is this a type the isolated frame can simply refer to, rather than one it has to stub?
+         * <p>
+         * The criterion is <b>"does running it need an external jar"</b>: everything shipped with the JDK is
+         * kept as itself and imported; everything that would need a library on the class path is stubbed. That
+         * is recorded per source set — a type resolved from a {@code jmod} has {@code partOfJdk} — so it is a
+         * fact about where the type came from, not a guess from its name.
+         * <p>
+         * A package-name test cannot make this distinction. {@code javax.xml.namespace.QName} ships in module
+         * {@code java.xml} and {@code javax.xml.stream.XMLStreamReader} in the same module, while
+         * {@code javax.servlet.*} needs a jar; all three start with {@code javax.}. The old {@code java.}-prefix
+         * test therefore stubbed the first two, and because they are then reached through a namespace chain the
+         * printer emitted the nonsense {@code Product_serialize_35.javax.xml.namespace.QName}.
+         * <p>
+         * {@code java.*} is kept as a fallback for the case where a source set is unavailable: the JVM forbids
+         * user code in {@code java.*}, so anything in that namespace is JDK by construction.
+         */
         private boolean isJdkType(TypeInfo owner) {
-            if (owner.packageName() == null || owner.packageName().startsWith("java.")) {
-                if (owner.packageName() != null && !owner.packageName().equals("java.lang")) {
-                    jdkTypesToImport.add(owner);
-                }
-                return true;
+            String packageName = owner.packageName();
+            if (packageName == null) return true;
+            if (!partOfJdk(owner) && !packageName.startsWith("java.")) return false;
+            // java.lang is imported implicitly; anything else needs an explicit import in the frame. For a
+            // NESTED JDK type, import its enclosing types too: the pasted text is verbatim source and may write
+            // either form, and 'import java.util.Map.Entry' does not make a written 'Map.Entry' resolve -- the
+            // parser then invents a stub type 'Map.Entry' with no methods and the call 'entry.getKey()' is
+            // unresolved, taking the whole frame with it.
+            for (TypeInfo t = owner; t != null; ) {
+                if (!"java.lang".equals(t.packageName())) jdkTypesToImport.add(t);
+                var enclosing = t.compilationUnitOrEnclosingType();
+                t = enclosing.isRight() ? enclosing.getRight() : null;
             }
-            return false;
+            return true;
         }
 
         // an annotation present in the pasted text ('@Marker', '@Named("x")') needs its '@interface' stubbed, plus
@@ -581,7 +713,7 @@ public class IsolateMethod {
                 for (AnnotationExpression.KV kv : ae.keyValuePairs()) {
                     MethodInfo origAttr = annotationType.methodStream()
                             .filter(mm -> mm.name().equals(kv.key())).findFirst().orElse(null);
-                    if (origAttr != null && !methodMap.containsKey(origAttr)) {
+                    if (origAttr != null && !attributeMap.containsKey(origAttr)) {
                         MethodInfo newAttr = runtime.newMethod(stub, origAttr.name(),
                                 runtime.methodTypeAbstractMethod());
                         newAttr.builder()
@@ -593,7 +725,7 @@ public class IsolateMethod {
                                 .setMethodBody(runtime.emptyBlock())
                                 .commit();
                         stub.builder().addMethod(newAttr);
-                        methodMap.put(origAttr, newAttr);
+                        attributeMap.put(origAttr, newAttr);
                     }
                     kv.value().visit(visitor);
                 }
@@ -613,6 +745,25 @@ public class IsolateMethod {
         private DetailedSources ds(Element e) {
             Source s = e == null ? null : e.source();
             return s == null ? null : s.detailedSources();
+        }
+
+        /**
+         * The type on which a call's receiver declares its methods. Normally that is simply the receiver's
+         * {@code TypeInfo}, but a receiver typed by a TYPE PARAMETER ({@code T t; t.compareTo(x)}) has none: the
+         * method lives on the parameter's erasure -- its first bound, or {@code Object} when unbounded -- which
+         * is where the compiler resolves it too. Returning null here made {@code isJdkType} throw an NPE.
+         */
+        private TypeInfo erasedOwner(ParameterizedType pt) {
+            TypeInfo typeInfo = pt.typeInfo();
+            if (typeInfo != null) return typeInfo;
+            if (pt.typeParameter() != null) {
+                List<ParameterizedType> bounds = pt.typeParameter().typeBounds();
+                if (!bounds.isEmpty()) {
+                    TypeInfo bound = bounds.getFirst().typeInfo();
+                    if (bound != null) return bound;
+                }
+            }
+            return runtime.objectParameterizedType().typeInfo();
         }
 
         @Override
@@ -668,7 +819,7 @@ public class IsolateMethod {
                         owner = data.frame;
                     } else {
                         ParameterizedType firstOwner = data.ensureTypes(mc.object().parameterizedType(), ds(mc.object()));
-                        owner = firstOwner.typeInfo();
+                        owner = erasedOwner(firstOwner);
                     }
                     data.ensureMethodInfo(owner, mc.methodInfo());
                 }
@@ -682,14 +833,21 @@ public class IsolateMethod {
                         owner = data.frame;
                     } else {
                         ParameterizedType scopeType = data.ensureTypes(mr.scope().parameterizedType(), ds(mr.scope()));
-                        owner = scopeType.typeInfo();
+                        owner = erasedOwner(scopeType);
                     }
                     data.ensureMethodInfo(owner, mr.methodInfo());
                 }
                 case VariableExpression ve -> {
                     if (ve.variable() instanceof FieldReference fr) {
                         TypeInfo owner;
-                        if (fr.isDefaultScope()) {
+                        // An explicit 'this.' scope means the same thing as no scope at all: the field belongs on
+                        // the frame, which stands in for the type declaring the isolated method. Without this it
+                        // was routed to its DECLARING type instead -- the original-type stub nested in the frame --
+                        // and 'this.customerCtx' in the pasted body then resolved to nothing, because the frame
+                        // does not extend that stub. The MethodCall branch above already treats 'this.' this way;
+                        // this branch did not (closed-core ExportJob.insertRecords).
+                        if (fr.isDefaultScope() || fr.scope() instanceof VariableExpression sve
+                                                   && sve.variable() instanceof This) {
                             owner = data.frame;
                         } else {
                             // still stub the scope's own type (it may be referenced nowhere else), but place the
@@ -736,10 +894,29 @@ public class IsolateMethod {
         if (methodInfo.hasReturnValue()) {
             data.ensureTypes(methodInfo.returnType(), detailedSources(methodInfo.source()));
         }
+        // A checked exception can appear ONLY in the throws clause: 'void m() throws SQLException' whose body
+        // merely calls JDBC never mentions SQLException anywhere the body visitor can see it. Without this the
+        // frame neither imports nor stubs it, and the pasted signature does not resolve -- the whole compilation
+        // unit is then dropped on an unresolved symbol. TestIsolateMethod7Exceptions did not catch it because
+        // its exception is also 'throw new'n in the body; closed-core's ExportJob.insertRecords is
+        // the real-world case that does not.
+        for (ParameterizedType exceptionType : methodInfo.exceptionTypes()) {
+            data.ensureTypes(exceptionType, detailedSources(methodInfo.source()));
+        }
         // annotations on the isolated method (and its parameters) appear verbatim in the pasted text
         data.ensureAnnotations(methodInfo, myVisitor);
 
         methodInfo.methodBody().visit(myVisitor);
+    }
+
+    /**
+     * Whether {@code typeInfo} ships with the JDK, i.e. was resolved from a {@code jmod} rather than from a jar
+     * on the class path. See {@code Data.isJdkType} for why this is the criterion.
+     */
+    private static boolean partOfJdk(TypeInfo typeInfo) {
+        CompilationUnit compilationUnit = typeInfo.compilationUnit();
+        SourceSet sourceSet = compilationUnit == null ? null : compilationUnit.sourceSet();
+        return sourceSet != null && sourceSet.partOfJdk();
     }
 
     private static DetailedSources detailedSources(Source source) {
