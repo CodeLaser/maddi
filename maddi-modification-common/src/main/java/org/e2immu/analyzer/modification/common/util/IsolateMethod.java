@@ -300,7 +300,8 @@ public class IsolateMethod {
             if (enclosing.isRight() && enclosing.getRight() == originalType) {
                 // nested in the original type: the frame stands in for that type, so nest directly in it
                 enclosingStub = frame;
-            } else if (enclosing.isRight() && ds == null && nestingWouldHide(typeInfo)) {
+            } else if (enclosing.isRight() && !enclosingWritten(enclosing.getRight(), ds)
+                       && nestingWouldHide(typeInfo)) {
                 // A MEMBER TYPE REACHED WITHOUT SYNTACTIC EVIDENCE (ds == null): the reference comes from the
                 // reconstructed model -- a stubbed field's type, a supertype, a type argument -- not from a
                 // written-out 'Outer.Inner' in the pasted text. Reproducing the nesting there puts the
@@ -383,6 +384,16 @@ public class IsolateMethod {
                 newTps.get(i).builder().setTypeBounds(newBounds).commit();
             }
             return stub;
+        }
+
+        /**
+         * Was the enclosing type spelled out at the reference site ({@code Outer.Inner}) rather than the member
+         * type being named on its own ({@code Inner}, via an import)? The parser records a {@link Source} for
+         * every type it writes out, so the enclosing type having a position in this element's detailed sources
+         * IS the evidence that it was written.
+         */
+        private boolean enclosingWritten(TypeInfo enclosingType, DetailedSources ds) {
+            return ds != null && ds.detail(enclosingType) != null;
         }
 
         /**
