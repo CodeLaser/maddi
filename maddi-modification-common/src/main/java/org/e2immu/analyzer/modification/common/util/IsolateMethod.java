@@ -207,7 +207,16 @@ public class IsolateMethod {
         private final TypeInfo originalType;
         private final TypeInfo frame;
         final Map<TypeInfo, TypeInfo> typeMap = new HashMap<>();
-        final Map<MethodInfo, MethodInfo> methodMap = new HashMap<>();
+        // keyed by (owner, method), NOT by method alone: the same declared method can be reached through two
+        // different receiver types ('customerCtx.theCustomers.getObjectInfo()' and another CustomerPar-like
+        // holder both inheriting it), and each receiver's stub needs its own copy. Keying by the method alone
+        // gave the first owner the stub and left every later one without it, so the call did not resolve and the
+        // whole frame was dropped (closed-core ExportJob.insertRecords).
+        record OwnedMethod(TypeInfo owner, MethodInfo method) {
+        }
+        final Map<OwnedMethod, MethodInfo> methodMap = new HashMap<>();
+        // annotation attributes are keyed by method alone: they are always stubbed on their own annotation type
+        final Map<MethodInfo, MethodInfo> attributeMap = new HashMap<>();
         final Map<FieldInfo, FieldInfo> fieldMap = new HashMap<>();
         // original type parameter -> the freshly created one on the corresponding stub type
         final Map<TypeParameter, TypeParameter> typeParameterMap = new HashMap<>();
@@ -508,7 +517,7 @@ public class IsolateMethod {
             // subclass) resolves via the reproduced real supertype; stubbing it would leak that supertype's type
             // parameters (e.g. 'E get(int)') into the stub, which are not in scope
             if (isJdkType(methodInfo.typeInfo())) return;
-            MethodInfo inMap = methodMap.get(methodInfo);
+            MethodInfo inMap = methodMap.get(new OwnedMethod(owner, methodInfo));
             if (inMap != null) return;
             // a non-static method on an interface stub becomes 'default' (keeps the body): an abstract method would
             // force every implementing class stub to override it
@@ -561,7 +570,7 @@ public class IsolateMethod {
                     .commit();
             LOGGER.info("Adding method {}", newMethod);
             owner.builder().addMethod(newMethod);
-            methodMap.put(methodInfo, newMethod);
+            methodMap.put(new OwnedMethod(owner, methodInfo), newMethod);
         }
 
         // an interface's abstract method together with the type-argument map that turns its (interface) type
@@ -704,7 +713,7 @@ public class IsolateMethod {
                 for (AnnotationExpression.KV kv : ae.keyValuePairs()) {
                     MethodInfo origAttr = annotationType.methodStream()
                             .filter(mm -> mm.name().equals(kv.key())).findFirst().orElse(null);
-                    if (origAttr != null && !methodMap.containsKey(origAttr)) {
+                    if (origAttr != null && !attributeMap.containsKey(origAttr)) {
                         MethodInfo newAttr = runtime.newMethod(stub, origAttr.name(),
                                 runtime.methodTypeAbstractMethod());
                         newAttr.builder()
@@ -716,7 +725,7 @@ public class IsolateMethod {
                                 .setMethodBody(runtime.emptyBlock())
                                 .commit();
                         stub.builder().addMethod(newAttr);
-                        methodMap.put(origAttr, newAttr);
+                        attributeMap.put(origAttr, newAttr);
                     }
                     kv.value().visit(visitor);
                 }
@@ -831,7 +840,14 @@ public class IsolateMethod {
                 case VariableExpression ve -> {
                     if (ve.variable() instanceof FieldReference fr) {
                         TypeInfo owner;
-                        if (fr.isDefaultScope()) {
+                        // An explicit 'this.' scope means the same thing as no scope at all: the field belongs on
+                        // the frame, which stands in for the type declaring the isolated method. Without this it
+                        // was routed to its DECLARING type instead -- the original-type stub nested in the frame --
+                        // and 'this.customerCtx' in the pasted body then resolved to nothing, because the frame
+                        // does not extend that stub. The MethodCall branch above already treats 'this.' this way;
+                        // this branch did not (closed-core ExportJob.insertRecords).
+                        if (fr.isDefaultScope() || fr.scope() instanceof VariableExpression sve
+                                                   && sve.variable() instanceof This) {
                             owner = data.frame;
                         } else {
                             // still stub the scope's own type (it may be referenced nowhere else), but place the
