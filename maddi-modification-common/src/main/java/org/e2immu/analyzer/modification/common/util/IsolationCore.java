@@ -64,6 +64,17 @@ abstract class IsolationCore {
     abstract TypeInfo selfType();
 
     /**
+     * A static member named without a scope in the verbatim text, and declared by some OTHER type: only a static
+     * import makes that spelling resolve. {@link IsolateMethod} does not need it — it puts such a member on the
+     * frame, which is in scope for the whole pasted body — but a class isolate cannot, because the member belongs
+     * to a stub in another compilation unit. Returns true if the member was taken over by the isolator, meaning
+     * the caller must NOT also declare it on {@link #selfType()}.
+     */
+    boolean recordStaticImport(TypeInfo owner, String memberName) {
+        return false;
+    }
+
+    /**
      * Told how every reference spells a type, before the {@code typeMap} short-circuit. Only an isolator whose
      * placement depends on the spelling has anything to record — see {@code IsolateMethod.MethodStubs}.
      */
@@ -253,8 +264,9 @@ abstract class IsolationCore {
         return runtime.newParameterizedType(newTypeInfo, pt.arrays(), pt.wildcard(), params);
     }
 
-    void ensureField(TypeInfo owner, FieldInfo fieldInfo) {
-        if (isJdkType(owner)) return;
+    void ensureField(TypeInfo ownerIn, FieldInfo fieldInfo) {
+        TypeInfo owner = stubFor(ownerIn);
+        if (owner == null || isJdkType(owner)) return;
         FieldInfo inMap = fieldMap.get(fieldInfo);
         if (inMap != null) return;
         ParameterizedType newPt = ensureTypes(fieldInfo.type());
@@ -340,8 +352,9 @@ abstract class IsolationCore {
         return false;
     }
 
-    void ensureMethodInfo(TypeInfo owner, MethodInfo methodInfo) {
-        if (isJdkType(owner)) return;
+    void ensureMethodInfo(TypeInfo ownerIn, MethodInfo methodInfo) {
+        TypeInfo owner = stubFor(ownerIn);
+        if (owner == null || isJdkType(owner)) return;
         // a method inherited from a JDK supertype (e.g. ArrayList.get() from java.util.ArrayList on a custom
         // subclass) resolves via the reproduced real supertype; stubbing it would leak that supertype's type
         // parameters (e.g. 'E get(int)') into the stub, which are not in scope
@@ -417,6 +430,25 @@ abstract class IsolationCore {
         LOGGER.info("Adding method {}", newMethod);
         owner.builder().addMethod(newMethod);
         methodMap.put(new OwnedMethod(owner, methodInfo), newMethod);
+    }
+
+    /**
+     * The stub we are allowed to add members to, for a type we were handed as an owner.
+     * <p>
+     * Owners are supposed to be stubs, and normally are. But a receiver typed by a type parameter erases to that
+     * parameter's bound ({@code erasedOwner}), and a type parameter the isolated code declares itself is kept as
+     * it is — so its bound is the REAL type. log4j's builder idiom, {@code B extends FileAppender.Builder<B>},
+     * produces exactly that, and adding a method to the real committed type trips
+     * {@code "Inspection of X has already been committed"}, losing the whole isolate. Four of the hundred
+     * class isolates were failing this way.
+     *
+     * @return a stub safe to modify, or null when there is nothing sensible to modify
+     */
+    private TypeInfo stubFor(TypeInfo owner) {
+        if (owner == null || !owner.hasBeenInspected()) return owner;   // already a stub of ours
+        if (isJdkType(owner)) return owner;                             // caller drops it
+        TypeInfo stub = ensureType(owner, null);
+        return stub != null && !stub.hasBeenInspected() ? stub : null;
     }
 
     /** Reproduce {@code sam} on {@code stub} as an abstract method, so the stub stays a functional interface. */
@@ -806,6 +838,14 @@ abstract class IsolationCore {
                         // body writes 'super.' at all. Sending it to selfType() left the supertype without the
                         // declaration, and the unit was dropped (maddi's scanner NPEs rather than reporting it)
                         owner = superTypeStubOf(mc.methodInfo());
+                    } else if ((mc.object() == null || mc.object().source() == null)
+                               && mc.methodInfo().isStatic()
+                               && mc.methodInfo().typeInfo() != originalType
+                               && recordStaticImport(mc.methodInfo().typeInfo(), mc.methodInfo().name())) {
+                        // taken over by a static import: stub it on its real owner, not on the isolated type
+                        TypeInfo declaringStub = ensureType(mc.methodInfo().typeInfo(), null);
+                        ensureMethodInfo(declaringStub, mc.methodInfo());
+                        return true;
                     } else if (mc.object() == null
                         || mc.object().source() == null
                            && mc.methodInfo().isStatic() && mc.methodInfo().typeInfo() == originalType
@@ -840,7 +880,13 @@ abstract class IsolationCore {
                         // and 'this.customerCtx' in the pasted body then resolved to nothing, because the frame
                         // does not extend that stub. The MethodCall branch above already treats 'this.' this way;
                         // this branch did not (closed-core ExportJob.insertRecords).
-                        if (fr.isDefaultScope() || fr.scope() instanceof VariableExpression sve
+                        if (fr.isDefaultScope() && fr.fieldInfo().isStatic()
+                            && fr.fieldInfo().owner() != originalType
+                            && recordStaticImport(fr.fieldInfo().owner(), fr.fieldInfo().name())) {
+                            // 'REMOVE_SHARES' with no scope, declared on FormulaOperatorConstant: a
+                            // static import is the only thing that makes the verbatim spelling resolve
+                            owner = ensureType(fr.fieldInfo().owner(), null);
+                        } else if (fr.isDefaultScope() || fr.scope() instanceof VariableExpression sve
                                                    && sve.variable() instanceof This) {
                             owner = selfType();
                         } else {
