@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestIsolateMethod2TypeParameters extends CommonIsolateMethodTest {
 
@@ -144,6 +145,35 @@ public class TestIsolateMethod2TypeParameters extends CommonIsolateMethodTest {
                 }
                 """;
         assertEquals(expected, out);
+        javaInspector.invalidateAllSources();
+        assertNotNull(javaInspector.parse("X_method", out));
+    }
+
+    @Language("java")
+    public static final String INPUT5 = """
+            package a.b;
+            public class X<T extends Comparable<T>> {
+                T field;
+                T method(T t) {
+                    return t.compareTo(field) > 0 ? t : field;
+                }
+            }
+            """;
+
+    // The type parameter belongs to the DECLARING CLASS, not to the method: the pasted body says 'T' and the
+    // frame stands in for 'X<T>', so the frame has to carry '<T>' (with its bound) or the isolate does not
+    // compile. Found on closed-core, where several isolates were dropped on "Type T not found".
+    @DisplayName("type parameter of the enclosing class, used by the method")
+    @Test
+    public void test5() {
+        TypeInfo X = parse("a.b.X", INPUT5);
+        String methodString = """
+                T method(T t) {
+                    return t.compareTo(field) > 0 ? t : field;
+                }""";
+        String out = isolate(X, "method", 1, methodString);
+        assertTrue(out.contains("class X_method<T extends Comparable<T>>"),
+                "the frame must carry the declaring class's type parameters:\n" + out);
         javaInspector.invalidateAllSources();
         assertNotNull(javaInspector.parse("X_method", out));
     }
