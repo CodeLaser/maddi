@@ -82,6 +82,23 @@ abstract class IsolationCore {
     }
 
     /**
+     * Will {@code owner} declare {@code methodInfo} anyway, without a stub?
+     * <p>
+     * {@link IsolateMethod} keeps ONE member, on a frame that is not the type that declared it, so every call the
+     * body makes — self-calls included — needs a stub. {@link IsolateClass} keeps ALL of them, verbatim, on a type
+     * that IS the original: a self-call resolves to text that is already there, and stubbing it as well declares
+     * the method twice. {@code erasureClash} cannot see the collision, because until printing each kept member is
+     * a marker method under a generated name.
+     * <p>
+     * Found by compiling the hundred-class isolate corpus with javac: 76 of the 100 trees had duplicate members,
+     * 3727 of them in total. The corpus re-parses cleanly under maddi, which accepts a duplicate declaration —
+     * which is why the producer's own verification never saw it.
+     */
+    boolean alreadyDeclaredWithoutStub(TypeInfo owner, MethodInfo methodInfo) {
+        return false;
+    }
+
+    /**
      * A stub nested inside one frame can stay package-private, and {@link IsolateMethod} leaves it so. A stub that
      * lives in its own compilation unit in its own package cannot: every reference to it crosses a package
      * boundary, so the type, its members and any nested stub have to be public — and a nested one static, or it
@@ -359,6 +376,7 @@ abstract class IsolationCore {
         // subclass) resolves via the reproduced real supertype; stubbing it would leak that supertype's type
         // parameters (e.g. 'E get(int)') into the stub, which are not in scope
         if (isJdkType(methodInfo.typeInfo())) return;
+        if (alreadyDeclaredWithoutStub(owner, methodInfo)) return;
         MethodInfo inMap = methodMap.get(new OwnedMethod(owner, methodInfo));
         if (inMap != null) return;
         // a member of an '@interface' is an attribute, which has a shape of its own
@@ -399,6 +417,14 @@ abstract class IsolationCore {
             Expression expression = runtime.nullValue(newReturnType);
             mb.addStatement(runtime.newReturnBuilder().setExpression(expression).build());
         }
+        // the isolated type's own member may OVERRIDE the method being stubbed, and an override may not narrow
+        // access or throw more than what it overrides. Both halves have to come from the original, or the kept
+        // member -- verbatim text, unchangeable -- stops being a legal override of the stub we just wrote:
+        //   'protected void init()'   against a stub made public   -> "attempting to assign weaker access privileges"
+        //   'void x() throws SAXException' against a stub with no throws -> "overridden method does not throw ..."
+        // 26 and 13 of the hundred class isolates respectively, all in the SAX handler hierarchy.
+        methodInfo.exceptionTypes().forEach(et -> newMethod.builder().addExceptionType(ensureTypes(et)));
+
         // a method that overrides a public supertype method on a class stub must be public -- an override cannot
         // reduce visibility. This covers java.lang.Object methods (toString/equals/...) as well as inherited
         // interface methods (e.g. a custom 'ArrayList<I> extends java.util.ArrayList<I>' overriding Collection.add).
@@ -406,7 +432,12 @@ abstract class IsolationCore {
         boolean overridesPublic = methodInfo.isOverloadOfJLOMethod()
                                   || methodInfo.overrides().stream().anyMatch(o -> o.access().isPublic());
         if (!ownerIsInterface && (overridesPublic || stubsCrossPackageBoundaries())) {
-            newMethod.builder().addMethodModifier(runtime.methodModifierPublic());
+            // ... but not WIDER than the original either. 'public' is the default for a stub in its own package
+            // because every reference to it crosses a package boundary; 'protected' already crosses that boundary
+            // for the one caller that matters here, the subclass being isolated.
+            boolean keepProtected = !overridesPublic && methodInfo.access().isProtected();
+            newMethod.builder().addMethodModifier(keepProtected
+                    ? runtime.methodModifierProtected() : runtime.methodModifierPublic());
         }
         newMethod.builder()
                 .setReturnType(newReturnType)
@@ -815,6 +846,17 @@ abstract class IsolationCore {
                         cc.anonymousClass().constructorAndMethodStream().forEach(mi -> {
                             Block body = mi.methodBody();
                             if (body != null) body.visit(this);
+                            // 'new Handler() { public Object getObject(String s) {...} }' is verbatim text carrying
+                            // an override, so the supertype STUB has to declare what it overrides -- otherwise
+                            // javac reports "does not override or implement a method from a supertype" (17 of the
+                            // hundred class isolates). Same rule IsolateClass applies to the kept members
+                            // themselves; an anonymous class's members are kept just as verbatim.
+                            mi.overrides().forEach(overridden -> {
+                                TypeInfo declaringStub = ensureType(overridden.typeInfo(), null);
+                                if (declaringStub != null && declaringStub != overridden.typeInfo()) {
+                                    ensureMethodInfo(declaringStub, overridden);
+                                }
+                            });
                         });
                         cc.anonymousClass().fields().forEach(fi -> {
                             if (fi.initializer() != null) fi.initializer().visit(this);
@@ -823,7 +865,14 @@ abstract class IsolationCore {
                     if (cc.constructor() != null) {
                         // stub the constructed type first, so the constructor lands on the stub, not the real type
                         ParameterizedType constructed = ensureTypes(cc.parameterizedType(), ds(cc));
-                        ensureMethodInfo(constructed.typeInfo(), cc.constructor());
+                        // 'new IParameter[n]' carries a SYNTHETIC constructor -- Factory.newArrayCreationConstructor,
+                        // one int parameter per dimension -- which stands for the array creation, not for a declaration
+                        // the constructed type has. Stubbing it wrote 'IParameter(int dim0) { }' into the type, and
+                        // when that type is an interface the emitted unit is not even syntactically Java: javac says
+                        // "<identifier> expected". The array type itself is already reproduced by ensureTypes above.
+                        if (!cc.constructor().isSyntheticArrayConstructor()) {
+                            ensureMethodInfo(constructed.typeInfo(), cc.constructor());
+                        }
                     }
                 }
                 case MethodCall mc -> {
