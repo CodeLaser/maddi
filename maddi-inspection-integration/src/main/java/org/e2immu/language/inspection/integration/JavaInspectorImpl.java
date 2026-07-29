@@ -755,6 +755,41 @@ public class JavaInspectorImpl implements JavaInspector {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Its own {@link Summary} and context: the descriptor of a project this run never analysed is not part of this
+     * run's parse result, and a warning about it does not belong in the summary the caller prints.
+     */
+    @Override
+    public ModuleInfo parseModuleInfo(Path moduleInfoFile) {
+        String source;
+        try {
+            source = Files.readString(moduleInfoFile);
+        } catch (IOException e) {
+            LOGGER.warn("Could not read module descriptor {}: {}", moduleInfoFile, e.getMessage());
+            return null;
+        }
+        Summary summary = new SummaryImpl(false);
+        Resolver resolver = new ResolverImpl(runtime.computeMethodOverrides(), new ParseHelperImpl(runtime), false);
+        TypeContextImpl typeContext = new TypeContextImpl(runtime, compiledTypesManager, false);
+        Context context = ContextImpl.create(runtime, compiledTypesManager, summary, resolver, typeContext,
+                true, false);
+        try {
+            JavaParser parser = new JavaParser(source);
+            parser.setParserTolerant(false);
+            parser.ModularCompilationUnit();
+            Node root = parser.rootNode();
+            if (!(root instanceof ModularCompilationUnit mcu)) return null;
+            CompilationUnit compilationUnit = runtime.newCompilationUnitBuilder()
+                    .setURI(moduleInfoFile.toUri()).build();
+            return new ParseModuleInfo(runtime, null).parse(mcu, compilationUnit, context);
+        } catch (RuntimeException re) {
+            LOGGER.warn("Could not parse module descriptor {}: {}", moduleInfoFile, re.toString());
+            return null;
+        }
+    }
+
     // public for testing, not in API
     public ModuleInfo parseModuleInfo(String javaSource, SourceFile sourceFile, Context rootContext) {
         JavaParser parser = new JavaParser(javaSource);

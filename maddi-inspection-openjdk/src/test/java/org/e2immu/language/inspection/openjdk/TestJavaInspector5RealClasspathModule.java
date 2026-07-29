@@ -25,6 +25,7 @@ import java.util.Map;
 import static org.e2immu.language.inspection.resource.SourceSetImpl.sourceSetModuleOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestJavaInspector5RealClasspathModule {
@@ -109,6 +110,41 @@ public class TestJavaInspector5RealClasspathModule {
         assertTrue(printed.contains("exports org.e2immu.language.cst.api.element;"), printed);
 
         assertEquals(normalise(onDisk), normalise(printed));
+    }
+
+    /*
+    The out-of-sync read: a module-info.java of a project that is not in this parse at all -- note that no parse()
+    runs in this test. A build-unit split has to extend a qualified export in exactly such a sibling, whose module
+    would otherwise have to be edited with a regular expression.
+
+    The two properties an edit needs are asserted rather than the mere fact that something came back: a `file:` URI
+    on the compilation unit (Editor.openForEditing resolves the file from it, and refuses anything else), and a
+    Source on every directive (that range is what a replacement is written over).
+     */
+    @Test
+    public void test4ParseModuleInfoByPathWithoutAParse() {
+        ModuleInfo moduleInfo = javaInspector.parseModuleInfo(
+                Path.of("../maddi-cst-api/src/main/java/module-info.java"));
+
+        assertNotNull(moduleInfo);
+        assertEquals("org.e2immu.language.cst.api", moduleInfo.name());
+        assertEquals(13, moduleInfo.exports().size(), "the same descriptor the two parsing paths produce");
+
+        assertTrue(moduleInfo.compilationUnit().uri().toString().startsWith("file:"),
+                "an edit resolves the file from this URI: " + moduleInfo.compilationUnit().uri());
+        for (ModuleInfo.Exports exports : moduleInfo.exports()) {
+            assertNotNull(exports.source(), exports.packageName());
+            assertTrue(exports.source().beginLine() > 0, exports.packageName() + " has no line");
+        }
+    }
+
+    @Test
+    public void test4bNotAModuleInfoIsNullRatherThanAFailure() {
+        // a best-effort read of a file outside the analysed tree must never fail a run
+        assertNull(javaInspector.parseModuleInfo(Path.of("../maddi-cst-api/src/main/java/does-not-exist.java")));
+        assertNull(javaInspector.parseModuleInfo(
+                Path.of("../maddi-cst-api/src/main/java/org/e2immu/language/cst/api/element/Element.java")),
+                "an ordinary compilation unit is not a module declaration");
     }
 
     // the file carries a licence header the descriptor does not model; compare the declaration itself

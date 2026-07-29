@@ -16,6 +16,7 @@ package org.e2immu.language.inspection.api.integration;
 
 
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.ImportComputer;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -29,6 +30,7 @@ import org.e2immu.language.inspection.api.resource.SourceFile;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -239,6 +241,22 @@ public interface JavaInspector {
     default String print2(CompilationUnit compilationUnit, Qualification.Decorator decorator, ImportComputer importComputer) {
         return print2(compilationUnit, runtime().qualificationQualifyFromPrimaryType(decorator), importComputer);
     }
+
+    /**
+     * Parse a {@code module-info.java} that this parse does not hold, given nothing but its path.
+     * <p>
+     * The descriptors of the parsed source sets are in {@link ParseResult#sourceSetToModuleInfoMap()}; use those when
+     * they exist, because they are the objects the rest of the run edits. This is for the module descriptor of a
+     * project that was never analysed — the sibling that a refactoring nonetheless has to touch, typically because a
+     * qualified {@code exports} in it has to gain the name of a module that did not exist before the refactoring.
+     * <p>
+     * Purely syntactic: it neither loads types nor resolves the names in {@code uses} / {@code provides ... with},
+     * and it never puts javac in module mode. The returned descriptor carries {@link org.e2immu.language.cst.api.element.Source}
+     * for each directive, so it can be printed back over the original text; its compilation unit has the file's URI
+     * and no source set. Returns {@code null} when the file cannot be read or does not parse as a module
+     * declaration — this is a best-effort read of a file outside the analysed tree, never a reason to fail a run.
+     */
+    ModuleInfo parseModuleInfo(Path moduleInfoFile);
 
     Runtime runtime();
 
