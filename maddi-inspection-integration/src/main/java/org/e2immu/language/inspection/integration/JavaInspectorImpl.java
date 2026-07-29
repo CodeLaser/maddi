@@ -71,6 +71,11 @@ import java.util.stream.Stream;
 import static org.e2immu.language.inspection.api.integration.JavaInspector.InvalidationState.*;
 
 /*
+---
+IMPORTANT: this 'homegrown' JavaInspector implementation has been phased out in favour of the openjdk implementation.
+It has its uses in specialized settings, but do not use it for general purposes.
+---
+
 from input configuration
 to classpath + sourceTypeMap/Trie
 

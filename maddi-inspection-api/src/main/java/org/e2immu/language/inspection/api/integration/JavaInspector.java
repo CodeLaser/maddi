@@ -38,7 +38,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 /*
-
+Unless you have very good reasons not to, please use the openjdk implementation of the JavaInspector.
  */
 public interface JavaInspector {
 
