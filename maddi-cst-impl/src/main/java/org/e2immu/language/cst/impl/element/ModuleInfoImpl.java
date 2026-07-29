@@ -25,7 +25,10 @@ import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.DescendMode;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.impl.output.GuideImpl;
 import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
+import org.e2immu.language.cst.impl.output.SpaceEnum;
+import org.e2immu.language.cst.impl.output.SymbolEnum;
 import org.e2immu.language.cst.impl.output.TextImpl;
 import org.e2immu.support.SetOnce;
 
@@ -84,6 +87,16 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         return compilationUnit;
     }
 
+    /*
+    Identity, not source. ElementImpl derives toString() from print(), so implementing the declaration printer
+    silently turned every module-info label -- graph vertices among them -- into the whole `module N { ... }` body.
+    TypeInfo draws the same line by returning its fully qualified name here.
+     */
+    @Override
+    public String toString() {
+        return name;
+    }
+
     @Override
     public String simpleName() {
         return name;
@@ -124,6 +137,50 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         throw new UnsupportedOperationException("NYI");
     }
 
+    /*
+    Shared by the five directive printers below.
+
+    Every directive is `<word> <name> [<connector> a, b, c];`, so the only thing that differs between exports and
+    opens is one word. Printing from the CST rather than concatenating strings is the point: a lever that has to
+    add one target to `exports p to a, b;` should hand back a directive, not a rewritten substring.
+     */
+    private static OutputBuilder printComments(Qualification qualification, List<Comment> comments) {
+        OutputBuilder ob = new OutputBuilderImpl();
+        if (comments != null && !comments.isEmpty()) {
+            ob.add(comments.stream().map(c -> c.print(qualification))
+                    .collect(OutputBuilderImpl.joining(SpaceEnum.NONE, GuideImpl.multipleComments())));
+        }
+        return ob;
+    }
+
+    /*
+    Comma-separated, WITHOUT the joining collector's guides.
+
+    joining() wraps its result in guideGenerator.start()/end(), and the formatter renders that trailing guide as a
+    split point -- which came out as `exports p to a, b, c ;`, a space before the semicolon. A directive is short
+    and never wants to be split, so the separator is written out instead. The space is explicit, which also makes
+    the MINIMAL rendering (toString) match how the directive is actually written in a file.
+     */
+    private static OutputBuilder commaSeparated(List<String> names) {
+        OutputBuilder ob = new OutputBuilderImpl();
+        for (int i = 0; i < names.size(); i++) {
+            if (i > 0) ob.add(SymbolEnum.COMMA).add(SpaceEnum.ONE);
+            ob.add(new TextImpl(names.get(i)));
+        }
+        return ob;
+    }
+
+    private static OutputBuilder printPackageDirective(Qualification qualification, List<Comment> comments,
+                                                       String word, String packageName, List<String> toModules) {
+        OutputBuilder ob = printComments(qualification, comments)
+                .add(new TextImpl(word)).add(SpaceEnum.ONE).add(new TextImpl(packageName));
+        // an UNQUALIFIED directive has no `to` clause at all; an empty target list is not `to ;`
+        if (toModules != null && !toModules.isEmpty()) {
+            ob.add(SpaceEnum.ONE).add(new TextImpl("to")).add(SpaceEnum.ONE).add(commaSeparated(toModules));
+        }
+        return ob.add(SymbolEnum.SEMICOLON);
+    }
+
     private record RequiresImpl(Source source, List<Comment> comments, String name, boolean isStatic,
                                 boolean isTransitive) implements Requires {
         RequiresImpl {
@@ -150,9 +207,19 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
 
         }
 
+        /*
+        A module directive prints from the CST, so a lever never has to build its text by hand. These words are
+        RESTRICTED keywords -- contextual to a module declaration and legal identifiers everywhere else -- so they
+        are TextImpl and not KeywordImpl, the same choice ImportStatementImpl makes for `import`.
+         */
         @Override
         public OutputBuilder print(Qualification qualification) {
-            return null;
+            OutputBuilder ob = printComments(qualification, comments)
+                    .add(new TextImpl("requires")).add(SpaceEnum.ONE);
+            if (isStatic) ob.add(new TextImpl("static")).add(SpaceEnum.ONE);
+            // JLS 7.7.1 fixes this order: `requires static transitive M`, never the reverse
+            if (isTransitive) ob.add(new TextImpl("transitive")).add(SpaceEnum.ONE);
+            return ob.add(new TextImpl(name)).add(SymbolEnum.SEMICOLON);
         }
 
         @Override
@@ -204,8 +271,13 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
+        public Exports withToModules(List<String> toModules) {
+            return new ExportsImpl(source, comments, packageName, List.copyOf(toModules));
+        }
+
+        @Override
         public OutputBuilder print(Qualification qualification) {
-            return null;
+            return printPackageDirective(qualification, comments, "exports", packageName, toModulesOrEmpty);
         }
 
         @Override
@@ -258,7 +330,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
 
         @Override
         public OutputBuilder print(Qualification qualification) {
-            return null;
+            return printPackageDirective(qualification, comments, "opens", packageName, toModulesOrEmpty);
         }
 
         @Override
@@ -341,7 +413,8 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
 
         @Override
         public OutputBuilder print(Qualification qualification) {
-            return null;
+            return printComments(qualification, comments).add(new TextImpl("uses")).add(SpaceEnum.ONE)
+                    .add(new TextImpl(api)).add(SymbolEnum.SEMICOLON);
         }
 
         @Override
@@ -449,7 +522,11 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
 
         @Override
         public OutputBuilder print(Qualification qualification) {
-            return null;
+            OutputBuilder ob = printComments(qualification, comments).add(new TextImpl("provides")).add(SpaceEnum.ONE)
+                    .add(new TextImpl(api)).add(SpaceEnum.ONE).add(new TextImpl("with")).add(SpaceEnum.ONE);
+            // every implementation, not just the first: `provides X with A, B, C` losing B and C is the shape that
+            // stranded implementations in the Elasticsearch carve
+            return ob.add(commaSeparated(implementations)).add(SymbolEnum.SEMICOLON);
         }
 
         @Override
@@ -589,9 +666,29 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         visitor.afterModule();
     }
 
+    /*
+    The whole declaration: `[open] module N { <directives> }`, in JLS 7.7 order.
+
+    This used to print the module NAME alone, which is why nothing downstream could render a module-info and every
+    lever that touched one built its text by hand. The body is joined with generatorForBlock, the same generator a
+    type body uses, so the formatter indents and splits it like any other block -- in particular a long qualified
+    export, which is where hand-built text goes wrong first.
+     */
     @Override
     public OutputBuilder print(Qualification qualification) {
-        return new OutputBuilderImpl().add(new TextImpl(name));
+        OutputBuilder outputBuilder = new OutputBuilderImpl();
+        comments().forEach(c -> outputBuilder.add(c.print(qualification)));
+        if (open) outputBuilder.add(new TextImpl("open")).add(SpaceEnum.ONE);
+        outputBuilder.add(new TextImpl("module")).add(SpaceEnum.ONE).add(new TextImpl(name)).add(SpaceEnum.ONE);
+        // JLS 7.7: requires, exports, opens, uses, provides -- the order a reader expects, and the order the
+        // parser hands them back within each kind
+        OutputBuilder body = Stream.of(requires.stream(), exports.stream(), opens.stream(), uses.stream(),
+                        provides.stream())
+                .flatMap(st -> st)
+                .map(d -> d.print(qualification))
+                .collect(OutputBuilderImpl.joining(SpaceEnum.NONE, SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE,
+                        GuideImpl.generatorForBlock()));
+        return outputBuilder.add(body);
     }
 
     @Override

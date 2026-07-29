@@ -45,6 +45,8 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
     private final SourceSet sourceSet;
     private final SetOnce<FingerPrint> fingerPrint = new SetOnce<>();
     private final SetOnce<List<TypeInfo>> types = new SetOnce<>();
+    // null for an ordinary compilation unit; a module-info.java carries its declaration here
+    private final SetOnce<ModuleInfo> moduleInfo = new SetOnce<>();
 
     public CompilationUnitImpl(SourceSet sourceSet,
                                URI uri,
@@ -163,6 +165,16 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
     @Override
     public void setTypes(List<TypeInfo> types) {
         this.types.set(types);
+    }
+
+    @Override
+    public ModuleInfo moduleInfo() {
+        return moduleInfo.getOrDefaultNull();
+    }
+
+    @Override
+    public void setModuleInfo(ModuleInfo moduleInfo) {
+        this.moduleInfo.set(moduleInfo);
     }
 
     @Override

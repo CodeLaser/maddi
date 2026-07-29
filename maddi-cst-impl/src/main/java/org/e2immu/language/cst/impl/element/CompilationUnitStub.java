@@ -68,6 +68,16 @@ public class CompilationUnitStub implements CompilationUnit {
     }
 
     @Override
+    public ModuleInfo moduleInfo() {
+        return null; // a stub stands in for a type's compilation unit, never for a module declaration
+    }
+
+    @Override
+    public void setModuleInfo(ModuleInfo moduleInfo) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Source source() {
         return null;
     }

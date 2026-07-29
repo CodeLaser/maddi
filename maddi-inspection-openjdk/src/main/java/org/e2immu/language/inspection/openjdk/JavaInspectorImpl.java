@@ -930,6 +930,30 @@ public class JavaInspectorImpl implements JavaInspector {
                 return null;
             }
         }
+        return parseModuleInfoSource(summary, sourceSet, source, uri);
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Its own {@link Summary}: the descriptor of a project this run never analysed is not part of this run's parse
+     * result, and a warning about it does not belong in the summary the caller prints.
+     */
+    @Override
+    public ModuleInfo parseModuleInfo(Path moduleInfoFile) {
+        Path path = moduleInfoFile.isAbsolute() || inputConfiguration == null ? moduleInfoFile
+                : inputConfiguration.workingDirectory().resolve(moduleInfoFile);
+        String source;
+        try {
+            source = Files.readString(path);
+        } catch (IOException e) {
+            LOGGER.warn("Could not read module descriptor {}: {}", path, e.getMessage());
+            return null;
+        }
+        return parseModuleInfoSource(new SummaryImpl(false), null, source, path.toUri());
+    }
+
+    private ModuleInfo parseModuleInfoSource(Summary summary, SourceSet sourceSet, String source, URI uri) {
         // A malformed or unexpected module-info must not sink the whole parse: degrade to "no descriptor" (the
         // pre-fix behaviour) so at worst the module-info export reconciliation is skipped, never a crash.
         try {

@@ -131,6 +131,13 @@ public interface ModuleInfo extends Info {
         default String toPackageNameOrNull() {
             return toModulesOrEmpty().isEmpty() ? null : toModulesOrEmpty().getFirst();
         }
+
+        /**
+         * Returns a copy of this directive exporting to {@code toModules} instead. Source and comments are kept,
+         * so the copy still knows where the original was written and can be printed back over it — which is what
+         * a refactoring that adds one target to {@code exports p to a, b;} needs.
+         */
+        Exports withToModules(List<String> toModules);
     }
 
     /**

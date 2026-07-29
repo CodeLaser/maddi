@@ -25,6 +25,7 @@ import java.util.Map;
 import static org.e2immu.language.inspection.resource.SourceSetImpl.sourceSetModuleOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestJavaInspector5RealClasspathModule {
@@ -83,5 +84,72 @@ public class TestJavaInspector5RealClasspathModule {
         ModuleInfo moduleInfo = parseResult.moduleInfo(cstApi);
         assertNotNull(moduleInfo, "module descriptor must be parsed even under ignoreModule");
         assertEquals(13, moduleInfo.exports().size());
+    }
+
+    /*
+    print2 renders a compilation unit through the real formatter, and a module-info.java is a compilation unit with
+    a module declaration and no types. It used to emit nothing of the module at all: the directives answered
+    print() with null, ModuleInfo.print() gave the bare name, and CompilationUnitPrinterImpl only walked types().
+
+    This is the round trip a refactoring lever needs -- parse a descriptor, change a directive, print it back --
+    so it is asserted against the real file rather than a fixture.
+     */
+    @Test
+    public void test3Print2RendersTheModuleDeclaration() throws IOException {
+        JavaInspector.ParseOptions options = new JavaInspector.ParseOptions.Builder()
+                .setFailFast(true).setDetailedSources(true).setIgnoreModule(true).build();
+        ParseResult parseResult = javaInspector.parse(Map.of(), options).parseResult();
+        ModuleInfo moduleInfo = parseResult.moduleInfo(cstApi);
+
+        String printed = javaInspector.print2(moduleInfo.compilationUnit());
+        String onDisk = Files.readString(Path.of("../maddi-cst-api/src/main/java/module-info.java"));
+
+        // non-vacuity: normalise() must not be comparing two empty strings, and the body must really be there
+        assertTrue(printed.contains("module org.e2immu.language.cst.api {"), printed);
+        assertTrue(printed.contains("requires org.jetbrains.annotations;"), printed);
+        assertTrue(printed.contains("exports org.e2immu.language.cst.api.element;"), printed);
+
+        assertEquals(normalise(onDisk), normalise(printed));
+    }
+
+    /*
+    The out-of-sync read: a module-info.java of a project that is not in this parse at all -- note that no parse()
+    runs in this test. A build-unit split has to extend a qualified export in exactly such a sibling, whose module
+    would otherwise have to be edited with a regular expression.
+
+    The two properties an edit needs are asserted rather than the mere fact that something came back: a `file:` URI
+    on the compilation unit (Editor.openForEditing resolves the file from it, and refuses anything else), and a
+    Source on every directive (that range is what a replacement is written over).
+     */
+    @Test
+    public void test4ParseModuleInfoByPathWithoutAParse() {
+        ModuleInfo moduleInfo = javaInspector.parseModuleInfo(
+                Path.of("../maddi-cst-api/src/main/java/module-info.java"));
+
+        assertNotNull(moduleInfo);
+        assertEquals("org.e2immu.language.cst.api", moduleInfo.name());
+        assertEquals(13, moduleInfo.exports().size(), "the same descriptor the two parsing paths produce");
+
+        assertTrue(moduleInfo.compilationUnit().uri().toString().startsWith("file:"),
+                "an edit resolves the file from this URI: " + moduleInfo.compilationUnit().uri());
+        for (ModuleInfo.Exports exports : moduleInfo.exports()) {
+            assertNotNull(exports.source(), exports.packageName());
+            assertTrue(exports.source().beginLine() > 0, exports.packageName() + " has no line");
+        }
+    }
+
+    @Test
+    public void test4bNotAModuleInfoIsNullRatherThanAFailure() {
+        // a best-effort read of a file outside the analysed tree must never fail a run
+        assertNull(javaInspector.parseModuleInfo(Path.of("../maddi-cst-api/src/main/java/does-not-exist.java")));
+        assertNull(javaInspector.parseModuleInfo(
+                Path.of("../maddi-cst-api/src/main/java/org/e2immu/language/cst/api/element/Element.java")),
+                "an ordinary compilation unit is not a module declaration");
+    }
+
+    // the file carries a licence header the descriptor does not model; compare the declaration itself
+    private static String normalise(String s) {
+        int module = s.indexOf("module ");
+        return s.substring(module < 0 ? 0 : module).replaceAll("[ \t]+", " ").strip();
     }
 }

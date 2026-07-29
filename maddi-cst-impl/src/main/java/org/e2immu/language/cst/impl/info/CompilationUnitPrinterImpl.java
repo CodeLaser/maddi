@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.info;
 
+import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.info.CompilationUnitPrinter;
 import org.e2immu.language.cst.api.info.ImportComputer;
@@ -42,6 +43,25 @@ public record CompilationUnitPrinterImpl(CompilationUnit compilationUnit, boolea
                                TypePrinter.MethodPrinterFactory methodPrinterFactory,
                                TypePrinter.FieldPrinterFactory fieldPrinterFactory,
                                TypePrinter.EnclosedTypePrinterFactory enclosedTypePrinterFactory) {
+        /*
+        A module-info.java is a compilation unit with a module declaration and NO types, so it has to be answered
+        before anything that walks types(): computeImportData does, and on a module-info that SetOnce was never
+        set, so the import computation threw "Not yet set" rather than printing nothing.
+
+        Its imports are printed as written rather than recomputed. Imports are legal in a module-info -- they
+        shorten the names in `uses` / `provides ... with` -- but the import computer reasons about type references
+        in code, and a module directive is not one, so it would conclude they are all dead.
+         */
+        ModuleInfo moduleInfo = compilationUnit.moduleInfo();
+        if (moduleInfo != null) {
+            OutputBuilder ob = new OutputBuilderImpl();
+            compilationUnit.comments().forEach(c -> ob.add(c.print(qualification)));
+            compilationUnit.importStatements().forEach(i -> ob.add(i.print(qualification)));
+            ob.add(moduleInfo.print(qualification));
+            compilationUnit.trailingComments().forEach(c -> ob.add(c.print(qualification)));
+            return ob;
+        }
+
         ImportDataImpl importData = computeImportData(importComputer, qualification);
         OutputBuilder outputBuilder = new OutputBuilderImpl();
         compilationUnit.comments().forEach(c -> outputBuilder.add(c.print(qualification)));
