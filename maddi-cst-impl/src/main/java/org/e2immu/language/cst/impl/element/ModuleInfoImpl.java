@@ -686,7 +686,11 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
                         provides.stream())
                 .flatMap(st -> st)
                 .map(d -> d.print(qualification))
-                .collect(OutputBuilderImpl.joining(SpaceEnum.NONE, SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE,
+                // NEWLINE, not NONE. A statement block uses NONE and collapses onto one line when it fits, which
+                // is the house style for code; `module m { requires a; exports b; }` is legal Java and is not how
+                // any module descriptor is written, and collapsing one would make a one-directive edit rewrite
+                // the whole file.
+                .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE,
                         GuideImpl.generatorForBlock()));
         return outputBuilder.add(body);
     }
