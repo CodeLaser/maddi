@@ -141,6 +141,16 @@ public class IsolateClass {
             return isolatedStub;
         }
 
+        // the isolated type's own members, which are printed verbatim and so need no stub; identity, because two
+        // overloads of one name are different members and only the exact one is already declared
+        final Set<MethodInfo> keptVerbatim =
+                java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
+        @Override
+        boolean alreadyDeclaredWithoutStub(TypeInfo owner, MethodInfo methodInfo) {
+            return owner == isolatedStub && keptVerbatim.contains(methodInfo);
+        }
+
         @Override
         TypeInfo originalTypeStub() {
             // the isolated type keeps its own name, so a self-reference written 'C.DAYS' resolves to it directly;
@@ -217,9 +227,13 @@ public class IsolateClass {
         }
 
         // one marker method per kept member, standing in for its verbatim source; visitMethod is what pulls
-        // everything that member references into the stub graph
+        // everything that member references into the stub graph.
+        // The whole list is registered BEFORE the walk: a body reaching a member declared further down would
+        // otherwise be stubbed, and the stub and the verbatim declaration would collide.
+        List<MethodInfo> kept = allMembers(typeInfo);
+        data.keptVerbatim.addAll(kept);
         int ordinal = 0;
-        for (MethodInfo methodInfo : allMembers(typeInfo)) {
+        for (MethodInfo methodInfo : kept) {
             data.visitMethod(methodInfo);
             // a kept method that overrides something needs that something to exist: an '@Override' in the
             // verbatim text does not resolve against an empty interface stub, and the unit is dropped. This is
