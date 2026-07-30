@@ -2,6 +2,8 @@
 
 Status: DESIGN, 2026-07-19 (post checkpoint/resume v1); RECONCILED same day with the kotlin-side
 early-cutoff machinery after the merge (see §0). Owner: sv-integration thread.
+**Partly delivered the same day** — §3 at type granularity and the `INCREMENTAL=<dir>` gate both carry
+their own DELIVERED notes below; §5 (open questions for the user) is what is still outstanding.
 
 ## 0. Reconciliation with the delivered early-cutoff worklist (kotlin branch, 2026-07-18)
 

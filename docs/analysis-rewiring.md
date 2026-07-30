@@ -1,8 +1,8 @@
 # Analysis rewiring: the analysisFingerprint
 
 How to avoid recomputing the *expensive* part of an incremental run. Companion to `rewiring.md` (the
-parser-level reload/rewire) and `maddi-modification-analyzer/definitions.md`. This document is the plan;
-nothing here is implemented yet.
+parser-level reload/rewire) and `maddi-modification-analyzer/definitions.md`. Part plan, part record: the
+status line below says which is which.
 
 - **Status: first deliverable landed (2026-07-18).** `AnalysisFingerprint` + a test on real analyzer output are
   in (`maddi-modification-prepwork/io/AnalysisFingerprint`, `analyzer/rewire/TestAnalysisFingerprint`). See

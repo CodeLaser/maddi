@@ -148,6 +148,13 @@ no build state involved, and no re-parsing of the dependency's sources either. T
   javac aborts), we fall back to the build's output wholesale and say so.
 - `CLASS_OUTPUT` is set *only* when generation is on. Left unset, javac writes class files next to the source
   file it compiles, so an unconditional `generate()` would scatter `.class` files through the user's tree.
+- **`generate()` destroys the javac task**, so the scan it ran on can no longer answer
+  `compiledTypesManager().getOrLoad(...)` — the on-demand library load the analysis depends on (see
+  `DESIGN-drop-javac-ast.md` §3). Compiled-type loading therefore moves to a **source-free loader task**: same
+  source set and class path, zero compilation units, never generated, built on the first load that needs it.
+  A zero-unit task resolves class-path symbols fine; it just must never be `parse()`d. With generation off
+  nothing changes — the retained scan serves those loads exactly as before. Full account:
+  `docs/partial-reparse-rewire.md` §10.
 
 Reference: `TestGeneratedClassOutput` covers missing output, stale output, the implicit-source-path case, and
 the wipe.
