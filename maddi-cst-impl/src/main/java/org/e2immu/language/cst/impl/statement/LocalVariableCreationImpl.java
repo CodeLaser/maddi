@@ -231,13 +231,23 @@ public class LocalVariableCreationImpl extends StatementImpl implements LocalVar
                 otherLocalVariables.stream().flatMap(lv -> lv.assignmentExpression().variables(descendMode)));
     }
 
+    /*
+    The declaration's own annotations must be streamed: a local variable declaration is the one place where an
+    annotation type can be the ONLY reason its import exists, and omitting them made an import-removal tool delete
+    a live import. Compare ParameterInfoImpl.explicitTypesReferenced, which concatenates annotations() for exactly
+    this reason; the annotations live on the LocalVariableCreation (see translate(), which translates them), not on
+    the LocalVariable, which has no annotations() at all.
+     */
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         if (reject(predicate)) return Stream.of();
         Stream<Element.TypeReference> trStream = localVariable.parameterizedType()
                 .typesReferenced(TypeReferenceNature.EXPLICIT, source() == null ? null : source().detailedSources());
-        return Stream.concat(trStream, Stream.concat(localVariable.assignmentExpression().typesReferenced(predicate),
-                otherLocalVariables.stream().flatMap(lv -> lv.assignmentExpression().typesReferenced(predicate))));
+        Stream<Element.TypeReference> fromAnnotations = annotations().stream()
+                .flatMap(annotationExpression -> annotationExpression.typesReferenced(predicate));
+        return Stream.concat(fromAnnotations,
+                Stream.concat(trStream, Stream.concat(localVariable.assignmentExpression().typesReferenced(predicate),
+                        otherLocalVariables.stream().flatMap(lv -> lv.assignmentExpression().typesReferenced(predicate)))));
     }
 
     @Override
