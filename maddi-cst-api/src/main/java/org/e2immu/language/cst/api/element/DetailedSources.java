@@ -24,8 +24,21 @@ import java.util.List;
  * A fine-grained map from well-known syntactic positions (keywords, punctuation, comma separators)
  * to their precise {@link Source} coordinates within a single CST element.
  * <p>
- * The keys are singleton sentinel objects defined as constants on this interface
- * (e.g. {@link #EXTENDS}, {@link #ARGUMENT_COMMAS}). Lookup is by object identity.
+ * Many keys are singleton sentinel objects defined as constants on this interface
+ * (e.g. {@link #EXTENDS}, {@link #ARGUMENT_COMMAS}). <b>Not all of them are.</b> Where the position belongs
+ * to something the element already owns, that object <em>is</em> the key, and there is no constant to find:
+ * <ul>
+ *     <li>the type-nature keyword ({@code class}, {@code interface}, {@code enum}, {@code record}) is keyed
+ *     by {@link TypeInfo#typeNature()} — this is the token to replace when converting a class to a record;</li>
+ *     <li>a type's simple name is keyed by the name {@code String};</li>
+ *     <li>a type or method modifier is keyed by the modifier object;</li>
+ *     <li>a {@link TypeParameter}, a {@link ParameterizedType} or a {@link TypeInfo} occurring inside the
+ *     element is keyed by itself, which is what lets the same type appear more than once.</li>
+ * </ul>
+ * Reading the constant list alone therefore <em>understates</em> what is recorded; before concluding that a
+ * position is unavailable, check whether it is keyed by the object that owns it.
+ * <p>
+ * Lookup is by object identity (or equality, for the {@code String} keys).
  * <p>
  * {@code DetailedSources} is used during source-accurate pretty-printing and when
  * computing the {@link Element.TypeReference} import information for parameterised types,

@@ -241,4 +241,41 @@ public class TestDetailedSources extends CommonTest {
         // sealed interface J permits P1, P2  (comma 2-37)
         assertEquals("2-37:2-37", commas(J.source().detailedSources(), DetailedSources.PERMITS_COMMAS));
     }
+
+    @Language("java")
+    public static final String INPUT_TYPE_NATURE = """
+            package a.b;
+            public final class X {
+                interface I { }
+                enum E { A }
+                record R(int i) { }
+                @interface A { }
+                public
+                static
+                class Spaced { }
+            }
+            """;
+
+    @Test
+    public void testTypeNatureKeyword() {
+        TypeInfo X = scan("a.b.X", INPUT_TYPE_NATURE);
+
+        // keyed by the TypeNature object, not by a constant: the same convention as the simple name, which is
+        // keyed by the name string. Converting a class to a record replaces exactly this token.
+        assertEquals("2-14:2-18", X.source().detailedSources().detail(X.typeNature()).compact2());
+        assertEquals("2-20:2-20", X.source().detailedSources().detail(X.simpleName()).compact2());
+
+        TypeInfo i = X.findSubType("I");
+        assertEquals("3-5:3-13", i.source().detailedSources().detail(i.typeNature()).compact2());
+        TypeInfo e = X.findSubType("E");
+        assertEquals("4-5:4-8", e.source().detailedSources().detail(e.typeNature()).compact2());
+        TypeInfo r = X.findSubType("R");
+        assertEquals("5-5:5-10", r.source().detailedSources().detail(r.typeNature()).compact2());
+
+        // the point of recording it rather than deriving it from the simple name: any amount of whitespace,
+        // and a line break, may sit between the keyword and the name
+        TypeInfo spaced = X.findSubType("Spaced");
+        assertEquals("9-5:9-9", spaced.source().detailedSources().detail(spaced.typeNature()).compact2());
+        assertEquals("9-11:9-16", spaced.source().detailedSources().detail(spaced.simpleName()).compact2());
+    }
 }
