@@ -37,6 +37,7 @@ public class ImportComputerImpl implements ImportComputer {
     private final Function<String, Collection<TypeInfo>> typesPerPackage;
     private final Set<TypeInfo> extra = new HashSet<>();
     private final Set<TypeInfo> doNotImport = new HashSet<>();
+    private final Set<String> extraStaticImports = new HashSet<>();
 
     public ImportComputerImpl() {
         this(4, null);
@@ -50,6 +51,11 @@ public class ImportComputerImpl implements ImportComputer {
     @Override
     public void add(TypeInfo typeInfo) {
         extra.add(typeInfo);
+    }
+
+    @Override
+    public void addStaticImport(String importString) {
+        extraStaticImports.add(importString);
     }
 
     @Override
@@ -194,6 +200,13 @@ public class ImportComputerImpl implements ImportComputer {
             }
         }
         imports.sort(Comparator.comparing(ImportDetails::importString));
+        /*
+        Static imports are NOT computed: nothing in a CST asks for one, since the printer renders a member
+        reference qualified and a static import is then dead (TestVariousPrint2Issues 'static import issue'
+        pins that). Only a caller pasting verbatim text knows it needs one; addStaticImport is how it says so.
+         */
+        extraStaticImports.stream().sorted()
+                .forEach(is -> imports.add(new ImportDetails("static " + is, originalComments.getOrDefault(is, List.of()))));
         return new Result(imports, qualification);
     }
 
