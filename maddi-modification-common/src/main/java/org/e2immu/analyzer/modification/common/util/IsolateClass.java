@@ -55,12 +55,16 @@ import java.util.stream.Stream;
  * merely satisfy the compiler.
  *
  * <h2>Verifying a change here</h2>
- * A re-parse with the default {@code ParseOptions} is not a compile: {@code failFast} is false there, so javac's
- * errors are logged and the unit is kept. Use {@code setFailFast(true)}, as {@code TestIsolateClass4Compiles} does
- * — that is the only reason the two defects it now covers (an {@code enum} stubbed as a class, an inherited generic
- * method stubbed on the erased scope type) could survive a green test suite for as long as {@code IsolateClass} has
- * existed. See {@code docs/handoff-isolateclass-enum-and-generic-stubs.md} for both, and
- * {@code docs/isolate-class.md} §5 for the one cause still open.
+ * Two gates, and they answer different questions. A re-parse with the default {@code ParseOptions} is <b>not</b> a
+ * compile: {@code failFast} is false there, so javac's errors are logged and the unit is kept. Use
+ * {@code setFailFast(true)}, as {@code TestIsolateClass4Compiles} does — that is the only reason its first three
+ * defects could survive a green test suite for as long as {@code IsolateClass} has existed.
+ * <p>
+ * And a driver is not the corpus. Every fix behind {@code TestIsolateClass4Compiles} was written against a
+ * reduction that reproduced the failure and then went green; one of them took the hundred-class corpus from 97
+ * trees compiling to <b>9</b>, with the whole unit suite still passing. Run
+ * {@code TestIsolateClosedCoreClasses} for anything that changes what a stub declares.
+ * {@code docs/isolate-class.md} §6 has the twelve causes and §7 the three that are left.
  * <p>
  * One gap is left deliberately: the <b>isolated type itself</b> is always emitted as a {@code class}, so isolating
  * an {@code enum} loses its nature and its constants. The stubs reproduce every nature; the isolated type does not.
@@ -138,6 +142,15 @@ public class IsolateClass {
         @Override
         boolean recordStaticImport(TypeInfo owner, String memberName) {
             if (isJdkType(owner) && "java.lang".equals(owner.packageName())) return false;
+            // An INHERITED static member needs no import: 'RSCServiceV1Stub extends Stub' calls 'getFactory(...)'
+            // unqualified because inheritance already puts it in scope. Importing it is not merely redundant, it
+            // does not compile -- a single-static-import must name an ACCESSIBLE member, and these are typically
+            // 'protected static', which does not cross the package boundary the stub now sits behind:
+            // "cannot find symbol: static getFactory". The largest single cause of the 34 class isolates that did
+            // not compile, and the only one that was a wrong decision rather than a missing one.
+            // Returning false sends the caller down its ordinary path, which puts the member on the stub of the
+            // type that declares it -- where the isolated type inherits it from, exactly as in the original.
+            if (isolatedTypeInherits(owner)) return false;
             staticImports.add(owner.fullyQualifiedName() + "." + memberName);
             return true;
         }
@@ -219,16 +232,26 @@ public class IsolateClass {
         }
 
         // the isolated type's own fields keep their declared types (stubbed), but not their initializers: an
-        // initializer can reach arbitrarily far into the project, and nothing in the isolate needs it to run
+        // initializer can reach arbitrarily far into the project, and nothing in the isolate needs it to run.
+        // The exception is a CONSTANT VARIABLE (JLS 4.12.4): 'static final int FIRST = 1' is the type's own switch
+        // 'case FIRST:' label, and without the value -- and the 'final' that goes with it -- javac says "constant
+        // expression required". A literal reaches nowhere, so keeping it costs nothing. 5 class isolates, 45 of
+        // their errors. 'final' and the initializer are kept or dropped TOGETHER: a final field with no
+        // initializer is "variable X not initialized in the default constructor", which is why the initializer
+        // cannot simply be dropped from a field that keeps its modifiers
         Set<FieldInfo> ownFields = new HashSet<>();
         for (FieldInfo fieldInfo : typeInfo.fields()) {
             ParameterizedType newType = data.ensureTypes(fieldInfo.type(),
                     IsolationCore.detailedSources(fieldInfo.source()));
             FieldInfo newField = runtime.newFieldInfo(fieldInfo.name(), fieldInfo.isStatic(), newType, isolated);
-            newField.builder().setInitializer(runtime.newEmptyExpression())
+            boolean constantVariable = fieldInfo.isStatic() && fieldInfo.isFinal()
+                                       && fieldInfo.initializer() != null && fieldInfo.initializer().isConstant();
+            newField.builder()
+                    .setInitializer(constantVariable ? fieldInfo.initializer() : runtime.newEmptyExpression())
                     .setAccess(fieldInfo.access())
                     .setSource(runtime.noSource());
             if (fieldInfo.isStatic()) newField.builder().addFieldModifier(runtime.fieldModifierStatic());
+            if (constantVariable) newField.builder().addFieldModifier(runtime.fieldModifierFinal());
             newField.builder().commit();
             isolated.builder().addField(newField);
             ownFields.add(newField);
