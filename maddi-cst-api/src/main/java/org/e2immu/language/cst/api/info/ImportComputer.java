@@ -42,6 +42,21 @@ public interface ImportComputer {
     void add(TypeInfo typeInfo);
 
     /**
+     * Emit {@code import static <importString>;} whether or not anything in the CST asks for it.
+     * <p>
+     * The computer derives imports from the TYPES a unit references, which is the whole answer for a printer:
+     * it renders {@code String.format(...)} qualified, so a static import of {@code format} is dead and is
+     * correctly dropped. A caller that pastes VERBATIM text has the opposite problem — the text says
+     * {@code assertThat(...)} and nothing in the CST names anything that would bring the import back — and it
+     * is the caller, not the computer, that knows which text it pasted. Same division of labour as
+     * {@link #add(TypeInfo)}.
+     *
+     * @param importString the imported member, without the {@code static} keyword, e.g.
+     *                     {@code java.util.Arrays.asList} or {@code java.util.Collections.*}
+     */
+    void addStaticImport(String importString);
+
+    /**
      * Never import this type: print it fully qualified wherever it occurs.
      * <p>
      * Needed when the caller, not the computer, knows which of two types sharing a simple name must own it. The
