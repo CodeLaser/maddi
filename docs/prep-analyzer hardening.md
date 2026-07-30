@@ -59,8 +59,8 @@ Severity: **H** high, **M** medium, **L** low.
   `TestFinalFieldBranchAssignment` (lambda, anonymous, early-return, switch-expr, + final positive control).
   Note: link tests on the `openjdk` branch were **already failing before** this change (pre-existing).
 - [x] **H** ~~`PrepAnalyzer.doType`'s idempotency guard reads `PART_OF_CONSTRUCTION`, which does not mean
-  "prepped".~~ **Fixed 2026-07-26** (reported by the `ws/standardize` thread, `handoff-from-jfocus-standardize.md`
-  §1). `go()` stamps every primary type *reached through the call graph*, so a caller that preps one primary type
+  "prepped".~~ **Fixed 2026-07-26** (reported by the `ws/standardize` thread; its handoff
+  has been deleted now that all three of its issues are closed). `go()` stamps every primary type *reached through the call graph*, so a caller that preps one primary type
   at a time over a shared type universe poisoned the next call's guard: the callee was marked processed without
   being processed, kept no `VariableData`, and the link computer then tripped
   `LinkComputerImpl$SourceMethodComputer.doStatement`'s bare `assert vd != null`. Order-dependent — callee-first

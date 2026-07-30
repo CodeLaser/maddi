@@ -1,10 +1,11 @@
 # `<nulltype>` at `ClassSymbolScanner.convert`: javac's marker for an unresolvable annotation element
 
-**Investigated and fixed:** 2026-07-26, from `ws/std2`, answering
-[`docs/handoff-nulltype-classsymbolscanner.md`](../../docs/handoff-nulltype-classsymbolscanner.md)
-(issues 2 and 3 of `docs/handoff-from-jfocus-standardize.md`).
+**Investigated and fixed:** 2026-07-26, from `ws/std2`, answering a handoff from the `ws/standardize`
+thread (issues 2 and 3 of its report: a missing `BottomType` case at `ClassSymbolScanner.convert`, and the
+`NYI` message problem). That handoff, and the report it came from, were deleted once closed — this note is
+the surviving record, and it corrects three of their readings: see
+[§5](#5-where-the-handoff-was-wrong-and-why-it-could-not-have-known).
 **Status:** cause measured end to end, fixed here, root cause fixed in the jfocus test fixture.
-**Corrects** three readings in the handoff — see [§5](#5-where-the-handoff-was-wrong-and-why-it-could-not-have-known).
 
 ## 1. Summary
 
@@ -90,8 +91,9 @@ The class-path fix is in `jfocus-transform/codelaser-transform-common`'s `testFi
 
 ## 5. Where the handoff was wrong, and why it could not have known
 
-Three readings in `docs/handoff-nulltype-classsymbolscanner.md` do not survive measurement. None of them was
-careless; each follows from not being able to run the reproduction, which is exactly what that document said.
+Three readings in the handoff do not survive measurement. None of them was careless; each follows from not
+being able to run the reproduction, which is exactly what that document said. They are recorded here because
+the same wrong turns are available to the next reader.
 
 - **§2a — "`Type.BottomType`, the type of `null`. A real type."** True of `BottomType` in general, and the
   identification of the symbol was exact. But not of this population: here it is a failure marker, in the same
