@@ -1672,8 +1672,21 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                              DetailedSources.Builder dsb,
                              Expression initializer) {
         long flags = variableDecl.getModifiers().flags;
-        boolean isStatic = (flags & Flags.STATIC) != 0;
         TypeInfo owner = typeStack.getLast();
+        // JLS 9.3: every field of an interface is implicitly public static final, and JCModifiers.flags carries
+        // only what was WRITTEN -- so an interface constant declared 'String NAME = "x";' arrives here without
+        // Flags.STATIC. The other inspection path does not have that gap: ClassSymbolScanner reads javac's symbol
+        // flags (vs.flags(), vs.isStatic()), where the implicit modifiers are present. So the same interface
+        // reported its field static or not depending on whether it reached maddi from the classpath or from source
+        // in this JVM, and a caller's answer changed between runs -- found by a class isolate that emitted an
+        // interface constant as an INSTANCE field of the isolated type, in a test that passed alone and failed in
+        // a warm JVM.
+        //
+        // Applied here rather than in FieldInfo.isStatic(), which would look like the tidier place: maddi models
+        // synthetic instance fields on interface types too (CreateSyntheticFieldsForGetSet gives java.util.List a
+        // non-static '_synthetic_list'), and an accessor cannot tell those from a constant. Here the declaration is
+        // in hand, so there is no ambiguity. The nature is available: the line below already branches on it.
+        boolean isStatic = (flags & Flags.STATIC) != 0 || owner.typeNature().isInterface();
         if (!owner.typeNature().isRecord() || isStatic) {
             FieldInfo inMap = owner.getFieldByName(name, false);
             FieldInfo fieldInfo;
