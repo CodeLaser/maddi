@@ -175,6 +175,37 @@ public interface JavaInspector {
     default void setJdkInternals(boolean jdkInternals) {
     }
 
+    /**
+     * Have the inspector compile the source sets it parses into class files of its own, in {@code directory}, and
+     * resolve every source-set dependency against <em>those</em> rather than against the build's output directory.
+     * The directory is the switch: {@code null} (the default) leaves the feature off.
+     * <p>
+     * Why it exists. The openjdk inspector drives javac one source set at a time, and javac has no view of the CST:
+     * when it type-checks {@code test}, every reference into {@code main} is resolved from {@code main}'s
+     * <em>class files</em> (see {@code JavaInspectorImpl.createTask}). So the build's output directory has to be
+     * present and up to date, which in real projects it often is not — it was cleaned, never built, or is one edit
+     * behind. The failure is quiet: the references do not resolve, the compilation units that hold them are dropped
+     * as warnings, and the analysis silently covers less than it appears to. Pointing the inspector at a directory
+     * of its own removes the dependency on the build's state: each source set is compiled by the very javac task
+     * that just parsed it, so what its dependents resolve against is by construction the code maddi read.
+     * <p>
+     * A source set is generated into {@code directory/<source set>}, which is wiped before each scan of that set, so
+     * a type that was renamed or deleted cannot linger. A set that is not re-scanned keeps the class files of its
+     * last scan — which is what its unchanged sources compiled to. When generation yields nothing for a set (it does
+     * not compile), the build's output directory is used for it as before.
+     * <p>
+     * Only scans that read a source set from disk generate: a scan driven by in-memory sources is either a whole
+     * test-protocol set, which has no dependents wanting class files, or a single file of a disk-backed set
+     * ({@code parseSingleFileInSourceSet}), for which emptying the set's directory and refilling it with that one
+     * file would be actively wrong.
+     * <p>
+     * The cost is javac's code-generation phase on top of parse and analyze; that is why this is opt-in. Callers own
+     * the directory and its lifecycle: put it inside the build directory to have {@code clean} clear it, or in a
+     * user-level cache to have it survive. Default no-op for front ends that do not resolve through class files.
+     */
+    default void setGeneratedClassesDirectory(Path directory) {
+    }
+
     default ImportComputer importComputer(int minStar, SourceSet sourceSetOfRequest) {
         return runtime().newImportComputer(minStar, packageName ->
                 compiledTypesManager().primaryTypesInPackageEnsureLoaded(packageName, sourceSetOfRequest));

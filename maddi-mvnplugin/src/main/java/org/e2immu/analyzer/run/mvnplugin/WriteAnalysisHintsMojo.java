@@ -4,6 +4,7 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.DependencyResolutionException;
 import org.e2immu.analyzer.aapi.parser.AnalysisHintsComposer;
@@ -27,7 +28,8 @@ import java.util.stream.Stream;
  * (use case 3), annotated with call-frequency comments. Uses {@link AnalysisHintsComposer} (the former
  * {@code Composer}). Runs on the in-house parser via {@link #parseSources()}, so no {@code --add-exports} is needed.
  */
-@Mojo(name = WriteAnalysisHintsMojo.WRITE_HINTS_GOAL, defaultPhase = LifecyclePhase.COMPILE, threadSafe = true)
+@Mojo(name = WriteAnalysisHintsMojo.WRITE_HINTS_GOAL, defaultPhase = LifecyclePhase.PROCESS_TEST_CLASSES, threadSafe = true,
+        requiresDependencyResolution = ResolutionScope.TEST)
 public class WriteAnalysisHintsMojo extends CommonMojo {
     public static final String WRITE_HINTS_GOAL = "write-analysis-hints";
 

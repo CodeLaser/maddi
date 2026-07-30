@@ -92,7 +92,67 @@ recoverable (`java.lang.Math`'s private constructor is absent from `getAllMember
 the internal member scope). **Regular classpath JAR** classfiles *do* carry private members, so those load in
 full — including private constructors (see `TestPrivateConstructor`), which analyzed-package decode relies on.
 
-### 4. `BigInteger` / `BigDecimal` fail to load through the module-based platform
+### 4. A source set is resolved through the **compiled** form of the sets it depends on
+
+javac has no view of maddi's CST. When it type-checks `test`, every reference into `main` is resolved from what
+`main` looks like on javac's class path — `JavaInspectorImpl.createTask` puts each non-external dependency's
+`SourceSet.uri()` there. So a source set's dependencies must be *findable*, and what "findable" means is either:
+
+- a **class file** in that entry (`build/classes/java/main/a/b/Base.class`), or
+- a **source file** in it: javac's class path doubles as its source path, so `a/b/Base.java` found there is
+  compiled implicitly. Both build plugins rely on this without saying so — `ComputeSourceSets` sets a source
+  set's `uri()` to its first *source* directory, never to a class output. It works, at the cost of re-parsing
+  the dependency's sources once per dependent set, and it is why a package restriction is fatal on a modular
+  project (`SourceSet.restrictToPackages`).
+
+When neither is there — the class output was cleaned, never built, or is one edit behind — the references do not
+resolve, the compilation units holding them are dropped as tolerable warnings, and the analysis silently covers
+less than it appears to. A stale class file is worse than a missing one: it can also fail hard, with
+`Inspection of a.b.Base has already been committed`, javac having loaded from the class file a type maddi
+already committed from source.
+
+**This is now reported.** Before scanning a set, the inspector checks every dependency it has parsed types for,
+and warns (in the `Summary`, and on the log) when a type has neither a class file nor a source file in the
+entry, or has a class file older than its source:
+
+```
+Source set 'x/test' resolves its references into 'x/main' through class files, and of the 340 type(s) parsed
+from it, 12 have neither a class file nor a source file in /…/build/classes/java/main (e.g. a.b.C, a.b.D).
+Those references will not resolve, and the compilation units holding them are dropped. Rebuild 'x/main'
+before analysing, or have maddi compile it itself (JavaInspector.setGeneratedClassesDirectory).
+```
+
+Only dependencies with parsed types read from disk are checked: an unparsed set makes no claim to verify, and an
+in-memory (test-protocol) set has no build output to be wrong about.
+
+### 5. Removing the dependency on the build: `setGeneratedClassesDirectory`
+
+```java
+javaInspector.setGeneratedClassesDirectory(Path.of(buildDir, "maddi-classes")); // before initialize/parse
+```
+
+The inspector then runs javac's code-generation phase after scanning each source set and points its dependents
+at *those* class files. What a dependent resolves against is then by construction the code maddi just read —
+no build state involved, and no re-parsing of the dependency's sources either. The directory is the switch;
+`null` (the default) leaves it off, because the cost is javac's `generate()` on top of parse and analyze.
+
+- A set is generated into `<directory>/<sanitised source set name>-<hash>`, **wiped before each scan** of that
+  set, so a renamed or deleted type cannot linger. Callers own the directory: put it under the build directory
+  to have `clean` clear it, or in a user-level cache to have it survive.
+- A set that is not re-scanned keeps the class files of its last scan — which is what its unchanged sources
+  compiled to. The linearization guarantees a re-scanned set regenerates before any dependent re-scans, so this
+  composes with the re-parse machinery (§`JavaInspectorImpl.reparse`) without further bookkeeping.
+- The generated directory **replaces** the build's for that dependency rather than shadowing it. Mixing the two
+  would let a type come from our current output while its sibling still came from the build's stale one — the
+  failure this removes, made harder to see. When generation yields nothing for a set (it does not compile, or
+  javac aborts), we fall back to the build's output wholesale and say so.
+- `CLASS_OUTPUT` is set *only* when generation is on. Left unset, javac writes class files next to the source
+  file it compiles, so an unconditional `generate()` would scatter `.class` files through the user's tree.
+
+Reference: `TestGeneratedClassOutput` covers missing output, stale output, the implicit-source-path case, and
+the wipe.
+
+### 6. `BigInteger` / `BigDecimal` fail to load through the module-based platform
 
 `getOrLoad(BigInteger.class)` returns `null` when `java.base` is registered as a **module** source set, because
 their `jdk.internal.*` deps are encapsulated; loading `java.base` as a **classpath** jmod avoids it. Full

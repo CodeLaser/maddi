@@ -3,6 +3,7 @@ package org.e2immu.analyzer.run.mvnplugin;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.e2immu.analyzer.run.config.Configuration;
 import org.e2immu.analyzer.run.main.Main;
 import org.e2immu.analyzer.run.openjdkmain.RunAnalyzer;
@@ -24,9 +25,15 @@ import org.e2immu.analyzer.run.openjdkmain.RunAnalyzer;
  * --add-exports jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED
  * --add-exports jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
  * </pre>
+ * <p>
+ * Bound to {@code process-test-classes}, not {@code compile}: {@code ComputeSourceSets} hands the analyzer the
+ * project's <em>test</em> source set as well as its main one, and the openjdk front end resolves each set's
+ * references into the sets it depends on through their compiled classes — so {@code test-compile} has to have run,
+ * which under {@code compile} it had not. The other analyzing goals are bound the same way.
  */
 @Mojo(name = RunAnalyzerMojo.RUN_ANALYZER_GOAL,
-        defaultPhase = LifecyclePhase.COMPILE, threadSafe = true)
+        defaultPhase = LifecyclePhase.PROCESS_TEST_CLASSES, threadSafe = true,
+        requiresDependencyResolution = ResolutionScope.TEST)
 public class RunAnalyzerMojo extends CommonMojo {
     public static final String RUN_ANALYZER_GOAL = "run";
 

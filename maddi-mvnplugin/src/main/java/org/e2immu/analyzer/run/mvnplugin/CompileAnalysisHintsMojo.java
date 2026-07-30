@@ -3,6 +3,7 @@ package org.e2immu.analyzer.run.mvnplugin;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfiguration;
 import org.e2immu.analyzer.run.config.Configuration;
@@ -31,7 +32,8 @@ import java.util.stream.Collectors;
  * {@code analysisResultsTargetDir}, then lets {@link RunAnalyzer} branch into its analysis-hints-compiler mode.
  * As with {@link RunAnalyzerMojo}, the openjdk parser requires the Maven JVM to have the javac {@code --add-exports}.
  */
-@Mojo(name = CompileAnalysisHintsMojo.COMPILE_HINTS_GOAL, defaultPhase = LifecyclePhase.COMPILE, threadSafe = true)
+@Mojo(name = CompileAnalysisHintsMojo.COMPILE_HINTS_GOAL, defaultPhase = LifecyclePhase.PROCESS_TEST_CLASSES, threadSafe = true,
+        requiresDependencyResolution = ResolutionScope.TEST)
 public class CompileAnalysisHintsMojo extends CommonMojo {
     public static final String COMPILE_HINTS_GOAL = "compile-analysis-hints";
 
