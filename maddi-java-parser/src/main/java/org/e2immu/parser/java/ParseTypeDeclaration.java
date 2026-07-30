@@ -148,8 +148,16 @@ public class ParseTypeDeclaration extends CommonParse {
         // in the annotations, we can refer to our own static fields, so we wait a little to parse them
         // See TestAnnotations,3
         List<Annotation> annotations = new ArrayList<>();
+        // the class/interface/enum/record keyword, recorded so that its nature can be CHANGED in place
+        // (converting a class to a record replaces exactly this token). The openjdk front end records the
+        // same thing, keyed the same way; see TestDetailedSources.testTypeNatureKeyword.
+        Node natureKeyword = null;
         while (true) {
             Node tdi = td.get(i);
+            if (tdi instanceof KeyWord && TYPE_NATURE_KEYWORDS.contains(tdi.getSource())
+                || tdi instanceof Token natureToken && Token.TokenType.RECORD.equals(natureToken.getType())) {
+                natureKeyword = tdi;
+            }
             if (tdi instanceof Annotation a) {
                 annotations.add(a);
             } else if (tdi instanceof Modifiers modifiers) {
@@ -175,7 +183,13 @@ public class ParseTypeDeclaration extends CommonParse {
         TypeInfo typeInfo = bySimpleName.apply(simpleName);
         assert typeInfo != null;
 
-        if (detailedSourcesBuilder != null) detailedSourcesBuilder.put(typeInfo.simpleName(), source(identifier));
+        if (detailedSourcesBuilder != null) {
+            detailedSourcesBuilder.put(typeInfo.simpleName(), source(identifier));
+            // keyed by the TypeNature, as the openjdk front end does; builder.typeNature() is already set
+            if (natureKeyword != null && typeInfo.builder().typeNature() != null) {
+                detailedSourcesBuilder.put(typeInfo.builder().typeNature(), source(natureKeyword));
+            }
+        }
 
         TypeInfo.Builder builder = typeInfo.builder();
         List<Comment> comments = comments(td, context, typeInfo, builder);
@@ -248,6 +262,9 @@ public class ParseTypeDeclaration extends CommonParse {
         return Either.right(new DelayedParsingInformation(hierarchy.hierarchyStart, typeInfo, builder, td, context, typeNature,
                 newContext, detailedSourcesBuilder, hierarchy.i, annotations, recordComponents));
     }
+
+    // 'record' is a Token rather than a KeyWord in this grammar, and is handled separately
+    private static final Set<String> TYPE_NATURE_KEYWORDS = Set.of("class", "interface", "enum", "record");
 
     private record Hierarchy(int hierarchyStart, int i, boolean done) {
     }
