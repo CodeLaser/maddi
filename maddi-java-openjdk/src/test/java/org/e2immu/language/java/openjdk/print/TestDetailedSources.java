@@ -59,6 +59,46 @@ public class TestDetailedSources extends CommonTest {
     }
 
     @Language("java")
+    public static final String INPUT2 = """
+            package a.b;
+            import java.util.HashMap;
+            class X {
+                void method() {
+                    HashMap.Entry<String, Integer> e = null;
+                }
+            }
+            """;
+
+    /**
+     * A nested type can be named through any type that INHERITS it, not only through the one that declares it:
+     * {@code HashMap.Entry} is {@code java.util.Map.Entry}. The qualifier is what the author wrote, so it is
+     * {@code HashMap} -- importing {@code Map} alone leaves the text {@code HashMap.Entry} with no binding for
+     * {@code HashMap}, and javac reads the qualifier as a package name.
+     * <p>
+     * BOTH are imported, because the two consumers need different names: text copied verbatim says
+     * {@code HashMap.Entry}, while a printer renders the same type down its declaring chain as
+     * {@code Map.Entry}. One of the two imports is redundant for any single consumer, and which one depends on
+     * the consumer.
+     */
+    @Test
+    public void test2() {
+        TypeInfo X = scan("a.b.X", INPUT2);
+        MethodInfo methodInfo = X.findUniqueMethod("method", 0);
+        LocalVariableCreation lvc = (LocalVariableCreation) methodInfo.methodBody().statements().getFirst();
+        DetailedSources ds = lvc.source().detailedSources();
+        TypeInfo entry = lvc.localVariable().parameterizedType().typeInfo();
+        assertEquals("java.util.Map.Entry", entry.fullyQualifiedName());
+        assertEquals("java.util.HashMap", ds.qualifier(entry).fullyQualifiedName());
+
+        ImportComputer importComputer = new ImportComputerImpl();
+        Qualification qualification = runtime.qualificationExistingSources();
+        ImportComputer.Result r = importComputer.go(X.compilationUnit(), qualification);
+        assertEquals("java.util.HashMap, java.util.Map",
+                r.imports().stream().map(ImportComputer.ImportDetails::importString)
+                        .collect(Collectors.joining(", ")));
+    }
+
+    @Language("java")
     public static final String INPUT_END_OF_PARAMETER_LIST = """
             package a.b;
             class X {

@@ -391,46 +391,39 @@ public class TestFullyQualified extends CommonTest {
             assertNull(first.source().detailedSources().associatedObject(pt.typeInfo()));
         }
         {
+            // 'I.J': here the written qualifier IS the declaring one, so nothing changes
             MethodInfo methodInfo = II.findUniqueMethod("method2", 1);
             ParameterInfo first = methodInfo.parameters().getFirst();
             ParameterizedType pt = first.parameterizedType();
-            //noinspection ALL
-            //List<DetailedSources.Builder.TypeInfoSource> tis = (List<DetailedSources.Builder.TypeInfoSource>)
-            //        first.source().detailedSources().associatedObject(pt.typeInfo());
             assertEquals("14-23:14-25", first.source().detailedSources().detail(pt.typeInfo()).compact2());
             TypeInfo I = pt.typeInfo().compilationUnitOrEnclosingType().getRight();
             assertEquals("14-23:14-23", first.source().detailedSources().detail(I).compact2());
-            //assertEquals(1, tis.size());
-            //assertEquals("TypeInfoSource[typeInfo=X.I, source=@14:23-14:23]", tis.getFirst().toString());
+            assertSame(I, first.source().detailedSources().qualifier(pt.typeInfo()));
         }
         {
+            // 'II.J': J is DECLARED in I and INHERITED into II, and it is II that stands in the text. What is
+            // recorded at the qualifier's span is therefore X.II, not X.I -- see iterateUpToPackageLevel.
             MethodInfo methodInfo = II.findUniqueMethod("method1", 1);
             ParameterInfo first = methodInfo.parameters().getFirst();
             ParameterizedType pt = first.parameterizedType();
-            //noinspection ALL
-            //List<DetailedSources.Builder.TypeInfoSource> tis = (List<DetailedSources.Builder.TypeInfoSource>)
-            //        first.source().detailedSources().associatedObject(pt.typeInfo());
-            assertEquals("11-23:11-26", first.source().detailedSources().detail(pt.typeInfo()).compact2());
-            TypeInfo J = pt.typeInfo().compilationUnitOrEnclosingType().getRight();
-            assertEquals("11-23:11-24", first.source().detailedSources().detail(J).compact2()); // showing as II
-            //assertEquals(1, tis.size());
-            //assertEquals("TypeInfoSource[typeInfo=X.II, source=@11:23-11:24]", tis.getFirst().toString());
+            DetailedSources ds = first.source().detailedSources();
+            assertEquals("11-23:11-26", ds.detail(pt.typeInfo()).compact2());
+            TypeInfo I = pt.typeInfo().compilationUnitOrEnclosingType().getRight();
+            assertEquals("X.I", I.fullyQualifiedName());
+            assertNull(ds.detail(I));
+            assertEquals("11-23:11-24", ds.detail(II).compact2());
+            assertSame(II, ds.qualifier(pt.typeInfo()));
         }
         {
             MethodInfo methodInfo = II.findUniqueMethod("method0", 1);
             ParameterInfo first = methodInfo.parameters().getFirst();
             ParameterizedType pt = first.parameterizedType();
-            //noinspection ALL
-            //List<DetailedSources.Builder.TypeInfoSource> tis = (List<DetailedSources.Builder.TypeInfoSource>)
-            //        first.source().detailedSources().associatedObject(pt.typeInfo());
-            assertEquals("8-23:8-28", first.source().detailedSources().detail(pt.typeInfo()).compact2());
-            TypeInfo I = pt.typeInfo().compilationUnitOrEnclosingType().getRight();
-            assertEquals("8-23:8-26", first.source().detailedSources().detail(I).compact2());
-            TypeInfo X = I.compilationUnitOrEnclosingType().getRight();
-            assertEquals("8-23:8-23", first.source().detailedSources().detail(X).compact2());
-            //assertEquals(2, tis.size());
-            //assertEquals("TypeInfoSource[typeInfo=X.II, source=@8:23-8:26]", tis.getFirst().toString());
-            //assertEquals("TypeInfoSource[typeInfo=X, source=@8:23-8:23]", tis.getLast().toString());
+            DetailedSources ds = first.source().detailedSources();
+            assertEquals("8-23:8-28", ds.detail(pt.typeInfo()).compact2());
+            assertEquals("8-23:8-26", ds.detail(II).compact2()); // 'X.II', again written rather than declared
+            TypeInfo X = II.compilationUnitOrEnclosingType().getRight();
+            assertEquals("8-23:8-23", ds.detail(X).compact2());
+            assertSame(II, ds.qualifier(pt.typeInfo()));
         }
     }
 

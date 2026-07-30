@@ -57,6 +57,23 @@ public class ImportComputerImpl implements ImportComputer {
         doNotImport.add(typeInfo);
     }
 
+    /**
+     * The qualifier recorded for a reference is the one the AUTHOR wrote, and that is the name verbatim text
+     * needs in scope: {@code HashMap.Entry} needs {@code java.util.HashMap}. A printer, on the other hand,
+     * renders a nested type down its DECLARING chain -- {@code Map.Entry} -- so that name has to resolve too.
+     * The two coincide except when a nested type is named through a type that INHERITS it, and there a consumer
+     * that copies text and one that prints the CST need different imports; hand out both rather than pick.
+     * Returns {@code null} whenever the ordinary single import suffices.
+     *
+     * @see org.e2immu.language.cst.api.element.DetailedSources#qualifier(TypeInfo)
+     */
+    private static TypeInfo declaringQualifierIfDifferent(TypeInfo typeInfo, TypeInfo writtenQualifier) {
+        if (writtenQualifier == typeInfo) return null; // written without qualification
+        if (typeInfo.compilationUnitOrEnclosingType().isLeft()) return null; // top-level: nothing encloses it
+        TypeInfo declaring = typeInfo.compilationUnitOrEnclosingType().getRight();
+        return declaring == writtenQualifier ? null : declaring;
+    }
+
     private static class PerPackage {
         final List<TypeInfo> types = new LinkedList<>();
 
@@ -107,6 +124,16 @@ public class ImportComputerImpl implements ImportComputer {
                         }
                         if (allowInImport(toImport)) {
                             typesReferenced.add(toImport);
+                        }
+                        if (!keepPrimary) {
+                            TypeInfo declaring = declaringQualifierIfDifferent(tr.typeInfo(), typeToImport);
+                            if (declaring != null) {
+                                TypeInfo alsoImport = reservedNames.contains(declaring.simpleName())
+                                        ? declaring.primaryType() : declaring;
+                                if (allowInImport(alsoImport)) {
+                                    typesReferenced.add(alsoImport);
+                                }
+                            }
                         }
                     } else {
                         qualification.addTypeNotImported(tr.typeInfo());
