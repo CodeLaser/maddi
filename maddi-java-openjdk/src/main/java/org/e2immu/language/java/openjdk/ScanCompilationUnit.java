@@ -1,6 +1,7 @@
 package org.e2immu.language.java.openjdk;
 
 import com.sun.source.doctree.DocCommentTree;
+import com.sun.source.util.TreePath;
 import com.sun.source.tree.*;
 import com.sun.source.util.*;
 import com.sun.tools.javac.code.Flags;
@@ -280,6 +281,21 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         .setParentClass(runtime.objectParameterizedType())
                         .setAccess(runtime.accessPublic())
                         .setSource(compilationUnitSource);
+                // The javadoc of a package-info belongs to the PACKAGE DECLARATION, and it was never attached to
+                // the package-info type -- so javaDoc() was null, typesReferenced() was empty, and every consumer
+                // was blind to it. A refactoring that moves a type therefore left
+                //     /** … {@link a.Moved} … */ package p;
+                // naming a package the move had emptied. Measured on Elasticsearch:
+                // modules/reindex/…/package-info.java kept {@link org.elasticsearch.index.reindex.UpdateByQueryAction}
+                // after that type was lifted, and javac (doclint) failed with "reference not found".
+                // The comment hangs off the PACKAGE DECLARATION node, not off the compilation unit: asking for the
+                // compilation-unit path returns null (measured, not assumed).
+                DocCommentTree packageDocComment = node.getPackage() == null ? null
+                        : docTrees.getDocCommentTree(new TreePath(getCurrentPath(), node.getPackage()));
+                if (packageDocComment != null) {
+                    JavaDoc packageJavaDoc = scanJavaDoc.scan(packageDocComment);
+                    pkgInfoType.builder().setJavaDoc(packageJavaDoc);
+                }
                 // don't commit yet
                 collectedPrimaryTypes.add(pkgInfoType);
             } else {
