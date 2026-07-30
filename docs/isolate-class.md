@@ -145,19 +145,24 @@ whether or not that type is in the import list. A class isolate therefore never 
   `AbstractOutputStreamAppender.Builder extends AbstractAppender.Builder` emitted `extends Builder<B>`, a class
   extending itself. Being excluded from the import list is *not* the same as being printed correctly.
 
-## 5. Still open: fluent chaining through a self-type generic
+## 5. Fluent chaining through a self-type generic — RESOLVED 2026-07-30
 
 Six units, all of one shape: `assertThat(x).isBetween(a, b)` and `FileAppender.newBuilder().withLayout(...)`.
 The receiver's type is a type parameter bounded by the type itself — `SELF extends Assert<SELF, ACTUAL>`,
 `B extends Builder<B>` — so the chained method is not found on the stub.
 
-This is the fifth thing this corpus turned up that comes down to **recursive generics**, after `eraseOutOfScope`,
-the erasure clash, the "already committed" owner and the shadowed `Builder` name. It is the one remaining cause
-and the only one I would call hard.
+This was written up as **the one remaining cause and the only one I would call hard**, on the reading that it was
+the fifth thing this corpus reduced to *recursive generics*, after `eraseOutOfScope`, the erasure clash, the
+"already committed" owner and the shadowed `Builder` name. That reading was wrong, and the way it was wrong is
+worth keeping: the generics are what the *symptom* is made of, not what the defect is. The defect is **placement**
+— a called method was stubbed on the type the call went THROUGH rather than on the type that DECLARES it, so on a
+subtype the declaring type's parameter is out of scope and `eraseOutOfScope` does what it is supposed to do. The
+fix is one helper, `IsolationCore.MyVisitor.declaringOwner`, mirroring what the `FieldReference` branch had been
+doing for inherited fields all along; it took the corpus to **100 of 100 trees and 21452 of 21452 units parsing
+back**. See `handoff-isolateclass-enum-and-generic-stubs.md` §3 and §7a.
 
-Whether it is worth fixing is a judgement call, not a technical one: six units in 21,305, in three unit-test
-classes and three log4j-configuring importers. If the types you isolate at scale make heavy use of builders or
-assertj, it matters; otherwise it does not.
+The judgement call that followed — "six units in 21,305 … worth fixing?" — was therefore also answered wrongly,
+for the same reason: the cost was mis-estimated because the cause was.
 
 ## State, so a later run can tell drift from regression
 
@@ -173,3 +178,18 @@ Measured 2026-07-28, top 100 closed-core types by total statement count:
 | runtime | ~2 min, 16G |
 | `IsolateMethod` + `IsolateClass` unit tests | 63, 0 failures |
 | whole maddi `test` | green |
+
+Re-measured 2026-07-30, same knobs, after §5 and the two defects of
+`handoff-isolateclass-enum-and-generic-stubs.md`. The unit total differs from the row above because closed-core
+itself has moved on, so read the *ratios*, not the deltas — and note that **parsing back is the weaker of the two
+gates**: the corpus below parses whole and 34 of its trees still do not compile, which is what
+`TestIsolateClosedCoreClasses.MAX_TREES_NOT_COMPILING` is for.
+
+| | |
+|---|---|
+| trees produced / requested | **100 / 100** |
+| trees fully parsing back | **100 / 100** (was 93 on this parse before the fixes) |
+| compilation units parsing back | **21452 / 21452** (was 21445) |
+| trees that COMPILE | **66 / 100** (was 57) |
+| largest cause left | 13 trees, "is not abstract and does not override" |
+| runtime | ~2.5 min, 16G |

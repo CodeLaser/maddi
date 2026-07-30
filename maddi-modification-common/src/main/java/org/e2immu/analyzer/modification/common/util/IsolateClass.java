@@ -54,13 +54,16 @@ import java.util.stream.Stream;
  * marker-and-substitute trick {@code IsolateMethod} uses, one marker per kept method. Stubs get bodies that
  * merely satisfy the compiler.
  *
- * <h2>Known stub defects</h2>
- * Two shapes still emit a tree that parses and does not compile: an {@code enum} is stubbed as a class (so a
- * {@code switch} over it fails), and a method inherited from a generic supertype is stubbed on the erased scope
- * type (so its type argument is lost). Both have a failing driver in {@code TestIsolateClass4Compiles} and a
- * worked-out fix in {@code docs/handoff-isolateclass-enum-and-generic-stubs.md}. Note that verifying a change here
- * needs {@code setFailFast(true)}: with the default options every javac error is logged and carried, which is
- * exactly how these two survived.
+ * <h2>Verifying a change here</h2>
+ * A re-parse with the default {@code ParseOptions} is not a compile: {@code failFast} is false there, so javac's
+ * errors are logged and the unit is kept. Use {@code setFailFast(true)}, as {@code TestIsolateClass4Compiles} does
+ * — that is the only reason the two defects it now covers (an {@code enum} stubbed as a class, an inherited generic
+ * method stubbed on the erased scope type) could survive a green test suite for as long as {@code IsolateClass} has
+ * existed. See {@code docs/handoff-isolateclass-enum-and-generic-stubs.md} for both, and
+ * {@code docs/isolate-class.md} §5 for the one cause still open.
+ * <p>
+ * One gap is left deliberately: the <b>isolated type itself</b> is always emitted as a {@code class}, so isolating
+ * an {@code enum} loses its nature and its constants. The stubs reproduce every nature; the isolated type does not.
  */
 public class IsolateClass {
     private static final Logger LOGGER = LoggerFactory.getLogger(IsolateClass.class);

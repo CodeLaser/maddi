@@ -960,6 +960,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
             // we might overwrite them, or not...
             fieldInfo.builder().setInitializer(runtime.newEmptyExpression()).setAccess(runtime.accessPublic());
+            // as addFieldToType, which is the eager twin of this method: without the flags the field carries no
+            // modifiers at all, so 'final' is lost and, worse, an ENUM CONSTANT is not marked synthetic -- the one
+            // thing that distinguishes it from an ordinary static field of the same type (FlagHelper.field,
+            // TypePrinterImpl.enumConstantStream). Which of the two paths materialized the field then decided the
+            // answer: a source-parsed enum's constants were synthetic, a lazily-loaded class file's were not, and
+            // addFieldToType dedups by name, so whichever ran first won for good.
+            flagHelper.field(vs.flags(), fieldInfo.builder());
             fieldInfo.builder().addAnnotations(loadAnnotations(vs));
             owner.builder().addField(fieldInfo);
             put(vs, fieldInfo);

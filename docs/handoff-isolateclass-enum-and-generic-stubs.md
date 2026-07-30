@@ -1,16 +1,19 @@
 # Handoff: two `IsolateClass` stub defects — an enum stubbed as a class, and an inherited generic method erased
 
-Written 2026-07-30. **The job: make the two remaining tests in
-`TestIsolateClass4Compiles` (`maddi-modification-common`) pass.** Both are failing on purpose, both are
-deterministic, and both are one decision in `IsolationCore` rather than anything structural.
+Written 2026-07-30. **Both resolved the same day**, at the two lines §2 and §3 name. All three drivers in
+`TestIsolateClass4Compiles` pass, and the class-isolate corpus went from **57 to 66 of 100 trees compiling** and
+from 93 to **100 of 100 parsing back**. [§7](#7-what-the-fixes-turned-out-to-be) records what each fix actually
+took — including a third defect the enum one uncovered in the parser, the two precautions §3 asks for that turn out
+to be unnecessary, and the one claim elsewhere in the docs that this work shows to be wrong.
 
 ```bash
 GRADLE_USER_HOME=/Users/bnaudts/git/ws/object/.gradle-home \
   gradle :maddi-modification-common:test --tests '*TestIsolateClass4Compiles'
 ```
 
-Expected today: `switchOverEnum` and `inheritedGenericMethod` FAIL, `staticallyImportedInterfaceField` PASSES
-(fixed, see §4). Nothing else in maddi fails.
+The original job, kept for the diagnosis: **make the two remaining tests in
+`TestIsolateClass4Compiles` (`maddi-modification-common`) pass.** Both were failing on purpose, both were
+deterministic, and both were one decision in `IsolationCore` rather than anything structural.
 
 ---
 
@@ -146,6 +149,7 @@ Two things to watch:
 | `maddi` `8bd48182` | `CompilationProblems` carries its diagnostics; `TestIsolateClass4Compiles` added with all three drivers. |
 | `jfocus-refactor-service` `1fde5cb2` | Both isolate drivers ask maddi instead of running a second javac: `ClosedCoreIsolates.compileErrors`. |
 | `jfocus-refactor-service` `91a16a7f`, `jfocus-refactor-server` `afaea7e`, `ebfeda0` | `debug.isolateClass` and its coverage; `ADDING-A-DSL-METHOD.md`. |
+| `maddi` `0cee08a5` | **Defect D fixed** (§7c): a field materialized on `ClassSymbolScanner`'s lazy path now gets its flags, so a class-file enum constant is synthetic. Includes the regenerated `JavaLangAnnotation.json`. |
 
 **The interface-field fix is the cautionary tale of this piece of work, and it generalises to both defects
 above.** The instruction was to hard-code the JLS 9.3 rule in `FieldInfo.isStatic()`, and the justification was
@@ -170,6 +174,8 @@ properties before changing them. (Note also the honest counter-example: `isPrope
 synthetic field reading as `final` collapses nothing.)
 
 ## 5. Verification expected of the fixes
+
+*(What it actually produced is in §7; the list below is what was asked for, and all of it was run.)*
 
 - `:maddi-modification-common:test` — all of `TestIsolateClass4Compiles` green, and run it **both** on its own and
   as part of the module. The interface case was JVM-state dependent before it was fixed properly, and that was
@@ -201,3 +207,138 @@ gradle :codelaser-refactor-graalpy:scriptRunner \
 `SwitchPatternHelper` gives 14 files, `ClassWriter` 70, `ExprProcessor` 61. Compile one with an empty classpath to
 see the errors as originally found. Note this is the *diagnostic* route — the gate itself should stay
 `setFailFast(true)`, per §1.
+
+## 7. What the fixes turned out to be
+
+Both landed where §2 and §3 said, in `IsolationCore`, and the enum one pulled a third defect out of the parser
+with it. Measured on the class-isolate corpus, produced twice from the same closed-core parse, once with the
+changes stashed:
+
+| | baseline | after |
+|---|---|---|
+| trees written | 100 of 100 | 100 of 100 |
+| trees fully parsed back | 93 of 100 | **100 of 100** |
+| compilation units parsed back | 21445 of 21452 | **21452 of 21452** |
+| trees that COMPILE | 57 of 100 | **66 of 100** |
+
+By error kind, `<kind>: baseline → after`, over the trees each affects (a tree with several kinds appears in
+several rows, so these do not sum to the tree count):
+
+```
+pattern or enum constant required                 3 → 0     defect A
+annotation value not of an allowable type         6 → 0     defect A, and it needed defect D as well
+invalid type for annotation interface element     6 → 0     the second message on those same trees
+incompatible types: <X> cannot be converted <X>   1 → 0     defect B
+cannot find symbol                              16 → 11    defect B
+name clash ... same erasure (3 distinct)          3 → 1     defect B
+invalid override                                  2 → 1
+abstract method not implemented                  13 → 13    untouched, the largest cause left
+qualified new of static class                     5 → 5      untouched
+constant expression required                      5 → 5      untouched
+```
+
+Per tree, as a set difference: **9 fixed, 0 broken.** Six to defect A (five on an annotation value that is an enum
+constant, one on a `switch`), three to defect B — an erased inherited return type, a dropped unit, and, less
+obviously, an *erasure name clash*: `GenerateBaumusterBasedVehicleStrategy` and its abstract parent each got a
+copy of the same declared method, one per receiver, and the two erased to the same signature without overriding.
+Placing it on the declaring type is what removed the clash.
+
+`MAX_TREES_NOT_COMPILING` therefore goes **43 → 34**, with this histogram summarised above the constant.
+
+### 7a. The seven trees that were being dropped
+
+Defect B was costing more than a wrong signature. The baseline drops seven compilation units at re-parse, on five
+distinct unresolved calls: `setLayout` (×2), `withLayout`, `isBetween`, `isPositive`, `isTrue` — log4j's builders
+and AssertJ's assertions, both of them the self-type idiom (`B extends Builder<B>`, `SELF extends
+AbstractAssert<SELF, ACTUAL>`). The erased owner put the inherited fluent method on the wrong type, so the call
+did not resolve at all and the unit was dropped.
+
+That is `isolate-class.md` §5, *"still open: fluent chaining through a self-type generic … the one remaining cause
+and the only one I would call hard"* — **it is this defect, and it is fixed.** The corpus now parses back whole,
+21452 of 21452 units. Worth noting how it looked from the other side: as a *placement* problem it is one line; as
+"the receiver's type is a type parameter bounded by the type itself" it looked like recursive generics, which is
+why it was written up as hard.
+
+### 7b. Defect A needed the fourth thing this document only suspected
+
+§2 item 4 said to *check* `reproducedParentClass` for an enum, because "the commit may assert it". It does:
+`TypeInspectionImpl.Builder.commit` asserts that an enum-natured type's parent is `java.lang.Enum`, and with the
+nature changed and nothing else, the driver failed with a bare `AssertionError` whose stack points at the commit
+rather than at the decision. Hence `enumParentOf`, giving each enum stub `java.lang.Enum<itself>` — which
+`TypePrinterImpl` then declines to print, exactly as the language does. `reproducedParentClass` still maps
+`java.lang.Enum` to `Object` and now says why: that is right for every stub that is *not* enum-natured.
+
+`enumStubs` was needed, and for a reason beyond the four sites §2 lists: `values()` and `valueOf(String)`. They
+are compiler-generated for every enum, so stubbing them is "values() is already defined" — but only now that the
+stub is an enum; as a class it was legal. They reach `ensureMethodInfo` only from the class-file path (javac's
+parse tree does not carry them), so no driver can exercise that guard; it is written from the corpus's side.
+
+### 7c. Defect D, which defect A uncovered: an enum constant that was not synthetic
+
+With the nature fixed, six corpus trees moved from two flavours of annotation error to a third:
+
+```
+an enum annotation value must be an enum constant
+```
+
+for verbatim `@TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)`, against the stub
+
+```java
+public enum TransactionAttributeType { ; public static TransactionAttributeType REQUIRES_NEW; }
+```
+
+— an enum with an *empty* constant list and an ordinary static field beside it. The isolator asks
+`fieldInfo.isSynthetic()`, which §2 is right to say is the marker; the constant simply did not have it.
+
+**`ClassSymbolScanner.ensureField` never applied the flags.** It is the lazy path — a field referenced before its
+owner's members are loaded — and unlike its eager twin `addFieldToType` twenty lines above, it did not call
+`flagHelper.field`. So the field arrived with no modifiers at all: not `final`, and decisively not `synthetic`,
+the one thing separating an enum constant from an ordinary static field of the same type. `addFieldToType` dedups
+by name, so whichever path materialized the constant first decided the answer for good. A probe on two JDK enums,
+before and after:
+
+```
+RetentionPolicy.RUNTIME    synthetic=false static=true   ->  synthetic=true
+TimeUnit.SECONDS           synthetic=false static=true   ->  synthetic=true
+```
+
+This is **the same defect shape as §4's** — one property, two inspection paths, different answers — and it went
+to the same kind of place: the parse site, one line, mirroring the twin that had it right. §4's warning still
+holds and was the reason to look here rather than at the accessor.
+
+It has one visible consequence outside the isolators, and it is worth knowing about: `TestAnalysisHintsCompiler`
+regenerates the committed analysis archive, and `JavaLangAnnotation.json` changed — ten enum constants of
+`ElementType` and `RetentionPolicy` gained `notNullField`, which the four that had already been loaded eagerly
+carried all along. The archive was recording the inconsistency; it is now uniform. Nothing else in the archive
+moved, and the whole maddi suite is green.
+
+### 7d. Two things §3 asked for that were not needed
+
+- *"keep stubbing the scope type"* needs no care at all: the `ensureTypes(mc.object().parameterizedType())` call
+  that used to compute the erased owner already does it, and the fix only changes what is done with the result.
+- `superTypeStubOf` is **not** reusable here, as §3 wondered. It answers a different question — which stub a
+  `super.m()` belongs on, falling back to the isolated type's own parent — and there is no
+  "declared on the scope type itself" case to write either, because `ensureType` of that type *is* the scope's
+  stub.
+
+### 7e. Verification, as run
+
+Everything §5 asks for, all green: `TestIsolateClass4Compiles` on its own and as part of
+`:maddi-modification-common:test` (68); `:maddi-java-openjdk:test` (549), `:maddi-inspection-openjdk:test` (50),
+`:maddi-modification-prepwork:test` (218, `TestGetSet` included), `:maddi-modification-link:test` (405),
+`:maddi-modification-analyzer:test` (269), `:maddi-aapi-parser:test` (213); downstream
+`:codelaser-refactor-extractmodule:test` (504) and `:codelaser-refactor-structuremodule:test` (63). `cst-impl`,
+`cst-analysis` and `inspection-resource` are upstream of the change and were reported UP-TO-DATE / NO-SOURCE
+rather than re-run.
+
+### 7f. Left deliberately
+
+- The leftover `import static a.b.UsesEnum.Kind.CLASS;` in the enum driver's output. A `case` label is a
+  default-scope `FieldReference`, indistinguishable in the CST from an unqualified static read, so it is recorded
+  as a static import. Checked against javac: two single-static-imports of same-named fields are legal, and only an
+  *ambiguous use* is an error — a case label is not a use of an import. Noise, not a hazard.
+- **The isolated type's own nature.** `IsolateClass.isolate` always emits `typeNatureClass()`, so isolating an
+  enum loses its nature and its constants. The stubs now reproduce every nature; the isolated type does not. No
+  type in the hundred-class corpus is an enum, so this is unmeasured rather than harmless.
+- The `int`-per-numeric-constant hack in `ensureField` stays, per §2: still needed for genuine `static final int`
+  constants, and enums no longer reach it.
