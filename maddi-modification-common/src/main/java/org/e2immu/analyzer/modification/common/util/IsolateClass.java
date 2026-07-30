@@ -53,6 +53,14 @@ import java.util.stream.Stream;
  * The isolated type's own methods keep their bodies, pasted verbatim from the original source — the same
  * marker-and-substitute trick {@code IsolateMethod} uses, one marker per kept method. Stubs get bodies that
  * merely satisfy the compiler.
+ *
+ * <h2>Known stub defects</h2>
+ * Two shapes still emit a tree that parses and does not compile: an {@code enum} is stubbed as a class (so a
+ * {@code switch} over it fails), and a method inherited from a generic supertype is stubbed on the erased scope
+ * type (so its type argument is lost). Both have a failing driver in {@code TestIsolateClass4Compiles} and a
+ * worked-out fix in {@code docs/handoff-isolateclass-enum-and-generic-stubs.md}. Note that verifying a change here
+ * needs {@code setFailFast(true)}: with the default options every javac error is logged and carried, which is
+ * exactly how these two survived.
  */
 public class IsolateClass {
     private static final Logger LOGGER = LoggerFactory.getLogger(IsolateClass.class);
