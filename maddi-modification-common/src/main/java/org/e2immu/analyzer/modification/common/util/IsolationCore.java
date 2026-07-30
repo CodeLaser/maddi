@@ -124,11 +124,14 @@ abstract class IsolationCore {
     }
 
     final Map<TypeInfo, TypeInfo> typeMap = new HashMap<>();
-    // keyed by (owner, method), NOT by method alone: the same declared method can be reached through two
-    // different receiver types ('customerCtx.theCustomers.getObjectInfo()' and another CustomerPar-like
-    // holder both inheriting it), and each receiver's stub needs its own copy. Keying by the method alone
-    // gave the first owner the stub and left every later one without it, so the call did not resolve and the
-    // whole frame was dropped (closed-core ExportJob.insertRecords).
+    // keyed by (owner, method), NOT by method alone: one declared method can legitimately be stubbed on several
+    // types -- the frame (selfType), a supertype (superTypeStubOf), the type an override has to be declared on.
+    // Keying by the method alone gave the first owner the stub and left every later one without it, so the call
+    // did not resolve and the whole frame was dropped (closed-core ExportJob.insertRecords).
+    // Note this is NOT a copy per RECEIVER any more: a call now lands on the type that declares the method
+    // (MyVisitor.declaringOwner), which the receivers inherit it from. Two receivers used to get two copies, and
+    // where one of them was the other's abstract parent, the two erased to the same signature without overriding
+    // -- javac's "name clash ... yet neither overrides the other", one of the hundred class isolates.
     record OwnedMethod(TypeInfo owner, MethodInfo method) {
     }
     final Map<OwnedMethod, MethodInfo> methodMap = new HashMap<>();
@@ -150,6 +153,10 @@ abstract class IsolationCore {
     // stub types of annotation nature: their members are attributes, not methods (see ensureAnnotationAttribute).
     // Kept as a set rather than asking the stub, because the stub's nature is only readable once it is committed
     final Set<TypeInfo> annotationStubs = new HashSet<>();
+    // stub types of enum nature: their constants are synthetic fields (see ensureField), and the compiler declares
+    // values()/valueOf() for them (see ensureMethodInfo). Same reason for keeping a set: the nature of a stub is
+    // only readable once it has been committed, which is long after these decisions are taken
+    final Set<TypeInfo> enumStubs = new HashSet<>();
 
     TypeInfo ensureType(TypeInfo typeInfo, DetailedSources ds) {
         if (typeInfo.isPrimitive()) return typeInfo;
@@ -174,15 +181,20 @@ abstract class IsolationCore {
         TypeInfo stub = placeStub(typeInfo, ds);
         typeMap.put(typeInfo, stub); // before recursion: type bounds / fields may refer back to this stub
         boolean isInterface = typeInfo.isInterface() && !typeInfo.isAnnotation();
+        boolean isEnum = typeInfo.typeNature().isEnum();
         if (isInterface) interfaceStubs.add(stub);
         if (typeInfo.isAnnotation()) annotationStubs.add(stub);
-        stub.builder().setParentClass(reproducedParentClass(typeInfo))
+        if (isEnum) enumStubs.add(stub);
+        stub.builder().setParentClass(isEnum ? enumParentOf(stub) : reproducedParentClass(typeInfo))
                 // reproduce the nature: an annotation must stay '@interface' (a use '@Marker' would not compile),
                 // an interface must stay 'interface' (so subtypes 'implements'/'extends' it and overload
-                // resolution / generic bounds in the pasted text resolve as in the original); everything else is
-                // a class
+                // resolution / generic bounds in the pasted text resolve as in the original), and an enum must stay
+                // 'enum' -- a 'case CLASS:' label over a class with static fields is "pattern or enum constant
+                // required", and no shape a class can take makes a switch over it compile. Everything else is a
+                // class.
                 .setTypeNature(typeInfo.isAnnotation() ? runtime.typeNatureAnnotation()
                         : isInterface ? runtime.typeNatureInterface()
+                        : isEnum ? runtime.typeNatureEnum()
                         : runtime.typeNatureClass())
                 .setSource(runtime.noSource());
         applyStubTypeAccess(stub);
@@ -236,6 +248,18 @@ abstract class IsolationCore {
     }
 
 
+    /**
+     * {@code java.lang.Enum<E>}, which every enum extends. It is never written out — {@code TypePrinterImpl} skips
+     * exactly this parent for an enum, as the language does — but the model insists on it: an enum-natured type
+     * whose parent is {@code Object} cannot be committed ({@code TypeInspectionImpl.Builder.commit} asserts it),
+     * and {@link #reproducedParentClass} maps {@code java.lang.Enum} to {@code Object} precisely because until now
+     * every stub of an enum was a class.
+     */
+    private ParameterizedType enumParentOf(TypeInfo enumStub) {
+        TypeInfo enumType = javaInspector.compiledTypesManager().getOrLoad(Enum.class);
+        return runtime.newParameterizedType(enumType, List.of(enumStub.asSimpleParameterizedType()));
+    }
+
     // reproduce the real superclass so the subtype chain holds (e.g. a custom exception keeps 'extends Exception',
     // a 'Dog' keeps 'extends Animal'); but 'extends Record'/'extends Enum' are compiler-managed and illegal to
     // write, and an interface has no superclass, so those default to Object
@@ -288,6 +312,22 @@ abstract class IsolationCore {
         if (inMap != null) return;
         ParameterizedType newPt = ensureTypes(fieldInfo.type());
         FieldInfo newField = runtime.newFieldInfo(fieldInfo.name(), fieldInfo.isStatic(), newPt, owner);
+        // An enum constant is not a field declaration but a name in the constant list, and what marks it as one in
+        // this model is isSynthetic(): TypePrinterImpl.enumConstantStream prints exactly the synthetic fields of an
+        // enum-natured type, as bare names before every other member. That is also how the constant arrives here --
+        // FlagHelper.field sets it from Flags.ENUM -- so the test is the original's own flag, and an ordinary
+        // 'static final String' field of an enum, which carries no such flag, still stubs as a field.
+        if (enumStubs.contains(owner) && fieldInfo.isSynthetic()) {
+            newField.builder().setSynthetic(true)
+                    // no initializer: the printer accepts an empty one (or a ConstructorCall, for a constant with
+                    // arguments) and would throw on anything else. No modifiers either -- 'public static final' is
+                    // implicit, and writing it is not legal Java in the constant list
+                    .setInitializer(runtime.newEmptyExpression())
+                    .setAccess(runtime.accessPublic())
+                    .commit();
+            fieldMap.put(fieldInfo, newField);
+            return;
+        }
         boolean isInterfaceField = interfaceStubs.contains(owner);
         // a numeric constant (an interface field, or a class 'static final' field) may appear as a switch 'case'
         // label; those must be distinct compile-time constants, so hand each one a unique value
@@ -315,11 +355,15 @@ abstract class IsolationCore {
      * Replace type parameters that are not in scope where the stub method is being declared by their
      * erasure — the first bound, or {@code Object}.
      * <p>
-     * A stub method is placed on the type the call went THROUGH, which need not be the type that declares
-     * it. {@code class Filter implements RowFilter} (raw) inherits {@code accept(T)} from a generic
-     * interface; the stub lands on {@code Filter}, where {@code T} is not in scope, and the frame is dropped
-     * on "Type T not found". The compiler erases in exactly this situation, so do we. Measured on
-     * closed-core: three isolates, all raw implementations of a generic filter/command interface.
+     * A stub method need not be placed on the type that declares it: {@code class Filter implements
+     * RowFilter} (raw) inherits {@code accept(T)} from a generic interface, and a dummy implementation of it
+     * lands on {@code Filter}, where {@code T} is not in scope — the frame is then dropped on "Type T not found".
+     * The compiler erases in exactly this situation, so do we. Measured on closed-core: three isolates, all raw
+     * implementations of a generic filter/command interface.
+     * <p>
+     * A CALL no longer arrives here that way: {@code MyVisitor.declaringOwner} places it on its declaring type, so
+     * the parameter is in scope and survives. Erasing it there was defect B of
+     * {@code docs/handoff-isolateclass-enum-and-generic-stubs.md} — this method was doing its job on a bad owner.
      */
     private ParameterizedType eraseOutOfScope(ParameterizedType pt, TypeInfo owner, MethodInfo newMethod) {
         TypeParameter tp = pt.typeParameter();
@@ -382,6 +426,14 @@ abstract class IsolationCore {
         // a member of an '@interface' is an attribute, which has a shape of its own
         if (annotationStubs.contains(owner)) {
             ensureAnnotationAttribute(owner, methodInfo);
+            return;
+        }
+        // 'values()' and 'valueOf(String)' are declared by the compiler for every enum, so a stub of them is
+        // "values() is already defined in Kind". They are real, non-synthetic methods when the enum reached maddi
+        // from a class file, which is where an 'E.values()' in the pasted text finds them; name()/ordinal() and the
+        // rest come from java.lang.Enum, which the isJdkType test above already drops.
+        if (enumStubs.contains(owner) && methodInfo.isStatic()
+            && ("values".equals(methodInfo.name()) || "valueOf".equals(methodInfo.name()))) {
             return;
         }
         // a non-static method on an interface stub becomes 'default' (keeps the body): an abstract method would
@@ -805,6 +857,37 @@ abstract class IsolationCore {
             return runtime.objectParameterizedType().typeInfo();
         }
 
+        /**
+         * The type a called method's stub belongs on: its DECLARING type when the call went through a subtype.
+         * <p>
+         * The scope type is still stubbed by the caller — it may be referenced nowhere else — but the method is
+         * placed where the original declares it, exactly as the {@code FieldReference} case below places an
+         * inherited field. Two reasons, and the second is what a class isolate trips over: the {@code methodMap}
+         * dedup is keyed by (owner, method), so the same declared method reached through two subtypes would be
+         * declared twice and dropped from the supertype stub; and the scope type is the WRONG place for anything
+         * generic. {@code ItemStack extends ListStack<Item>} inherits {@code T pop()}; on {@code ItemStack} the
+         * {@code T} is out of scope, so {@code eraseOutOfScope} erases it and the stub reads
+         * {@code public Object pop()} — "incompatible types: Object cannot be converted to Item" at every call
+         * site. On {@code ListStack<T>} the parameter is in scope, and {@code extends ListStack<Item>} substitutes
+         * it back for the caller, which is how the original resolved the call in the first place.
+         * <p>
+         * There is no "declared on the scope type itself" case to write: {@code ensureType} of that type IS the
+         * scope's stub. The fallbacks are the receivers that have no stub to speak of — a JDK type (which
+         * {@code ensureMethodInfo} drops anyway, and which must not be stubbed), and a local or anonymous declaring
+         * type, which has no name a stub could be placed under. {@code scope} is itself already a stub, except when
+         * the receiver was typed by a type parameter the isolated code declares: {@code ensureTypes} keeps those as
+         * they are, so {@code erasedOwner} then answers the real bound and {@code stubFor} sorts it out.
+         */
+        private TypeInfo declaringOwner(MethodInfo methodInfo, ParameterizedType scopeType) {
+            TypeInfo scope = erasedOwner(scopeType);
+            TypeInfo declaring = methodInfo.typeInfo();
+            if (declaring.enclosingMethod() != null || isJdkType(declaring)) return scope;
+            // reached through the original type's own name: the stub carrying that name owns it (IsolateMethod
+            // renames the frame, so its self-stub and its frame are two different types)
+            if (declaring == originalType) return originalTypeStub();
+            return ensureType(declaring, null);
+        }
+
         @Override
         public boolean test(Element element) {
             switch (element) {
@@ -901,8 +984,8 @@ abstract class IsolationCore {
                         || mc.object() instanceof VariableExpression ve && ve.variable() instanceof This) {
                         owner = selfType();
                     } else {
-                        ParameterizedType firstOwner = ensureTypes(mc.object().parameterizedType(), ds(mc.object()));
-                        owner = erasedOwner(firstOwner);
+                        ParameterizedType scopeType = ensureTypes(mc.object().parameterizedType(), ds(mc.object()));
+                        owner = declaringOwner(mc.methodInfo(), scopeType);
                     }
                     ensureMethodInfo(owner, mc.methodInfo());
                 }
@@ -916,7 +999,7 @@ abstract class IsolationCore {
                         owner = selfType();
                     } else {
                         ParameterizedType scopeType = ensureTypes(mr.scope().parameterizedType(), ds(mr.scope()));
-                        owner = erasedOwner(scopeType);
+                        owner = declaringOwner(mr.methodInfo(), scopeType);
                     }
                     ensureMethodInfo(owner, mr.methodInfo());
                 }
