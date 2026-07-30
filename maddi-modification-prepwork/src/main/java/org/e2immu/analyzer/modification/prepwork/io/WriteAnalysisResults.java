@@ -112,7 +112,8 @@ public class WriteAnalysisResults {
         }
         String compressedPackages = Arrays.stream(packageParts).map(WriteAnalysisResults::capitalize)
                 .collect(Collectors.joining());
-        File outputFile = new File(subDir, compressedPackages + ".json");
+        File outputFile = new File(subDir, (compressedPackages.isEmpty() ? UNNAMED_PACKAGE : compressedPackages)
+                                           + ".json");
         LOGGER.info("Writing {} type(s) to {}", list.size(), outputFile.getAbsolutePath());
         try (OutputStreamWriter osw = new OutputStreamWriter(new FileOutputStream(outputFile), StandardCharsets.UTF_8)) {
             osw.write("[");
@@ -250,7 +251,18 @@ public class WriteAnalysisResults {
         } // else: no data, no need to write
     }
 
+    /**
+     * The file name of the unnamed package's results. Callers key the trie either by fully qualified name,
+     * where no part is ever empty, or by package name, where the unnamed package produces a single empty part
+     * ({@code "".split("\\.")} yields one empty string) and therefore an empty compressed name. Without this
+     * the file would be called {@code .json}: legal, but hidden on unix and missed by a shell {@code *.json},
+     * which is a poor thing to hand someone debugging a cache. No collision is possible, because
+     * {@link #capitalize} makes every real package's name start with an upper-case letter.
+     */
+    private static final String UNNAMED_PACKAGE = "_unnamed_package";
+
     private static String capitalize(String s) {
-        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+        // an empty part reaches here from the unnamed package; charAt(0) would throw
+        return s.isEmpty() ? s : Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 }
