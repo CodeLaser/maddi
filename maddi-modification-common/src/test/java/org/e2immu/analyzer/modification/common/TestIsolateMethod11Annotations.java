@@ -75,7 +75,7 @@ public class TestIsolateMethod11Annotations extends CommonIsolateMethodTest {
         String expected = """
                 import java.lang.annotation.Annotation;
                 public class X_method {
-                    @interface Named {String value(); }
+                    @interface Named {String value() default ""; }
                     @Named("orderService")
                 String method() {
                     return "x";
@@ -98,7 +98,16 @@ public class TestIsolateMethod11Annotations extends CommonIsolateMethodTest {
             @interface Named { String value(); int count(); }
             """;
 
-    @DisplayName("an attribute read on an annotation instance: the stub must stay abstract")
+    /**
+     * The point of this test is that an annotation attribute may not be stubbed like an ordinary method: the
+     * ordinary shape is a body returning {@code null}, which yields an {@code @interface} that does not compile
+     * and that the printer cannot even render. It used to check that by asserting the attribute stayed
+     * <b>abstract</b>; an attribute now carries a {@code default} instead, which is not abstract and is just as
+     * good against the thing being guarded against — the default is the value, not a return statement, and it is
+     * there so that a use of the annotation which omits the attribute still compiles (a class isolate emitting a
+     * JUnit 4 test class needs exactly that: one {@code @Test(expected=…)} and hundreds of bare {@code @Test}).
+     */
+    @DisplayName("an attribute read on an annotation instance is stubbed as an attribute, not as a method")
     @Test
     public void a3() {
         TypeInfo x = parse("a.b.X", A3);
@@ -111,7 +120,7 @@ public class TestIsolateMethod11Annotations extends CommonIsolateMethodTest {
         String expected = """
                 import java.lang.annotation.Annotation;
                 public class X_method {
-                    @interface Named {String value();int count(); }
+                    @interface Named {String value() default "";int count() default 0; }
                     String method(Named named) {
                     return named.value() + named.count();
                 }

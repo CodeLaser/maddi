@@ -13,6 +13,7 @@ import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.output.TypeNameRequired;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
+import org.e2immu.language.cst.api.statement.LocalTypeDeclaration;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.TryStatement;
 import org.e2immu.language.cst.api.type.NamedType;
@@ -108,10 +109,29 @@ abstract class IsolationCore {
         return false;
     }
 
-    void applyStubTypeAccess(TypeInfo stub) {
+    void applyStubTypeAccess(TypeInfo stub, TypeInfo original) {
+        // An ABSTRACT original stays abstract, and that is worth more than faithfulness: an abstract class owes no
+        // implementations, so the whole family of "X is not abstract and does not override abstract method m() in
+        // I" simply cannot arise for it. Which matters because the dummy pass cannot always see what is owed --
+        // a JDK type reached only as a supertype NAME from a class file is materialized without members, so
+        // 'javax.xml.transform.SourceLocator' answered methodStream() with nothing and xalan's
+        // 'abstract class Expression implements ExpressionNode' (ExpressionNode extends SourceLocator) got no
+        // dummies at all. Completing such a type belongs in the inspection layer, not here; reproducing 'abstract'
+        // is right on its own terms and happens to make that case moot. Nothing is lost: the verbatim text cannot
+        // instantiate a type the original could not instantiate either.
+        if (original.isAbstract() && !original.isInterface() && !original.typeNature().isEnum()) {
+            stub.builder().addTypeModifier(runtime.typeModifierAbstract());
+        }
         if (stubsCrossPackageBoundaries()) {
             stub.builder().addTypeModifier(runtime.typeModifierPublic());
-            if (enclosingTypeOrNull(stub) != null) stub.builder().addTypeModifier(runtime.typeModifierStatic());
+            // 'static' only when the original is: a nested stub has to be nameable without an enclosing instance,
+            // but making an INNER class static breaks the one spelling that needs the instance --
+            // 'outer.new Inner()' in the verbatim text is then "qualified new of static class" (5 class isolates).
+            // TypeInfo.isStatic() answers true for an interface/enum/record and for a primary type as well, which
+            // is what we want: those are the cases where the modifier is implicit or meaningless
+            if (enclosingTypeOrNull(stub) != null && original.isStatic()) {
+                stub.builder().addTypeModifier(runtime.typeModifierStatic());
+            }
             stub.builder().setAccess(runtime.accessPublic());
         } else {
             stub.builder().setAccess(runtime.accessPackage());
@@ -197,7 +217,7 @@ abstract class IsolationCore {
                         : isEnum ? runtime.typeNatureEnum()
                         : runtime.typeNatureClass())
                 .setSource(runtime.noSource());
-        applyStubTypeAccess(stub);
+        applyStubTypeAccess(stub, typeInfo);
         if (typeInfo.isAnnotation()) {
             // an annotation type must implement java.lang.annotation.Annotation (asserted on commit)
             TypeInfo annotation = javaInspector.compiledTypesManager()
@@ -238,6 +258,31 @@ abstract class IsolationCore {
 
 
     /**
+     * Does the isolated type inherit from {@code owner}, so that a member of it is in scope unqualified?
+     * <p>
+     * Reads the ORIGINAL hierarchy, declared parent and interfaces, walked by hand. Deliberately not
+     * {@code recursiveSuperTypeStream()}: on a nested type that also answers the ENCLOSING types, which is a
+     * different relation and would make an unqualified reference to an outer class's static member look inherited.
+     */
+    boolean isolatedTypeInherits(TypeInfo owner) {
+        Set<TypeInfo> seen = new HashSet<>();
+        Deque<TypeInfo> todo = new ArrayDeque<>();
+        todo.add(originalType);
+        while (!todo.isEmpty()) {
+            TypeInfo t = todo.poll();
+            if (!seen.add(t)) continue;
+            if (t == owner) return true;
+            if (t.parentClass() != null && t.parentClass().typeInfo() != null) {
+                todo.add(t.parentClass().typeInfo());
+            }
+            t.interfacesImplemented().forEach(itf -> {
+                if (itf.typeInfo() != null) todo.add(itf.typeInfo());
+            });
+        }
+        return false;
+    }
+
+    /**
      * Was the enclosing type spelled out at the reference site ({@code Outer.Inner}) rather than the member
      * type being named on its own ({@code Inner}, via an import)? The parser records a {@link Source} for
      * every type it writes out, so the enclosing type having a position in this element's detailed sources
@@ -266,14 +311,15 @@ abstract class IsolationCore {
     ParameterizedType reproducedParentClass(TypeInfo typeInfo) {
         ParameterizedType parent = typeInfo.parentClass();
         if (parent == null || parent.isJavaLangObject()) return runtime.objectParameterizedType();
-        TypeInfo pt = parent.typeInfo();
-        if (pt != null) {
-            String fqn = pt.fullyQualifiedName();
-            if ("java.lang.Record".equals(fqn) || "java.lang.Enum".equals(fqn)) {
-                return runtime.objectParameterizedType();
-            }
-        }
+        if (compilerManagedParent(parent.typeInfo())) return runtime.objectParameterizedType();
         return ensureTypes(parent);
+    }
+
+    /** {@code extends Record} / {@code extends Enum} are the compiler's, illegal to write, and not reproduced. */
+    private static boolean compilerManagedParent(TypeInfo typeInfo) {
+        if (typeInfo == null) return false;
+        String fqn = typeInfo.fullyQualifiedName();
+        return "java.lang.Record".equals(fqn) || "java.lang.Enum".equals(fqn);
     }
 
     ParameterizedType ensureTypes(ParameterizedType pt) {
@@ -330,8 +376,11 @@ abstract class IsolationCore {
         }
         boolean isInterfaceField = interfaceStubs.contains(owner);
         // a numeric constant (an interface field, or a class 'static final' field) may appear as a switch 'case'
-        // label; those must be distinct compile-time constants, so hand each one a unique value
-        boolean numericConstant = newPt.isNumeric()
+        // label; those must be distinct compile-time constants, so hand each one a unique value.
+        // PRIMITIVE only: ParameterizedType.isNumeric() is true of the boxed types too, and 'static final Long
+        // PANEL = 49' is "incompatible types: int cannot be converted to Long". A boxed constant cannot be a case
+        // label in the first place, so it needs nothing from this
+        boolean numericConstant = newPt.isPrimitiveExcludingVoid() && newPt.isNumeric()
                                   && (isInterfaceField || fieldInfo.isStatic() && fieldInfo.isFinal());
         // an interface field is implicitly 'public static final', so it must have an initializer (a bare
         // 'String NAME;' does not compile in an interface); a class field may leave it empty
@@ -443,21 +492,7 @@ abstract class IsolationCore {
                 methodInfo.isStatic() ? runtime.methodTypeStaticMethod() :
                         methodInfo.isConstructor() ? runtime.methodTypeConstructor() :
                                 ownerIsInterface ? runtime.methodTypeDefaultMethod() : runtime.methodTypeMethod());
-        // reproduce the method's own type parameters, so a called generic method '<X> X foo(X x)' keeps its
-        // <X> (and ensureTypes below can translate occurrences of X). Two passes for self-referential bounds.
-        List<TypeParameter> origMethodTps = methodInfo.typeParameters();
-        List<TypeParameter> newMethodTps = new ArrayList<>(origMethodTps.size());
-        for (TypeParameter origTp : origMethodTps) {
-            TypeParameter newTp = runtime.newTypeParameter(origTp.getIndex(), origTp.simpleName(), newMethod);
-            typeParameterMap.put(origTp, newTp);
-            newMethod.builder().addTypeParameter(newTp);
-            newMethodTps.add(newTp);
-        }
-        for (int i = 0; i < newMethodTps.size(); i++) {
-            List<ParameterizedType> newBounds = origMethodTps.get(i).typeBounds().stream()
-                    .map(this::ensureTypes).toList();
-            newMethodTps.get(i).builder().setTypeBounds(newBounds).commit();
-        }
+        reproduceMethodTypeParameters(methodInfo, newMethod, Map.of());
         methodInfo.parameters().forEach(pi -> {
             ParameterizedType newType = eraseOutOfScope(ensureTypes(pi.parameterizedType()), owner, newMethod);
             ParameterInfo newParam = newMethod.builder().addParameter(pi.name(), newType);
@@ -534,15 +569,54 @@ abstract class IsolationCore {
         return stub != null && !stub.hasBeenInspected() ? stub : null;
     }
 
+    /**
+     * Reproduce a method's OWN type parameters ({@code <X> X foo(X x)}) on its stub, so that occurrences of them in
+     * the signature stay in scope — {@code ensureTypes} translates each occurrence through {@code typeParameterMap},
+     * and {@code eraseOutOfScope} replaces by the bound whatever is not in scope where the stub is declared.
+     * Two passes, for a bound that references a sibling parameter or the method's own.
+     * <p>
+     * All three places that build a method stub need this, and only one of them had it. The two that did not
+     * emitted {@code A as(Factory<A> f)} with no {@code <A>} to declare it (the SAM path) and a signature with
+     * {@code A} erased to a RAW copy of its own bound (the dummy-implementation path).
+     *
+     * @param typeArguments substitutions to apply to the bounds, for a supertype implemented with type arguments
+     */
+    private void reproduceMethodTypeParameters(MethodInfo original, MethodInfo newMethod,
+                                               Map<NamedType, ParameterizedType> typeArguments) {
+        List<TypeParameter> origTps = original.typeParameters();
+        List<TypeParameter> newTps = new ArrayList<>(origTps.size());
+        for (TypeParameter origTp : origTps) {
+            TypeParameter newTp = runtime.newTypeParameter(origTp.getIndex(), origTp.simpleName(), newMethod);
+            typeParameterMap.put(origTp, newTp);
+            newMethod.builder().addTypeParameter(newTp);
+            newTps.add(newTp);
+        }
+        for (int i = 0; i < newTps.size(); i++) {
+            List<ParameterizedType> newBounds = origTps.get(i).typeBounds().stream()
+                    .map(b -> ensureTypes(typeArguments.isEmpty() ? b : b.applyTranslation(runtime, typeArguments)))
+                    .toList();
+            newTps.get(i).builder().setTypeBounds(newBounds).commit();
+        }
+    }
+
     /** Reproduce {@code sam} on {@code stub} as an abstract method, so the stub stays a functional interface. */
     private void ensureAbstractMethod(TypeInfo stub, MethodInfo sam) {
         OwnedMethod key = new OwnedMethod(stub, sam);
         if (methodMap.containsKey(key)) return;
         MethodInfo newMethod = runtime.newMethod(stub, sam.name(), runtime.methodTypeAbstractMethod());
+        reproduceMethodTypeParameters(sam, newMethod, Map.of());
         sam.parameters().forEach(pi -> {
             ParameterInfo np = newMethod.builder().addParameter(pi.name(), ensureTypes(pi.parameterizedType()));
             np.builder().setVarArgs(pi.isVarArgs()).setIsFinal(pi.isFinal()).commit();
         });
+        // the throws clause, as ensureMethodInfo and addDummyImplementation both do. All three paths build a
+        // method stub and each used to reproduce a different subset; where two of them describe the SAME method --
+        // here the interface's declaration, there a class's implementation of it -- any disagreement is a
+        // compilation error. 'interface CustomCloneable { Object clone() throws CloneNotSupportedException; }'
+        // emitted without its throws, against an implementation that had one, is
+        // "clone() in X cannot implement clone() in CustomCloneable": 88 of the hundred class isolates, from one
+        // omission in this method
+        sam.exceptionTypes().forEach(et -> newMethod.builder().addExceptionType(ensureTypes(et)));
         newMethod.builder()
                 .setReturnType(ensureTypes(sam.returnType()))
                 .setAccess(runtime.accessPublic())
@@ -567,23 +641,43 @@ abstract class IsolationCore {
     }
 
     private static String erasureKey(MethodInfo m) {
+        return erasureKey(m, Map.of(), null);
+    }
+
+    /**
+     * {@code name(erasedParam[arrays],…)} — what overriding and overload resolution are decided on.
+     *
+     * @param typeArguments substituted before erasing, so that the key of an interface's declared method matches
+     *                      the key of the implementation an implementing type sees
+     */
+    private static String erasureKey(MethodInfo m, Map<NamedType, ParameterizedType> typeArguments, Runtime runtime) {
         StringBuilder sb = new StringBuilder(m.name()).append('(');
         for (ParameterInfo pi : m.parameters()) {
-            ParameterizedType pt = pi.parameterizedType();
-            TypeParameter tp = pt.typeParameter();
-            // a type parameter erases to its first bound, or Object; that is what overload resolution sees
-            String erased = tp != null
-                    ? tp.typeBounds().isEmpty() || tp.typeBounds().getFirst().typeInfo() == null
-                    ? "java.lang.Object" : tp.typeBounds().getFirst().typeInfo().fullyQualifiedName()
-                    : pt.typeInfo() == null ? "?" : pt.typeInfo().fullyQualifiedName();
-            sb.append(erased).append('[').append(pt.arrays()).append("],");
+            ParameterizedType pt = typeArguments.isEmpty() ? pi.parameterizedType()
+                    : pi.parameterizedType().applyTranslation(runtime, typeArguments);
+            sb.append(erasedName(pt)).append('[').append(pt.arrays()).append("],");
         }
         return sb.append(')').toString();
     }
 
-    // an interface's abstract method together with the type-argument map that turns its (interface) type
-    // parameters into the concrete types the implementing stub sees (e.g. {E -> Long} for 'Iterable<Long>')
-    private record AbstractMethod(MethodInfo method, Map<NamedType, ParameterizedType> typeArguments) {
+    /** a type parameter erases to its first bound, or Object; that is what overload resolution sees */
+    private static String erasedName(ParameterizedType pt) {
+        TypeParameter tp = pt.typeParameter();
+        if (tp != null) {
+            return tp.typeBounds().isEmpty() || tp.typeBounds().getFirst().typeInfo() == null
+                    ? "java.lang.Object" : tp.typeBounds().getFirst().typeInfo().fullyQualifiedName();
+        }
+        return pt.typeInfo() == null ? "?" : pt.typeInfo().fullyQualifiedName();
+    }
+
+    /**
+     * A supertype's abstract method together with the type-argument map that turns its type parameters into the
+     * concrete types the implementing stub sees (e.g. {@code {E -> Long}} for {@code Iterable<Long>}).
+     *
+     * @param raw the supertype is generic but was implemented RAW ({@code implements Map}), so the map is empty
+     *            and the signature to produce is javac's <b>erasure</b> — no type arguments and no wildcards
+     */
+    private record AbstractMethod(MethodInfo method, Map<NamedType, ParameterizedType> typeArguments, boolean raw) {
     }
 
     // a concrete class stub that implements an interface ('LongVector implements Iterable<Long>') and is
@@ -658,11 +752,12 @@ abstract class IsolationCore {
                 for (ParameterizedType itf : original.interfacesImplemented()) {
                     collectAbstractMethods(itf, required);
                 }
+                collectAbstractMethodsOfJdkAncestors(original.parentClass(), required);
                 if (required.isEmpty()) continue;
                 Set<String> present = new HashSet<>();
-                stub.methodStream().forEach(m -> present.add(methodKey(m)));
+                stub.methodStream().forEach(m -> present.add(erasureKey(m)));
                 for (AbstractMethod am : required.values()) {
-                    if (present.add(methodKey(am.method))) {
+                    if (present.add(erasureKey(am.method, am.typeArguments, runtime))) {
                         addDummyImplementation(stub, am);
                     }
                 }
@@ -674,34 +769,95 @@ abstract class IsolationCore {
         TypeInfo itf = interfaceType.typeInfo();
         if (itf == null || !itf.isInterface()) return;
         Map<NamedType, ParameterizedType> typeArguments = interfaceType.initialTypeParameterMap();
+        // 'implements Map' rather than 'implements Map<K, V>': there is nothing to substitute, and what the class
+        // inherits is the ERASURE of every method -- see AbstractMethod.raw and fullyErased
+        boolean raw = !itf.typeParameters().isEmpty() && interfaceType.parameters().isEmpty();
         itf.methodStream()
                 .filter(m -> m.isAbstract() && !m.isStatic() && !m.isDefault())
-                .forEach(m -> result.putIfAbsent(methodKey(m), new AbstractMethod(m, typeArguments)));
+                .forEach(m -> result.putIfAbsent(erasureKey(m, typeArguments, runtime),
+                        new AbstractMethod(m, typeArguments, raw)));
         for (ParameterizedType superInterface : itf.interfacesImplemented()) {
             collectAbstractMethods(superInterface.applyTranslation(runtime, typeArguments), result);
+        }
+    }
+
+    /**
+     * The abstract methods a stub inherits from an <b>abstract class</b> — {@code class CustomOutputStream extends
+     * java.io.OutputStream { }} does not compile without {@code write(int)}.
+     * <p>
+     * Only JDK ancestors, and that is not a shortcut: a stubbed ancestor is a concrete class whose every method has
+     * a body ({@link #ensureMethodInfo}), so it leaves nothing abstract to implement. A JDK ancestor is kept as
+     * itself, with its real abstract methods intact, and is the only kind that can. Eight of the hundred class
+     * isolates: {@code OutputStream.write(int)}, {@code InputStream.read()}, {@code Transformer.getErrorListener()}.
+     * <p>
+     * Each ancestor's OWN abstract methods only. An abstract class that leaves an interface method unimplemented
+     * without redeclaring it is not covered; every case measured redeclares.
+     * <p>
+     * <b>The walk stops at the first concrete class</b>, and that is the whole correctness argument: a concrete
+     * ancestor implements everything above it, so nothing further up is still owed. Walking the chain
+     * unconditionally instead reaches {@code AbstractList.get(int)} and {@code AbstractCollection.iterator()}
+     * through the perfectly concrete {@code java.util.ArrayList}, and adds dummies that override methods which are
+     * not abstract at all — "get(int) in ListStack cannot override get(int) in java.util.AbstractList", because the
+     * type arguments do not survive that far either.
+     */
+    private void collectAbstractMethodsOfJdkAncestors(ParameterizedType classType,
+                                                      Map<String, AbstractMethod> result) {
+        TypeInfo ti = classType == null ? null : classType.typeInfo();
+        if (ti == null || ti.isJavaLangObject() || !isJdkType(ti) || !ti.isAbstract()) return;
+        // A parent that is not REPRODUCED owes the stub nothing: a record stub extends Object, not
+        // java.lang.Record, so the three abstract methods java.lang.Record declares (toString, hashCode, equals)
+        // are not inherited and dummies for them are pure noise
+        if (compilerManagedParent(ti)) return;
+        Map<NamedType, ParameterizedType> typeArguments = classType.initialTypeParameterMap();
+        boolean raw = !ti.typeParameters().isEmpty() && classType.parameters().isEmpty();
+        ti.methodStream()
+                .filter(m -> m.isAbstract() && !m.isStatic() && !m.isDefault())
+                .forEach(m -> result.putIfAbsent(erasureKey(m, typeArguments, runtime),
+                        new AbstractMethod(m, typeArguments, raw)));
+        // compose the substitutions as we climb, exactly as the interface walk does: the abstract method may be
+        // declared several levels up, on a type parameter this level has already bound
+        ParameterizedType parent = ti.parentClass();
+        if (parent != null) {
+            collectAbstractMethodsOfJdkAncestors(parent.applyTranslation(runtime, typeArguments), result);
         }
     }
 
     private void addDummyImplementation(TypeInfo stub, AbstractMethod am) {
         MethodInfo abstractMethod = am.method;
         MethodInfo dummy = runtime.newMethod(stub, abstractMethod.name(), runtime.methodTypeMethod());
+        // the method's OWN type parameters: without them they are not in scope where the dummy is declared, so
+        // eraseOutOfScope replaces each by its bound -- and drops that bound's own type arguments, which is how
+        // assertj's '<ASSERT extends AbstractAssert<?,?>> ASSERT asInstanceOf(InstanceOfAssertFactory<?, ASSERT>)'
+        // became 'AbstractAssert asInstanceOf(InstanceOfAssertFactory<?, AbstractAssert>)': a RAW AbstractAssert
+        // as the type argument for 'ASSERT extends AbstractAssert<?,?>', not within its own bound. 3 isolates.
+        reproduceMethodTypeParameters(abstractMethod, dummy, am.typeArguments);
         // eraseOutOfScope: a RAW 'implements RowFilter' has no type arguments, so applyTranslation
         // substitutes nothing and the interface's own 'T' survives into a dummy implementation on a class
         // that does not declare it -- the frame is then dropped on "Type T not found". Erasing to the
         // bound is what the compiler does for a raw supertype. (Three closed-core isolates.)
         abstractMethod.parameters().forEach(pi -> {
-            ParameterizedType type = eraseOutOfScope(
-                    ensureTypes(pi.parameterizedType().applyTranslation(runtime, am.typeArguments)),
-                    stub, dummy);
+            ParameterizedType type = am.raw ? fullyErased(pi.parameterizedType())
+                    : eraseOutOfScope(ensureTypes(pi.parameterizedType()
+                    .applyTranslation(runtime, am.typeArguments)), stub, dummy);
             ParameterInfo np = dummy.builder().addParameter(pi.name(), type);
             np.builder().setVarArgs(pi.isVarArgs()).setIsFinal(false).commit();
         });
-        ParameterizedType returnType = eraseOutOfScope(ensureTypes(abstractMethod.returnType()
+        ParameterizedType returnType = am.raw ? fullyErased(abstractMethod.returnType())
+                : eraseOutOfScope(ensureTypes(abstractMethod.returnType()
                 .applyTranslation(runtime, am.typeArguments)), stub, dummy);
         Block.Builder mb = runtime.newBlockBuilder();
         if (!returnType.isVoid()) {
             mb.addStatement(runtime.newReturnBuilder().setExpression(runtime.nullValue(returnType)).build());
         }
+        // NO throws clause, deliberately, and this is the one place in the isolator where declaring LESS than the
+        // original is the right answer. A dummy stands for an IMPLEMENTATION, and an implementation may narrow --
+        // most do. Give it the interface's exceptions instead and every verbatim call site has to handle them:
+        // "unreported exception java.io.IOException; must be caught or declared to be thrown", 24 of the hundred
+        // class isolates. It was tried, to fix the one tree where the disagreement bites the other way (a stub of
+        // the same method built by ensureMethodInfo, WITH the original's exceptions, overriding a dummy without
+        // them -- "cannot override … overridden method does not throw SAXNotSupportedException"). One tree
+        // against twenty-four. Reconciling the two properly needs a pass over the finished stub graph, matching
+        // each stub method against what it overrides; see docs/isolate-class.md.
         dummy.builder()
                 .addMethodModifier(runtime.methodModifierPublic())
                 .setReturnType(returnType)
@@ -713,8 +869,27 @@ abstract class IsolationCore {
         stub.builder().addMethod(dummy);
     }
 
-    private static String methodKey(MethodInfo m) {
-        return m.name() + "/" + m.parameters().size();
+    /**
+     * javac's erasure of a type: the raw type, no type arguments and no wildcard.
+     * <p>
+     * What a class implementing a generic supertype RAW inherits. {@code eraseOutOfScope} is not enough here: it
+     * substitutes an out-of-scope type parameter by its bound but keeps the wildcard around it, so
+     * {@code tryAdvance(Consumer<? super T>)} of a raw {@code implements Spliterator} became
+     * {@code tryAdvance(Consumer<? super Object>)} — which has the right erasure and yet neither overrides nor
+     * implements the raw {@code tryAdvance(Consumer)}, so javac reports both "is not abstract and does not
+     * override" and "name clash … yet neither overrides the other" for the same method (one class isolate,
+     * commons-collections implementing raw {@code java.util.Map}).
+     */
+    private ParameterizedType fullyErased(ParameterizedType pt) {
+        TypeParameter tp = pt.typeParameter();
+        if (tp != null) {
+            ParameterizedType bound = tp.typeBounds().isEmpty() ? null : tp.typeBounds().getFirst();
+            TypeInfo erased = bound != null && bound.typeInfo() != null
+                    ? bound.typeInfo() : runtime.objectParameterizedType().typeInfo();
+            return runtime.newParameterizedType(ensureType(erased, null), pt.arrays());
+        }
+        if (pt.typeInfo() == null) return pt;
+        return runtime.newParameterizedType(ensureType(pt.typeInfo(), null), pt.arrays());
     }
 
     /**
@@ -787,18 +962,72 @@ abstract class IsolationCore {
         OwnedMethod key = new OwnedMethod(stub, origAttr);
         MethodInfo inMap = methodMap.get(key);
         if (inMap != null) return inMap;
-        MethodInfo newAttr = runtime.newMethod(stub, origAttr.name(), runtime.methodTypeAbstractMethod());
+        ParameterizedType returnType = ensureTypes(origAttr.returnType());
+        // An attribute is stubbed because SOME use names it; every OTHER use of the annotation then has to supply
+        // it, and a bare '@Test' is "annotation @Test is missing a default value for the element 'expected'". Two
+        // class isolates and 200 of their errors, both JUnit 4 test classes with one @Test(expected=...) among
+        // hundreds of plain ones. A default value costs nothing -- nothing in an isolate is ever read -- so give
+        // every attribute one, and the shape follows the printer: an attribute carrying a default is NOT abstract,
+        // and its default is a single return statement (MethodPrinterImpl.annotationDefaultValue).
+        Expression defaultValue = annotationDefaultValue(returnType);
+        MethodInfo newAttr = runtime.newMethod(stub, origAttr.name(),
+                defaultValue == null ? runtime.methodTypeAbstractMethod() : runtime.methodTypeMethod());
         newAttr.builder()
-                .setReturnType(ensureTypes(origAttr.returnType()))
+                .setReturnType(returnType)
                 .setAccess(runtime.accessPackage())
                 .setSource(runtime.noSource())
-                // empty (not null) body: it is printed as ';' since the method is abstract, but a
-                // null body would trip the import computer's methodBody().typesReferenced()
-                .setMethodBody(runtime.emptyBlock())
+                // empty (not null) body when there is no default: it is printed as ';' since the method is then
+                // abstract, but a null body would trip the import computer's methodBody().typesReferenced()
+                .setMethodBody(defaultValue == null ? runtime.emptyBlock()
+                        : runtime.newBlockBuilder()
+                        .addStatement(runtime.newReturnBuilder().setExpression(defaultValue).build()).build())
                 .commit();
         stub.builder().addMethod(newAttr);
         methodMap.put(key, newAttr);
         return newAttr;
+    }
+
+    /**
+     * A value of {@code pt} usable as an annotation attribute's {@code default}, or null when we cannot make one.
+     * <p>
+     * An annotation value must be a constant, an array of them, a class literal, an enum constant or a nested
+     * annotation — {@code null} is not among them, so {@link Runtime#nullValue} is of no use here. The last two
+     * are the ones this does not produce: an enum constant needs a constant that exists on the stub, and a nested
+     * annotation needs every one of ITS attributes to have a default. Both return null, leaving the attribute
+     * abstract exactly as before — which is right whenever the original had no default either, and short of the
+     * mark only for a bare use of an annotation whose default was of one of those two kinds.
+     */
+    private Expression annotationDefaultValue(ParameterizedType pt) {
+        if (pt.arrays() > 0) {
+            return runtime.newArrayInitializerBuilder().setExpressions(List.of())
+                    .setCommonType(runtime.newParameterizedType(pt.typeInfo(), pt.arrays() - 1)).build();
+        }
+        TypeInfo typeInfo = pt.typeInfo();
+        if (typeInfo == null) return null;
+        if (pt.isPrimitiveExcludingVoid()) {
+            if (typeInfo.isBoolean()) return runtime.newBoolean(false);
+            if (typeInfo.isChar()) return runtime.newChar('\0');
+            if (typeInfo.isLong()) return runtime.newLong(0L);
+            if (typeInfo.isFloat()) return runtime.newFloat(0f);
+            if (typeInfo.isDouble()) return runtime.newDouble(0d);
+            if (typeInfo.isShort()) return runtime.newShort((short) 0);
+            if (typeInfo.isByte()) return runtime.newByte((byte) 0);
+            return runtime.newInt(0);
+        }
+        if ("java.lang.String".equals(typeInfo.fullyQualifiedName())) return runtime.newStringConstant("");
+        if ("java.lang.Class".equals(typeInfo.fullyQualifiedName())) {
+            // the type argument is a BOUND to satisfy: 'Class<? extends Throwable> expected()' takes Throwable.class,
+            // and Object.class would be "incompatible types"
+            ParameterizedType bound = pt.parameters().isEmpty() ? null : pt.parameters().getFirst();
+            TypeInfo literal = bound == null || bound.typeInfo() == null
+                    ? runtime.objectParameterizedType().typeInfo() : bound.typeInfo();
+            // the builder takes the REFERENCED type ('String.class' -> String) and derives the expression's own
+            // type ('Class<String>') from it. Setting parameterizedType as well overwrites the first with the
+            // second, and the literal prints as 'Class.class': "incompatible types: Class<Class> cannot be
+            // converted to Class<? extends Throwable>"
+            return runtime.newClassExpressionBuilder(literal.asSimpleParameterizedType()).build();
+        }
+        return null;
     }
 
     /**
@@ -888,6 +1117,37 @@ abstract class IsolationCore {
             return ensureType(declaring, null);
         }
 
+        /**
+         * Everything a type declared INSIDE a kept body contributes — an anonymous class or a local one. The
+         * declaration itself is verbatim text and needs no stub; what it references does, and nothing else reaches
+         * it, because {@code TypeInfo.visit()} is unsupported and the block visitor does not descend into a member
+         * type. So: its supertypes, its members' signatures and bodies, and its fields' initializers.
+         */
+        private void visitNestedTypeBodies(TypeInfo nested, DetailedSources ds) {
+            if (nested.parentClass() != null) ensureTypes(nested.parentClass(), ds);
+            nested.interfacesImplemented().forEach(itf -> ensureTypes(itf, ds));
+            nested.constructorAndMethodStream().forEach(mi -> {
+                mi.parameters().forEach(pi -> ensureTypes(pi.parameterizedType(), ds(pi)));
+                if (mi.hasReturnValue()) ensureTypes(mi.returnType(), ds(mi));
+                Block body = mi.methodBody();
+                if (body != null) body.visit(this);
+                // 'new Handler() { public Object getObject(String s) {...} }' is verbatim text carrying an
+                // override, so the supertype STUB has to declare what it overrides -- otherwise javac reports
+                // "does not override or implement a method from a supertype" (17 of the hundred class isolates).
+                // Same rule IsolateClass applies to the kept members themselves; these are kept just as verbatim.
+                mi.overrides().forEach(overridden -> {
+                    TypeInfo declaringStub = ensureType(overridden.typeInfo(), null);
+                    if (declaringStub != null && declaringStub != overridden.typeInfo()) {
+                        ensureMethodInfo(declaringStub, overridden);
+                    }
+                });
+            });
+            nested.fields().forEach(fi -> {
+                ensureTypes(fi.type(), detailedSources(fi.source()));
+                if (fi.initializer() != null) fi.initializer().visit(this);
+            });
+        }
+
         @Override
         public boolean test(Element element) {
             switch (element) {
@@ -901,6 +1161,13 @@ abstract class IsolationCore {
                     }
                 }
                 case LocalVariableCreation lvc -> ensureTypes(lvc.localVariable().parameterizedType(), ds(lvc));
+                // A class declared INSIDE a kept method body ('class ByWeight implements Comparator<Data> {…}').
+                // The declaration is verbatim text and needs no stub of its own, but everything it references does,
+                // and nothing else reaches it: TypeInfo.visit() is unsupported and the block visitor does not
+                // descend into a member type's bodies. So a field read only there ('x.weight') was never stubbed
+                // and the isolate failed on "cannot find symbol: variable weight". The anonymous-class branch below
+                // was already doing this for its own kind; a local class is the same thing with a name.
+                case LocalTypeDeclaration ltd -> visitNestedTypeBodies(ltd.typeInfo(), ds(ltd));
                 case InstanceOf instanceOf -> ensureTypes(instanceOf.testType(), ds(instanceOf));
                 case Cast cast -> ensureTypes(cast.parameterizedType(), ds(cast));
                 case ClassExpression classExpression ->
@@ -921,29 +1188,7 @@ abstract class IsolationCore {
                     if (cc.anonymousClass() != null) {
                         // the supertype is what the verbatim text names ('new Comparator<X>() {...}'), and an
                         // interface has no constructor, so the cc.constructor() branch below never reaches it
-                        TypeInfo anonymous = cc.anonymousClass();
-                        if (anonymous.parentClass() != null) ensureTypes(anonymous.parentClass(), ds(cc));
-                        anonymous.interfacesImplemented().forEach(itf -> ensureTypes(itf, ds(cc)));
-                        // TypeInfo.visit() is unsupported, so descend into the bodies of its members ourselves,
-                        // to reach references (types, calls, fields) that live only inside the anonymous class
-                        cc.anonymousClass().constructorAndMethodStream().forEach(mi -> {
-                            Block body = mi.methodBody();
-                            if (body != null) body.visit(this);
-                            // 'new Handler() { public Object getObject(String s) {...} }' is verbatim text carrying
-                            // an override, so the supertype STUB has to declare what it overrides -- otherwise
-                            // javac reports "does not override or implement a method from a supertype" (17 of the
-                            // hundred class isolates). Same rule IsolateClass applies to the kept members
-                            // themselves; an anonymous class's members are kept just as verbatim.
-                            mi.overrides().forEach(overridden -> {
-                                TypeInfo declaringStub = ensureType(overridden.typeInfo(), null);
-                                if (declaringStub != null && declaringStub != overridden.typeInfo()) {
-                                    ensureMethodInfo(declaringStub, overridden);
-                                }
-                            });
-                        });
-                        cc.anonymousClass().fields().forEach(fi -> {
-                            if (fi.initializer() != null) fi.initializer().visit(this);
-                        });
+                        visitNestedTypeBodies(cc.anonymousClass(), ds(cc));
                     }
                     if (cc.constructor() != null) {
                         // stub the constructed type first, so the constructor lands on the stub, not the real type
@@ -1001,6 +1246,11 @@ abstract class IsolationCore {
                         ParameterizedType scopeType = ensureTypes(mr.scope().parameterizedType(), ds(mr.scope()));
                         owner = declaringOwner(mr.methodInfo(), scopeType);
                     }
+                    // 'Policy[]::new' carries the same synthetic array-creation constructor as 'new Policy[n]',
+                    // and stubbing it writes 'Policy(int dim0) { }' into the type -- for an interface, not even
+                    // syntactically Java. The ConstructorCall branch above has always guarded against it; this one
+                    // did not, and one class isolate reached it (…toArray(ICheckRMTaskPolicy[]::new))
+                    if (mr.methodInfo().isSyntheticArrayConstructor()) return true;
                     ensureMethodInfo(owner, mr.methodInfo());
                 }
                 case VariableExpression ve -> {

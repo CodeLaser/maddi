@@ -135,10 +135,13 @@ public class TestIsolateMethod2TypeParameters extends CommonIsolateMethodTest {
                     return supplier.get();
                 }""";
         String out = isolate(X, "method", 1, methodString);
+        // the SAM keeps its throws clause -- JUnit's ThrowingSupplier.get() really does 'throws Throwable', which
+        // is why the isolated method declares it too. Reproducing it is not cosmetic: where a second stub of the
+        // same method exists (an implementing class's), the two have to agree or neither compiles
         @Language("java")
         String expected = """
                 public class X_method {
-                    interface ThrowingSupplier<T> {T get(); }
+                    interface ThrowingSupplier<T> {T get() throws Throwable; }
                     String method(ThrowingSupplier<String> supplier) throws Throwable {
                     return supplier.get();
                 }

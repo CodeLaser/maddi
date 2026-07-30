@@ -36,13 +36,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * into a {@code CompilationProblems}, which names each error with its file, line and column. Running javac
  * separately would only recompute a verdict maddi already has.
  * <p>
- * The fixtures are reductions of the originals, small enough to read:
+ * The first three fixtures are reductions of fernflower types, small enough to read:
  * <ul>
  *   <li>{@code SwitchPatternHelper} statically imports {@code ClassNameConstants.JAVA_UTIL_OBJECTS} — an
  *       <b>interface</b> field, hence implicitly static;</li>
  *   <li>{@code ExprProcessor} calls {@code pop()} on an {@code ExpressionStack extends ListStack<Exprent>};</li>
  *   <li>{@code ClassWriter} switches over its own private {@code enum MType}.</li>
  * </ul>
+ * The rest are reductions of the <b>hundred-class closed-core corpus</b>, one per root cause of the 34 trees that
+ * did not compile once those three were fixed: all 295 javac errors of those trees came down to twelve causes, and
+ * each of the drivers below is one of them, named after the corpus symptom it reproduces. A driver here is worth
+ * more than the corpus run it came from — the corpus needs a commercial project and 16G, this needs neither — but
+ * it is the corpus that says which twelve to write.
  */
 public class TestIsolateClass4Compiles {
     protected JavaInspector javaInspector;
@@ -232,6 +237,620 @@ public class TestIsolateClass4Compiles {
         // The stub came out as "public static class Kind { public static Kind CLASS; ... }" -- a class with static
         // fields, which is enough for 'Kind.CLASS' and not enough for 'case CLASS:':
         // "pattern or enum constant required".
+        assertCompiles(tree);
+    }
+
+    // ------------------------------------ from the closed-core corpus ------------------------------------
+
+    @Language("java")
+    private static final String OWN_CONSTANTS = """
+            package a.b;
+            public class UsesOwnConstants {
+                private static final int FIRST = 1;
+                private static final int SECOND = 2;
+                private static final String NAME = "n";
+                private static final java.util.List<String> NOT_A_CONSTANT = new java.util.ArrayList<>();
+
+                public String pick(int i) {
+                    switch (i) {
+                        case FIRST:
+                            return "first";
+                        case SECOND:
+                            return "second";
+                        default:
+                            return "?";
+                    }
+                }
+
+                public boolean named(String s) {
+                    switch (s) {
+                        case NAME:
+                            return true;
+                        default:
+                            return false;
+                    }
+                }
+
+                public int size() {
+                    return NOT_A_CONSTANT.size();
+                }
+            }
+            """;
+
+    @DisplayName("the isolated type's own constants keep 'final' and their value")
+    @Test
+    public void ownConstantsAsCaseLabels() throws IOException {
+        Map<String, String> tree = isolate(Map.of("a.b.UsesOwnConstants", OWN_CONSTANTS), "a.b.UsesOwnConstants");
+        // The isolated type's own fields were reproduced with 'static' but never 'final', and their initializers
+        // were dropped wholesale -- so 'private static final int FIRST = 1' came out as 'static int FIRST;' and its
+        // own 'case FIRST:' was "constant expression required". 5 corpus trees, 45 errors, the biggest single cause
+        // by error count after the annotation defaults. NOT_A_CONSTANT is the other half of the rule: its
+        // initializer reaches into the project, so it must still be dropped -- and then 'final' must be dropped
+        // with it, or the field is "not initialized".
+        assertCompiles(tree);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+
+    @Language("java")
+    private static final String BASE_WITH_PROTECTED_STATIC = """
+            package p.q;
+            public class Base {
+                protected static String helper(String in) {
+                    return in;
+                }
+
+                protected static final int LIMIT = 7;
+            }
+            """;
+
+    @Language("java")
+    private static final String INHERITS_STATIC = """
+            package a.b;
+            import p.q.Base;
+            public class InheritsStatic extends Base {
+                public String use(String s) {
+                    return helper(s) + LIMIT;
+                }
+            }
+            """;
+
+    @DisplayName("an unqualified call to an INHERITED static member needs no static import")
+    @Test
+    public void inheritedStaticMember() throws IOException {
+        Map<String, String> tree = isolate(Map.of("p.q.Base", BASE_WITH_PROTECTED_STATIC,
+                "a.b.InheritsStatic", INHERITS_STATIC), "a.b.InheritsStatic");
+        // 'helper(s)' has no scope and is declared by another type, so it was recorded as a static import --
+        // 'import static p.q.Base.helper;'. But the isolated type EXTENDS Base, so the member is already in scope,
+        // and the import does not even compile: a single-static-import must name an ACCESSIBLE member, and
+        // 'protected' does not cross the package boundary. "cannot find symbol: static helper".
+        // 10 corpus trees, the largest cause of the 34, and the only one that is a wrong decision rather than a
+        // missing one (axis2's Stub.getFactory, closed-core' BaseSessionBean.checkAddRestrictedMessage).
+        assertCompiles(tree);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+
+    @Language("java")
+    private static final String OUTER_WITH_INNER = """
+            package p.q;
+            public class Outer {
+                public class Inner {
+                    public int value;
+                }
+            }
+            """;
+
+    @Language("java")
+    private static final String USES_INNER = """
+            package a.b;
+            import p.q.Outer;
+            public class UsesInner {
+                public int get(Outer outer) {
+                    Outer.Inner inner = outer.new Inner();
+                    return inner.value;
+                }
+            }
+            """;
+
+    @DisplayName("an inner (non-static) nested type is not stubbed static")
+    @Test
+    public void qualifiedNewOfInnerClass() throws IOException {
+        Map<String, String> tree = isolate(Map.of("p.q.Outer", OUTER_WITH_INNER, "a.b.UsesInner", USES_INNER),
+                "a.b.UsesInner");
+        // Every nested stub is made 'static', so that it can be named without an enclosing instance. For a type
+        // that really is static that is right; for an INNER class the verbatim text writes 'outer.new Inner()',
+        // and javac says "qualified new of static class". 5 corpus trees.
+        assertCompiles(tree);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+
+    @Language("java")
+    private static final String MARKER = """
+            package p.q;
+            import java.lang.annotation.Retention;
+            import java.lang.annotation.RetentionPolicy;
+            @Retention(RetentionPolicy.RUNTIME)
+            public @interface Marker {
+                int level() default 0;
+
+                String note() default "";
+
+                Class<? extends Throwable> expected() default Throwable.class;
+
+                String[] tags() default {};
+            }
+            """;
+
+    @Language("java")
+    private static final String USES_ANNOTATION = """
+            package a.b;
+            import java.io.IOException;
+            import p.q.Marker;
+            public class UsesAnnotation {
+                @Marker(level = 3, expected = IOException.class, tags = {"slow"})
+                public void explicit() {
+                }
+
+                @Marker
+                public void byDefault() {
+                }
+            }
+            """;
+
+    @DisplayName("a stubbed annotation attribute keeps a default, so a bare use of it compiles")
+    @Test
+    public void annotationAttributeDefault() throws IOException {
+        Map<String, String> tree = isolate(Map.of("p.q.Marker", MARKER, "a.b.UsesAnnotation", USES_ANNOTATION),
+                "a.b.UsesAnnotation");
+        // The attribute is stubbed because ONE use names it; the stub then reads 'int level();' with no default,
+        // and every other use -- a bare '@Marker' -- is "annotation @Marker is missing a default value for the
+        // element 'level'". Two corpus trees and 200 errors, both unit tests using JUnit 4's @Test(expected=...).
+        //
+        // 'expected' is that corpus attribute, and it is here because the value has to be of the right TYPE, not
+        // merely present: a synthesized 'Class' default must satisfy the '? extends Throwable' bound, and the
+        // first attempt emitted 'Class.class' -- "incompatible types: Class<Class> cannot be converted to
+        // Class<? extends Throwable>", which turned 200 errors in those two trees into 2. An int and a String
+        // alone did not exercise that.
+        assertCompiles(tree);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+
+    @Language("java")
+    private static final String ABSTRACT_SUPERCLASS_STUB = """
+            package p.q;
+            import java.io.IOException;
+            import java.io.OutputStream;
+            public class CountingStream extends OutputStream {
+                public int count;
+
+                @Override
+                public void write(int b) throws IOException {
+                    count++;
+                }
+            }
+            """;
+
+    @Language("java")
+    private static final String USES_ABSTRACT_SUPERCLASS = """
+            package a.b;
+            import java.io.IOException;
+            import p.q.CountingStream;
+            public class UsesAbstractSuperclass {
+                public int go(CountingStream stream) throws IOException {
+                    stream.flush();
+                    return stream.count;
+                }
+            }
+            """;
+
+    @DisplayName("a stub inherits an abstract method from an abstract CLASS, and must implement it")
+    @Test
+    public void abstractMethodOfAbstractSuperclass() throws IOException {
+        Map<String, String> tree = isolate(Map.of("p.q.CountingStream", ABSTRACT_SUPERCLASS_STUB,
+                "a.b.UsesAbstractSuperclass", USES_ABSTRACT_SUPERCLASS), "a.b.UsesAbstractSuperclass");
+        // addDummyInterfaceMethods walks interfacesImplemented() and never the parent class, so the stub is
+        // literally 'public class CountingStream extends OutputStream { }' and javac says "is not abstract and does
+        // not override abstract method write(int) in OutputStream". 8 corpus trees: OutputStream.write(int),
+        // InputStream.read(), Transformer.getErrorListener().
+        assertCompiles(tree);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+
+    @Language("java")
+    private static final String APPENDER = """
+            package p.q;
+            import java.io.IOException;
+            public class Appender implements Appendable {
+                @Override
+                public Appendable append(CharSequence csq) throws IOException {
+                    return this;
+                }
+
+                @Override
+                public Appendable append(CharSequence csq, int start, int end) throws IOException {
+                    return this;
+                }
+
+                @Override
+                public Appendable append(char c) throws IOException {
+                    return this;
+                }
+            }
+            """;
+
+    @Language("java")
+    private static final String USES_OVERLOADS = """
+            package a.b;
+            import java.io.IOException;
+            import p.q.Appender;
+            public class UsesOverloads {
+                public void go(Appender appender) throws IOException {
+                    appender.append("x");
+                }
+            }
+            """;
+
+    @DisplayName("two abstract methods of the same arity both get a dummy implementation")
+    @Test
+    public void sameArityOverloads() throws IOException {
+        Map<String, String> tree = isolate(Map.of("p.q.Appender", APPENDER, "a.b.UsesOverloads", USES_OVERLOADS),
+                "a.b.UsesOverloads");
+        // The dummy implementations are collected into a map keyed by name + '/' + parameter COUNT, so of two
+        // same-arity overloads only the first is ever generated. 6 corpus trees, always the same pair:
+        // org.xml.sax.XMLReader declares parse(InputSource) and parse(String), and the stub got only the first.
+        //
+        // The supertype has to be a JDK interface for this to bite, and that is not incidental: a STUBBED
+        // interface's methods are made 'default' (they keep a body, so implementors need not override), and only
+        // the ones actually reached are stubbed at all -- so there is never anything to implement. Every A-family
+        // case in the corpus is against a JDK supertype for exactly this reason. java.lang.Appendable is the
+        // smallest one with two same-arity abstract methods: append(CharSequence) and append(char).
+        assertCompiles(tree);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+
+    @Language("java")
+    private static final String RAW_SPLITERATOR = """
+            package p.q;
+            import java.util.Spliterator;
+            import java.util.function.Consumer;
+            public class RawSpliterator implements Spliterator {
+                @Override
+                public boolean tryAdvance(Consumer action) {
+                    return false;
+                }
+
+                @Override
+                public Spliterator trySplit() {
+                    return null;
+                }
+
+                @Override
+                public long estimateSize() {
+                    return 0L;
+                }
+
+                @Override
+                public int characteristics() {
+                    return 0;
+                }
+            }
+            """;
+
+    @Language("java")
+    private static final String USES_RAW_SPLITERATOR = """
+            package a.b;
+            import p.q.RawSpliterator;
+            public class UsesRawSpliterator {
+                public long go(RawSpliterator spliterator) {
+                    return spliterator.estimateSize();
+                }
+            }
+            """;
+
+    @DisplayName("a dummy implementation for a RAW supertype is fully erased, wildcards included")
+    @Test
+    public void rawSupertypeWildcard() throws IOException {
+        Map<String, String> tree = isolate(Map.of("p.q.RawSpliterator", RAW_SPLITERATOR,
+                "a.b.UsesRawSpliterator", USES_RAW_SPLITERATOR), "a.b.UsesRawSpliterator");
+        // 'implements Spliterator' is RAW, so what the class inherits is the erasure 'tryAdvance(Consumer)'.
+        // eraseOutOfScope substitutes the out-of-scope T by its bound but KEEPS the wildcard, giving
+        // 'tryAdvance(Consumer<? super Object>)' -- which neither overrides nor implements it, so javac reports
+        // both "is not abstract and does not override" and "name clash ... same erasure". One corpus tree
+        // (commons-collections AbstractMapDecorator and MultiValueMap implementing raw java.util.Map), three of
+        // its five errors. Spliterator is java.util's smallest interface with a wildcard in an abstract method;
+        // only estimateSize() is called here, so the other three have to come from the dummy pass.
+        assertCompiles(tree);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+
+    @Language("java")
+    private static final String BOXED_CONSTANT = """
+            package p.q;
+            public class Ids {
+                public static final Long PANEL = 49L;
+            }
+            """;
+
+    @Language("java")
+    private static final String USES_BOXED_CONSTANT = """
+            package a.b;
+            import p.q.Ids;
+            public class UsesBoxedConstant {
+                public Long get() {
+                    return Ids.PANEL;
+                }
+            }
+            """;
+
+    @DisplayName("a stubbed BOXED numeric constant is not handed a bare int")
+    @Test
+    public void boxedNumericConstant() throws IOException {
+        Map<String, String> tree = isolate(Map.of("p.q.Ids", BOXED_CONSTANT, "a.b.UsesBoxedConstant",
+                USES_BOXED_CONSTANT), "a.b.UsesBoxedConstant");
+        // Every numeric constant is given a distinct int value, so that it can serve as a switch 'case' label.
+        // TypeInfo.isNumeric() is true of the BOXED types as well, so the stub came out as
+        // 'public static final Long PANEL = 49;' -- "incompatible types: int cannot be converted to Long".
+        // A boxed constant cannot be a case label anyway. One corpus tree, one error.
+        assertCompiles(tree);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+
+    @Language("java")
+    private static final String POLICY = """
+            package p.q;
+            public interface Policy {
+                int weight();
+            }
+            """;
+
+    @Language("java")
+    private static final String USES_INTERFACE_ARRAY = """
+            package a.b;
+            import java.util.List;
+            import p.q.Policy;
+            public class UsesInterfaceArray {
+                public Policy[] make(List<Object> candidates) {
+                    return candidates.stream().filter(c -> Policy.class.isInstance(c)).toArray(Policy[]::new);
+                }
+            }
+            """;
+
+    @DisplayName("'I[]::new' does not give the interface stub a constructor")
+    @Test
+    public void interfaceArrayConstructorReference() throws IOException {
+        Map<String, String> tree = isolate(Map.of("p.q.Policy", POLICY, "a.b.UsesInterfaceArray",
+                USES_INTERFACE_ARRAY), "a.b.UsesInterfaceArray");
+        // An array creation carries a SYNTHETIC constructor, one int parameter per dimension, and stubbing it
+        // writes 'Policy(int dim0) { }' into the type -- which for an interface is not even syntactically Java:
+        // "<identifier> expected". 'new Policy[3]' is guarded against exactly that; the ARRAY CONSTRUCTOR
+        // REFERENCE 'Policy[]::new' reaches ensureMethodInfo down the MethodReference branch, which has no such
+        // guard. One corpus tree (RuleChecker.getRuleCheckerPolicies, ...toArray(ICheckRMTaskPolicy[]::new)).
+        assertCompiles(tree);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+
+    @Language("java")
+    private static final String NODE = """
+            package p.q;
+            import java.util.Iterator;
+            public interface Node extends Iterator<String> {
+            }
+            """;
+
+    @Language("java")
+    private static final String EXPR = """
+            package p.q;
+            public class Expr implements Node {
+                @Override
+                public boolean hasNext() {
+                    return false;
+                }
+
+                @Override
+                public String next() {
+                    return null;
+                }
+            }
+            """;
+
+    @Language("java")
+    private static final String USES_EXPR = """
+            package a.b;
+            import p.q.Expr;
+            public class UsesExpr {
+                public boolean go(Expr expr) {
+                    return expr.hasNext();
+                }
+            }
+            """;
+
+    @DisplayName("a JDK interface reached through a STUBBED one still has to be implemented")
+    @Test
+    public void jdkInterfaceThroughStubbedInterface() throws IOException {
+        Map<String, String> tree = isolate(Map.of("p.q.Node", NODE, "p.q.Expr", EXPR, "a.b.UsesExpr", USES_EXPR),
+                "a.b.UsesExpr");
+        // 'class Expr implements Node', where the stub of Node still 'extends Iterator<String>' -- a JDK
+        // interface, kept as itself, so its abstract methods really are inherited and really are unimplemented,
+        // two levels down. Only hasNext() is called, so next() has to come from the dummy pass, with T bound to
+        // String along the way.
+        //
+        // The corpus case is xalan's 'Expression implements ExpressionNode', where ExpressionNode extends
+        // javax.xml.transform.SourceLocator. It is written with java.util.Iterator instead because
+        // javax.xml.transform is not part of java.base: this harness would stub it into the emitted tree, and a
+        // compilation unit declaring 'package javax.xml.transform' is rejected outright -- "package exists in
+        // another module: java.xml". Worth knowing, because it is a real hazard for any isolate that reaches a
+        // JDK package outside the modules the run configures: the type is then not partOfJdk, so it is stubbed,
+        // and the tree cannot compile no matter what the stub contains.
+        assertCompiles(tree);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+
+    @Language("java")
+    private static final String FACTORY = """
+            package p.q;
+            public class Factory<A extends Base<?>> {
+                public A create() {
+                    return null;
+                }
+            }
+            """;
+
+    @Language("java")
+    private static final String BASE_WITH_GENERIC_METHOD = """
+            package p.q;
+            public interface Base<SELF extends Base<SELF>> {
+                <A extends Base<?>> A as(Factory<A> factory);
+            }
+            """;
+
+    @Language("java")
+    private static final String BASE_IMPL = """
+            package p.q;
+            public class BaseImpl implements Base<BaseImpl> {
+                @Override
+                public <A extends Base<?>> A as(Factory<A> factory) {
+                    return factory.create();
+                }
+            }
+            """;
+
+    @Language("java")
+    private static final String USES_GENERIC_METHOD = """
+            package a.b;
+            import p.q.BaseImpl;
+            public class UsesGenericMethod {
+                public String describe(BaseImpl impl) {
+                    return impl.toString();
+                }
+            }
+            """;
+
+    @DisplayName("a dummy implementation keeps the abstract method's OWN type parameters")
+    @Test
+    public void dummyKeepsMethodTypeParameters() throws IOException {
+        Map<String, String> tree = isolate(Map.of("p.q.Factory", FACTORY, "p.q.Base", BASE_WITH_GENERIC_METHOD,
+                "p.q.BaseImpl", BASE_IMPL, "a.b.UsesGenericMethod", USES_GENERIC_METHOD), "a.b.UsesGenericMethod");
+        // A dummy implementation reproduced the signature but not the method's own <A>, so A was out of scope
+        // where the dummy is declared and eraseOutOfScope replaced it by its bound -- dropping that bound's type
+        // arguments in turn, which yields a RAW 'Base' as the type argument for 'A extends Base<?>':
+        // "type argument Base is not within bounds of type-variable A". assertj's
+        // '<ASSERT extends AbstractAssert<?,?>> ASSERT asInstanceOf(InstanceOfAssertFactory<?, ASSERT>)',
+        // 3 corpus trees -- and note the isolated type never calls it: the dummy pass is the only thing that
+        // brings this signature into existence.
+        assertCompiles(tree);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+
+    @Language("java")
+    private static final String CUSTOM_CLONEABLE = """
+            package p.q;
+            public interface CustomCloneable extends Cloneable {
+                Object clone() throws CloneNotSupportedException;
+            }
+            """;
+
+    @Language("java")
+    private static final String ROLE_INFO = """
+            package p.q;
+            public class RoleInfo implements CustomCloneable {
+                public String name;
+
+                @Override
+                public Object clone() throws CloneNotSupportedException {
+                    return null;
+                }
+            }
+            """;
+
+    @Language("java")
+    private static final String USES_CLONEABLE = """
+            package a.b;
+            import p.q.RoleInfo;
+            public class UsesCloneable {
+                public Object go(RoleInfo info) {
+                    try {
+                        return info.clone();
+                    } catch (CloneNotSupportedException e) {
+                        return info.name;
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("the SAM of an interface stub keeps its throws clause")
+    @Test
+    public void samKeepsThrowsClause() throws IOException {
+        Map<String, String> tree = isolate(Map.of("p.q.CustomCloneable", CUSTOM_CLONEABLE, "p.q.RoleInfo", ROLE_INFO,
+                "a.b.UsesCloneable", USES_CLONEABLE), "a.b.UsesCloneable");
+        // The verbatim text CATCHES the exception, and catching one that cannot be thrown is itself an error:
+        // "exception CloneNotSupportedException is never thrown in body of corresponding try statement". So an
+        // interface stub has to keep the throws clause of what it declares.
+        //
+        // Which is the OPPOSITE of the rule for a dummy implementation -- see the next test -- and that asymmetry
+        // is the whole point. Three paths build a method stub (ensureMethodInfo, ensureAbstractMethod for an
+        // interface stub's SAM, addDummyImplementation) and each reproduced a different subset of the
+        // declaration. Giving them all a throws clause "for consistency" took the corpus from 97 of 100 trees
+        // compiling to 9, then to 74, while every unit driver stayed green. What is consistent is the LANGUAGE
+        // rule, not the subset: the declaration side must declare at least what the implementation side does, so
+        // the interface keeps its exceptions and the implementation narrows.
+        assertCompiles(tree);
+    }
+
+    // The counterpart rule -- a dummy IMPLEMENTATION declares no throws, because an implementation may narrow and
+    // the verbatim call sites must not be made to handle exceptions the original never declared -- has no driver
+    // here, deliberately. Two attempts at one did not discriminate: as soon as the isolated code calls the method
+    // through the class, ensureMethodInfo stubs it and the dummy pass never fires, so the fixture passes whatever
+    // addDummyImplementation does. The evidence for that rule is the corpus (24 trees against 1) and it is
+    // recorded where the decision is taken; a green driver that cannot fail would be worse than none.
+
+    // ---------------------------------------------------------------------------------------------------------
+
+    @Language("java")
+    private static final String DATA = """
+            package p.q;
+            public class Data {
+                public int weight;
+                public String label;
+            }
+            """;
+
+    @Language("java")
+    private static final String USES_LOCAL_CLASS = """
+            package a.b;
+            import java.util.Comparator;
+            import p.q.Data;
+            public class UsesLocalClass {
+                public int compare(Data a, Data b) {
+                    class ByWeight implements Comparator<Data> {
+                        @Override
+                        public int compare(Data x, Data y) {
+                            return x.weight - y.weight;
+                        }
+                    }
+                    return new ByWeight().compare(a, b);
+                }
+            }
+            """;
+
+    @DisplayName("a local class in a kept body has its references stubbed too")
+    @Test
+    public void localClassInKeptBody() throws IOException {
+        Map<String, String> tree = isolate(Map.of("p.q.Data", DATA, "a.b.UsesLocalClass", USES_LOCAL_CLASS),
+                "a.b.UsesLocalClass");
+        // The visitor descends into an ANONYMOUS class's member bodies deliberately, but there is no case for a
+        // LOCAL class declaration, so nothing inside 'class ByWeight { ... }' is walked -- and 'x.weight', reached
+        // nowhere else, is never stubbed. The local class itself is verbatim text and needs no stub; what it
+        // REFERENCES does. One corpus tree (a Comparator declared inside ContractCtrlBean).
         assertCompiles(tree);
     }
 }

@@ -164,6 +164,107 @@ back**. See `handoff-isolateclass-enum-and-generic-stubs.md` §3 and §7a.
 The judgement call that followed — "six units in 21,305 … worth fixing?" — was therefore also answered wrongly,
 for the same reason: the cost was mis-estimated because the cause was.
 
+## 6. The 34 → 3 round: twelve causes, one driver each
+
+The first two rounds asked whether a tree **parses back**. That gate is the weaker of the two, and once it read
+100/100 the compile gate still showed 34 trees failing. Compiling all 34 with javac gave **295 errors over twelve
+root causes** — 27 of the 34 trees had exactly one — and each cause got a driver in
+`TestIsolateClass4Compiles`, reduced small enough to read, before it got a fix.
+
+| | cause | trees | the fix |
+|---|---|---:|---|
+| S | a static import written for an **inherited** member | 10 | `recordStaticImport` returns false when the isolated type inherits it: the member is already in scope, and the import does not compile anyway (these are `protected static`, which does not cross the package boundary the stub now sits behind) |
+| A1 | an abstract method of an abstract super**class** | 8 | walk the parent chain, **stopping at the first concrete class** |
+| A2 | two same-arity overloads | 6 | key the dummy pass on the erasure, not on name + arity |
+| C | the isolated type's own `static final` constants | 5 | keep the initializer **and** `final` together when it is a constant variable; a non-constant initializer still loses both, or the field is "not initialized" |
+| N | an inner class stubbed `static` | 5 | `static` only when the original is — `outer.new Inner()` is verbatim text |
+| G | a method's own type parameters, erased to a raw copy of their own bound | 3 | reproduce them; `addDummyImplementation` and `ensureAbstractMethod` both lacked what `ensureMethodInfo` had |
+| D | an annotation attribute with no `default` | 2 | synthesize one per type; an enum or nested-annotation attribute still gets none |
+| A3 | a **raw** supertype's wildcards | 1 | `fullyErased` — javac's erasure, no type arguments and no wildcard |
+| L | a **local class** in a kept body never visited | 1 | one `visitNestedTypeBodies`, shared with the anonymous-class case |
+| B | a **boxed** numeric constant handed a bare `int` | 1 | the distinct-value hack is for primitives only |
+| I | `I[]::new` giving an interface a constructor | 1 | the guard the `ConstructorCall` branch always had, now on `MethodReference` too |
+| T | a `throws` clause two stub paths disagree about | 1 | **not fixed** — §7, and the section below |
+
+Eleven of the twelve are fixed. Three more trees came free with them (a tree only compiles when its last cause
+goes), and two other things were fixed on the way that were not causes of any failing tree: an interface stub's
+SAM losing its `throws` clause, and the `Class` default of D being emitted as `Class.class` — that one *was* a
+cause, of my own making, and cost 200 errors' worth of trees until the corpus caught it.
+
+Three of the twelve reductions were **toothless on the first attempt** — they reproduced nothing — and always for
+the same reason, which is worth knowing before writing the next one: a *stubbed* interface has its methods made
+`default` and only the reached ones stubbed at all, so there is never anything to implement. Every case in the A
+family needs a **JDK** supertype to bite.
+
+### The throws clause, and what a green unit suite is worth
+
+T is the one to read, and it is the one still failing. Giving the dummy-implementation path a `throws` clause
+fixed it, reproduced its failure in a driver first, and left every unit driver green:
+
+| | trees compiling |
+|---|---:|
+| neither path declares `throws` (the state that had reached 97) | 97 |
+| the dummy declares it | **9** |
+| both declare it | **74** |
+| the interface declaration declares it, the dummy does not | **97**, and faithful |
+
+The rule is not "make the paths consistent", which is what the first two attempts assumed. It is the language
+rule, and it is **asymmetric**: the declaration side must declare at least what the implementation side does. So
+an interface stub keeps its exceptions — catching one that cannot be thrown is itself an error, *"exception X is
+never thrown in body of corresponding try statement"* — and a dummy implementation declares none, because
+implementations narrow and every verbatim call site would otherwise have to handle what the original never
+declared (*"unreported exception java.io.IOException"*, 24 trees).
+
+**A driver proves a fix does what it says; only the corpus says what else it does.** Three paths build a method
+stub — `ensureMethodInfo`, `ensureAbstractMethod`, `addDummyImplementation` — and each reproduced a different
+subset of the declaration; of the twelve causes above, four were one of those three lacking something another
+had. When two of them describe the same method, any disagreement is a compile error.
+
+There is deliberately **no driver** for the dummy half of that rule. Two attempts at one did not discriminate: as
+soon as the isolated code calls the method through the class, `ensureMethodInfo` stubs it and the dummy pass never
+fires, so the fixture passes whatever `addDummyImplementation` does. A green driver that cannot fail is worse than
+none — it is exactly what let the 88-tree regression through.
+
+## 7. What is left
+
+- **`MultiValueMap.remove(Object, Object)`** — not an isolator defect and not fixable here. commons-collections 3
+  returns `Object`; Java 8's `Map.remove(Object, Object)` returns `boolean`. closed-core links that jar, so it only
+  ever needed *binary* compatibility; reproducing the class as **source** on a modern JDK cannot compile, whatever
+  the stub contains. Every isolate of a binary-only dependency is exposed to this.
+- **`JDBCXMLReader.getProperty`** — the throws disagreement in the direction the asymmetric rule does not cover: a
+  stub built by `ensureMethodInfo` **with** the original's exceptions, overriding a dummy **without** them. Fixing
+  it in either path costs 24 trees (above). It wants a pass over the *finished* stub graph, matching each stub
+  method against what it overrides and widening the overridden one — which is a different kind of change from
+  anything here, and worth doing only alongside the next cause of the same shape.
+- **`Expression` / `SourceLocator`** — diagnosed, and fixed from the other side. `abstract class Expression
+  implements Serializable, ExpressionNode, XPathVisitable`, where the stub of `ExpressionNode` still
+  `extends javax.xml.transform.SourceLocator`, got no dummy for that JDK interface's four abstract methods.
+  Probing the dummy pass on that exact type settled it:
+
+  ```
+  itf org.apache.xpath.ExpressionNode isInterface=true methods=0 itfs=[javax.xml.transform.SourceLocator]
+  required=[]
+  ```
+
+  The recursion reaches `SourceLocator`; `SourceLocator` answers `methodStream()` with **nothing**. A JDK type
+  reached only as a supertype NAME from a class file is materialized without its members, and no amount of walking
+  finds what was never loaded. (The same shape in the unit harness has all four methods, because parsing
+  `interface Node extends SourceLocator` from source forces javac to resolve it — which is why a driver for this
+  emitted a correct stub and proved nothing.)
+
+  Completing such a type on demand belongs in the inspection layer, not here: `CompiledTypesManager.getOrLoad`
+  returns the cached, empty `TypeInfo`, and forcing a package preload mid-isolation runs against a loader that may
+  already be dead. What the isolator does instead is reproduce the original's `abstract` modifier — right on its
+  own terms, and enough for an abstract class, which owes no implementations.
+
+  **It did not change the count, and the way it did not is the confirmation.** `Expression` and
+  `Function extends Expression` are both abstract and are now emitted so; the error moved down to
+  `FuncExtFunction extends Function`, which is **concrete** and therefore really does owe those four methods. It
+  will keep owing them until `SourceLocator` arrives with its members: a transitive interface walk would find
+  nothing to add either, because there is nothing loaded to find. Worth noting in passing that such a walk is
+  missing anyway — `addDummyInterfaceMethods` reads a type's OWN `interfacesImplemented()` and never the ones it
+  inherits through a superclass — but that gap is not what blocks this tree.
+
 ## State, so a later run can tell drift from regression
 
 Measured 2026-07-28, top 100 closed-core types by total statement count:
@@ -193,3 +294,14 @@ gates**: the corpus below parses whole and 34 of its trees still do not compile,
 | trees that COMPILE | **66 / 100** (was 57) |
 | largest cause left | 13 trees, "is not abstract and does not override" |
 | runtime | ~2.5 min, 16G |
+
+Re-measured 2026-07-30 after §6, same knobs and the same closed-core parse:
+
+| | |
+|---|---|
+| trees produced / requested | **100 / 100** |
+| trees fully parsing back | **100 / 100** |
+| compilation units parsing back | **21459 / 21459** |
+| trees that COMPILE | **97 / 100** |
+| what is left | §7: three trees, one error each |
+| `MAX_TREES_NOT_COMPILING` | **3** (was 43 at the start of the day) |
