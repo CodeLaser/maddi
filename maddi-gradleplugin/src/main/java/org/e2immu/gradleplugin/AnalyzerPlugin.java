@@ -146,11 +146,27 @@ public class AnalyzerPlugin implements Plugin<Project> {
         });
     }
 
-    // the analyzer needs the compiled classes on the classpath, so run after the compilations (Java, and Kotlin
-    // when the Kotlin JVM plugin is applied)
+    /**
+     * Run after the compilations, because the analyzer needs the compiled classes on the class path — and needs
+     * them for <em>every</em> source set it is about to read, not just {@code main}.
+     * <p>
+     * The openjdk front end drives javac one source set at a time and resolves each set's references into the sets
+     * it depends on through their <b>class files</b> (javac knows nothing of maddi's CST). {@code compileJava} alone
+     * therefore left {@code test} — which {@code ComputeSourceSets} hands over just like {@code main}, along with
+     * any custom source set such as {@code functionalTest} — with no guarantee at all: analysing a project whose
+     * test classes had never been built dropped every compilation unit that referenced them, as tolerable warnings.
+     * Each source set's {@code classes} task covers all of them; the explicit {@code compileKotlin} dependency
+     * stays alongside it rather than being assumed to ride in on {@code classes}.
+     * <p>
+     * {@code all} rather than a snapshot loop: a build script may register a source set after the plugin is applied,
+     * and one we did not wire is exactly one whose classes may be missing.
+     */
     private void dependOnCompileTasks(Task task, Project project) {
-        project.getPlugins().withType(JavaPlugin.class,
-                jp -> task.dependsOn(project.getTasks().named(JavaPlugin.COMPILE_JAVA_TASK_NAME)));
+        project.getPlugins().withType(JavaPlugin.class, jp -> {
+            JavaPluginExtension javaPluginExtension = project.getExtensions().getByType(JavaPluginExtension.class);
+            javaPluginExtension.getSourceSets().all(sourceSet ->
+                    task.dependsOn(project.getTasks().named(sourceSet.getClassesTaskName())));
+        });
         project.getPlugins().withId(KOTLIN_JVM_PLUGIN_ID,
                 kp -> task.dependsOn(project.getTasks().named(COMPILE_KOTLIN_TASK_NAME)));
     }

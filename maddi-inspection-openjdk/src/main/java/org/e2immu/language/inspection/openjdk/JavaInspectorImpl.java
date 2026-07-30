@@ -96,6 +96,15 @@ public class JavaInspectorImpl implements JavaInspector {
     private boolean parameterNames;
     private ParameterNameIndex parameterNameIndex; // lazily loaded when parameterNames is on
     private boolean jdkInternals; // "we're working with JDK internals": load jdk.internal.* types + open javac
+    // where WE compile the source sets to, so that a dependent source set resolves against the code this inspector
+    // actually read instead of against whatever the build last left behind. null = off; see
+    // JavaInspector.setGeneratedClassesDirectory.
+    private Path generatedClassesDirectory;
+    // source set NAME -> the directory we generated its class files into, for the sets where generation produced
+    // something. Keyed by name because SourceSet equality is by name and the objects are rebuilt across re-parses.
+    // Survives a re-parse on purpose: a set that is not re-scanned keeps the class files its unchanged sources
+    // compiled to, and the linearization guarantees a re-scanned set regenerates before any dependent re-scans.
+    private final Map<String, Path> generatedClassOutput = new HashMap<>();
 
     // the JDK modules for which a faithful parameter-name index is shipped in maddi-aapi-archive
     private static final List<String> PARAMETER_NAME_MODULES = List.of("java.base", "java.desktop", "java.net.http");
@@ -168,6 +177,11 @@ public class JavaInspectorImpl implements JavaInspector {
     @Override
     public void setJdkInternals(boolean jdkInternals) {
         this.jdkInternals = jdkInternals;
+    }
+
+    @Override
+    public void setGeneratedClassesDirectory(Path directory) {
+        this.generatedClassesDirectory = directory;
     }
 
     // lazily load and merge the per-module .paramnames.gz indices shipped in maddi-aapi-archive
@@ -481,12 +495,18 @@ public class JavaInspectorImpl implements JavaInspector {
                                  boolean parameterNames,
                                  boolean syntheticListField,
                                  boolean lombok) throws IOException {
+        // must precede createTask: it is what the task's CLASS_OUTPUT is pointed at. null = we generate nothing for
+        // this scan, and then we never set CLASS_OUTPUT and never call generate(), so javac cannot write class files
+        // next to the sources it is reading.
+        Path classOutput = sourcesByFqn.isEmpty() ? prepareGeneratedClassOutput(sourceSet) : null;
         MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
-        JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, lombok);
+        JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, lombok, classOutput);
         if (javacTask == null) {
             LOGGER.warn("Have no sources in source set {}", sourceSet.name());
             return;
         }
+        // what javac is about to resolve this source set's dependencies against, checked against what we parsed
+        validateClassOutput(summary, sourceSet);
         // when parameter names are requested, class-file methods get faithful formal parameter names from the
         // shipped index instead of javac's synthetic arg0, arg1, ...
         ParameterNameIndex pni = parameterNames ? parameterNameIndex() : null;
@@ -505,7 +525,7 @@ public class JavaInspectorImpl implements JavaInspector {
             LOGGER.warn("Lombok processor failed for source set {}; retrying without Lombok. Cause: {}",
                     sourceSet.name(), String.valueOf(re.getCause()));
             diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
-            javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, false);
+            javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, false, classOutput);
             scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration, javacTask, sourceSet,
                     infoByFqn, true, diagnostics, preload, pni, jdkInternals, computeFingerPrints,
                     syntheticListField);
@@ -592,6 +612,20 @@ public class JavaInspectorImpl implements JavaInspector {
                     summary.addParseException(new Summary.ParseException(uri, typeInfo.fullyQualifiedName(),
                             detail, e));
                 }
+            }
+        }
+
+        // Last, once nothing reads javac's trees for this source set any more: generation desugars them (see
+        // ScanCompilationUnits.generateClassFiles). Its output is what this set's dependents will resolve against.
+        if (classOutput != null) {
+            if (scanCompilationUnits.generateClassFiles() > 0) {
+                generatedClassOutput.put(sourceSet.name(), classOutput);
+            } else {
+                // nothing came out (the set does not compile, or javac aborted): leave the dependents on the
+                // build's class output, which is no worse than before and may well be complete
+                generatedClassOutput.remove(sourceSet.name());
+                LOGGER.warn("No class files generated for source set {}; its dependents fall back to the build's"
+                            + " class output", sourceSet.name());
             }
         }
     }
@@ -683,7 +717,8 @@ public class JavaInspectorImpl implements JavaInspector {
                                  boolean ignoreModule,
                                  Map<String, String> sourcesByFqn,
                                  MaddiDiagnosticCollector diagnostics,
-                                 boolean lombok) throws IOException {
+                                 boolean lombok,
+                                 Path classOutput) throws IOException {
         List<File> sources = new ArrayList<>();
         Map<String, String> sourcesByClassName;
         // use in-memory sources when they are supplied (parse(Map,...) and parseSingleFileInSourceSet(...));
@@ -744,12 +779,11 @@ public class JavaInspectorImpl implements JavaInspector {
             for (SourceSet dependency : sourceSet.dependencies()) {
                 if (!dependency.externalLibrary()) {
                     // A source-set dependency (e.g. test -> main): its types are parsed from source in this same
-                    // run, so they are already in the CompiledTypesManager. Only add it as a compiled classpath
-                    // entry when its URI is a real (hierarchical file) path -- a relative/opaque URI such as
-                    // file:src/main/java (as the mvn plugin emits) is not a compiled output and Path.of would throw.
-                    URI uri = dependency.uri();
-                    if (uri.isOpaque() || !"file".equals(uri.getScheme())) continue;
-                    File file = Path.of(uri).toFile();
+                    // run and are already in the CompiledTypesManager -- but javac knows nothing of the CST and
+                    // resolves every reference into them from CLASS FILES, hence this entry. Which files those are
+                    // is classOutputOf's decision; null means we have none to offer (validateClassOutput reports it).
+                    File file = classOutputOf(dependency);
+                    if (file == null) continue;
                     // Same as above: only a modular consumer resolves a source-set dependency via the module path.
                     if (ignoreModule || !hasModuleInfo || !dependency.isModule()) {
                         jarsAndClassDirectories.add(file);
@@ -761,6 +795,12 @@ public class JavaInspectorImpl implements JavaInspector {
             setCompileClassPath(fm, jarsAndClassDirectories, sourceSet);
             if (!moduleJars.isEmpty()) {
                 fm.setLocation(StandardLocation.MODULE_PATH, moduleJars);
+            }
+            // Only set when we are going to call generate() (see singleSourceSet). Left unset, javac's default
+            // class output is the directory of the source file it compiles -- so an unconditional generate() would
+            // scatter .class files through the user's source tree.
+            if (classOutput != null) {
+                fm.setLocation(StandardLocation.CLASS_OUTPUT, List.of(classOutput.toFile()));
             }
             // When the compilation is restricted to a subset of packages (see accept()), only the accepted
             // files are passed as compilation units and scanned into the CST. Put the source roots on the
@@ -838,6 +878,187 @@ public class JavaInspectorImpl implements JavaInspector {
         List<File> classPath = new ArrayList<>(fileDependencies);
         classPath.addAll(resolveJarOnClassPathDependencies(sourceSet));
         fm.setLocation(StandardLocation.CLASS_PATH, classPath);
+    }
+
+    /**
+     * The class files javac must resolve a source-set dependency against: the ones we generated for that set when
+     * generation is on and produced output, otherwise the build's class output as configured on the source set.
+     * <p>
+     * The generated directory <em>replaces</em> the build's rather than shadowing it. Mixing the two is the worst of
+     * both: a type would come from our (current) output while its sibling, dropped from ours because it no longer
+     * compiles or no longer exists, would still be found in the build's — the stale-class-file failure this feature
+     * exists to remove, now harder to see. When we generated nothing at all for a set, we fall back wholesale.
+     * <p>
+     * {@code null} when there is nothing usable: a relative or opaque URI such as {@code file:src/main/java} is not
+     * something {@code Path.of} accepts, let alone a class-path entry. Silent here on purpose —
+     * {@link #validateClassOutput} is what reports it, and only when we know the set holds types that will now fail
+     * to resolve.
+     */
+    private File classOutputOf(SourceSet dependency) {
+        Path generated = generatedClassOutput.get(dependency.name());
+        if (generated != null) return generated.toFile();
+        URI uri = dependency.uri();
+        if (uri == null || uri.isOpaque() || !"file".equals(uri.getScheme())) return null;
+        return Path.of(uri).toFile();
+    }
+
+    // how many type names a class-output warning names before it stops listing them
+    private static final int REPORTED_EXAMPLES = 5;
+    // a class file counted as stale must be older than its source by more than this; file-system timestamp
+    // granularity (and build tools that copy rather than compile) make an exact comparison too eager
+    private static final long STALE_GRACE_MILLIS = 1000L;
+
+    /**
+     * Check what javac is about to resolve this source set's dependencies against, and warn when it cannot be right.
+     * <p>
+     * The question this answers is narrow and factual: <em>we parsed N types from source set D; can javac resolve
+     * all N while it compiles S?</em> It can when it finds either a class file or (its class path doubling as its
+     * source path) a source file for the type in the single entry we give it. If not, references from S will not
+     * resolve, the compilation units holding them are dropped (as tolerable warnings, see
+     * {@code ScanCompilationUnits.CompilationUnitFailure}), and the analysis quietly covers less than it appears to.
+     * That silence is the actual problem; a warning naming the source set, the directory and the first few types
+     * turns it into something a user can act on.
+     * <p>
+     * Only dependencies we have parsed types for, from files on disk, are checked. A set we have not parsed makes no
+     * claim we could verify, and an in-memory (test-protocol) set has no build output to be wrong about — checking
+     * either would produce noise on every test parse.
+     */
+    private void validateClassOutput(Summary summary, SourceSet sourceSet) {
+        Map<String, SourceSet> dependencies = sourceSet.dependencies().stream()
+                .filter(d -> !d.externalLibrary())
+                .collect(Collectors.toMap(SourceSet::name, d -> d, (a, _) -> a, LinkedHashMap::new));
+        if (dependencies.isEmpty()) return;
+        Map<String, List<TypeInfo>> parsedFromDisk = new LinkedHashMap<>();
+        Map<TypeInfo, Long> sourceModified = new IdentityHashMap<>();
+        sourceFiles.forEach((sourceFile, types) -> {
+            URI uri = sourceFile.uri();
+            if (types.isEmpty() || uri == null || uri.isOpaque() || !"file".equals(uri.getScheme())) return;
+            SourceSet of = sourceFile.sourceSet();
+            if (of == null || !dependencies.containsKey(of.name())) return;
+            parsedFromDisk.computeIfAbsent(of.name(), _ -> new ArrayList<>()).addAll(types);
+            long modified = Path.of(uri).toFile().lastModified();
+            types.forEach(typeInfo -> sourceModified.put(typeInfo, modified));
+        });
+        parsedFromDisk.forEach((name, parsed) ->
+                validateOneDependency(summary, sourceSet, dependencies.get(name), parsed, sourceModified));
+    }
+
+    private void validateOneDependency(Summary summary,
+                                       SourceSet sourceSet,
+                                       SourceSet dependency,
+                                       List<TypeInfo> parsed,
+                                       Map<TypeInfo, Long> sourceModified) {
+        File dir = classOutputOf(dependency);
+        if (dir == null) {
+            reportClassOutputProblem(summary, sourceSet, dependency, dependency.uri(),
+                    parsed.size() + " type(s) were parsed from it, but its URI (" + dependency.uri()
+                    + ") is not a usable class-path entry, so javac has no class files for any of them");
+            return;
+        }
+        if (!dir.isDirectory()) {
+            reportClassOutputProblem(summary, sourceSet, dependency, dir.toURI(),
+                    parsed.size() + " type(s) were parsed from it, but its class output " + dir
+                    + " does not exist");
+            return;
+        }
+        List<String> missing = new ArrayList<>();
+        List<String> stale = new ArrayList<>();
+        for (TypeInfo typeInfo : parsed) {
+            // a primary type is top-level, so its class file sits at the package path under the output directory
+            String path = typeInfo.fullyQualifiedName().replace('.', '/');
+            File classFile = new File(dir, path + ".class");
+            long lastModified = classFile.lastModified(); // 0 when it is not there
+            if (lastModified == 0L) {
+                // javac's class path doubles as its source path: a .java file found there is compiled implicitly,
+                // so the type resolves after all. That is not a corner case — it is how both build plugins'
+                // source sets work today, their uri() being the first SOURCE directory rather than a class output.
+                // Miss this and every plugin user gets a warning about a set-up that is in fact fine.
+                if (!new File(dir, path + ".java").isFile()) missing.add(typeInfo.fullyQualifiedName());
+            } else {
+                Long source = sourceModified.get(typeInfo);
+                if (source != null && source > 0L && lastModified + STALE_GRACE_MILLIS < source) {
+                    stale.add(typeInfo.fullyQualifiedName());
+                }
+            }
+        }
+        if (missing.isEmpty() && stale.isEmpty()) return;
+        StringBuilder problem = new StringBuilder("of the ").append(parsed.size())
+                .append(" type(s) parsed from it, ");
+        if (!missing.isEmpty()) problem.append(missing.size()).append(" have neither a class file nor a source file");
+        if (!missing.isEmpty() && !stale.isEmpty()) problem.append(" and ");
+        if (!stale.isEmpty()) problem.append(stale.size()).append(" have a class file older than their source");
+        problem.append(" in ").append(dir).append(" (e.g. ")
+                .append(Stream.concat(missing.stream(), stale.stream()).limit(REPORTED_EXAMPLES)
+                        .collect(Collectors.joining(", ")))
+                .append(")");
+        reportClassOutputProblem(summary, sourceSet, dependency, dir.toURI(), problem.toString());
+    }
+
+    private void reportClassOutputProblem(Summary summary, SourceSet sourceSet, SourceSet dependency, URI uri,
+                                          String problem) {
+        String detail = "Source set '" + sourceSet.name() + "' resolves its references into '" + dependency.name()
+                        + "' through class files, and " + problem
+                        + ". Those references will not resolve, and the compilation units holding them are dropped."
+                        + " Rebuild '" + dependency.name() + "' before analysing, or have maddi compile it itself"
+                        + " (JavaInspector.setGeneratedClassesDirectory).";
+        LOGGER.warn(detail);
+        summary.addParseWarning(new Summary.ParseException(uri, dependency.name(), detail, null,
+                Message.Severity.WARN));
+    }
+
+    /**
+     * The directory this source set is to be compiled into, emptied so that a type that was renamed or deleted
+     * cannot linger in it, or {@code null} when generation is off (or the directory cannot be prepared, in which
+     * case we simply carry on without it — this is a convenience, never a reason to fail a parse).
+     * <p>
+     * Callers reach this only for a scan that read the source set <em>from disk</em>, i.e. one whose in-memory
+     * source map is empty. That is the rule that keeps the wipe honest: a scan driven by in-memory sources is
+     * either the whole of a test-protocol set (which has no build output and no dependents that could want class
+     * files) or, worse for us, a single file of a disk-backed set — {@code parseSingleFileInSourceSet}, and the
+     * warm-up type {@code onlyPreload} parses. Generating for one of those would empty the set's directory and
+     * refill it with a fraction of the set.
+     */
+    private Path prepareGeneratedClassOutput(SourceSet sourceSet) {
+        if (generatedClassesDirectory == null || sourceSet.externalLibrary()) return null;
+        // a relative directory is resolved against the configured working directory, as source directories are,
+        // so the run does not depend on the process's current directory (e.g. under a Gradle worker)
+        Path workingDirectory = inputConfiguration == null ? null : inputConfiguration.workingDirectory();
+        Path root = workingDirectory == null || generatedClassesDirectory.isAbsolute()
+                ? generatedClassesDirectory : workingDirectory.resolve(generatedClassesDirectory);
+        Path dir = root.resolve(directoryNameOf(sourceSet));
+        try {
+            deleteRecursively(dir);
+            Files.createDirectories(dir);
+            return dir;
+        } catch (IOException | RuntimeException e) {
+            LOGGER.warn("Cannot prepare the generated-classes directory {} for source set {}: {}; its dependents"
+                        + " fall back to the build's class output", dir, sourceSet.name(), e.toString());
+            generatedClassOutput.remove(sourceSet.name());
+            return null;
+        }
+    }
+
+    /**
+     * A source set's directory below the configured generated-classes directory. Source-set names carry characters
+     * a path cannot ({@code :a:util/main}), so they are sanitised — and two different names can sanitise to the same
+     * string, hence the suffix. {@code String.hashCode} is specified, so it is stable across JVMs and runs, which
+     * matters: the directory must be found again on the next parse, not merely be unique within one.
+     */
+    private static String directoryNameOf(SourceSet sourceSet) {
+        String name = sourceSet.name();
+        String sanitized = name.replaceAll("[^A-Za-z0-9._-]", "_");
+        if (sanitized.length() > 100) sanitized = sanitized.substring(0, 100);
+        return sanitized + "-" + Integer.toHexString(name.hashCode());
+    }
+
+    /** Empty out (and remove) one source set's generated-classes directory; a no-op when it is not there. */
+    private static void deleteRecursively(Path dir) throws IOException {
+        if (!Files.exists(dir)) return;
+        try (Stream<Path> walk = Files.walk(dir)) {
+            for (Path path : walk.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(path);
+            }
+        }
     }
 
     // jar-on-classpath dependencies resolved to their real jar files (see ClassSymbolScanner#jarOnClassPathFile)

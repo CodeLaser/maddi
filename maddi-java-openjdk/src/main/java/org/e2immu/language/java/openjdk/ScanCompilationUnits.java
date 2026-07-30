@@ -299,6 +299,34 @@ public class ScanCompilationUnits {
     }
 
     /**
+     * Run javac's code-generation phase, writing this source set's class files to the task's
+     * {@code StandardLocation.CLASS_OUTPUT} — the directory the caller set up when it created the task (see
+     * {@code JavaInspector.setGeneratedClassesDirectory}). Returns how many class files were written.
+     * <p>
+     * <b>Call this last</b>, after {@link #scan()} and after everything else that reads javac state for this source
+     * set (in particular {@code ClassSymbolScanner.commitType}). Generation desugars the trees the scanner reads, so
+     * running it earlier would pull them out from under the scan. Afterwards the task is only used to load
+     * <em>compiled</em> types by name ({@link #loadCompiledTypeOrNull}), which reads class files and no trees, so
+     * the retained task stays usable.
+     * <p>
+     * Best-effort by design: this is an opt-in convenience on top of a parse that has already succeeded, so a
+     * failure here must not sink the source set. javac aborts generation with {@code Abort}, an {@link Error}, when
+     * it cannot lower a tree it nonetheless analysed; that (and anything else short of running out of memory) is
+     * logged and reported as zero class files, which the caller reads as "fall back to the build's output".
+     */
+    public int generateClassFiles() {
+        int count = 0;
+        try {
+            for (JavaFileObject ignored : task.generate()) ++count;
+            LOGGER.info("Generated {} class file(s) for source set {}", count, sourceSet.name());
+        } catch (IOException | RuntimeException | Error e) {
+            if (e instanceof OutOfMemoryError oom) throw oom;
+            LOGGER.warn("Could not generate class files for source set {}: {}", sourceSet.name(), e.toString());
+        }
+        return count;
+    }
+
+    /**
      * The MD5 of a unit's source text, so that a later run can tell whether the file changed (see
      * {@code JavaInspector.reloadSources}). Computed over exactly what javac read, which is what the in-house
      * inspector fingerprints too, so the two agree on a given file.

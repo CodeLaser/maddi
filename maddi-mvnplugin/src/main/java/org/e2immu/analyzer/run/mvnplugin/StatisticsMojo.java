@@ -3,6 +3,7 @@ package org.e2immu.analyzer.run.mvnplugin;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.DependencyResolutionException;
 import org.e2immu.language.cst.api.element.SourceSet;
@@ -21,7 +22,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Predicate;
 
-@Mojo(name = StatisticsMojo.STATISTICS_GOAL, defaultPhase = LifecyclePhase.COMPILE, threadSafe = true)
+@Mojo(name = StatisticsMojo.STATISTICS_GOAL, defaultPhase = LifecyclePhase.PROCESS_TEST_CLASSES, threadSafe = true,
+        requiresDependencyResolution = ResolutionScope.TEST)
 public class StatisticsMojo extends CommonMojo {
     public static final String STATISTICS_GOAL = "statistics";
 
