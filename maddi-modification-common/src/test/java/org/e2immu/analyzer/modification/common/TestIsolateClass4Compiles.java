@@ -137,11 +137,11 @@ public class TestIsolateClass4Compiles {
         // THE ISOLATED TYPE ("public String JAVA_UTIL_OBJECTS;"), and the verbatim body then read it from a static
         // method -- "non-static variable JAVA_UTIL_OBJECTS cannot be referenced from a static context".
         //
-        // WARNING, until the fix lands: this one is JVM-STATE DEPENDENT. Run on its own it reproduces every time;
-        // run after the rest of this module's tests, in a warm runtime, it passes — a more completely inspected
-        // interface reports its field as static and the isolate then comes out right. So a green suite does not
-        // mean this is fixed. It also says what the fix must be: do not consult isStatic() for an interface field
-        // at all. It is static by language rule, whatever the front end happens to have completed.
+        // FIXED, and the fix was not in IsolateClass. This case used to be JVM-STATE DEPENDENT -- reproducing on
+        // its own, passing in a warm runtime -- because the two inspection paths disagreed about the field:
+        // ClassSymbolScanner reads javac's symbol flags, where the implicit static is present, while
+        // ScanCompilationUnit read the written JCModifiers, where it is not. Whichever had run for that interface
+        // in that JVM decided the answer. ScanCompilationUnit.field now applies JLS 9.3 itself.
         assertCompiles(tree);
     }
 

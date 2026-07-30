@@ -19,6 +19,7 @@ import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.*;
+
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.translate.TranslationMap;
@@ -117,6 +118,15 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
         return owner.descriptor() + ":" + name;
     }
 
+    /**
+     * As recorded when the field was created. Deliberately <b>not</b> "or the owner is an interface", though JLS
+     * 9.3 makes every real interface field implicitly {@code public static final}: maddi also models synthetic
+     * <i>instance</i> fields on interface types — {@code CreateSyntheticFieldsForGetSet} attaches
+     * {@code _synthetic_list} to {@code java.util.List} with {@code isStatic == false} on purpose, so that a
+     * {@link org.e2immu.language.cst.api.variable.FieldReference} to it keeps its scope and two lists' elements
+     * stay different variables. An accessor cannot tell that apart from a constant, so the implicit-static rule is
+     * applied where the declaration is read instead ({@code ScanCompilationUnit.field}).
+     */
     @Override
     public boolean isStatic() {
         return isStatic;
