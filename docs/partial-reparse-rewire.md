@@ -1,9 +1,10 @@
 # Partial re-parse / re-wire — emitting `.class` from the openjdk inspection pass
 
 **Status:** spike notes (2026-06) → **option A implemented 2026-07-30** as
-`JavaInspector.setGeneratedClassesDirectory`, essentially to §8's prescription. **But §5.4/§7.1's risk
-materialized and is unfixed — see [§10](#10-what-landed-2026-07-30-and-the-defect-that-came-with-it) before
-using the feature.** Option B (incremental re-parse) is separate and still open.
+`JavaInspector.setGeneratedClassesDirectory`, essentially to §8's prescription; §5.4/§7.1's risk materialized
+on the way and was fixed the same day —
+[§10](#10-what-landed-2026-07-30-and-how-571s-risk-was-answered). Option B (incremental re-parse) is separate
+and still open.
 **Date:** 2026-06, updated 2026-07-30.
 **Scope:** `maddi-java-openjdk` (`ScanCompilationUnits`) and `maddi-inspection-openjdk` (`JavaInspectorImpl`).
 
@@ -168,7 +169,7 @@ re-emitted. The main thing left to verify is multi-source-set lazy loading again
 
 ---
 
-## 10. What landed (2026-07-30), and the defect that came with it
+## 10. What landed (2026-07-30), and how §5.4/§7.1's risk was answered
 
 Option A is in, opt-in behind `JavaInspector.setGeneratedClassesDirectory(Path)`: the inspector runs
 `generate()` at the end of `singleSourceSet` (after the commit loop, as §8 prescribes), into
@@ -182,11 +183,12 @@ the only placement that works. One correction — §5.3's "output defaults to ne
 `CLASS_OUTPUT` is now set unconditionally when generating: left unset, an enabled `generate()` scatters
 `.class` files through the user's source tree.
 
-**§7.1's highest-priority risk is real, and the implementation walked into it.** `generate()` tears the
-`JavaCompiler`'s context down (§5.4), and `JavaInspectorImpl` retains the most recent scan's
-`ScanCompilationUnits` to serve `CompiledTypesManager.getOrLoad` — the lazy compiled-type load that
+### §7.1's risk was real, and the first cut walked into it
+
+`generate()` tears the `JavaCompiler`'s context down (§5.4), and `JavaInspectorImpl` retains the most recent
+scan's `ScanCompilationUnits` to serve `CompiledTypesManager.getOrLoad` — the lazy compiled-type load that
 `maddi-inspection-openjdk/DESIGN-drop-javac-ast.md` §3 shows is load-bearing during analysis. With generation
-on, that retained task is dead:
+on, that retained task was dead:
 
 ```
 generation-OFF  getOrLoad("java.util.StringJoiner") -> loaded
@@ -196,10 +198,32 @@ generation-ON   getOrLoad("java.util.StringJoiner") -> java.lang.IllegalStateExc
    at CompiledTypesManagerImpl.getOrLoad(:149)
 ```
 
-It is worse than an end-of-parse window: `lastScanUnits` is only replaced *after* the next source set's
-`scan()`, so a `getOrLoad` during any later set's scan also lands on a generated, dead task. The candidate
-fixes are §6's options C (a second, codegen-only task per source set — the inspection task is never touched,
-at the price of a second parse+analyze) and a narrower variant of it (one loader-only task for the whole
-parse, never generated, which needs `getElements()` to work on a task with no compilation units). Deferring
-all `generate()` to the end of the whole parse, §7.1's other suggestion, removes same-parse resolution and
-with it the reason the feature exists.
+Worse than an end-of-parse window: `lastScanUnits` is only replaced *after* the next source set's `scan()`, so
+a `getOrLoad` during any later set's scan also landed on a generated, dead task.
+
+### The fix: a source-free loader task
+
+Measured first, because it decides the design: **a `JavacTask` with zero compilation units answers
+`getElements().getTypeElement(fqn)` perfectly well** — `java.util.List` and `java.util.StringJoiner` both
+resolve and complete. What such a task cannot do is `parse()`/`analyze()`, which fail with `error: no source
+files`; nothing asks it to.
+
+So compiled-type loading no longer rides on the scan task once that task has been spent:
+
+- `JavaInspectorImpl.unitsForCompiledTypeLoading()` returns the retained scan while it is intact — with
+  generation off, that is byte-for-byte the historical path — and otherwise a `loaderUnits` built on demand.
+- The loader is a `createTask(..., loaderOnly = true)`: same source set, so the same class path and the same
+  `--release`/`--system`/`jdkInternals` options, but no source directory is walked, no compilation unit is
+  handed over, no annotation processor runs, and `CLASS_OUTPUT` is never set. It is never generated.
+- `LoaderSpec` captures what to rebuild it from (source set + `ignoreModule`, `parameterNames`,
+  `syntheticListField`) at the moment the scan is marked spent, so a type loaded through the replacement is
+  built exactly as the scan would have built it.
+- Built lazily, on the first load that needs it, under `CompiledTypesManagerImpl.getOrLoad`'s monitor — which
+  is what makes it safe from the parallel analyzer threads that drive that path.
+
+This is §6 option C narrowed: the robustness of a separate task without option C's second parse+analyze, since
+the loader compiles nothing. Deferring all `generate()` to the end of the whole parse — §7.1's other
+suggestion — was rejected: it removes same-parse resolution, and with it the reason the feature exists.
+
+Pinned by `TestGeneratedClassOutput.testGetOrLoadSurvivesGeneration`, which loads two JDK types and one nested
+type after a generating parse. That assertion is what the first round of tests was missing.

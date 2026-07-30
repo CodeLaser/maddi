@@ -1,6 +1,7 @@
 package org.e2immu.language.inspection.openjdk;
 
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
@@ -83,6 +84,7 @@ public class TestGeneratedClassOutput {
     private Path mainClasses;
     private SourceSet main;
     private SourceSet dependent;
+    private JavaInspector inspector; // the one the last parse(...) used, for post-parse probing
 
     private void setup(String base, String user) throws IOException {
         mainSrc = Files.createDirectories(root.resolve("main-src/a/b"));
@@ -105,6 +107,7 @@ public class TestGeneratedClassOutput {
     /** @param generatedClasses when not null, the directory maddi compiles the source sets into itself */
     private Summary parse(Path generatedClasses) throws IOException {
         JavaInspector javaInspector = new JavaInspectorImpl(true, false);
+        inspector = javaInspector;
         javaInspector.setGeneratedClassesDirectory(generatedClasses);
         javaInspector.initialize(new InputConfigurationImpl.Builder()
                 .addSourceSets(main, dependent)
@@ -237,6 +240,33 @@ public class TestGeneratedClassOutput {
 
         assertEquals(List.of(), classOutputWarnings(summary));
         assertTrue(holds(summary, USER_FQN), "greet() is in the class file we generated");
+    }
+
+    /**
+     * The assertion the first round of these tests was missing. {@code generate()} tears the javac task's compiler
+     * context down, and the inspector retains the most recent scan's task to serve
+     * {@code CompiledTypesManager.getOrLoad} — the on-demand library load that
+     * {@code maddi-inspection-openjdk/DESIGN-drop-javac-ast.md} §3 shows the analysis depends on. Switching
+     * generation on therefore broke it with an {@code IllegalStateException} out of {@code getElements()}, exactly as
+     * {@code docs/partial-reparse-rewire.md} §7.1 predicted. A source-free replacement task now serves those loads.
+     */
+    @DisplayName("compiled-type loading still works after generation destroyed the scan's task")
+    @Test
+    public void testGetOrLoadSurvivesGeneration() throws IOException {
+        setup(BASE, USER);
+        Summary summary = parse(root.resolve("generated"));
+        assertTrue(holds(summary, USER_FQN));
+
+        // a JDK type no preload touched, so it can only come through the lazy loader
+        for (String fqn : List.of("java.util.StringJoiner", "java.util.BitSet")) {
+            TypeInfo loaded = inspector.compiledTypesManager().getOrLoad(fqn, null);
+            assertNotNull(loaded, fqn + " must load through the source-free loader task");
+            assertEquals(fqn, loaded.fullyQualifiedName());
+            assertTrue(loaded.hasBeenInspected(), fqn + " must be complete, not a stub");
+        }
+        // and a nested type, which the loader resolves through its top-level enclosing type
+        TypeInfo entry = inspector.compiledTypesManager().getOrLoad("java.util.Map.Entry", null);
+        assertNotNull(entry, "a nested type must load too");
     }
 
     @DisplayName("a type deleted between two parses does not linger in the generated directory")

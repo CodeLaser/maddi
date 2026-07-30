@@ -87,6 +87,25 @@ public class JavaInspectorImpl implements JavaInspector {
     // the most recent scan's units, retained so its still-live javac task can resolve+load a compiled type by
     // FQN on demand (the CompiledTypesManager's lazy getOrLoad path). Single-threaded, like all javac use here.
     private ScanCompilationUnits lastScanUnits;
+    // ... unless generation destroyed that task: JavacTask.generate() tears the compiler context down, so the
+    // retained scan can no longer answer getElements(). Then compiled-type loading moves to loaderUnits below.
+    private boolean lastScanUnitsGenerated;
+    // A javac task with NO compilation units, built only to resolve+complete class-path symbols: the replacement
+    // for a scan task that generation destroyed. It is never parsed, analysed or generated -- a zero-unit task
+    // answers getElements().getTypeElement(fqn) fine, but parse()/analyze() on one fails with "no source files".
+    // Created lazily on the first load that needs it (serialized by CompiledTypesManagerImpl.getOrLoad's monitor).
+    private ScanCompilationUnits loaderUnits;
+    // what loaderUnits must be rebuilt from, captured when the scan whose task we destroyed still knew its flags
+    private LoaderSpec loaderSpec;
+
+    /**
+     * How to stand up a {@link #loaderUnits} equivalent to the scan task that generation destroyed: the same source
+     * set (hence the same class path) and the same flags, so a type loaded through the replacement is built exactly
+     * as the scan would have built it.
+     */
+    private record LoaderSpec(SourceSet sourceSet, boolean ignoreModule, boolean parameterNames,
+                              boolean syntheticListField) {
+    }
     // Each JavacTask's StandardJavaFileManager, kept OPEN for as long as its task can be driven (parse/analyze
     // after createTask returns, lazy getOrLoad long after). Closing it earlier is use-after-close: javac mostly
     // self-heals (closed containers are lazily re-created) but intermittently corrupts mid-read — the historical
@@ -141,6 +160,9 @@ public class JavaInspectorImpl implements JavaInspector {
         }
         openFileManagers.clear();
         lastScanUnits = null;
+        lastScanUnitsGenerated = false;
+        loaderUnits = null; // its file manager was in openFileManagers and has just been closed
+        loaderSpec = null;
         // the lazy getOrLoad path can no longer serve compiled-type misses; tell the CTM to surface them
         // (log/throw) instead of silently returning null. Re-armed by the next scan (see singleSourceSet).
         if (compiledTypesManager instanceof CompiledTypesManagerImpl ctm) ctm.setLazyLoaderDisabled(true);
@@ -224,11 +246,57 @@ public class JavaInspectorImpl implements JavaInspector {
         return infoByFqn;
     }
 
-    // load ONE compiled type by FQN on demand, via the most recent scan's still-live javac task; null before
-    // any scan has run, or when the type is not on the classpath. Injected as the CompiledTypesManager's
-    // lazy-loader so its getOrLoad works for types no scan has touched yet (e.g. requested by the Kotlin front-end).
+    // load ONE compiled type by FQN on demand, via a live javac task; null before any scan has run, or when the
+    // type is not on the classpath. Injected as the CompiledTypesManager's lazy-loader so its getOrLoad works for
+    // types no scan has touched yet (e.g. requested by the Kotlin front-end).
     private TypeInfo loadCompiledTypeOrNull(String fullyQualifiedName) {
-        return lastScanUnits == null ? null : lastScanUnits.loadCompiledTypeOrNull(fullyQualifiedName);
+        ScanCompilationUnits units = unitsForCompiledTypeLoading();
+        return units == null ? null : units.loadCompiledTypeOrNull(fullyQualifiedName);
+    }
+
+    /**
+     * The javac task that may still be asked to resolve a compiled type: the most recent scan's while it is intact,
+     * otherwise a source-free replacement built on demand.
+     * <p>
+     * Only generation makes the difference. Without it the retained scan task lives until
+     * {@link #invalidateAllSources()} and this is exactly the historical path. With it, that task has been torn down
+     * by {@code generate()}, and reusing it throws {@code IllegalStateException} from {@code getElements()} — which
+     * is precisely the risk {@code docs/partial-reparse-rewire.md} §7.1 flagged, and what a caller experienced as
+     * on-demand library loading breaking the moment generation was switched on.
+     * <p>
+     * Called under {@code CompiledTypesManagerImpl.getOrLoad}'s monitor, which is what makes the lazy build safe
+     * from the parallel analyzer threads that drive it.
+     */
+    private ScanCompilationUnits unitsForCompiledTypeLoading() {
+        if (lastScanUnits != null && !lastScanUnitsGenerated) return lastScanUnits;
+        if (loaderUnits != null) return loaderUnits;
+        if (loaderSpec == null) return null; // nothing was ever scanned, or everything was invalidated
+        loaderUnits = createLoaderUnits(loaderSpec);
+        return loaderUnits;
+    }
+
+    /**
+     * A {@link ScanCompilationUnits} over a task with no compilation units, for compiled-type loading only. Returns
+     * {@code null} when it cannot be built, which leaves {@code getOrLoad} answering misses as it does for any type
+     * that is not on the class path.
+     */
+    private ScanCompilationUnits createLoaderUnits(LoaderSpec spec) {
+        try {
+            // errors are not expected (nothing is compiled) and must not reach the caller's Summary either
+            MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(true);
+            JavacTask task = createTask(spec.sourceSet(), spec.ignoreModule(), Map.of(), diagnostics, false,
+                    null, true);
+            if (task == null) return null;
+            ParameterNameIndex pni = spec.parameterNames() || parameterNames ? parameterNameIndex() : null;
+            LOGGER.info("Built a source-free javac task for compiled-type loading, on source set {}",
+                    spec.sourceSet().name());
+            return new ScanCompilationUnits(runtime, inputConfiguration, task, spec.sourceSet(), infoByFqn, true,
+                    diagnostics, preload, pni, jdkInternals, computeFingerPrints, spec.syntheticListField());
+        } catch (IOException | RuntimeException e) {
+            LOGGER.warn("Cannot build a compiled-type loader task on source set {}: {}", spec.sourceSet().name(),
+                    e.toString());
+            return null;
+        }
     }
 
     @Override
@@ -500,7 +568,8 @@ public class JavaInspectorImpl implements JavaInspector {
         // next to the sources it is reading.
         Path classOutput = sourcesByFqn.isEmpty() ? prepareGeneratedClassOutput(sourceSet) : null;
         MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
-        JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, lombok, classOutput);
+        JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, lombok, classOutput,
+                false);
         if (javacTask == null) {
             LOGGER.warn("Have no sources in source set {}", sourceSet.name());
             return;
@@ -525,13 +594,14 @@ public class JavaInspectorImpl implements JavaInspector {
             LOGGER.warn("Lombok processor failed for source set {}; retrying without Lombok. Cause: {}",
                     sourceSet.name(), String.valueOf(re.getCause()));
             diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
-            javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, false, classOutput);
+            javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, false, classOutput, false);
             scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration, javacTask, sourceSet,
                     infoByFqn, true, diagnostics, preload, pni, jdkInternals, computeFingerPrints,
                     syntheticListField);
             scanned = scanCompilationUnits.scan();
         }
         this.lastScanUnits = scanCompilationUnits; // keep the live task for on-demand getOrLoad
+        this.lastScanUnitsGenerated = false;       // intact until this source set is generated, at the very end
         // a live task can serve getOrLoad misses again: undo any earlier drop-time disable (see invalidateAllSources)
         if (compiledTypesManager instanceof CompiledTypesManagerImpl ctm) ctm.setLazyLoaderDisabled(false);
 
@@ -618,6 +688,12 @@ public class JavaInspectorImpl implements JavaInspector {
         // Last, once nothing reads javac's trees for this source set any more: generation desugars them (see
         // ScanCompilationUnits.generateClassFiles). Its output is what this set's dependents will resolve against.
         if (classOutput != null) {
+            // generate() tears this task's compiler context down, so the retained scan can no longer serve
+            // compiled-type loads. Record what a source-free replacement must be built from, and mark the scan
+            // spent BEFORE generating -- a generate() that fails halfway leaves the task just as unusable.
+            lastScanUnitsGenerated = true;
+            loaderUnits = null; // the previous replacement, if any, is superseded by this source set's
+            loaderSpec = new LoaderSpec(sourceSet, ignoreModule, parameterNames, syntheticListField);
             if (scanCompilationUnits.generateClassFiles() > 0) {
                 generatedClassOutput.put(sourceSet.name(), classOutput);
             } else {
@@ -718,14 +794,19 @@ public class JavaInspectorImpl implements JavaInspector {
                                  Map<String, String> sourcesByFqn,
                                  MaddiDiagnosticCollector diagnostics,
                                  boolean lombok,
-                                 Path classOutput) throws IOException {
+                                 Path classOutput,
+                                 boolean loaderOnly) throws IOException {
         List<File> sources = new ArrayList<>();
         Map<String, String> sourcesByClassName;
         // use in-memory sources when they are supplied (parse(Map,...) and parseSingleFileInSourceSet(...));
         // otherwise read the source set's directories from disk. Previously this was gated on the TEST_PROTOCOL
         // source-set name, which discarded the in-memory content supplied by parseSingleFileInSourceSet callers
         // that use their own source-set name (e.g. TestCloneBenchMethodHistogram).
-        if (!sourcesByFqn.isEmpty()) {
+        if (loaderOnly) {
+            // a loader task compiles nothing: no source directory is walked (that would re-read the whole tree
+            // for a task that only ever resolves class-path symbols) and no compilation unit is handed over
+            sourcesByClassName = Map.of();
+        } else if (!sourcesByFqn.isEmpty()) {
             sourcesByClassName = sourcesByFqn;
         } else {
             sourcesByClassName = Map.of();
@@ -743,15 +824,16 @@ public class JavaInspectorImpl implements JavaInspector {
         StandardJavaFileManager fm = javaCompiler.getStandardFileManager(diagnostics, null, null);
         openFileManagers.add(fm);
         {
-            Iterable<? extends JavaFileObject> allCompilationUnits = computeCompilationUnits(sourceSet, ignoreModule,
-                    sources, sourcesByClassName, fm);
+            Iterable<? extends JavaFileObject> allCompilationUnits = loaderOnly ? List.of()
+                    : computeCompilationUnits(sourceSet, ignoreModule, sources, sourcesByClassName, fm);
             boolean hasModuleInfo = false;
             boolean haveSources = false;
             for (JavaFileObject jfo : allCompilationUnits) {
                 if (jfo.toUri().getPath().endsWith("module-info.java")) hasModuleInfo = true;
                 haveSources = true;
             }
-            if (!haveSources) return null;
+            // "no sources" is the normal state of a loader task, and the whole point of it
+            if (!haveSources && !loaderOnly) return null;
 
             List<File> jarsAndClassDirectories = new ArrayList<>();
             List<File> moduleJars = new ArrayList<>();
@@ -827,7 +909,7 @@ public class JavaInspectorImpl implements JavaInspector {
             // only run for a source set that actually has the lombok jar among its own dependencies: javac discovers
             // -processor classes on this task's class path, and requesting a processor that is not there is a hard
             // error that aborts ENTER (seen on timefold-solver, where lombok sits in a single module's test deps).
-            boolean lombokOnClassPath = lombok && sourceSet.dependencies().stream()
+            boolean lombokOnClassPath = lombok && !loaderOnly && sourceSet.dependencies().stream()
                     .anyMatch(d -> d.externalLibrary() && d.name().startsWith("lombok-"));
             if (lombokOnClassPath) {
                 // Run the real Lombok annotation processor inside javac: it mutates the AST (generating getters,
