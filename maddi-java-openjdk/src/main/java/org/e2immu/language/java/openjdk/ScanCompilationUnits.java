@@ -133,7 +133,11 @@ public class ScanCompilationUnits {
                 LOGGER.info("Error found in {} at line {}, col {}: {}", md.path(), md.line(), md.col(), md.msg());
             }
         }
-        if (diagnosticCollector.isHalt()) throw new CompilationProblems();
+        if (diagnosticCollector.isHalt()) {
+            throw new CompilationProblems(diagnosticCollector.diagnostics().stream()
+                    .filter(md -> md.diagnosticKind() == MaddiDiagnosticCollector.DiagnosticKind.ERROR)
+                    .toList());
+        }
 
         List<TypeInfo> primaryTypes = new ArrayList<>();
         List<ModuleInfo> modules = new ArrayList<>();
