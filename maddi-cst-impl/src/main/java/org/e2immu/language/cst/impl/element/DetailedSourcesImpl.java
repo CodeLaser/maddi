@@ -22,6 +22,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 public class DetailedSourcesImpl implements DetailedSources {
@@ -175,14 +176,82 @@ public class DetailedSourcesImpl implements DetailedSources {
 
     @Override
     public TypeInfo qualifier(TypeInfo typeInfo) {
-        Object o = identityHashMap.get(typeInfo);
-        if (o instanceof Source s) {
-            return qualifier(s.posDiff(), typeInfo);
+        Source s = detail(typeInfo);
+        if (s == null) return typeInfo;
+        int posDiff = s.posDiff();
+        if (posDiff == typeInfo.simpleName().length()) return typeInfo; // written without qualification
+        Prefix prefix = writtenPrefix(s, typeInfo);
+        if (prefix.fullyQualified) return null;
+        if (prefix.typeInfo != null) return prefix.typeInfo;
+        return qualifier(posDiff, typeInfo);
+    }
+
+    /**
+     * The written qualification of one type reference: its immediate qualifier, or the fact that the author
+     * wrote the reference out in full.
+     */
+    private record Prefix(TypeInfo typeInfo, boolean fullyQualified) {
+    }
+
+    /**
+     * Recovers the qualification from the prefixes recorded beside the reference. They all BEGIN where the
+     * reference itself begins and each is strictly shorter -- {@code a.b.X.Y.Z} records {@code a.b.X.Y},
+     * {@code a.b.X} and the package name {@code a.b} at one and the same begin position -- so the immediate
+     * qualifier is the longest strictly-shorter type among them, and a package among them says the reference
+     * needs no import at all.
+     * <p>
+     * This is what makes {@code HashMap.Entry} work: the prefix recorded there is {@code java.util.HashMap},
+     * the type the author wrote, whereas {@link #qualifier(int, TypeInfo)} can only walk the DECLARING chain
+     * and would answer {@code java.util.Map}, which the text does not name.
+     */
+    private Prefix writtenPrefix(Source source, TypeInfo typeInfo) {
+        TypeInfo longest = null;
+        Source longestSource = null;
+        List<String> strings = null;
+        for (Map.Entry<Object, Object> entry : identityHashMap.entrySet()) {
+            Object key = entry.getKey();
+            boolean isType = key instanceof TypeInfo && key != typeInfo;
+            if (!isType && !(key instanceof String)) continue;
+            for (Source candidate : sourcesOf(entry.getValue())) {
+                if (!strictlyShorterAtSameStart(candidate, source)) continue;
+                if (isType) {
+                    if (longestSource == null || endsAfter(candidate, longestSource)) {
+                        longest = (TypeInfo) key;
+                        longestSource = candidate;
+                    }
+                } else {
+                    if (strings == null) strings = new ArrayList<>(1);
+                    strings.add((String) key);
+                }
+            }
         }
-        if (o instanceof List<?> list && !list.isEmpty()) {
-            return qualifier(((Source) list.getFirst()).posDiff(), typeInfo);
+        // a String key is not necessarily a package name (member names are recorded by name too), so accept one
+        // as evidence of full qualification only when it IS the package of a type in play
+        TypeInfo outermost = longest;
+        boolean fullyQualified = strings != null && strings.stream().anyMatch(str -> !str.isEmpty()
+                && (str.equals(typeInfo.packageName())
+                    || outermost != null && str.equals(outermost.packageName())));
+        return new Prefix(longest, fullyQualified);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Source> sourcesOf(Object value) {
+        if (value instanceof Source s) return List.of(s);
+        if (value instanceof List<?> list && !list.isEmpty() && list.getFirst() instanceof Source) {
+            return (List<Source>) list;
         }
-        return typeInfo;
+        return List.of();
+    }
+
+    private static boolean strictlyShorterAtSameStart(Source candidate, Source source) {
+        return candidate.beginLine() == source.beginLine() && candidate.beginPos() == source.beginPos()
+               && !endsAfter(candidate, source) && (candidate.endLine() != source.endLine()
+                                                    || candidate.endPos() != source.endPos());
+    }
+
+    private static boolean endsAfter(Source candidate, Source other) {
+        return candidate.endLine() != other.endLine() ? candidate.endLine() > other.endLine()
+                : candidate.endPos() > other.endPos();
     }
 
     // >= because the dots can be surrounded by spaces (highly unusual, but possible)

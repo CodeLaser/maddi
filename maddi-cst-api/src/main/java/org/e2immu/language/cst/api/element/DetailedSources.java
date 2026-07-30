@@ -177,8 +177,13 @@ public interface DetailedSources {
 
     /**
      * Returns the explicitly written qualifier type for {@code typeInfo} (e.g. {@code Map}
-     * when the source contains {@code Map.Entry}), or {@code null} if the type was written
-     * without a qualifier.
+     * when the source contains {@code Map.Entry}), {@code typeInfo} itself when it was written
+     * without a qualifier, or {@code null} when it was written out in full and needs no import.
+     * <p>
+     * The qualifier is what the author wrote, which need not be the type that DECLARES {@code typeInfo}:
+     * a nested type may be named through any type that inherits it, so {@code HashMap.Entry} is
+     * {@code java.util.Map.Entry} qualified by {@code java.util.HashMap} — and it is {@code HashMap} that
+     * an import computer must import for that text to compile.
      */
     TypeInfo qualifier(TypeInfo typeInfo);
 }

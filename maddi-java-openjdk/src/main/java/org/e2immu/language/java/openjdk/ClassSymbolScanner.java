@@ -1262,8 +1262,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     /*
-    important: we backtrack over 'ti' rather than computing the actual type, because it may be different!
-    see TestFullyQualified,4, where X.II.J is not the default way of writing, X.I.J is.
+    'ti' backtracks over the DECLARING chain, which is what decides how many qualification steps there are and
+    where the walk stops. The type RECORDED at each step is the one the author wrote there, which need not be
+    the declaring one: Java lets a nested type be named through any type that inherits it, so 'HashMap.Entry'
+    is java.util.Map.Entry and 'X.II.J' is X.I.J (see TestFullyQualified,4). DetailedSources exists to record
+    what was written, and a consumer that re-emits a member needs 'HashMap' -- filing java.util.Map at the span
+    of the token 'HashMap' made DetailedSources.qualifier() contradict its own contract, and an import computed
+    from the CST then imported java.util.Map for text that says HashMap.
      */
     private void iterateUpToPackageLevel(DetailedSources.Builder dsb, JCTree.JCFieldAccess fieldAccess, TypeInfo ti) {
         JCTree.JCExpression expression = fieldAccess.getExpression();
@@ -1277,14 +1282,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             if (expression instanceof JCTree.JCIdent) {
                 if (ti.compilationUnitOrEnclosingType().isRight()) {
                     ti = ti.compilationUnitOrEnclosingType().getRight();
-                    dsb.put(ti, expressionSource);
+                    dsb.put(writtenType(expression, ti), expressionSource);
                 }// else: .class
                 break;
             }
             if (expression instanceof JCTree.JCFieldAccess fa) {
                 if (ti.compilationUnitOrEnclosingType().isRight()) {
                     ti = ti.compilationUnitOrEnclosingType().getRight();
-                    dsb.put(ti, expressionSource);
+                    dsb.put(writtenType(expression, ti), expressionSource);
                     expression = fa.getExpression();
                 } else {
                     break;// .class
@@ -1293,6 +1298,19 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 break;
             }
         }
+    }
+
+    /**
+     * The type written at {@code expression}, which differs from the declaring type {@code declaring} reached by
+     * backtracking whenever a nested type is named through a type that inherits it. Falls back to
+     * {@code declaring} when javac has no class type at that position.
+     */
+    private TypeInfo writtenType(JCTree.JCExpression expression, TypeInfo declaring) {
+        if (expression.type instanceof Type.ClassType ct) {
+            TypeInfo written = classType(ct, null).typeInfo();
+            if (written != null) return written;
+        }
+        return declaring;
     }
 
     private ParameterizedType classType(Type.ClassType ct, Set<Type> visited) {
