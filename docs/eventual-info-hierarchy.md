@@ -1532,3 +1532,50 @@ DOMINATE: the `isSet()` guard provides a before-path), which would free the meth
 to label instead. The propagation step needs a dominance condition — conclude a side only when every
 live path runs the marked call — without breaking the legitimate single-statement `return f.get();`
 forwards.
+
+## The dominance quest (2026-07-31, same session): entry-state witnesses — survivors 67
+
+Frequency check first (why this is a general mechanism, not a one-off): the both-sides guard is a CORE
+idiom of the eventual style — the support classes are built of it (`SetOnce.getOrDefault`/
+`getOrDefaultNull` ARE the guarded fallback, contracted away inside the jar), and user code reproduces
+it wherever the canned accessor does not fit: ~50 transition-state-test guard sites across 12 maddi
+modules by a crude grep (undercounting the engine modules, which spell it `haveAnalyzedValueFor`). Of
+the 11 `@Only(after)` classifications on the dogfood, THREE distinct false-contract families turned
+out to hide in them. And the engine already carried four ad-hoc live-path disciplines
+(`computeTestMark`'s strict body, `scanPreconditions`' early-exit guards, `GetSetHelper`'s inert
+prefix, `freshReturn`'s all-returns rule) — this quest is their unification applied to the marked-call
+propagation.
+
+**The mechanism (`SideWalk`, gated; the gate-off visitor is verbatim, pinned).** A sided call
+classifies its caller only when it witnesses the method's ENTRY state: it must sit on the **spine**
+(every live path — not in a branch, loop, lambda, catch/finally, ternary arm or short-circuit tail,
+and not after a statement that can exit the method alive), and none of its labels may be **tainted**
+by an earlier — even conditional — `@Mark` (the ensure-then-read `if (!isSet()) commitParameters(); …
+get()` must not read as `@Only(after)`). Conditional regions contribute no sides but still taint; a
+spine `@Mark` contributes AND taints, so `f.set(x); f.get();` reads `@Mark`, not mixed sides.
+`scanPreconditions` is untouched — its guards conclude by the other dominance argument (early exit).
+
+**Result: the classification diff is surgical — 7 removed, 0 added, 0 changed — and every removal is
+a verified false contract:**
+- `Builder.fullyQualifiedName()` + abstract `MethodInspection.fullyQualifiedName()` (guarded fallback);
+- the 4 `CompilationUnitPrinter*.print` `@Only(after="compilationUnit")` — the module-info branch
+  answers BEFORE `types()` is set (its own comment says so: "has to be answered before anything that
+  walks types()");
+- `TypeInfo.hierarchyNotYetDone()` `@Only(before)` — a short-circuit guarded fallback
+  (`!hasBeenInspected() && builder().…`), callable both sides.
+
+**Composed scoreboard: survivors 63 -> 67** (the `MethodInspection`/`MethodInspectionImpl` pair — the
+12-lean root — and the `CompilationUnitPrinter` pair join), retracted 147, enm 929 (+6: the freed
+methods land enm labels instead). Determinism: survivor set, enm layer AND classification layer
+identical across two runs. Gate-off Fernflower A/B: the one documented ctor flake line. Analyzer
+suite 274/0; `TestEventualDominance` pins the five shapes (honest forward, ternary fallback,
+early-return fallback, ensure-then-read, spine set-then-get) with a gate-off twin pinning the old
+behaviour, so ungating stays a deliberate step.
+
+**Ungating candidate.** The gate-off visitor still writes the false `@Only(after)`/`@Only(before)`
+contracts, which the decorator ships to the IDE. The corpus never exercises the propagation (no
+eventual types), so ungating costs only a gate-off dogfood delta that is line-by-line justified
+(strictly-better contracts). Left gated for now; flip after the standard three-corpus A/B.
+
+**Remaining roots after this quest: `Runtime`(cascade), `FieldInspection`, `SumImpl`,
+`UnaryOperatorImpl.hashCode`, the `YieldStatement/ThrowStatement/SwitchStatementOldStyle` impl tail.**
