@@ -1516,8 +1516,19 @@ field/method/parameter a DEPENDENT verdict roots in ("DEPENDENT: method constant
 T" was the decisive print).
 
 **Remaining roots, re-measured: `Runtime`(22 — still markless, waiting on the `Factory` retraction
-chain), `MethodInspection`(12 — its lazy-memo `fullyQualifiedName()` classifies
-`@Only(after="fullyQualifiedName")`, the `VariableImpl.cachedFqn` memo-disclaimer precedent, likely
-an `@IgnoreModifications` slot annotation on `MethodInspectionImpl`), `FieldInspection`(5),
-`SumImpl`(5), `UnaryOperatorImpl`(4 — `hashCode()` + ctor unlabeled), the
-`YieldStatement/ThrowStatement/SwitchStatementOldStyle` impl tail (3 each).**
+chain), `MethodInspection`(12), `FieldInspection`(5), `SumImpl`(5), `UnaryOperatorImpl`(4 —
+`hashCode()` + ctor unlabeled), the `YieldStatement/ThrowStatement/SwitchStatementOldStyle` impl
+tail (3 each).**
+
+*The `MethodInspection` blocker, diagnosed precisely (next session's first design question):*
+`MethodInspectionImpl.Builder.fullyQualifiedName()` is `fullyQualifiedName.isSet() ? …get() :
+<compute from parameters>` — deliberately callable on BOTH sides of the transition (the
+sv-reconstruction fix that answers the real name meanwhile). The one-sided `computeEventual`
+propagation rule sees the `SetOnce.get()` call and stamps the method `@Only(after=
+"fullyQualifiedName")`; the abstract `MethodInspection.fullyQualifiedName()` inherits it; and an
+`@Only(after)` method that is (pre-mark-)modifying is correctly NOT excusable at type level — so the
+interface caps at FinalFields. The honest classification is "no side" (the marked call does not
+DOMINATE: the `isSet()` guard provides a before-path), which would free the method for the enm layer
+to label instead. The propagation step needs a dominance condition — conclude a side only when every
+live path runs the marked call — without breaking the legitimate single-statement `return f.get();`
+forwards.
