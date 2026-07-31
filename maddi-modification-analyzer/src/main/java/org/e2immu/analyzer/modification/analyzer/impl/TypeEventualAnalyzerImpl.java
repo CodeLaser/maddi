@@ -38,11 +38,16 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.AssertStatement;
+import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.IfElseStatement;
+import org.e2immu.language.cst.api.statement.LocalTypeDeclaration;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
+import org.e2immu.language.cst.api.statement.SynchronizedStatement;
 import org.e2immu.language.cst.api.statement.ThrowStatement;
+import org.e2immu.language.cst.api.statement.TryStatement;
 import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.cst.api.statement.YieldStatement;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
@@ -406,9 +411,18 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
     }
 
     /** A field type that excuses a call on it after the mark: really eventually immutable, or -- under the
-     *  EVENTUALCLUSTER gate -- a cluster candidate whose verdict is still circular (see {@link EventualCluster}).
+     *  EVENTUALCLUSTER gate -- a cluster candidate whose verdict is still circular (see {@link EventualCluster}),
+     *  or an UNCONDITIONALLY immutable-hc type (a fortiori: the contraction's discharge rule, here at the
+     *  excuse site). The {@code CommonType.runtime} shape: {@code Predefined} is plain immutable-hc, so
+     *  demanded calls through the field modify only hidden content, committed once the objects it holds
+     *  commit -- the field name is the honest label. Without this, the harmless shortcut later swallows the
+     *  label and the walk lands the unwritable ∅. No lean is witnessed: the verdict is unconditional.
      *  {@code member} is the type holding the field, recorded as the assumer when the excusal is optimistic. */
     private boolean isEventuallyImmutableFieldType(TypeInfo member, TypeInfo fieldType) {
+        if (EventualCluster.ENABLED && immutableOf(fieldType).isAtLeastImmutableHC()
+            && !immutableOf(fieldType).isImmutable()) {
+            return true; // hc WITH hidden content; a deeply immutable field (String) stays label-less (∅)
+        }
         boolean result = eventualCluster.treatAsEventuallyImmutable(member, fieldType, eventuallyImmutable(fieldType));
         if (result && siteDebug() && !eventuallyImmutable(fieldType).isEventual()) {
             ecsite("lean on " + fieldType.fullyQualifiedName());
@@ -434,25 +448,33 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         // forwards out of here; a guard elsewhere in the body is not a precondition and stays ignored.
         if (EventualCluster.ENABLED) {
             scanPreconditions(typeInfo, methodInfo, onlyBefore, onlyAfter);
-        }
-        methodInfo.methodBody().visit(e -> {
-            if (e instanceof MethodCall mc) {
-                Value.Eventual callee = eventualOf(mc.methodInfo());
-                // a @TestMark call is a state *observation*: it says nothing about the caller (an assert on
-                // isVariable() must not turn its enclosing method into a @TestMark)
-                if (callee.isEventual() && !callee.isTestMark()) {
-                    Set<String> labels = labelsOfReceiver(typeInfo, mc, callee);
-                    if (labels != null) {
-                        switch (side(callee)) {
-                            case MARK -> marked.addAll(labels);
-                            case ONLY_BEFORE -> onlyBefore.addAll(labels);
-                            case ONLY_AFTER -> onlyAfter.addAll(labels);
+            // DOMINANCE-aware side collection (see SideWalk): a sided call contributes only when it
+            // witnesses the method's ENTRY state -- on the spine, before any live early exit, with none of
+            // its labels tainted by a possible earlier transition. The one-sided visitor below stamped
+            // @Only(after) on both-sides bodies (isSet() ? get() : compute) -- a false contract the
+            // decorator ships to the IDE and the type level then cannot excuse.
+            new SideWalk(typeInfo, marked, onlyBefore, onlyAfter)
+                    .statements(methodInfo.methodBody().statements(), true);
+        } else {
+            methodInfo.methodBody().visit(e -> {
+                if (e instanceof MethodCall mc) {
+                    Value.Eventual callee = eventualOf(mc.methodInfo());
+                    // a @TestMark call is a state *observation*: it says nothing about the caller (an assert on
+                    // isVariable() must not turn its enclosing method into a @TestMark)
+                    if (callee.isEventual() && !callee.isTestMark()) {
+                        Set<String> labels = labelsOfReceiver(typeInfo, mc, callee);
+                        if (labels != null) {
+                            switch (side(callee)) {
+                                case MARK -> marked.addAll(labels);
+                                case ONLY_BEFORE -> onlyBefore.addAll(labels);
+                                case ONLY_AFTER -> onlyAfter.addAll(labels);
+                            }
                         }
                     }
                 }
-            }
-            return true;
-        });
+                return true;
+            });
+        }
         return combine(methodInfo, marked, onlyBefore, onlyAfter);
     }
 
@@ -509,6 +531,167 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             onlyAfter.addAll(labels);
         } else {
             onlyBefore.addAll(labels);
+        }
+    }
+
+    /**
+     * EVENTUALCLUSTER: the dominance discipline for {@code computeEventual}'s propagation step -- the
+     * unification of the ad-hoc live-path rules the engine already carries ({@code computeTestMark}'s strict
+     * single-statement body, {@code scanPreconditions}' early-exit guards, {@code GetSetHelper}'s inert
+     * prefix, {@code freshReturn}'s all-returns condition), applied to the marked-call propagation.
+     * <p>
+     * A sided call places its caller on a side of the transition only when it witnesses the method's ENTRY
+     * state: it must sit on the <b>spine</b> (executed on every live path -- not inside a branch, loop,
+     * lambda, catch/finally, ternary arm or short-circuit tail, and not after a statement that can exit the
+     * method alive), and none of its labels may be <b>tainted</b> by an earlier {@code @Mark} call anywhere
+     * before it (conditional regions included: a conditional transition means later calls no longer see the
+     * entry state -- the ensure-then-read {@code if (!isSet()) commitParameters(); … get()} shape must not
+     * read as {@code @Only(after)}). Conditional regions contribute no sides but still taint. A spine
+     * {@code @Mark} contributes AND taints, so {@code f.set(x); f.get();} reads {@code @Mark}, not mixed.
+     * <p>
+     * The guarded-fallback shape ({@code isSet() ? get() : compute} -- {@code Builder.fullyQualifiedName})
+     * then correctly concludes NO side, freeing the method for the enm layer to label instead.
+     * {@code scanPreconditions} is untouched: its guards conclude a side by early exit, the other dominance
+     * argument.
+     */
+    private final class SideWalk {
+        private final TypeInfo typeInfo;
+        private final Set<String> marked;
+        private final Set<String> onlyBefore;
+        private final Set<String> onlyAfter;
+        // labels whose entry-state can no longer be assumed: a (possibly conditional) transition preceded
+        private final Set<String> tainted = new HashSet<>();
+        // a statement that can leave the method alive has been passed: later calls are avoidable
+        private boolean liveEarlyExit;
+
+        SideWalk(TypeInfo typeInfo, Set<String> marked, Set<String> onlyBefore, Set<String> onlyAfter) {
+            this.typeInfo = typeInfo;
+            this.marked = marked;
+            this.onlyBefore = onlyBefore;
+            this.onlyAfter = onlyAfter;
+        }
+
+        void statements(List<Statement> list, boolean spine) {
+            for (Statement s : list) {
+                if (s.isSynthetic()) continue;
+                statement(s, spine && !liveEarlyExit);
+            }
+        }
+
+        private void statement(Statement s, boolean spine) {
+            if (s instanceof LocalTypeDeclaration) return; // a local type's methods are their own walks
+            if (s instanceof Block block) {
+                statements(block.statements(), spine);
+            } else if (s instanceof SynchronizedStatement sync) {
+                expression(sync.expression(), spine);
+                statements(sync.block().statements(), spine);
+            } else if (s instanceof IfElseStatement ifElse) {
+                expression(ifElse.expression(), spine);
+                conditional(ifElse.block());
+                conditional(ifElse.elseBlock());
+                if (hasLiveExit(ifElse.block()) || hasLiveExit(ifElse.elseBlock())) liveEarlyExit = true;
+            } else if (s instanceof TryStatement ts) {
+                // the try block starts executing unconditionally; catch/finally and resources are treated
+                // conditionally (an exception may skip any suffix)
+                for (Statement resource : ts.resources()) conditional(resource);
+                statements(ts.block().statements(), spine);
+                ts.otherBlocksStream().forEach(this::conditional);
+                if (ts.otherBlocksStream().anyMatch(this::hasLiveExit)) liveEarlyExit = true;
+            } else if (s.subBlockStream().anyMatch(b -> !b.isEmpty())) {
+                // any other structured statement (loops, switches): body executions are conditional
+                conditional(s);
+                if (s.subBlockStream().anyMatch(this::hasLiveExit)) liveEarlyExit = true;
+            } else {
+                // leaf: its main expression evaluates unconditionally when the statement is reached
+                if (s instanceof LocalVariableCreation lvc) {
+                    lvc.localVariableStream().forEach(lv -> expression(lv.assignmentExpression(), spine));
+                } else {
+                    expression(s.expression(), spine);
+                }
+                conditional(s); // sweep anything the spine walk did not reach (taint only)
+            }
+        }
+
+        private void expression(Expression expr, boolean spine) {
+            if (expr == null || expr.isEmpty()) return;
+            if (expr instanceof MethodCall mc) {
+                contribute(mc, spine);
+                expression(mc.object(), spine);
+                for (Expression arg : mc.parameterExpressions()) expression(arg, spine);
+            } else if (expr instanceof ConstructorCall cc) {
+                if (cc.anonymousClass() != null) {
+                    conditional(cc);
+                    return;
+                }
+                for (Expression arg : cc.parameterExpressions()) expression(arg, spine);
+            } else if (expr instanceof Assignment a) {
+                expression(a.value(), spine);
+            } else if (expr instanceof Cast cast) {
+                expression(cast.expression(), spine);
+            } else if (expr instanceof EnclosedExpression ee) {
+                expression(ee.inner(), spine);
+            } else if (expr instanceof Negation neg) {
+                expression(neg.expression(), spine);
+            } else if (expr instanceof InlineConditional ic) {
+                expression(ic.condition(), spine);
+                conditional(ic.ifTrue());
+                conditional(ic.ifFalse());
+            } else if (expr instanceof Lambda || expr instanceof MethodReference) {
+                conditional(expr); // deferred execution: taint only
+            } else {
+                // any other shape (binary operators with short-circuit tails, array initializers, …):
+                // conservative, no side contribution -- taint only
+                conditional(expr);
+            }
+        }
+
+        /** No side contributions from a conditional region; a {@code @Mark} seen there still taints. */
+        private void conditional(org.e2immu.language.cst.api.element.Element element) {
+            if (element == null) return;
+            element.visit(e -> {
+                if (e instanceof TypeInfo) return false; // local/anonymous types: their own walks
+                if (e instanceof MethodCall mc) taintIfMark(mc);
+                return true;
+            });
+        }
+
+        private void taintIfMark(MethodCall mc) {
+            Value.Eventual callee = eventualOf(mc.methodInfo());
+            if (!callee.isMark()) return;
+            Set<String> labels = labelsOfReceiver(typeInfo, mc, callee);
+            if (labels != null) tainted.addAll(labels); // another object's transition resolves to null: no taint
+        }
+
+        private void contribute(MethodCall mc, boolean spine) {
+            Value.Eventual callee = eventualOf(mc.methodInfo());
+            // a @TestMark call is a state *observation*: it says nothing about the caller
+            if (!callee.isEventual() || callee.isTestMark()) return;
+            Set<String> labels = labelsOfReceiver(typeInfo, mc, callee);
+            if (labels == null) return;
+            // entry-state witness check BEFORE this call's own taint: f.set(x); f.get() is @Mark, not mixed
+            boolean witness = spine && labels.stream().noneMatch(tainted::contains);
+            if (callee.isMark()) tainted.addAll(labels);
+            if (!witness) return;
+            switch (side(callee)) {
+                case MARK -> marked.addAll(labels);
+                case ONLY_BEFORE -> onlyBefore.addAll(labels);
+                case ONLY_AFTER -> onlyAfter.addAll(labels);
+            }
+        }
+
+        /** Can this block leave the METHOD alive (return/yield)? A throw is not a live exit. */
+        private boolean hasLiveExit(Block block) {
+            if (block == null || block.isEmpty()) return false;
+            boolean[] found = {false};
+            block.visit(e -> {
+                if (e instanceof TypeInfo || e instanceof Lambda) return false;
+                if (e instanceof ReturnStatement || e instanceof YieldStatement) {
+                    found[0] = true;
+                    return false;
+                }
+                return true;
+            });
+            return found[0];
         }
     }
 
@@ -1051,8 +1234,16 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         if (expr == null || !referencesRootOrTracked(walk, expr, ctx.commit())) return Set.of();
         // a value whose TYPE cannot carry mutable state (an int, a String, a parameterless immutable-hc
         // MethodType) is harmless whatever produced it -- the producing calls are excused independently by
-        // the enclosing visitor, which sees every MethodCall node
-        if (expr.parameterizedType() != null && valueIsHarmless(expr.parameterizedType())) return Set.of();
+        // the enclosing visitor, which sees every MethodCall node. Committability FIRST for a root-scoped
+        // FIELD read (the rootCommitmentLabels ordering principle): an immutable-hc transition carrier
+        // (CommonType.runtime, a Predefined) must land its field label, not the harmless ∅ that made
+        // CommonType.commonType's enm unwritable -- the field branch below re-checks harmlessness for
+        // label-less fields, so a String field still yields ∅ there.
+        boolean rootFieldRead = EventualCluster.ENABLED && expr instanceof VariableExpression ve0
+                                && ve0.variable() instanceof FieldReference fr0 && walk.scopeIsRoot(fr0);
+        if (!rootFieldRead && expr.parameterizedType() != null && valueIsHarmless(expr.parameterizedType())) {
+            return Set.of();
+        }
         if (expr instanceof VariableExpression ve) {
             if (ve.variable() instanceof FieldReference fr && walk.scopeIsRoot(fr)) {
                 FieldInfo fieldInfo = fr.fieldInfo();

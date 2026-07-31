@@ -1474,3 +1474,108 @@ methods (`commonType`, `newInlineConditional`) both funnel into the wrapper-capt
 unwritable ∅-enm (world-graph modification through its `runtime` field) — the wrapper fold has no
 promise to translate. Then `MethodInspection`(12), `BinaryOperatorImpl`(11), `DependentVariableImpl`,
 `FieldInspection`, the constant-expression ring.**
+
+## The independence seed (2026-07-31, same session): the constant ring forms — survivors 63
+
+Three coupled mechanisms (all gated), each found by one diagnostic hop from the previous:
+
+1. **Immutable-hc carrier fields.** `CommonType.commonType`'s honest label is `[runtime]`, but
+   `Predefined` (plain `@Immutable(hc=true)`, zero modifying methods) is neither eventual nor a
+   candidate, so `fieldHoldsCommittableContent` refused it — and once its verdict decided, the
+   harmless shortcut at the TOP of `commitLabels` swallowed the field read into the unwritable ∅.
+   Fixes: `isEventuallyImmutableFieldType` accepts an unconditionally immutable-hc type WITH hidden
+   content, a fortiori (the contraction's discharge rule at the excuse site; deeply immutable stays
+   label-less), and the top-of-walk harmless shortcut no longer preempts a root-scoped FIELD read
+   (committability first, the `rootCommitmentLabels` ordering principle — the field branch re-checks
+   harmlessness for label-less fields, so String fields still yield ∅). `CommonType.commonType` lands
+   `enm=[runtime]`; the wrapper fold translates it into the full `FactoryImpl` commitment on both
+   abstract `Factory.commonType`/`newInlineConditional`; **`Factory` forms at `@Immutable(hc=true)`**.
+
+2. **The independence-side cluster seed.** The next ring (`ConstantExpression`, `BinaryOperator`,
+   `IntConstant`, `BooleanConstant`, `DependentVariableImpl`, `BinaryOperatorImpl`) was capped by
+   after-mark independence `@Dependent` — the recorded under-report, now binding: `computeImmutableType`'s
+   dependence cap turns it into FinalFields-after-mark, and `isMutable(@FinalFields)` spreads the sink.
+   `TypeIndependentAnalyzerImpl` now takes the `EventualCluster`, and `excused()` gains the wider
+   after-mark form: under the joint transition, clause 2 is the load-bearing one for ANY exposure, not
+   just a before-mark-only method's — a dependent accessor callable after the mark
+   (`ConstantExpression.rewire()` exposing `Expression`) shares content committed once the exposed
+   type's own marks pass, and a still-circular exposed type is accepted through the witnessed seed
+   exactly as in `immutableSuper`. Dependent FIELD exposures get the same excusal.
+
+3. **Pure type-parameter exposures.** The last cap of the ring: `ConstantExpression.constant()`
+   returns `T` with a `@Dependent` method verdict — but a pure type-parameter exposure is hidden
+   content by definition, precisely what immutable-hc permits; `excused()` accepts it outright
+   (after-mark mode). With that, `ConstantExpression` and the whole constant ring reach
+   `@Immutable(hc=true)(after=…)` and SURVIVE.
+
+**Composed scoreboard: survivors 55 -> 63, retracted 148, enm 923, eup 411, zero enm losses at every
+step.** Determinism: survivor set and enm layer identical across two runs. Gate-off Fernflower A/B:
+the one documented `StatEdge.EdgeType.<init>` flake line. Analyzer suite 272/0. New diagnostic:
+`TypeIndependentAnalyzerImpl` joins the `EC_TYPE_DEBUG` family, printing the exact
+field/method/parameter a DEPENDENT verdict roots in ("DEPENDENT: method constant returns Type param
+T" was the decisive print).
+
+**Remaining roots, re-measured: `Runtime`(22 — still markless, waiting on the `Factory` retraction
+chain), `MethodInspection`(12), `FieldInspection`(5), `SumImpl`(5), `UnaryOperatorImpl`(4 —
+`hashCode()` + ctor unlabeled), the `YieldStatement/ThrowStatement/SwitchStatementOldStyle` impl
+tail (3 each).**
+
+*The `MethodInspection` blocker, diagnosed precisely (next session's first design question):*
+`MethodInspectionImpl.Builder.fullyQualifiedName()` is `fullyQualifiedName.isSet() ? …get() :
+<compute from parameters>` — deliberately callable on BOTH sides of the transition (the
+sv-reconstruction fix that answers the real name meanwhile). The one-sided `computeEventual`
+propagation rule sees the `SetOnce.get()` call and stamps the method `@Only(after=
+"fullyQualifiedName")`; the abstract `MethodInspection.fullyQualifiedName()` inherits it; and an
+`@Only(after)` method that is (pre-mark-)modifying is correctly NOT excusable at type level — so the
+interface caps at FinalFields. The honest classification is "no side" (the marked call does not
+DOMINATE: the `isSet()` guard provides a before-path), which would free the method for the enm layer
+to label instead. The propagation step needs a dominance condition — conclude a side only when every
+live path runs the marked call — without breaking the legitimate single-statement `return f.get();`
+forwards.
+
+## The dominance quest (2026-07-31, same session): entry-state witnesses — survivors 67
+
+Frequency check first (why this is a general mechanism, not a one-off): the both-sides guard is a CORE
+idiom of the eventual style — the support classes are built of it (`SetOnce.getOrDefault`/
+`getOrDefaultNull` ARE the guarded fallback, contracted away inside the jar), and user code reproduces
+it wherever the canned accessor does not fit: ~50 transition-state-test guard sites across 12 maddi
+modules by a crude grep (undercounting the engine modules, which spell it `haveAnalyzedValueFor`). Of
+the 11 `@Only(after)` classifications on the dogfood, THREE distinct false-contract families turned
+out to hide in them. And the engine already carried four ad-hoc live-path disciplines
+(`computeTestMark`'s strict body, `scanPreconditions`' early-exit guards, `GetSetHelper`'s inert
+prefix, `freshReturn`'s all-returns rule) — this quest is their unification applied to the marked-call
+propagation.
+
+**The mechanism (`SideWalk`, gated; the gate-off visitor is verbatim, pinned).** A sided call
+classifies its caller only when it witnesses the method's ENTRY state: it must sit on the **spine**
+(every live path — not in a branch, loop, lambda, catch/finally, ternary arm or short-circuit tail,
+and not after a statement that can exit the method alive), and none of its labels may be **tainted**
+by an earlier — even conditional — `@Mark` (the ensure-then-read `if (!isSet()) commitParameters(); …
+get()` must not read as `@Only(after)`). Conditional regions contribute no sides but still taint; a
+spine `@Mark` contributes AND taints, so `f.set(x); f.get();` reads `@Mark`, not mixed sides.
+`scanPreconditions` is untouched — its guards conclude by the other dominance argument (early exit).
+
+**Result: the classification diff is surgical — 7 removed, 0 added, 0 changed — and every removal is
+a verified false contract:**
+- `Builder.fullyQualifiedName()` + abstract `MethodInspection.fullyQualifiedName()` (guarded fallback);
+- the 4 `CompilationUnitPrinter*.print` `@Only(after="compilationUnit")` — the module-info branch
+  answers BEFORE `types()` is set (its own comment says so: "has to be answered before anything that
+  walks types()");
+- `TypeInfo.hierarchyNotYetDone()` `@Only(before)` — a short-circuit guarded fallback
+  (`!hasBeenInspected() && builder().…`), callable both sides.
+
+**Composed scoreboard: survivors 63 -> 67** (the `MethodInspection`/`MethodInspectionImpl` pair — the
+12-lean root — and the `CompilationUnitPrinter` pair join), retracted 147, enm 929 (+6: the freed
+methods land enm labels instead). Determinism: survivor set, enm layer AND classification layer
+identical across two runs. Gate-off Fernflower A/B: the one documented ctor flake line. Analyzer
+suite 274/0; `TestEventualDominance` pins the five shapes (honest forward, ternary fallback,
+early-return fallback, ensure-then-read, spine set-then-get) with a gate-off twin pinning the old
+behaviour, so ungating stays a deliberate step.
+
+**Ungating candidate.** The gate-off visitor still writes the false `@Only(after)`/`@Only(before)`
+contracts, which the decorator ships to the IDE. The corpus never exercises the propagation (no
+eventual types), so ungating costs only a gate-off dogfood delta that is line-by-line justified
+(strictly-better contracts). Left gated for now; flip after the standard three-corpus A/B.
+
+**Remaining roots after this quest: `Runtime`(cascade), `FieldInspection`, `SumImpl`,
+`UnaryOperatorImpl.hashCode`, the `YieldStatement/ThrowStatement/SwitchStatementOldStyle` impl tail.**

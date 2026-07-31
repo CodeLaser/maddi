@@ -130,12 +130,14 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         Runtime runtime = javaInspector.runtime();
         fieldAnalyzer = new FieldAnalyzerImpl(runtime, configuration, propertiesChanged, messages);
         typeModIndyAnalyzer = new TypeModIndyAnalyzerImpl(configuration, propertiesChanged, messages);
+        // EXPERIMENTAL greatest-fixpoint oracle for the eventual cluster (gated on EVENTUALCLUSTER), shared so the
+        // immutable analyzer's supertype step, the independence analyzer's exposure excusal and the eventual
+        // analyzer's cross-reference step agree on membership
+        this.eventualCluster = new EventualCluster();
         // the independent analyzer is built first: the immutable analyzer asks it for after-mark independence,
         // because the dependence cap in computeImmutableType would otherwise fire before the AfterMark relaxation
-        typeIndependentAnalyzer = new TypeIndependentAnalyzerImpl(runtime, configuration, propertiesChanged, messages);
-        // EXPERIMENTAL greatest-fixpoint oracle for the eventual cluster (gated on EVENTUALCLUSTER), shared so the
-        // immutable analyzer's supertype step and the eventual analyzer's cross-reference step agree on membership
-        this.eventualCluster = new EventualCluster();
+        typeIndependentAnalyzer = new TypeIndependentAnalyzerImpl(runtime, configuration, propertiesChanged, messages,
+                eventualCluster);
         typeImmutableAnalyzer = new TypeImmutableAnalyzerImpl(typeIndependentAnalyzer, configuration,
                 propertiesChanged, messages, eventualCluster);
         shallowTypeAnalyzer = new ShallowTypeAnalyzer(runtime, Element::annotations, false);
