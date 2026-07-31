@@ -79,6 +79,44 @@ public class TestEventualClusterAssumptions extends CommonTest {
         }
     }
 
+    @DisplayName("optimism on an external candidate without an immutable-hc verdict is doomed and refused")
+    @Test
+    public void testDoomedExternalCandidateIsRefused() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            Parsed p = parse();
+            // an external-library type can never form an eventual verdict (it is not analyzed), and its only
+            // discharge at the contraction is an unconditional verdict of at least immutable-hc. ArrayDeque
+            // stands in for the java.util.Set shape: eventual "intent" (faked here), no hc verdict -- every
+            // lean on it is doomed mass, so the optimism must be refused and no edge recorded.
+            TypeInfo deque = javaInspector.compiledTypesManager().getOrLoad(java.util.ArrayDeque.class);
+            assertTrue(deque.compilationUnit().externalLibrary(), "harness sanity: ArrayDeque is external");
+            deque.findUniqueMethod("addFirst", 1).analysis()
+                    .set(PropertyImpl.EVENTUAL_METHOD, ValueImpl.EventualImpl.mark("elements"));
+            EventualCluster ec = new EventualCluster();
+            assertFalse(ec.treatAsEventuallyImmutable(p.member(), deque,
+                            ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL),
+                    "a doomed external candidate must be refused");
+            assertTrue(ec.assumptions().isEmpty(), "a refused candidate leaves no ledger edge");
+
+            // contrast: an external candidate whose decided verdict is at least immutable-hc discharges a
+            // fortiori at the contraction, so the optimism stays admissible (and is witnessed as usual)
+            TypeInfo string = javaInspector.compiledTypesManager().getOrLoad(String.class);
+            string.findUniqueMethod("intern", 0).analysis()
+                    .set(PropertyImpl.EVENTUAL_METHOD, ValueImpl.EventualImpl.mark("hash"));
+            if (string.analysis().getOrNull(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.class) == null) {
+                string.analysis().set(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.IMMUTABLE_HC);
+            }
+            assertTrue(ec.treatAsEventuallyImmutable(p.member(), string,
+                            ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL),
+                    "an external candidate at immutable-hc stays admissible");
+            assertEquals(Set.of(string), ec.assumptions().getOrDefault(p.member(), Set.of()));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
     @DisplayName("a genuinely-proven candidate is not an assumption; the gate off records nothing")
     @Test
     public void testProvenAndGateOffRecordNothing() {

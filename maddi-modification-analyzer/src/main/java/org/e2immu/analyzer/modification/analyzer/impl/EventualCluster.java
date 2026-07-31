@@ -214,11 +214,13 @@ public class EventualCluster {
         // new CommonType(this): the owner-seed escape needed candidacy, candidacy needed a first enm).
         // Witnessed like any edge: a type that never forms retracts everything that consumed its labels.
         boolean admissible = ENABLED && (candidate == member || isCandidate(candidate))
-                             && !hasSetters(member) && !hasSetters(candidate);
+                             && !hasSetters(member) && !hasSetters(candidate)
+                             && !candidateDoomed(candidate);
         if (!admissible && ENABLED && SITE_DEBUG && siteDebugMatches(debugContext.get())) {
             sitePrint("[" + debugContext.get() + "] treatAs refusal: " + candidate.fullyQualifiedName()
                       + " candidate=" + (candidate == member || isCandidate(candidate))
-                      + " memberSetters=" + hasSetters(member) + " candSetters=" + hasSetters(candidate));
+                      + " memberSetters=" + hasSetters(member) + " candSetters=" + hasSetters(candidate)
+                      + " doomed=" + candidateDoomed(candidate));
         }
         if (admissible) {
             java.util.ArrayDeque<java.util.List<TypeInfo[]>> stack = assumptionBuffers.get();
@@ -234,6 +236,25 @@ public class EventualCluster {
             return true;
         }
         return false;
+    }
+
+    /**
+     * A candidate whose verdict can never arrive: an external-library type is never analyzed, so it can
+     * never form an eventual verdict, and its only discharge at the contraction is an unconditional
+     * verdict of at least immutable-hc. Anything below that is doomed mass -- the member is certain to be
+     * retracted, and worse, the lean shadows the honest wrapper/container mechanisms that could excuse the
+     * same site durably ({@code java.util.Set} carried 16 such leans on the dogfood). ABSENT counts as
+     * doomed, not as still-to-come: {@code ImmutableImpl.encode} serializes MUTABLE as absent, so a
+     * preloaded jar type's decided-mutable verdict is indistinguishable from undecided here -- and a
+     * genuinely eventual external support type ({@code SetOnce}) enters through the proven path
+     * ({@code actual.isEventual()}) before this check is consulted. Should a lazily shallow-analyzed
+     * verdict of immutable-hc arrive in a later iteration, the refusal lifts with it.
+     */
+    private static boolean candidateDoomed(TypeInfo candidate) {
+        if (!candidate.compilationUnit().externalLibrary()) return false;
+        Value.Immutable immutable = candidate.analysis().getOrNull(PropertyImpl.IMMUTABLE_TYPE,
+                ValueImpl.ImmutableImpl.class);
+        return immutable == null || !immutable.isAtLeastImmutableHC();
     }
 
     // per-thread stack of assumption buffers; the type loop runs computations in parallel, one per thread

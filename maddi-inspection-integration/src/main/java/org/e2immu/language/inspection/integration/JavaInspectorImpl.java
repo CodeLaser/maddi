@@ -752,10 +752,12 @@ public class JavaInspectorImpl implements JavaInspector {
             for (ModuleInfo.Provides provides : moduleInfo.provides()) {
                 TypeInfo r0 = compiledTypesManager.get(provides.api(), sourceSet);
                 if (r0 != null) provides.setApiResolved(r0);
+                List<TypeInfo> implementationsResolved = new ArrayList<>();
                 for (String implementation : provides.implementations()) {
                     TypeInfo r1 = compiledTypesManager.get(implementation, sourceSet);
-                    if (r1 != null) provides.addImplementationResolved(r1);
+                    if (r1 != null) implementationsResolved.add(r1);
                 }
+                provides.setImplementationsResolved(implementationsResolved);
             }
         }
     }
