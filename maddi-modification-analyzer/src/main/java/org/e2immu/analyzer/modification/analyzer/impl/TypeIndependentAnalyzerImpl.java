@@ -50,10 +50,25 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
     // is shallow-analyzed lazily, so the contract fallback is hit constantly. Concurrent: types may run in parallel.
     private final Map<TypeInfo, Value.EventuallyImmutable> eventuallyImmutableCache = new ConcurrentHashMap<>();
 
+    private final EventualCluster eventualCluster;
+
+    // log-only diagnostic gate, shared name with TypeEventualAnalyzerImpl / TypeImmutableAnalyzerImpl
+    private static final String EC_TYPE_DEBUG = System.getenv("EC_TYPE_DEBUG");
+
+    private static boolean ecTypeDebug(TypeInfo typeInfo) {
+        if (EC_TYPE_DEBUG == null) return false;
+        for (String part : EC_TYPE_DEBUG.split(",")) {
+            if (!part.isBlank() && typeInfo.fullyQualifiedName().contains(part)) return true;
+        }
+        return false;
+    }
+
     public TypeIndependentAnalyzerImpl(Runtime runtime, IteratingAnalyzer.Configuration configuration,
-                                       AtomicInteger propertyChanges, List<Message> analyzerMessages) {
+                                       AtomicInteger propertyChanges, List<Message> analyzerMessages,
+                                       EventualCluster eventualCluster) {
         super(configuration, propertyChanges, analyzerMessages);
         this.contractReader = new ContractReader(runtime);
+        this.eventualCluster = eventualCluster;
     }
 
     @Override
@@ -159,6 +174,7 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
 
     private Independent loopOverFieldsAndAbstractMethods(TypeInfo typeInfo,
                                                          TypeImmutableAnalyzer.AfterMark afterMark) {
+        boolean afterMarkMode = !afterMark.isNone();
         Independent independent = INDEPENDENT;
         for (FieldInfo fieldInfo : typeInfo.fields()) {
             // AfterMark.fields() only ever holds fields whose own type is eventually immutable -- that is the
@@ -170,7 +186,13 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
             if (fieldIndependent == null) {
                 independent = null;
             } else if (fieldIndependent.isDependent()) {
-                return DEPENDENT;
+                if (!excused(typeInfo, afterMarkMode, false, fieldInfo.type())) {
+                    if (afterMarkMode && ecTypeDebug(typeInfo)) {
+                        System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
+                                           + " DEPENDENT: field " + fieldInfo.name());
+                    }
+                    return DEPENDENT;
+                }
             } else if (independent != null) {
                 independent = independent.min(fieldIndependent);
             }
@@ -183,7 +205,14 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
                 if (methodIndependent == null) {
                     independent = null;
                 } else if (methodIndependent.isDependent()) {
-                    if (!excused(beforeMarkOnly, methodInfo.returnType())) return DEPENDENT;
+                    if (!excused(typeInfo, afterMarkMode, beforeMarkOnly, methodInfo.returnType())) {
+                        if (afterMarkMode && ecTypeDebug(typeInfo)) {
+                            System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
+                                               + " DEPENDENT: method " + methodInfo.name()
+                                               + " returns " + methodInfo.returnType());
+                        }
+                        return DEPENDENT;
+                    }
                 } else if (independent != null) {
                     independent = independent.min(methodIndependent);
                 }
@@ -193,7 +222,13 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
                     if (paramIndependent == null) {
                         independent = null;
                     } else if (paramIndependent.isDependent()) {
-                        if (!excused(beforeMarkOnly, pi.parameterizedType())) return DEPENDENT;
+                        if (!excused(typeInfo, afterMarkMode, beforeMarkOnly, pi.parameterizedType())) {
+                            if (afterMarkMode && ecTypeDebug(typeInfo)) {
+                                System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
+                                                   + " DEPENDENT: parameter " + pi.fullyQualifiedName());
+                            }
+                            return DEPENDENT;
+                        }
                     } else if (independent != null) {
                         independent = independent.min(paramIndependent);
                     }
@@ -217,11 +252,35 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
      * frozen by a mark of its own, which is exactly the {@code TypeInfo.builder() -> TypeInspection.Builder}
      * shape: committing the builder makes further mutation throw. A method failing this keeps the type dependent,
      * after the mark as much as before.
+     * <p>
+     * EVENTUALCLUSTER, the wider after-mark form: under the cluster's joint transition, condition 2 is the
+     * load-bearing one for ANY exposure, not just a before-mark-only method's. A dependent accessor callable
+     * after the mark ({@code ConstantExpression.rewire()} exposing {@code Expression}) shares accessible
+     * content that is committed once the exposed type's own marks have passed — a pre-mark leak survives the
+     * mark as a reference to a now-frozen object, exactly the argument of clause 2. The exposed type may
+     * itself still be circular, so the check accepts a cluster candidate through the witnessed seed, as
+     * {@code immutableSuper} does; the contraction retracts if the candidate never proves. This was the last
+     * cap of the constant-expression ring: their after-mark independence stayed {@code @Dependent}, which
+     * the dependence cap turned into FINAL_FIELDS-after-mark, which {@code isMutable(@FinalFields)} then
+     * spread to every sub-interface. Off the gate, only the original two-condition rule runs.
      */
-    private boolean excused(boolean beforeMarkOnly, ParameterizedType exposed) {
-        if (!beforeMarkOnly) return false;
+    private boolean excused(TypeInfo member, boolean afterMarkMode, boolean beforeMarkOnly,
+                            ParameterizedType exposed) {
+        // a PURE type-parameter exposure (ConstantExpression.constant() returning T) is hidden content by
+        // definition -- exactly what an immutable-hc verdict permits to be shared -- whatever the
+        // over-conservative dependent verdict upstream says
+        if (afterMarkMode && EventualCluster.ENABLED && exposed.arrays() == 0 && exposed.typeParameter() != null) {
+            return true;
+        }
         TypeInfo bestType = exposed.bestTypeInfo();
-        return bestType != null && eventuallyImmutable(bestType).isEventual();
+        if (bestType == null) return false;
+        Value.EventuallyImmutable ev = eventuallyImmutable(bestType);
+        if (beforeMarkOnly && ev.isEventual()) return true; // the original, ungated rule
+        if (afterMarkMode && EventualCluster.ENABLED) {
+            if (ev.isEventual()) return true;
+            return eventualCluster.treatAsEventuallyImmutable(member, bestType, ev);
+        }
+        return false;
     }
 
     /** As {@code TypeEventualAnalyzerImpl.eventuallyImmutable}: analysis first, hand-written contract as fallback. */

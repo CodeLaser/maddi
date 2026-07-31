@@ -406,9 +406,18 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
     }
 
     /** A field type that excuses a call on it after the mark: really eventually immutable, or -- under the
-     *  EVENTUALCLUSTER gate -- a cluster candidate whose verdict is still circular (see {@link EventualCluster}).
+     *  EVENTUALCLUSTER gate -- a cluster candidate whose verdict is still circular (see {@link EventualCluster}),
+     *  or an UNCONDITIONALLY immutable-hc type (a fortiori: the contraction's discharge rule, here at the
+     *  excuse site). The {@code CommonType.runtime} shape: {@code Predefined} is plain immutable-hc, so
+     *  demanded calls through the field modify only hidden content, committed once the objects it holds
+     *  commit -- the field name is the honest label. Without this, the harmless shortcut later swallows the
+     *  label and the walk lands the unwritable ∅. No lean is witnessed: the verdict is unconditional.
      *  {@code member} is the type holding the field, recorded as the assumer when the excusal is optimistic. */
     private boolean isEventuallyImmutableFieldType(TypeInfo member, TypeInfo fieldType) {
+        if (EventualCluster.ENABLED && immutableOf(fieldType).isAtLeastImmutableHC()
+            && !immutableOf(fieldType).isImmutable()) {
+            return true; // hc WITH hidden content; a deeply immutable field (String) stays label-less (∅)
+        }
         boolean result = eventualCluster.treatAsEventuallyImmutable(member, fieldType, eventuallyImmutable(fieldType));
         if (result && siteDebug() && !eventuallyImmutable(fieldType).isEventual()) {
             ecsite("lean on " + fieldType.fullyQualifiedName());
@@ -1051,8 +1060,16 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         if (expr == null || !referencesRootOrTracked(walk, expr, ctx.commit())) return Set.of();
         // a value whose TYPE cannot carry mutable state (an int, a String, a parameterless immutable-hc
         // MethodType) is harmless whatever produced it -- the producing calls are excused independently by
-        // the enclosing visitor, which sees every MethodCall node
-        if (expr.parameterizedType() != null && valueIsHarmless(expr.parameterizedType())) return Set.of();
+        // the enclosing visitor, which sees every MethodCall node. Committability FIRST for a root-scoped
+        // FIELD read (the rootCommitmentLabels ordering principle): an immutable-hc transition carrier
+        // (CommonType.runtime, a Predefined) must land its field label, not the harmless ∅ that made
+        // CommonType.commonType's enm unwritable -- the field branch below re-checks harmlessness for
+        // label-less fields, so a String field still yields ∅ there.
+        boolean rootFieldRead = EventualCluster.ENABLED && expr instanceof VariableExpression ve0
+                                && ve0.variable() instanceof FieldReference fr0 && walk.scopeIsRoot(fr0);
+        if (!rootFieldRead && expr.parameterizedType() != null && valueIsHarmless(expr.parameterizedType())) {
+            return Set.of();
+        }
         if (expr instanceof VariableExpression ve) {
             if (ve.variable() instanceof FieldReference fr && walk.scopeIsRoot(fr)) {
                 FieldInfo fieldInfo = fr.fieldInfo();

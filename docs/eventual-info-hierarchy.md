@@ -1474,3 +1474,50 @@ methods (`commonType`, `newInlineConditional`) both funnel into the wrapper-capt
 unwritable ∅-enm (world-graph modification through its `runtime` field) — the wrapper fold has no
 promise to translate. Then `MethodInspection`(12), `BinaryOperatorImpl`(11), `DependentVariableImpl`,
 `FieldInspection`, the constant-expression ring.**
+
+## The independence seed (2026-07-31, same session): the constant ring forms — survivors 63
+
+Three coupled mechanisms (all gated), each found by one diagnostic hop from the previous:
+
+1. **Immutable-hc carrier fields.** `CommonType.commonType`'s honest label is `[runtime]`, but
+   `Predefined` (plain `@Immutable(hc=true)`, zero modifying methods) is neither eventual nor a
+   candidate, so `fieldHoldsCommittableContent` refused it — and once its verdict decided, the
+   harmless shortcut at the TOP of `commitLabels` swallowed the field read into the unwritable ∅.
+   Fixes: `isEventuallyImmutableFieldType` accepts an unconditionally immutable-hc type WITH hidden
+   content, a fortiori (the contraction's discharge rule at the excuse site; deeply immutable stays
+   label-less), and the top-of-walk harmless shortcut no longer preempts a root-scoped FIELD read
+   (committability first, the `rootCommitmentLabels` ordering principle — the field branch re-checks
+   harmlessness for label-less fields, so String fields still yield ∅). `CommonType.commonType` lands
+   `enm=[runtime]`; the wrapper fold translates it into the full `FactoryImpl` commitment on both
+   abstract `Factory.commonType`/`newInlineConditional`; **`Factory` forms at `@Immutable(hc=true)`**.
+
+2. **The independence-side cluster seed.** The next ring (`ConstantExpression`, `BinaryOperator`,
+   `IntConstant`, `BooleanConstant`, `DependentVariableImpl`, `BinaryOperatorImpl`) was capped by
+   after-mark independence `@Dependent` — the recorded under-report, now binding: `computeImmutableType`'s
+   dependence cap turns it into FinalFields-after-mark, and `isMutable(@FinalFields)` spreads the sink.
+   `TypeIndependentAnalyzerImpl` now takes the `EventualCluster`, and `excused()` gains the wider
+   after-mark form: under the joint transition, clause 2 is the load-bearing one for ANY exposure, not
+   just a before-mark-only method's — a dependent accessor callable after the mark
+   (`ConstantExpression.rewire()` exposing `Expression`) shares content committed once the exposed
+   type's own marks pass, and a still-circular exposed type is accepted through the witnessed seed
+   exactly as in `immutableSuper`. Dependent FIELD exposures get the same excusal.
+
+3. **Pure type-parameter exposures.** The last cap of the ring: `ConstantExpression.constant()`
+   returns `T` with a `@Dependent` method verdict — but a pure type-parameter exposure is hidden
+   content by definition, precisely what immutable-hc permits; `excused()` accepts it outright
+   (after-mark mode). With that, `ConstantExpression` and the whole constant ring reach
+   `@Immutable(hc=true)(after=…)` and SURVIVE.
+
+**Composed scoreboard: survivors 55 -> 63, retracted 148, enm 923, eup 411, zero enm losses at every
+step.** Determinism: survivor set and enm layer identical across two runs. Gate-off Fernflower A/B:
+the one documented `StatEdge.EdgeType.<init>` flake line. Analyzer suite 272/0. New diagnostic:
+`TypeIndependentAnalyzerImpl` joins the `EC_TYPE_DEBUG` family, printing the exact
+field/method/parameter a DEPENDENT verdict roots in ("DEPENDENT: method constant returns Type param
+T" was the decisive print).
+
+**Remaining roots, re-measured: `Runtime`(22 — still markless, waiting on the `Factory` retraction
+chain), `MethodInspection`(12 — its lazy-memo `fullyQualifiedName()` classifies
+`@Only(after="fullyQualifiedName")`, the `VariableImpl.cachedFqn` memo-disclaimer precedent, likely
+an `@IgnoreModifications` slot annotation on `MethodInspectionImpl`), `FieldInspection`(5),
+`SumImpl`(5), `UnaryOperatorImpl`(4 — `hashCode()` + ctor unlabeled), the
+`YieldStatement/ThrowStatement/SwitchStatementOldStyle` impl tail (3 each).**
