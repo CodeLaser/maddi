@@ -15,6 +15,7 @@
 package org.e2immu.language.cst.impl.expression;
 
 import org.e2immu.annotation.NotNull;
+import org.e2immu.annotation.rare.IgnoreModifications;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Source;
@@ -78,7 +79,10 @@ public class UnaryOperatorImpl extends ExpressionImpl implements UnaryOperator {
         return operator;
     }
 
-    private int hash; // lazily cached; the CST is immutable, and the recursive recompute dominated profiles
+    // @IgnoreModifications (road §050): idempotent memo state, disclaimed -- the VariableImpl.cachedHash
+    // precedent; lazily cached because the recursive recompute dominated profiles
+    @IgnoreModifications
+    private int hash;
 
     @Override
     public int hashCode() {

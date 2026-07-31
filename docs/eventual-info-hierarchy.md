@@ -1579,3 +1579,32 @@ eventual types), so ungating costs only a gate-off dogfood delta that is line-by
 
 **Remaining roots after this quest: `Runtime`(cascade), `FieldInspection`, `SumImpl`,
 `UnaryOperatorImpl.hashCode`, the `YieldStatement/ThrowStatement/SwitchStatementOldStyle` impl tail.**
+
+## The missing disclaimers (2026-07-31, same session): the statement family completes — survivors 72
+
+The statement-impl tail decoded into the same two §050 idioms already solved elsewhere, each with one
+member the earlier rounds missed:
+
+1. **`UnaryOperatorImpl.hash`** — the lazy hashCode memo, the exact `VariableImpl.cachedHash` idiom;
+   the `@IgnoreModifications` slot disclaimer applied (cst-impl annotation, no engine change needed —
+   the memo-disclaimer machinery landed in the VariableImpl quest). `hashCode()` flips to plainly
+   non-modifying.
+2. **`StatementImpl.propertyValueMap` and `TryStatementImpl.CatchClauseImpl.propertyValueMap`** — the
+   TWO analysis stores in cst-impl without the `@IgnoreModifications` every other store carries (audit:
+   9 store fields, 7 annotated). The new `TypeIndependentAnalyzerImpl` DEPENDENT-provenance print
+   found it in one shot: `StatementImpl DEPENDENT: field propertyValueMap` — the store held the entire
+   statement family at FinalFields-after-mark THROUGH THE INDEPENDENCE LOOP (the immutability loop's
+   ungated skip never applied there). Companion engine fix, ungated like its twin:
+   `loopOverFieldsAndAbstractMethods` skips an `@IgnoreModifications` field — hidden content's
+   independence does not bear on the type's; a no-op wherever no field carries the annotation.
+
+**Composed scoreboard: survivors 67 -> 72** (Break/Continue/BreakOrContinue/Empty/Import statement
+impls join; `api.expression.BinaryOperator` lifts from `@FinalFields(after=)` to
+`@Immutable(hc=true)(after=)`), retracted ~164 (wider formation before contraction), enm 929, zero
+losses. Determinism: survivor set + enm layer identical across two runs (retracted 164/163, the
+benign cascade wobble). Gate-off Fernflower A/B: the one documented ctor flake line — the ungated
+independence skip is corpus-inert as argued. Suites: analyzer 274/0, cst-impl 73/0.
+
+**Remaining roots, re-measured: `Runtime`(22, pure cascade), `FieldInspection`(5),
+`SumImpl`(5), then a ring at 3 (`LocalVariableCreationImpl`, `AnnotationExpressionImpl`, and the
+markless expression sub-interfaces `Negation`/`EnclosedExpression`/`BitwiseNegation`).**

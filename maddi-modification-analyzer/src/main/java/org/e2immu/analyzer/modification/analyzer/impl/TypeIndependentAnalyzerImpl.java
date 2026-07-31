@@ -181,6 +181,12 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
             // condition under which TypeEventualAnalyzerImpl puts them there -- so what such a field exposes has
             // itself become immutable at the mark, and exposing it afterwards is harmless.
             if (afterMark.fields().contains(fieldInfo)) continue;
+            // an @IgnoreModifications field is manual hidden content (road §050): what is reachable through
+            // it is disclaimed, so its independence verdict does not bear on the type's -- the twin of the
+            // ungated skip in TypeImmutableAnalyzerImpl.loopOverFieldsAndMethods, and a no-op wherever no
+            // field carries the annotation (the StatementImpl.propertyValueMap store held the entire
+            // statement family at FinalFields-after-mark through this loop)
+            if (fieldInfo.isIgnoreModifications()) continue;
             Independent fieldIndependent = fieldInfo.analysis().getOrNull(INDEPENDENT_FIELD,
                     ValueImpl.IndependentImpl.class);
             if (fieldIndependent == null) {

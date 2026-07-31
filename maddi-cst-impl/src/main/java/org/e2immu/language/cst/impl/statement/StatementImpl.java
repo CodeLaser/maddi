@@ -15,6 +15,7 @@
 package org.e2immu.language.cst.impl.statement;
 
 import org.e2immu.annotation.Fluent;
+import org.e2immu.annotation.rare.IgnoreModifications;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.Source;
@@ -38,6 +39,10 @@ public abstract class StatementImpl extends ElementImpl implements Statement {
     private final Source source;
     private final int complexity;
     private final String label;
+    // the analysis overlay is manual hidden content (road §050), exactly as on InfoImpl and the expression
+    // trio -- this was the ONE statement-side store without the annotation, and it held the whole statement
+    // family at FinalFields-after-mark through the independence loop (docs/eventual-info-hierarchy.md)
+    @IgnoreModifications
     private final PropertyValueMap propertyValueMap = new PropertyValueMapImpl();
 
     protected StatementImpl(List<Comment> comments,
