@@ -1404,3 +1404,43 @@ subtypes from the optimistic seed, or whether `immutableSuper` should stay seede
 the contraction settles it. Secondary roots, re-measured: `BinaryOperatorImpl`(11),
 `MethodInspection`(10), the markless expression sub-interface ring
 (IntConstant/BooleanConstant/Divide/...), `DependentVariableImpl`, `FieldInspection`.
+
+## Factory-method freshness (2026-07-31, same session): Info.translate lands — survivors 42
+
+The quest above, implemented (all gated; `TypeEventualAnalyzerImpl`):
+
+- **`freshReturn(MethodInfo)`** -- purely syntactic, positive-cached, recursion-refusing, depth-capped
+  (3): a callee provably returns an object constructed in its own body when every return expression is
+  a constructor call, a chain/local rooted in one (the callee's own pass-1 freshness fixpoint, with the
+  factory clause), or a nested factory call; an ABSTRACT callee is a factory when every known
+  implementation is. CST-only, so the cache needs no rederivation reset. Lambdas/anonymous classes are
+  not descended into (their returns are not the method's; effective finality bars them from assigning
+  its locals).
+- **Consumption**: the pass-1 freshness fixpoint and both transition-bail sites accept factory calls
+  (`rootedInFreshOrFactory`), so `T t = copyAllBut(); t.builder()…commit()` and the inline chain both
+  read as the fresh copy's lifecycle; the handed-on gauntlet is skipped for a factory value exactly
+  like for a fluent fresh chain. A factory call ON THE BARE ROOT additionally owes the root's full
+  commitment (`rootCommitmentLabels`, the wrapper-capture precedent one level up) -- the fresh object
+  embeds content the callee read from the root, which argument labels cannot see. Care point learned
+  on the dogfood: when the root never fully commits (`rc == null`) the fold must FALL THROUGH to the
+  ordinary gauntlet, not bail -- a hard bail there silently took down the whole statement print family
+  (opaque-sink route) in the first attempt, enm 908 -> 898; with the fall-through the change is purely
+  additive, enm 908 -> 916, zero losses.
+
+**The `Info.translate` union LANDS** (`enm=[compilationUnitOrEnclosingType, inspection, owner, type,
+typeInfo]`), with `MethodInfo.translate`, `withMethodBody`, and both `copyAllBut…` helpers.
+**Composed scoreboard: survivors 42, retracted ~155, enm 916, eup 409** -- `Element`, `Comment`,
+`MethodInfo`, `ParameterInfo` all leave the never-form roots. Determinism: survivor set and enm layer
+byte-identical across two runs (the retracted COUNT wobbles 155/154 -- a pure-cascade member, the
+documented benign wobble). Gate-off Fernflower A/B: identical modulo the two documented ctor-flake
+lines. Suites: analyzer 272/0 (`TestCommitLabels` INPUT_FACTORY: bare-root factory + inline chain +
+the returns-this negative; gate-off twins). One INPUT_FACTORY lesson: an inline
+`copyAllBut().commit(s)` chain is already PLAINLY non-modifying (the plain layer tracks constructor
+freshness through the chain) -- the pin needs a `content()` read to keep the method modifying so the
+enm walk, not the plain layer, carries it.
+
+**Remaining roots, re-measured (in lean order): `StatementImpl`(24), `Runtime`(23), `Block`(21),
+`MethodInspection`(12), `BinaryOperatorImpl`(11), `DependentVariableImpl`, `FieldInspection`, the
+constant-expression ring (`IntConstant`/`BooleanConstant`, 5 each).** `Info` and `TypeInfo` now form
+(cascade victims only). The statement family (`StatementImpl`/`Block`) and the `Runtime`/`Factory`
+weak-FF caps are the next quests.
