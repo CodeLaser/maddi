@@ -14,6 +14,9 @@
 
 package org.e2immu.util.internal.util;
 
+import org.e2immu.annotation.Independent;
+import org.e2immu.annotation.NotModified;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.Spliterators;
@@ -24,7 +27,13 @@ public class ZipLists {
     public record Z<X, Y>(X x, Y y) {
     }
 
-    public static <X, Y> Stream<Z<X, Y>> zip(List<X> lx, List<Y> ly) {
+    // zip only iterates its inputs, and the returned stream shares nothing but their elements (hidden
+    // content). Contracted like ListUtil: as a jar on maddi's own dogfood, an unannotated zip() blocks
+    // every withBlocks-style walk that hands a container field to it (docs/eventual-info-hierarchy.md).
+    @NotModified
+    @Independent(hc = true)
+    public static <X, Y> Stream<Z<X, Y>> zip(@NotModified @Independent(hc = true) List<X> lx,
+                                             @NotModified @Independent(hc = true) List<Y> ly) {
         Iterator<Z<X, Y>> it = new Iterator<>() {
             private final Iterator<X> ix = lx.iterator();
             private final Iterator<Y> iy = ly.iterator();

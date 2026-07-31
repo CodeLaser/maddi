@@ -1444,3 +1444,33 @@ enm walk, not the plain layer, carries it.
 constant-expression ring (`IntConstant`/`BooleanConstant`, 5 each).** `Info` and `TypeInfo` now form
 (cascade victims only). The statement family (`StatementImpl`/`Block`) and the `Runtime`/`Factory`
 weak-FF caps are the next quests.
+
+## The ZipLists contract (2026-07-31, same session): the statement family forms — survivors 55
+
+The `StatementImpl`/`Block` root decoded in one site trace: `Statement.withBlocks(List)` was the ONE
+unexcused abstract method on `Statement`, its union blocked by exactly
+`SwitchStatementNewStyleImpl.withBlocks` and `TryStatementImpl.withBlocks` — both of which hand their
+container field (`entries`, `catchClauses`) to **`ZipLists.zip(List, List)`**, a maddi-util JAR static
+with no contract: no `UNMODIFIED_PARAMETER`, so the argument-position container ride-along refuses,
+and the zip-stream receiver chain stays uncommitted. The fix is the `Either.isLeft`/EFOD precedent —
+contract the leaf: `zip` is `@NotModified` with `@NotModified @Independent(hc=true)` parameters and an
+`@Independent(hc=true)` return (it only iterates; the stream shares nothing but elements), mirroring
+`ListUtil.joinLists` in the same module.
+
+**Composed scoreboard: survivors 42 -> 55, retracted 141, enm 918, eup 409.** The
+`Statement.withBlocks` union lands (`enm=[entries, expression, initializer, initializers, selector,
+updaters]` + eup on `tSubBlocks`), zero unexcused `withBlocks` remain, `Block` forms
+`@FinalFields(after=…)`, and `StatementImpl`/`Block` leave the roots. Determinism: survivor set, enm
+layer and retracted count all identical across two runs. Gate-off Fernflower A/B: **0-line diff**
+(the corpus never has maddi-util on its analyzed classpath). Analyzer suite 272/0.
+
+*Operational note:* the dogfood `inputConfiguration.json` still references `maddi-util-0.8.2.jar`
+(generated 2026-07-23) while the build now produces 0.9.0 — the 0.8.2 file was refreshed in place for
+these runs; regenerate the configuration per `dogfood/README.md` at the next opportunity.
+
+**Remaining roots: `Runtime`(23) — sunk by `Factory`'s unconditional `@FinalFields`, whose two stuck
+methods (`commonType`, `newInlineConditional`) both funnel into the wrapper-capture shape
+`new CommonType(this).commonType(pt1, pt2)` where `CommonType.commonType` carries the recorded
+unwritable ∅-enm (world-graph modification through its `runtime` field) — the wrapper fold has no
+promise to translate. Then `MethodInspection`(12), `BinaryOperatorImpl`(11), `DependentVariableImpl`,
+`FieldInspection`, the constant-expression ring.**
