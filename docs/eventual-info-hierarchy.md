@@ -1340,3 +1340,137 @@ interfaces). Scoreboard: enm 924, eup 398. Validation: 21/21 TestCommitLabels (I
 the harness NOTE for sub-interfaces adding unimplemented abstract methods); gate-off Fernflower
 identical modulo the documented ctor flake; composed determinism -- eventual layer 0-diff,
 survivors 42 = 42 across runs.
+
+## The drift round (2026-07-31): re-baseline, the Provides adder, doomed external candidates
+
+Resuming after a week in which BOTH the engine and the cst sources moved (merges from the other
+worktree arcs): the composed dogfood at devel `e904b1b2` read **survivors 26 / retracted 166 /
+enm 927 / eup 387** -- down from the recorded 42, deterministic across two runs (identical survivor
+set, enm layer 0-diff). So the drop was real drift, not nondeterminism. The `EC_RETRACT_DEBUG` root
+ranking against the never-form roots decoded it into two mechanical causes, both fixed:
+
+1. **The `ProvidesImpl` adder (source drift, commit b7375c7d).** `provides X with A, B, C` support
+   gave `ModuleInfoImpl.ProvidesImpl` a plain `ArrayList` + `addImplementationResolved` adder --
+   genuinely mutable state with no transition, on a type that was one of the original four gate-off
+   eventual types. Its `typesReferenced(Predicate)` became the ONE unexcusable implementation
+   blocking the `Element.typesReferenced(Predicate)` abstract union; `Element` capped at
+   FinalFields-after-mark, and the `isMutable(@FinalFields)` hierarchy rule sank
+   Info/MethodInfo/TypeInfo/Comment/Statement/Block -- the bulk of the 166 retractions. Fix:
+   commit-once restored -- `SetOnce<List<TypeInfo>>`, api `setImplementationsResolved(List)` (the
+   adder removed), `JavaInspectorImpl.resolveModuleInfo` accumulates locally and sets once, the one
+   adder call in `TestCallGraph` adapted. Confirmed on the dogfood: `setImplementationsResolved`
+   computes `@Mark("implementationsResolved")`, `typesReferenced` lands
+   `enm=[apiResolved, implementationsResolved]`, the `Element` union completes, and the whole
+   Comment/ModuleInfo.Exports/Opens/Requires/CompilationUnit family returns to the survivor set.
+   FINDING (the `precedenceMap` lesson again, adder edition): an adder-filled collection field reads
+   as mutable; build locally, commit once. And: **the dogfood corpus is live source -- any teammate
+   commit can sink a flagship union. Re-measure before chasing engine mechanisms.**
+
+2. **Doomed external candidates (gated, `EventualCluster.candidateDoomed`).** `java.util.Set`
+   (16 leans) and `java.util.function.Function` (4) sat in the cluster although an external-library
+   type can never form an eventual verdict and -- below immutable-hc -- never discharge; every lean
+   was certain retraction fodder, and worse, it shadowed the honest wrapper/container mechanisms at
+   the same sites (`fieldHoldsCommittableContent` consults the seed BEFORE the immutable-wrapper
+   path). `treatAsEventuallyImmutable` now refuses an external candidate without an hc verdict.
+   Trap recorded: `ImmutableImpl.encode` serializes MUTABLE as absent, so for an external type
+   ABSENT counts as doomed, not still-to-come; genuinely eventual support leaves (`SetOnce`) enter
+   through the proven path (`actual.isEventual()`, ContractReader-backed) before this check. Pin:
+   `TestEventualClusterAssumptions.testDoomedExternalCandidateIsRefused`.
+
+**Composed scoreboard: survivors 26 -> 41, retracted 166 -> 152, enm 908 (-19 formerly-optimistic
+labels, honest), eup 404.** Deterministic: two runs, identical survivor set, enm layer 0-diff.
+Gate-off Fernflower A/B (stash technique): identical modulo exactly the two documented
+ctor-nonModifying flake lines (`Exprent.<init>(int)`, `StatEdge.EdgeType.<init>(int)`), no verdict
+moved. Suites: analyzer 270/0, prepwork 218/0 (1 pre-existing skip), common 68/0, cst-impl 73/0,
+inspection-integration 435/0.
+
+**The measured next wall: `Info.translate`, and factory-method freshness.** `Element` now forms at
+Immutable-HC-after-mark (excusedM=13) and retracts only on the next ring. `Info` freezes
+`@FinalFields(after=...)` because `Info.translate(TranslationMap)` is its ONE unexcused abstract
+method -- the union is blocked by exactly `MethodInfoImpl.translate` and `TypeInfoImpl.translate` --
+and that weak formed verdict sinks every `*Info` interface through `isMutable(@FinalFields)`: a
+formed-but-weak supertype verdict is strictly worse than none, which would get the optimistic HC
+seed. (`Statement` and `Factory` freeze the same weak-FF shape and sink Block/StatementImpl/Runtime
+identically.) Site trace (`EC_SITE_DEBUG=MethodInfoImpl.translate`): the enm walk bails at
+`transition bail: MethodInfo.builder()` with poisoned locals `methodInfo`/`builder`/`newPi` -- the
+fresh object arrives via the same-class helper
+`copyAllButBodyParametersReturnTypeAnnotationsExceptionTypes`, a factory-method return the
+constructor-call-only freshness fixpoint cannot see. **Next quest: factory-method freshness** -- a
+call to a same-class helper that provably returns a locally-constructed object is fresh at the call
+site, labels = the helper's enm labels plus the argument labels; it unblocks `Info.translate` and
+with it the `*Info` interface family. A second open design point exposed en route: whether a
+formed-but-weak (@FinalFields) eventual verdict on a still-circular cluster member should keep its
+subtypes from the optimistic seed, or whether `immutableSuper` should stay seeded (witnessed) until
+the contraction settles it. Secondary roots, re-measured: `BinaryOperatorImpl`(11),
+`MethodInspection`(10), the markless expression sub-interface ring
+(IntConstant/BooleanConstant/Divide/...), `DependentVariableImpl`, `FieldInspection`.
+
+## Factory-method freshness (2026-07-31, same session): Info.translate lands — survivors 42
+
+The quest above, implemented (all gated; `TypeEventualAnalyzerImpl`):
+
+- **`freshReturn(MethodInfo)`** -- purely syntactic, positive-cached, recursion-refusing, depth-capped
+  (3): a callee provably returns an object constructed in its own body when every return expression is
+  a constructor call, a chain/local rooted in one (the callee's own pass-1 freshness fixpoint, with the
+  factory clause), or a nested factory call; an ABSTRACT callee is a factory when every known
+  implementation is. CST-only, so the cache needs no rederivation reset. Lambdas/anonymous classes are
+  not descended into (their returns are not the method's; effective finality bars them from assigning
+  its locals).
+- **Consumption**: the pass-1 freshness fixpoint and both transition-bail sites accept factory calls
+  (`rootedInFreshOrFactory`), so `T t = copyAllBut(); t.builder()…commit()` and the inline chain both
+  read as the fresh copy's lifecycle; the handed-on gauntlet is skipped for a factory value exactly
+  like for a fluent fresh chain. A factory call ON THE BARE ROOT additionally owes the root's full
+  commitment (`rootCommitmentLabels`, the wrapper-capture precedent one level up) -- the fresh object
+  embeds content the callee read from the root, which argument labels cannot see. Care point learned
+  on the dogfood: when the root never fully commits (`rc == null`) the fold must FALL THROUGH to the
+  ordinary gauntlet, not bail -- a hard bail there silently took down the whole statement print family
+  (opaque-sink route) in the first attempt, enm 908 -> 898; with the fall-through the change is purely
+  additive, enm 908 -> 916, zero losses.
+
+**The `Info.translate` union LANDS** (`enm=[compilationUnitOrEnclosingType, inspection, owner, type,
+typeInfo]`), with `MethodInfo.translate`, `withMethodBody`, and both `copyAllBut…` helpers.
+**Composed scoreboard: survivors 42, retracted ~155, enm 916, eup 409** -- `Element`, `Comment`,
+`MethodInfo`, `ParameterInfo` all leave the never-form roots. Determinism: survivor set and enm layer
+byte-identical across two runs (the retracted COUNT wobbles 155/154 -- a pure-cascade member, the
+documented benign wobble). Gate-off Fernflower A/B: identical modulo the two documented ctor-flake
+lines. Suites: analyzer 272/0 (`TestCommitLabels` INPUT_FACTORY: bare-root factory + inline chain +
+the returns-this negative; gate-off twins). One INPUT_FACTORY lesson: an inline
+`copyAllBut().commit(s)` chain is already PLAINLY non-modifying (the plain layer tracks constructor
+freshness through the chain) -- the pin needs a `content()` read to keep the method modifying so the
+enm walk, not the plain layer, carries it.
+
+**Remaining roots, re-measured (in lean order): `StatementImpl`(24), `Runtime`(23), `Block`(21),
+`MethodInspection`(12), `BinaryOperatorImpl`(11), `DependentVariableImpl`, `FieldInspection`, the
+constant-expression ring (`IntConstant`/`BooleanConstant`, 5 each).** `Info` and `TypeInfo` now form
+(cascade victims only). The statement family (`StatementImpl`/`Block`) and the `Runtime`/`Factory`
+weak-FF caps are the next quests.
+
+## The ZipLists contract (2026-07-31, same session): the statement family forms — survivors 55
+
+The `StatementImpl`/`Block` root decoded in one site trace: `Statement.withBlocks(List)` was the ONE
+unexcused abstract method on `Statement`, its union blocked by exactly
+`SwitchStatementNewStyleImpl.withBlocks` and `TryStatementImpl.withBlocks` — both of which hand their
+container field (`entries`, `catchClauses`) to **`ZipLists.zip(List, List)`**, a maddi-util JAR static
+with no contract: no `UNMODIFIED_PARAMETER`, so the argument-position container ride-along refuses,
+and the zip-stream receiver chain stays uncommitted. The fix is the `Either.isLeft`/EFOD precedent —
+contract the leaf: `zip` is `@NotModified` with `@NotModified @Independent(hc=true)` parameters and an
+`@Independent(hc=true)` return (it only iterates; the stream shares nothing but elements), mirroring
+`ListUtil.joinLists` in the same module.
+
+**Composed scoreboard: survivors 42 -> 55, retracted 141, enm 918, eup 409.** The
+`Statement.withBlocks` union lands (`enm=[entries, expression, initializer, initializers, selector,
+updaters]` + eup on `tSubBlocks`), zero unexcused `withBlocks` remain, `Block` forms
+`@FinalFields(after=…)`, and `StatementImpl`/`Block` leave the roots. Determinism: survivor set, enm
+layer and retracted count all identical across two runs. Gate-off Fernflower A/B: **0-line diff**
+(the corpus never has maddi-util on its analyzed classpath). Analyzer suite 272/0.
+
+*Operational note:* the dogfood `inputConfiguration.json` still references `maddi-util-0.8.2.jar`
+(generated 2026-07-23) while the build now produces 0.9.0 — the 0.8.2 file was refreshed in place for
+these runs; regenerate the configuration per `dogfood/README.md` at the next opportunity.
+
+**Remaining roots: `Runtime`(23) — sunk by `Factory`'s unconditional `@FinalFields`, whose two stuck
+methods (`commonType`, `newInlineConditional`) both funnel into the wrapper-capture shape
+`new CommonType(this).commonType(pt1, pt2)` where `CommonType.commonType` carries the recorded
+unwritable ∅-enm (world-graph modification through its `runtime` field) — the wrapper fold has no
+promise to translate. Then `MethodInspection`(12), `BinaryOperatorImpl`(11), `DependentVariableImpl`,
+`FieldInspection`, the constant-expression ring.**

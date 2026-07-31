@@ -451,7 +451,10 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         private final String api;
         private final List<String> implementations;
         private final SetOnce<TypeInfo> apiResolved = new SetOnce<>();
-        private final List<TypeInfo> implementationsResolved = new ArrayList<>();
+        // commit-once, like apiResolved: a plain ArrayList filled by an adder made this type mutable and
+        // cost it (and, through the Element.typesReferenced abstract union, the whole Element hierarchy)
+        // its eventual-immutability verdict -- see docs/eventual-info-hierarchy.md
+        private final SetOnce<List<TypeInfo>> implementationsResolved = new SetOnce<>();
 
         ProvidesImpl(Source source, List<Comment> comments, String api, List<String> implementations) {
             this.source = source;
@@ -491,13 +494,13 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
-        public void addImplementationResolved(TypeInfo typeInfo) {
-            this.implementationsResolved.add(typeInfo);
+        public void setImplementationsResolved(List<TypeInfo> typeInfos) {
+            this.implementationsResolved.set(List.copyOf(typeInfos));
         }
 
         @Override
         public List<TypeInfo> implementationsResolved() {
-            return implementationsResolved;
+            return implementationsResolved.getOrDefault(List.of());
         }
 
         @Override
@@ -547,7 +550,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         @Override
         public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
             Stream<Element.TypeReference> s1 = typeReference(apiResolved(), source);
-            Stream<Element.TypeReference> s2 = implementationsResolved.stream()
+            Stream<Element.TypeReference> s2 = implementationsResolved().stream()
                     .flatMap(impl -> typeReference(impl, source));
             return Stream.concat(s1, s2);
         }

@@ -209,10 +209,11 @@ public interface ModuleInfo extends Info {
         List<String> implementations();
 
         /**
-         * Records a resolved {@link TypeInfo} for one implementation class. Called once per implementation during
-         * type resolution, in declaration order.
+         * Records the resolved {@link TypeInfo}s of the implementation classes, in declaration order.
+         * Called once during type resolution, after every implementation has been looked up; subsequent calls
+         * throw — commit-once, like {@link #setApiResolved(TypeInfo)}, so the directive stays eventually final.
          */
-        void addImplementationResolved(TypeInfo typeInfo);
+        void setImplementationsResolved(List<TypeInfo> typeInfos);
 
         /** Returns the resolved {@link TypeInfo}s for the implementation classes (may be shorter than {@link
          *  #implementations()} if some did not resolve). */

@@ -831,4 +831,70 @@ public class TestCommitLabels extends CommonTest {
             EventualCluster.ENABLED = saved;
         }
     }
+
+    // the MethodInfoImpl.translate shape, reduced: the fresh copy comes from a same-class FACTORY helper
+    // (copyAllBut…), so the constructor-only freshness cannot see it; the transition (commit) then runs on
+    // the factory's result. notAFactory returns 'this' -- its result must NOT be treated as fresh.
+    @Language("java")
+    private static final String INPUT_FACTORY = """
+            import org.e2immu.support.EventuallyFinalOnDemand;
+
+            public class V {
+              static class T {
+                private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
+                private final String name;
+                T(String name) { this.name = name; }
+                public void commit(String s) { inspection.setFinal(s); }
+                public String content() { return inspection.get(); }
+                private T copyAllBut() { T t = new T(name); return t; }
+                private T notAFactory() { return this; }
+                public T translate(String suffix) {
+                  T t = copyAllBut();
+                  t.commit(content() + suffix);
+                  return t;
+                }
+                public void inlineChain(String s) { copyAllBut().commit(content() + s); }
+                public void selfReturned(String s) { notAFactory().commit(s); }
+              }
+            }
+            """;
+
+    @DisplayName("gate on: a same-class factory's result is fresh -- the translate shape lands")
+    @Test
+    public void testFactoryFreshness() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = true;
+        try {
+            TypeInfo V = javaInspector.parse("V", INPUT_FACTORY);
+            analyzer.go(prepWork(V));
+            TypeInfo T = V.findSubType("T");
+            // t = copyAllBut(); t.commit(...): the transition is the factory result's own lifecycle; the
+            // bare-root factory owes the root's full commitment ([inspection]; 'name' is harmless String)
+            assertEquals(Set.of("inspection"), nonModAfter(T, "translate", 1));
+            // the same shape inline, via the rootedInFreshOrFactory chain (content() keeps it plainly
+            // modifying, so the enm walk -- not the plain layer -- must carry it)
+            assertEquals(Set.of("inspection"), nonModAfter(T, "inlineChain", 1));
+            // notAFactory() returns 'this' -- not fresh: committing through it stays this's transition, bail
+            assertEquals(Set.of(), nonModAfter(T, "selfReturned", 1));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
+
+    @DisplayName("gate off: the factory shapes stay unexcused")
+    @Test
+    public void testFactoryFreshnessGateOff() {
+        boolean saved = EventualCluster.ENABLED;
+        EventualCluster.ENABLED = false;
+        try {
+            TypeInfo V = javaInspector.parse("V", INPUT_FACTORY);
+            analyzer.go(prepWork(V));
+            TypeInfo T = V.findSubType("T");
+            assertEquals(Set.of(), nonModAfter(T, "translate", 1));
+            assertEquals(Set.of(), nonModAfter(T, "inlineChain", 1));
+            assertEquals(Set.of(), nonModAfter(T, "selfReturned", 1));
+        } finally {
+            EventualCluster.ENABLED = saved;
+        }
+    }
 }

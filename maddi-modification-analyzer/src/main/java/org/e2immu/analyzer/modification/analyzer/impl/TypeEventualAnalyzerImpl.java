@@ -745,7 +745,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         // content, and they are committed below like any other call's
         Value.Eventual calleeEventual = eventualOf(mc.methodInfo());
         if ((calleeEventual.isMark() || calleeEventual.isOnly() && Boolean.FALSE.equals(calleeEventual.after()))
-            && !rootedInFresh(mc.object(), ctx)
+            && !rootedInFreshOrFactory(mc.object(), ctx)
             && !receiverProvablyNotRoot(walk, mc.object(), ctx)) {
             if (siteDebug()) ecsite("transition bail (excuse): " + mc.methodInfo().fullyQualifiedName()
                                     + " eventual=" + calleeEventual);
@@ -899,6 +899,139 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         return false;
     }
 
+    // ---- factory-method freshness (EVENTUALCLUSTER; the drift-round follow-up quest) ----
+
+    // positive cache only: freshness is a syntactic fact of the CST (no verdicts involved, so no
+    // rederivation reset either), but a depth-capped or recursion-refused attempt may succeed from a
+    // shallower start, so negatives are never cached
+    private final Set<MethodInfo> freshReturnCache = ConcurrentHashMap.newKeySet();
+    private static final int MAX_FRESH_RETURN_DEPTH = 3;
+
+    /**
+     * Does a call to {@code methodInfo} provably return an object constructed within the callee's own body —
+     * a FACTORY ({@code MethodInfoImpl.copyAllButBodyParametersReturnTypeAnnotationsExceptionTypes},
+     * {@code TypeParameterImpl.withOwnerVariableTypeBounds})? The constructor-only freshness fixpoint cannot
+     * see through the method boundary, which poisoned every translate/with-style body that builds its copy in
+     * a same-class helper: the helper's result was an unknown local, and the {@code builder()}/{@code commit()}
+     * calls on it read as this's transition. A transition on a factory result is the fresh object's lifecycle,
+     * exactly as for an inline constructor call. An abstract callee is fresh when every known implementation
+     * is (dynamic dispatch runs one of them). Purely syntactic and recursion-refusing ({@code visiting}).
+     */
+    private boolean freshReturn(MethodInfo methodInfo, int depth, Set<MethodInfo> visiting) {
+        if (!EventualCluster.ENABLED) return false;
+        if (freshReturnCache.contains(methodInfo)) return true;
+        if (depth >= MAX_FRESH_RETURN_DEPTH || !visiting.add(methodInfo)) return false;
+        try {
+            boolean result;
+            if (methodInfo.isAbstract()) {
+                result = false;
+                for (MethodInfo im : methodInfo.analysis()
+                        .getOrDefault(PropertyImpl.IMPLEMENTATIONS, ValueImpl.SetOfMethodInfoImpl.EMPTY)
+                        .methodInfoSet()) {
+                    if (!freshReturn(im, depth + 1, visiting)) {
+                        result = false;
+                        break;
+                    }
+                    result = true; // at least one implementation, and all of them fresh
+                }
+            } else {
+                result = computeFreshReturn(methodInfo, depth, visiting);
+            }
+            if (result) freshReturnCache.add(methodInfo);
+            return result;
+        } finally {
+            visiting.remove(methodInfo);
+        }
+    }
+
+    private boolean computeFreshReturn(MethodInfo methodInfo, int depth, Set<MethodInfo> visiting) {
+        if (methodInfo.methodBody() == null || methodInfo.methodBody().isEmpty()) return false;
+        // the callee's own fresh-locals fixpoint (the buildLocalContext pass-1 shape), plus this method's
+        // returns. Lambdas / anonymous classes are not descended into: their returns are not this method's,
+        // and Java's effective-finality rule means they cannot assign this method's locals either.
+        Map<Variable, List<Expression>> assignments = new HashMap<>();
+        List<Expression> returns = new ArrayList<>();
+        methodInfo.methodBody().visit(e -> {
+            if (e instanceof Lambda || e instanceof MethodReference) return false;
+            if (e instanceof ConstructorCall cc && cc.anonymousClass() != null) return false;
+            if (e instanceof LocalVariableCreation lvc) {
+                lvc.localVariableStream().forEach(lv ->
+                        recordAssignment(assignments, lv, lv.assignmentExpression()));
+            } else if (e instanceof Assignment a
+                       && !(a.variableTarget() instanceof FieldReference)
+                       && !(a.variableTarget() instanceof This)) {
+                recordAssignment(assignments, a.variableTarget(), a.value());
+            } else if (e instanceof ReturnStatement rs && rs.expression() != null && !rs.expression().isEmpty()) {
+                returns.add(rs.expression());
+            }
+            return true;
+        });
+        if (returns.isEmpty()) return false;
+        Set<Variable> fresh = new HashSet<>();
+        boolean grew = true;
+        while (grew) {
+            grew = false;
+            for (Map.Entry<Variable, List<Expression>> entry : assignments.entrySet()) {
+                if (!fresh.contains(entry.getKey())
+                    && entry.getValue().stream().allMatch(v -> freshValue(v, fresh, depth, visiting))) {
+                    fresh.add(entry.getKey());
+                    grew = true;
+                }
+            }
+        }
+        return returns.stream().allMatch(r -> freshValue(r, fresh, depth, visiting));
+    }
+
+    /** {@link #rootedInFresh(Expression, Set)} with the factory clause: a nested factory call is fresh too. */
+    private boolean freshValue(Expression expr, Set<Variable> fresh, int depth, Set<MethodInfo> visiting) {
+        if (expr instanceof ConstructorCall cc) return cc.anonymousClass() == null;
+        if (expr instanceof VariableExpression ve) return fresh.contains(ve.variable());
+        if (expr instanceof Cast cast) return freshValue(cast.expression(), fresh, depth, visiting);
+        if (expr instanceof EnclosedExpression ee) return freshValue(ee.inner(), fresh, depth, visiting);
+        if (expr instanceof InlineConditional ic) {
+            return freshValue(ic.ifTrue(), fresh, depth, visiting)
+                   && freshValue(ic.ifFalse(), fresh, depth, visiting);
+        }
+        if (expr instanceof MethodCall mc) {
+            // a fluent chain rooted in a fresh value (the rootedInFresh convention), or a nested factory
+            return mc.object() != null && rootedInFresh(mc.object(), fresh)
+                   || freshReturn(mc.methodInfo(), depth + 1, visiting);
+        }
+        return false;
+    }
+
+    /** Is this call a factory call — its value a provably fresh object? */
+    private boolean factoryCall(MethodCall mc) {
+        return EventualCluster.ENABLED && freshReturn(mc.methodInfo(), 0, new HashSet<>());
+    }
+
+    /** {@link #rootedInFresh(Expression, LocalContext)} extended with the factory clause (gated): a chain
+     *  based in a factory call's result is a fresh object's lifecycle just like one based in a constructor
+     *  call or a fresh local. */
+    private boolean rootedInFreshOrFactory(Expression expr, LocalContext ctx) {
+        if (expr == null) return false;
+        if (rootedInFresh(expr, ctx)) return true;
+        if (!EventualCluster.ENABLED) return false;
+        if (expr instanceof MethodCall mc) {
+            return factoryCall(mc) || rootedInFreshOrFactory(mc.object(), ctx);
+        }
+        if (expr instanceof Cast cast) return rootedInFreshOrFactory(cast.expression(), ctx);
+        if (expr instanceof EnclosedExpression ee) return rootedInFreshOrFactory(ee.inner(), ctx);
+        if (expr instanceof InlineConditional ic) {
+            return rootedInFreshOrFactory(ic.ifTrue(), ctx) && rootedInFreshOrFactory(ic.ifFalse(), ctx);
+        }
+        return false;
+    }
+
+    /** The factory clause alone, for the pass-1 freshness fixpoint (no LocalContext yet). */
+    private boolean freshViaFactory(Expression expr) {
+        if (!EventualCluster.ENABLED) return false;
+        if (expr instanceof Cast cast) return freshViaFactory(cast.expression());
+        if (expr instanceof EnclosedExpression ee) return freshViaFactory(ee.inner());
+        if (expr instanceof InlineConditional ic) return freshViaFactory(ic.ifTrue()) && freshViaFactory(ic.ifFalse());
+        return expr instanceof MethodCall mc && factoryCall(mc);
+    }
+
     /**
      * EVENTUALCLUSTER only. The mark labels after which {@code expr}'s value can no longer be used to modify
      * {@code owner}'s ({@code this}'s) accessible state: the empty set when the value is not derived from
@@ -1007,7 +1140,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             if (siteDebug()) ecsite("MC " + mc.methodInfo().fullyQualifiedName()
                     + " calleeEventual=" + calleeEventual);
             if ((calleeEventual.isMark() || calleeEventual.isOnly() && Boolean.FALSE.equals(calleeEventual.after()))
-                && !rootedInFresh(mc.object(), ctx)
+                && !rootedInFreshOrFactory(mc.object(), ctx)
                 && !receiverProvablyNotRoot(walk, mc.object(), ctx)) {
                 if (siteDebug()) ecsite("transition bail: " + mc.methodInfo().fullyQualifiedName());
                 return null;
@@ -1061,6 +1194,22 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                         acc.addAll(enm);
                     }
                 }
+                // a FACTORY call on the bare root (this.copyAllBut…(tm)): the value is a fresh object -- no
+                // handed-on gauntlet -- but it embeds content the callee read from the root, which the
+                // argument labels cannot see. A bare-root capture owes the root's full commitment, exactly
+                // as in the wrapper-capture fold. When the root never fully commits (rc == null), fall
+                // through to the ordinary gauntlet instead of bailing: the opaque-sink and owner-seed routes
+                // (the statement print family) must keep working exactly as before.
+                if (factoryCall(mc)) {
+                    Set<String> rc = rootCommitmentLabels(walk);
+                    if (rc != null) {
+                        if (siteDebug()) ecsite("factory on root " + mc.methodInfo().name()
+                                                + " -> " + new TreeSet<>(rc));
+                        acc.addAll(rc);
+                        return commitArguments(walk, mc, ctx, depth, acc, true);
+                    }
+                    if (siteDebug()) ecsite("factory on root, no full commitment: " + mc.methodInfo().name());
+                }
                 receiverCommitted = false;
             } else {
                 Set<String> receiver = commitLabels(walk, mc.object(), ctx, depth);
@@ -1097,8 +1246,10 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                     && eventualCluster.treatAsEventuallyImmutable(walk.member(), walk.labelType(),
                     eventuallyImmutable(walk.labelType()));
             // a chain rooted in a fresh object (the fluent newField.builder().setX(..).setY(..)) hands on
-            // fresh-owned state; the root-derived values stored into it are committed by the labels in acc
-            boolean freshRooted = rootedInFresh(mc.object(), ctx);
+            // fresh-owned state; the root-derived values stored into it are committed by the labels in acc.
+            // A factory call's own value is fresh-owned the same way (its root-derived content arrived via
+            // the committed receiver and the arguments, all folded into acc).
+            boolean freshRooted = rootedInFreshOrFactory(mc.object(), ctx) || factoryCall(mc);
             // EVENTUALCLUSTER (handoff-builder-leans §4b resolution): a chain whose BASE is provably not
             // root-derived (the rewired copy's ∅-tracked builder local, the infoMap parameter) hands on a
             // value of another object's graph. The root-derived content that flowed in via the arguments is
@@ -1714,7 +1865,8 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             grew = false;
             for (Map.Entry<Variable, List<Expression>> entry : assignments.entrySet()) {
                 if (!freshCandidates.contains(entry.getKey())
-                    && entry.getValue().stream().allMatch(v -> rootedInFresh(v, freshCandidates))) {
+                    && entry.getValue().stream().allMatch(v -> rootedInFresh(v, freshCandidates)
+                                                               || freshViaFactory(v))) {
                     freshCandidates.add(entry.getKey());
                     grew = true;
                 }
