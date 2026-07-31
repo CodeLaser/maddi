@@ -108,7 +108,7 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         boolean stopExternal = false;
         for (ParameterizedType superType : typeInfo.parentAndInterfacesImplemented()) {
             TypeInfo superTypeInfo = superType.typeInfo();
-            Independent independentSuper = independentSuper(superTypeInfo, afterMark);
+            Independent independentSuper = independentSuper(typeInfo, superTypeInfo, afterMark);
             Independent independentSuperBroken;
             if (independentSuper == null) {
                 if (activateCycleBreaking) {
@@ -143,7 +143,8 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         return indyFromHierarchy.min(fromFieldsAndAbstractMethods);
     }
 
-    private Independent independentSuper(TypeInfo superTypeInfo, TypeImmutableAnalyzer.AfterMark afterMark) {
+    private Independent independentSuper(TypeInfo member, TypeInfo superTypeInfo,
+                                         TypeImmutableAnalyzer.AfterMark afterMark) {
         if (!afterMark.isNone()) {
             // mirrors immutableSuper: after OUR mark the supertype has been marked too -- the transition belongs
             // to the object, not to one type -- so it is independent to the degree its after-mark immutability
@@ -155,6 +156,17 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
                 Independent plain = superTypeInfo.analysis().getOrNull(INDEPENDENT_TYPE,
                         ValueImpl.IndependentImpl.class);
                 return plain == null ? fromMark : fromMark.max(plain);
+            }
+            // EVENTUALCLUSTER: the supertype's own verdict is still circular (SumImpl waiting on
+            // BinaryOperatorImpl, which forms-and-retracts on the wider ledger) -- the immutableSuper seed,
+            // independence side: contribute independent-hc optimistically, witnessed for the contraction.
+            // Without this the sub-impls' after-mark independence fell to the super's honest unconditional
+            // @Dependent through the hierarchy min, and the dependence cap froze them at MUTABLE.
+            if (eventualCluster.treatAsEventuallyImmutable(member, superTypeInfo, ev)) {
+                Independent plain = superTypeInfo.analysis().getOrNull(INDEPENDENT_TYPE,
+                        ValueImpl.IndependentImpl.class);
+                Independent optimistic = ValueImpl.IndependentImpl.INDEPENDENT_HC;
+                return plain == null ? optimistic : optimistic.max(plain);
             }
         }
         Independent ofType = superTypeInfo.analysis().getOrNull(INDEPENDENT_TYPE, ValueImpl.IndependentImpl.class);

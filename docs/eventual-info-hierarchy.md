@@ -1608,3 +1608,33 @@ independence skip is corpus-inert as argued. Suites: analyzer 274/0, cst-impl 73
 **Remaining roots, re-measured: `Runtime`(22, pure cascade), `FieldInspection`(5),
 `SumImpl`(5), then a ring at 3 (`LocalVariableCreationImpl`, `AnnotationExpressionImpl`, and the
 markless expression sub-interfaces `Negation`/`EnclosedExpression`/`BitwiseNegation`).**
+
+## The seed completion (2026-07-31, same session): Runtime survives — survivors 75
+
+Two symmetric gaps, closed (both gated):
+
+1. **The `independentSuper` seed.** `immutableSuper` has had the still-circular-candidate seed since
+   the prototype; its independence twin did not — a sub-impl's after-mark independence fell to the
+   super's honest unconditional `@Dependent` through the hierarchy min, and the dependence cap froze
+   `SumImpl`, `LocalVariableCreationImpl`, `AnnotationExpressionImpl` (and the eval family) at
+   MUTABLE-after-mark. `independentSuper` now contributes independent-hc for a witnessed candidate
+   supertype, exactly as `immutableSuper` contributes immutable-hc.
+
+2. **The a-fortiori skip in Parts A and B.** `ExpressionWrapper` — a MIXIN outside the cluster,
+   unconditionally `@Immutable(hc=true)` — failed Part B's admissibility bail and kept the whole
+   `Negation`/`EnclosedExpression`/`BitwiseNegation` ring markless. An unconditionally immutable-hc
+   supertype (Part B) or subclass (Part A) contributes no labels and blocks nothing — the same
+   discharge rule the contraction and `isEventuallyImmutableFieldType` already apply.
+
+**Composed scoreboard: survivors 72 -> 75, and `api.runtime.Runtime` — the 22-lean root — SURVIVES**,
+with the negation ring and `EvalCast`/`EvalInstanceOf`/`EvalRemainder`. The retraction-root list is
+down to `FieldInspection`(5), `EvalNegation`(2) and `Value.*` singletons; the CompilationUnit
+foursome retracts as pure cascade (`broken: []`). Determinism: survivor set + enm layer identical
+across two runs. Gate-off Fernflower A/B: **0-line diff**. Analyzer suite 274/0.
+
+**The last named circle, characterized for next session:** `FieldInspectionImpl` forms and retracts
+leaning ONLY on its interface `FieldInspection`, which is markless with legitimately label-less
+supers (`Inspection` is unconditionally hc) and no enm-carrying methods of its own — the missing
+direction is IMPLEMENTATION -> INTERFACE label inheritance at type level (Part A covers
+subclass -> abstract class; the interface twin does not exist yet). Everything else in the ledger is
+cascade behind it.

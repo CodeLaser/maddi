@@ -312,6 +312,9 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                         Set<String> subLabels = Set.of(subVerdict.markLabel().split(","));
                         if (shared == null) shared = new HashSet<>(subLabels);
                         else shared.retainAll(subLabels);
+                    } else if (immutableOf(subclass).isAtLeastImmutableHC()) {
+                        // a fortiori: an unconditionally immutable-hc subclass is compatible with any label
+                        // set -- it constrains the shared transition with nothing, and needs no seed
                     } else if (!eventualCluster.treatAsEventuallyImmutable(typeInfo, subclass, subVerdict)) {
                         allEventual = false;
                         break;
@@ -343,6 +346,10 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                         EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
                 if (sv.isEventual()) {
                     inherited.addAll(Set.of(sv.markLabel().split(",")));
+                } else if (immutableOf(st).isAtLeastImmutableHC()) {
+                    // a fortiori: an unconditionally immutable-hc supertype (ExpressionWrapper, a mixin
+                    // outside the cluster) contributes no labels and blocks nothing -- it kept the whole
+                    // Negation/EnclosedExpression/BitwiseNegation ring markless via the admissibility bail
                 } else if (!eventualCluster.treatAsEventuallyImmutable(typeInfo, st, sv)) {
                     admissible = false;
                     break;
