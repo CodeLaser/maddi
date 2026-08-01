@@ -1,9 +1,15 @@
-# A method's type parameters are lost to the symbol scanner when a caller is scanned first
+# Type parameters are lost to the symbol scanner: two routes, one root cause
 
-**Written 2026-08-01. RESOLVED 2026-08-01** — §5 was the plan, §7 is what landed. Front end:
-`maddi-java-openjdk` (the javac one). `TestMethodTypeParameterSource` in `maddi-java-openjdk` pins it: its
-two caller-first drivers are now identical to the declaration-first ones, which is the property that
-matters.
+**Written 2026-08-01. RESOLVED 2026-08-01.** Front end: `maddi-java-openjdk` (the javac one).
+
+Two bugs with the same root cause — **the symbol scanner writing type parameters onto a type the source scan
+owns** — reached by opposite routes, and §8 is the second one. In both the symbol view silently won over the
+declaration: no source position, and every bound widened with `? extends`.
+
+| | route | why the symbol won | pinned by |
+|---|---|---|---|
+| **method** type parameters (§1–§7) | the symbol view arrives **first**, from a call site | `MethodInfo.Builder` has no `addOrSet`, so the declaration could not replace it | `TestMethodTypeParameterSource` |
+| **class** type parameters (§8) | the symbol view arrives **second**, via a nested type | `addOrSetTypeParameter` replaces by index, so it overwrote the declaration | `TestClassTypeParameterSource` |
 
 ## 1. What happened
 
@@ -182,5 +188,73 @@ One unrelated casualty found on the way: `TestFormatterStress` passed `scan("X",
 `a.b.X` is required, so it had been failing on its own for a while. Fixed, since it was masking the rest of
 the module's `slowTest`.
 
-**Still open**: the 8% of *class* type parameters that come back without a source on timefold-solver (§3).
-Different route, untouched by this.
+**Then still open**: the 8% of *class* type parameters that came back without a source on timefold-solver
+(§3). That turned out to be the second route; see §8.
+
+## 8. The second route: class type parameters, overwritten by a nested type
+
+§3 recorded that 285 of timefold's 3469 class type parameters also lacked a source, "by some route the
+reproducer does not reach". It is the mirror of §1, and it needs nothing exotic at all.
+
+**The trigger is a forward reference from a type to its own nested type.** Guava's `AbstractIterator`:
+
+```java
+public class AbstractIterator<T> {
+    private State state = State.NOT_READY;    // State is not registered yet ...
+    private enum State { ... }                // ... it is declared here
+}
+```
+
+Resolving `State` at the field finds no registered subtype, so it is loaded from its symbol
+(`lazilyLoadTypeFromClassFile`, whose name is misleading — no class file need exist). Loading a **nested**
+type lazily loads its **enclosing** type, "so that we can compute access as soon as possible" — and that
+enclosing type is the one the scan is in the middle of building. `loadType` returns early only on
+`hasBeenInspected()`, which is false until the whole compilation unit is committed, so its setup block ran on
+a half-built source type. `addOrSetTypeParameter` **replaces by index**, so the symbol-built type parameters
+won over the ones `continueType` had produced seconds earlier.
+
+The stack, which is what settled it:
+
+```
+ClassSymbolScanner.loadType:384          <- the setup block, overwriting
+ClassSymbolScanner.loadType:373          <- "ensure that the enclosing types have at least been lazily loaded"
+ClassSymbolScanner.lazilyLoadTypeFromClassFile:247
+ClassSymbolScanner.classTypeInfo / classType / convertTree
+ScanCompilationUnit.convertTypeWithAnnotations / visitVariable   <- a field declaration, mid-scan
+```
+
+### What it was, and is
+
+| corpus | source sets | generic types affected | class type params without source |
+|---|---:|---:|---:|
+| guava | 1 | 37 of 698 | 68 of 1120 → **0** |
+| timefold-solver | 64 | 74 of 1469 | 285 of 3469 → **0** |
+| jenkins | 2 | 1 of 145 | 2 of 183 → **0** |
+| langchain4j | 2 | 1 of 63 | 1 of 97 → **0** |
+| fernflower | 2 | 0 of 9 | 0 → 0 |
+| activemq | — | 0 of 8 | 0 → 0 |
+
+Guava is the one that mattered: **one** source set, and the same ~5% rate as timefold's sixty-four. That
+killed the theory that this was about project structure, and every affected type turned out to have a nested
+type.
+
+### Two negative results, recorded so nobody re-runs them
+
+- **Source-to-source references do not do it.** `B extends A<String>`, a field of type `A`, a call to a static
+  method of `A`, a use of `A.Nested` — all fine, in either scan order. The reference has to be one the source
+  scan has not registered *yet*.
+- **The same FQN as both source and class file does not do it.** timefold's corpus puts 67 of its own
+  `target/classes` directories on the parse classpath, which looked like the obvious culprit; javac prefers
+  the source and the class file is never read. Compiling `A` to a temp directory and putting it on the
+  classpath alongside `A`'s source reproduces nothing.
+
+### The guard
+
+In `loadType`'s setup block: when the type already holds type parameters and **every one of them has a
+source**, they were built by the declaration — keep them, and register those instances in the type-parameter
+map so the supertype and interface conversions below resolve against what the type actually holds. Anything
+else falls through to the symbol path exactly as before.
+
+Deliberately narrow. The alternative — having `ScanCompilationUnit.continueType` mark the type as
+class-scanner-setup-done, so the whole block is skipped — is tidier but also skips the parent class, the
+interfaces and the annotations, which is a much larger behavioural change for no measured benefit.

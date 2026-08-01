@@ -378,19 +378,43 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     builder.addAnnotations(loadAnnotations(cs));
                 }
 
-                int index = 0;
                 newTypeParameterMap();
-                List<TypeParameter> created = new ArrayList<>();
-                for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
-                    TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), newTypeInfo);
-                    putInLastTypeParameterMap(newTp);
-                    created.add(newTp);
-                    builder.addOrSetTypeParameter(newTp);
-                }
-                int i = 0;
-                for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
-                    TypeParameter newTp = created.get(i++);
-                    addTypeBoundsAndCommit(cs, newTypeInfo, typeParameter, newTp);
+                // Do not overwrite type parameters the SOURCE scan has already built. A nested type resolved
+                // from a class file is lazily loaded, and loading it lazily loads its enclosing type (the block
+                // just above) -- which may be a type this very task has already visited as source. Its type
+                // parameters then carry the declaration's position and its bounds as written, and the
+                // symbol-built replacements would carry neither: no source at all, and every bound widened with
+                // '? extends' by addTypeBoundsAndCommit. addOrSetTypeParameter REPLACES by index, so without
+                // this the later symbol view silently wins over the earlier source view.
+                //
+                // Measured before the guard: 37 of guava's 698 generic types and 74 of timefold's 1469 -- all
+                // of them types with a nested type, which is the shape that reaches here (Equivalence, HashBiMap,
+                // BloomFilter, Invokable). The mirror of the method-type-parameter case, where the symbol view
+                // came FIRST and could not be replaced; see docs/method-type-parameter-source-loss.md.
+                //
+                // Conservative: only when every one of them is source-built, and only when the counts agree.
+                // Anything else falls through to the symbol path exactly as before.
+                boolean keepSourceBuilt = !newTypeInfo.typeParameters().isEmpty()
+                                          && newTypeInfo.typeParameters().size() == cs.getTypeParameters().size()
+                                          && newTypeInfo.typeParameters().stream().allMatch(tp -> tp.source() != null);
+                if (keepSourceBuilt) {
+                    // still register them, so that the supertype/interface conversions below resolve their
+                    // type variables against the instances the type actually holds
+                    newTypeInfo.typeParameters().forEach(this::putInLastTypeParameterMap);
+                } else {
+                    int index = 0;
+                    List<TypeParameter> created = new ArrayList<>();
+                    for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
+                        TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), newTypeInfo);
+                        putInLastTypeParameterMap(newTp);
+                        created.add(newTp);
+                        builder.addOrSetTypeParameter(newTp);
+                    }
+                    int i = 0;
+                    for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
+                        TypeParameter newTp = created.get(i++);
+                        addTypeBoundsAndCommit(cs, newTypeInfo, typeParameter, newTp);
+                    }
                 }
                 popTypeParameterMap();
 
@@ -877,8 +901,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         // The type parameters are deferred on the same condition as the parameters, and for a second reason on
         // top of the source. Unlike a parameter, a type parameter cannot be REPLACED once the declaration is
         // reached: MethodInfo.Builder offers addTypeParameter and no addOrSet, where TypeInfo.Builder offers
-        // addOrSetTypeParameter -- which is why a class type parameter was never affected by this and a
-        // method's was. So what is committed here is what the method keeps.
+        // addOrSetTypeParameter. So what is committed here is what the method keeps -- where a CLASS type
+        // parameter, arriving here first, would simply be replaced by the declaration's (it has the opposite
+        // problem, of being replaced when it should not be; see the guard in loadType).
         //
         // It would keep two wrong things. The declaration has no source, so nothing can locate the `<T ...>`
         // token (rename renamed every USE of it and left the declaration: "cannot find symbol", silently). And
