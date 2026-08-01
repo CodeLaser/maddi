@@ -357,6 +357,41 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             }
             if (admissible) markLabels.addAll(inherited);
         }
+        // EVENTUALCLUSTER, Part A'' -- implementation -> INTERFACE label inheritance (the last named circle:
+        // FieldInspectionImpl formed-and-retracted leaning only on its markless interface). A markless
+        // interface whose Part B supers legitimately carry no labels (Inspection is unconditionally hc)
+        // inherits the shared transition of its analyzed direct implementors, exactly as an abstract class
+        // inherits its subclasses' (Part A): the promise is the object's, not one type's. Setter-bearing
+        // implementors (the Builders) are the BEFORE-state face of the same objects and define no
+        // after-state labels: skipped, consistent with the candidacy refusal. Soundness rests, as for
+        // Parts A and B, on immutableAfterMark below still checking the interface's own methods in full.
+        // TERMINAL-phase and candidates only: fired eagerly, this minted implementor labels into write-once
+        // verdicts in iteration 1 -- before the supers Part B waits on had formed -- and the mislabeled
+        // interfaces took the whole cluster down (survivors 75 -> 32 on the first attempt).
+        if (markLabels.isEmpty() && EventualCluster.ENABLED && typeInfo.isInterface()
+            && activateCycleBreaking && eventualCluster.isCandidate(typeInfo)) {
+            Set<TypeInfo> implementors = eventualCluster.knownImplementors(typeInfo);
+            if (!implementors.isEmpty()) {
+                Set<String> shared = null;
+                boolean allEventual = true;
+                for (TypeInfo implementor : implementors) {
+                    if (eventualCluster.isSetterBearing(implementor)) continue;
+                    Value.EventuallyImmutable iv = implementor.analysis().getOrDefault(
+                            EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+                    if (iv.isEventual()) {
+                        Set<String> labels = Set.of(iv.markLabel().split(","));
+                        if (shared == null) shared = new HashSet<>(labels);
+                        else shared.retainAll(labels);
+                    } else if (immutableOf(implementor).isAtLeastImmutableHC()) {
+                        // a fortiori: constrains the shared transition with nothing
+                    } else if (!eventualCluster.treatAsEventuallyImmutable(typeInfo, implementor, iv)) {
+                        allEventual = false;
+                        break;
+                    }
+                }
+                if (allEventual && shared != null && !shared.isEmpty()) markLabels.addAll(shared);
+            }
+        }
         // EC_TYPE_DEBUG=<fqn substring>: print the type-level decision path (log-only, env-gated diagnostic
         // in the MODREACH_EXPLAIN style) -- why does a type with fully excused methods still get no verdict?
         boolean dbg = ecTypeDebug(typeInfo);

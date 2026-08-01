@@ -1653,3 +1653,35 @@ deleted; `scanPreconditions` remains gated as before). Validation per the golden
   can only influence `EVENTUAL_METHOD`.
 - Analyzer suite 274/0; `TestEventualDominance`'s gate-off pin now asserts the dominance outcomes on
   both gates.
+
+## Part A'' and the exposure excusals: the cluster closes — survivors 254 (2026-08-01)
+
+The `FieldInspection` circle was the keystone. Three pieces (first two gated, third annotation-driven
+and corpus-inert):
+
+1. **Part A'' — implementation -> INTERFACE label inheritance** (`knownImplementors` in the cluster,
+   the interface twin of Part A): a markless interface inherits the shared transition of its analyzed
+   direct implementors; setter-bearing implementors (the Builders, the before-state face) are skipped.
+   **Fired eagerly this minted implementor labels into write-once verdicts in iteration 1 and crashed
+   survivors 75 -> 32** — restricted to the TERMINAL phase and cluster candidates, it is clean.
+2. **The disclaimed-accessor excusal** in the independence loop: `analysisOfInitializer()` returning
+   the `@IgnoreModifications` store is hidden-content sharing, not dependence — the independence twin
+   of the eventual walk's `isIgnoreModificationsAccessor`, consulting IMPLEMENTATIONS for abstract
+   accessors. Ungated (annotation-driven, corpus-inert).
+3. **The container-exposure clause** in `excused()`: `fieldModifiers()` exposing `Set<FieldModifier>`
+   — a dependent exposure of a container whose every type parameter is excusable (eventual,
+   immutable-hc, or witnessed candidate) is the ride-along carrier the mark labels already name.
+
+**Composed scoreboard: survivors 75 -> 254, retracted 176 -> 2** — the greatest fixpoint closes over
+essentially all of cst-api/cst-impl: the full `Expression`/`Statement`/`Element`/`Info` hierarchies
+(interfaces AND impls), the eval engine, the printers, the variables, `ParameterizedType(Impl)`,
+`Runtime`/`Factory`/`PredefinedImpl`. Flagship levels are the meaningful ones: `Expression`,
+`Statement`, `Info` at `@Immutable(hc=true)(after=…)`, `TypeInfoImpl` after
+`compilationUnitOrEnclosingType,inspection`. The TWO remaining retractions lean on `EvalNegation`
+(never forms — the last named holdout). Determinism: 254 = 254 modulo ONE boundary type
+(`ImportComputer.ImportDetails` flips in/out — the verification-residue boundary, the documented
+`CompilationUnitPrinterImpl` precedent). Suite 274/0; gate-off Fernflower A/B: **0-line diff**.
+
+What remains for retraction-0 and full stability: the `EvalNegation` holdout, the one-type
+determinism wobble (tied to the residue story), and the standing soundness backstop — the witnessed
+contraction — stays on until the corpus A/B ungating of the whole cluster.

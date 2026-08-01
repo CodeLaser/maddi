@@ -125,7 +125,13 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
                 independentSuperBroken = independentSuper;
             }
             indyFromHierarchy = independentSuperBroken.min(indyFromHierarchy);
-            if (indyFromHierarchy.isDependent()) return DEPENDENT;
+            if (indyFromHierarchy.isDependent()) {
+                if (!afterMark.isNone() && ecTypeDebug(typeInfo)) {
+                    System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
+                                       + " DEPENDENT: super " + superTypeInfo.fullyQualifiedName());
+                }
+                return DEPENDENT;
+            }
         }
         if (stopExternal) {
             return null;
@@ -223,7 +229,8 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
                 if (methodIndependent == null) {
                     independent = null;
                 } else if (methodIndependent.isDependent()) {
-                    if (!excused(typeInfo, afterMarkMode, beforeMarkOnly, methodInfo.returnType())) {
+                    if (!ignoreModificationsAccessor(methodInfo)
+                        && !excused(typeInfo, afterMarkMode, beforeMarkOnly, methodInfo.returnType())) {
                         if (afterMarkMode && ecTypeDebug(typeInfo)) {
                             System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
                                                + " DEPENDENT: method " + methodInfo.name()
@@ -296,9 +303,61 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         if (beforeMarkOnly && ev.isEventual()) return true; // the original, ungated rule
         if (afterMarkMode && EventualCluster.ENABLED) {
             if (ev.isEventual()) return true;
-            return eventualCluster.treatAsEventuallyImmutable(member, bestType, ev);
+            if (eventualCluster.treatAsEventuallyImmutable(member, bestType, ev)) return true;
+            // container of committable content (FieldInspection.fieldModifiers() exposing
+            // Set<FieldModifier>): the wrapper is the ride-along carrier the mark labels already name;
+            // each type parameter must itself be excusable (eventual, immutable-hc, or a witnessed
+            // candidate), the §060 stance the eventual walk's container mechanisms apply
+            if (!exposed.parameters().isEmpty()) {
+                for (ParameterizedType param : exposed.parameters()) {
+                    TypeInfo pt = param.bestTypeInfo();
+                    if (pt == null) return false;
+                    Value.EventuallyImmutable pev = eventuallyImmutable(pt);
+                    if (pev.isEventual()) continue;
+                    if (immutableOf(pt).isAtLeastImmutableHC()) continue;
+                    if (eventualCluster.treatAsEventuallyImmutable(member, pt, pev)) continue;
+                    return false;
+                }
+                return true;
+            }
         }
         return false;
+    }
+
+    /** {@code IMMUTABLE_TYPE} with the {@link ContractReader} fallback for a jar type whose contract was
+     *  never materialised into {@code analysis()} -- as in {@code TypeEventualAnalyzerImpl.immutableOf}. */
+    private final Map<TypeInfo, Value.Immutable> immutableCache = new ConcurrentHashMap<>();
+
+    private Value.Immutable immutableOf(TypeInfo typeInfo) {
+        Value.Immutable fromAnalysis = typeInfo.analysis().getOrNull(IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.class);
+        if (fromAnalysis != null) return fromAnalysis;
+        return immutableCache.computeIfAbsent(typeInfo, ti ->
+                contractReader.contracts(ti).get(IMMUTABLE_TYPE) instanceof Value.Immutable i
+                        ? i : ValueImpl.ImmutableImpl.MUTABLE);
+    }
+
+    /**
+     * A getter handing out an {@code @IgnoreModifications} store ({@code FieldInspection.analysisOfInitializer()}
+     * returning the {@code PropertyValueMap} overlay): the value is manual hidden content (road §050), so
+     * exposing it is hidden-content sharing, not dependence — the independence twin of the eventual walk's
+     * {@code isIgnoreModificationsAccessor} and the field loops' skips. An abstract accessor carries no getset
+     * mark of its own, so the IMPLEMENTATIONS are consulted, as in {@code EventualCluster.hasSetters}.
+     * Annotation-driven: a no-op wherever no field carries the annotation.
+     */
+    private boolean ignoreModificationsAccessor(MethodInfo methodInfo) {
+        if (isIgnoreModAccessor(methodInfo)) return true;
+        for (MethodInfo im : methodInfo.analysis()
+                .getOrDefault(IMPLEMENTATIONS, ValueImpl.SetOfMethodInfoImpl.EMPTY).methodInfoSet()) {
+            if (isIgnoreModAccessor(im)) return true;
+        }
+        return false;
+    }
+
+    private static boolean isIgnoreModAccessor(MethodInfo methodInfo) {
+        Value.FieldValue fieldValue = methodInfo.getSetField();
+        return fieldValue != null && fieldValue.field() != null && !fieldValue.setter()
+               && fieldValue.field().analysis()
+                       .getOrDefault(IGNORE_MODIFICATIONS_FIELD, ValueImpl.BoolImpl.FALSE).isTrue();
     }
 
     /** As {@code TypeEventualAnalyzerImpl.eventuallyImmutable}: analysis first, hand-written contract as fallback. */

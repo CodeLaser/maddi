@@ -119,6 +119,28 @@ public class EventualCluster {
         if (parentType != null && !parentType.isJavaLangObject()) {
             subclassesByParent.computeIfAbsent(parentType, k -> ConcurrentHashMap.newKeySet()).add(typeInfo);
         }
+        // the interface twin (Part A''): interface -> analyzed direct implementors, for the
+        // implementation -> interface label inheritance (the FieldInspection <-> FieldInspectionImpl circle)
+        for (ParameterizedType itf : typeInfo.interfacesImplemented()) {
+            TypeInfo it = itf.typeInfo();
+            if (it != null) {
+                implementorsByInterface.computeIfAbsent(it, k -> ConcurrentHashMap.newKeySet()).add(typeInfo);
+            }
+        }
+    }
+
+    // interface -> the analyzed types directly implementing it (Part A''); reset with the hierarchy map
+    private final Map<TypeInfo, Set<TypeInfo>> implementorsByInterface = new ConcurrentHashMap<>();
+
+    /** The analyzed direct implementors of {@code itf} seen so far; empty when none (or off the gate). */
+    public Set<TypeInfo> knownImplementors(TypeInfo itf) {
+        return implementorsByInterface.getOrDefault(itf, Set.of());
+    }
+
+    /** The {@code haveSetters} criterion, for callers that SKIP a setter-bearing member (the Builders are
+     *  the before-state face of the objects; they define no after-state labels). */
+    public boolean isSetterBearing(TypeInfo typeInfo) {
+        return hasSetters(typeInfo);
     }
 
     /** The analyzed direct subclasses of {@code parent} seen so far; empty when none (or off the gate). */
@@ -336,6 +358,7 @@ public class EventualCluster {
         interfaceCandidateCache.clear();
         settersCache.clear();
         subclassesByParent.clear();
+        implementorsByInterface.clear();
         opaqueSignatureCache.clear();
     }
 
