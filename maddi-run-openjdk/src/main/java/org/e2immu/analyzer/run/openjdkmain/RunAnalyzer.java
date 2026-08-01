@@ -255,7 +255,10 @@ public class RunAnalyzer implements Runnable {
                     // MODREACH (PLAN §14 P2.3a, presence-only house convention): post-convergence
                     // reachability pass becomes the single writer of the three modification
                     // properties; implies trackObjectCreations
-                    .setModificationViaReachability(System.getenv("MODREACH") != null)
+                    // UNGATED 2026-08-01 alongside EVENTUALCLUSTER: the eventual layer needs the honest,
+                    // post-cutover modification state (without it the abstract-union race returns);
+                    // MODREACH=0 is the opt-out
+                    .setModificationViaReachability(!"0".equals(System.getenv("MODREACH")))
                     .setFaultTolerant(true) // isolate a crash on one element; report it, don't abort the whole run
                     .setWarnNearMisses(configuration.generalConfiguration().warnNearMisses())
                     .build();

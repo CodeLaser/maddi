@@ -1685,3 +1685,49 @@ essentially all of cst-api/cst-impl: the full `Expression`/`Statement`/`Element`
 What remains for retraction-0 and full stability: the `EvalNegation` holdout, the one-type
 determinism wobble (tied to the residue story), and the standing soundness backstop — the witnessed
 contraction — stays on until the corpus A/B ungating of the whole cluster.
+
+## THE UNGATING (2026-08-01): default-on, and the honest reckoning
+
+`EVENTUALCLUSTER` and `MODREACH` are now **default-on** (`=0` opts out; `EvalNegation.negationCache`
+got its memo disclaimer en route). Running the full unit suite default-on immediately triggered the
+soundness pin `TestEventualPropagation.test7` (the leaked-ArrayList shape) and exposed that **the 254
+rested substantially on two optimisms that bypassed the witnessed ledger**:
+
+1. **The raw-container after-mark skip**: ride-along container fields entered `AfterMark.fields()`
+   and the independence loop skipped them wholesale — but a raw wrapper is frozen by no mark, and if
+   it escapes through a dependent accessor, a pre-mark caller mutates our state post-mark. Fixed: the
+   skip re-checks its original premise (field type eventual/candidate/hc), with a **verification
+   arm** — `fieldWrapperProvablyImmutable`, every write a `copyOf`/`of`-family expression — as the
+   sound alternative for copy-backed wrappers.
+2. **The independence floor trusted a cycle-broken unconditional**: `INDEPENDENT` written by cycle
+   breaking is optimism, not a verdict; flooring after-mark independence on it promoted test7's
+   shape. Fixed: the floor uses the honestly recomputed unconditional
+   (`independentAfterMark(NONE, false)`), null meaning no floor.
+
+Also landed: `contractedIndependentHc` — the TRUSTED-LEAF route
+(docs/eventual-design-improvements.md §4): a hand-written `@Independent(hc=true)` on
+`FieldInspection.fieldModifiers()` (Set.copyOf-backed, uncomputable from the declared type) is read
+through the ContractReader in the independence loop; and `ignoreModificationsAccessor`, the
+independence twin of the eventual walk's disclaimed-store excusal. One legitimate re-pin: a leading
+`assert <state test>` now classifies `@Only(after)` by the (default-on) precondition shapes.
+
+**The honest scoreboard: default-on gives 24 sound survivors** (deterministic, identical set across
+runs; suite 274/0 with the soundness pin passing) — down from the optimistic 254, up 6× from the old
+default (~4). The 230 in between are real but *unproven*: their two supports must be rebuilt on
+witnessed/verified ground. The named reconstruction levers, in order: (a) the cst-impl `copyOf`
+discipline (conformance rule 4) so `fieldWrapperProvablyImmutable` fires for the comment/annotation
+ride-alongs — NOTE a first attempt (copyOf in the `StatementImpl`/`ExpressionImpl` base ctors) made
+things WORSE (24 → 10: the ternary in the hot base ctors perturbs more walks than the arm recovers)
+and was reverted; the sweep needs the call-site (Builder) end instead; (b) trusted-leaf
+`@Independent(hc=true)` contracts on the copy-backed accessors, the `fieldModifiers` route, family by
+family; (c) honest unconditional independence for the interfaces.
+
+**Corpus behavior under the new defaults** (this is a semantic change, deliberately commissioned):
+Fernflower **passes** (roll-call 1/0/0) in 651 s (~5.4× the gate-off 120 s — the shadow-pass cost at
+corpus scale; a performance follow-up). The verdict delta vs gate-off is 536 lines and matches the
+documented modreach signature: methods 59 strengthened (the FALSE→TRUE reverse upgrades) vs 36
+honestly weakened (`copy()`/`iterator()` reachability corrections), types 4↑/13↓ following their
+methods. And one first: `TargetInfo.LocalvarTarget` in Fernflower's own unannotated code is computed
+`@Immutable(hc=true)(after="table")` — the machinery generalizing beyond maddi. Timefold and
+Langchain4j under the new defaults are still to be run and classified the same way before this is
+considered fully validated.

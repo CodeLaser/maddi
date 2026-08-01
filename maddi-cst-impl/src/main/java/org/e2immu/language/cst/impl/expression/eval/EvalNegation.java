@@ -15,6 +15,7 @@
 package org.e2immu.language.cst.impl.expression.eval;
 
 import org.e2immu.annotation.NotNull;
+import org.e2immu.annotation.rare.IgnoreModifications;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -59,6 +60,10 @@ public class EvalNegation {
      */
     private static final int CACHE_MIN_COMPLEXITY = 3;
     private static final int CACHE_MAX_SIZE = 8192;
+    // @IgnoreModifications (road §050): an idempotent memo -- the VariableImpl.cachedHash idiom at cache
+    // scale; the degraded-result guard above keeps the memoized values canonical, so the mutation is
+    // observationally invisible. The last never-forms holdout of the eventual cluster (2026-08-01).
+    @IgnoreModifications
     private final java.util.concurrent.ConcurrentHashMap<Expression, Expression> negationCache =
             new java.util.concurrent.ConcurrentHashMap<>();
 
