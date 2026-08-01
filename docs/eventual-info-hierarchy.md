@@ -1869,3 +1869,70 @@ biting a caller that merely wanted to read an annotation. **The general form is 
 `AndImpl.hash` regression above: on this CST, reading is not free.** Anything that walks types outside
 the analyzer's own order must either prove it is not forcing inspection, or measure a corpus A/B and
 be prepared for the answer.
+
+## The bistability investigation (2026-08-01): the dogfood is a coin flip
+
+**Symptom.** The composed dogfood run is NOT deterministic: across identical invocations at the same
+commit (`fafcf06c`), the survivor count flips between **24** (the ratchet's baseline: the statement
+family forms) and **10** (it never forms), roughly 50/50. Every "deterministic, identical across two
+runs" claim in this document was sampling luck from 2-run checks; the enforcement round's ratchet is
+pinned to a coin flip. Established with 40+ measured runs, direct `installDist` CLI (no Gradle).
+
+**The two worlds, precisely.**
+- The FPDUMPs differ ONLY in the 14 statement-family type lines; every method-level verdict is
+  identical. Per-iteration property-change counts are identical through iteration 17 and fork at 18
+  (585 vs 570).
+- The eventual-cluster ledger (`EC_ASSUME_DEBUG=org.e2immu`) of the 10-world is a strict SUPERSET:
+  22 extra statement-family assumption edges (`BlockImpl -> Block`, `TryStatementImpl ->
+  TryStatement`, `X -> StatementImpl`, ...) that end up undischarged, so the contraction cascades the
+  family away. The same edges appear in both worlds at DIFFERENT iterations (it=20 vs it=28...) —
+  the whole trajectory shifts.
+- Persisted analysis output is essentially deterministic PER WORLD (two 24-world runs: byte-identical
+  result dirs). Cross-world, `methodLinks` on several statement `translate()` methods and `links` on
+  `ExplicitConstructorInvocationImpl` fields flip PRESENCE — the write-vs-nested-shallow-not-written
+  distinction of the link computer's recursion prevention.
+- Upstream of everything: the link engine's per-method work/witness counts vary between EVERY pair of
+  runs (`-Dmaddi.workReport=1`; e.g. `MethodPrinterImpl.print` witnesses 16146 vs 16610 on an
+  IDENTICAL final closure of 14914 facts) — exploration-order noise from iteration 1 onward, mostly
+  harmless, occasionally tipping the recursion-arrival pattern.
+
+**Exonerated by experiment** (each still bistable): `-ea` on/off; `EC_RETRACT_DEBUG`; `--parallel`;
+`PARALLEL=1` (verified: zero pool threads, all `[main]`); the prep phase (three prep-only runs:
+byte-identical output); Gradle itself (direct CLI reproduces); the JDK `ImmutableCollections` salt
+(a `SALTPROBE` in Main: SAME salt order gave both outcomes); `-XX:hashCode=4` — NOTE this mode is
+ADDRESS-based, so those runs prove nothing about identity hashing; C1-only JIT + SerialGC; pure
+interpreter `-Xint` + SerialGC; `-XX:hashCode=3` (counter) WITH JIT (JIT threads may perturb the
+counter, so also not conclusive); filesystem enumeration order (stable md5 across runs). No
+`identityHashCode`, no clocks/randomness in any analysis module (grep-verified), no weak/soft refs,
+no caught StackOverflowError (fault-tolerance catch sites log; logs clean).
+
+**Found and fixed en route (kept regardless — each closes a real order-sensitivity hole):**
+- `WitnessIndex`'s own comment records the PRIOR round of this same disease ("arrival order depends
+  on map iteration over identity-hashed variables (LocalVariableImpl has no hashCode override)") —
+  the FQN-based `VariableImpl.hashCode` and the canonical witness tie-break were that round's fix.
+- **`ParameterizedTypeImpl.hashCode` hashed the `WildcardEnum` CONSTANT — `Enum.hashCode()` is the
+  identity hash and FINAL**, so every wildcard-bearing type (and every type recursively containing
+  one) had a per-JVM-run hash; hash-keyed collections of types iterated in run-varying order. Fixed
+  with a stable per-constant token (`stableWildcardHash`). Measured: NOT sufficient alone — still
+  bistable — but exactly the disease the hashCode comment ("keep their iteration order") tried to
+  prevent.
+- Canonical (FQN-sorted) iteration for `MethodLinkedVariablesImpl.modified` and
+  `LinkNatureImpl.pass` (were salted `Set.of`/`Set.copyOf`), creation-order snapshot for
+  `VariableDataImpl.Builder.knownVariableNames()` (was salted `Set.copyOf`), and
+  `LinkedVariablesImpl.merge` accumulates in a `HashMap` (FQN-hashed keys iterate identically across
+  runs) instead of re-wrapping in salted `Map.copyOf`. An FQN-sorted canonical CONSTRUCTOR for
+  `LinkedVariablesImpl` was additionally tried and REVERTED: it deterministically re-labels the
+  §-face indices and fails `TestForEachLambda`'s ~/∩ pairing pins (4 tests) — if reinstated, those
+  pins must be re-derived together with the face-minting order. All surviving changes: full fast
+  suites green.
+- Reading note: `LinksImpl.equals`/`hashCode` are PRIMARY-ONLY and `LinkImpl.equals` ignores the
+  nature — deliberate, but they make the closure first-arrival-sensitive: whichever
+  equal-by-key-different-by-content value arrives first wins. This is the amplifier that turns
+  exploration noise into semantic divergence.
+
+**Open at the time of writing:** the variance SEED is not yet identified. The decisive experiment —
+`-Xint -XX:+UseSerialGC -XX:hashCode=3` (deterministic counter, no JIT threads) × 3 — is in flight:
+stable ⇒ identity hash confirmed somewhere (hunt the carrier); still bistable ⇒ every JVM-level
+mechanism is excluded and the seed is something genuinely exotic. Until the dogfood is deterministic,
+scoreboard claims need ≥4 repeat runs, and the ratchet baseline (24) must be read as "the better of
+two worlds", not a stable fact.

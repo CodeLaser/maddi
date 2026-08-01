@@ -160,7 +160,25 @@ public class ParameterizedTypeImpl implements ParameterizedType {
         // hash. Keeping it out leaves every type's hash unchanged from before nullability existed, so
         // hash-ordered collections across the analyzer keep their iteration order (Java types are all
         // UNSPECIFIED anyway). Types differing only in nullability simply share a hash bucket.
-        return Objects.hash(typeParameter, typeInfo, arrays, wildcard, parameters);
+        return Objects.hash(typeParameter, typeInfo, arrays, stableWildcardHash(wildcard), parameters);
+    }
+
+    /**
+     * {@code Enum.hashCode()} is the identity hash and FINAL — hashing the {@code WildcardEnum} constant
+     * directly gives every wildcard-bearing type (and, through the recursive {@code parameters} hash,
+     * every type containing one) a hash that VARIES PER JVM RUN. Hash-keyed collections of such types
+     * then iterate in run-varying order, and that order leaked all the way into the link engine's
+     * exploration and the eventual-cluster assumption ledger: the composed dogfood flipped between 24
+     * and 10 surviving eventual verdicts across identical runs (2026-08-01; survived -Xint, SerialGC,
+     * PARALLEL=1 — everything except this). A stable per-constant token restores the iteration-order
+     * stability the comment above always intended.
+     */
+    private static int stableWildcardHash(Wildcard w) {
+        if (w == null) return 0;
+        if (w.isExtendsNoIntersection()) return 1;
+        if (w.isExtendsIntersection()) return 2;
+        if (w.isSuper()) return 3;
+        return 4; // unbound
     }
 
     public OutputBuilder print(Qualification qualification) {

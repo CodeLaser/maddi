@@ -27,6 +27,7 @@ import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.SequencedMap;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -43,7 +44,11 @@ public class VariableDataImpl implements VariableData {
 
         @Override
         public Set<String> knownVariableNames() {
-            return Set.copyOf(vicByFqn.keySet());
+            // snapshot in CREATION order, not Set.copyOf: java.util immutable collections iterate in a
+            // per-JVM SALTED order (ImmutableCollections.SALT), and every consumer walking the variables
+            // would inherit that run-to-run nondeterminism — the LinkedHashMap exists precisely to give
+            // this set a stable order (see the field comment above)
+            return Collections.unmodifiableSet(new LinkedHashSet<>(vicByFqn.keySet()));
         }
 
         public boolean isKnown(String fqn) {

@@ -12,6 +12,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public record LinkedVariablesImpl(Map<Variable, Links> links) implements LinkedVariables {
+
+    // NOTE (2026-08-01, bistability investigation, docs/eventual-info-hierarchy.md): an FQN-sorted
+    // canonical constructor was tried here and REVERTED — it deterministically re-labels the §-face
+    // indices and fails TestForEachLambda's ~/∩ pairing pins (and did not resolve the 24↔10 dogfood
+    // bistability). If iteration order is canonicalized here again, those pins must be re-derived
+    // together with the face-minting order.
     public final static LinkedVariables EMPTY = new LinkedVariablesImpl(Map.of());
 
     @Override
@@ -31,7 +37,9 @@ public record LinkedVariablesImpl(Map<Variable, Links> links) implements LinkedV
         if (other.isEmpty()) return this;
         HashMap<Variable, Links> map = new HashMap<>(links);
         other.map().forEach((v, l)->map.merge(v, l, Links::merge));
-        return new LinkedVariablesImpl(Map.copyOf(map));
+        // deliberately NOT Map.copyOf: the JDK's immutable maps iterate in a per-JVM SALTED order,
+        // while a HashMap keyed by Variable (FQN-based hashCode) iterates identically across runs
+        return new LinkedVariablesImpl(map);
     }
 
     @Override
