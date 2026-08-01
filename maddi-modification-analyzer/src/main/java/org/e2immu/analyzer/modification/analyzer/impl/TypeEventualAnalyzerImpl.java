@@ -455,33 +455,16 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         // forwards out of here; a guard elsewhere in the body is not a precondition and stays ignored.
         if (EventualCluster.ENABLED) {
             scanPreconditions(typeInfo, methodInfo, onlyBefore, onlyAfter);
-            // DOMINANCE-aware side collection (see SideWalk): a sided call contributes only when it
-            // witnesses the method's ENTRY state -- on the spine, before any live early exit, with none of
-            // its labels tainted by a possible earlier transition. The one-sided visitor below stamped
-            // @Only(after) on both-sides bodies (isSet() ? get() : compute) -- a false contract the
-            // decorator ships to the IDE and the type level then cannot excuse.
-            new SideWalk(typeInfo, marked, onlyBefore, onlyAfter)
-                    .statements(methodInfo.methodBody().statements(), true);
-        } else {
-            methodInfo.methodBody().visit(e -> {
-                if (e instanceof MethodCall mc) {
-                    Value.Eventual callee = eventualOf(mc.methodInfo());
-                    // a @TestMark call is a state *observation*: it says nothing about the caller (an assert on
-                    // isVariable() must not turn its enclosing method into a @TestMark)
-                    if (callee.isEventual() && !callee.isTestMark()) {
-                        Set<String> labels = labelsOfReceiver(typeInfo, mc, callee);
-                        if (labels != null) {
-                            switch (side(callee)) {
-                                case MARK -> marked.addAll(labels);
-                                case ONLY_BEFORE -> onlyBefore.addAll(labels);
-                                case ONLY_AFTER -> onlyAfter.addAll(labels);
-                            }
-                        }
-                    }
-                }
-                return true;
-            });
         }
+        // DOMINANCE-aware side collection (see SideWalk), UNGATED 2026-08-01: a sided call contributes only
+        // when it witnesses the method's ENTRY state -- on the spine, before any live early exit, with none
+        // of its labels tainted by a possible earlier transition. The historical one-sided visitor stamped
+        // @Only(after) on both-sides bodies (isSet() ? get() : compute -- Builder.fullyQualifiedName, the
+        // CompilationUnitPrinter module-info branch, the short-circuit hierarchyNotYetDone): false contracts
+        // the decorator shipped to the IDE and the type level could not excuse. Corpus-inert (no corpus has
+        // eventual types); the gate-off dogfood delta is exactly those false contracts disappearing.
+        new SideWalk(typeInfo, marked, onlyBefore, onlyAfter)
+                .statements(methodInfo.methodBody().statements(), true);
         return combine(methodInfo, marked, onlyBefore, onlyAfter);
     }
 

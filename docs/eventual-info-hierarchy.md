@@ -1638,3 +1638,18 @@ supers (`Inspection` is unconditionally hc) and no enm-carrying methods of its o
 direction is IMPLEMENTATION -> INTERFACE label inheritance at type level (Part A covers
 subclass -> abstract class; the interface twin does not exist yet). Everything else in the ledger is
 cascade behind it.
+
+## SideWalk UNGATED (2026-08-01)
+
+The dominance discipline is now the only side-collection path (the historical one-sided visitor is
+deleted; `scanPreconditions` remains gated as before). Validation per the golden rule:
+
+- **Gate-off dogfood delta: exactly one line** — `MethodInspectionImpl.Builder.fullyQualifiedName()`
+  loses its false `@Only(after="fullyQualifiedName")` (32 -> 31 classifications; the other six of the
+  seven false contracts only ever arose under gated machinery). Line-justified: strictly-better.
+- **Three-corpus A/B:** Fernflower **0-line**, Langchain4j **0-line**, Timefold 4 lines all within
+  the documented `testdomain.*Solution` wander — and provably unrelated: all three corpora carry
+  **zero** eventual classifications (`grep -c 'eventual=@'` = 0 on both sides), and the ungated code
+  can only influence `EVENTUAL_METHOD`.
+- Analyzer suite 274/0; `TestEventualDominance`'s gate-off pin now asserts the dominance outcomes on
+  both gates.
