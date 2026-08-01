@@ -1,10 +1,11 @@
 # A method's type parameters are lost to the symbol scanner when a caller is scanned first
 
-**Written 2026-08-01. Investigation report — nothing fixed.** Front end: `maddi-java-openjdk` (the javac
-one). Reproducer: `TestMethodTypeParameterSource` in `maddi-java-openjdk`, four drivers, currently green
-because two of them **assert the bug**.
+**Written 2026-08-01. RESOLVED 2026-08-01** — §5 was the plan, §7 is what landed. Front end:
+`maddi-java-openjdk` (the javac one). `TestMethodTypeParameterSource` in `maddi-java-openjdk` pins it: its
+two caller-first drivers are now identical to the declaration-first ones, which is the property that
+matters.
 
-## 1. What happens
+## 1. What happened
 
 A method's type parameters can be built by either of two paths, and which one wins depends on the order the
 compilation units are scanned in.
@@ -20,7 +21,8 @@ InnerScore<?> x = s.getScore();
 | scan order | `tp.source()` | `tp.typeBounds()` |
 |---|---|---|
 | declaration first | `5-13:5-40` | `Score<Score_>` |
-| **caller first** | **`null`** | **`? extends Score<Score_>`** |
+| **caller first, before the fix** | **`null`** | **`? extends Score<Score_>`** |
+| caller first, after | `5-13:5-40` | `Score<Score_>` |
 
 Two independent symptoms, and the second is the one that is not merely a refactoring inconvenience:
 
@@ -92,23 +94,24 @@ does not reach. That is a **separate open question**, not part of the diagnosis 
 
 ## 4. What it breaks, and what it might
 
-**Confirmed.** `RenameTypeParameter` in the jfocus rename module: the *uses* of `Score_` all have sources, the
-*declaration* does not, so a rename rewrote the uses and left the declaration — `cannot find symbol`, emitted
-silently. Found by the timefold rename fuzz. It now refuses instead
-(`jfocus-refactor-service` `d27cdf9f`), which converts silent corruption into a visible conflict but is
-obviously not a fix for this.
+**Confirmed.** `RenameTypeParameter` in the jfocus rename module: the *uses* of `Score_` all had sources, the
+*declaration* did not, so a rename rewrote the uses and left the declaration — `cannot find symbol`, emitted
+silently. Found by the timefold rename fuzz. It was given a refusal for the case
+(`jfocus-refactor-service` `d27cdf9f`), which turned silent corruption into a visible conflict; that refusal
+is now unreachable through this route and is kept as a backstop.
 
 Anything else that must rewrite or locate a type parameter declaration is exposed the same way: move type,
 extract interface, isolate class.
 
-**Not measured, and the reason this is worth more than a refactoring bug.** Symptom 2 puts a *different bound*
+**Never measured, and the reason this was worth more than a refactoring bug.** Symptom 2 put a *different bound*
 on the type parameter — `? extends Score<Score_>` instead of `Score<Score_>`. That is a semantic difference in
 the CST, reaching the analyzer, decided by scan order. Whether it changes any verdict is untested; the
 question is whether assignability, independence or immutability reasoning ever consults a method type
-parameter's bounds. If it does, this is a source of order-dependent analysis results, which would be a much
-more serious thing than a missing source position.
+parameter's bounds. If it does, this was a source of order-dependent analysis results, which would be a much
+more serious thing than a missing source position. Moot now, but it is why the bound was fixed along with the
+source rather than only the source.
 
-## 5. What a fix would look like
+## 5. The plan (kept for the reasoning; §7 is what landed)
 
 Symmetric with the parameter fix that is already there:
 
@@ -137,11 +140,47 @@ gradle :maddi-java-openjdk:test --tests '*TestMethodTypeParameterSource*'
 ```
 
 Four drivers: declaration-first and caller-first for the method type parameter, and the same two for the class
-type parameter in the same file. The two caller-first assertions record the bug; when it is fixed,
-`testCallerFirst` should fail and become a copy of `testDeclarationFirst`.
+type parameter in the same file. The caller-first assertions are now identical to the declaration-first ones —
+a source file's CST may not depend on the order its compilation units were scanned in, and that identity is
+the cheapest way to say so.
 
-**A note on how this was found, because it cost time.** The downstream test was flaky — about four runs in six
+**A note on how it was found, because it cost time.** The downstream test was flaky — about four runs in six
 — and looked like a thread race. It is not: parsing was sequential. The test passed its sources as `Map.of`,
 whose iteration order is randomised per JVM run, and iteration order **is** scan order. Any maddi test that
 hands a multi-entry `Map.of` to a parse is sampling a random scan order, and any order-dependent defect it
 touches will present as flakiness.
+
+## 7. What landed
+
+Both steps of §5, and both risks held.
+
+**`ClassSymbolScanner.addMethodToType`** — the type parameters are created and registered as before, and then
+nothing else happens when `deferCommitToDeclaration`: no annotations, no bounds, no commit. Deferring
+*everything* rather than only the commit is what keeps the declaration the single writer, so nothing is added
+twice and no reader sees a half-built bound. The flag is the old `deferParameterCommit`, renamed because it
+now governs both.
+
+**`ScanCompilationUnit.visitMethod`, the `isKnown` branch** — fills in from the declaration through the
+existing `parseTypeBoundsAndCommit`, which already sets source, annotations and the written bounds. It runs
+**first** in that branch, before the return type and the parameters, since both may mention `T`.
+
+The guard is `!typeParameter.hasBeenInspected()`, not `source() == null`. That is exactly the precondition for
+calling `builder()`, which asserts the inspection is still open: a type parameter the symbol path *did* commit
+(a synthetic method, another source set) also has no source, and reaching for its builder would trip that
+assertion rather than fill anything in.
+
+Neither risk materialised. The element-stack one is handled by construction — the instances are filled in, not
+replaced, so the `parameterMap` entries and every body reference still point at them. The never-committed one
+is bounded by `declaredInCurrentTaskSource`: if the type is in this task's source set its declaration is
+visited, which is the same assumption the parameters have relied on.
+
+**Verification.** 2895 fast tests across all 27 maddi modules, plus the corpus `slowTest` suites. Downstream,
+the jfocus rename module's `testMethodTypeParamSelfReferentialBoundCallerFirst` — which pinned the *refusal* —
+now asserts the same successful rename as its declaration-first twin, which was the point.
+
+One unrelated casualty found on the way: `TestFormatterStress` passed `scan("X", ...)` where the FQN
+`a.b.X` is required, so it had been failing on its own for a while. Fixed, since it was masking the rest of
+the module's `slowTest`.
+
+**Still open**: the 8% of *class* type parameters that come back without a source on timefold-solver (§3).
+Different route, untouched by this.

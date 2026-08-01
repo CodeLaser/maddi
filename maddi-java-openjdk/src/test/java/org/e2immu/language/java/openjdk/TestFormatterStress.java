@@ -49,7 +49,8 @@ public class TestFormatterStress extends CommonTest {
 
     @Test
     public void noCrashOrMalformedOutputAcrossWidths() {
-        TypeInfo ti = scan("X", SRC);
+        // the FQN, not the simple name: scan(fqn, ..) looks the type up by it and throws otherwise
+        TypeInfo ti = scan("a.b.X", SRC);
         OutputBuilder ob = runtime.newCompilationUnitPrinter(ti.compilationUnit(), true)
                 .print(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
         StringBuilder problems = new StringBuilder();

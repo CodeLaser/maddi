@@ -852,9 +852,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         MethodInfo.Builder builder = method.builder();
 
         // When this method is declared in source being compiled in the CURRENT task, its declaration will be
-        // visited later (ScanCompilationUnit.visitMethod), which sets the parameter sources. We must therefore NOT
-        // commit the parameters here, otherwise those sources can never be set (a method reference may cause the
-        // method to be created from its symbol before its declaration is reached; see TestParameterInfoSource).
+        // visited later (ScanCompilationUnit.visitMethod), which sets the parameter and type-parameter sources.
+        // We must therefore NOT commit either of them here, otherwise those sources can never be set (a method
+        // reference or a call site may cause the method to be created from its symbol before its declaration is
+        // reached; see TestParameterInfoSource and TestMethodTypeParameterSource).
         // Both conditions are needed: (1) !fromClassFile excludes binary types such as java.sql.Connection (whose
         // module may nonetheless fall back to the current source set), which have no declaration and must be
         // committed now, else the method stays incomplete ('?.?'); (2) the source-set check excludes non-class-file
@@ -864,7 +865,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 && !fromClassFile(ownerClassSymbol)
                 && typeInfo.compilationUnit() != null
                 && sourceSetOfCurrentTask.equals(typeInfo.compilationUnit().sourceSet());
-        boolean deferParameterCommit = !synthetic && declaredInCurrentTaskSource;
+        boolean deferCommitToDeclaration = !synthetic && declaredInCurrentTaskSource;
 
         List<TypeParameter> newTypeParameters = new ArrayList<>();
         for (Symbol.TypeVariableSymbol typeParameter : ms.getTypeParameters()) {
@@ -873,11 +874,28 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             putTmpMethodTypeParameter(typeInfo.fullyQualifiedName(), newTp.simpleName(), newTp);
             newTypeParameters.add(newTp);
         }
-        int i = 0;
-        for (Symbol.TypeVariableSymbol typeParameter : ms.getTypeParameters()) {
-            TypeParameter newTp = newTypeParameters.get(i++);
-            addTypeBoundsAndCommit(null, null, typeParameter, newTp);
-            // FIXME when source type, do not commit yet, we must set detailed sources
+        // The type parameters are deferred on the same condition as the parameters, and for a second reason on
+        // top of the source. Unlike a parameter, a type parameter cannot be REPLACED once the declaration is
+        // reached: MethodInfo.Builder offers addTypeParameter and no addOrSet, where TypeInfo.Builder offers
+        // addOrSetTypeParameter -- which is why a class type parameter was never affected by this and a
+        // method's was. So what is committed here is what the method keeps.
+        //
+        // It would keep two wrong things. The declaration has no source, so nothing can locate the `<T ...>`
+        // token (rename renamed every USE of it and left the declaration: "cannot find symbol", silently). And
+        // addTypeBoundsAndCommit widens every bound with '? extends', so `<T extends Score<T>>` comes back as
+        // `? extends Score<T>` -- making the CST of one source file depend on the order its compilation units
+        // happened to be scanned in.
+        //
+        // Nothing is set here at all when deferring, not even the bounds: the declaration supplies annotations,
+        // bounds and source together, so there is no half-built state for a reader to see and nothing added
+        // twice. ScanCompilationUnit.visitMethod recognises the deferral by hasBeenInspected() being false.
+        // See TestMethodTypeParameterSource, and docs/method-type-parameter-source-loss.md for how it was found.
+        if (!deferCommitToDeclaration) {
+            int i = 0;
+            for (Symbol.TypeVariableSymbol typeParameter : ms.getTypeParameters()) {
+                TypeParameter newTp = newTypeParameters.get(i++);
+                addTypeBoundsAndCommit(null, null, typeParameter, newTp);
+            }
         }
 
         flagHelper.method(ms.flags(), builder);
@@ -907,7 +925,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 if (methodIsVarargs && pIndex == lastParamIndex) parameterInfo.builder().setVarArgs(true);
                 if ((flags & Flags.FINAL) != 0) parameterInfo.builder().setIsFinal(true);
                 parameterInfo.builder().addAnnotations(loadAnnotations(parameter));
-                if (!deferParameterCommit) parameterInfo.builder().commit();
+                if (!deferCommitToDeclaration) parameterInfo.builder().commit();
                 pIndex++;
             }
         }
@@ -921,7 +939,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 .setSource(runtime.noSource())
                 .setMethodBody(runtime.emptyBlock())
                 .addOverrides(overrides);
-        if (!deferParameterCommit) builder.commitParameters();
+        if (!deferCommitToDeclaration) builder.commitParameters();
         builder.computeAccess();
         // now the fully qualified name has been computed...
 

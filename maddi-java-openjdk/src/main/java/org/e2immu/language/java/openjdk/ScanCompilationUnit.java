@@ -714,6 +714,31 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 methodInfo.parameters().forEach(pi -> parameterMap.put(pi.name(), pi));
                 methodInfo.typeParameters().forEach(tp -> parameterMap.put(tp.simpleName(), tp));
 
+                // The type parameters may have been created from this method's symbol before its declaration was
+                // reached -- a call site or method reference in a compilation unit scanned earlier -- in which
+                // case ClassSymbolScanner.addMethodToType deliberately left them with no bounds and uncommitted,
+                // so that the declaration can supply both. It is the declaration that has the source (nothing
+                // else can locate the `<T ...>` token) and the bounds AS WRITTEN (the symbol path widens them
+                // with '? extends'). See TestMethodTypeParameterSource.
+                //
+                // Filled in, never replaced: these instances are already in parameterMap above, so the return
+                // type, the parameters and the body all resolve their occurrences of T to them. This runs first
+                // for that reason -- everything below may mention T.
+                //
+                // hasBeenInspected() is the guard rather than source() == null: it is exactly the precondition
+                // for calling builder(), which asserts the inspection is still open. A type parameter the
+                // symbol path DID commit (a synthetic method, another source set) also has no source, and
+                // reaching for its builder would trip that assertion rather than fill anything in.
+                var jcTypeParameters = jcMethod.getTypeParameters();
+                List<TypeParameter> existingTypeParameters = methodInfo.typeParameters();
+                for (int tpIndex = 0;
+                     tpIndex < existingTypeParameters.size() && tpIndex < jcTypeParameters.size(); tpIndex++) {
+                    TypeParameter typeParameter = existingTypeParameters.get(tpIndex);
+                    if (!typeParameter.hasBeenInspected()) {
+                        parseTypeBoundsAndCommit(jcMethod.sym, typeParameter, jcTypeParameters.get(tpIndex));
+                    }
+                }
+
                 // when already known, a number of source details are missed out! (e.g. return type)
                 if (!methodInfo.isConstructor()) {
                     convertType.convertTree(jcMethod.getReturnType(), dsb);

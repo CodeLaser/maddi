@@ -29,25 +29,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * A METHOD type parameter loses its declaration source, and gets a different bound, when the compilation unit
- * that CALLS the generic method is scanned before the one that declares it.
+ * A METHOD type parameter used to lose its declaration source, and get a different bound, when the compilation
+ * unit that CALLS the generic method was scanned before the one that declares it.
  * <p>
  * The companion of {@code TestParameterInfoSource} and {@code TestReturnTypeSource}, for the third thing
- * {@code ScanCompilationUnit}'s already-known-method branch does not back-fill. See the FIXME in
- * {@code ClassSymbolScanner.addMethodToType}:
- * <pre>
- *     addTypeBoundsAndCommit(null, null, typeParameter, newTp);
- *     // FIXME when source type, do not commit yet, we must set detailed sources
- * </pre>
- * Parameters have {@code deferParameterCommit} for exactly this; type parameters do not.
+ * {@code ScanCompilationUnit}'s already-known-method branch has to back-fill.
  * <p>
- * Two independent symptoms, and the second is the one that is not merely a refactoring inconvenience:
+ * Two symptoms, and the second is the one that was not merely a refactoring inconvenience:
  * <ol>
- *     <li>{@code tp.source()} is null, so nothing can locate {@code <Score_ ...>} in the text;</li>
- *     <li>the bound is {@code ? extends Score<Score_>} rather than {@code Score<Score_>} — the symbol path
- *     widens every bound with {@code withWildcard(wildcardExtends())}. The CST of one source file therefore
- *     depends on the order its compilation units were scanned in.</li>
+ *     <li>{@code tp.source()} was null, so nothing could locate {@code <Score_ ...>} in the text — rename
+ *     rewrote every USE of it and left the declaration behind, silently;</li>
+ *     <li>the bound was {@code ? extends Score<Score_>} rather than {@code Score<Score_>}, the symbol path's
+ *     {@code withWildcard(wildcardExtends())} form. The CST of one source file depended on the order its
+ *     compilation units were scanned in.</li>
  * </ol>
+ * Fixed by deferring the commit to the declaration, as {@code deferParameterCommit} already did for the
+ * parameters one loop below. The two caller-first drivers are now identical to the declaration-first ones,
+ * which is the property that matters.
  */
 public class TestMethodTypeParameterSource extends CommonTest {
 
@@ -116,16 +114,16 @@ public class TestMethodTypeParameterSource extends CommonTest {
         assertEquals("[Type a.Score<Score_ extends a.Score<Score_>>]", tp.typeBounds().toString());
     }
 
-    @DisplayName("caller scanned first: the type parameter is the one the SYMBOL scanner built")
+    @DisplayName("caller scanned first: the declaration still wins -- same source, same bound")
     @Test
     public void testCallerFirst() {
         TypeParameter tp = methodTypeParameter(scope(true));
-        // Both assertions record the BUG, not the intent. When ClassSymbolScanner stops committing a source
-        // type's method type parameters (the FIXME), this test should fail and become a copy of the one above.
-        assertEquals(null, tp.source(),
-                "BUG: the declaration source is lost when the caller is scanned first");
-        assertEquals("[Type ? extends a.Score<Score_ extends a.Score<Score_>>]", tp.typeBounds().toString(),
-                "BUG: the bound is wildcard-widened by the symbol path");
+        // Identical to testDeclarationFirst, which is the whole point: the CST of a source file may not depend
+        // on the order its compilation units were scanned in. Before the fix this returned a null source and
+        // the bound `? extends a.Score<Score_>`, the symbol path's wildcard-widened form.
+        assertNotNull(tp.source(), "the declaration's own source, whichever order the units were scanned in");
+        assertEquals("5-13:5-40", tp.source().compact2());
+        assertEquals("[Type a.Score<Score_ extends a.Score<Score_>>]", tp.typeBounds().toString());
     }
 
     /**
