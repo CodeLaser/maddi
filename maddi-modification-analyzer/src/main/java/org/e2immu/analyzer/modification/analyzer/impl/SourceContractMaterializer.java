@@ -17,10 +17,13 @@ package org.e2immu.analyzer.modification.analyzer.impl;
 import org.e2immu.analyzer.modification.common.defaults.ContractReader;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -66,6 +69,7 @@ import static org.e2immu.language.cst.impl.analysis.PropertyImpl.STATIC_SIDE_EFF
  * derived family; a first-iteration-only materialization would be silently dropped on that path.
  */
 public class SourceContractMaterializer {
+    private static final String IGNORE_MODIFICATIONS_FQN = "org.e2immu.annotation.rare.IgnoreModifications";
 
     private final ContractReader contractReader;
     private final AtomicInteger propertyChanges;
@@ -121,6 +125,41 @@ public class SourceContractMaterializer {
         // work on source exactly as it does on shallow/AAPI types. It cannot blunt any derived verdict, since
         // nothing computes IGNORE_MODIFICATIONS_FIELD.
         materializeTrueBool(fieldInfo, IGNORE_MODIFICATIONS_FIELD);
+        materializeIgnoreModificationsFromFieldType(fieldInfo);
+    }
+
+    /**
+     * A field whose <em>type</em> carries a class-level {@code @IgnoreModifications} inherits the disclaimer,
+     * so the memo idiom is declared once on the class whose whole purpose it is ({@code org.e2immu.support.Memo},
+     * {@code IntMemo}) instead of being repeated on every field. Writing it into {@code analysis()} — rather
+     * than special-casing it at each of the dozen read sites — is what makes every consumer agree.
+     * <p>
+     * This is not the rejected "skip type X by name" hack: that keyed on a type its author never marked, and
+     * would have disclaimed fields whose authors intended nothing of the kind. Here the disclaimer is written,
+     * deliberately, on the type. Note the deliberate asymmetry with {@link #materializeTrueBool}: that one bails
+     * when the element carries no annotation of its own, which is exactly the case this method exists for.
+     */
+    private void materializeIgnoreModificationsFromFieldType(FieldInfo fieldInfo) {
+        if (fieldInfo.analysis().haveAnalyzedValueFor(IGNORE_MODIFICATIONS_FIELD)) return;
+        TypeInfo fieldType = fieldInfo.type().typeInfo();
+        // hasBeenInspected() FIRST, and it is not an optimization: TypeInfo.annotations() goes through
+        // EventuallyFinalOnDemand.get(), which RUNS the lazy byte-code loader. Asking every field's type for
+        // its annotations therefore inspects types the analyzer would never have looked at, and that changes
+        // verdicts -- measured on fernflower, where this rule should have been inert (no e2immu annotations in
+        // that corpus at all) and instead moved ConstantPool.pool from @Independent to @Dependent. Source types
+        // are final by the time analysis runs; a jar type is consulted once something else has inspected it,
+        // and this runs every pass, so nothing is permanently missed.
+        if (fieldType == null || !fieldType.hasBeenInspected() || fieldType.annotations().isEmpty()) return;
+        for (AnnotationExpression ae : fieldType.annotations()) {
+            if (IGNORE_MODIFICATIONS_FQN.equals(ae.typeInfo().fullyQualifiedName())) {
+                fieldInfo.analysis().set(IGNORE_MODIFICATIONS_FIELD, ValueImpl.BoolImpl.TRUE);
+                CommonAnalyzerImpl.DECIDE.debug("SCM: Contracted {} of {} = true, from the class-level"
+                                                + " disclaimer on {}", IGNORE_MODIFICATIONS_FIELD, fieldInfo,
+                        fieldType);
+                propertyChanges.incrementAndGet();
+                return;
+            }
+        }
     }
 
     private void materialize(Info info, Property property) {

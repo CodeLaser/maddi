@@ -19,25 +19,30 @@ import java.util.stream.Collectors;
  * {@code maxOf((T)->Float):Float} vs {@code maxOf((T)->R):R}, all erasing to {@code maxOf(Object[],Function1)}).
  */
 public class MethodMapImpl implements TypeInspection.MethodMap {
-    private final Map<String, Object> byName = new HashMap<>();
+    private final Map<String, Object> byName;
 
     @SuppressWarnings("unchecked")
     public MethodMapImpl(List<MethodInfo> methods) {
+        // accumulate locally and commit once: filling a final field with put() leaves it a mutable
+        // container ever after -- part-of-construction excuses the assignment, not the content calls
+        // (the FactoryImpl.precedenceMap finding, docs/eventual-design-improvements.md)
+        Map<String, Object> accumulator = new HashMap<>();
         for (MethodInfo methodInfo : methods) {
             String name = methodInfo.name();
-            Object prev = byName.get(name);
+            Object prev = accumulator.get(name);
             if (prev instanceof MethodInfo prevMi) {
                 Map<Integer, Object> byParams = new HashMap<>();
                 byParams.put(prevMi.parameters().size(), prevMi);
-                byName.put(name, byParams);
+                accumulator.put(name, byParams);
                 addToNumParam(byParams, methodInfo);
             } else if (prev instanceof Map numParamMap) {
                 addToNumParam((Map<Integer, Object>) numParamMap, methodInfo);
             } else {
                 assert prev == null;
-                byName.put(name, methodInfo);
+                accumulator.put(name, methodInfo);
             }
         }
+        this.byName = Map.copyOf(accumulator);
     }
 
     @SuppressWarnings("unchecked")

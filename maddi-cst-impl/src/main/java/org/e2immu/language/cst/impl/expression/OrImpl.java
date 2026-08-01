@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.expression;
 
+import org.e2immu.annotation.rare.IgnoreModifications;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Source;
@@ -55,14 +56,20 @@ public class OrImpl extends ExpressionImpl implements Or {
 
     private OrImpl(ParameterizedType booleanPt, List<Expression> expressions) {
         super(1 + expressions.stream().mapToInt(Expression::complexity).sum());
-        this.expressions = expressions;
+        // copy at the call-site end: the Builder already commits List.copyOf, but these public
+        // constructors took the caller's list, leaving the field an unprovable container and the
+        // type capped at @FinalFields -- a weaker verdict than none at all (see the eventual docs)
+        this.expressions = List.copyOf(expressions);
         this.booleanPt = booleanPt;
         assert expressions.size() > 1;
     }
 
     public OrImpl(List<Comment> comments, Source source, ParameterizedType booleanPt, List<Expression> expressions) {
         super(comments, source, 1 + expressions.stream().mapToInt(Expression::complexity).sum());
-        this.expressions = expressions;
+        // copy at the call-site end: the Builder already commits List.copyOf, but these public
+        // constructors took the caller's list, leaving the field an unprovable container and the
+        // type capped at @FinalFields -- a weaker verdict than none at all (see the eventual docs)
+        this.expressions = List.copyOf(expressions);
         this.booleanPt = booleanPt;
         assert expressions.size() > 1;
     }
@@ -88,7 +95,11 @@ public class OrImpl extends ExpressionImpl implements Or {
         return expressions.equals(or.expressions());
     }
 
-    private int hash; // lazily cached; the CST is immutable, and the recursive recompute dominated profiles
+    // @IgnoreModifications (road §050): idempotent memo state, disclaimed -- the VariableImpl.cachedHash
+    // precedent; lazily cached because the recursive recompute dominated profiles. Without the disclaimer
+    // the slot's write makes hashCode() modifying, and this type can never be (eventually) immutable.
+    @IgnoreModifications
+    private int hash;
 
     @Override
     public int hashCode() {

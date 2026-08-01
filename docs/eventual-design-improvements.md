@@ -1,5 +1,13 @@
 # Eventual immutability: design improvements for cst-api/cst-impl
 
+> **Status update (2026-08-01, later the same day): §§1–3 are IMPLEMENTED.** Read
+> `docs/eventual-info-hierarchy.md` §"The enforcement round" for what was built and, more usefully,
+> for the three places where the specification below turned out to be wrong when measured:
+> the ratchet baseline is **24, not 254** (this note predates the ungating); rules 3 and 4 need a
+> computed **scope** or they produce ~20 violations on deliberately mutable services; and rule 4's
+> "constructors must assign defensive copies" is the sweep that measured 24 → 10 — the copy belongs at
+> the **call-site/Builder end**. §4 (asserted contracts) and §6 (named transitions) are still proposals.
+
 **Status: proposal (2026-08-01), ready for implementation.** Distilled from the 2026-07-31/08-01
 certification arc (`docs/eventual-info-hierarchy.md`, commits `f58ed72b..4f561042`): the composed
 dogfood went from 26 to 254 surviving eventual verdicts, and every regression and blocker along the
@@ -41,8 +49,8 @@ re-derives the survivor set and diffs.
   run-to-run; the verification-residue boundary — same family as the historical
   `CompilationUnitPrinterImpl` wobble). A type on the allowlist may be present or absent without
   failing the ratchet.
-- **Test** `TestEventualRatchet`, in `maddi-run-openjdk`'s `slowTest` source set (it needs the real
-  dogfood input, like `TestFernflower`):
+- **Test** `TestEventualRatchet`, in `maddi-run-openjdk`, tagged `@Tag("slow")` (there is no separate
+  `slowTest` source set — `slowTest` is a task that selects that tag out of `src/test/java`):
   1. Requires the generated `dogfood/cst-impl/build/inputConfiguration.json`; fail with a pointed
      message ("run `e2immu-write-input-configuration`, see dogfood/README.md") if absent — do NOT
      silently skip, a vacuous green ratchet is the failure mode `AGENTS.md` §Commands warns about.
@@ -72,7 +80,9 @@ signal. Do not run in the plain `test` task (needs the dogfood input configurati
 **Goal.** Enforce the four idioms mechanically, in the ordinary `test` task, so drift fails at commit
 time with a one-line diagnosis.
 
-**Where.** `maddi-cst-impl/src/test/java/...` (`TestEventualConformance`). First check the retention
+**Where.** As built: `maddi-inspection-openjdk/src/test/java/...` (`TestEventualConformance`), NOT
+cst-impl — rules 3 and 4 need method bodies, so they need maddi's own `JavaInspector`, which cst-impl's
+test source set does not have. The paragraph below assumed reflection would do; it will not. First check the retention
 of `org.e2immu.annotation.rare.IgnoreModifications`: if `RUNTIME`, plain reflection over the
 production classes is enough (walk the jar/classes dir, `Class.getDeclaredFields()`); if only
 `CLASS`, reuse the byte-code route maddi already has (the inspector reads these annotations from

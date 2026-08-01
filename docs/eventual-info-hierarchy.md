@@ -1731,3 +1731,141 @@ methods. And one first: `TargetInfo.LocalvarTarget` in Fernflower's own unannota
 `@Immutable(hc=true)(after="table")` — the machinery generalizing beyond maddi. Timefold and
 Langchain4j under the new defaults are still to be run and classified the same way before this is
 considered fully validated.
+
+## The enforcement round (2026-08-01): the ratchet, the conformance rules, and what they caught
+
+Implements `docs/eventual-design-improvements.md` §§1–3. The headline is not the machinery — it is
+that the machinery earned its keep within an hour of existing, twice.
+
+### The ratchet (§1)
+
+`TestEventualRatchet` (maddi-run-openjdk, `@Tag("slow")`) re-derives the surviving
+`EVENTUALLY_IMMUTABLE_TYPE` set from a composed dogfood run and diffs it against
+`dogfood/expected-eventual-survivors.txt`, with `dogfood/eventual-survivor-wobble.txt` for boundary
+nondeterminism. Three things are deliberate:
+
+- **The baseline is 24, not the doc's 254.** The design note was written before the ungating; the 254
+  did not survive the assumptions ledger. A ratchet pinned to numbers that were never sound would
+  fail on its first honest run and be deleted as noise.
+- **It builds its own pipeline rather than calling `RunAnalyzer`**, so `MODREACH` and
+  `EVENTUALCLUSTER` are set programmatically. Both are environment *opt-outs* now; a developer with
+  either exported to `0` would otherwise measure a different engine and read the difference as a
+  regression.
+- **It reads the property, never an FPDUMP.** The dump is a diagnostic and free to change format.
+- It fails, loudly, when the dogfood input configuration is missing — the vacuous-green failure mode
+  `AGENTS.md` §Commands warns about.
+
+**Known scope limit, now stated in the test and the baseline header:** cst-api / cst-analysis /
+cst-impl are analysed as source and are what the ratchet defends. maddi-support and maddi-util arrive
+as **jars pinned at 0.8.2 while the project is at 0.9.0**, so a change to either does not reach the
+run and reads as "no change". This is why the maddi-util contracts added below are, as of this
+commit, *unmeasured on the dogfood*: they are inert until the pins are bumped, the plugin re-published
+and the input configuration regenerated — at which point the baseline must be re-derived, since the
+jars moving forward will move verdicts with them.
+
+### The conformance rules (§2)
+
+`TestEventualConformance` lives in **maddi-inspection-openjdk**'s ordinary `test` task, not in
+cst-impl: the rules that matter need method *bodies*, so they need maddi's own `JavaInspector`, which
+cst-impl's test source set does not have. It parses maddi's own sources, mirroring
+`TestJavaInspector6MultiProject`.
+
+Two things had to be got right before the rules said anything useful:
+
+- **Source sets must be named after the jar they resolve to.** The name is not cosmetic — the
+  automatic module name derives from it, and a hand-written `"annotations"` leaves the module
+  unresolvable, whereupon annotation types fail to convert and the scanner dies with an NPE inside
+  `ClassSymbolScanner` rather than reporting an unresolved import. The helper derives the name from
+  the artifact URI, which also survives the version bumps a hard-coded `annotations-26.1.0.jar` does
+  not.
+- **Rules 3 and 4 need a scope, or they drown.** Applied to all of cst-impl they produced 28
+  violations, ~20 of them deliberately mutable services (`QualificationImpl` accumulates print state,
+  `ImportComputerImpl` accumulates imports, `IsAssignableFrom` memoizes). Those never become part of
+  an `Element`, so an adder on them costs the analysis nothing. The scope is now computed: everything
+  implementing `Element`, closed over its fields' declared types *and* over implementors of anything
+  in scope — the latter because `isMutable(@FinalFields)` is exactly a downward rule. 206 cst-impl
+  types, 107 in scope. `ModuleInfo.Provides extends Element`, so the `ProvidesImpl` incident that
+  motivated the rule is in; `MethodMapImpl` comes in as the field type of `TypeInspectionImpl`.
+
+Rule 1 (every `PropertyValueMap` store disclaimed) came back **clean** — the audit that closed it last
+session holds. The rules found four real things: `AndImpl.hash` and `OrImpl.hash` (lazy memos without
+the disclaimer, the `UnaryOperatorImpl` shape), `MethodMapImpl`'s final `HashMap` filled by `put()` in
+its constructor (the `precedenceMap` shape), and three uncontracted maddi-util statics
+(`ListUtil.joinLists`, `MapUtil.compareMaps`, `MapUtil.nice` — the `ZipLists.zip` gap).
+
+### What the ratchet caught: a weak verdict is worse than none, measured
+
+Applying those fixes dropped the dogfood from **24 survivors to 10** — the entire statement family.
+The bisect is the interesting part, and it exonerated the obvious suspects: reverting `MethodMapImpl`
+alone left it at 10; the engine change of §3 *alone* measured 24. The cause was the two-line
+`@IgnoreModifications` on `AndImpl.hash` / `OrImpl.hash`.
+
+The mechanism is the rule already recorded in this document, now with a price tag on it. Before the
+disclaimer, `AndImpl` had a non-final field, no verdict, and therefore the **optimistic HC seed**.
+With it, all fields are final-or-disclaimed and the type forms `@FinalFields` — but only
+`@FinalFields`, because `expressions` is assigned straight from a constructor parameter and is not a
+provably immutable container. That weak formed verdict *replaces* the seed, and every statement type
+leaning on the `Expression` union goes down with it.
+
+The fix is the reconstruction lever this document named after the failed base-constructor sweep:
+**apply the copy at the call-site end.** `AndImpl.Builder.build()` already committed
+`List.copyOf(expressions)`; the two public constructors did not, and they are what most callers use.
+Copying there makes the verdict no longer weak, and disclaimer + copy together measure **24,
+identical to baseline**. Neither half is shippable alone: the disclaimer alone is a 14-type
+regression, and that is precisely what a week of dogfood archaeology used to cost.
+
+The general lesson, sharper than before: **a correct idiom applied halfway is a regression.** An
+`@IgnoreModifications` that moves a type from "no verdict" to "weak verdict" must be landed together
+with whatever gets it the rest of the way, or not at all. This is also why conformance rule 4 is
+folded into rule 3 as "no in-place mutation of a final collection field" rather than the doc's
+"constructors must assign defensive copies": the latter, applied to the hot base constructors,
+is the sweep that measured 24 → 10 last session.
+
+### The support types (§3)
+
+`org.e2immu.support.Memo<T>` and `IntMemo`, both carrying a **class-level** `@IgnoreModifications`
+(`TYPE` added to the annotation's `@Target`), plus the engine rule that makes it pay: a field whose
+*type* carries the class-level disclaimer is materialized as if the field itself were annotated
+(`SourceContractMaterializer.materializeIgnoreModificationsFromFieldType`). Writing it into
+`analysis()` — rather than special-casing it at each of the dozen read sites — is what makes every
+consumer agree. This is not the rejected "skip `PropertyValueMap` by type" hack: that keyed on a type
+its author never marked; here the disclaimer is written, deliberately, on the class whose whole
+purpose it is. `IntMemo` also fixes a latent bug the hand-written slots have: a computed hash of
+exactly 0 is stored as 1, so it is computed once rather than on every call
+(`VariableImpl.hashCode` does this by hand; `UnaryOperatorImpl.hashCode` did not).
+
+**Nothing is migrated to them yet, on purpose.** Every memo slot that exists today —
+`VariableImpl.cachedFqn`, `VariableImpl.cachedHash`, and the three `hash` slots — is on the analysis
+hot path, and a `Memo` costs one object allocation per CST node where a bare field costs none. With a
+5.4× corpus slowdown already on the follow-up list, that is the wrong direction to take on
+speculation. The mechanism is in place and measured neutral (24 survivors, dogfood); migrating any
+particular slot is now a measurement, not a design question.
+
+### The corpus A/B, and a second halfway-idiom
+
+The engine rule of §3 is ungated, so the golden rule applies. Fernflower, default-on, three runs:
+
+| comparison | differing elements |
+|---|---|
+| A (HEAD, fresh) vs BD (HEAD, previous session) | 2 — `MergeHelper.matchWhile` and `StatEdge.EdgeType.<init>(int)`, both `nonModifying` flips |
+| A (HEAD, fresh) vs B (this change set) | 1 — `ConstantPool.pool`, `independent` `@Independent` → `@Dependent` |
+| A (HEAD, fresh) vs B2 (change set + the `hasBeenInspected` guard below) | 0, modulo those same two flakes |
+
+The first row is the point of running A twice: two runs of the *same* tree differ by two elements, so
+`MergeHelper.matchWhile` joins `StatEdge.EdgeType.<init>(int)` and `Exprent.<init>(int)` in the known
+`nonModifying` flake family. Against that noise floor, the change set had exactly one real effect.
+
+One is not zero, and on a corpus containing **no e2immu annotations at all** a rule that fires on
+class-level `@IgnoreModifications` should have been provably inert. It was not, and the reason is worth
+recording: `TypeInfo.annotations()` goes through `EventuallyFinalOnDemand.get()`, which **runs the lazy
+byte-code loader**. Asking every field's type for its annotations inspects types the analyzer would
+never otherwise have looked at, and what is inspected changes what is known when a verdict is computed
+— here, conservatively, on one field.
+
+So the rule now tests `hasBeenInspected()` first, and the ordering is load-bearing rather than an
+optimization; with the guard the corpus diff is the flake pair and nothing else (third row above),
+which is the byte-identical outcome the golden rule asks for. This is the §5 trade-off ("lazy inspection … the reason the enm layer had to exist")
+biting a caller that merely wanted to read an annotation. **The general form is the same lesson as the
+`AndImpl.hash` regression above: on this CST, reading is not free.** Anything that walks types outside
+the analyzer's own order must either prove it is not forcing inspection, or measure a corpus A/B and
+be prepared for the answer.
