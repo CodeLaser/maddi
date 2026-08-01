@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.statement;
 
+import org.e2immu.annotation.rare.IgnoreModifications;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.Element;
@@ -91,6 +92,8 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
         private final Source source;
         private final List<Comment> comments;
         private final List<AnnotationExpression> annotations;
+        // the analysis overlay is manual hidden content (road §050), as on StatementImpl/InfoImpl
+        @IgnoreModifications
         private final PropertyValueMap propertyValueMap = new PropertyValueMapImpl();
 
         public CatchClauseImpl(List<Comment> comments,

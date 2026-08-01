@@ -312,6 +312,9 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                         Set<String> subLabels = Set.of(subVerdict.markLabel().split(","));
                         if (shared == null) shared = new HashSet<>(subLabels);
                         else shared.retainAll(subLabels);
+                    } else if (immutableOf(subclass).isAtLeastImmutableHC()) {
+                        // a fortiori: an unconditionally immutable-hc subclass is compatible with any label
+                        // set -- it constrains the shared transition with nothing, and needs no seed
                     } else if (!eventualCluster.treatAsEventuallyImmutable(typeInfo, subclass, subVerdict)) {
                         allEventual = false;
                         break;
@@ -343,12 +346,51 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                         EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
                 if (sv.isEventual()) {
                     inherited.addAll(Set.of(sv.markLabel().split(",")));
+                } else if (immutableOf(st).isAtLeastImmutableHC()) {
+                    // a fortiori: an unconditionally immutable-hc supertype (ExpressionWrapper, a mixin
+                    // outside the cluster) contributes no labels and blocks nothing -- it kept the whole
+                    // Negation/EnclosedExpression/BitwiseNegation ring markless via the admissibility bail
                 } else if (!eventualCluster.treatAsEventuallyImmutable(typeInfo, st, sv)) {
                     admissible = false;
                     break;
                 }
             }
             if (admissible) markLabels.addAll(inherited);
+        }
+        // EVENTUALCLUSTER, Part A'' -- implementation -> INTERFACE label inheritance (the last named circle:
+        // FieldInspectionImpl formed-and-retracted leaning only on its markless interface). A markless
+        // interface whose Part B supers legitimately carry no labels (Inspection is unconditionally hc)
+        // inherits the shared transition of its analyzed direct implementors, exactly as an abstract class
+        // inherits its subclasses' (Part A): the promise is the object's, not one type's. Setter-bearing
+        // implementors (the Builders) are the BEFORE-state face of the same objects and define no
+        // after-state labels: skipped, consistent with the candidacy refusal. Soundness rests, as for
+        // Parts A and B, on immutableAfterMark below still checking the interface's own methods in full.
+        // TERMINAL-phase and candidates only: fired eagerly, this minted implementor labels into write-once
+        // verdicts in iteration 1 -- before the supers Part B waits on had formed -- and the mislabeled
+        // interfaces took the whole cluster down (survivors 75 -> 32 on the first attempt).
+        if (markLabels.isEmpty() && EventualCluster.ENABLED && typeInfo.isInterface()
+            && activateCycleBreaking && eventualCluster.isCandidate(typeInfo)) {
+            Set<TypeInfo> implementors = eventualCluster.knownImplementors(typeInfo);
+            if (!implementors.isEmpty()) {
+                Set<String> shared = null;
+                boolean allEventual = true;
+                for (TypeInfo implementor : implementors) {
+                    if (eventualCluster.isSetterBearing(implementor)) continue;
+                    Value.EventuallyImmutable iv = implementor.analysis().getOrDefault(
+                            EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+                    if (iv.isEventual()) {
+                        Set<String> labels = Set.of(iv.markLabel().split(","));
+                        if (shared == null) shared = new HashSet<>(labels);
+                        else shared.retainAll(labels);
+                    } else if (immutableOf(implementor).isAtLeastImmutableHC()) {
+                        // a fortiori: constrains the shared transition with nothing
+                    } else if (!eventualCluster.treatAsEventuallyImmutable(typeInfo, implementor, iv)) {
+                        allEventual = false;
+                        break;
+                    }
+                }
+                if (allEventual && shared != null && !shared.isEmpty()) markLabels.addAll(shared);
+            }
         }
         // EC_TYPE_DEBUG=<fqn substring>: print the type-level decision path (log-only, env-gated diagnostic
         // in the MODREACH_EXPLAIN style) -- why does a type with fully excused methods still get no verdict?
@@ -448,33 +490,16 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         // forwards out of here; a guard elsewhere in the body is not a precondition and stays ignored.
         if (EventualCluster.ENABLED) {
             scanPreconditions(typeInfo, methodInfo, onlyBefore, onlyAfter);
-            // DOMINANCE-aware side collection (see SideWalk): a sided call contributes only when it
-            // witnesses the method's ENTRY state -- on the spine, before any live early exit, with none of
-            // its labels tainted by a possible earlier transition. The one-sided visitor below stamped
-            // @Only(after) on both-sides bodies (isSet() ? get() : compute) -- a false contract the
-            // decorator ships to the IDE and the type level then cannot excuse.
-            new SideWalk(typeInfo, marked, onlyBefore, onlyAfter)
-                    .statements(methodInfo.methodBody().statements(), true);
-        } else {
-            methodInfo.methodBody().visit(e -> {
-                if (e instanceof MethodCall mc) {
-                    Value.Eventual callee = eventualOf(mc.methodInfo());
-                    // a @TestMark call is a state *observation*: it says nothing about the caller (an assert on
-                    // isVariable() must not turn its enclosing method into a @TestMark)
-                    if (callee.isEventual() && !callee.isTestMark()) {
-                        Set<String> labels = labelsOfReceiver(typeInfo, mc, callee);
-                        if (labels != null) {
-                            switch (side(callee)) {
-                                case MARK -> marked.addAll(labels);
-                                case ONLY_BEFORE -> onlyBefore.addAll(labels);
-                                case ONLY_AFTER -> onlyAfter.addAll(labels);
-                            }
-                        }
-                    }
-                }
-                return true;
-            });
         }
+        // DOMINANCE-aware side collection (see SideWalk), UNGATED 2026-08-01: a sided call contributes only
+        // when it witnesses the method's ENTRY state -- on the spine, before any live early exit, with none
+        // of its labels tainted by a possible earlier transition. The historical one-sided visitor stamped
+        // @Only(after) on both-sides bodies (isSet() ? get() : compute -- Builder.fullyQualifiedName, the
+        // CompilationUnitPrinter module-info branch, the short-circuit hierarchyNotYetDone): false contracts
+        // the decorator shipped to the IDE and the type level could not excuse. Corpus-inert (no corpus has
+        // eventual types); the gate-off dogfood delta is exactly those false contracts disappearing.
+        new SideWalk(typeInfo, marked, onlyBefore, onlyAfter)
+                .statements(methodInfo.methodBody().statements(), true);
         return combine(methodInfo, marked, onlyBefore, onlyAfter);
     }
 

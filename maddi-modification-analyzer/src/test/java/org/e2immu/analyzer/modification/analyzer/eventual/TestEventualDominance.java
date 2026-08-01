@@ -96,7 +96,7 @@ public class TestEventualDominance extends CommonTest {
         }
     }
 
-    @DisplayName("gate off: the one-sided visitor is verbatim (old behaviour pinned)")
+    @DisplayName("gate off: the dominance discipline is UNGATED (2026-08-01) -- same witnesses, no false contracts")
     @Test
     public void testGateOff() {
         boolean saved = EventualCluster.ENABLED;
@@ -108,13 +108,13 @@ public class TestEventualDominance extends CommonTest {
 
             assertTrue(eventual(T, "set", 1).isMark());
             assertTrue(eventual(T, "get", 0).isOnly());
-            // the old one-sided rule stamps @Only(after) from the guarded get() -- the documented false
-            // contract this quest exists to remove; pinned here so ungating is a deliberate step
-            assertTrue(eventual(T, "getOrCompute", 0).isOnly());
-            assertTrue(eventual(T, "getGuarded", 0).isOnly());
-            // mixed sides concluded nothing, even off the gate
+            // ungated: the guarded-fallback and ensure-then-read shapes conclude no side on either gate --
+            // the historical one-sided visitor stamped @Only(after) here, a false contract
+            assertFalse(eventual(T, "getOrCompute", 0).isEventual());
+            assertFalse(eventual(T, "getGuarded", 0).isEventual());
             assertFalse(eventual(T, "ensure", 1).isEventual());
-            assertFalse(eventual(T, "setThenGet", 1).isEventual());
+            // and the spine set-then-get is the transition on either gate
+            assertTrue(eventual(T, "setThenGet", 1).isMark());
         } finally {
             EventualCluster.ENABLED = saved;
         }

@@ -1579,3 +1579,109 @@ eventual types), so ungating costs only a gate-off dogfood delta that is line-by
 
 **Remaining roots after this quest: `Runtime`(cascade), `FieldInspection`, `SumImpl`,
 `UnaryOperatorImpl.hashCode`, the `YieldStatement/ThrowStatement/SwitchStatementOldStyle` impl tail.**
+
+## The missing disclaimers (2026-07-31, same session): the statement family completes — survivors 72
+
+The statement-impl tail decoded into the same two §050 idioms already solved elsewhere, each with one
+member the earlier rounds missed:
+
+1. **`UnaryOperatorImpl.hash`** — the lazy hashCode memo, the exact `VariableImpl.cachedHash` idiom;
+   the `@IgnoreModifications` slot disclaimer applied (cst-impl annotation, no engine change needed —
+   the memo-disclaimer machinery landed in the VariableImpl quest). `hashCode()` flips to plainly
+   non-modifying.
+2. **`StatementImpl.propertyValueMap` and `TryStatementImpl.CatchClauseImpl.propertyValueMap`** — the
+   TWO analysis stores in cst-impl without the `@IgnoreModifications` every other store carries (audit:
+   9 store fields, 7 annotated). The new `TypeIndependentAnalyzerImpl` DEPENDENT-provenance print
+   found it in one shot: `StatementImpl DEPENDENT: field propertyValueMap` — the store held the entire
+   statement family at FinalFields-after-mark THROUGH THE INDEPENDENCE LOOP (the immutability loop's
+   ungated skip never applied there). Companion engine fix, ungated like its twin:
+   `loopOverFieldsAndAbstractMethods` skips an `@IgnoreModifications` field — hidden content's
+   independence does not bear on the type's; a no-op wherever no field carries the annotation.
+
+**Composed scoreboard: survivors 67 -> 72** (Break/Continue/BreakOrContinue/Empty/Import statement
+impls join; `api.expression.BinaryOperator` lifts from `@FinalFields(after=)` to
+`@Immutable(hc=true)(after=)`), retracted ~164 (wider formation before contraction), enm 929, zero
+losses. Determinism: survivor set + enm layer identical across two runs (retracted 164/163, the
+benign cascade wobble). Gate-off Fernflower A/B: the one documented ctor flake line — the ungated
+independence skip is corpus-inert as argued. Suites: analyzer 274/0, cst-impl 73/0.
+
+**Remaining roots, re-measured: `Runtime`(22, pure cascade), `FieldInspection`(5),
+`SumImpl`(5), then a ring at 3 (`LocalVariableCreationImpl`, `AnnotationExpressionImpl`, and the
+markless expression sub-interfaces `Negation`/`EnclosedExpression`/`BitwiseNegation`).**
+
+## The seed completion (2026-07-31, same session): Runtime survives — survivors 75
+
+Two symmetric gaps, closed (both gated):
+
+1. **The `independentSuper` seed.** `immutableSuper` has had the still-circular-candidate seed since
+   the prototype; its independence twin did not — a sub-impl's after-mark independence fell to the
+   super's honest unconditional `@Dependent` through the hierarchy min, and the dependence cap froze
+   `SumImpl`, `LocalVariableCreationImpl`, `AnnotationExpressionImpl` (and the eval family) at
+   MUTABLE-after-mark. `independentSuper` now contributes independent-hc for a witnessed candidate
+   supertype, exactly as `immutableSuper` contributes immutable-hc.
+
+2. **The a-fortiori skip in Parts A and B.** `ExpressionWrapper` — a MIXIN outside the cluster,
+   unconditionally `@Immutable(hc=true)` — failed Part B's admissibility bail and kept the whole
+   `Negation`/`EnclosedExpression`/`BitwiseNegation` ring markless. An unconditionally immutable-hc
+   supertype (Part B) or subclass (Part A) contributes no labels and blocks nothing — the same
+   discharge rule the contraction and `isEventuallyImmutableFieldType` already apply.
+
+**Composed scoreboard: survivors 72 -> 75, and `api.runtime.Runtime` — the 22-lean root — SURVIVES**,
+with the negation ring and `EvalCast`/`EvalInstanceOf`/`EvalRemainder`. The retraction-root list is
+down to `FieldInspection`(5), `EvalNegation`(2) and `Value.*` singletons; the CompilationUnit
+foursome retracts as pure cascade (`broken: []`). Determinism: survivor set + enm layer identical
+across two runs. Gate-off Fernflower A/B: **0-line diff**. Analyzer suite 274/0.
+
+**The last named circle, characterized for next session:** `FieldInspectionImpl` forms and retracts
+leaning ONLY on its interface `FieldInspection`, which is markless with legitimately label-less
+supers (`Inspection` is unconditionally hc) and no enm-carrying methods of its own — the missing
+direction is IMPLEMENTATION -> INTERFACE label inheritance at type level (Part A covers
+subclass -> abstract class; the interface twin does not exist yet). Everything else in the ledger is
+cascade behind it.
+
+## SideWalk UNGATED (2026-08-01)
+
+The dominance discipline is now the only side-collection path (the historical one-sided visitor is
+deleted; `scanPreconditions` remains gated as before). Validation per the golden rule:
+
+- **Gate-off dogfood delta: exactly one line** — `MethodInspectionImpl.Builder.fullyQualifiedName()`
+  loses its false `@Only(after="fullyQualifiedName")` (32 -> 31 classifications; the other six of the
+  seven false contracts only ever arose under gated machinery). Line-justified: strictly-better.
+- **Three-corpus A/B:** Fernflower **0-line**, Langchain4j **0-line**, Timefold 4 lines all within
+  the documented `testdomain.*Solution` wander — and provably unrelated: all three corpora carry
+  **zero** eventual classifications (`grep -c 'eventual=@'` = 0 on both sides), and the ungated code
+  can only influence `EVENTUAL_METHOD`.
+- Analyzer suite 274/0; `TestEventualDominance`'s gate-off pin now asserts the dominance outcomes on
+  both gates.
+
+## Part A'' and the exposure excusals: the cluster closes — survivors 254 (2026-08-01)
+
+The `FieldInspection` circle was the keystone. Three pieces (first two gated, third annotation-driven
+and corpus-inert):
+
+1. **Part A'' — implementation -> INTERFACE label inheritance** (`knownImplementors` in the cluster,
+   the interface twin of Part A): a markless interface inherits the shared transition of its analyzed
+   direct implementors; setter-bearing implementors (the Builders, the before-state face) are skipped.
+   **Fired eagerly this minted implementor labels into write-once verdicts in iteration 1 and crashed
+   survivors 75 -> 32** — restricted to the TERMINAL phase and cluster candidates, it is clean.
+2. **The disclaimed-accessor excusal** in the independence loop: `analysisOfInitializer()` returning
+   the `@IgnoreModifications` store is hidden-content sharing, not dependence — the independence twin
+   of the eventual walk's `isIgnoreModificationsAccessor`, consulting IMPLEMENTATIONS for abstract
+   accessors. Ungated (annotation-driven, corpus-inert).
+3. **The container-exposure clause** in `excused()`: `fieldModifiers()` exposing `Set<FieldModifier>`
+   — a dependent exposure of a container whose every type parameter is excusable (eventual,
+   immutable-hc, or witnessed candidate) is the ride-along carrier the mark labels already name.
+
+**Composed scoreboard: survivors 75 -> 254, retracted 176 -> 2** — the greatest fixpoint closes over
+essentially all of cst-api/cst-impl: the full `Expression`/`Statement`/`Element`/`Info` hierarchies
+(interfaces AND impls), the eval engine, the printers, the variables, `ParameterizedType(Impl)`,
+`Runtime`/`Factory`/`PredefinedImpl`. Flagship levels are the meaningful ones: `Expression`,
+`Statement`, `Info` at `@Immutable(hc=true)(after=…)`, `TypeInfoImpl` after
+`compilationUnitOrEnclosingType,inspection`. The TWO remaining retractions lean on `EvalNegation`
+(never forms — the last named holdout). Determinism: 254 = 254 modulo ONE boundary type
+(`ImportComputer.ImportDetails` flips in/out — the verification-residue boundary, the documented
+`CompilationUnitPrinterImpl` precedent). Suite 274/0; gate-off Fernflower A/B: **0-line diff**.
+
+What remains for retraction-0 and full stability: the `EvalNegation` holdout, the one-type
+determinism wobble (tied to the residue story), and the standing soundness backstop — the witnessed
+contraction — stays on until the corpus A/B ungating of the whole cluster.
