@@ -243,6 +243,19 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     }
 
     private MethodLinkedVariables doMethod(MethodInfo methodInfo, boolean shallow, boolean write, boolean writeShallow) {
+        if (!shallow && missingPrepData(methodInfo)) {
+            // A source method without prep data would die on doStatement's 'assert vd != null' — and the
+            // exception aborts not just this method but every caller whose computation recursed into it,
+            // which downstream loses whole families of methods (closed-core: 208, see
+            // docs/handoff-linkcomputer-recursion-vd-null.md). Prepwork can leave a reachable method
+            // without VariableData: a fault-tolerant prep isolates a failing type or method and carries on
+            // (PrepAnalyzer.doType / doMethodIsolated), and a caller prepping one primary type at a time may
+            // never have prepped this one. Degrade EXPLICITLY: shallow summary, degradation marker, WARN.
+            LOGGER.warn("No prep data (VariableData) on source method {}; falling back to shallow links",
+                    methodInfo);
+            markDegraded(methodInfo);
+            shallow = true;
+        }
         if (shallow) {
             // FIXME what if we want to use annotations to help when !write? then they will not be seen
             if (writeShallow && !methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.DEFAULTS_ANALYZER)) {
@@ -291,12 +304,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     reportWork(methodInfo, computer, true);
                     // mark the degradation: per-call data (VL2O) is absent inside this method, and consumers
                     // like extract-interface must know to go pessimistic (task #36)
-                    if (!methodInfo.analysis().haveAnalyzedValueFor(
-                            org.e2immu.language.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD)) {
-                        methodInfo.analysis().set(
-                                org.e2immu.language.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD,
-                                org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
-                    }
+                    markDegraded(methodInfo);
                     tlv = doMethod(methodInfo, true, write, writeShallow);
                 }
             } finally {
@@ -312,6 +320,27 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             tlv = doMethod(methodInfo, true, false, false);
         }
         return tlv;
+    }
+
+    /*
+    prepwork sets method-level VARIABLE_DATA only after the whole body analyzed (MethodAnalyzer.doMethod), so
+    its absence on a non-trivially-bodied method means prep never ran or did not complete — including the
+    half-prepped case, where a statement PREFIX carries VariableData. A body holding only the synthetic
+    super() is legitimately without it: prepwork's MethodAnalyzer.doBlock skips that statement, exactly as
+    SourceMethodComputer.doBlock does here.
+     */
+    private static boolean missingPrepData(MethodInfo methodInfo) {
+        Block body = methodInfo.methodBody();
+        if (body == null || body.statements().isEmpty()) return false;
+        if (VariableDataImpl.of(methodInfo) != null) return false;
+        return body.statements().stream().anyMatch(s ->
+                !(s instanceof ExplicitConstructorInvocation eci && eci.isSuper() && eci.isSynthetic()));
+    }
+
+    private static void markDegraded(MethodInfo methodInfo) {
+        if (!methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.DEGRADED_ANALYSIS_METHOD)) {
+            methodInfo.analysis().set(PropertyImpl.DEGRADED_ANALYSIS_METHOD, ValueImpl.BoolImpl.TRUE);
+        }
     }
 
     /**
