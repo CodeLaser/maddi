@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.info;
 
+import org.e2immu.annotation.Independent;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.FieldModifier;
@@ -30,6 +31,11 @@ public interface FieldInspection extends Inspection {
 
     Expression initializer();
 
+    // TRUSTED LEAF (docs/eventual-design-improvements.md §4): the committed face is Set.copyOf-backed
+    // (FieldInspectionImpl's constructor), so the exposed wrapper shares only hidden content -- a fact the
+    // analyzer cannot compute from the declared java.util.Set. The Builder is the before-state face, as
+    // everywhere in the eventual style.
+    @Independent(hc = true)
     Set<FieldModifier> fieldModifiers();
 
 }

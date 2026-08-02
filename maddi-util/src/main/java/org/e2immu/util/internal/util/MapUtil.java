@@ -14,6 +14,8 @@
 
 package org.e2immu.util.internal.util;
 
+import org.e2immu.annotation.NotModified;
+
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -23,7 +25,9 @@ import java.util.stream.Collectors;
 // keep the 'final' here, there is a test that checks that MapUtil is not extensible
 public final class MapUtil {
 
-    public static <T extends Comparable<? super T>, D extends Comparable<? super D>> int compareMaps(Map<T, D> map1, Map<T, D> map2) {
+    @NotModified
+    public static <T extends Comparable<? super T>, D extends Comparable<? super D>> int compareMaps(
+            @NotModified Map<T, D> map1, @NotModified Map<T, D> map2) {
         int c = map1.size() - map2.size();
         if (c != 0) return c;
         // same size
@@ -55,7 +59,8 @@ public final class MapUtil {
         return 0;
     }
 
-    public static <K, V> String nice(Map<K, V> map) {
+    @NotModified
+    public static <K, V> String nice(@NotModified Map<K, V> map) {
         return map.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).sorted().collect(Collectors.joining(", "));
     }
 }

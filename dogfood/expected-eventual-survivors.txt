@@ -1,0 +1,45 @@
+# The eventual-immutability ratchet baseline: types that survive the EventualCluster contraction
+# on the composed dogfood run (maddi analysing its own CST).
+#
+# One fully-qualified type name per line, sorted. Blank lines and '#' comments are ignored.
+# Maintained by TestEventualRatchet (maddi-run-openjdk, slowTest). See docs/eventual-design-improvements.md
+# section 1, and docs/eventual-info-hierarchy.md for the diagnosis recipe when a type disappears.
+#
+# A type LOST from this list means a commit has cost it its eventual verdict -- that is the regression
+# the ratchet exists to catch (the ProvidesImpl incident went undetected for a week).
+# A type ADDED is progress: re-generate this file from build/eventual-survivors-actual.txt.
+#
+# SCOPE: cst-api, cst-analysis and cst-impl are analysed as source and are what this baseline defends.
+# maddi-support and maddi-util arrive as jars pinned by the dogfood build (currently 0.8.2, while the
+# project is at 0.9.0), so a change to either does NOT reach this run and reads as "no change". Bringing
+# them in means bumping those pins, re-publishing the plugin, regenerating the input configuration --
+# and re-deriving this baseline, since the jars moving forward will move verdicts with them.
+#
+# Baseline taken at commit 7dc26e17 ("ungate EVENTUALCLUSTER + MODREACH"), 2026-08-01: 24 types.
+# These are the verdicts that survive with BOTH gates on and the ledger honoured -- the sound set.
+# The larger 254-type set recorded in docs/eventual-design-improvements.md section 1 predates the
+# ungating; it rested on two optimisms that bypassed the assumptions ledger and did not survive it.
+org.e2immu.language.cst.api.element.JavaDoc
+org.e2immu.language.cst.api.element.ModuleInfo
+org.e2immu.language.cst.api.expression.Divide
+org.e2immu.language.cst.api.expression.Equals
+org.e2immu.language.cst.api.expression.Product
+org.e2immu.language.cst.api.expression.Remainder
+org.e2immu.language.cst.api.expression.StringConcat
+org.e2immu.language.cst.api.expression.TextBlock
+org.e2immu.language.cst.api.statement.Block
+org.e2immu.language.cst.api.statement.BreakOrContinueStatement
+org.e2immu.language.cst.api.statement.BreakStatement
+org.e2immu.language.cst.api.statement.ContinueStatement
+org.e2immu.language.cst.api.statement.DoStatement
+org.e2immu.language.cst.api.statement.EmptyStatement
+org.e2immu.language.cst.api.statement.IfElseStatement
+org.e2immu.language.cst.api.statement.LoopStatement
+org.e2immu.language.cst.api.statement.SwitchStatementNewStyle
+org.e2immu.language.cst.api.statement.SynchronizedStatement
+org.e2immu.language.cst.api.statement.TryStatement
+org.e2immu.language.cst.api.statement.WhileStatement
+org.e2immu.language.cst.impl.expression.TextBlockImpl
+org.e2immu.language.cst.impl.info.FieldInspection
+org.e2immu.language.cst.impl.statement.BreakStatementImpl
+org.e2immu.language.cst.impl.statement.ContinueStatementImpl

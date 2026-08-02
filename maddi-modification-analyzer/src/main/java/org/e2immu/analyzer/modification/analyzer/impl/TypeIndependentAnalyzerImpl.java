@@ -195,10 +195,26 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         boolean afterMarkMode = !afterMark.isNone();
         Independent independent = INDEPENDENT;
         for (FieldInfo fieldInfo : typeInfo.fields()) {
-            // AfterMark.fields() only ever holds fields whose own type is eventually immutable -- that is the
-            // condition under which TypeEventualAnalyzerImpl puts them there -- so what such a field exposes has
-            // itself become immutable at the mark, and exposing it afterwards is harmless.
-            if (afterMark.fields().contains(fieldInfo)) continue;
+            // AfterMark.fields() originally held only fields whose own TYPE is eventually immutable -- what
+            // such a field exposes has itself become immutable at the mark. Since the container ride-along,
+            // it also holds RAW container fields (a final List of committable content): committed content,
+            // but a wrapper frozen by no mark -- if that wrapper ESCAPES through a dependent accessor, the
+            // caller mutates our state post-mark. So the skip re-checks the original premise; a ride-along
+            // container falls through to the dependent-exposure checks below (TestEventualPropagation.test7,
+            // surfaced the day the cluster ran default-on).
+            if (afterMark.fields().contains(fieldInfo)) {
+                TypeInfo fieldType = fieldInfo.type().bestTypeInfo();
+                boolean typeCommits = fieldType != null
+                        && (eventuallyImmutable(fieldType).isEventual()
+                            || immutableOf(fieldType).isAtLeastImmutableHC()
+                            || eventualCluster.treatAsEventuallyImmutable(typeInfo, fieldType,
+                                eventuallyImmutable(fieldType)));
+                // a ride-along container is skippable when its wrapper is PROVABLY an immutable copy
+                // (every write a copyOf/of-family call -- the cst-impl constructor discipline): no escape
+                // can mutate such a wrapper, contract or no contract. The verification arm of
+                // docs/eventual-design-improvements.md §4, syntactic and cheap.
+                if (typeCommits || fieldWrapperProvablyImmutable(fieldInfo)) continue;
+            }
             // an @IgnoreModifications field is manual hidden content (road §050): what is reachable through
             // it is disclaimed, so its independence verdict does not bear on the type's -- the twin of the
             // ungated skip in TypeImmutableAnalyzerImpl.loopOverFieldsAndMethods, and a no-op wherever no
@@ -230,6 +246,7 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
                     independent = null;
                 } else if (methodIndependent.isDependent()) {
                     if (!ignoreModificationsAccessor(methodInfo)
+                        && !contractedIndependentHc(methodInfo)
                         && !excused(typeInfo, afterMarkMode, beforeMarkOnly, methodInfo.returnType())) {
                         if (afterMarkMode && ecTypeDebug(typeInfo)) {
                             System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
@@ -303,23 +320,12 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         if (beforeMarkOnly && ev.isEventual()) return true; // the original, ungated rule
         if (afterMarkMode && EventualCluster.ENABLED) {
             if (ev.isEventual()) return true;
-            if (eventualCluster.treatAsEventuallyImmutable(member, bestType, ev)) return true;
-            // container of committable content (FieldInspection.fieldModifiers() exposing
-            // Set<FieldModifier>): the wrapper is the ride-along carrier the mark labels already name;
-            // each type parameter must itself be excusable (eventual, immutable-hc, or a witnessed
-            // candidate), the §060 stance the eventual walk's container mechanisms apply
-            if (!exposed.parameters().isEmpty()) {
-                for (ParameterizedType param : exposed.parameters()) {
-                    TypeInfo pt = param.bestTypeInfo();
-                    if (pt == null) return false;
-                    Value.EventuallyImmutable pev = eventuallyImmutable(pt);
-                    if (pev.isEventual()) continue;
-                    if (immutableOf(pt).isAtLeastImmutableHC()) continue;
-                    if (eventualCluster.treatAsEventuallyImmutable(member, pt, pev)) continue;
-                    return false;
-                }
-                return true;
-            }
+            return eventualCluster.treatAsEventuallyImmutable(member, bestType, ev);
+            // NB a "container of committable content" clause stood here briefly (2026-08-01) and was
+            // removed the same day: it promoted a type leaking a raw mutable ArrayList (the wrapper
+            // itself is frozen by no mark) -- TestEventualPropagation.test7 caught it the moment the
+            // cluster ran default-on. The Set.copyOf-backed exposures it was written for are the
+            // TRUSTED-LEAF case instead: see contractedIndependentHc.
         }
         return false;
     }
@@ -349,6 +355,73 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         for (MethodInfo im : methodInfo.analysis()
                 .getOrDefault(IMPLEMENTATIONS, ValueImpl.SetOfMethodInfoImpl.EMPTY).methodInfoSet()) {
             if (isIgnoreModAccessor(im)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * A hand-written {@code @Independent(hc=true)} on the accessor — the TRUSTED-LEAF compromise
+     * (docs/eventual-design-improvements.md §4): the runtime immutability of a {@code Set.copyOf}-backed
+     * exposure ({@code FieldInspection.fieldModifiers()}) is not computable from the declared type, so the
+     * contract states it, and contracts win — read through the {@link ContractReader}, as everywhere.
+     */
+    private final Map<MethodInfo, Independent> contractedIndependentCache = new ConcurrentHashMap<>();
+
+    private boolean contractedIndependentHc(MethodInfo methodInfo) {
+        return contractedIndependentCache.computeIfAbsent(methodInfo, mi ->
+                        contractReader.contracts(mi).get(INDEPENDENT_METHOD) instanceof Independent i ? i : DEPENDENT)
+                .isAtLeastIndependentHc();
+    }
+
+    // the verification arm: every write to the field (initializer + constructor assignments) is an
+    // immutable-copy expression, so the wrapper the accessors hand out cannot be mutated by any caller
+    private final Map<FieldInfo, Boolean> wrapperImmutableCache = new ConcurrentHashMap<>();
+
+    private boolean fieldWrapperProvablyImmutable(FieldInfo fieldInfo) {
+        return wrapperImmutableCache.computeIfAbsent(fieldInfo, f -> {
+            java.util.List<org.e2immu.language.cst.api.expression.Expression> writes = new java.util.ArrayList<>();
+            org.e2immu.language.cst.api.expression.Expression init = f.initializer();
+            if (init != null && !init.isEmpty()) writes.add(init);
+            for (MethodInfo ctor : f.owner().constructors()) {
+                if (ctor.methodBody().isEmpty()) continue;
+                ctor.methodBody().visit(e -> {
+                    if (e instanceof org.e2immu.language.cst.api.expression.Assignment a
+                        && a.variableTarget() instanceof org.e2immu.language.cst.api.variable.FieldReference fr
+                        && fr.scopeIsThis() && f.equals(fr.fieldInfo())) {
+                        writes.add(a.value());
+                    }
+                    return true;
+                });
+            }
+            return !writes.isEmpty() && writes.stream()
+                    .allMatch(TypeIndependentAnalyzerImpl::immutableCopyExpression);
+        });
+    }
+
+    private static boolean immutableCopyExpression(org.e2immu.language.cst.api.expression.Expression expr) {
+        if (expr instanceof org.e2immu.language.cst.api.expression.NullConstant) {
+            return true; // a null wrapper cannot be mutated; the null-tolerant copyOf ternary shape
+        }
+        if (expr instanceof org.e2immu.language.cst.api.expression.Cast c) {
+            return immutableCopyExpression(c.expression());
+        }
+        if (expr instanceof org.e2immu.language.cst.api.expression.EnclosedExpression ee) {
+            return immutableCopyExpression(ee.inner());
+        }
+        if (expr instanceof org.e2immu.language.cst.api.expression.InlineConditional ic) {
+            return immutableCopyExpression(ic.ifTrue()) && immutableCopyExpression(ic.ifFalse());
+        }
+        if (expr instanceof org.e2immu.language.cst.api.expression.MethodCall mc) {
+            MethodInfo mi = mc.methodInfo();
+            String name = mi.name();
+            if (("copyOf".equals(name) || "of".equals(name)) && mi.isStatic()) {
+                String owner = mi.typeInfo().fullyQualifiedName();
+                return "java.util.List".equals(owner) || "java.util.Set".equals(owner)
+                       || "java.util.Map".equals(owner);
+            }
+            if ("requireNonNull".equals(name) && !mc.parameterExpressions().isEmpty()) {
+                return immutableCopyExpression(mc.parameterExpressions().getFirst());
+            }
         }
         return false;
     }

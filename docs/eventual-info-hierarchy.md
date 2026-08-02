@@ -1685,3 +1685,287 @@ essentially all of cst-api/cst-impl: the full `Expression`/`Statement`/`Element`
 What remains for retraction-0 and full stability: the `EvalNegation` holdout, the one-type
 determinism wobble (tied to the residue story), and the standing soundness backstop — the witnessed
 contraction — stays on until the corpus A/B ungating of the whole cluster.
+
+## THE UNGATING (2026-08-01): default-on, and the honest reckoning
+
+`EVENTUALCLUSTER` and `MODREACH` are now **default-on** (`=0` opts out; `EvalNegation.negationCache`
+got its memo disclaimer en route). Running the full unit suite default-on immediately triggered the
+soundness pin `TestEventualPropagation.test7` (the leaked-ArrayList shape) and exposed that **the 254
+rested substantially on two optimisms that bypassed the witnessed ledger**:
+
+1. **The raw-container after-mark skip**: ride-along container fields entered `AfterMark.fields()`
+   and the independence loop skipped them wholesale — but a raw wrapper is frozen by no mark, and if
+   it escapes through a dependent accessor, a pre-mark caller mutates our state post-mark. Fixed: the
+   skip re-checks its original premise (field type eventual/candidate/hc), with a **verification
+   arm** — `fieldWrapperProvablyImmutable`, every write a `copyOf`/`of`-family expression — as the
+   sound alternative for copy-backed wrappers.
+2. **The independence floor trusted a cycle-broken unconditional**: `INDEPENDENT` written by cycle
+   breaking is optimism, not a verdict; flooring after-mark independence on it promoted test7's
+   shape. Fixed: the floor uses the honestly recomputed unconditional
+   (`independentAfterMark(NONE, false)`), null meaning no floor.
+
+Also landed: `contractedIndependentHc` — the TRUSTED-LEAF route
+(docs/eventual-design-improvements.md §4): a hand-written `@Independent(hc=true)` on
+`FieldInspection.fieldModifiers()` (Set.copyOf-backed, uncomputable from the declared type) is read
+through the ContractReader in the independence loop; and `ignoreModificationsAccessor`, the
+independence twin of the eventual walk's disclaimed-store excusal. One legitimate re-pin: a leading
+`assert <state test>` now classifies `@Only(after)` by the (default-on) precondition shapes.
+
+**The honest scoreboard: default-on gives 24 sound survivors** (deterministic, identical set across
+runs; suite 274/0 with the soundness pin passing) — down from the optimistic 254, up 6× from the old
+default (~4). The 230 in between are real but *unproven*: their two supports must be rebuilt on
+witnessed/verified ground. The named reconstruction levers, in order: (a) the cst-impl `copyOf`
+discipline (conformance rule 4) so `fieldWrapperProvablyImmutable` fires for the comment/annotation
+ride-alongs — NOTE a first attempt (copyOf in the `StatementImpl`/`ExpressionImpl` base ctors) made
+things WORSE (24 → 10: the ternary in the hot base ctors perturbs more walks than the arm recovers)
+and was reverted; the sweep needs the call-site (Builder) end instead; (b) trusted-leaf
+`@Independent(hc=true)` contracts on the copy-backed accessors, the `fieldModifiers` route, family by
+family; (c) honest unconditional independence for the interfaces.
+
+**Corpus behavior under the new defaults** (this is a semantic change, deliberately commissioned):
+Fernflower **passes** (roll-call 1/0/0) in 651 s (~5.4× the gate-off 120 s — the shadow-pass cost at
+corpus scale; a performance follow-up). The verdict delta vs gate-off is 536 lines and matches the
+documented modreach signature: methods 59 strengthened (the FALSE→TRUE reverse upgrades) vs 36
+honestly weakened (`copy()`/`iterator()` reachability corrections), types 4↑/13↓ following their
+methods. And one first: `TargetInfo.LocalvarTarget` in Fernflower's own unannotated code is computed
+`@Immutable(hc=true)(after="table")` — the machinery generalizing beyond maddi. Timefold and
+Langchain4j under the new defaults are still to be run and classified the same way before this is
+considered fully validated.
+
+## The enforcement round (2026-08-01): the ratchet, the conformance rules, and what they caught
+
+Implements `docs/eventual-design-improvements.md` §§1–3. The headline is not the machinery — it is
+that the machinery earned its keep within an hour of existing, twice.
+
+### The ratchet (§1)
+
+`TestEventualRatchet` (maddi-run-openjdk, `@Tag("slow")`) re-derives the surviving
+`EVENTUALLY_IMMUTABLE_TYPE` set from a composed dogfood run and diffs it against
+`dogfood/expected-eventual-survivors.txt`, with `dogfood/eventual-survivor-wobble.txt` for boundary
+nondeterminism. Three things are deliberate:
+
+- **The baseline is 24, not the doc's 254.** The design note was written before the ungating; the 254
+  did not survive the assumptions ledger. A ratchet pinned to numbers that were never sound would
+  fail on its first honest run and be deleted as noise.
+- **It builds its own pipeline rather than calling `RunAnalyzer`**, so `MODREACH` and
+  `EVENTUALCLUSTER` are set programmatically. Both are environment *opt-outs* now; a developer with
+  either exported to `0` would otherwise measure a different engine and read the difference as a
+  regression.
+- **It reads the property, never an FPDUMP.** The dump is a diagnostic and free to change format.
+- It fails, loudly, when the dogfood input configuration is missing — the vacuous-green failure mode
+  `AGENTS.md` §Commands warns about.
+
+**Known scope limit, now stated in the test and the baseline header:** cst-api / cst-analysis /
+cst-impl are analysed as source and are what the ratchet defends. maddi-support and maddi-util arrive
+as **jars pinned at 0.8.2 while the project is at 0.9.0**, so a change to either does not reach the
+run and reads as "no change". This is why the maddi-util contracts added below are, as of this
+commit, *unmeasured on the dogfood*: they are inert until the pins are bumped, the plugin re-published
+and the input configuration regenerated — at which point the baseline must be re-derived, since the
+jars moving forward will move verdicts with them.
+
+### The conformance rules (§2)
+
+`TestEventualConformance` lives in **maddi-inspection-openjdk**'s ordinary `test` task, not in
+cst-impl: the rules that matter need method *bodies*, so they need maddi's own `JavaInspector`, which
+cst-impl's test source set does not have. It parses maddi's own sources, mirroring
+`TestJavaInspector6MultiProject`.
+
+Two things had to be got right before the rules said anything useful:
+
+- **Source sets must be named after the jar they resolve to.** The name is not cosmetic — the
+  automatic module name derives from it, and a hand-written `"annotations"` leaves the module
+  unresolvable, whereupon annotation types fail to convert and the scanner dies with an NPE inside
+  `ClassSymbolScanner` rather than reporting an unresolved import. The helper derives the name from
+  the artifact URI, which also survives the version bumps a hard-coded `annotations-26.1.0.jar` does
+  not.
+- **Rules 3 and 4 need a scope, or they drown.** Applied to all of cst-impl they produced 28
+  violations, ~20 of them deliberately mutable services (`QualificationImpl` accumulates print state,
+  `ImportComputerImpl` accumulates imports, `IsAssignableFrom` memoizes). Those never become part of
+  an `Element`, so an adder on them costs the analysis nothing. The scope is now computed: everything
+  implementing `Element`, closed over its fields' declared types *and* over implementors of anything
+  in scope — the latter because `isMutable(@FinalFields)` is exactly a downward rule. 206 cst-impl
+  types, 107 in scope. `ModuleInfo.Provides extends Element`, so the `ProvidesImpl` incident that
+  motivated the rule is in; `MethodMapImpl` comes in as the field type of `TypeInspectionImpl`.
+
+Rule 1 (every `PropertyValueMap` store disclaimed) came back **clean** — the audit that closed it last
+session holds. The rules found four real things: `AndImpl.hash` and `OrImpl.hash` (lazy memos without
+the disclaimer, the `UnaryOperatorImpl` shape), `MethodMapImpl`'s final `HashMap` filled by `put()` in
+its constructor (the `precedenceMap` shape), and three uncontracted maddi-util statics
+(`ListUtil.joinLists`, `MapUtil.compareMaps`, `MapUtil.nice` — the `ZipLists.zip` gap).
+
+### What the ratchet caught: a weak verdict is worse than none, measured
+
+Applying those fixes dropped the dogfood from **24 survivors to 10** — the entire statement family.
+The bisect is the interesting part, and it exonerated the obvious suspects: reverting `MethodMapImpl`
+alone left it at 10; the engine change of §3 *alone* measured 24. The cause was the two-line
+`@IgnoreModifications` on `AndImpl.hash` / `OrImpl.hash`.
+
+The mechanism is the rule already recorded in this document, now with a price tag on it. Before the
+disclaimer, `AndImpl` had a non-final field, no verdict, and therefore the **optimistic HC seed**.
+With it, all fields are final-or-disclaimed and the type forms `@FinalFields` — but only
+`@FinalFields`, because `expressions` is assigned straight from a constructor parameter and is not a
+provably immutable container. That weak formed verdict *replaces* the seed, and every statement type
+leaning on the `Expression` union goes down with it.
+
+The fix is the reconstruction lever this document named after the failed base-constructor sweep:
+**apply the copy at the call-site end.** `AndImpl.Builder.build()` already committed
+`List.copyOf(expressions)`; the two public constructors did not, and they are what most callers use.
+Copying there makes the verdict no longer weak, and disclaimer + copy together measure **24,
+identical to baseline**. Neither half is shippable alone: the disclaimer alone is a 14-type
+regression, and that is precisely what a week of dogfood archaeology used to cost.
+
+The general lesson, sharper than before: **a correct idiom applied halfway is a regression.** An
+`@IgnoreModifications` that moves a type from "no verdict" to "weak verdict" must be landed together
+with whatever gets it the rest of the way, or not at all. This is also why conformance rule 4 is
+folded into rule 3 as "no in-place mutation of a final collection field" rather than the doc's
+"constructors must assign defensive copies": the latter, applied to the hot base constructors,
+is the sweep that measured 24 → 10 last session.
+
+### The support types (§3)
+
+`org.e2immu.support.Memo<T>` and `IntMemo`, both carrying a **class-level** `@IgnoreModifications`
+(`TYPE` added to the annotation's `@Target`), plus the engine rule that makes it pay: a field whose
+*type* carries the class-level disclaimer is materialized as if the field itself were annotated
+(`SourceContractMaterializer.materializeIgnoreModificationsFromFieldType`). Writing it into
+`analysis()` — rather than special-casing it at each of the dozen read sites — is what makes every
+consumer agree. This is not the rejected "skip `PropertyValueMap` by type" hack: that keyed on a type
+its author never marked; here the disclaimer is written, deliberately, on the class whose whole
+purpose it is. `IntMemo` also fixes a latent bug the hand-written slots have: a computed hash of
+exactly 0 is stored as 1, so it is computed once rather than on every call
+(`VariableImpl.hashCode` does this by hand; `UnaryOperatorImpl.hashCode` did not).
+
+**Nothing is migrated to them yet, on purpose.** Every memo slot that exists today —
+`VariableImpl.cachedFqn`, `VariableImpl.cachedHash`, and the three `hash` slots — is on the analysis
+hot path, and a `Memo` costs one object allocation per CST node where a bare field costs none. With a
+5.4× corpus slowdown already on the follow-up list, that is the wrong direction to take on
+speculation. The mechanism is in place and measured neutral (24 survivors, dogfood); migrating any
+particular slot is now a measurement, not a design question.
+
+### The corpus A/B, and a second halfway-idiom
+
+The engine rule of §3 is ungated, so the golden rule applies. Fernflower, default-on, three runs:
+
+| comparison | differing elements |
+|---|---|
+| A (HEAD, fresh) vs BD (HEAD, previous session) | 2 — `MergeHelper.matchWhile` and `StatEdge.EdgeType.<init>(int)`, both `nonModifying` flips |
+| A (HEAD, fresh) vs B (this change set) | 1 — `ConstantPool.pool`, `independent` `@Independent` → `@Dependent` |
+| A (HEAD, fresh) vs B2 (change set + the `hasBeenInspected` guard below) | 0, modulo those same two flakes |
+
+The first row is the point of running A twice: two runs of the *same* tree differ by two elements, so
+`MergeHelper.matchWhile` joins `StatEdge.EdgeType.<init>(int)` and `Exprent.<init>(int)` in the known
+`nonModifying` flake family. Against that noise floor, the change set had exactly one real effect.
+
+One is not zero, and on a corpus containing **no e2immu annotations at all** a rule that fires on
+class-level `@IgnoreModifications` should have been provably inert. It was not, and the reason is worth
+recording: `TypeInfo.annotations()` goes through `EventuallyFinalOnDemand.get()`, which **runs the lazy
+byte-code loader**. Asking every field's type for its annotations inspects types the analyzer would
+never otherwise have looked at, and what is inspected changes what is known when a verdict is computed
+— here, conservatively, on one field.
+
+So the rule now tests `hasBeenInspected()` first, and the ordering is load-bearing rather than an
+optimization; with the guard the corpus diff is the flake pair and nothing else (third row above),
+which is the byte-identical outcome the golden rule asks for. This is the §5 trade-off ("lazy inspection … the reason the enm layer had to exist")
+biting a caller that merely wanted to read an annotation. **The general form is the same lesson as the
+`AndImpl.hash` regression above: on this CST, reading is not free.** Anything that walks types outside
+the analyzer's own order must either prove it is not forcing inspection, or measure a corpus A/B and
+be prepared for the answer.
+
+## The bistability investigation (2026-08-01): the dogfood is a coin flip
+
+**Symptom.** The composed dogfood run is NOT deterministic: across identical invocations at the same
+commit (`fafcf06c`), the survivor count flips between **24** (the ratchet's baseline: the statement
+family forms) and **10** (it never forms), roughly 50/50. Every "deterministic, identical across two
+runs" claim in this document was sampling luck from 2-run checks; the enforcement round's ratchet is
+pinned to a coin flip. Established with 40+ measured runs, direct `installDist` CLI (no Gradle).
+
+**The two worlds, precisely.**
+- The FPDUMPs differ ONLY in the 14 statement-family type lines; every method-level verdict is
+  identical. Per-iteration property-change counts are identical through iteration 17 and fork at 18
+  (585 vs 570).
+- The eventual-cluster ledger (`EC_ASSUME_DEBUG=org.e2immu`) of the 10-world is a strict SUPERSET:
+  22 extra statement-family assumption edges (`BlockImpl -> Block`, `TryStatementImpl ->
+  TryStatement`, `X -> StatementImpl`, ...) that end up undischarged, so the contraction cascades the
+  family away. The same edges appear in both worlds at DIFFERENT iterations (it=20 vs it=28...) —
+  the whole trajectory shifts.
+- Persisted analysis output is essentially deterministic PER WORLD (two 24-world runs: byte-identical
+  result dirs). Cross-world, `methodLinks` on several statement `translate()` methods and `links` on
+  `ExplicitConstructorInvocationImpl` fields flip PRESENCE — the write-vs-nested-shallow-not-written
+  distinction of the link computer's recursion prevention.
+- Upstream of everything: the link engine's per-method work/witness counts vary between EVERY pair of
+  runs (`-Dmaddi.workReport=1`; e.g. `MethodPrinterImpl.print` witnesses 16146 vs 16610 on an
+  IDENTICAL final closure of 14914 facts) — exploration-order noise from iteration 1 onward, mostly
+  harmless, occasionally tipping the recursion-arrival pattern.
+
+**Exonerated by experiment** (each still bistable): `-ea` on/off; `EC_RETRACT_DEBUG`; `--parallel`;
+`PARALLEL=1` (verified: zero pool threads, all `[main]`); the prep phase (three prep-only runs:
+byte-identical output); Gradle itself (direct CLI reproduces); the JDK `ImmutableCollections` salt
+(a `SALTPROBE` in Main: SAME salt order gave both outcomes); `-XX:hashCode=4` — NOTE this mode is
+ADDRESS-based, so those runs prove nothing about identity hashing; C1-only JIT + SerialGC; pure
+interpreter `-Xint` + SerialGC; `-XX:hashCode=3` (counter) WITH JIT (JIT threads may perturb the
+counter, so also not conclusive); filesystem enumeration order (stable md5 across runs). No
+`identityHashCode`, no clocks/randomness in any analysis module (grep-verified), no weak/soft refs,
+no caught StackOverflowError (fault-tolerance catch sites log; logs clean).
+
+**Found and fixed en route (kept regardless — each closes a real order-sensitivity hole):**
+- `WitnessIndex`'s own comment records the PRIOR round of this same disease ("arrival order depends
+  on map iteration over identity-hashed variables (LocalVariableImpl has no hashCode override)") —
+  the FQN-based `VariableImpl.hashCode` and the canonical witness tie-break were that round's fix.
+- **`ParameterizedTypeImpl.hashCode` hashed the `WildcardEnum` CONSTANT — `Enum.hashCode()` is the
+  identity hash and FINAL**, so every wildcard-bearing type (and every type recursively containing
+  one) had a per-JVM-run hash; hash-keyed collections of types iterated in run-varying order. Fixed
+  with a stable per-constant token (`stableWildcardHash`). Measured: NOT sufficient alone — still
+  bistable — but exactly the disease the hashCode comment ("keep their iteration order") tried to
+  prevent.
+- Canonical (FQN-sorted) iteration for `MethodLinkedVariablesImpl.modified` and
+  `LinkNatureImpl.pass` (were salted `Set.of`/`Set.copyOf`), creation-order snapshot for
+  `VariableDataImpl.Builder.knownVariableNames()` (was salted `Set.copyOf`), and
+  `LinkedVariablesImpl.merge` accumulates in a `HashMap` (FQN-hashed keys iterate identically across
+  runs) instead of re-wrapping in salted `Map.copyOf`. An FQN-sorted canonical CONSTRUCTOR for
+  `LinkedVariablesImpl` was additionally tried and REVERTED: it deterministically re-labels the
+  §-face indices and fails `TestForEachLambda`'s ~/∩ pairing pins (4 tests) — if reinstated, those
+  pins must be re-derived together with the face-minting order. All surviving changes: full fast
+  suites green.
+- Reading note: `LinksImpl.equals`/`hashCode` are PRIMARY-ONLY and `LinkImpl.equals` ignores the
+  nature — deliberate, but they make the closure first-arrival-sensitive: whichever
+  equal-by-key-different-by-content value arrives first wins. This is the amplifier that turns
+  exploration noise into semantic divergence.
+
+**Open at the time of writing:** the variance SEED is not yet identified. The decisive experiment —
+`-Xint -XX:+UseSerialGC -XX:hashCode=3` (deterministic counter, no JIT threads) × 3 — is in flight:
+stable ⇒ identity hash confirmed somewhere (hunt the carrier); still bistable ⇒ every JVM-level
+mechanism is excluded and the seed is something genuinely exotic. Until the dogfood is deterministic,
+scoreboard claims need ≥4 repeat runs, and the ratchet baseline (24) must be read as "the better of
+two worlds", not a stable fact.
+
+### The trace round (2026-08-02): event order is deterministic; INSTANCE selection is not
+
+`LINKTRACE=<fqn substring>` (new, env-gated, zero overhead off) prints every seed, propagation step,
+mirror completion and recompute of the matching method's fixpoint engine. Six traced runs of
+`EvalInequality.twoTerms` — the recurring within-world wobble site — produced the sharpest fact of the
+investigation:
+
+- **All six traces are byte-identical (792 events each).** Seeds, derivations, witness-improved flags,
+  recomputes: the same sequence, every run.
+- **Yet the persisted `methodLinks` provenance differs**: the retained `terms[0]` DependentVariable
+  instance points at source `97-…`, `119-…` or `125-…` across runs — the THREE textually identical
+  `runtime.sum(terms[0], terms[1])` call sites each mint an FQN-equal `terms[0]`; which INSTANCE
+  survives the dedup flips per run (TRISTABLE, matching the three sites).
+
+So the nondeterminism is not in what the engine DOES — it is in WHICH of several `equals()`-equal
+objects ends up representing the value. Instance selection among equals happens wherever a hash
+structure deduplicates; the one JDK mechanism that breaks such ties by IDENTITY even when every
+`hashCode()` is value-based is **`java.util.HashMap`'s treeified-bin tie-break**
+(`HashMap.tieBreakOrder` falls back to `System.identityHashCode` for keys whose hashes collide and
+that are not mutually `Comparable`). `Variable` is Comparable (FQN); **`Fact` (the engine's
+`HashMap<Fact, Witness>` key, and `history` HashSet element) is a record and NOT Comparable** — a
+treeified bin of colliding facts iterates, and resolves equal-key insertion, in per-run order. This
+hypothesis survives every experiment run so far, including `-XX:hashCode=3` with JIT (VM threads
+perturb the counter) — the clean discriminator (`-Xint -XX:hashCode=3`, where the counter is truly
+deterministic) was twice cut short.
+
+Candidate fixes, in order of preference: (a) make `Fact` Comparable (source, target via the vertex
+comparator; label by score+symbol) so tie-breaks are value-based everywhere; (b) canonicalize
+retained-instance choice at the dedup sites (LinksImpl merge keeps the lexicographically-smallest
+provenance); (c) the ledger-level clamp (docs above). Note the encoded PROVENANCE wobble (97/119/125)
+is semantically neutral in itself — the harm is that the same instance-selection mechanism decides
+which methods' links get written vs nested-shallow, which is where the 24↔10 worlds fork.

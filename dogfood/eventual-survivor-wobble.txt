@@ -1,0 +1,15 @@
+# Known run-to-run nondeterminism in the eventual survivor set.
+#
+# A type listed here may be present or absent from the composed dogfood run without failing
+# TestEventualRatchet. It must NOT appear in expected-eventual-survivors.txt.
+#
+# Only genuine boundary nondeterminism belongs here -- a type that flips between two runs at the SAME
+# revision, verified by re-running. A type that merely broke is a regression, not a wobble; putting it
+# here hides exactly what the ratchet is for.
+#
+# ImportComputer.ImportDetails sits on the verification-pass residue boundary (docs/handoff-verification-
+# residue.md): whether its printing methods complete analysis depends on the parallel type loop's
+# ordering, so its verdict flips. Same family as the historical CompilationUnitPrinterImpl wobble.
+# It is absent from the current (24-type) baseline; the entry stands so that a run in which it does
+# form does not fail the ratchet.
+org.e2immu.language.cst.api.info.ImportComputer.ImportDetails

@@ -33,9 +33,15 @@ import java.lang.annotation.Target;
  * consumer should typically not prevent the type of the <code>forEach</code> method to become a container.
  * <p>
  * This annotation is always contracted, never computed.
+ * <p>
+ * On a <em>type</em> it declares that the whole class is a disclaimed slot — every field of that type
+ * inherits the disclaimer, so the idiom is declared once at the source rather than repeated on each
+ * field. {@link org.e2immu.support.Memo} and {@link org.e2immu.support.IntMemo} are the types this
+ * exists for. This is not the same as skipping a type the author never marked: the disclaimer is
+ * written, deliberately, on the class whose entire purpose it is.
  */
 @Retention(RetentionPolicy.CLASS)
-@Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+@Target({ElementType.TYPE, ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
 public @interface IgnoreModifications {
     // contract: true, absent: false
 

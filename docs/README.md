@@ -24,6 +24,7 @@ Each entry below is labeled:
 | [builder-interface-split-impact.md](builder-interface-split-impact.md) | note | Costing the two ways to stop the mutable Builder capping the read-only Inspection interfaces; measured, no refactor landed. |
 | [eventual-immutability.md](eventual-immutability.md) | plan | Bringing road-to-immutability §060 back into the engine: contract the support classes, propagate; no preconditions. |
 | [eventual-info-hierarchy.md](eventual-info-hierarchy.md) | note | Why the `Info`/`*InfoImpl` family is `@Mutable`, and the method-level `@NotModified(after=)` primitive built to unblock it (steps 1–5); the cross-reference cluster that remains. |
+| [eventual-design-improvements.md](eventual-design-improvements.md) | proposal | cst-api/cst-impl design follow-ups from the certification arc: the dogfood ratchet, conformance tests, `Memo` support types, and the asserted-contract compromise. §§1–3 implemented (see the enforcement round in eventual-info-hierarchy.md, and the corrections at the top); §4 and §6 still open. |
 | [formatter-analysis.md](formatter-analysis.md) | note | Analysis of the `maddi-cst-print` formatter. |
 | [formatter-doc-ir-plan.md](formatter-doc-ir-plan.md) | plan | Rewrite plan: a Doc IR for `maddi-cst-print`. |
 | [prep-analyzer hardening.md](prep-analyzer%20hardening.md) | plan | Robustness hardening roadmap for `maddi-modification-prepwork`. |

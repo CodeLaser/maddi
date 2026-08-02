@@ -34,7 +34,12 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
     public MethodLinkedVariablesImpl(Links ofReturnValue, List<Links> ofParameters, Set<Variable> modified) {
         this.ofParameters = ofParameters;
         this.ofReturnValue = ofReturnValue;
-        this.modified = modified;
+        // canonical, sorted iteration order: callers hand in Set.of/Set.copyOf, whose iteration order is
+        // per-JVM SALTED (java.util.ImmutableCollections) — consumers walking the modified set would
+        // inherit run-to-run nondeterminism (the composed-dogfood 24 ↔ 10 bistability). Variable is
+        // Comparable (FQN order, consistent with equals).
+        this.modified = modified.isEmpty() ? modified
+                : java.util.Collections.unmodifiableSortedSet(new java.util.TreeSet<>(modified));
     }
 
     @Override

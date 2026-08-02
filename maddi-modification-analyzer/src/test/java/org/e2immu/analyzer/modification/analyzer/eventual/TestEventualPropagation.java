@@ -198,8 +198,14 @@ public class TestEventualPropagation extends CommonTest {
         assertTrue(indirect.isMark(), "indirect() should inherit the mark, is " + indirect);
         assertEquals(Set.of("t"), indirect.fields());
 
-        // consulting the state in an assert says nothing about the method itself
-        assertFalse(eventual(B.findUniqueMethod("touchesStateInAnAssert", 0)).isEventual());
+        // under the (now default) precondition shapes, a LEADING assert on the state is a precondition:
+        // the live path requires the after side, so the method classifies @Only(after="t") -- calling it
+        // before the mark fails the assert. It is still not a @TestMark (the state OBSERVATION does not
+        // make the method a state test). Historical pin, when the shapes were gated off: not eventual.
+        Value.Eventual guarded = eventual(B.findUniqueMethod("touchesStateInAnAssert", 0));
+        assertTrue(guarded.isOnly(), "expected @Only(after), got " + guarded);
+        assertEquals(Boolean.TRUE, guarded.after());
+        assertFalse(guarded.isTestMark());
     }
 
     @Language("java")

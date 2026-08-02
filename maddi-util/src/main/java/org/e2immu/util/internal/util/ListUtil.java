@@ -27,8 +27,12 @@ public class ListUtil {
 
     public record Pair<K, V>(K k, V v) {}
 
+    // joinLists only iterates its inputs. Contracted for the same reason as ZipLists.zip: maddi-util
+    // reaches the dogfood as a jar, where an unannotated container parameter reads as possibly-modified.
+    @NotModified
     @Independent
-    public static <K, L> Stream<Pair<K, L>> joinLists(@NotNull List<K> list1, @NotNull List<L> list2) {
+    public static <K, L> Stream<Pair<K, L>> joinLists(@NotNull @NotModified List<K> list1,
+                                                      @NotNull @NotModified List<L> list2) {
         Stream.Builder<Pair<K, L>> builder = Stream.builder();
         Iterator<L> it2 = list2.iterator();
         for (K t1 : list1) {

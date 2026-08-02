@@ -66,8 +66,11 @@ public class EventualCluster {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EventualCluster.class);
 
-    // non-final so a test can flip it; the env is the production default (mirrors StaticSideEffectAnalyzerImpl)
-    public static boolean ENABLED = System.getenv("EVENTUALCLUSTER") != null;
+    // non-final so a test can flip it. UNGATED 2026-08-01 (the roadmap's step 3): the greatest fixpoint is
+    // the default -- the witnessed contraction stays as the standing soundness backstop -- and
+    // EVENTUALCLUSTER=0 is the opt-out for A/B archaeology. Ungating record and the three-corpus A/B in
+    // docs/eventual-info-hierarchy.md.
+    public static boolean ENABLED = !"0".equals(System.getenv("EVENTUALCLUSTER"));
 
     // supertypes of direct candidates: the only members with no eventual method of their own
     private final Set<TypeInfo> inheritedCandidates = ConcurrentHashMap.newKeySet();

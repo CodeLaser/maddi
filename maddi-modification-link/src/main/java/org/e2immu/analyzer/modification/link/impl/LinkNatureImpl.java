@@ -75,7 +75,17 @@ public class LinkNatureImpl implements LinkNature {
     private LinkNatureImpl(String symbol, int rank, int score, Set<MethodInfo> pass) {
         this.symbol = symbol;
         this.rank = rank;
-        this.pass = pass;
+        // canonical, sorted iteration order: the callers hand in Set.of/Set.copyOf, whose iteration is
+        // per-JVM SALTED (java.util.ImmutableCollections) — consumers walking the pass set would inherit
+        // run-to-run nondeterminism (the composed-dogfood 24 ↔ 10 bistability)
+        if (pass.isEmpty()) {
+            this.pass = pass;
+        } else {
+            java.util.TreeSet<MethodInfo> sorted =
+                    new java.util.TreeSet<>(java.util.Comparator.comparing(MethodInfo::fullyQualifiedName));
+            sorted.addAll(pass);
+            this.pass = java.util.Collections.unmodifiableSortedSet(sorted);
+        }
         this.score = score;
     }
 
