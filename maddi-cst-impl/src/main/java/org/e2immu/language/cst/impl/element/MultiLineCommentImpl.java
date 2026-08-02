@@ -78,7 +78,11 @@ public class MultiLineCommentImpl implements MultiLineComment {
         GuideImpl.GuideGenerator gg = GuideImpl.generatorForMultilineComment();
         String text = "/*" + comment() + "*/";
         String[] split = text.split("\n");
-        OutputBuilder firstLine = new OutputBuilderImpl().add(new TextImpl(split[0]));
+        // stripTrailing: every other line is trim()ed below, but the first line kept its trailing
+        // whitespace (construction trims only the comment's ENDS) — and a trailing space here trips the
+        // formatter's Output invariant ("An output cannot end in a space", BlockPrinter) on real-world
+        // sources with whitespace before the newline inside block comments
+        OutputBuilder firstLine = new OutputBuilderImpl().add(new TextImpl(split[0].stripTrailing()));
         OutputBuilder joinedText = Stream.concat(Stream.of(firstLine), Arrays.stream(split).skip(1)
                         .filter(line -> !line.isBlank())
                         .map(line -> new OutputBuilderImpl()

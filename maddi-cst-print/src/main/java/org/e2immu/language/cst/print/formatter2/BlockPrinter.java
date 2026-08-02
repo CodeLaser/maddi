@@ -94,7 +94,8 @@ public class BlockPrinter {
      */
     record Output(String string, boolean hasBeenSplit, SplitInfo splitInfo, Line.SpaceLevel spaceLevel) {
         Output {
-            assert !string.endsWith(" ") : "An output cannot end in a space";
+            assert !string.endsWith(" ") : "An output cannot end in a space; tail: ..."
+                                           + string.substring(Math.max(0, string.length() - 120));
         }
 
         int endPos() {

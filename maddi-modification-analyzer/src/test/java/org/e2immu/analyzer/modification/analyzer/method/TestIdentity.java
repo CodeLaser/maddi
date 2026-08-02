@@ -242,6 +242,46 @@ public class TestIdentity extends CommonTest {
             }
             """;
 
+    /*
+     Distilled from closed-core SqlUtil.getConditionItem (2026-08-02, jfocus M2 'condition' bucket):
+     a FRESH-FILL FACTORY — new object, fields fed from the parameter's content, returned. Its return links
+     are all FACE links (rv.value ← 0:theInfo.name); there is no direct rv link at all. doIdentityAnalysis's
+     allMatch was VACUOUSLY true on that shape, certifying a method that returns a different type than its
+     first parameter as @Identity — and downstream, jfocus-standardize's walker aliased the call's result
+     variable to the argument ('condition ≙ icIncomingCostState'), losing the declaration and killing 155
+     methods on one assertion. Identity needs positive evidence: a direct rv ≡/← p0 link.
+     */
+    @Language("java")
+    private static final String INPUT7 = """
+            package a.b;
+            public class F {
+                static class Info { String name; }
+                static class Item { Object value; }
+                public static Item make(Info theInfo, long id) {
+                    Item q = new Item();
+                    q.value = theInfo.name;
+                    return q;
+                }
+            }
+            """;
+
+    @DisplayName("fresh-fill factory: faces-only return links must not be vacuously @Identity")
+    @Test
+    public void test7() {
+        TypeInfo F = javaInspector.parse("a.b.F", INPUT7);
+        List<Info> ao = prepWork(F);
+        analyzer.go(ao);
+
+        MethodInfo make = F.findUniqueMethod("make", 2);
+        MethodLinkedVariables mlv = make.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertFalse(mlv.ofReturnValue().isEmpty(),
+                "the regression needs non-empty, faces-only return links; got " + mlv);
+        assertTrue(mlv.ofReturnValue().stream().noneMatch(l -> l.from().equals(mlv.ofReturnValue().primary())),
+                "the regression needs NO direct rv link (vacuous-allMatch shape); got " + mlv);
+        assertFalse(make.isIdentity(),
+                "a method returning a fresh object of a different type is never @Identity; mlv=" + mlv);
+    }
+
     @DisplayName("identity and variables linked to object")
     @Test
     public void test6() {
