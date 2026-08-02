@@ -127,10 +127,15 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             && !mlv.ofReturnValue().isEmpty()) {
             Variable primaryFrom = mlv.ofReturnValue().primary();
             Variable p0 = methodInfo.parameters().getFirst();
-            identity = mlv.ofReturnValue().stream().allMatch(link -> !link.from().equals(primaryFrom) || link.to().equals(p0));
-            //     ParameterInfo pi = Util.parameterPrimaryOrNull(link.to());
-            //     return p0.equals(pi);
-            // });
+            // POSITIVE evidence required: a direct rv ≡/← p0 link. The allMatch alone was vacuously true on
+            // faces-only summaries (rv.field ← ..., no direct rv link at all) — the shape of every fresh-fill
+            // factory 'T q = new T(); q.x = p.y; return q' — certifying methods that return a different type
+            // than p0 as @Identity. Consumers alias the call away (jfocus-standardize replaced the result
+            // variable by the argument, TestIdentity.test7 / closed-core getConditionItem).
+            identity = mlv.ofReturnValue().stream().anyMatch(link -> link.from().equals(primaryFrom)
+                                                                     && link.linkNature().isIdenticalToOrAssignedFromTo()
+                                                                     && link.to().equals(p0))
+                       && mlv.ofReturnValue().stream().allMatch(link -> !link.from().equals(primaryFrom) || link.to().equals(p0));
         } else {
             identity = false;
         }
