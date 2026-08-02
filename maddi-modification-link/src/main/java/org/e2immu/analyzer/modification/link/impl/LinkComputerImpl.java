@@ -197,9 +197,24 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         doType(primaryType);
     }
 
+    // gate CANON_MLV_RICH (docs/eventual-info-hierarchy.md §"The retention round"): getOrCreate SKIPS
+    // the slot computation when an on-demand recursion already wrote this method's links — but that
+    // early value was computed in a DIFFERENT context (callees in-progress fell back to shallow), and
+    // WHICH methods get computed on-demand varies run-to-run with the engine's exploration noise. The
+    // last measured bistability fork (39↔53, the statement family) was exactly one reordered on-demand
+    // first-write of Expression.<init>(int). Under the gate, the analysis-order SLOT always recomputes
+    // in full context and content-aware retention (strictlyRicherThan) decides — the stored value
+    // becomes a function of the slot computation, not of the on-demand arrival pattern.
+    private static final boolean CANON_MLV_RICH = System.getenv("CANON_MLV_RICH") != null;
+
     private void doType(TypeInfo typeInfo) {
         typeInfo.subTypes().forEach(this::doType);
-        typeInfo.constructorAndMethodStream().forEach(mi -> mi.analysis().getOrCreate(METHOD_LINKS, () -> doMethod(mi)));
+        if (CANON_MLV_RICH) {
+            typeInfo.constructorAndMethodStream().forEach(mi ->
+                    TolerantWrite.setAllowControlledOverwrite(mi.analysis(), METHOD_LINKS, doMethod(mi), mi));
+        } else {
+            typeInfo.constructorAndMethodStream().forEach(mi -> mi.analysis().getOrCreate(METHOD_LINKS, () -> doMethod(mi)));
+        }
     }
 
     @Override

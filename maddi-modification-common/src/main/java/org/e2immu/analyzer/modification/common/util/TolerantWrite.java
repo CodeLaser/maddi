@@ -109,6 +109,16 @@ public final class TolerantWrite {
     // RETAINTRACE streams names the first divergent retention decision.
     private static final boolean RETAINTRACE = System.getenv("RETAINTRACE") != null;
 
+    // gate CANON_MLV_RICH=1: content-aware retention for values whose equality is deliberately
+    // key-only (methodLinks: LinksImpl equality is primary-only). An incoming value that is EQUAL to
+    // the current one but strictly RICHER (Value.strictlyRicherThan — e.g. rich links replacing an
+    // all-empty placeholder) overwrites it, so the retained content is a function of the value SET,
+    // not the arrival order. THE measured fork of the composed-dogfood 24↔10 bistability: in the
+    // 10-world, Statement.translate's methodLinks froze at "[-] --> -" ahead of the rich derivation
+    // and the eventual layer's write-once decisions read the empty during iterations ~18-20
+    // (docs/eventual-info-hierarchy.md §"The trace round").
+    private static final boolean CANON_MLV_RICH = System.getenv("CANON_MLV_RICH") != null;
+
     // gate UNMODOWN=1: allow the true->false / weakening direction for the evidence-accumulating modification
     // properties (see the downgrade branch below); OFF by default pending the verdict A/B
     private static final boolean UNMODOWN = System.getenv("UNMODOWN") != null;
@@ -157,6 +167,20 @@ public final class TolerantWrite {
             }
             if (analysis.haveAnalyzedValueFor(property)) {
                 V current = analysis.getOrDefault(property, value);
+                if (CANON_MLV_RICH && current != value && current.equals(value)
+                    && value.strictlyRicherThan(current)) {
+                    // content-aware retention (see gate comment): equal by key, strictly richer content
+                    if (RETAINTRACE) System.out.println("RT upgrade " + context);
+                    boolean upgraded = analysis.overwrite(property, value);
+                    if (upgraded) {
+                        CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder())
+                                .increment();
+                        if (context != null && !(context instanceof String) && !INTERNAL_PROPERTIES.contains(property.key())) {
+                            CHANGED_TARGETS.add(context);
+                        }
+                    }
+                    return upgraded;
+                }
                 if (RETAINTRACE && "methodLinks".equals(property.key())
                     && current != value && current.equals(value)) {
                     String cs = String.valueOf(current);

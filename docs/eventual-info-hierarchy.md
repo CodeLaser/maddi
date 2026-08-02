@@ -1969,3 +1969,64 @@ retained-instance choice at the dedup sites (LinksImpl merge keeps the lexicogra
 provenance); (c) the ledger-level clamp (docs above). Note the encoded PROVENANCE wobble (97/119/125)
 is semantically neutral in itself — the harm is that the same instance-selection mechanism decides
 which methods' links get written vs nested-shallow, which is where the 24↔10 worlds fork.
+
+### The retention round (2026-08-02 evening): the fork, caught in the act
+
+The overnight campaign's phase A delivered the cross-world retention-trace pair on its fifth run
+(A1=24-world, A5=10-world; streams of 138 602 events each, diff = a handful of lines):
+
+- **First divergence:** the first-time `methodLinks` write of `Expression.<init>(int)` occurs ~700
+  events earlier in the 10-world — the on-demand recursion pattern differs from iteration 1, at the
+  `Expression` union root.
+- **The fork itself:** in the 10-world, `org.e2immu.language.cst.api.statement.Statement.translate`'s
+  stored `methodLinks` is the all-empty `[-] --> -`, and once per iteration a RICH re-derivation
+  (`[0:translationMap*.§$→this*.§$, 0:translationMap*.§m≡this*.§m] --> translate.§$s∋this*.§$,…`)
+  arrives and is DROPPED — `RT keepEq*`: the two are EQUAL because LinksImpl equality is primary-only,
+  and first-arrival freezes. In the 24-world the rich value arrived first (`RT keepEq`, renderings
+  identical).
+- **The stale-read:** the PERSISTED value is identical in both worlds — the empty heals in a later
+  iteration (clear-before-recompute lets the rich value in). But the eventual layer's write-once
+  decisions read `Statement.translate`'s links during iterations ~18–20, INSIDE the frozen-empty
+  window: no links → no excusal → the 22 extra assumption edges → the contraction kills the family →
+  10. Rich in the window → excusals hold → 24.
+
+So the JVM-level seed (still unnamed) only decides WHO WINS A RACE the value model should never have
+allowed to matter: equality that is deliberately key-only (primary variables) combined with
+first-arrival retention makes the frozen content arrival-order dependent. The fix is content-aware
+retention, gated `CANON_MLV_RICH`: `Value.strictlyRicherThan` (default false) is overridden by
+`MethodLinkedVariablesImpl` (an equal value with all-empty link sets and empty modified is strictly
+poorer), and `TolerantWrite` overwrites an equal-but-strictly-poorer current value. The outcome
+becomes a function of the value SET, not the arrival order; the empty placeholder can no longer sit
+out the eventual layer's window. Phase B of the campaign (CANON_WITNESS alone) does NOT fix the flip
+(B1=10), as this analysis predicts — the witness tie-break is a cosmetic-provenance cousin, not the
+fork.
+
+### The overnight ladder (2026-08-02/03): three retention layers closed, the timing layer named
+
+Phases E–J on the campaign dir (`~/git/ws/eventual/bistability-20260802-2135/summary.txt`; binary =
+the 8d30c2a5 lineage, see README-attribution.txt):
+
+| phase | change under test | result |
+|---|---|---|
+| E ×10 | empty→rich methodLinks retention | **24↔10 DEAD**; new bimodal **39↔53** (+29 types stabilized) |
+| F ×7 | + total canonical order (content mass, then rendering) on MethodLinkedVariables | still 39↔53 |
+| G ×2 | + same order on the field-level `links` (LinksImpl) | still 39↔53 |
+| H ×2 | traced pair | the ENTIRE stream diff = ONE reordered on-demand first-write: `Expression.<init>(int)` (position 3608 vs 4322, both iteration 1) |
+| I ×12 | slot-always-recomputes (getOrCreate short-circuit removed under the gate) | still 39↔53 (4/8) |
+| J ×3+ | EC_ASSUME_DEBUG pair | **the fork's last carrier is TIMING, not content** |
+
+The J-pair's ledger diff: in the 53-world the statement IMPLS' eventual walks succeed at **it=1**
+(`enm AssertStatementImpl.translate`, `typeLevel AssertStatementImpl`) and mint impl-side edges that
+later discharge when the family forms; in the 39-world those walks first succeed at **it≈20** and
+record the api→`Statement` shape (221 vs 187 edges, the extra 34 undischarged) — the contraction then
+drops the family. The link VALUES heal under canonical retention; WHEN a walk first succeeds does
+not, and the walk's output is write-once.
+
+**Conclusion.** The retention canonicalizations are real fixes (each killed a measured fork; keep
+them), but the residual bistability is the eventual layer's ITERATION-TIMED, WRITE-ONCE minting
+consuming inputs that are still settling — the exact shape the Part A'' lesson already named ("fired
+eagerly it crashed survivors 75→32 by minting write-once labels in iteration 1; TERMINAL-phase +
+candidates only"). The remaining fix is a design decision: defer the eventual walks' candidate
+minting and ledger recording to the terminal certification point (where the contraction already
+runs), so every walk sees settled links/enm state. Until then the composed dogfood is bimodal 39↔53
+under CANON_MLV_RICH — strictly better than 24↔10 (floor +29), not yet a ratchet baseline.
