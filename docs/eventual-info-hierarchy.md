@@ -1936,3 +1936,36 @@ stable ⇒ identity hash confirmed somewhere (hunt the carrier); still bistable 
 mechanism is excluded and the seed is something genuinely exotic. Until the dogfood is deterministic,
 scoreboard claims need ≥4 repeat runs, and the ratchet baseline (24) must be read as "the better of
 two worlds", not a stable fact.
+
+### The trace round (2026-08-02): event order is deterministic; INSTANCE selection is not
+
+`LINKTRACE=<fqn substring>` (new, env-gated, zero overhead off) prints every seed, propagation step,
+mirror completion and recompute of the matching method's fixpoint engine. Six traced runs of
+`EvalInequality.twoTerms` — the recurring within-world wobble site — produced the sharpest fact of the
+investigation:
+
+- **All six traces are byte-identical (792 events each).** Seeds, derivations, witness-improved flags,
+  recomputes: the same sequence, every run.
+- **Yet the persisted `methodLinks` provenance differs**: the retained `terms[0]` DependentVariable
+  instance points at source `97-…`, `119-…` or `125-…` across runs — the THREE textually identical
+  `runtime.sum(terms[0], terms[1])` call sites each mint an FQN-equal `terms[0]`; which INSTANCE
+  survives the dedup flips per run (TRISTABLE, matching the three sites).
+
+So the nondeterminism is not in what the engine DOES — it is in WHICH of several `equals()`-equal
+objects ends up representing the value. Instance selection among equals happens wherever a hash
+structure deduplicates; the one JDK mechanism that breaks such ties by IDENTITY even when every
+`hashCode()` is value-based is **`java.util.HashMap`'s treeified-bin tie-break**
+(`HashMap.tieBreakOrder` falls back to `System.identityHashCode` for keys whose hashes collide and
+that are not mutually `Comparable`). `Variable` is Comparable (FQN); **`Fact` (the engine's
+`HashMap<Fact, Witness>` key, and `history` HashSet element) is a record and NOT Comparable** — a
+treeified bin of colliding facts iterates, and resolves equal-key insertion, in per-run order. This
+hypothesis survives every experiment run so far, including `-XX:hashCode=3` with JIT (VM threads
+perturb the counter) — the clean discriminator (`-Xint -XX:hashCode=3`, where the counter is truly
+deterministic) was twice cut short.
+
+Candidate fixes, in order of preference: (a) make `Fact` Comparable (source, target via the vertex
+comparator; label by score+symbol) so tie-breaks are value-based everywhere; (b) canonicalize
+retained-instance choice at the dedup sites (LinksImpl merge keeps the lexicographically-smallest
+provenance); (c) the ledger-level clamp (docs above). Note the encoded PROVENANCE wobble (97/119/125)
+is semantically neutral in itself — the harm is that the same instance-selection mechanism decides
+which methods' links get written vs nested-shallow, which is where the 24↔10 worlds fork.

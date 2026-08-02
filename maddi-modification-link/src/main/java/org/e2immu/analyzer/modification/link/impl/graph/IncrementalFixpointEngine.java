@@ -65,6 +65,14 @@ public final class IncrementalFixpointEngine<V, L> {
     private static final boolean NO_WORK_CEILING = Gate.isSet("NOWORKCEILING");
     private long work;
 
+    // LINKTRACE forensics (set by LinkComputerImpl for the matching method): print every seed,
+    // propagation step and witness decision. Volatile, off by default; zero overhead when false.
+    public static volatile boolean TRACE = false;
+
+    static void lt(String message) {
+        System.out.println("LT " + message);
+    }
+
     private void countWork() {
         if (!NO_WORK_CEILING && ++work > WORK_CEILING) {
             throw new DegradedAnalysisException(DegradedAnalysisException.Reason.WORK_CEILING);
@@ -216,7 +224,9 @@ public final class IncrementalFixpointEngine<V, L> {
             // (closure.add false). A direct witness beats any composite (putIfBetter), makes the fact robust
             // against removal of the intermediates the composite depended on, and makes witness choice
             // independent of whether the direct edge arrived before or after the derivation.
-            witnessIndex.putIfBetter(fact, new Witness.DirectWitness<>(fact, statementIndex));
+            boolean replaced = witnessIndex.putIfBetter(fact, new Witness.DirectWitness<>(fact, statementIndex));
+            if (TRACE) lt("seed@" + statementIndex + " " + fact.print(vertexPrinter)
+                          + " added=" + added + " witnessReplaced=" + replaced);
             if (added) {
                 newFacts++;
                 queue.add(fact);
@@ -271,6 +281,9 @@ public final class IncrementalFixpointEngine<V, L> {
                                 newFact, !optimize);
                         boolean improved = witnessIndex.putIfBetter(next, candidate);
                         boolean added = closure.add(next.source(), next.target(), next.label());
+                        if (TRACE && (added || improved)) lt((optimize ? "opt-fwd " : "fwd ")
+                                + next.print(vertexPrinter) + " added=" + added + " improved=" + improved
+                                + " via " + fact.print(vertexPrinter) + " + " + newFact.print(vertexPrinter));
                         if (added || improved) {
                             if (LOGGER.isDebugEnabled()) LOGGER.debug(" -- -- forward, {} {} {} witness {}",
                                     next.print(vertexPrinter),
@@ -311,6 +324,7 @@ public final class IncrementalFixpointEngine<V, L> {
                     ? Witness.CompositeWitness.of(leftW, rightW, revRight, revLeft, !optimize)
                     : fallback;
             witnessIndex.putIfBetter(mirror, witness);
+            if (TRACE) lt("mirror " + mirror.print(vertexPrinter) + " of " + next.print(vertexPrinter));
             if (LOGGER.isDebugEnabled()) LOGGER.debug(" -- -- symmetric completion, {}", mirror.print(vertexPrinter));
             queue.addLast(mirror);
         }
@@ -348,6 +362,9 @@ public final class IncrementalFixpointEngine<V, L> {
                             // asserting it again would materialize every candidate's lazy support)
                             boolean added = closure.add(next.source(), next.target(), next.label());
                             boolean improved = witnessIndex.putIfBetter(next, candidate);
+                            if (TRACE && (added || improved)) lt((optimize ? "opt-bwd " : "bwd ")
+                                    + next.print(vertexPrinter) + " added=" + added + " improved=" + improved
+                                    + " via " + newFact.print(vertexPrinter) + " + " + fact.print(vertexPrinter));
                             if (added || improved) {
                                 if (LOGGER.isDebugEnabled()) LOGGER.debug(" -- -- backward, {} {} {} witness {}",
                                         added ? "added" : "",
@@ -445,6 +462,8 @@ public final class IncrementalFixpointEngine<V, L> {
     }
 
     public void recompute(Set<V> affected, String statementIndex, Predicate<Fact<V, L>> acceptRemoval) {
+        if (TRACE) lt("recompute@" + statementIndex + " affected="
+                      + affected.stream().map(vertexPrinter).sorted().collect(Collectors.joining(",")));
         // remove affected region
         Set<V> remove = new HashSet<>(affected);
         while (true) {

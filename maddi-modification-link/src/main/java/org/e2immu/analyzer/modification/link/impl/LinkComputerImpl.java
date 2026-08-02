@@ -258,6 +258,15 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
         MethodLinkedVariables tlv;
         if (recursionPrevention.sourceAllowed(methodInfo)) {
+            // LINKTRACE=<fqn substring>: full event trace (seeds, propagation, witness decisions) of this
+            // method's fixpoint engine, for the bistability forensics (docs/eventual-info-hierarchy.md
+            // §"The bistability investigation"). Off (null) => zero overhead.
+            String linkTrace = System.getenv("LINKTRACE");
+            boolean trace = linkTrace != null && methodInfo.fullyQualifiedName().contains(linkTrace);
+            if (trace) {
+                org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine.TRACE = true;
+                System.out.println("LT >>> " + methodInfo.fullyQualifiedName());
+            }
             SourceMethodComputer computer = new SourceMethodComputer(methodInfo);
             try {
                 try {
@@ -292,6 +301,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 }
             } finally {
                 recursionPrevention.doneSource(methodInfo);
+                if (trace) {
+                    org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine.TRACE = false;
+                    System.out.println("LT <<< " + methodInfo.fullyQualifiedName());
+                }
             }
         } else {
             // we're already analyzing methodInfo... so we return a shallow copy, not written out!
