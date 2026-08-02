@@ -17,6 +17,7 @@ package org.e2immu.analyzer.modification.analyzer.faulttolerance;
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
 import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
 import org.e2immu.analyzer.modification.analyzer.impl.SingleIterationAnalyzerImpl;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -36,8 +37,11 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Fault isolation (hardening roadmap §2): a crash while analyzing one {@code Info} is recorded as an ERROR finding
  * and analysis continues with the rest, instead of aborting the whole run. We inject a deterministic crash by
- * feeding the analyzer a method whose type was never prepped — linking then trips {@code assert vd != null}
- * (tests run with {@code -ea}) — alongside a good, prepped method, and check that the good one is still analyzed.
+ * feeding the analyzer a method whose statements were never prepped — linking then trips
+ * {@code assert vd != null} (tests run with {@code -ea}) — alongside a good, prepped method, and check that the
+ * good one is still analyzed. Since {@code LinkComputerImpl.missingPrepData} degrades a plainly-unprepped
+ * method to shallow links instead of crashing (see {@code TestLinkUnpreppedCallee}), the injection fabricates a
+ * method-level {@code VARIABLE_DATA} so the guard reads "prep completed" while the statements still carry none.
  */
 public class TestFaultIsolation extends CommonTest {
 
@@ -68,6 +72,9 @@ public class TestFaultIsolation extends CommonTest {
         List<Info> goodOrder = prepWork(good);
         TypeInfo bad = javaInspector.parse("a.b.Bad", BAD); // NOT prepped on purpose
         MethodInfo badMethod = bad.methodStream().filter(m -> m.name().equals("compute")).findFirst().orElseThrow();
+        // crash injection: pretend prep completed at the method level while the statements carry no
+        // VariableData — keeps doStatement's 'assert vd != null' reachable past the missingPrepData guard
+        badMethod.analysis().set(VariableDataImpl.VARIABLE_DATA, new VariableDataImpl.Builder().build());
         MethodInfo goodMethod = good.methodStream().filter(m -> m.name().equals("inc")).findFirst().orElseThrow();
         List<Info> order = new ArrayList<>();
         order.add(badMethod);       // crashes first...

@@ -1,8 +1,22 @@
 # Handoff: link-computer recursion hits statements without VariableData; downstream, 208 methods lost
 
 **Written 2026-08-02.** Found chasing the dominant standardize-failure bucket of the jfocus dedup M2 run on
-closed-core. Status: **open**; this is the root of a three-layer collateral chain, and the fix belongs here in
-the link engine (or in the guarantee its callers rely on).
+closed-core. Status: **FIXED, same day** — `LinkComputerImpl.doMethod` now detects a source method without
+prep data (no method-level `VARIABLE_DATA` on a non-trivially-bodied method) and degrades it EXPLICITLY to a
+shallow summary (WARN log + `DEGRADED_ANALYSIS_METHOD` marker) instead of letting `assert vd != null` abort
+every caller whose computation recursed into it. Pinned in `TestLinkUnpreppedCallee` (link module);
+`TestFaultIsolation`'s crash injector, which relied on this very defect, now fabricates a method-level
+`VARIABLE_DATA` to keep the assert reachable.
+
+**The actual mechanism, seen live after the fix**: the WARN fired on
+`com.example.core.general.util.ArrayList.<init>()` / `<init>(int)` — `ScanCompilationUnit` had failed on
+that CU (and two others), leaving the constructors without prep data. Every method containing
+`new ArrayList(...)` (the JDK-homonym custom type, source-parsed) recursed into those two unprepped
+constructors and lost its whole link computation; the Try-transform sibling in the original stack was only
+the intermediate recursion frame, not the vd-less target. Two unprepped constructors took out the whole
+query-condition family. After the fix the items+util probe reports **analysis failures: none**, the
+`BlockData.findForAssignment` bucket drops from dominance to 2 (unrelated variable), and 3,069 of 3,147
+methods index.
 
 ## The chain, outermost symptom first
 
