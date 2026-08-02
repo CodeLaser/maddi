@@ -856,9 +856,32 @@ public class MethodAnalyzer {
         Visitor v = new Visitor(index, knownVariableNames, statement, previous, current, methodInfo, iv);
         boolean eval = true;
         if (statement instanceof ReturnStatement || statement instanceof ThrowStatement) {
-            v.assignedAdd(iv.rv);
-            if (!v.knownVariableNames.contains(iv.rv.fullyQualifiedName())) {
-                v.seenFirstTime.put(iv.rv, v.index);
+            // #151: A FIELD INITIALIZER HAS NO ENCLOSING METHOD, SO IT HAS NO RETURN VARIABLE.
+            // doInitializerExpression builds `new InternalVariables()`, whose no-arg constructor leaves `rv`
+            // null -- correctly, because there is nothing to return to. But a switch EXPRESSION may carry a
+            // block arm, and a block arm may `throw`; that throw is a statement of the INITIALIZER, not of any
+            // method, so it arrives here with iv.rv == null and the old code dereferenced it unconditionally.
+            //
+            // Found on Elasticsearch snapshot-repo-test-kit, RepositoryAnalyzeAction.AsyncAction
+            // .finalRegisterValueVerifier: an anonymous Runnable whose field initializer is
+            // `switch (random.nextInt(3)) { case 0 -> ...; default -> { assert false; throw new ...; } }`.
+            // ⚠ The trigger was MEASURED, not guessed (TestGap151SwitchInAnonymousField drops one feature per
+            // test): the anonymous switch ARMS are irrelevant; what is required is the field-initializer
+            // POSITION and an arm that completes ABRUPTLY.
+            //
+            // ⛔ A THROW HERE IS A LEGITIMATE ABSENCE, NOT A SWALLOWED DEFECT -- there is genuinely no return
+            // variable to record an assignment to. A RETURN in the same position would be another matter: it
+            // cannot occur in legal Java outside a method body, so it is asserted rather than skipped. The
+            // distinction is the point: skipping both would turn a real defect into a silence.
+            if (iv.rv != null) {
+                v.assignedAdd(iv.rv);
+                if (!v.knownVariableNames.contains(iv.rv.fullyQualifiedName())) {
+                    v.seenFirstTime.put(iv.rv, v.index);
+                }
+            } else {
+                assert statement instanceof ThrowStatement
+                        : "Return statement with no return variable, in " + statement.source()
+                          + ": only a THROW can reach a return-variable-less context (a field initializer)";
             }
         } else {
             LocalVariable bv = iv.bv();
@@ -952,6 +975,12 @@ public class MethodAnalyzer {
         }
 
         public void assignedAdd(Variable variable) {
+            // #151: this check used to sit five lines further down, AFTER the map insert and the index
+            // bookkeeping had already run on the null. A null key is legal in a HashMap, so the corrupt entry
+            // was written before anything complained, and the -ea build then failed at a line that had nothing
+            // to do with the cause while the production build NPE'd one line later still.
+            // ▶ A NULL CHECK PLACED AFTER THE USES IT GUARDS REPORTS THE SYMPTOM AND KEEPS THE DAMAGE.
+            assert variable != null;
             List<String> indices = assigned.computeIfAbsent(variable, v -> new ArrayList<>());
             String last;
             if (!indices.isEmpty() && stripPlus(last = indices.get(indices.size() - 1)).equals(index)) {
@@ -966,7 +995,6 @@ public class MethodAnalyzer {
             } else {
                 indices.add(index);
             }
-            assert variable != null;
             if (!knownVariableNames.contains(variable.fullyQualifiedName()) && !seenFirstTime.containsKey(variable)) {
                 seenFirstTime.put(variable, index);
             }
