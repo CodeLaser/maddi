@@ -8,6 +8,15 @@ every caller whose computation recursed into it. Pinned in `TestLinkUnpreppedCal
 `TestFaultIsolation`'s crash injector, which relied on this very defect, now fabricates a method-level
 `VARIABLE_DATA` to keep the assert reachable.
 
+**Scope correction (same day, after the fill-slice re-measure)**: the fix eliminates the LinkComputer aborts
+(fill slice: from hundreds of collateral losses to 2 methods, which were a separate `derivedShared` NPE,
+fixed in the follow-up commit) — but the jfocus `BlockData.findForAssignment` bucket on the fill slice kept
+its exact counts (155/21/14 …). Its dominant stack there is a DIFFERENT path (walk-phase
+`ExpressionVisitor.handleAssignment → assignmentIsReAssignment → findForAssignment` inside if-else, not the
+pop-time reassignment machinery), still context-dependent but no longer traceable to any maddi analysis
+failure: with this fix the intake reports zero LinkComputer exceptions for those methods. That bucket is a
+jfocus-stdbase investigation now; this handoff's link-engine defect is closed.
+
 **The actual mechanism, seen live after the fix**: the WARN fired on
 `com.example.core.general.util.ArrayList.<init>()` / `<init>(int)` — `ScanCompilationUnit` had failed on
 that CU (and two others), leaving the constructors without prep data. Every method containing
