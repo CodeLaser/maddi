@@ -100,6 +100,15 @@ public final class TolerantWrite {
     // settled state, blocking certification); the value diff shows which slot/face is unstable.
     private static final boolean MLTRACE = System.getenv("MLTRACE") != null;
 
+    // gate RETAINTRACE=1 (bistability forensics, docs/eventual-info-hierarchy.md §"The trace round"):
+    // the composed dogfood's 24↔10 flip happens with byte-identical engine event traces — the divergence
+    // is WHICH equals()-equal value/instance is RETAINED. Log, for methodLinks: (a) every FIRST write
+    // per element ("RT first"), because presence/absence of methodLinks on the statement translate()
+    // methods is where the two worlds visibly fork; (b) every equal-value keep where the incoming object
+    // is a DIFFERENT INSTANCE ("RT keepEq"), with both toStrings only when they differ. Diffing two runs'
+    // RETAINTRACE streams names the first divergent retention decision.
+    private static final boolean RETAINTRACE = System.getenv("RETAINTRACE") != null;
+
     // gate UNMODOWN=1: allow the true->false / weakening direction for the evidence-accumulating modification
     // properties (see the downgrade branch below); OFF by default pending the verdict A/B
     private static final boolean UNMODOWN = System.getenv("UNMODOWN") != null;
@@ -143,8 +152,19 @@ public final class TolerantWrite {
             traceBefore = MLTRACE && "methodLinks".equals(property.key())
                           && analysis.haveAnalyzedValueFor(property)
                     ? String.valueOf(analysis.getOrDefault(property, value)) : null;
+            if (RETAINTRACE && "methodLinks".equals(property.key()) && !analysis.haveAnalyzedValueFor(property)) {
+                System.out.println("RT first " + context);
+            }
             if (analysis.haveAnalyzedValueFor(property)) {
                 V current = analysis.getOrDefault(property, value);
+                if (RETAINTRACE && "methodLinks".equals(property.key())
+                    && current != value && current.equals(value)) {
+                    String cs = String.valueOf(current);
+                    String vs = String.valueOf(value);
+                    System.out.println(cs.equals(vs)
+                            ? "RT keepEq " + context
+                            : "RT keepEq* " + context + "\n  kept=" + cs + "\n  drop=" + vs);
+                }
                 if (!current.equals(value) && !current.overwriteAllowed(value)) {
                     if (UNMODOWN && EVIDENCE_ACCUMULATING.contains(property.key())) {
                         // EXPERIMENT (gate UNMODOWN=1): for the UNMODIFIED_* family, modification evidence only

@@ -8,6 +8,14 @@ public final class WitnessIndex<V, L> {
     private final Function<L, Integer> scoreFunction;
     private final Comparator<V> vertexComparator;
 
+    // gate CANON_WITNESS=1 (bistability, docs/eventual-info-hierarchy.md §"The trace round"): two
+    // equal-quality DIRECT witnesses of the SAME fact — e.g. the three textually identical
+    // runtime.sum(terms[0], terms[1]) sites of EvalInequality.twoTerms — compare 0 in canonicalCompare
+    // (identical facts), so first-arrival wins and the recorded witness varies per run. Under the gate,
+    // the SMALLEST statementIndex wins, making the choice a function of the witness SET, not the
+    // arrival order (the earliest statement is the canonical representative).
+    private static final boolean CANON_WITNESS = System.getenv("CANON_WITNESS") != null;
+
     public WitnessIndex(Function<L, Integer> scoreFunction, Comparator<V> vertexComparator) {
         this.scoreFunction = scoreFunction;
         this.vertexComparator = vertexComparator;
@@ -40,7 +48,12 @@ public final class WitnessIndex<V, L> {
             || candidate instanceof Witness.CompositeWitness<V, L> c && existing instanceof Witness.CompositeWitness<V, L> e
                && (c.inferred() && !e.inferred() || witnessCost(candidate) < witnessCost(existing))
             || equalQuality(candidate, existing)
-               && canonicalCompare(candidate, existing) < 0) {
+               && canonicalCompare(candidate, existing) < 0
+            || CANON_WITNESS && equalQuality(candidate, existing)
+               && canonicalCompare(candidate, existing) == 0
+               && candidate instanceof Witness.DirectWitness<V, L> dc
+               && existing instanceof Witness.DirectWitness<V, L> de
+               && dc.statementIndex().compareTo(de.statementIndex()) < 0) {
             witnesses.put(fact, candidate);
             return true;
         }
