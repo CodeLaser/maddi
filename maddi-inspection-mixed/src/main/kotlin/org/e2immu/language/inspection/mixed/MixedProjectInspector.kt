@@ -58,11 +58,15 @@ class MixedProjectInspector {
     private val stubDir = Files.createTempDirectory("mixed-proj-stubs")
 
     /** [kotlinBySourceSet] keeps the per-source-set placement; [javaTypes] are the primary Java types;
-     *  [runtime] is the shared core both front-ends populated (needed by downstream analysis). */
+     *  [runtime] is the shared core both front-ends populated (needed by downstream analysis);
+     *  [javaInspector] is the owner of that core — the modification analyzer
+     *  (`IteratingAnalyzerImpl`) takes a `JavaInspector`, and this is the only one in a mixed run, so a
+     *  Kotlin-only project can still be analyzed through it. */
     data class Result(
         val kotlinBySourceSet: Map<SourceSet, List<TypeInfo>>,
         val javaTypes: List<TypeInfo>,
         val runtime: Runtime,
+        val javaInspector: JavaInspector,
     ) {
         val kotlinTypes: List<TypeInfo> get() = kotlinBySourceSet.values.flatten()
     }
@@ -98,6 +102,16 @@ class MixedProjectInspector {
         }
         javaInspector.initialize(javaConfig.build())
         javaInspector.onlyPreload() // warm the CTM lazy loader before Kotlin delegates java.* to it
+        // KNOWN GAP (Kotlin-only projects). `onlyPreload` scans the *configured* source sets, so with no Java
+        // source set `scanSourceSet` never runs, `lastScanUnits` is never set, and the shared
+        // CompiledTypesManager's lazy bytecode loader has no live javac task behind it. The effect is silent
+        // and total: `getOrLoad` returns null for EVERY library type — java.util.List included — so K2 falls
+        // back to its own view and the "bytecode is the authority for library shape" invariant documented in
+        // maddi-inspection-kotlin/mixed-language-integration.md §9 does not hold here. It is also what stops
+        // the modification analysis: `VirtualFieldComputer`'s constructor does `getOrLoad(AtomicBoolean.class)`
+        // and NPEs on the null. Adding a TEST_PROTOCOL source set to make the warmup a real scan (what the
+        // inspector's own warning suggests) was tried and pushes the failure elsewhere — the fix belongs in
+        // JavaInspectorImpl's preload path, not here.
 
         val runtime = javaInspector.runtime()
         val infoByFqn = javaInspector.infoByFqn()
@@ -119,17 +133,29 @@ class MixedProjectInspector {
             val javaSourceRoots = javaSets.flatMap { it.sourceDirectories() }
             val kotlinBySourceSet = KotlinProjectScan(runtime, infoByFqn, ctm)
                 .parse(orderedKotlin, libraryRoots, jdkHome, javaSourceRoots)
-            return Result(kotlinBySourceSet, javaTypes, runtime)
+            return Result(kotlinBySourceSet, javaTypes, runtime, javaInspector)
         }
 
         // Java→Kotlin (or independent): Kotlin first, generate stubs, then Java resolves Kotlin via the stubs.
         val kotlinBySourceSet = KotlinProjectScan(runtime, infoByFqn, ctm).parse(orderedKotlin, libraryRoots, jdkHome)
         val kotlinTypes = kotlinBySourceSet.values.flatten()
-        if (kotlinTypes.isNotEmpty()) {
-            compileStubs(kotlinTypes.associate { it.fullyQualifiedName() to JavaStubGenerator.stub(it) })
+        // PRIMARY types only: JavaStubGenerator already recurses into subTypes(), so stubbing a nested type
+        // as well emits it twice — once nested inside its parent's stub, once as a top-level class in the
+        // parent's package ("duplicate class: coil3.Builder", for `coil3.Extras.Builder` and 13 others).
+        val primaryKotlinTypes = kotlinTypes.filter { it.primaryType() === it }
+        // ... and only when there is Java to resolve them FROM. A stub exists for exactly one reason: javac
+        // cannot read Kotlin, so a Java source referencing a Kotlin type needs something to resolve against.
+        // A project with no Java source sets — which is the common case for a Kotlin corpus, and true of both
+        // detekt and coil — has nothing for javac to parse, so generating and compiling stubs is pure cost,
+        // and any gap in JavaStubGenerator's fidelity becomes a spurious hard failure on a parse that is
+        // otherwise complete. detekt is where that bit: all 31 source sets parsed, then the run aborted on
+        // stub errors for a compilation that had no consumer.
+        if (primaryKotlinTypes.isNotEmpty() && javaSets.isNotEmpty()) {
+            compileStubs(primaryKotlinTypes.associate { it.fullyQualifiedName() to JavaStubGenerator.stub(it) },
+                libraryRoots)
         }
         val javaTypes = javaInspector.parse(mapOf(), options).parseResult().primaryTypes().toList()
-        return Result(kotlinBySourceSet, javaTypes, runtime)
+        return Result(kotlinBySourceSet, javaTypes, runtime, javaInspector)
     }
 
     private fun hasExtension(sourceSet: SourceSet, extension: String): Boolean =
@@ -153,10 +179,17 @@ class MixedProjectInspector {
     private fun uriToPath(uri: URI): Path? =
         runCatching { if (uri.scheme == "file") Paths.get(uri) else Paths.get(uri.schemeSpecificPart) }.getOrNull()
 
-    private fun compileStubs(stubsByFqn: Map<String, String>) {
+    /**
+     * @param libraryRoots the configuration's library jars, which must be on the stub compiler's **class
+     *        path**: a Kotlin signature routinely mentions a library type (coil's `ImageRequest` exposes
+     *        `okio.FileSystem`, and `kotlin.Pair` / `CoroutineContext` / `Function1` come from the stdlib), and
+     *        javac cannot compile a stub naming a type it cannot resolve.
+     */
+    private fun compileStubs(stubsByFqn: Map<String, String>, libraryRoots: List<Path>) {
         val compiler = ToolProvider.getSystemJavaCompiler()
         compiler.getStandardFileManager(null, null, null).use { fm ->
             fm.setLocation(StandardLocation.CLASS_OUTPUT, listOf(stubDir.toFile()))
+            fm.setLocation(StandardLocation.CLASS_PATH, libraryRoots.map { it.toFile() })
             val files = stubsByFqn.map { (fqn, code) -> inMemorySource(fqn, code) }
             check(compiler.getTask(null, fm, null, null, null, files).call()) { "stub compilation failed" }
         }
