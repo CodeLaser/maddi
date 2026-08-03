@@ -23,7 +23,6 @@ import org.e2immu.language.inspection.kotlin.KotlinInspector;
 import org.e2immu.language.inspection.mixed.MixedProjectInspector;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -98,28 +97,11 @@ public class TestDetektCorpus {
     }
 
     /**
-     * The mixed parse, which additionally emits every Kotlin type as a Java stub and compiles it with javac.
-     *
-     * <h2>Why this is disabled</h2>
-     * The Kotlin parse itself succeeds for all 31 source sets; what fails is the stub compile, on a tail of
-     * {@code JavaStubGenerator} fidelity gaps that a corpus this size is the first to reach. Four distinct
-     * causes, none of them in the front end:
-     * <ul>
-     *   <li><b>Implicit {@code super()} with no matching parent constructor.</b> A stub constructor body
-     *   throws, but javac still inserts {@code super()}, and the parent — {@code Markdown},
-     *   {@code java.io.PrintStream} — has no no-arg constructor. Needs an explicit {@code super(...)} with
-     *   type-appropriate defaults; note the parent may be a library type, so "give every stub a no-arg
-     *   constructor" only solves half of it.</li>
-     *   <li><b>Duplicate methods</b> — {@code getIndent()} already defined in {@code YML}: a property's
-     *   generated getter colliding with an explicitly declared one.</li>
-     *   <li><b>Method-level erasure</b> — {@code DetektPomModel.getModelAspect} erases its own type
-     *   parameter, so it neither overrides nor differs from {@code PomModel}'s generic method ("name clash
-     *   … same erasure, yet neither overrides the other"). The supertype fix applied for coil kept type
-     *   arguments on {@code extends}/{@code implements}; methods still erase.</li>
-     * </ul>
-     * Each is a bounded fix in the stub generator, and none blocks {@link #parsesViaTheKotlinInspector}.
+     * The mixed parse, which is what the shipping CLI runs. detekt has no Java source sets, so no Java stub is
+     * generated or compiled — that step exists only so javac can resolve Kotlin types for Java source, and
+     * there is none. It is still the stricter path: the openjdk inspector owns the shared core, and every
+     * library type the Kotlin front end touches is loaded from bytecode through it.
      */
-    @Disabled("tail of JavaStubGenerator fidelity gaps (implicit super(), duplicate getters, method erasure)")
     @Test
     public void parsesViaTheMixedProjectInspector() throws IOException {
         Path config = config();
@@ -128,5 +110,33 @@ public class TestDetektCorpus {
                 result.getKotlinTypes().size(), result.getJavaTypes().size());
         assertTrue(result.getKotlinTypes().size() >= PRIMARY_TYPE_FLOOR);
         assertEquals(List.of(), result.getJavaTypes(), "detekt has no compiled Java sources");
+    }
+
+    /**
+     * Prep <b>and</b> the iterating modification/immutability analysis, over the whole project — the first time
+     * the modification analyzer has run on Kotlin.
+     *
+     * <p>It converges: seven iterations over ~9,200 elements, ending in certification. The assertions are
+     * deliberately structural (it ran, it isolated few elements) rather than a verdict census, which would be a
+     * brittle thing to pin this early; the run logs its own fingerprint, e.g.
+     * {@code type.immutable=@FinalFields=1320, @Mutable=428} and
+     * {@code method.nonModifying=true=5289, false=787}.
+     *
+     * <p>The isolated elements are prep failures, all one cause today
+     * ({@code Trying to overwrite a value for property variableData}); the floor keeps that honest, since a
+     * fault-tolerant run that skipped half the corpus would otherwise look like a success.
+     */
+    @Test
+    public void runsModificationAnalysis() throws IOException {
+        Path config = config();
+        RunMixedPrepAnalyzer.Summary summary = new RunMixedPrepAnalyzer().go(read(config), true);
+        LOGGER.info("detekt modification: {} primary type(s), analysis order {}, {} isolated by prep",
+                summary.primaryTypes(), summary.analysisOrderSize(), summary.prepErrors());
+        assertTrue(summary.primaryTypes() >= PRIMARY_TYPE_FLOOR,
+                "expected at least " + PRIMARY_TYPE_FLOOR + " primary types, got " + summary.primaryTypes());
+        assertTrue(summary.analysisOrderSize() > 5_000,
+                "expected a substantial analysis order, got " + summary.analysisOrderSize());
+        assertTrue(summary.prepErrors() < 50,
+                "prep isolated " + summary.prepErrors() + " elements; that is no longer a tail");
     }
 }

@@ -23,7 +23,6 @@ import org.e2immu.language.inspection.kotlin.KotlinInspector;
 import org.e2immu.language.inspection.mixed.MixedProjectInspector;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -120,10 +119,10 @@ public class TestCoilJvmSlice {
 
     /**
      * The full mixed parse — {@code MixedProjectInspector}, which is what the shipping CLI runs before any
-     * analysis. It exercises considerably more than {@link #parsesViaTheKotlinInspector}: every Kotlin type is
-     * emitted as a Java stub and <b>compiled by javac</b>, so this fails on any type maddi cannot express in
-     * Java. Coil having no {@code .java} at all, it is also the first exercise of the mixed driver with an
-     * empty Java half.
+     * analysis. It exercises more than {@link #parsesViaTheKotlinInspector}: the openjdk inspector owns the
+     * shared core, so every library type the Kotlin front end touches is loaded from <b>bytecode</b> through
+     * it rather than from K2's own view. No Java stub is generated — coil has no {@code .java} at all, and a
+     * stub exists only so javac can resolve a Kotlin type for Java source.
      */
     @Test
     public void parsesViaTheMixedProjectInspector() throws IOException {
@@ -137,32 +136,27 @@ public class TestCoilJvmSlice {
     }
 
     /**
-     * The shipping path: the {@code maddi-kotlin} CLI, which is how Kotlin support is released. It runs
-     * {@code RunMixedPrepAnalyzer} — the mixed parse above <i>plus</i> the prep analysis (call graph +
-     * analysis order).
+     * The shipping path's runner: the mixed parse above <i>plus</i> the prep analysis (call graph + analysis
+     * order), which is what the {@code maddi-kotlin} CLI drives.
      *
-     * <h2>Why this is disabled</h2>
-     * The parse half now succeeds end to end; what fails is <b>prep</b>, and on a construct maddi's own
-     * {@code maddi-cst-api/kotlin-cst-assessment.md} already lists as open — <b>{@code try} as an
-     * expression</b>. Coil's {@code coil3.util.getCompletedOrNull} is
-     * {@code return try { getCompleted() } catch (_: Throwable) { null }}; no CST node yields a value from a
-     * {@code try}, the statement is built without a {@code Source}, and {@code MethodAnalyzer} dereferences
-     * {@code statement.source().index()} — NPE after 148 types processed. The assessment calls it "rare;
-     * desugar to a helper or accept a small new node if it actually shows up". It has shown up, and choosing
-     * between those two is a design decision, not a bug fix.
-     * <p>
-     * Everything that blocked this before prep <i>was</i> fixed: in {@code JavaStubGenerator}, file-facade
-     * naming, Java keywords, interface field initializers, annotation nature, erased generic supertypes and
-     * empty-body interface defaults; in {@code MixedProjectInspector}, nested-type and classpath handling; and
-     * in the front end, {@code actual typealias} expansion and Kotlin interface delegation. That took the stub
-     * compile from 24 errors to zero. Kotlin's primitive array classes are translated in the stub generator
-     * rather than the CST — see {@code ExpectActualTypealiasTest.primitiveArrayClassesAreJvmPrimitiveArrays}
-     * for why. Re-enable when {@code try}-as-an-expression is handled.
+     * <p>Prep does not run clean on coil, and the isolated elements are the point of the assertion rather than
+     * a reason to skip: {@code coil3.util.getCompletedOrNull} is
+     * {@code return try { getCompleted() } catch (_: Throwable) { null }} — <b>{@code try} as an
+     * expression</b>, which {@code maddi-cst-api/kotlin-cst-assessment.md} already lists as open ("rare;
+     * desugar to a helper or accept a small new node if it actually shows up"). No CST node yields a value
+     * from a {@code try}, so the statement is built without a {@code Source} and {@code MethodAnalyzer} NPEs
+     * on {@code statement.source().index()}. Prep isolates it and continues; the count is asserted small, so
+     * this cannot quietly become a run that skips most of the corpus.
      */
-    @Disabled("prep NPEs on `try` as an expression, an open item in kotlin-cst-assessment.md; see the javadoc")
     @Test
-    public void runsPrepViaTheMixedCli() {
+    public void runsPrepViaTheMixedRunner() throws IOException {
         Path config = config();
-        assertEquals(Main.EXIT_OK, Main.execute(new String[]{Main.INPUT_CONFIGURATION, config.toString()}));
+        RunMixedPrepAnalyzer.Summary summary = new RunMixedPrepAnalyzer().go(read(config));
+        LOGGER.info("coil prep: {} primary type(s), analysis order {}, {} isolated",
+                summary.primaryTypes(), summary.analysisOrderSize(), summary.prepErrors());
+        assertTrue(summary.analysisOrderSize() > 500,
+                "expected a substantial analysis order, got " + summary.analysisOrderSize());
+        assertTrue(summary.prepErrors() < 10,
+                "prep isolated " + summary.prepErrors() + " elements; that is no longer a tail");
     }
 }

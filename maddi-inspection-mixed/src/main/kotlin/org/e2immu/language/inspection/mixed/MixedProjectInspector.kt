@@ -86,7 +86,22 @@ class MixedProjectInspector {
         // SourceSet instances, so rebuild in dependency order and remap a Java-set dep to its rebuilt instance —
         // otherwise a dependent would point at the original (not-in-config) set and the linearization misses it.
         val javaInspector = JavaInspectorImpl()
-        val javaConfig = InputConfigurationImpl.Builder().addClassPath("jmod:java.base").addClassPathParts(stubSet)
+        // The Java half needs the SAME class path as the Kotlin half, because it is the half that loads library
+        // types from bytecode for both. It used to get `jmod:java.base` and nothing else, which was survivable
+        // only while nothing ever asked it to load anything: with the loader alive (below), K2 delegates real
+        // library types to it, and every Kotlin class file carries `@kotlin.Metadata`, so loading one type off
+        // kotlin-stdlib or kotlinx-coroutines drags in names javac cannot see — ClassSymbolScanner.classType
+        // NPEs on the unresolved reference (`kotlin.Metadata`, `kotlin.coroutines.CoroutineContext`,
+        // `org.jetbrains.annotations.NotNull`). `jmod:java.se` is added only when the configuration carries no
+        // JDK parts of its own: a compile-log-derived one already has the closure, a hand-assembled Kotlin one
+        // need not, the Kotlin front end taking its JDK from java.home instead.
+        val javaBase = SourceSetImpl.javaBase()
+        val projectClassPath = config.classPathParts()
+        val javaConfig = InputConfigurationImpl.Builder().addClassPathParts(stubSet)
+        projectClassPath.forEach { javaConfig.addClassPathParts(it) }
+        if (projectClassPath.none { it.partOfJdk() }) {
+            javaConfig.addClassPathParts(javaBase).addClassPath("jmod:java.se")
+        }
         val rebuiltJavaSet = LinkedHashMap<SourceSet, SourceSet>()
         dependencyOrder(javaSets).forEach { js ->
             val keptDeps = js.dependencies().mapNotNull { d ->
@@ -99,6 +114,22 @@ class MixedProjectInspector {
             val rebuilt = js.withDependencies(keptDeps + stubSet)
             rebuiltJavaSet[js] = rebuilt
             javaConfig.addSourceSets(rebuilt)
+        }
+        // A Kotlin-ONLY project has no Java source set, and `onlyPreload` scans the *configured* source sets — so
+        // with none, no scan runs, `lastScanUnits` is never set, and the shared CompiledTypesManager's lazy
+        // bytecode loader has no live javac task behind it. The effect was silent and total: `getOrLoad` returned
+        // null for EVERY library type (java.util.List included), so the Kotlin front end fell back to K2's own
+        // view and the "bytecode is the authority for library shape" invariant of
+        // maddi-inspection-kotlin/mixed-language-integration.md §9 did not hold. It also aborted the modification
+        // analysis, `VirtualFieldComputer`'s constructor doing `getOrLoad(AtomicBoolean.class)`.
+        //
+        // A protocol source set gives the warmup something real to scan. Its DEPENDENCIES are the point: a task's
+        // class path comes from them, so without java.base javac cannot resolve `java.lang.Object`'s own members
+        // and the scan dies in ClassSymbolScanner.classType.
+        if (javaSets.isEmpty()) {
+            javaConfig.addSourceSets(SourceSetImpl.Builder().setName(JavaInspector.TEST_PROTOCOL + "warmup")
+                .setUri(URI.create("file:/"))
+                .setDependencies(projectClassPath + javaBase).build())
         }
         javaInspector.initialize(javaConfig.build())
         javaInspector.onlyPreload() // warm the CTM lazy loader before Kotlin delegates java.* to it

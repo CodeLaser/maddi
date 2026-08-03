@@ -348,6 +348,16 @@ internal class KotlinTypeMapper(
         val classId = symbol.classId ?: return null
         val jvmFqn = mapToJvmFqn(classId)
         infoByFqn.getType(jvmFqn, librarySourceSet)?.let { return it }
+        // Shared-core delegation, exactly as in mapClassType: when a driver injected the Java front-end's
+        // CompiledTypesManager, the library type may already have been built (and COMMITTED) from bytecode under
+        // its own source set, which the registry lookup above — keyed by librarySourceSet — does not see.
+        // Rebuilding it here then commits a second time: "Trying to overwrite final value". This path was
+        // reachable only once the manager actually had contents; while its lazy loader was dead in Kotlin-only
+        // runs it always missed, which is why a `Type.staticMember` access never tripped it before.
+        compiledTypesManager?.getOrLoad(jvmFqn, librarySourceSet)?.let {
+            if (infoByFqn.getType(jvmFqn, librarySourceSet) == null) infoByFqn.put(jvmFqn, it, librarySourceSet)
+            return it
+        }
         // an explicit "load this whole type" request (a `Type.staticMember` access): load from a reset depth so
         // the type's own members AND their types load, not shells -- e.g. `System.out`'s PrintStream keeps its
         // `println` overloads, so `System.out.println(...)` resolves. (A deeper co-load still bottoms out.)
