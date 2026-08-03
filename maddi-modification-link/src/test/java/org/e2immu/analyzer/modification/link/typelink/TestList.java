@@ -76,13 +76,17 @@ public class TestList extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
         Links tlvK0 = k0.linkedVariablesOrEmpty();
-        assertEquals("k∈1:x.ts", tlvK0.toString());
+        // the pre-set summary on 'get' no longer suppresses derivation from the body: the analysis-order
+        // slot always recomputes, and canonical retention keeps the key-equal richer value (see
+        // LinkComputerImpl.doType). Both facts are true of INPUT1: ∈ from the contract, ← via ts[index].
+        // Pure contract consumption (no body derivation) is testShallow1's territory.
+        assertEquals("k∈1:x.ts,k←1:x.ts[0:i]", tlvK0.toString());
         VariableInfo x0 = vd0.variableInfo(method.parameters().getLast());
-        assertEquals("1:x.ts∋k", x0.linkedVariables().toString());
+        assertEquals("1:x.ts∋k,1:x.ts[0:i]∈1:x.ts,1:x.ts[0:i]→k", x0.linkedVariables().toString());
         assertFalse(x0.isModified());
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, -] --> method∈1:x.ts", tlvMethod.toString());
+        assertEquals("[-, 1:x.ts[0:i]∈1:x.ts] --> method∈1:x.ts,method←1:x.ts[0:i]", tlvMethod.toString());
     }
 
 
@@ -229,11 +233,16 @@ public class TestList extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo y0 = vd0.variableInfo("y");
         Links tlvY0 = y0.linkedVariablesOrEmpty();
-        assertEquals("y.ts~0:x.ts", tlvY0.toString());
+        // as in test1: the slot recompute derives 'copy' from its body, and canonical retention keeps the
+        // key-equal richer summary over the pre-set ~ contract. The derivation is STRONGER and true of
+        // INPUT3 (copy() shares the array itself, not merely its elements): §m faces identical, §ts
+        // face derived. The pure sublist-style contract (no body) is testShallow3's territory.
+        assertEquals("y.§m≡0:x.ts.§m,y.§ts←0:x.ts", tlvY0.toString());
 
-        // * because of doNotRecurse, shallow analysis
+        // no more * (shallow fallback): the slot recompute derived 'copy' in full, so 'method' consumes
+        // the derived summary rather than falling back to shallow
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> method.ts~0:x*.ts", tlvMethod.toString());
+        assertEquals("[-] --> method.§m≡0:x.ts.§m,method.§ts←0:x.ts", tlvMethod.toString());
     }
 
 

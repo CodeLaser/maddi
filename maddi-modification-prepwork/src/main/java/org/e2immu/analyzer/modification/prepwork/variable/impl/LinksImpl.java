@@ -142,6 +142,25 @@ public class LinksImpl implements Links {
         return Objects.hashCode(primary);
     }
 
+    /**
+     * Equality above is deliberately PRIMARY-ONLY, so two Links values with the same primary but
+     * different content are "equal" — and under first-arrival retention (TolerantWrite), whichever
+     * arrives first freezes, arrival-order dependently. The composed-dogfood bistability traced to
+     * exactly this shape (docs/eventual-info-hierarchy.md §"The retention round": methodLinks first,
+     * then the field-level {@code links} property keeping the count flipping 39↔53). Same total
+     * canonical order as {@code MethodLinkedVariablesImpl}: more link content wins; equal mass falls
+     * back to the lexicographically smaller rendering.
+     */
+    @Override
+    public boolean strictlyRicherThan(org.e2immu.language.cst.api.analysis.Value other) {
+        if (!(other instanceof LinksImpl o)) return false;
+        int c = Integer.compare(linkSet.size(), o.linkSet.size());
+        if (c != 0) return c > 0;
+        String mine = toString();
+        String theirs = o.toString();
+        return mine.compareTo(theirs) < 0; // equal mass: smaller canonical rendering wins, arbitrarily but totally
+    }
+
     @Override
     public @NotNull Iterator<Link> iterator() {
         return linkSet.iterator();

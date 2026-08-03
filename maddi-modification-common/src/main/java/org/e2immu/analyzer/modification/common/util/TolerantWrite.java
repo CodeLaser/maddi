@@ -157,6 +157,26 @@ public final class TolerantWrite {
             }
             if (analysis.haveAnalyzedValueFor(property)) {
                 V current = analysis.getOrDefault(property, value);
+                if (current != value && current.equals(value)
+                    && value.strictlyRicherThan(current)) {
+                    // Content-aware retention for values whose equality is deliberately key-only
+                    // (methodLinks: LinksImpl equality is primary-only): an incoming value EQUAL to the
+                    // current one but strictly RICHER (Value.strictlyRicherThan — e.g. rich links replacing
+                    // an all-empty placeholder) overwrites it, so the retained content is a function of the
+                    // value SET, not the arrival order. Without this, whichever equal value arrives first
+                    // freezes — the measured fork of the composed-dogfood 24↔10 bistability
+                    // (docs/eventual-info-hierarchy.md §"The retention round").
+                    if (RETAINTRACE) System.out.println("RT upgrade " + context);
+                    boolean upgraded = analysis.overwrite(property, value);
+                    if (upgraded) {
+                        CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder())
+                                .increment();
+                        if (context != null && !(context instanceof String) && !INTERNAL_PROPERTIES.contains(property.key())) {
+                            CHANGED_TARGETS.add(context);
+                        }
+                    }
+                    return upgraded;
+                }
                 if (RETAINTRACE && "methodLinks".equals(property.key())
                     && current != value && current.equals(value)) {
                     String cs = String.valueOf(current);

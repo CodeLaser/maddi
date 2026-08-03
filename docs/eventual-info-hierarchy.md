@@ -1969,3 +1969,188 @@ retained-instance choice at the dedup sites (LinksImpl merge keeps the lexicogra
 provenance); (c) the ledger-level clamp (docs above). Note the encoded PROVENANCE wobble (97/119/125)
 is semantically neutral in itself — the harm is that the same instance-selection mechanism decides
 which methods' links get written vs nested-shallow, which is where the 24↔10 worlds fork.
+
+### The retention round (2026-08-02 evening): the fork, caught in the act
+
+The overnight campaign's phase A delivered the cross-world retention-trace pair on its fifth run
+(A1=24-world, A5=10-world; streams of 138 602 events each, diff = a handful of lines):
+
+- **First divergence:** the first-time `methodLinks` write of `Expression.<init>(int)` occurs ~700
+  events earlier in the 10-world — the on-demand recursion pattern differs from iteration 1, at the
+  `Expression` union root.
+- **The fork itself:** in the 10-world, `org.e2immu.language.cst.api.statement.Statement.translate`'s
+  stored `methodLinks` is the all-empty `[-] --> -`, and once per iteration a RICH re-derivation
+  (`[0:translationMap*.§$→this*.§$, 0:translationMap*.§m≡this*.§m] --> translate.§$s∋this*.§$,…`)
+  arrives and is DROPPED — `RT keepEq*`: the two are EQUAL because LinksImpl equality is primary-only,
+  and first-arrival freezes. In the 24-world the rich value arrived first (`RT keepEq`, renderings
+  identical).
+- **The stale-read:** the PERSISTED value is identical in both worlds — the empty heals in a later
+  iteration (clear-before-recompute lets the rich value in). But the eventual layer's write-once
+  decisions read `Statement.translate`'s links during iterations ~18–20, INSIDE the frozen-empty
+  window: no links → no excusal → the 22 extra assumption edges → the contraction kills the family →
+  10. Rich in the window → excusals hold → 24.
+
+So the JVM-level seed (still unnamed) only decides WHO WINS A RACE the value model should never have
+allowed to matter: equality that is deliberately key-only (primary variables) combined with
+first-arrival retention makes the frozen content arrival-order dependent. The fix is content-aware
+retention, gated `CANON_MLV_RICH`: `Value.strictlyRicherThan` (default false) is overridden by
+`MethodLinkedVariablesImpl` (an equal value with all-empty link sets and empty modified is strictly
+poorer), and `TolerantWrite` overwrites an equal-but-strictly-poorer current value. The outcome
+becomes a function of the value SET, not the arrival order; the empty placeholder can no longer sit
+out the eventual layer's window. Phase B of the campaign (CANON_WITNESS alone) does NOT fix the flip
+(B1=10), as this analysis predicts — the witness tie-break is a cosmetic-provenance cousin, not the
+fork.
+
+### The overnight ladder (2026-08-02/03): three retention layers closed, the timing layer named
+
+Phases E–J on the campaign dir (`~/git/ws/eventual/bistability-20260802-2135/summary.txt`; binary =
+the 8d30c2a5 lineage, see README-attribution.txt):
+
+| phase | change under test | result |
+|---|---|---|
+| E ×10 | empty→rich methodLinks retention | **24↔10 DEAD**; new bimodal **39↔53** (+29 types stabilized) |
+| F ×7 | + total canonical order (content mass, then rendering) on MethodLinkedVariables | still 39↔53 |
+| G ×2 | + same order on the field-level `links` (LinksImpl) | still 39↔53 |
+| H ×2 | traced pair | the ENTIRE stream diff = ONE reordered on-demand first-write: `Expression.<init>(int)` (position 3608 vs 4322, both iteration 1) |
+| I ×12 | slot-always-recomputes (getOrCreate short-circuit removed under the gate) | still 39↔53 (4/8) |
+| J ×3+ | EC_ASSUME_DEBUG pair | **the fork's last carrier is TIMING, not content** |
+
+The J-pair's ledger diff: in the 53-world the statement IMPLS' eventual walks succeed at **it=1**
+(`enm AssertStatementImpl.translate`, `typeLevel AssertStatementImpl`) and mint impl-side edges that
+later discharge when the family forms; in the 39-world those walks first succeed at **it≈20** and
+record the api→`Statement` shape (221 vs 187 edges, the extra 34 undischarged) — the contraction then
+drops the family. The link VALUES heal under canonical retention; WHEN a walk first succeeds does
+not, and the walk's output is write-once.
+
+**Conclusion.** The retention canonicalizations are real fixes (each killed a measured fork; keep
+them), but the residual bistability is the eventual layer's ITERATION-TIMED, WRITE-ONCE minting
+consuming inputs that are still settling — the exact shape the Part A'' lesson already named ("fired
+eagerly it crashed survivors 75→32 by minting write-once labels in iteration 1; TERMINAL-phase +
+candidates only"). The remaining fix is a design decision: defer the eventual walks' candidate
+minting and ledger recording to the terminal certification point (where the contraction already
+runs), so every walk sees settled links/enm state. Until then the composed dogfood is bimodal 39↔53
+under CANON_MLV_RICH — strictly better than 24↔10 (floor +29), not yet a ratchet baseline.
+
+### The discriminator's verdict (2026-08-03, phase C completed)
+
+Four runs, `-Xint -XX:+UseSerialGC -XX:hashCode=3` (interpreter, serial GC, sequential-counter
+identity hashes — every controllable JVM variance source pinned): **10, 10, 24, 24 — still bistable.**
+Identity hashing is definitively excluded, closing the seed hunt by elimination: the run-to-run
+perturbation comes from something outside every JVM mechanism we can control (and after the J-pair,
+it does not matter): the defect was never the perturbation but the engine's SENSITIVITY to it —
+write-once, iteration-timed eventual minting consuming inputs that are still settling. One bit of
+anything tips which iteration a walk first succeeds in, and that bit is frozen forever. The deferral
+design fix (terminal-phase minting, the Part A'' pattern) removes the sensitivity; no further seed
+forensics are warranted.
+
+### The ungating of canonical retention (2026-08-03): the retention round becomes the default
+
+Bart: "please implement §§retention round" — the three gated retention fixes are now DEFAULT
+behavior; the gates `CANON_MLV_RICH` and `CANON_WITNESS` no longer exist:
+
+- **TolerantWrite**: an incoming value EQUAL to the current one (key-only equality) but strictly
+  richer (`Value.strictlyRicherThan` — total canonical order: content mass, then rendering)
+  overwrites it, unconditionally.
+- **LinkComputerImpl.doType**: the analysis-order slot ALWAYS recomputes (`getOrCreate` gone) and
+  canonical retention decides — the stored summary is a function of the slot computation, not of the
+  on-demand arrival pattern.
+- **WitnessIndex.putIfBetter**: equal-quality, canonicalCompare-0 direct witnesses tie-break on
+  smallest statementIndex, unconditionally.
+
+**The one observable semantics shift** (two `typelink.TestList` pins updated, test1/test3): a
+hand-`set()` METHOD_LINKS summary on a SOURCE method no longer suppresses body derivation — the slot
+recomputes, and the key-equal richer value wins. Both tests modeled sublist-style contracts on
+methods that HAVE bodies; the derived values are true (and in test3 stronger) facts of those bodies,
+and the call sites now see the enriched summaries (e.g. `k∈1:x.ts,k←1:x.ts[0:i]`; test3's `x` loses
+its shallow-fallback `*`). Pure contract consumption remains the `testShallow*` variants' territory.
+Production contracts are UNAFFECTED: aapi preloads sit on external-library methods, which the slot
+loop never visits. All suites green with the new defaults (modification-analyzer, -common, -link,
+-prepwork, run-*).
+
+**Dogfood re-validation on the fresh devel lineage** (closes README-attribution.txt's caveat — the
+campaign binary predated the fb374170 devel merge; this one is built from it, with the ungating):
+`~/git/ws/eventual/retention-default-20260803-0613/`, eight CLI runs plus the ratchet's in-process
+run, no env gates: **eight at 53, one at 39** (V7). 24↔10 stays dead. The 53-run survivor SETS are
+all identical, and result digests even repeat across runs (V3=V4=V6, V2=V5, V1=V8 — the first
+full-digest reproductions ever observed on the composed dogfood). V7's delta is exactly the
+14-type statement family, en bloc, 39 ⊂ 53 — the J-phase signature: the timing layer (write-once,
+iteration-timed eventual minting) is untouched by this commit and still fires, now at ~1-in-9
+observed instead of the campaign's coin flip. The deferral design fix (terminal-phase minting)
+remains the principled closure and remains Bart's call.
+
+**The ratchet baseline** (`dogfood/expected-eventual-survivors.txt`) is re-derived at **53** — a
+strict superset of the old 24 (+29, the types the retention fixes stabilised), verified identical
+across all 53-runs, wobble type absent throughout. `TestEventualRatchet` passes against it live.
+Deliberate choice: the statement family is NOT moved to the wobble file — a ~1-in-9 en-bloc failure
+with a documented signature (see the baseline header) keeps the pressure on the deferral decision,
+whereas wobbling 14 types would blind the ratchet to real statement-family regressions.
+
+### The deferral round (2026-08-03): terminal-phase re-derivation — the eventual layer is deterministic
+
+Bart green-lit the deferral design. Implementation (IteratingAnalyzerImpl): at the terminal
+certification point — after MODREACH reaches its joint fixpoint, before the contraction — the whole
+eventual family (EVENTUAL_METHOD, EVENTUALLY_NON_MODIFYING_METHOD, EVENTUALLY_UNMODIFIED_PARAMETER,
+EVENTUALLY_IMMUTABLE_TYPE) is cleared, the cluster ledger reset, and the loop continues: the eventual
+walks re-derive over the SETTLED state (links final, modification frozen, immutability certified) and
+re-certify; the contraction then runs on a ledger whose shape is a function of the fixpoint alone.
+One round (`eventualDeferralRounds`), re-armed if a MODREACH re-derivation clears the full family
+again; opt-out `EVENTUALDEFER=0`; skipped under incremental early-cutoff. The mechanics are the §14
+MODREACH clear-and-re-derive pattern verbatim — `clearEventualFamily` is `clearDerivedFamily`
+restricted to the four eventual keys. Cost: one extra re-derivation leg (~10 iterations, +60-80s on
+the dogfood). All suites green.
+
+**Validation** (`~/git/ws/eventual/deferral-20260803-0704/`, six runs): **68, 68, 68, 68, 68, 55.**
+The five 68-runs have IDENTICAL survivor sets. The eventual layer's own nondeterminism is dead — and
+the D6 outlier proves it from the other side: its divergence is visible at MODREACH round 1
+(**18784 shadow edges vs 18783**), long before the deferral fired — the *input* state differed, and
+given different inputs the deferral faithfully computed a different (smaller: 55 ⊂ 68, the api
+statement family lost en bloc) answer. Runs with identical settled state produce identical eventual
+verdicts, every time.
+
+**The 68-world vs the transient 53-world**: +23 / −8, NOT a superset. Gained: the
+`Value`/`ValueImpl` analysis family, `FieldInspectionImpl`, the `CompilationUnitPrinter` pair,
+`ForEachStatement`, `EvalSum.Factor`, `GreaterThanZeroImpl.XBImpl`, … — walks that in transient
+worlds read still-settling inputs and failed now succeed over the fixpoint. Lost: `ModuleInfo`, the
+five arithmetic expression interfaces (`Divide`/`Equals`/`Product`/`Remainder`/`StringConcat`),
+`Break`/`ContinueStatementImpl` — all eight were members of the original sound 24-set, but their
+verdicts rested on reads that happened AFTER a dependency's transient verdict existed (no edge
+recorded = no witnessing); under full witnessing their leans do not discharge. Whether they are
+honestly recoverable (a contract, an excusal) is a climb quest, not a regression. The ratchet
+baseline is re-derived at 68.
+
+**What remains — exactly one upstream wobble.** The D6 seed is a LINK-layer edge: one extra shadow
+edge at round 1, cascading to the statement family. It is NOT the EvalInequality provenance
+tristability (positions 97/119/125 persist in all runs; D3/D5 share D6's 119 yet landed 68 —
+uncorrelated). Next instrument: an edge-set dump gate in ShadowModificationPass, run until both
+variants are captured, diff → name the edge → canonicalize its source. The eventual layer is no
+longer the carrier; the hunt moves down a layer, with a 1-in-6 reproduction rate and a two-count
+signature (18783/18784) to grep for.
+
+### The edge hunt (2026-08-03, same morning): not one edge — an in-memory variant family
+
+The hunt (`~/git/ws/eventual/hunt-shadow-edge.sh`, gate `EDGEDUMP=1`) caught the pair on run 4 of
+`~/git/ws/eventual/edgehunt-20260803-0745/` — and the diff REFUTES the one-edge theory of the
+previous section. Three corrections, each load-bearing:
+
+1. **The diff is a family, not an edge**: ~15 edges differ (net +1), clustered on two shapes —
+   (a) constructors with MULTIPLE same-typed parameters, whose param→field link sets smear
+   differently per run: `InlineConditionalImpl.<init>` (condition/ifTrue/ifFalse, all
+   `Expression`), `SwitchStatementOldStyleImpl.SwitchLabelImpl.<init>` (literal/whenExpression),
+   `AssertStatementImpl.<init>` (expression/message), `FieldReferenceImpl.<init>`; and (b)
+   value-mediated `Element.translateAnnotations:translationMap → <lambda>.apply:param` edges whose
+   lambda targets vary (`ExplicitConstructorInvocationImpl.$5`, `ForStatementImpl.$12`,
+   `LocalVariableCreationImpl.$5`).
+2. **The edge count is NOT the discriminator**: R4 has 18784 edges and lands the canonical
+   68-set — identical survivors to the 18783-runs. D6's 55 was a particular variant COMBINATION
+   breaking a statement-family lean, not the count.
+3. **The variance never persists**: R1 vs R4 persisted results are identical except the
+   EvalInequality provenance metadata — the varying links are in-memory statement-level /
+   lambda-mediated state, invisible to the codec. The ratchet-relevant persisted world is stable.
+
+Net state: the composed dogfood's survivor set is 68 with an occasional (~1-in-6 combined) drop to
+55 whose trigger is an in-memory link-derivation variant in the same-typed-multi-param family. The
+next surgical target is naming WHY those constructors' param→field links derive differently per
+run (candidate mechanisms: the on-demand recursion context of the statement lambdas, or an
+instance-selection residue the rendering tie-break cannot see) — a link-layer quest, downstream of
+nothing: the eventual layer consumes whatever it is fed, deterministically, since the deferral
+round.

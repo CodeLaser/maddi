@@ -192,6 +192,15 @@ public class ShadowModificationPass {
                 callSitesWithoutArgumentLinks, unprojectedReceivers,
                 Map.copyOf(missingArgLinkAnalyzedCallees), Set.copyOf(frontierIncomplete),
                 immutableGuardedDivergences);
+        // gate EDGEDUMP=1 (docs/eventual-info-hierarchy.md §"The deferral round"): print the full edge
+        // set, sorted. The last dogfood nondeterminism is ONE extra shadow edge (18783 vs 18784 at
+        // MODREACH round 1, 1-in-6, cascading to the statement family); diffing two runs' dumps names it.
+        if (System.getenv("EDGEDUMP") != null) {
+            successors.entrySet().stream()
+                    .flatMap(e -> e.getValue().stream().map(to -> Report.label(e.getKey()) + " => " + Report.label(to)))
+                    .sorted()
+                    .forEach(s -> System.out.println("EDGE " + s));
+        }
         LOGGER.debug("{}", report.summary());
         return report;
     }

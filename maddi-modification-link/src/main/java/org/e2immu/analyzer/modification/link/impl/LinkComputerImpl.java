@@ -197,9 +197,18 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         doType(primaryType);
     }
 
+    // NOT getOrCreate (docs/eventual-info-hierarchy.md §"The retention round"): getOrCreate SKIPS
+    // the slot computation when an on-demand recursion already wrote this method's links — but that
+    // early value was computed in a DIFFERENT context (callees in-progress fell back to shallow), and
+    // WHICH methods get computed on-demand varies run-to-run with the engine's exploration noise (a
+    // measured bistability fork, 39↔53, was exactly one reordered on-demand first-write of
+    // Expression.<init>(int)). The analysis-order SLOT always recomputes in full context and
+    // content-aware retention (Value.strictlyRicherThan, in TolerantWrite) decides — the stored value
+    // is a function of the slot computation, not of the on-demand arrival pattern.
     private void doType(TypeInfo typeInfo) {
         typeInfo.subTypes().forEach(this::doType);
-        typeInfo.constructorAndMethodStream().forEach(mi -> mi.analysis().getOrCreate(METHOD_LINKS, () -> doMethod(mi)));
+        typeInfo.constructorAndMethodStream().forEach(mi ->
+                TolerantWrite.setAllowControlledOverwrite(mi.analysis(), METHOD_LINKS, doMethod(mi), mi));
     }
 
     @Override

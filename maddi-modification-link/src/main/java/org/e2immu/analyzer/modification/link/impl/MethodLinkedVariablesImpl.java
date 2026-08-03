@@ -174,6 +174,35 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
         return modified.containsAll(newModified); // can only shrink
     }
 
+    /** Total number of link entries plus modified variables: the "content mass" of this value. */
+    private int contentCount() {
+        return (ofReturnValue == null ? 0 : (int) ofReturnValue.stream().count())
+               + ofParameters.stream().mapToInt(l -> (int) l.stream().count()).sum()
+               + modified.size();
+    }
+
+    /**
+     * Equality of method links is keyed on the primary variables (LinksImpl equality is primary-only),
+     * so two values with the same primaries but DIFFERENT content are EQUAL — and whichever arrives
+     * first freezes under first-arrival retention. Measured on the composed dogfood
+     * (docs/eventual-info-hierarchy.md §"The retention round"): the all-empty {@code [-] --> -} vs the
+     * rich derivation of {@code Statement.translate} split the 24↔10 worlds, and after fixing only the
+     * empty case, rich-vs-richer pairs still split 39↔53. This predicate therefore imposes a TOTAL
+     * canonical order on equal-keyed pairs: more content wins; equal content mass falls back to the
+     * lexicographically smaller rendering. TolerantWrite replaces an equal current value whenever the
+     * incoming one is canonically greater — the retained value is a function of the value SET, not
+     * the arrival order.
+     */
+    @Override
+    public boolean strictlyRicherThan(Value other) {
+        if (!(other instanceof MethodLinkedVariablesImpl o)) return false;
+        int c = Integer.compare(contentCount(), o.contentCount());
+        if (c != 0) return c > 0;
+        String mine = toString();
+        String theirs = o.toString();
+        return mine.compareTo(theirs) < 0; // equal mass: smaller canonical rendering wins, arbitrarily but totally
+    }
+
     private static @NotNull Set<Variable> excludeInternal(Set<Variable> variables) {
         return variables.stream()
                 .filter(v -> !(v instanceof IntermediateVariable) && !(v instanceof MarkerVariable))

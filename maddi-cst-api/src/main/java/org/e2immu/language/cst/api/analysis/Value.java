@@ -62,6 +62,21 @@ public interface Value extends Comparable<Value> {
         return false;
     }
 
+    /**
+     * Whether {@code this} carries strictly more information than an {@link #equals(Object) equal} value
+     * {@code other}. Some values are deliberately equal on a KEY while differing in content (method links
+     * equal on their primary variables) — for those, a first-arrival write freezes whichever content
+     * happened to arrive first, and any consumer reading during the frozen window sees arrival-order
+     * dependent state (the composed-dogfood 24↔10 bistability: an all-empty {@code methodLinks} on
+     * {@code Statement.translate} froze ahead of the rich derivation in half the runs). A retention
+     * policy that lets a strictly richer equal value replace a poorer one makes the outcome a function
+     * of the value SET, not the arrival order. Default: false (plain values are never "richer" than an
+     * equal value).
+     */
+    default boolean strictlyRicherThan(Value other) {
+        return false;
+    }
+
     interface Bool extends Value {
         boolean isTrue();
 
