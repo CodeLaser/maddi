@@ -2297,3 +2297,96 @@ Stream aapi shapes, the visited-accumulator semantics, DetailedSources classific
 (translateAnnotations, same shapes), then R's residue (Predefined/Types candidacy,
 ComputeMethodOverrides, parameterExpressions trusted leaves) — much of R may fall out of T+E via
 the cluster closure.
+
+## Quest T, day one (2026-08-03 afternoon): the census's headline was a red herring; the real wall was Either
+
+**The eup bails were never the blocker.** The census ranked the `typesReferenced` arg-2 bails
+(126+67 on `visited`, 82 on `detailedSources`) as quest T's first target. Tracing whole walk
+instances (EC_SITE_DEBUG, runs C1/T2) showed all six bailing walk roots are the eup walks on the
+`typesReferenced` family's OWN parameters — structurally unwinnable (the label type `java.util.Set`
+is doomed external, and `TypeParameterImpl` genuinely mutates the accumulator via `visited.add(this)`,
+so no unmodified-once-L promise can exist) and consumed by nothing: all three enm walks (both impls
+and the api default) converge and WRITE their labels regardless. The bails are per-iteration re-walk
+noise, worth a cheap skip-guard someday (a parameter whose type has no committable label space can
+never land eup), but no mint depends on them.
+
+**Cut 1 — the trusted-leaf pair (the fieldModifiers precedent, applied).** The honest blocker was
+one level up: `ECTYPE ... DEPENDENT: method parameters returns java.util.List` /
+`extractTypeParameters returns java.util.Set` → after-mark independence `@Dependent` → the
+dependence cap holds afterMark at `@FinalFields` → "buys nothing" → never mints. The cut:
+`@Independent(hc = true)` TRUSTED LEAF contracts on `ParameterizedType.parameters()`,
+`extractTypeParameters()` (fresh `Set.of`/`toUnmodifiableSet` returns) and — found by the next
+trace — `replaceByTypeBounds()` (fresh `List.of`/staticToList; its unchanged-input pass-through
+hands out `typeBounds()`, which is `List.copyOf`-backed at inspection commit, so still honest);
+plus the honesty backing `this.parameters = List.copyOf(parameters)` in the PTImpl main
+constructor (no-op for the `List.of()`/`.toList()` callers). Effect, measured (T2/T3,
+EC_TYPE_DEBUG): independence reads `@Independent(hc=true)`, and **ParameterizedType computed
+`immutableAfterMark=@Immutable(hc=true)` with the full mark set
+`[parameters, typeInfo, typeParameter, wildcard]` and WROTE the verdict for the first time ever** —
+then the terminal contraction took it back: `ECRETRACT ParameterizedType <- broken:
+[Element, TypeInfo, TypeParameter]` (T3). The fulcrum now mints-and-retracts with the info family
+instead of never forming. Survivors 68→68 (T1 hit the 55 coin; T2/T3 the canonical 68).
+
+**The wall behind it: nothing materializes external-library bytecode annotations.** TypeInfo caps
+on ONE method (`compilationUnitOrEnclosingType` returning `Either<CompilationUnit,TypeInfo>`),
+TypeParameter likewise (`getOwner` returning `Either<TypeInfo,MethodInfo>`). `org.e2immu.support.Either`
+carries `@ImmutableContainer(hc=true)` in its class file — the support library is fully annotated at
+source, marks and all — but the support jar has no AAPI package, and absent-counts-as-doomed
+(`candidateDoomed`) makes every exposure of an Either or an inspection holder DEPENDENT.
+
+**Cut 2 — the `libs/support` AAPI package.** New curated hints
+`maddi-aapi-archive/.../libs/support/OrgE2immuSupport.java` mirroring the library sources verbatim:
+`Either` (`@ImmutableContainer(hc=true)`), `SetOnce` (`after="t"`), `EventuallyFinal` and
+`EventuallyFinalOnDemand` (`after="isFinal"`) with their `@Mark/@Only/@TestMark` methods — the
+compiled json carries real `eventuallyImmutableType` verdicts, so the support types enter
+`treatAsEventuallyImmutable` through the PROVEN path, exactly as the `candidateDoomed` javadoc
+anticipated. Generation: `GenerateSupportAnalysisResults` (maddi-run-openjdk test, @Disabled,
+manual re-run after editing the hints). Preload wiring: the dogfood wrapper and
+`TestEventualRatchet.PRELOAD` gained `libs/support`. NOTE: the inspection SetOnce/EventuallyFinal
+fields now have real eventual semantics — the info family's own marks ("inspection") stop reading
+as absent; expect movement well beyond ParameterizedType, and re-derive the ratchet baseline.
+
+**T4, the first support-aapi world (survivors 41): a different equilibrium, not a monotone step.**
+The preload cuts both ways. Gains: the arithmetic api family (Divide, Equals, Product, Remainder,
+StringConcat) mints — quest R's constellation arriving early, presumably through Eval/Runtime paths
+that stopped bailing on support types. And the broken-candidate census SWAPS whole families versus
+the 68-world: the api EXPRESSION family + Runtime + Factory + ParameterizedType + ExpressionImpl are
+no longer broken, while the api STATEMENT family + StatementImpl + the impl EXPRESSION family break
+instead. Losses (net −27 vs the 68-reference): the 13-statement family (the coin's shape, possibly
+caused here), the Value api+impl family (~11, all `broken: []` = cascade victims through the
+closure), FieldInspection + FieldInspectionImpl, AnnotationExpression.KV/KVI, EvalSum.Factor,
+GreaterThanZeroImpl.XBImpl, ExpressionComparator.Unwrapped. ParameterizedType STILL does not mint
+(eventual=null) — out of the broken lists but its verdict did not survive either. api.info.TypeInfo
+is WORSE: afterMark=@Mutable now (was @FinalFields), and its Either cap
+(`DEPENDENT: compilationUnitOrEnclosingType`) did NOT lift — `excused()` consults only
+`isEventual()` and `treatAsEventuallyImmutable`; there is NO a-fortiori acceptance of an
+unconditionally immutable-hc exposure (the clause `isEventuallyImmutableFieldType` has). The Either
+aapi verdict therefore never reaches the dependence check on the method side.
+
+Open, in order: (1) the excused() a-fortiori clause — small, principled, mirrors the field-side
+discharge rule; (2) root the statement/Value swap in the T4 world (its own retract census; the swap
+smells like the coin's bistability amplified, so replicate first); (3) the info-family mark
+propagation under the new honest transition semantics (methods calling setFinal/set are now
+transitions — the owners' @Mark derivation must carry what previously read as plain modification).
+
+**The chain, walked to its root (T5-T8).** T5 replicated T4 byte-identically (41): the support-aapi
+world is a stable equilibrium, not a coin face. Cut 3, the `excused()` a-fortiori clause (an
+unconditionally immutable-hc exposure shares hidden content only — the discharge rule of
+`isEventuallyImmutableFieldType`, mirrored; no lean witnessed): TypeInfo's Either cap 35→0 (T6),
+independence @Dependent→@Independent — and the cap moved to the immutable side: TypeInfo is
+MUTABLE-after-mark because super Info reads @FinalFields and `isMutable(@FinalFields)` sinks every
+sub-interface; Info in turn caps on Element. Cut 4 (T7 diagnosis → T8): Element's ONLY dependence
+cap was `comments()` returning raw `List<Comment>` (45×) — the trusted-leaf sweep: contract on
+`Element.comments()` + `List.copyOf` in the ten committed-face constructors (CompilationUnitImpl,
+ModuleInfoImpl ×3, RecordPatternImpl, CatchClauseImpl, SwitchEntryImpl, StatementImpl,
+InspectionImpl, ExpressionImpl; Builders stay raw — the before-state face). The sweep surfaced a
+latent api violation: `ExpressionImpl`'s convenience constructor stored NULL comments while the api
+declares `@NotNull comments()` — the copyOf sites are null-tolerant (`null → List.of()`), fixing
+both. Suites green after the fix. T8 = 42 (+BitwiseNegation), Element DEPENDENT 45→0,
+`independent=@Independent(hc=true)`, its unconditional verdict touching @Immutable(hc=true) in
+optimistic rounds — the honest residue is `afterMark=@FinalFields excusedM=6`: the modifying-with-
+enm-labels method family (translate, rewire, the visitor surface) fails to excuse. **Quest T's
+chain now bottoms out exactly in Quest E's territory.** The day ends 42 vs the old 68-world — the
+two worlds are not comparable by count alone: the support aapi re-rooted the equilibrium (the
+statement/expression family swap), and the climb from 42 goes through Element's method excusals
+(E), not through more trusted leaves.
