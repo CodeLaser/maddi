@@ -16,6 +16,7 @@ package org.e2immu.language.cst.api.element;
 
 import org.e2immu.annotation.Fluent;
 import org.e2immu.annotation.ImmutableContainer;
+import org.e2immu.annotation.Independent;
 import org.e2immu.annotation.NotNull;
 import org.e2immu.annotation.rare.IgnoreModifications;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
@@ -55,7 +56,11 @@ import java.util.stream.Stream;
 public interface Element {
     int complexity();
 
+    // TRUSTED LEAF (docs/eventual-design-improvements.md §4): every committed face is List.copyOf-backed
+    // or List.of() (the cst-impl constructor discipline, swept 2026-08-03); the Builders are the
+    // before-state face, as everywhere in the eventual style.
     @NotNull
+    @Independent(hc = true)
     List<Comment> comments();
 
     Element rewire(InfoMapView infoMap);

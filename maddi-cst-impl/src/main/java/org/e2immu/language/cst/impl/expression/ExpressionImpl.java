@@ -40,7 +40,7 @@ public abstract class ExpressionImpl extends ElementImpl implements Expression {
     protected ExpressionImpl(List<Comment> comments, Source source, int complexity) {
         this.complexity = complexity;
         this.source = source;
-        this.comments = comments;
+        this.comments = comments == null ? List.of() : List.copyOf(comments);
     }
 
     @Override
