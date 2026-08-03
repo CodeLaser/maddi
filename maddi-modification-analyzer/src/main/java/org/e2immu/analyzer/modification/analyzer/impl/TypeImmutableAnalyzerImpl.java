@@ -276,6 +276,19 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         return bestType == null || !bestType.equals(fieldInfo.owner());
     }
 
+    /** The independence side's premise re-check, immutability twin: does the field's type commit at the mark --
+     *  eventual, unconditionally immutable-hc, or the witnessed optimistic seed? */
+    private boolean fieldTypeCommits(TypeInfo typeInfo, FieldInfo fieldInfo) {
+        TypeInfo fieldType = fieldInfo.type().bestTypeInfo();
+        if (fieldType == null) return false;
+        Value.EventuallyImmutable ev = fieldType.analysis().getOrDefault(EVENTUALLY_IMMUTABLE_TYPE,
+                ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL);
+        if (ev.isEventual()) return true;
+        Immutable immutable = fieldType.analysis().getOrNull(IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.class);
+        if (immutable != null && immutable.isAtLeastImmutableHC()) return true;
+        return eventualCluster.treatAsEventuallyImmutable(typeInfo, fieldType, ev);
+    }
+
     private Boolean loopOverFieldsAndMethods(TypeInfo typeInfo, boolean abstractMethods, AfterMark afterMark) {
         // fields should be private, or immutable for the type to be immutable
         // fields should not be @Modified nor assigned to
@@ -284,7 +297,21 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         Boolean isImmutable = true;
         for (FieldInfo fieldInfo : typeInfo.fields()) {
             if (!fieldInfo.access().isPrivate()) {
-                if (isNotSelf(fieldInfo)) {
+                // EXPERIMENTAL (EVENTUALCLUSTER): the privacy rule reads the field type's PLAIN immutability,
+                // which held a protected-final field of eventual type (BinaryOperatorImpl.lhs and its four
+                // siblings, the arithmetic family's carrier) at "not immutable" even while the after-mark
+                // computation excused the very same field. After OUR mark the referent is committed, and a
+                // committed referent bars mutation for ANY holder -- who can read the reference no longer
+                // matters -- so the privacy question reduces to the premise the independence side re-checks
+                // (typeCommits), witnessed via the same treatAs edge. FINALITY is not implied by
+                // afterMark.fields() (a @Mark method assigns its field; a non-private assignable field would
+                // let a package-mate bypass the mark discipline entirely), so it is required explicitly --
+                // which the markless-carrier fields, the only intended beneficiaries, all satisfy.
+                boolean committedAfterMark = EventualCluster.ENABLED && !afterMark.isNone()
+                                             && afterMark.fields().contains(fieldInfo)
+                                             && fieldInfo.analysis().getOrDefault(FINAL_FIELD, ValueImpl.BoolImpl.FALSE).isTrue()
+                                             && fieldTypeCommits(typeInfo, fieldInfo);
+                if (!committedAfterMark && isNotSelf(fieldInfo)) {
                     Immutable immutable = analysisHelper.typeImmutableNullIfUndecided(fieldInfo.type());
                     if (immutable == null) {
                         isImmutable = null;
