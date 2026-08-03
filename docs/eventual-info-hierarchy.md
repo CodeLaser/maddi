@@ -2125,3 +2125,32 @@ uncorrelated). Next instrument: an edge-set dump gate in ShadowModificationPass,
 variants are captured, diff → name the edge → canonicalize its source. The eventual layer is no
 longer the carrier; the hunt moves down a layer, with a 1-in-6 reproduction rate and a two-count
 signature (18783/18784) to grep for.
+
+### The edge hunt (2026-08-03, same morning): not one edge — an in-memory variant family
+
+The hunt (`~/git/ws/eventual/hunt-shadow-edge.sh`, gate `EDGEDUMP=1`) caught the pair on run 4 of
+`~/git/ws/eventual/edgehunt-20260803-0745/` — and the diff REFUTES the one-edge theory of the
+previous section. Three corrections, each load-bearing:
+
+1. **The diff is a family, not an edge**: ~15 edges differ (net +1), clustered on two shapes —
+   (a) constructors with MULTIPLE same-typed parameters, whose param→field link sets smear
+   differently per run: `InlineConditionalImpl.<init>` (condition/ifTrue/ifFalse, all
+   `Expression`), `SwitchStatementOldStyleImpl.SwitchLabelImpl.<init>` (literal/whenExpression),
+   `AssertStatementImpl.<init>` (expression/message), `FieldReferenceImpl.<init>`; and (b)
+   value-mediated `Element.translateAnnotations:translationMap → <lambda>.apply:param` edges whose
+   lambda targets vary (`ExplicitConstructorInvocationImpl.$5`, `ForStatementImpl.$12`,
+   `LocalVariableCreationImpl.$5`).
+2. **The edge count is NOT the discriminator**: R4 has 18784 edges and lands the canonical
+   68-set — identical survivors to the 18783-runs. D6's 55 was a particular variant COMBINATION
+   breaking a statement-family lean, not the count.
+3. **The variance never persists**: R1 vs R4 persisted results are identical except the
+   EvalInequality provenance metadata — the varying links are in-memory statement-level /
+   lambda-mediated state, invisible to the codec. The ratchet-relevant persisted world is stable.
+
+Net state: the composed dogfood's survivor set is 68 with an occasional (~1-in-6 combined) drop to
+55 whose trigger is an in-memory link-derivation variant in the same-typed-multi-param family. The
+next surgical target is naming WHY those constructors' param→field links derive differently per
+run (candidate mechanisms: the on-demand recursion context of the statement lambdas, or an
+instance-selection residue the rendering tie-break cannot see) — a link-layer quest, downstream of
+nothing: the eventual layer consumes whatever it is fed, deterministically, since the deferral
+round.
