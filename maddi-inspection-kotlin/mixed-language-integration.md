@@ -296,3 +296,55 @@ the file facade `…Kt`), a **vararg** function, and a **bounded generic** metho
 | Phase 3 end-to-end | `maddi-inspection-kotlin/.../TestMixedJavaToKotlin.kt`; openjdk `JavaInspectorImpl.infoByFqn()` |
 | Phase 4 driver | `maddi-inspection-mixed/.../MixedInspector.kt`, `.../TestMixedInspector.kt` |
 | Phase 4 hardening | `maddi-inspection-mixed/.../TestMixedHardening.kt` (enum/nested/generic/void/extends/multi) |
+| Kotlin-only: warmup source set + class path | `maddi-inspection-mixed/.../MixedProjectInspector.kt` (§11.1–11.2, `TEST_PROTOCOL` warmup, `javaConfig`) |
+| Kotlin-only: explicit library load | `maddi-kotlin-k2/.../KotlinTypeMapper.kt` (`loadLibraryClass`, §11.3) |
+| Corpora, verdicts and open tails | [`docs/kotlin-corpora.md`](../docs/kotlin-corpora.md) |
+
+## 11. Kotlin-only projects (added 2026-08-03)
+
+A project with **no Java source sets** is not an edge case — it is what a Kotlin corpus normally looks like,
+and both `coil` and `detekt` are one (see [`docs/kotlin-corpora.md`](../docs/kotlin-corpora.md)). It had never
+really been run, and three things were wrong, each visible only once the one before it was fixed.
+
+### 11.1 The shared core was not shared
+
+`onlyPreload()` parses a warmup type, but `parse` iterates the **configured source sets**; with none, no scan
+runs, `lastScanUnits` is never set, and the `CompiledTypesManager`'s lazy bytecode loader has no live javac
+task behind it. `getOrLoad` then returned null for *every* library type — `java.util.List` included — K2 fell
+back to its own view, and §9's "bytecode is the authority for library shape" quietly did not hold. It also
+aborted the modification analysis outright, `VirtualFieldComputer`'s constructor doing
+`getOrLoad(AtomicBoolean.class)`.
+
+The fix is a `TEST_PROTOCOL` source set giving the warmup something real to scan. **Its `dependencies()` are
+the point**: a task's class path is built from them, so without `java.base` javac cannot resolve
+`java.lang.Object`'s own members and the scan dies in `ClassSymbolScanner.classType`.
+
+Arming a default `LoaderSpec` in `JavaInspectorImpl` instead — so the source-free loader task could be built
+without any scan — looks like the tidier fix and **does not work**: `ClassSymbolScanner` asserts its source
+set is one of the configuration's, which a synthetic carrier is not.
+
+### 11.2 The Java half needs the project's class path
+
+`jmod:java.base` was enough only while nothing ever asked the inspector to load anything. Once the loader is
+alive K2 delegates real library types to it, and **every Kotlin class file carries `@kotlin.Metadata`**, so
+loading one type off kotlin-stdlib or kotlinx-coroutines drags in names javac cannot see and
+`ClassSymbolScanner.classType` NPEs on the unresolved reference. The configuration's own class-path parts are
+therefore passed through; `jmod:java.se` is added only when it carries no JDK parts of its own (a
+compile-log-derived configuration already has the closure; a hand-assembled Kotlin one need not, the Kotlin
+front end taking its JDK from `java.home`).
+
+### 11.3 `loadLibraryClass` must delegate too
+
+`mapClassType` has delegated to the manager since Phase 1; `loadLibraryClass` — the explicit "load this whole
+type" path behind a `Type.staticMember` access — did not. With the manager finally non-empty it rebuilt and
+re-committed a type already built from bytecode: *"Trying to overwrite final value"*. Same idempotent-caching
+shape as the §8b fix.
+
+### 11.4 No Java source, no stubs
+
+Stub generation is now **skipped** when there are no Java source sets. A stub exists for exactly one reason —
+javac cannot read Kotlin, so Java *source* referencing a Kotlin type needs something to resolve against — and
+with no Java source there is no consumer. Generating them anyway made every `JavaStubGenerator` fidelity gap a
+hard failure on a parse that was otherwise complete: detekt parsed all 31 source sets and then aborted
+compiling stubs nothing would read. The known gaps are listed in `docs/kotlin-corpora.md` §5.5; they matter
+again as soon as a corpus mixes Java *and* Kotlin source.
