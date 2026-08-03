@@ -82,7 +82,7 @@ public class TestParseAnalyzeWrite extends CommonTest {
 
         JavaInspector javaInspector = analysisHintsParser.go(test);
         List<TypeInfo> types = analysisHintsParser.typesParsed();
-        assertEquals(30, types.size()); // 28 + JavaMath + JavaTimeFormat
+        assertEquals(31, types.size()); // 28 + JavaMath + JavaTimeFormat + OrgE2immuSupport
         for (TypeInfo typeInfo : types) {
             if ("JavaLang".equals(typeInfo.fullyQualifiedName())) {
                 TypeInfo charSeq = typeInfo.findSubType("CharSequence$");

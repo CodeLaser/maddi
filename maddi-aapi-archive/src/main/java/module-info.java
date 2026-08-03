@@ -10,5 +10,6 @@ module org.e2immu.analyzer.aapi.archive {
 
     exports org.e2immu.analyzer.aapi.archive.jdk;
     exports org.e2immu.analyzer.aapi.archive.libs.log;
+    exports org.e2immu.analyzer.aapi.archive.libs.support;
     exports org.e2immu.analyzer.aapi.archive.libs.test;
 }
