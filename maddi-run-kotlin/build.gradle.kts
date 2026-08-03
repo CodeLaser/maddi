@@ -34,6 +34,7 @@ dependencies {
     implementation(project(":maddi-modification-prepwork")) // PrepAnalyzer, ComputeAnalysisOrder
     implementation(project(":maddi-modification-analyzer")) // IteratingAnalyzer (--analysis-steps=modification)
     implementation(project(":maddi-modification-common"))   // AnalyzerException (isolated-element reporting)
+    implementation(project(":maddi-cst-analysis"))          // PropertyImpl/ValueImpl: read the immutability verdict
     implementation(project(":maddi-graph"))                 // G<Info>
     implementation("com.fasterxml.jackson.core:jackson-databind") // Main reads/writes InputConfiguration JSON
 

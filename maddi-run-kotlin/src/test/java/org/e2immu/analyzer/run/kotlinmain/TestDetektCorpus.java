@@ -113,30 +113,45 @@ public class TestDetektCorpus {
     }
 
     /**
+     * The <b>annotated APIs for the JDK</b>. Without them every library type is an unknown, and the analysis
+     * cannot conclude anything positive about a type built on one — which is exactly what happened the first
+     * time this ran: {@code @FinalFields=1320, @Mutable=428} and not one immutable type. The Java corpus tests
+     * pass the same directory ({@code TestFernflower} et al.).
+     */
+    private static final List<String> JDK_ANNOTATED_APIS = List.of(
+            "../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk");
+
+    /**
      * Prep <b>and</b> the iterating modification/immutability analysis, over the whole project — the first time
-     * the modification analyzer has run on Kotlin.
+     * the modification analyzer has run on Kotlin. It converges in seven iterations over ~9,200 elements,
+     * ending in certification.
      *
-     * <p>It converges: seven iterations over ~9,200 elements, ending in certification. The assertions are
-     * deliberately structural (it ran, it isolated few elements) rather than a verdict census, which would be a
-     * brittle thing to pin this early; the run logs its own fingerprint, e.g.
-     * {@code type.immutable=@FinalFields=1320, @Mutable=428} and
-     * {@code method.nonModifying=true=5289, false=787}.
+     * <p>The immutability assertion is the point. With the JDK annotated APIs loaded the verdicts are
+     * {@code @Immutable=676, @Immutable(hc=true)=137, @FinalFields=517, @Mutable=418}; without them the first
+     * two are <b>zero</b> and almost everything piles up in {@code @FinalFields}. A corpus run that quietly
+     * lost the AAPI would still converge, still report thousands of verdicts, and still look like a success —
+     * so the floor below is what makes that visible.
      *
      * <p>The isolated elements are prep failures, all one cause today
-     * ({@code Trying to overwrite a value for property variableData}); the floor keeps that honest, since a
-     * fault-tolerant run that skipped half the corpus would otherwise look like a success.
+     * ({@code Trying to overwrite a value for property variableData}); their ceiling keeps the fault-tolerant
+     * run honest, since one that skipped half the corpus would otherwise also look like a success.
      */
     @Test
     public void runsModificationAnalysis() throws IOException {
         Path config = config();
-        RunMixedPrepAnalyzer.Summary summary = new RunMixedPrepAnalyzer().go(read(config), true);
-        LOGGER.info("detekt modification: {} primary type(s), analysis order {}, {} isolated by prep",
-                summary.primaryTypes(), summary.analysisOrderSize(), summary.prepErrors());
+        RunMixedPrepAnalyzer.Summary summary =
+                new RunMixedPrepAnalyzer().go(read(config), true, JDK_ANNOTATED_APIS);
+        LOGGER.info("detekt modification: {} primary type(s), analysis order {}, {} isolated by prep,"
+                    + " {} immutable type(s)", summary.primaryTypes(), summary.analysisOrderSize(),
+                summary.prepErrors(), summary.immutableTypes());
         assertTrue(summary.primaryTypes() >= PRIMARY_TYPE_FLOOR,
                 "expected at least " + PRIMARY_TYPE_FLOOR + " primary types, got " + summary.primaryTypes());
         assertTrue(summary.analysisOrderSize() > 5_000,
                 "expected a substantial analysis order, got " + summary.analysisOrderSize());
         assertTrue(summary.prepErrors() < 50,
                 "prep isolated " + summary.prepErrors() + " elements; that is no longer a tail");
+        assertTrue(summary.immutableTypes() > 300,
+                "expected the JDK annotated APIs to yield immutable types, got " + summary.immutableTypes()
+                + "; zero means they were not loaded");
     }
 }

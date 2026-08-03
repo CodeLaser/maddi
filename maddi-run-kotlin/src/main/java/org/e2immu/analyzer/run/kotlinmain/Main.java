@@ -56,6 +56,8 @@ public class Main {
     static final String ANALYSIS_STEPS = "--analysis-steps";
     static final String AS_PREP = "prep";
     static final String AS_MODIFICATION = "modification";
+    /** Repeatable, as in {@code run-openjdk}: directories of pre-analyzed library annotations (the AAPI). */
+    static final String PRELOAD_ANALYSIS_RESULTS_DIRS = "--preload-analysis-results-dirs";
 
     public static void main(String[] args) {
         int exitValue = execute(args);
@@ -70,6 +72,7 @@ public class Main {
         String writeInputConfiguration = null;
         String analysisSteps = AS_PREP;
         List<String> extraJmods = new ArrayList<>();
+        List<String> analysisResultsDirs = new ArrayList<>();
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case COMPILE_LOG -> compileLog = value(args, ++i);
@@ -77,6 +80,7 @@ public class Main {
                 case EXTRA_JMOD -> extraJmods.add(value(args, ++i));
                 case WRITE_INPUT_CONFIGURATION -> writeInputConfiguration = value(args, ++i);
                 case ANALYSIS_STEPS -> analysisSteps = value(args, ++i);
+                case PRELOAD_ANALYSIS_RESULTS_DIRS -> analysisResultsDirs.add(value(args, ++i));
                 default -> {
                     LOGGER.error("Unknown argument '{}'. Use {} <file> or {} <file> [{} <module>]... [{} <file>]",
                             args[i], COMPILE_LOG, INPUT_CONFIGURATION, EXTRA_JMOD, WRITE_INPUT_CONFIGURATION);
@@ -110,7 +114,8 @@ public class Main {
                 return ExitCode.INTERNAL_EXCEPTION;
             }
             boolean modification = AS_MODIFICATION.equals(analysisSteps);
-            RunMixedPrepAnalyzer.Summary summary = new RunMixedPrepAnalyzer().go(inputConfiguration, modification);
+            RunMixedPrepAnalyzer.Summary summary = new RunMixedPrepAnalyzer()
+                    .go(inputConfiguration, modification, analysisResultsDirs);
             LOGGER.info("Mixed {} complete: {} Kotlin + {} Java type(s), {} primary; analysis order size {}",
                     analysisSteps, summary.kotlinTypes(), summary.javaTypes(), summary.primaryTypes(),
                     summary.analysisOrderSize());
