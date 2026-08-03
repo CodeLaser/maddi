@@ -108,6 +108,7 @@ import org.jetbrains.kotlin.psi.KtWhenConditionWithExpression
 import org.jetbrains.kotlin.psi.KtWhenExpression
 import org.jetbrains.kotlin.psi.KtWhileExpression
 import org.jetbrains.kotlin.psi.KtSecondaryConstructor
+import org.jetbrains.kotlin.psi.KtDelegatedSuperTypeEntry
 import org.jetbrains.kotlin.psi.KtSuperTypeCallEntry
 import java.net.URI
 import org.e2immu.language.inspection.resource.SourceSetImpl
@@ -273,6 +274,9 @@ class KotlinScan(
      */
     fun convert(ktFiles: List<KtFile>): List<TypeInfo> {
         facadeByFqn.clear()
+        // before anything resolves: index the `typealias` declarations, so an `expect` type realised by an
+        // `actual typealias` maps to its expansion rather than minting a shell for a name no JVM class has
+        typeMapper.registerTypeAliases(ktFiles)
         // bootstrap: populate the predefined java.lang.Object with its real members (equals/hashCode/toString/
         // …) once, so source types resolve inherited-from-Object calls (mirrors openjdk's ScanCompilationUnits)
         ktFiles.firstOrNull()?.let { analyze(it) { bootstrapObject(); bootstrapString() } }
@@ -486,6 +490,7 @@ class KotlinScan(
             .filterIsInstance<KaNamedFunctionSymbol>()
             .map { function -> convertMethodSignature(typeInfo, function).also { typeInfo.builder().addMethod(it) } to function }
         pendingMethods.forEach { (method, function) -> finishMethodBody(function, method, outerLocals) }
+        addDelegatedMembers(declaration, typeInfo)
         // a data class gets synthetic structural equals/hashCode/toString (like a Java record), unless the
         // user declared them; componentN/copy/getters are already provided by K2's member scope
         if (classSymbol.isData) {
@@ -833,6 +838,40 @@ class KotlinScan(
      * self reference to a sibling (e.g. a `tailrec` function's recursive call, or a top-level function
      * calling another one on the file facade).
      */
+    /**
+     * Kotlin **interface delegation**: `class C(private val d: I) : I by d` makes kotlinc generate an override
+     * of every member of `I` on `C`, forwarding to `d`. K2's `declaredMemberScope` does not surface those, and
+     * they have no PSI, so nothing else here sees them — `C` came out with **no members at all**, which is a
+     * modelling hole (the analysis sees a type that implements an interface yet has none of its methods) as
+     * well as the reason a generated Java stub would not compile ("C is not abstract and does not override
+     * abstract method timeout() in Sink", coil's `FaultHidingSink : Sink by delegate`).
+     *
+     * The **abstract** members are the ones that must exist for `C` to be concrete, so those are what we
+     * materialise, with an empty body (the delegation target is a field; the forwarding call itself carries no
+     * information the modification analysis does not already get from the field). Inherited abstract members
+     * count too — `okio.Sink` extends `Closeable`/`Flushable` — hence `memberScope` rather than the declared
+     * one; `Any`'s members are excluded because Kotlin delegation never forwards them.
+     */
+    private fun KaSession.addDelegatedMembers(declaration: KtClassOrObject, typeInfo: TypeInfo) {
+        val delegations = declaration.superTypeListEntries.filterIsInstance<KtDelegatedSuperTypeEntry>()
+        if (delegations.isEmpty()) return
+        val present = typeInfo.methods().map { it.name() to it.parameters().size }.toMutableSet()
+        present += listOf("equals" to 1, "hashCode" to 0, "toString" to 0)
+        delegations.forEach { entry ->
+            val superType = entry.typeReference?.type as? KaClassType ?: return@forEach
+            val superSymbol = superType.symbol as? KaClassSymbol ?: return@forEach
+            superSymbol.memberScope.declarations
+                .filterIsInstance<KaNamedFunctionSymbol>()
+                .filter { it.modality == KaSymbolModality.ABSTRACT }
+                .forEach { function ->
+                    if (!present.add(function.name.asString() to function.valueParameters.size)) return@forEach
+                    val method = convertMethodSignature(typeInfo, function)
+                    typeInfo.builder().addMethod(method)
+                    method.builder().setMethodBody(runtime.emptyBlock()).commit()
+                }
+        }
+    }
+
     private fun KaSession.convertMethodSignature(owner: TypeInfo, function: KaNamedFunctionSymbol,
                                                  static: Boolean = false): MethodInfo {
         val methodType = if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()

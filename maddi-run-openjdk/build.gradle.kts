@@ -15,6 +15,8 @@
 plugins {
     id("java-library-conventions")
     application
+    // TestOssCorpus: the test-oss root locator, shared with maddi-run-kotlin's corpus tests
+    `java-test-fixtures`
 }
 java {
     sourceCompatibility = JavaVersion.VERSION_25
