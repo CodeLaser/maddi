@@ -35,6 +35,10 @@ import java.util.List;
  * {@link ParseMixedList} — the javac + kotlinc invocations link into one configuration) or from a serialized
  * configuration ({@code --input-configuration}), then runs {@link RunMixedPrepAnalyzer} and prints its summary.
  * <p>
+ * {@code --write-input-configuration <file>} is terminal — write the derived configuration and exit, no analysis —
+ * exactly as in {@code run-openjdk}. Combined with {@code --compile-log} it is how a Kotlin corpus's checked-in
+ * {@code inputConfiguration.json} is produced, which is the whole point of having it here too.
+ * <p>
  * The JVM must be started with the openjdk {@code --add-exports jdk.compiler/com.sun.tools.javac.*=ALL-UNNAMED}
  * (the {@code application} run task and the test task inject them).
  */
@@ -46,6 +50,12 @@ public class Main {
     static final String COMPILE_LOG = "--compile-log";
     static final String INPUT_CONFIGURATION = "--input-configuration";
     static final String EXTRA_JMOD = "--extra-jmod";
+    /** Terminal, as in {@code run-openjdk}'s Main: write the derived configuration and exit, no analysis. */
+    static final String WRITE_INPUT_CONFIGURATION = "--write-input-configuration";
+    /** {@value #AS_PREP} (default) or {@value #AS_MODIFICATION}, as in {@code run-openjdk}'s Main. */
+    static final String ANALYSIS_STEPS = "--analysis-steps";
+    static final String AS_PREP = "prep";
+    static final String AS_MODIFICATION = "modification";
 
     public static void main(String[] args) {
         int exitValue = execute(args);
@@ -57,15 +67,19 @@ public class Main {
     static int execute(String[] args) {
         String compileLog = null;
         String inputConfigurationFile = null;
+        String writeInputConfiguration = null;
+        String analysisSteps = AS_PREP;
         List<String> extraJmods = new ArrayList<>();
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case COMPILE_LOG -> compileLog = value(args, ++i);
                 case INPUT_CONFIGURATION -> inputConfigurationFile = value(args, ++i);
                 case EXTRA_JMOD -> extraJmods.add(value(args, ++i));
+                case WRITE_INPUT_CONFIGURATION -> writeInputConfiguration = value(args, ++i);
+                case ANALYSIS_STEPS -> analysisSteps = value(args, ++i);
                 default -> {
-                    LOGGER.error("Unknown argument '{}'. Use {} <file> or {} <file> [{} <module>]...",
-                            args[i], COMPILE_LOG, INPUT_CONFIGURATION, EXTRA_JMOD);
+                    LOGGER.error("Unknown argument '{}'. Use {} <file> or {} <file> [{} <module>]... [{} <file>]",
+                            args[i], COMPILE_LOG, INPUT_CONFIGURATION, EXTRA_JMOD, WRITE_INPUT_CONFIGURATION);
                     return ExitCode.INTERNAL_EXCEPTION;
                 }
             }
@@ -84,9 +98,27 @@ public class Main {
                 LOGGER.error("Provide either {} <file> or {} <file>", COMPILE_LOG, INPUT_CONFIGURATION);
                 return ExitCode.INTERNAL_EXCEPTION;
             }
-            RunMixedPrepAnalyzer.Summary summary = new RunMixedPrepAnalyzer().go(inputConfiguration);
-            LOGGER.info("Mixed prep complete: {} Kotlin + {} Java type(s), {} primary; analysis order size {}",
-                    summary.kotlinTypes(), summary.javaTypes(), summary.primaryTypes(), summary.analysisOrderSize());
+            if (writeInputConfiguration != null) {
+                File file = new File(writeInputConfiguration);
+                LOGGER.info("Writing input configuration to {} and exiting (no analysis)", file);
+                JsonStreaming.objectMapper().writerWithDefaultPrettyPrinter().writeValue(file, inputConfiguration);
+                return EXIT_OK;
+            }
+            if (!AS_PREP.equals(analysisSteps) && !AS_MODIFICATION.equals(analysisSteps)) {
+                LOGGER.error("{} must be '{}' or '{}', not '{}'", ANALYSIS_STEPS, AS_PREP, AS_MODIFICATION,
+                        analysisSteps);
+                return ExitCode.INTERNAL_EXCEPTION;
+            }
+            boolean modification = AS_MODIFICATION.equals(analysisSteps);
+            RunMixedPrepAnalyzer.Summary summary = new RunMixedPrepAnalyzer().go(inputConfiguration, modification);
+            LOGGER.info("Mixed {} complete: {} Kotlin + {} Java type(s), {} primary; analysis order size {}",
+                    analysisSteps, summary.kotlinTypes(), summary.javaTypes(), summary.primaryTypes(),
+                    summary.analysisOrderSize());
+            // isolated elements are reported in full by the runner; the exit code must not call them a success
+            if (summary.prepErrors() > 0) {
+                LOGGER.error("{} element(s) were isolated by prep and not analyzed", summary.prepErrors());
+                return ExitCode.ANALYSER_ERROR;
+            }
             return EXIT_OK;
         } catch (IOException ioException) {
             ErrorReport.report(null, ioException);

@@ -18,6 +18,11 @@ import java.nio.file.Path;
  * corpus — or its locally generated {@code inputConfiguration.json} — is absent. No machine-specific
  * path, no symlink: the input configuration is generated on the machine that runs the test, so the
  * absolute paths it contains are that machine's own.
+ * <p>
+ * It lives in <b>test fixtures</b> rather than this module's test scope, for the same reason
+ * {@code CloneBenchCorpus} does: more than one module's corpus tests need it, and they are not all
+ * downstream of each other. {@code maddi-run-kotlin}'s Kotlin corpus tests (see
+ * {@code TestCoilJvmSlice}) resolve the same root, and cannot see this module's test classes.
  */
 public final class TestOssCorpus {
     private TestOssCorpus() {

@@ -32,10 +32,14 @@ dependencies {
     // the prep-only mixed runner (RunMixedPrepAnalyzer)
     implementation(project(":maddi-inspection-mixed"))      // MixedInspector: shared-core Java+Kotlin parse
     implementation(project(":maddi-modification-prepwork")) // PrepAnalyzer, ComputeAnalysisOrder
+    implementation(project(":maddi-modification-analyzer")) // IteratingAnalyzer (--analysis-steps=modification)
+    implementation(project(":maddi-modification-common"))   // AnalyzerException (isolated-element reporting)
     implementation(project(":maddi-graph"))                 // G<Info>
     implementation("com.fasterxml.jackson.core:jackson-databind") // Main reads/writes InputConfiguration JSON
 
     testImplementation(project(":maddi-cst-impl"))
+    testImplementation(project(":maddi-inspection-kotlin"))            // TestCoilJvmSlice: the pure-Kotlin path
+    testImplementation(testFixtures(project(":maddi-run-openjdk")))    // TestOssCorpus
 }
 
 // the openjdk (javac) front-end that MixedInspector uses reaches into these javac internals
@@ -50,6 +54,12 @@ val javacAddExports = listOf(
 tasks.withType<Test> {
     useJUnitPlatform()
     jvmArgs(javacAddExports)
+    // test-oss corpus location override (see TestOssCorpus): forward -Dtest.oss.root to the forked test
+    // JVM, and pass an exported TEST_OSS_ROOT through, so a shell/Taskfile export reaches the worker even
+    // via a reused daemon. Unset -> the helper defaults to ../../test-oss. Mirrors maddi-run-openjdk.
+    System.getProperty("test.oss.root")?.let { systemProperty("test.oss.root", it) }
+    System.getenv("TEST_OSS_ROOT")?.let { environment("TEST_OSS_ROOT", it) }
+    jvmArgs("-Xmx" + (System.getenv("TESTXMX") ?: "4G"))
 }
 
 application {
