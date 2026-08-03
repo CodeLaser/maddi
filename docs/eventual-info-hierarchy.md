@@ -2241,3 +2241,47 @@ UNIDENTIFIED environmental bit that changed around 13:50. Next instruments when 
 68-run; (b) EC_ASSUME_DEBUG is cheap and the ledger diff of a caught 55 names the first divergent
 eventual decision directly — the E1-E4 streams are the 68-reference, archived in
 ~/git/ws/eventual/echunt-20260803-1346/.
+
+## The climb census (2026-08-03): the 68-world's honest blockers, measured
+
+Bart: "proceed with the normal planning towards 254." Baseline measurement before any design
+(EC_RETRACT_DEBUG on the 68-world + EC_TYPE_DEBUG/EC_SITE_DEBUG diagnostics, runs C1/C2 in
+~/git/ws/eventual/climb-20260803-1437/, ledgers in echunt-20260803-1346/):
+
+**139 retractions; every big root NEVER MINTS** (not retracted — the walks fail): ParameterizedType
+(55 leans on it), TypeInfo (40), MethodInfo (29), Element (26), ExpressionImpl (25), Runtime (20).
+Of the lost-8 vs the transient 53-world, only Sum ever minted (retracted via Runtime); the rest
+never form.
+
+**The blocker families, by census:**
+1. **The `typesReferenced(nature, detailedSources, visited)` chain** (blocks ParameterizedType /
+   TypeParameter → the 55-lean root): eup walks bail at (a) the recursive call to the ABSTRACT
+   `ParameterizedType.typesReferenced` (the union has no labels while being derived — the
+   internalCompareTo shape), (b) `Stream.flatMap/map/concat` external calls, (c) the `visited`
+   accumulator param (`java.util.Set`, doomed external), (d) `DetailedSources` (api type, no
+   eventual intent, not a candidate).
+2. **The `translateAnnotations(translationMap)` twin** (blocks the Element family): bails at
+   abstract `Expression.translate` + `Stream.map`; `TranslationMap` not a candidate.
+3. **Runtime, the keystone** (breaks Sum and the arithmetic family): api-side leans on sibling
+   interfaces `Predefined`/`Types` (not candidates — the upward closure never fires because Runtime
+   itself lacks direct intent now); impl-side `fieldHolds` refusals for the service fields
+   `e2ImmuAnnotations` (E2ImmuAnnotationsImpl) and `computeMethodOverrides`
+   (ComputeMethodOverrides); eup bails at abstract `Eval.and` + doomed `java.util.List`; the
+   `MethodCallImpl.parameterExpressions` List field (the copy-backed-accessor shape — lever (b)).
+4. **typeLevel doomed leans on raw `java.util.List`/`Function`** at Element and its lambdas.
+
+**The quest order this implies** (each honest, witnessed, measured on the dogfood + Fernflower):
+- **Quest R (Runtime keystone, lever (c) + (b))**: honest unconditional immutability-hc for the
+  service leaves (E2ImmuAnnotationsImpl is a constants holder; ComputeMethodOverrides likely
+  stateless — verify and, where uncomputable, contract), Predefined/Types candidacy via Runtime's
+  restored direct intent, `parameterExpressions()`-style trusted-leaf contracts. Expected to revive
+  Sum + the arithmetic api family (the old quest-7 constellation).
+- **Quest T (the typesReferenced chain, lever (b) + aapi)**: aapi contracts for the
+  Stream.map/flatMap/concat shapes consumed here; DetailedSources' honest classification; the
+  visited-accumulator eup semantics (an accumulator param is honestly modified — check whether the
+  walk needs eup on it at all or the label should come from elsewhere). Biggest single payoff: the
+  ParameterizedType root discharges 55 leans.
+- **Quest E (translateAnnotations)**: the Expression.translate union labels must be available to
+  the eup walk (Part A''-style, terminal-phase only); TranslationMap classification.
+Measure after each quest; re-derive the ratchet baseline per gain; Fernflower A/B per the golden
+rule before any default flips.
