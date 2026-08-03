@@ -817,6 +817,19 @@ public record ExpressionVisitor(Runtime runtime,
                     // Cycles terminate via the same-thread SHALLOW fallback of RecursionPrevention.
                     yield linkComputer.recurseMethod(methodInfo);
                 }
+                if (methodInfo.typeInfo().enclosingMethod() != null) {
+                    // enclosed (lambda/anonymous-class) method: NOT an analysis-order element, so the
+                    // doType SLOT never recomputes it — getOrCreate here froze the FIRST on-demand
+                    // computation, in whatever context that toucher had. Arrival-order dependent: the
+                    // λ-target residue of docs/eventual-info-hierarchy.md §"The seed-order round"
+                    // (which caller's lambda carries the value-mediated edge varied per run).
+                    // Recompute and let canonical retention decide — the slot rule (LinkComputerImpl.
+                    // doType) extended to non-order methods; the stored value is yielded, so caller
+                    // and store agree when retention keeps a richer existing value.
+                    TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS,
+                            linkComputer.doMethod(methodInfo), methodInfo);
+                    yield methodInfo.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+                }
                 yield methodInfo.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(methodInfo));
             }
         };

@@ -2216,3 +2216,28 @@ edge count 18781, **byte-identical EDGEDUMPs**. The batch was externally killed 
 relaunches are being killed within minutes (cause unknown — memory was 52% free with no competing
 workers), so the streak stands at 2/2; the old flip rate (1-in-5) makes that suggestive, not
 conclusive. Completing the 10-run batch is the next action once runs can survive.
+
+### The lambda-slot round and the vanishing coin (2026-08-03, afternoon)
+
+Two more layers, one confirmed and one that dissolved under observation:
+
+**The λ-slot fix (landed).** The retention round's slot-recompute covers analysis-order methods
+only; enclosed (lambda/anonymous-class) methods reached METHOD_LINKS through the on-demand
+`getOrCreate` (ExpressionVisitor, LOCK case) — the FIRST computation froze, in whatever context the
+first toucher had. Now: enclosed methods always recompute and canonical retention decides (the slot
+rule extended to non-order methods). With this plus the seed-order round, the ENGINE is proven
+reproducible at a depth never reached before: across runs, byte-identical round-1/2/3 shadow edge
+dumps (8/10, second mode 2/10) and — decisively — byte-identical 2571-edge assumption LEDGERS
+between same-outcome runs.
+
+**The residual coin (open, environmental).** With all engine layers proven identical, the 68↔55
+flip STILL occurred — including between runs with byte-identical round-1..3 edge dumps — placing it
+in the deferral leg's eventual re-derivation reading state no dump captures. Then it vanished: from
+13:52 the machine produced six consecutive 68s (instrumented, uninstrumented, and under an 8G
+memory hog), where the same binary produced 6×55/4×68 between 12:53 and 13:45. Instrumentation
+exonerated (E5-plain: 68), memory pressure exonerated (E6load: 68). The correlate is an
+UNIDENTIFIED environmental bit that changed around 13:50. Next instruments when it reappears:
+(a) diff the full JVM/env fingerprint (System properties, env, /usr/bin/time -l) of a 55-run vs a
+68-run; (b) EC_ASSUME_DEBUG is cheap and the ledger diff of a caught 55 names the first divergent
+eventual decision directly — the E1-E4 streams are the 68-reference, archived in
+~/git/ws/eventual/echunt-20260803-1346/.
