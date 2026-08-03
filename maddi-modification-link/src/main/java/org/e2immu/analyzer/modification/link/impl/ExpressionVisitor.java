@@ -532,7 +532,12 @@ public record ExpressionVisitor(Runtime runtime,
                             : r.links().removeIfTo(v -> !LinkVariable.acceptForLinkedVariables(v)))
                     .toList();
             LinkComputer.ListOfLinks list = new LinkComputerImpl.ListOfLinksImpl(links);
-            TolerantWrite.setAllowControlledOverwrite(cc.analysis(), LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS, list);
+            // LAST-WRITE-WINS, not TolerantWrite: ListOfLinks equality is primary-only, so
+            // first-arrival retention froze whichever derivation (precise vs incomplete-context
+            // fallback) happened to arrive first — run-to-run nondeterministic, and invisible
+            // everywhere except the shadow pass's E1 edges (see ListOfLinksImpl). The final write
+            // of any run is the settled-state derivation.
+            writeArgumentLinks(cc.analysis(), list);
         }
         Set<Variable> extraModified = params.stream().flatMap(p ->
                 p.modified().keySet().stream()).collect(Collectors.toUnmodifiableSet());
@@ -542,6 +547,19 @@ public record ExpressionVisitor(Runtime runtime,
                 .addModified(extraModified, null)
                 .addVariablesRepresentingConstant(params)
                 .addVariablesRepresentingConstant(object);
+    }
+
+    // last-write-wins for the element-internal call-site argument links; same monitor discipline as
+    // TolerantWrite (PropertyValueMapImpl's own methods synchronize on the map)
+    private static void writeArgumentLinks(org.e2immu.language.cst.api.analysis.PropertyValueMap analysis,
+                                           LinkComputer.ListOfLinks list) {
+        synchronized (analysis) {
+            if (analysis.haveAnalyzedValueFor(LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS)) {
+                analysis.overwrite(LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS, list);
+            } else {
+                analysis.set(LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS, list);
+            }
+        }
     }
 
     // Capture a lambda 'x -> …' as a functional-interface value: wrap its body's summary (links + modified) in a
@@ -731,7 +749,8 @@ public record ExpressionVisitor(Runtime runtime,
                             : r.links().removeIfTo(v -> !LinkVariable.acceptForLinkedVariables(v)))
                     .toList();
             LinkComputer.ListOfLinks list = new LinkComputerImpl.ListOfLinksImpl(links);
-            TolerantWrite.setAllowControlledOverwrite(mc.analysis(), LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS, list);
+            // LAST-WRITE-WINS, not TolerantWrite: see the constructor-call twin above
+            writeArgumentLinks(mc.analysis(), list);
         }
 
         // handle all matters 'linking'

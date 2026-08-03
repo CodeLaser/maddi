@@ -103,6 +103,16 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             return true;
         }
 
+        // NO strictlyRicherThan here, deliberately (docs/eventual-info-hierarchy.md §"The edge hunt"):
+        // record equality delegates to List.equals over Links (PRIMARY-ONLY), so re-derived call-site
+        // argument links with the same primaries are "equal" — but canonical-max retention has the
+        // WRONG POLARITY for this value: a smeared conservative fallback (derived while the callee
+        // summary was incomplete) has MORE content than the precise full-context mapping, and the set
+        // of derivations seen varies per run (exploration noise), so a max over it is neither precise
+        // nor deterministic. This value is element-internal per-visit scratch state, never persisted;
+        // its write sites (ExpressionVisitor) use LAST-WRITE-WINS instead — the final write is the
+        // settled-state derivation, identical across runs.
+
         // a list of Links; see LinksImpl.rewire
         @Override
         public Value rewire(InfoMapView infoMap) {

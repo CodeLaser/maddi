@@ -2154,3 +2154,33 @@ run (candidate mechanisms: the on-demand recursion context of the statement lamb
 instance-selection residue the rendering tie-break cannot see) — a link-layer quest, downstream of
 nothing: the eventual layer consumes whatever it is fed, deterministically, since the deferral
 round.
+
+### The argument-links round (2026-08-03): last-write-wins lands; the variant survives one level deeper
+
+Chasing §"The edge hunt": the E1 edges are built from `LINKED_VARIABLES_ARGUMENTS` — the call-site
+argument links, an element-internal, never-persisted value whose `ListOfLinksImpl` record equality
+bottoms out in PRIMARY-ONLY `Links` equality. First-arrival retention (TolerantWrite) froze
+whichever derivation arrived first. Two fixes were tried:
+
+1. **Canonical-max retention (`strictlyRicherThan` on `ListOfLinksImpl`) — WRONG, reverted before
+   committing.** The polarity is inverted for this value: a smeared conservative fallback (derived
+   while the callee summary was incomplete) has MORE content than the precise full-context mapping,
+   and the set of derivations seen varies per run — a max over a varying set is neither precise nor
+   deterministic. First validation run: 55 (D6's digest exactly).
+2. **Last-write-wins (`ExpressionVisitor.writeArgumentLinks`) — LANDED.** The value is per-visit
+   scratch state, not an accumulating verdict; the final write of any run is the settled-state
+   derivation. Suites green.
+
+Validation (`lolret-20260803-0917`, batch externally stopped after 5 runs): L1–L4 all 68 with
+**byte-identical round-1 edge dumps** — a first. L5: 55, 18784 edges — and its diff vs L1 is
+SHAPE-IDENTICAL to the R1/R4 pair: the same 23 edges, the same two stable variants
+(InlineConditionalImpl/SwitchLabelImpl/AssertStatementImpl `<init>` param→field cross-links,
+translateAnnotations→lambda targets). Conclusion: the bistability is NOT in the stored value's
+retention — the DERIVATION itself is bistable. The E1 targets go through `project(mi, vd, …)`,
+the caller's statement-level VariableData (the `translate()` bodies' links of
+`translatedCondition/translatedIfTrue/…` to the §-faces of `this`), and THAT in-memory state has
+two stable variants, one rare (~1-in-5). Next hypothesis to test: the link engine's intra-pass
+exploration/witness-selection order (the iteration-1 LINKWORK variance measured long ago: witness
+counts 16146 vs 16610 on identical closures) leaves the final statement-level projection in one of
+two shapes — instrument the caller-side `vd` links for `InlineConditionalImpl.translate` across
+runs (LINKTRACE on that method) rather than the stored summaries, which are proven identical.
