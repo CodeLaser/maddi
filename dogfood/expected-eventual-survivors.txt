@@ -15,10 +15,36 @@
 # them in means bumping those pins, re-publishing the plugin, regenerating the input configuration --
 # and re-deriving this baseline, since the jars moving forward will move verdicts with them.
 #
-# Baseline taken at commit 7dc26e17 ("ungate EVENTUALCLUSTER + MODREACH"), 2026-08-01: 24 types.
-# These are the verdicts that survive with BOTH gates on and the ledger honoured -- the sound set.
-# The larger 254-type set recorded in docs/eventual-design-improvements.md section 1 predates the
-# ungating; it rested on two optimisms that bypassed the assumptions ledger and did not survive it.
+# Baseline re-derived 2026-08-03 under DEFAULT canonical retention (docs/eventual-info-hierarchy.md
+# section "The ungating of canonical retention"): 53 types, a strict superset of the previous 24-type
+# baseline (commit 7dc26e17) -- the 29 additions are the types the retention fixes stabilised,
+# including the statement family. Identical set over the validation batch in
+# ~/git/ws/eventual/retention-default-20260803-0613/.
+# KNOWN CAVEAT: the iteration-timing layer (write-once eventual minting; section "The overnight
+# ladder") is NOT yet fixed by design -- if a run fails this ratchet by losing the statement family
+# en bloc (the 39-world), suspect that bimodality before hunting a code regression, and see the
+# deferral design fix (terminal-phase minting).
+org.e2immu.language.cst.api.analysis.Value.AssignedToField
+org.e2immu.language.cst.api.analysis.Value.Bool
+org.e2immu.language.cst.api.analysis.Value.CommutableData
+org.e2immu.language.cst.api.analysis.Value.Eventual
+org.e2immu.language.cst.api.analysis.Value.EventuallyImmutable
+org.e2immu.language.cst.api.analysis.Value.FieldBooleanMap
+org.e2immu.language.cst.api.analysis.Value.GetSetEquivalent
+org.e2immu.language.cst.api.analysis.Value.Immutable
+org.e2immu.language.cst.api.analysis.Value.Independent
+org.e2immu.language.cst.api.analysis.Value.IndicesOfEscapes
+org.e2immu.language.cst.api.analysis.Value.Message
+org.e2immu.language.cst.api.analysis.Value.NotNullProperty
+org.e2immu.language.cst.api.analysis.Value.ParameterParSeq
+org.e2immu.language.cst.api.analysis.Value.PostConditions
+org.e2immu.language.cst.api.analysis.Value.Scope
+org.e2immu.language.cst.api.analysis.Value.SetOfInfo
+org.e2immu.language.cst.api.analysis.Value.SetOfMethodInfo
+org.e2immu.language.cst.api.analysis.Value.SetOfStrings
+org.e2immu.language.cst.api.analysis.Value.SetOfTypeInfo
+org.e2immu.language.cst.api.analysis.Value.VariableBooleanMap
+org.e2immu.language.cst.api.analysis.Value.VariableToTypeInfoSet
 org.e2immu.language.cst.api.element.JavaDoc
 org.e2immu.language.cst.api.element.ModuleInfo
 org.e2immu.language.cst.api.expression.Divide
@@ -39,6 +65,14 @@ org.e2immu.language.cst.api.statement.SwitchStatementNewStyle
 org.e2immu.language.cst.api.statement.SynchronizedStatement
 org.e2immu.language.cst.api.statement.TryStatement
 org.e2immu.language.cst.api.statement.WhileStatement
+org.e2immu.language.cst.impl.analysis.ValueImpl
+org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl
+org.e2immu.language.cst.impl.analysis.ValueImpl.CommutableDataImpl
+org.e2immu.language.cst.impl.analysis.ValueImpl.EventuallyImmutableImpl
+org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl
+org.e2immu.language.cst.impl.analysis.ValueImpl.MessageImpl
+org.e2immu.language.cst.impl.analysis.ValueImpl.NotNullImpl
+org.e2immu.language.cst.impl.analysis.ValueImpl.ScopeImpl
 org.e2immu.language.cst.impl.expression.TextBlockImpl
 org.e2immu.language.cst.impl.info.FieldInspection
 org.e2immu.language.cst.impl.statement.BreakStatementImpl

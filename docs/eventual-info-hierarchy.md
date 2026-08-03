@@ -2042,3 +2042,45 @@ write-once, iteration-timed eventual minting consuming inputs that are still set
 anything tips which iteration a walk first succeeds in, and that bit is frozen forever. The deferral
 design fix (terminal-phase minting, the Part A'' pattern) removes the sensitivity; no further seed
 forensics are warranted.
+
+### The ungating of canonical retention (2026-08-03): the retention round becomes the default
+
+Bart: "please implement §§retention round" — the three gated retention fixes are now DEFAULT
+behavior; the gates `CANON_MLV_RICH` and `CANON_WITNESS` no longer exist:
+
+- **TolerantWrite**: an incoming value EQUAL to the current one (key-only equality) but strictly
+  richer (`Value.strictlyRicherThan` — total canonical order: content mass, then rendering)
+  overwrites it, unconditionally.
+- **LinkComputerImpl.doType**: the analysis-order slot ALWAYS recomputes (`getOrCreate` gone) and
+  canonical retention decides — the stored summary is a function of the slot computation, not of the
+  on-demand arrival pattern.
+- **WitnessIndex.putIfBetter**: equal-quality, canonicalCompare-0 direct witnesses tie-break on
+  smallest statementIndex, unconditionally.
+
+**The one observable semantics shift** (two `typelink.TestList` pins updated, test1/test3): a
+hand-`set()` METHOD_LINKS summary on a SOURCE method no longer suppresses body derivation — the slot
+recomputes, and the key-equal richer value wins. Both tests modeled sublist-style contracts on
+methods that HAVE bodies; the derived values are true (and in test3 stronger) facts of those bodies,
+and the call sites now see the enriched summaries (e.g. `k∈1:x.ts,k←1:x.ts[0:i]`; test3's `x` loses
+its shallow-fallback `*`). Pure contract consumption remains the `testShallow*` variants' territory.
+Production contracts are UNAFFECTED: aapi preloads sit on external-library methods, which the slot
+loop never visits. All suites green with the new defaults (modification-analyzer, -common, -link,
+-prepwork, run-*).
+
+**Dogfood re-validation on the fresh devel lineage** (closes README-attribution.txt's caveat — the
+campaign binary predated the fb374170 devel merge; this one is built from it, with the ungating):
+`~/git/ws/eventual/retention-default-20260803-0613/`, eight CLI runs plus the ratchet's in-process
+run, no env gates: **eight at 53, one at 39** (V7). 24↔10 stays dead. The 53-run survivor SETS are
+all identical, and result digests even repeat across runs (V3=V4=V6, V2=V5, V1=V8 — the first
+full-digest reproductions ever observed on the composed dogfood). V7's delta is exactly the
+14-type statement family, en bloc, 39 ⊂ 53 — the J-phase signature: the timing layer (write-once,
+iteration-timed eventual minting) is untouched by this commit and still fires, now at ~1-in-9
+observed instead of the campaign's coin flip. The deferral design fix (terminal-phase minting)
+remains the principled closure and remains Bart's call.
+
+**The ratchet baseline** (`dogfood/expected-eventual-survivors.txt`) is re-derived at **53** — a
+strict superset of the old 24 (+29, the types the retention fixes stabilised), verified identical
+across all 53-runs, wobble type absent throughout. `TestEventualRatchet` passes against it live.
+Deliberate choice: the statement family is NOT moved to the wobble file — a ~1-in-9 en-bloc failure
+with a documented signature (see the baseline header) keeps the pressure on the deferral decision,
+whereas wobbling 14 types would blind the ratchet to real statement-family regressions.

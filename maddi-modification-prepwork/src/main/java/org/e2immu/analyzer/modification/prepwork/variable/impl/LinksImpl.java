@@ -149,7 +149,7 @@ public class LinksImpl implements Links {
      * exactly this shape (docs/eventual-info-hierarchy.md §"The retention round": methodLinks first,
      * then the field-level {@code links} property keeping the count flipping 39↔53). Same total
      * canonical order as {@code MethodLinkedVariablesImpl}: more link content wins; equal mass falls
-     * back to the lexicographically smaller rendering. Active under gate CANON_MLV_RICH.
+     * back to the lexicographically smaller rendering.
      */
     @Override
     public boolean strictlyRicherThan(org.e2immu.language.cst.api.analysis.Value other) {

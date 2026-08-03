@@ -189,9 +189,9 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
      * rich derivation of {@code Statement.translate} split the 24↔10 worlds, and after fixing only the
      * empty case, rich-vs-richer pairs still split 39↔53. This predicate therefore imposes a TOTAL
      * canonical order on equal-keyed pairs: more content wins; equal content mass falls back to the
-     * lexicographically smaller rendering. Under gate CANON_MLV_RICH, TolerantWrite replaces an equal
-     * current value whenever the incoming one is canonically greater — the retained value becomes a
-     * function of the value SET, not the arrival order.
+     * lexicographically smaller rendering. TolerantWrite replaces an equal current value whenever the
+     * incoming one is canonically greater — the retained value is a function of the value SET, not
+     * the arrival order.
      */
     @Override
     public boolean strictlyRicherThan(Value other) {
