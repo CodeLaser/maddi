@@ -113,7 +113,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
         this.typeInfo = typeInfo;
         this.arrays = arrays;
         this.wildcard = wildcard;
-        this.parameters = parameters;
+        this.parameters = List.copyOf(parameters); // the trusted-leaf discipline: parameters() shares only hidden content
         this.nullable = nullable;
         assert parameters.stream().noneMatch(ParameterizedType::isPrimitiveExcludingVoid);
     }
