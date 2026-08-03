@@ -240,10 +240,30 @@ public class ShadowModificationPass {
         // List.of()) to the dispatch union the engine deliberately does not compute.
         for (MethodInfo overridden : mi.overrides()) {
             if (!overridden.isAbstract()) continue;
-            addEdge(mi, overridden);
+            // An OUT-OF-ORDER abstract (jar/aapi) with a decided TRUE is authority, not fixpoint
+            // optimism: writeVerdicts never visits it, no union is computed over it, and an E6 edge
+            // into it would teleport ONE implementation's evidence to EVERY call site of the
+            // abstraction — the Predicate.test:0:arg0 chain that marked the whole
+            // Element.visit(Predicate) family modifying off a single stateful collector predicate
+            // (Quest E, 2026-08-03). In-order abstracts keep their edges: there the pass IS the
+            // authority and may downgrade the fixpoint's TRUE.
+            boolean overriddenOutOfOrder = !orderMethods.contains(overridden);
+            boolean receiverContracted = false;
+            if (overriddenOutOfOrder) {
+                Value.Bool nm = overridden.analysis().getOrNull(PropertyImpl.NON_MODIFYING_METHOD,
+                        ValueImpl.BoolImpl.class);
+                receiverContracted = nm != null && nm.isTrue();
+            }
+            if (!receiverContracted) addEdge(mi, overridden);
             int n = Math.min(mi.parameters().size(), overridden.parameters().size());
             for (int i = 0; i < n; i++) {
-                addEdge(mi.parameters().get(i), overridden.parameters().get(i));
+                ParameterInfo op = overridden.parameters().get(i);
+                if (overriddenOutOfOrder) {
+                    Value.Bool um = op.analysis().getOrNull(PropertyImpl.UNMODIFIED_PARAMETER,
+                            ValueImpl.BoolImpl.class);
+                    if (um != null && um.isTrue()) continue;
+                }
+                addEdge(mi.parameters().get(i), op);
             }
         }
         // soundness seeds: a degraded body contributes no reliable evidence
