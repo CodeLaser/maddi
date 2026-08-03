@@ -320,6 +320,12 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         if (beforeMarkOnly && ev.isEventual()) return true; // the original, ungated rule
         if (afterMarkMode && EventualCluster.ENABLED) {
             if (ev.isEventual()) return true;
+            // a fortiori (the discharge rule of isEventuallyImmutableFieldType, mirrored on the exposure
+            // side): an UNCONDITIONALLY immutable-hc wrapper (Either, from the support aapi) has no
+            // accessible mutable layer, so handing it out shares hidden content only -- whatever the
+            // over-conservative dependent verdict upstream says. No lean is witnessed: the verdict is
+            // unconditional.
+            if (immutableOf(bestType).isAtLeastImmutableHC()) return true;
             return eventualCluster.treatAsEventuallyImmutable(member, bestType, ev);
             // NB a "container of committable content" clause stood here briefly (2026-08-01) and was
             // removed the same day: it promoted a type leaking a raw mutable ArrayList (the wrapper
