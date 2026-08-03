@@ -2422,3 +2422,29 @@ Value/ValueImpl family + FieldInspection pair + KV/KVI return; the arithmetic ap
 census target. Element/Info/TypeInfo/PT still do not mint — the remaining Quest E caps sit above
 the modification layer. Fernflower A/B: eventual identical, one tightening (ConstantPool.pool
 -> @Independent).
+
+**The arithmetic census (E5/E6): the candidacy-ignition paradox, measured both ways.** Why the
+arithmetic api family fell out of the 55-world: their marks arrive via Part A'' from the impls'
+enm labels, candidacy flows upward from the impls, and candidacy is DERIVED state the
+MODREACH/deferral clears wipe. E5's timeline: DivideImpl.rewire's enm WRITES at it=19/31/42 (once
+per phase), then "no enm (null)" at it=49-51 — in the final re-derivation the cascade fails to
+ignite, because the E6-guard-improved plain layer left whole method families plain-true with no
+enm needed: FEWER ignition points, and the bootstrap (enm needs candidacy for its leans, candidacy
+needs enm) deadlocks. The api's terminal visit finds candidate=false (both BinaryOperator and
+DivideImpl) and mints nothing. THE PARADOX: improving the plain modification layer STARVES the
+eventual layer's bootstrap.
+
+The blunt fix was tried and MEASURED OUT: candidacy surviving resetForRederivation (E6 run) brings
+the arithmetic five back (+5) but costs twelve others (55 -> 48): stale candidates admit doomed
+leans whose contractions drag real winners down — exactly candidateDoomed's shadowing effect, now
+observed end to end. REVERTED. The open design fork, for the next round:
+  (a) an IGNITION PASS: after each clear, drive the enm/candidacy cascade to its own fixpoint
+      (repeat enm sweeps over the analysis order until stable) BEFORE any typeLevel consults —
+      no staleness, decouples ordering;
+  (b) intent-preserving candidacy: carry over only DIRECT candidacy whose eventual intent is
+      re-derivable in principle (e.g. re-note from the pre-clear enm/eventual method KEYS, not
+      the values), letting the hierarchy closure rebuild fresh;
+  (c) accept the 55-equilibrium and recover the arithmetic family from the other side (their
+      unconditional @Mutable comes from the hierarchy; a Runtime/Eval quest-R cut may reach them
+      without touching the bootstrap).
+Artifacts: E5 (diagnostics), E6 (the measured -7), questT-20260803/.
