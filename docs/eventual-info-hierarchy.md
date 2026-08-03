@@ -2390,3 +2390,35 @@ chain now bottoms out exactly in Quest E's territory.** The day ends 42 vs the o
 two worlds are not comparable by count alone: the support aapi re-rooted the equilibrium (the
 statement/expression family swap), and the climb from 42 goes through Element's method excusals
 (E), not through more trusted leaves.
+
+## Quest E, step 1 (2026-08-03, night): the E6 teleport — one collector predicate marked the whole visitor surface modifying
+
+The residue behind Element's FinalFields was NOT translate/rewire (their labels derive fine) but
+the visitor surface: visit/reject/typesReferenced(Predicate), 27 impls nonModifying=false including
+pure leaves, while the same-shaped visit(Visitor) resolved true everywhere. The reduction
+(TestVisitPredicateDisclaimer, b61603d6) PASSED — disclaimer and machinery sound in the minimal
+shape — so the corpus held an extra ingredient. MODREACH_EXPLAIN (single-substring filter; reached
+receivers only) named the whole chain:
+
+    visit(Predicate) <- Predicate.test:0:arg0 <- ExtractComponentsOfTooComplex.test:0:e
+      <- NamedType/TypeInfoImpl.asParameterizedType <- typeParameters
+      <- seed: EventuallyFinalOnDemand.get() (non-analyzed modifying callee)
+
+Every link honest but the union: get() is honestly modifying PRE-mark (the on-demand loader; its
+excuse is eventual, invisible to plain reachability); the evidence legitimately reaches the
+collector predicate's own parameter — and then the E6 union edge teleported it INTO the jdk
+abstract's parameter, past the aapi contract unmodifiedParameter=1, and back down into every
+predicate.test(this) call site. (En route the detour also verified the aapi parameter chain is
+fully live: the compiled json stores single-parameter subs under the SINGULAAR "sub" key —
+CodecImpl.E.write — and LoadAnalysisResults reads both; an earlier "compiler drops parameters"
+alarm was a reading artifact.)
+
+The cut (d51fcce7): an OUT-OF-ORDER (jar/aapi) abstract with a decided TRUE gets no E6 edge — the
+contract is authority (writeVerdicts never visits out-of-order infos, no union is computed over
+them); in-order abstracts keep their edges, the pass remains their authority. Measured: all 68
+visit(Predicate) impls true; dogfood 42 -> 55 (E3/E4 byte-identical; baseline 7a93cbf4): the
+Value/ValueImpl family + FieldInspection pair + KV/KVI return; the arithmetic api family drops out
+(-6) — its T4 mint rode Runtime/Eval leans the repaired modification world reshuffled; the NEXT
+census target. Element/Info/TypeInfo/PT still do not mint — the remaining Quest E caps sit above
+the modification layer. Fernflower A/B: eventual identical, one tightening (ConstantPool.pool
+-> @Independent).
