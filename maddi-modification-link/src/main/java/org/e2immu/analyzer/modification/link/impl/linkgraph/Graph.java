@@ -411,8 +411,12 @@ public class Graph {
                                            Set<Variable> variablesInGraph,
                                            SharedVariable sharedVariable,
                                            String statementIndex) {
+        // FQN-sorted, NOT set-iteration order: variablesInGraph is an unmodifiable set (per-JVM SALTED
+        // iteration), and the loop below re-adds each member's edges to the engine in this order — seed
+        // order decides which derivation paths fire first (see IncrementalFixpointEngine.addSymmetricEdge)
         var forwardLinksList = variablesInGraph
                 .stream()
+                .sorted(java.util.Comparator.comparing(Variable::fullyQualifiedName))
                 .map(v -> new AbstractMap.SimpleEntry<>(v, engine.edges(v)))
                 .toList();
         engine.removeVertices(variablesInGraph);

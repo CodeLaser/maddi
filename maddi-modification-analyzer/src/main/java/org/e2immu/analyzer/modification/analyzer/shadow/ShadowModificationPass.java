@@ -332,9 +332,47 @@ public class ShadowModificationPass {
         }
         // E1/E2: call sites
         if (mi.methodBody() != null) {
+            if (vdDumpMatches(mi.fullyQualifiedName())) dumpVariableData(mi.methodBody(), mi.fullyQualifiedName());
             handleBlock(mi, mi.methodBody());
         }
         seedStatementLevelFieldModifications(mi);
+    }
+
+    // gate VDDUMP=<fqn substrings, comma-separated> (docs/eventual-info-hierarchy.md §"The
+    // argument-links round"): dump matching methods' statement-level VariableData links at
+    // shadow-pass time — the in-memory state the E1/E3 projections read. The persisted summaries
+    // are proven identical across runs while the projected edges vary; diffing two runs' VD dumps
+    // names the statement whose derivation is bistable.
+    private static final String[] VDDUMP = System.getenv("VDDUMP") == null ? null
+            : System.getenv("VDDUMP").split(",");
+
+    private static boolean vdDumpMatches(String fqn) {
+        if (VDDUMP == null) return false;
+        for (String s : VDDUMP) {
+            if (!s.isBlank() && fqn.contains(s.trim())) return true;
+        }
+        return false;
+    }
+
+    private void dumpVariableData(Block block, String methodFqn) {
+        for (Statement statement : block.statements()) {
+            statement.subBlockStream().forEach(sb -> dumpVariableData(sb, methodFqn));
+            VariableData vd = VariableDataImpl.of(statement);
+            if (vd == null) continue;
+            String index = statement.source() == null ? "?" : statement.source().compact2();
+            // VDO: the UNSORTED iteration order (LinkedHashMap insertion order = variable creation
+            // order) — the order the RedundantLinks guards accumulate in; comparing it across runs
+            // tests whether creation order itself is the varying input
+            System.out.println("VDO " + methodFqn + " [" + index + "] "
+                               + String.join(",", vd.knownVariableNames()));
+            vd.knownVariableNames().stream().sorted().forEach(name -> {
+                var vi = vd.variableInfo(name);
+                if (vi != null) {
+                    System.out.println("VD " + methodFqn + " [" + index + "] " + name
+                                       + " :: " + vi.linkedVariablesOrEmpty());
+                }
+            });
+        }
     }
 
     /**

@@ -2184,3 +2184,35 @@ exploration/witness-selection order (the iteration-1 LINKWORK variance measured 
 counts 16146 vs 16610 on identical closures) leaves the final statement-level projection in one of
 two shapes — instrument the caller-side `vd` links for `InlineConditionalImpl.translate` across
 runs (LINKTRACE on that method) rather than the stored summaries, which are proven identical.
+
+### The seed-order round (2026-08-03): the salted boundary of the fixpoint engine
+
+The LINKTRACE pair (T1 bwd/55 vs T2 fwd/68, `lthunt-20260803-1006`) settled the derivation-vs-
+selection question emphatically: the traces diverge FROM THE FIRST SEED EVENTS — 10 369 differing
+lines out of ~8 000, same seed content ($__rv numbering identical), different ORDER. Seed order is
+derivation order (FIFO queue), and derived-fact survival is order-sensitive (the engine's own
+completeSymmetrically comment records the m∩copy precedent). The order was leaking from per-JVM
+SALTED collections (java.util.ImmutableCollections) at the engine's boundaries. Three fixes, all
+suites green with ZERO pin fallout (every pinned behavior already assumed the natural order — the
+salt just sometimes disagreed):
+
+1. `IncrementalFixpointEngine.addSymmetricEdge`: `Set.of(fact, mirror)` → `List.of(...)` — the
+   two seeds of every symmetric edge entered the queue in salted order, a literal per-JVM coin flip.
+   (The salt was the FIRST bistability suspect ever, exonerated for the 24↔10 retention fork by
+   SALTPROBE — it was alive one layer down all along. Alone this was measured INSUFFICIENT: the
+   next validation batch still flipped, with a new edge count 18781.)
+2. `Graph.transformToSharedVariable`: the shared-variable collapse re-added member edges iterating
+   an unmodifiableSet (salted) — now FQN-sorted.
+3. `IncrementalFixpointEngine.incrementalUpdate`: canonical seed sort (source, target, label
+   renderings) at THE single entry point — every caller's collection order is normalized in one
+   place; each update is a function of its seed SET.
+
+Audited and left alone (order-insensitive uses): ExpandSlice/MakeGraph set equality and disjoint
+checks, LinkGraph removal sets, mediatedPairs membership. Next-round candidates if variance
+persists: VirtualModificationIdenticals' salted result streams (variablesPartOf, equivalentStream).
+
+Validation on the canonical binary (`seedord-20260803-1154`): S1, S2 both 68 survivors, round-1
+edge count 18781, **byte-identical EDGEDUMPs**. The batch was externally killed at S3 and repeated
+relaunches are being killed within minutes (cause unknown — memory was 52% free with no competing
+workers), so the streak stands at 2/2; the old flip rate (1-in-5) makes that suggestive, not
+conclusive. Completing the 10-run batch is the next action once runs can survive.
