@@ -2448,3 +2448,60 @@ observed end to end. REVERTED. The open design fork, for the next round:
       unconditional @Mutable comes from the hierarchy; a Runtime/Eval quest-R cut may reach them
       without touching the bootstrap).
 Artifacts: E5 (diagnostics), E6 (the measured -7), questT-20260803/.
+
+## Quest R, the arithmetic census revisited (2026-08-03 evening): fork (c), the privacy rule, and the three roots
+
+Fork (c) was chosen: the bootstrap stays untouched; the arithmetic family is approached from its
+own caps. Two log-only instruments joined the toolbox first, because the previous round's story
+("the api's terminal visit finds candidate=false") deserved distrust before surgery:
+`EC_CAND_DEBUG=1` prints candidacy provenance -- one `ECCAND direct/super/itf` line per first-time
+cache entry per epoch, plus the `reset` markers -- and `EC_TREATAS_DEBUG=<fqn substrings>` prints
+EVERY treatAs call and result for a matching member or candidate, regardless of debugContext. The
+second instrument exists because the site filter has a structural blind spot: a treatAs call made
+under a stale or foreign context prints nothing, and silence had been read as "not called".
+
+**The candidacy story was wrong -- rightly distrusted.** R1: the terminal epoch re-ignites
+candidacy FULLY, within its first iteration (it=42: Element, Expression, BinaryOperatorImpl,
+DivideImpl all direct; Divide via the interface closure through BinaryOperator). The ignition
+paradox, as previously stated, does not survive contact with the instrument. What actually
+happened, walked to its root over R2/R3:
+
+1. BinaryOperatorImpl's FIRST terminal visit runs pre-ignition and computes a WRONG mark set
+   (`[precedence]` alone -- the other four carrier fields' types were not yet candidates); it buys
+   nothing and writes nothing. Harmless.
+2. Its SECOND visit computes the full set `[lhs, operator, parameterizedType, precedence, rhs]`,
+   `independent=@Independent(hc=true)` -- and `afterMark=@FinalFields`. That buys over the
+   unconditional @Mutable, so it WRITES -- write-once, frozen.
+3. The @FinalFields cap: the NON-PRIVATE-FIELD rule at the top of
+   `TypeImmutableAnalyzerImpl.loopOverFieldsAndMethods`. The five carrier fields are `protected
+   final`, and the rule read their types' PLAIN immutability (Expression = @Mutable) with no
+   after-mark participation -- the one rule in the loop that never joined the excusal regime.
+4. The frozen half-verdict then poisons every subtype SILENTLY: a super whose `ev.isEventual()`
+   short-circuits both `immutableSuper` and `independentSuper` BEFORE their treatAs branches, and
+   `@FinalFields.toCorrespondingIndependent()` is DEPENDENT. DivideImpl reads a PROVEN (not
+   seeded) @FinalFields/@Dependent super, caps at afterMark=@Mutable, buys nothing, never mints;
+   Part A'' has no implementor labels to give api Divide. R3 proved the short-circuit by absence:
+   zero ECTREATAS calls for the pair in the terminal epoch.
+
+**The cut (landed): the privacy rule joins the after-mark excusals.** A non-private field passes
+in after-mark mode when (i) it is in `afterMark.fields()`, (ii) it is FINAL -- finality is not
+implied by membership: a @Mark method assigns its field, and a non-private assignable field would
+let a package-mate bypass the mark discipline entirely -- and (iii) its type COMMITS at the mark:
+eventual, unconditionally immutable-hc, or the witnessed treatAs seed (`fieldTypeCommits`, the
+immutability twin of the independence side's premise re-check). Soundness: a committed referent
+bars mutation for ANY holder, so who can read the reference no longer matters; assignment is
+excluded by (ii). Gated under EVENTUALCLUSTER, off-gate byte-parity preserved.
+
+**Measured (R4/R5): formation unlocked, survival still owed to the roots.** With the cut,
+BinaryOperatorImpl computes `afterMark=@Immutable(hc=true)` and the WHOLE arithmetic family forms
+-- all five api types and their impls mint with the full mark set. The contraction then takes
+every one of them back, and the R5 ledger names the debt precisely:
+`BinaryOperatorImpl <- broken: [BinaryOperator, MethodInfo, ExpressionImpl]`, everything else pure
+cascade (`broken: []`) or the Part B lean `<- broken: [BinaryOperator]`. Survivors 55, fp
+byte-identical -- the fix is observably neutral today and structurally necessary: the family moved
+from CANNOT FORM to FORMS, AWAITING THE ROOTS. The three roots are the census's own: MethodInfo
+(the Info-family wall, quest E's residue), ExpressionImpl (abstract-class Part A: ALL analyzed
+subclasses must share a label), and api BinaryOperator (which inherits the first two). The quests
+converge where the census said they would; there is no separate arithmetic quest anymore.
+Artifacts: questR-20260803/ (R1 candidacy provenance, R2 impl-chain trace, R3 the silence proof,
+R4 the fix measured, R5 the ledger).
