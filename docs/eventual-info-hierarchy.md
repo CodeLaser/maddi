@@ -2285,3 +2285,15 @@ never form.
   the eup walk (Part A''-style, terminal-phase only); TranslationMap classification.
 Measure after each quest; re-derive the ratchet baseline per gain; Fernflower A/B per the golden
 rule before any default flips.
+
+**Census addendum (same afternoon): the quest order inverts — T is the fulcrum.** Quest R's
+impl-side leg bottoms out in the core: `E2ImmuAnnotationsImpl.annotationTypes` already IS
+`Map.copyOf`-backed (the wrapper arm's precondition holds) — it fails because the value type
+`AnnotationExpression` is `@Mutable eventual=null`, and AnnotationExpression MINTED and was
+RETRACTED leaning on TypeInfo + ExpressionImpl, which never mint, which lean on ParameterizedType,
+which the `typesReferenced` chain blocks. Every family's arrows converge there. Order: **Quest T
+first** (the typesReferenced eup chain: abstract-union label availability during the walk,
+Stream aapi shapes, the visited-accumulator semantics, DetailedSources classification), then E
+(translateAnnotations, same shapes), then R's residue (Predefined/Types candidacy,
+ComputeMethodOverrides, parameterExpressions trusted leaves) — much of R may fall out of T+E via
+the cluster closure.
