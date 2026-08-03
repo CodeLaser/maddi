@@ -214,6 +214,40 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
     }
 
     /**
+     * The deferral round's clear: the four eventual-family properties ONLY — the immutability, independence
+     * and container families keep their certified values (they are eventual-independent: the optimistic
+     * contribution fires solely in {@code EVENTUALLY_IMMUTABLE_TYPE}'s derivation, see the
+     * {@link EventualClusterContraction} javadoc), and the structural values were never touched. Both
+     * writers ({@code TypeEventualAnalyzerImpl}, {@code AbstractMethodAnalyzerImpl}) re-run in the
+     * re-derivation passes; contracts re-materialize exactly as after {@link #clearDerivedFamily}.
+     */
+    private static int clearEventualFamily(List<Info> analysisOrder) {
+        java.util.Set<String> keys = java.util.Set.of(
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUAL_METHOD.key(),
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD.key(),
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER.key(),
+                org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE.key());
+        int[] cleared = {0};
+        for (Info info : analysisOrder) {
+            info.analysis().removeIf(p -> {
+                boolean remove = keys.contains(p.key());
+                if (remove) cleared[0]++;
+                return remove;
+            });
+            if (info instanceof org.e2immu.language.cst.api.info.MethodInfo mi) {
+                for (org.e2immu.language.cst.api.info.ParameterInfo pi : mi.parameters()) {
+                    pi.analysis().removeIf(p -> {
+                        boolean remove = keys.contains(p.key());
+                        if (remove) cleared[0]++;
+                        return remove;
+                    });
+                }
+            }
+        }
+        return cleared[0];
+    }
+
+    /**
      * A/B equivalence signal for worklist/convergence experiments: the distribution of the key verdicts over
      * all analysis-order elements. Two runs with identical fingerprints (very likely) computed identical verdicts.
      */
@@ -370,6 +404,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         int iterations = 0;
         int maxIterations = configuration.maxIterations(); // extended per MODREACH re-derivation round
         int modReachRounds = 0; // P2.5: pass <-> re-derivation to joint fixpoint, bounded
+        int eventualDeferralRounds = 0; // terminal-phase re-derivation of the eventual family, once
         SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
         this.lastRun = singleIterationAnalyzer;
         if (valueFeed != null && singleIterationAnalyzer instanceof SingleIterationAnalyzerImpl sia) {
@@ -588,6 +623,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                             }
                             LOGGER.info("MODREACH cleared {} derived values; re-deriving with modification frozen",
                                     cleared);
+                            eventualDeferralRounds = 0; // the eventual family was cleared too: re-arm the deferral
                             cycleBreakingActive = false;
                             dirty = null;
                             verifying = false;
@@ -600,6 +636,30 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                         LOGGER.error("MODREACH pass failed; modification properties keep their "
                                      + "fixpoint values (unfrozen)", e);
                     }
+                }
+                // The DEFERRAL round (docs/eventual-info-hierarchy.md §"The deferral round"): the eventual
+                // walks' outputs are write-once, so WHICH iteration a walk first succeeds in is frozen into
+                // the verdicts and the assumption ledger — and that timing is sensitive to any run-to-run
+                // perturbation while its inputs (links, enm state) are still settling (the measured 39↔53
+                // bistability; the Part A'' lesson generalized). Here, at the terminal certification point,
+                // the entire eventual family is cleared and re-derived over the SETTLED state: links are
+                // final, modification is frozen (MODREACH), the immutability family is certified. The
+                // re-derivation's evolution is then a function of the fixpoint alone — the contraction runs
+                // on a ledger with a single possible shape. Opt-out EVENTUALDEFER=0 for A/B archaeology.
+                // Skipped under incremental early-cutoff (carried values must not be re-touched).
+                if (EventualCluster.ENABLED && !incremental && eventualDeferralRounds < 1
+                    && !"0".equals(System.getenv("EVENTUALDEFER"))
+                    && singleIterationAnalyzer instanceof SingleIterationAnalyzerImpl sia) {
+                    eventualDeferralRounds++;
+                    int cleared = clearEventualFamily(analysisOrder);
+                    sia.eventualCluster().resetForRederivation();
+                    LOGGER.info("EVENTUAL deferral: cleared {} eventual value(s) at the terminal "
+                                + "certification point; re-deriving over the settled state", cleared);
+                    dirty = null;
+                    verifying = false;
+                    previousPropertiesChanged = Integer.MAX_VALUE;
+                    maxIterations += configuration.maxIterations();
+                    continue;
                 }
                 try {
                     {

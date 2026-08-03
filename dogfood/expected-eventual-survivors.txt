@@ -15,21 +15,27 @@
 # them in means bumping those pins, re-publishing the plugin, regenerating the input configuration --
 # and re-deriving this baseline, since the jars moving forward will move verdicts with them.
 #
-# Baseline re-derived 2026-08-03 under DEFAULT canonical retention (docs/eventual-info-hierarchy.md
-# section "The ungating of canonical retention"): 53 types, a strict superset of the previous 24-type
-# baseline (commit 7dc26e17) -- the 29 additions are the types the retention fixes stabilised,
-# including the statement family. Identical set over the validation batch in
-# ~/git/ws/eventual/retention-default-20260803-0613/.
-# KNOWN CAVEAT: the iteration-timing layer (write-once eventual minting; section "The overnight
-# ladder") is NOT yet fixed by design -- if a run fails this ratchet by losing the statement family
-# en bloc (the 39-world), suspect that bimodality before hunting a code regression, and see the
-# deferral design fix (terminal-phase minting).
+# Baseline re-derived 2026-08-03 under the DEFERRAL round (docs/eventual-info-hierarchy.md section
+# "The deferral round"): the eventual family is cleared and re-derived at the terminal certification
+# point over the settled state, so the walks and the assumption ledger are a function of the fixpoint
+# alone. 68 types -- identical sets over 5 of 6 validation runs in ~/git/ws/eventual/deferral-20260803.
+# Versus the transient-world 53: +23 (the Value/ValueImpl family, FieldInspectionImpl, the
+# CompilationUnitPrinter pair, ForEachStatement, ...), -8 (ModuleInfo, Divide/Equals/Product/
+# Remainder/StringConcat, Break/ContinueStatementImpl) whose transient-world verdicts rested on
+# unwitnessed leans; recovering them honestly is a climb quest, not a regression.
+# KNOWN CAVEAT: ONE upstream link-layer wobble remains (an extra shadow edge, 1-in-6 observed,
+# uncorrelated with the EvalInequality provenance wobble): its signature is the api statement family
+# (13 types) lost en bloc -> 55 survivors. A run failing this ratchet with exactly that signature is
+# the known wobble, not a code regression. The eventual layer itself is deterministic given settled
+# links (5/6 identical, and the in-layer 39<->53 bistability is dead by construction).
+org.e2immu.language.cst.api.analysis.Value
 org.e2immu.language.cst.api.analysis.Value.AssignedToField
 org.e2immu.language.cst.api.analysis.Value.Bool
 org.e2immu.language.cst.api.analysis.Value.CommutableData
 org.e2immu.language.cst.api.analysis.Value.Eventual
 org.e2immu.language.cst.api.analysis.Value.EventuallyImmutable
 org.e2immu.language.cst.api.analysis.Value.FieldBooleanMap
+org.e2immu.language.cst.api.analysis.Value.FieldValue
 org.e2immu.language.cst.api.analysis.Value.GetSetEquivalent
 org.e2immu.language.cst.api.analysis.Value.Immutable
 org.e2immu.language.cst.api.analysis.Value.Independent
@@ -38,6 +44,7 @@ org.e2immu.language.cst.api.analysis.Value.Message
 org.e2immu.language.cst.api.analysis.Value.NotNullProperty
 org.e2immu.language.cst.api.analysis.Value.ParameterParSeq
 org.e2immu.language.cst.api.analysis.Value.PostConditions
+org.e2immu.language.cst.api.analysis.Value.Precondition
 org.e2immu.language.cst.api.analysis.Value.Scope
 org.e2immu.language.cst.api.analysis.Value.SetOfInfo
 org.e2immu.language.cst.api.analysis.Value.SetOfMethodInfo
@@ -46,19 +53,17 @@ org.e2immu.language.cst.api.analysis.Value.SetOfTypeInfo
 org.e2immu.language.cst.api.analysis.Value.VariableBooleanMap
 org.e2immu.language.cst.api.analysis.Value.VariableToTypeInfoSet
 org.e2immu.language.cst.api.element.JavaDoc
-org.e2immu.language.cst.api.element.ModuleInfo
-org.e2immu.language.cst.api.expression.Divide
-org.e2immu.language.cst.api.expression.Equals
-org.e2immu.language.cst.api.expression.Product
-org.e2immu.language.cst.api.expression.Remainder
-org.e2immu.language.cst.api.expression.StringConcat
+org.e2immu.language.cst.api.element.MultiLineComment
+org.e2immu.language.cst.api.expression.AnnotationExpression.KV
 org.e2immu.language.cst.api.expression.TextBlock
+org.e2immu.language.cst.api.info.CompilationUnitPrinter
 org.e2immu.language.cst.api.statement.Block
 org.e2immu.language.cst.api.statement.BreakOrContinueStatement
 org.e2immu.language.cst.api.statement.BreakStatement
 org.e2immu.language.cst.api.statement.ContinueStatement
 org.e2immu.language.cst.api.statement.DoStatement
 org.e2immu.language.cst.api.statement.EmptyStatement
+org.e2immu.language.cst.api.statement.ForEachStatement
 org.e2immu.language.cst.api.statement.IfElseStatement
 org.e2immu.language.cst.api.statement.LoopStatement
 org.e2immu.language.cst.api.statement.SwitchStatementNewStyle
@@ -66,14 +71,28 @@ org.e2immu.language.cst.api.statement.SynchronizedStatement
 org.e2immu.language.cst.api.statement.TryStatement
 org.e2immu.language.cst.api.statement.WhileStatement
 org.e2immu.language.cst.impl.analysis.ValueImpl
+org.e2immu.language.cst.impl.analysis.ValueImpl.AssignedToFieldImpl
 org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl
 org.e2immu.language.cst.impl.analysis.ValueImpl.CommutableDataImpl
+org.e2immu.language.cst.impl.analysis.ValueImpl.EventualImpl
 org.e2immu.language.cst.impl.analysis.ValueImpl.EventuallyImmutableImpl
+org.e2immu.language.cst.impl.analysis.ValueImpl.FieldBooleanMapImpl
+org.e2immu.language.cst.impl.analysis.ValueImpl.GetSetValueImpl
 org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl
+org.e2immu.language.cst.impl.analysis.ValueImpl.IndicesOfEscapesImpl
 org.e2immu.language.cst.impl.analysis.ValueImpl.MessageImpl
 org.e2immu.language.cst.impl.analysis.ValueImpl.NotNullImpl
+org.e2immu.language.cst.impl.analysis.ValueImpl.PostConditionsImpl
+org.e2immu.language.cst.impl.analysis.ValueImpl.PreconditionImpl
 org.e2immu.language.cst.impl.analysis.ValueImpl.ScopeImpl
+org.e2immu.language.cst.impl.analysis.ValueImpl.SetOfStringsImpl
+org.e2immu.language.cst.impl.analysis.ValueImpl.VariableBooleanMapImpl
+org.e2immu.language.cst.impl.element.MultiLineCommentImpl
+org.e2immu.language.cst.impl.expression.AnnotationExpressionImpl.KVI
+org.e2immu.language.cst.impl.expression.GreaterThanZeroImpl.XBImpl
 org.e2immu.language.cst.impl.expression.TextBlockImpl
+org.e2immu.language.cst.impl.expression.eval.EvalSum.Factor
+org.e2immu.language.cst.impl.expression.util.ExpressionComparator.Unwrapped
+org.e2immu.language.cst.impl.info.CompilationUnitPrinterImpl
 org.e2immu.language.cst.impl.info.FieldInspection
-org.e2immu.language.cst.impl.statement.BreakStatementImpl
-org.e2immu.language.cst.impl.statement.ContinueStatementImpl
+org.e2immu.language.cst.impl.info.FieldInspectionImpl

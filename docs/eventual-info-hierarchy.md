@@ -2084,3 +2084,44 @@ across all 53-runs, wobble type absent throughout. `TestEventualRatchet` passes 
 Deliberate choice: the statement family is NOT moved to the wobble file — a ~1-in-9 en-bloc failure
 with a documented signature (see the baseline header) keeps the pressure on the deferral decision,
 whereas wobbling 14 types would blind the ratchet to real statement-family regressions.
+
+### The deferral round (2026-08-03): terminal-phase re-derivation — the eventual layer is deterministic
+
+Bart green-lit the deferral design. Implementation (IteratingAnalyzerImpl): at the terminal
+certification point — after MODREACH reaches its joint fixpoint, before the contraction — the whole
+eventual family (EVENTUAL_METHOD, EVENTUALLY_NON_MODIFYING_METHOD, EVENTUALLY_UNMODIFIED_PARAMETER,
+EVENTUALLY_IMMUTABLE_TYPE) is cleared, the cluster ledger reset, and the loop continues: the eventual
+walks re-derive over the SETTLED state (links final, modification frozen, immutability certified) and
+re-certify; the contraction then runs on a ledger whose shape is a function of the fixpoint alone.
+One round (`eventualDeferralRounds`), re-armed if a MODREACH re-derivation clears the full family
+again; opt-out `EVENTUALDEFER=0`; skipped under incremental early-cutoff. The mechanics are the §14
+MODREACH clear-and-re-derive pattern verbatim — `clearEventualFamily` is `clearDerivedFamily`
+restricted to the four eventual keys. Cost: one extra re-derivation leg (~10 iterations, +60-80s on
+the dogfood). All suites green.
+
+**Validation** (`~/git/ws/eventual/deferral-20260803-0704/`, six runs): **68, 68, 68, 68, 68, 55.**
+The five 68-runs have IDENTICAL survivor sets. The eventual layer's own nondeterminism is dead — and
+the D6 outlier proves it from the other side: its divergence is visible at MODREACH round 1
+(**18784 shadow edges vs 18783**), long before the deferral fired — the *input* state differed, and
+given different inputs the deferral faithfully computed a different (smaller: 55 ⊂ 68, the api
+statement family lost en bloc) answer. Runs with identical settled state produce identical eventual
+verdicts, every time.
+
+**The 68-world vs the transient 53-world**: +23 / −8, NOT a superset. Gained: the
+`Value`/`ValueImpl` analysis family, `FieldInspectionImpl`, the `CompilationUnitPrinter` pair,
+`ForEachStatement`, `EvalSum.Factor`, `GreaterThanZeroImpl.XBImpl`, … — walks that in transient
+worlds read still-settling inputs and failed now succeed over the fixpoint. Lost: `ModuleInfo`, the
+five arithmetic expression interfaces (`Divide`/`Equals`/`Product`/`Remainder`/`StringConcat`),
+`Break`/`ContinueStatementImpl` — all eight were members of the original sound 24-set, but their
+verdicts rested on reads that happened AFTER a dependency's transient verdict existed (no edge
+recorded = no witnessing); under full witnessing their leans do not discharge. Whether they are
+honestly recoverable (a contract, an excusal) is a climb quest, not a regression. The ratchet
+baseline is re-derived at 68.
+
+**What remains — exactly one upstream wobble.** The D6 seed is a LINK-layer edge: one extra shadow
+edge at round 1, cascading to the statement family. It is NOT the EvalInequality provenance
+tristability (positions 97/119/125 persist in all runs; D3/D5 share D6's 119 yet landed 68 —
+uncorrelated). Next instrument: an edge-set dump gate in ShadowModificationPass, run until both
+variants are captured, diff → name the edge → canonicalize its source. The eventual layer is no
+longer the carrier; the hunt moves down a layer, with a 1-in-6 reproduction rate and a two-count
+signature (18783/18784) to grep for.
