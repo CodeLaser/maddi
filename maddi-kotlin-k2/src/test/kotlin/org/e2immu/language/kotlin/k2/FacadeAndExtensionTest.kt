@@ -76,6 +76,33 @@ class FacadeAndExtensionTest : KotlinScanTestBase() {
         assertTrue(facade.findUniqueMethod("getVersion", 0).isStatic)
     }
 
+    /**
+     * Kotlin-multiplatform projects qualify a file name with the source set it belongs to —
+     * `utils.nonAndroid.kt`, `RealImageLoader.nonApple.kt` — and kotlinc sanitizes the dots away when it
+     * derives the facade class. The expected values here are that compiler's own
+     * `PackagePartClassUtils.getFilePartShortName` output, obtained by invoking it, not a reading of a spec.
+     *
+     * Regression: the facade name used to be "upper-case the first letter, append Kt", which left the dot in
+     * the *simple* name. That matches no class kotlinc ever emits (so a reference to the facade in compiled
+     * bytecode cannot link), and javac rejects it — `JavaStubGenerator` produced `public class
+     * Utils.nonAndroidKt` and 24 errors on coil's JVM slice. 18 of that slice's 101 files use this convention.
+     */
+    @Test
+    fun multiplatformFileNamesAreSanitized() {
+        val expectedByFile = mapOf(
+            "utils.kt" to "UtilsKt",
+            "utils.nonAndroid.kt" to "Utils_nonAndroidKt",
+            "RealImageLoader.nonApple.kt" to "RealImageLoader_nonAppleKt",
+            "coroutines.nonJsCommon.kt" to "Coroutines_nonJsCommonKt",
+            "my-file.kt" to "My_fileKt",
+            "9lives.kt" to "_9livesKt",
+        )
+        // one function per file, uniquely named so nothing collides in a single scan
+        val sources = expectedByFile.keys.withIndex().associate { (i, f) -> f to "fun f$i(): Int = $i\n" }
+        val simpleNames = KotlinScan(runtime, sourceSet).parse(sources).map { it.simpleName() }.toSet()
+        assertEquals(expectedByFile.values.toSet(), simpleNames)
+    }
+
 
     @Test
     fun topLevelExtensionFunction() {

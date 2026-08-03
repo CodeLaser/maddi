@@ -25,12 +25,31 @@ import org.jetbrains.kotlin.psi.KtStringTemplateExpression
 
 /**
  * Kotlin's JVM file-facade class name: `@file:JvmName("X")` wins; otherwise the file name (sans
- * extension), first letter upper-cased, + "Kt".
+ * extension), sanitized as a Java class name, + "Kt".
  */
 internal fun facadeSimpleName(ktFile: KtFile): String {
     jvmNameOverride(ktFile)?.let { return it }
     val base = ktFile.name.substringAfterLast('/').removeSuffix(".kts").removeSuffix(".kt")
-    return base.replaceFirstChar { it.uppercaseChar() } + "Kt"
+    return asJavaClassName(base) + "Kt"
+}
+
+/**
+ * kotlinc's `PackagePartClassUtils.getFilePartShortName`, mirrored: every character that cannot occur in a
+ * Java identifier becomes `_`, a name that cannot *start* one is prefixed with `_`, and the first character
+ * is upper-cased.
+ *
+ * The substitution is not cosmetic. Kotlin-multiplatform projects routinely qualify a file name with its
+ * source set — `utils.nonAndroid.kt`, `RealImageLoader.nonApple.kt` — and kotlinc compiles those to
+ * `Utils_nonAndroidKt` / `RealImageLoader_nonAppleKt`. Merely upper-casing the first letter left the `.` in
+ * place, so the facade's *simple* name contained a dot: it did not match the class kotlinc emits (breaking
+ * any link to that facade in compiled bytecode), and it is not a name javac accepts, which is where it first
+ * surfaced — `JavaStubGenerator` emitted `public class Utils.nonAndroidKt`, 24 errors on coil's JVM slice.
+ */
+private fun asJavaClassName(base: String): String {
+    if (base.isEmpty()) return "_"
+    val sanitized = base.map { if (Character.isJavaIdentifierPart(it)) it else '_' }.joinToString("")
+    val started = if (Character.isJavaIdentifierStart(sanitized[0])) sanitized else "_$sanitized"
+    return started.replaceFirstChar { it.uppercaseChar() }
 }
 
 /** The string in a `@file:JvmName("…")` annotation, or null. */

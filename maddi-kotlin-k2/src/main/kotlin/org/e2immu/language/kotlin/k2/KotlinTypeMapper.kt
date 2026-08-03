@@ -95,6 +95,7 @@ import org.jetbrains.kotlin.psi.KtReturnExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateEntryWithExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
 import org.jetbrains.kotlin.psi.KtThisExpression
+import org.jetbrains.kotlin.psi.KtTypeAlias
 import org.jetbrains.kotlin.psi.KtWhenConditionInRange
 import org.jetbrains.kotlin.psi.KtWhenConditionIsPattern
 import org.jetbrains.kotlin.psi.KtWhenConditionWithExpression
@@ -164,6 +165,24 @@ internal class KotlinTypeMapper(
 
     internal fun registerLocalType(psi: PsiElement, typeInfo: TypeInfo) { localTypesByPsi[psi] = typeInfo }
 
+    // Top-level `typealias` declarations by FQN, taken from the PSI of the files being converted.
+    //
+    // The symbol provider cannot supply these when it matters: an `expect class Handle` and an
+    // `actual typealias Handle` are, to a plain JVM module, two declarations of one FQN, and the CLASS wins —
+    // `findTypeAlias(classId)` returns null and `findClassLike(classId)` returns the class. So the alias is
+    // only reachable through the declaration itself. Populated by KotlinScan before conversion.
+    private val typeAliasByFqn = mutableMapOf<String, KtTypeAlias>()
+
+    /** Register every top-level `typealias` in [ktFiles], so an `expect` type can resolve to its expansion. */
+    internal fun registerTypeAliases(ktFiles: List<KtFile>) {
+        ktFiles.forEach { ktFile ->
+            val packageName = ktFile.packageFqName.asString()
+            ktFile.declarations.filterIsInstance<KtTypeAlias>().forEach { alias ->
+                alias.name?.let { typeAliasByFqn[if (packageName.isEmpty()) it else "$packageName.$it"] = alias }
+            }
+        }
+    }
+
     private fun KaSession.mapClassType(type: KaClassType, owner: TypeInfo, method: MethodInfo? = null): ParameterizedType {
         // a method-local type: resolve to the type we built for its declaration (no ClassId to look up by)
         (type.symbol as? KaNamedClassSymbol)?.psi?.let { psi ->
@@ -198,6 +217,25 @@ internal class KotlinTypeMapper(
             return (type.symbol as? KaClassSymbol)?.superTypes
                 ?.firstNotNullOfOrNull { st -> mapType(st, owner, method).takeUnless { it.isJavaLangObject } }
                 ?: runtime.objectParameterizedType()
+        }
+        // Kotlin-multiplatform: an `expect class` may be realised not by an `actual class` but by an
+        // `actual typealias` -- coil declares `expect class Bitmap` in commonMain and
+        // `actual typealias Bitmap = org.jetbrains.skia.Bitmap` in nonAndroidMain. KotlinScan drops `expect`
+        // declarations (the `actual` is authoritative on the JVM), so when the realisation is an alias NOTHING
+        // builds a type for that FQN and the lookup below would mint a shell named `coil3.Bitmap` -- a name no
+        // JVM class has. Resolve through the alias to what it expands to, which is the type that really exists.
+        // Guarded by isExpect, so the overwhelmingly common path does not pay for the lookup.
+        if ((type.symbol as? KaNamedClassSymbol)?.isExpect == true) {
+            val expanded = typeAliasByFqn[type.classId.asFqNameString()]?.symbol?.expandedType as? KaClassType
+            if (expanded != null && expanded.classId != type.classId) {
+                val target = mapClassType(expanded, owner, method)
+                // Re-apply the USE-SITE type arguments. The expansion's own arguments name the ALIAS's type
+                // parameters (`actual typealias WeakReference<T> = java.lang.ref.WeakReference<T>`), which are
+                // not in scope here and would degrade to Object; `Bitmap`, having none, is unaffected either way.
+                val targetTypeInfo = target.typeInfo()
+                return if (targetTypeInfo != null && type.typeArguments.isNotEmpty())
+                    parameterize(targetTypeInfo, type, owner, method) else target
+            }
         }
         val kotlinFqn = type.classId.asFqNameString()
         val jvmFqn = mapToJvmFqn(type.classId)
