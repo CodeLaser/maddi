@@ -97,9 +97,15 @@ public class EventualCluster {
                 .getOrDefault(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.NOT_EVENTUAL)
                 .isEventual()
                 || typeInfo.methods().stream().anyMatch(this::methodShowsEventualIntent);
-        if (direct) directCandidateCache.add(typeInfo);
+        if (direct && directCandidateCache.add(typeInfo) && CAND_DEBUG) {
+            System.out.println("ECCAND it=" + ITERATION + " direct " + typeInfo.fullyQualifiedName());
+        }
         return direct;
     }
+
+    // EC_CAND_DEBUG=1: candidacy provenance -- one line per first-time cache entry per epoch (the
+    // rederivation reset empties the caches, so each epoch's ignition set prints afresh)
+    private static final boolean CAND_DEBUG = System.getenv("EC_CAND_DEBUG") != null;
 
     private boolean methodShowsEventualIntent(MethodInfo methodInfo) {
         if (methodInfo.analysis().getOrDefault(PropertyImpl.EVENTUAL_METHOD, ValueImpl.EventualImpl.NOT_EVENTUAL)
@@ -158,7 +164,10 @@ public class EventualCluster {
         if (!isDirectCandidate(typeInfo)) return;
         for (ParameterizedType superType : typeInfo.parentAndInterfacesImplemented()) {
             TypeInfo st = superType.typeInfo();
-            if (st != null && !st.isJavaLangObject()) inheritedCandidates.add(st);
+            if (st != null && !st.isJavaLangObject() && inheritedCandidates.add(st) && CAND_DEBUG) {
+                System.out.println("ECCAND it=" + ITERATION + " super " + st.fullyQualifiedName()
+                                   + " <- " + typeInfo.fullyQualifiedName());
+            }
         }
     }
 
@@ -210,7 +219,10 @@ public class EventualCluster {
         for (ParameterizedType superType : typeInfo.parentAndInterfacesImplemented()) {
             TypeInfo st = superType.typeInfo();
             if (st != null && !st.isJavaLangObject() && isCandidate(st)) {
-                interfaceCandidateCache.add(typeInfo);
+                if (interfaceCandidateCache.add(typeInfo) && CAND_DEBUG) {
+                    System.out.println("ECCAND it=" + ITERATION + " itf " + typeInfo.fullyQualifiedName()
+                                       + " via " + st.fullyQualifiedName());
+                }
                 return true;
             }
         }
@@ -225,8 +237,28 @@ public class EventualCluster {
      * retract {@code member} if {@code candidate} does not prove out. {@code member} is the type whose analysis is
      * leaning on {@code candidate} (the subtype for a supertype contribution, the field owner for a field type).
      */
+    // EC_TREATAS_DEBUG=<comma-separated FQN substrings>: print EVERY treatAs call whose member or candidate
+    // matches -- calls, results and reason flags, regardless of debugContext (the site filter misses calls
+    // made under a stale or foreign context, which is exactly the blind spot this instrument covers)
+    private static final String[] TREATAS_DEBUG = System.getenv("EC_TREATAS_DEBUG") == null ? null
+            : System.getenv("EC_TREATAS_DEBUG").split(",");
+
+    private static boolean treatAsDebugMatches(TypeInfo member, TypeInfo candidate) {
+        if (TREATAS_DEBUG == null) return false;
+        for (String s : TREATAS_DEBUG) {
+            if (member.fullyQualifiedName().contains(s) || candidate.fullyQualifiedName().contains(s)) return true;
+        }
+        return false;
+    }
+
     public boolean treatAsEventuallyImmutable(TypeInfo member, TypeInfo candidate, Value.EventuallyImmutable actual) {
-        if (actual.isEventual()) return true; // proven on its own merits: no assumption
+        if (actual.isEventual()) {
+            if (treatAsDebugMatches(member, candidate)) {
+                System.out.println("ECTREATAS it=" + ITERATION + " " + member.simpleName() + " -> "
+                                   + candidate.simpleName() + " TRUE (proven) [" + debugContext.get() + "]");
+            }
+            return true; // proven on its own merits: no assumption
+        }
         // optimism spent on a setter-bearing MEMBER is wasted, and optimism spent on a setter-bearing
         // CANDIDATE is doomed: haveSetters is an unconditional MUTABLE exit in computeImmutableType, before
         // any after-mark relaxation, so no verdict can ever form on either end. Refusing both keeps the
@@ -246,6 +278,15 @@ public class EventualCluster {
                       + " candidate=" + (candidate == member || isCandidate(candidate))
                       + " memberSetters=" + hasSetters(member) + " candSetters=" + hasSetters(candidate)
                       + " doomed=" + candidateDoomed(candidate));
+        }
+        if (treatAsDebugMatches(member, candidate)) {
+            System.out.println("ECTREATAS it=" + ITERATION + " " + member.simpleName() + " -> "
+                               + candidate.simpleName() + " " + (admissible ? "TRUE (seed)" : "FALSE")
+                               + (admissible ? "" : " candidate=" + (candidate == member || isCandidate(candidate))
+                                                    + " memberSetters=" + hasSetters(member)
+                                                    + " candSetters=" + hasSetters(candidate)
+                                                    + " doomed=" + candidateDoomed(candidate))
+                               + " [" + debugContext.get() + "]");
         }
         if (admissible) {
             java.util.ArrayDeque<java.util.List<TypeInfo[]>> stack = assumptionBuffers.get();
@@ -354,6 +395,7 @@ public class EventualCluster {
      */
     public void resetForRederivation() {
         if (!ENABLED) return;
+        if (CAND_DEBUG) System.out.println("ECCAND it=" + ITERATION + " reset");
         assumptions.clear();
         labelProvenance.clear();
         directCandidateCache.clear();
