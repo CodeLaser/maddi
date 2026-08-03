@@ -2030,3 +2030,15 @@ candidates only"). The remaining fix is a design decision: defer the eventual wa
 minting and ledger recording to the terminal certification point (where the contraction already
 runs), so every walk sees settled links/enm state. Until then the composed dogfood is bimodal 39↔53
 under CANON_MLV_RICH — strictly better than 24↔10 (floor +29), not yet a ratchet baseline.
+
+### The discriminator's verdict (2026-08-03, phase C completed)
+
+Four runs, `-Xint -XX:+UseSerialGC -XX:hashCode=3` (interpreter, serial GC, sequential-counter
+identity hashes — every controllable JVM variance source pinned): **10, 10, 24, 24 — still bistable.**
+Identity hashing is definitively excluded, closing the seed hunt by elimination: the run-to-run
+perturbation comes from something outside every JVM mechanism we can control (and after the J-pair,
+it does not matter): the defect was never the perturbation but the engine's SENSITIVITY to it —
+write-once, iteration-timed eventual minting consuming inputs that are still settling. One bit of
+anything tips which iteration a walk first succeeds in, and that bit is frozen forever. The deferral
+design fix (terminal-phase minting, the Part A'' pattern) removes the sensitivity; no further seed
+forensics are warranted.
