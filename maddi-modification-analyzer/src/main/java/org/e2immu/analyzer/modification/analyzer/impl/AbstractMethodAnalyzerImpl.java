@@ -212,6 +212,26 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
      */
     private void methodEventuallyNonModifying(Iterable<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
         if (methodInfo.analysis().haveAnalyzedValueFor(EVENTUALLY_NON_MODIFYING_METHOD)) return;
+        // log-only, side-effect free: the loop below bails at the FIRST incompatible implementation, so a
+        // debug session sees one veto per attempt and has to iterate runs to enumerate them. This pre-pass
+        // prints them all at once (site filter on the ABSTRACT method's FQN).
+        if (EventualCluster.SITE_DEBUG && EventualCluster.siteDebugMatches(methodInfo.fullyQualifiedName())) {
+            java.util.List<String> blockers = new java.util.ArrayList<>();
+            for (MethodInfo implementation : concreteImplementations) {
+                Value.SetOfStrings s = implementation.analysis()
+                        .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET);
+                if (s.set().isEmpty()) {
+                    Value.Bool nm = implementation.analysis().getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+                    if (nm == null || nm.isFalse()) {
+                        blockers.add(implementation.fullyQualifiedName() + "(nonMod=" + nm + ")");
+                    }
+                }
+            }
+            if (!blockers.isEmpty()) {
+                EventualCluster.sitePrint("enm batch " + methodInfo.fullyQualifiedName()
+                                          + " ALL blockers (" + blockers.size() + "): " + blockers);
+            }
+        }
         Set<String> agreed = null;
         for (MethodInfo implementation : concreteImplementations) {
             Value.SetOfStrings evNonMod = implementation.analysis()
