@@ -57,7 +57,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
                           boolean open) {
         this.compilationUnit = compilationUnit;
         this.name = name;
-        this.comments = comments;
+        this.comments = comments == null ? List.of() : List.copyOf(comments);
         this.source = source;
         this.requires = requires;
         this.exports = exports;
@@ -362,7 +362,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
 
         UsesImpl(Source source, List<Comment> comments, String api) {
             this.source = source;
-            this.comments = comments;
+            this.comments = comments == null ? List.of() : List.copyOf(comments);
             this.api = Objects.requireNonNull(api);
         }
 
@@ -458,7 +458,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
 
         ProvidesImpl(Source source, List<Comment> comments, String api, List<String> implementations) {
             this.source = source;
-            this.comments = comments;
+            this.comments = comments == null ? List.of() : List.copyOf(comments);
             this.api = Objects.requireNonNull(api);
             this.implementations = List.copyOf(Objects.requireNonNull(implementations));
         }

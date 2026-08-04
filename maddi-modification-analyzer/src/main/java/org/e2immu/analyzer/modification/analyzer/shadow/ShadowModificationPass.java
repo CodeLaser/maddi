@@ -240,10 +240,30 @@ public class ShadowModificationPass {
         // List.of()) to the dispatch union the engine deliberately does not compute.
         for (MethodInfo overridden : mi.overrides()) {
             if (!overridden.isAbstract()) continue;
-            addEdge(mi, overridden);
+            // An OUT-OF-ORDER abstract (jar/aapi) with a decided TRUE is authority, not fixpoint
+            // optimism: writeVerdicts never visits it, no union is computed over it, and an E6 edge
+            // into it would teleport ONE implementation's evidence to EVERY call site of the
+            // abstraction — the Predicate.test:0:arg0 chain that marked the whole
+            // Element.visit(Predicate) family modifying off a single stateful collector predicate
+            // (Quest E, 2026-08-03). In-order abstracts keep their edges: there the pass IS the
+            // authority and may downgrade the fixpoint's TRUE.
+            boolean overriddenOutOfOrder = !orderMethods.contains(overridden);
+            boolean receiverContracted = false;
+            if (overriddenOutOfOrder) {
+                Value.Bool nm = overridden.analysis().getOrNull(PropertyImpl.NON_MODIFYING_METHOD,
+                        ValueImpl.BoolImpl.class);
+                receiverContracted = nm != null && nm.isTrue();
+            }
+            if (!receiverContracted) addEdge(mi, overridden);
             int n = Math.min(mi.parameters().size(), overridden.parameters().size());
             for (int i = 0; i < n; i++) {
-                addEdge(mi.parameters().get(i), overridden.parameters().get(i));
+                ParameterInfo op = overridden.parameters().get(i);
+                if (overriddenOutOfOrder) {
+                    Value.Bool um = op.analysis().getOrNull(PropertyImpl.UNMODIFIED_PARAMETER,
+                            ValueImpl.BoolImpl.class);
+                    if (um != null && um.isTrue()) continue;
+                }
+                addEdge(mi.parameters().get(i), op);
             }
         }
         // soundness seeds: a degraded body contributes no reliable evidence
@@ -332,9 +352,47 @@ public class ShadowModificationPass {
         }
         // E1/E2: call sites
         if (mi.methodBody() != null) {
+            if (vdDumpMatches(mi.fullyQualifiedName())) dumpVariableData(mi.methodBody(), mi.fullyQualifiedName());
             handleBlock(mi, mi.methodBody());
         }
         seedStatementLevelFieldModifications(mi);
+    }
+
+    // gate VDDUMP=<fqn substrings, comma-separated> (docs/eventual-info-hierarchy.md §"The
+    // argument-links round"): dump matching methods' statement-level VariableData links at
+    // shadow-pass time — the in-memory state the E1/E3 projections read. The persisted summaries
+    // are proven identical across runs while the projected edges vary; diffing two runs' VD dumps
+    // names the statement whose derivation is bistable.
+    private static final String[] VDDUMP = System.getenv("VDDUMP") == null ? null
+            : System.getenv("VDDUMP").split(",");
+
+    private static boolean vdDumpMatches(String fqn) {
+        if (VDDUMP == null) return false;
+        for (String s : VDDUMP) {
+            if (!s.isBlank() && fqn.contains(s.trim())) return true;
+        }
+        return false;
+    }
+
+    private void dumpVariableData(Block block, String methodFqn) {
+        for (Statement statement : block.statements()) {
+            statement.subBlockStream().forEach(sb -> dumpVariableData(sb, methodFqn));
+            VariableData vd = VariableDataImpl.of(statement);
+            if (vd == null) continue;
+            String index = statement.source() == null ? "?" : statement.source().compact2();
+            // VDO: the UNSORTED iteration order (LinkedHashMap insertion order = variable creation
+            // order) — the order the RedundantLinks guards accumulate in; comparing it across runs
+            // tests whether creation order itself is the varying input
+            System.out.println("VDO " + methodFqn + " [" + index + "] "
+                               + String.join(",", vd.knownVariableNames()));
+            vd.knownVariableNames().stream().sorted().forEach(name -> {
+                var vi = vd.variableInfo(name);
+                if (vi != null) {
+                    System.out.println("VD " + methodFqn + " [" + index + "] " + name
+                                       + " :: " + vi.linkedVariablesOrEmpty());
+                }
+            });
+        }
     }
 
     /**

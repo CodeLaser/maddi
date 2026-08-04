@@ -45,7 +45,7 @@ public class RecordPatternImpl extends ElementImpl implements RecordPattern {
                              LocalVariable localVariable,
                              ParameterizedType recordType,
                              List<RecordPattern> patterns) {
-        this.comments = comments;
+        this.comments = comments == null ? List.of() : List.copyOf(comments);
         this.source = source;
         this.unnamedPattern = unnamedPattern;
         this.localVariable = localVariable;

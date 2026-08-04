@@ -95,7 +95,7 @@ public abstract class InspectionImpl implements Inspection {
                           List<AnnotationExpression> annotations,
                           JavaDoc javaDoc) {
         this.access = access;
-        this.comments = comments;
+        this.comments = comments == null ? List.of() : List.copyOf(comments);
         this.source = source;
         this.synthetic = synthetic;
         this.annotations = annotations;

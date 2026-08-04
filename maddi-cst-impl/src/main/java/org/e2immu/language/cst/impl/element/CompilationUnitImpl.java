@@ -59,7 +59,7 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
         this.sourceSet = sourceSet;
         this.uri = uri;
         this.packageName = packageName;
-        this.comments = comments;
+        this.comments = comments == null ? List.of() : List.copyOf(comments);
         this.source = source;
         this.importStatements = importStatements;
         if (fingerPrint != null) {

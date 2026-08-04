@@ -54,7 +54,7 @@ public class SwitchEntryImpl implements SwitchEntry {
         this.patternVariable = patternVariable;
         this.whenExpression = whenExpression;
         this.statement = statement;
-        this.comments = comments;
+        this.comments = comments == null ? List.of() : List.copyOf(comments);
         this.source = source;
     }
 

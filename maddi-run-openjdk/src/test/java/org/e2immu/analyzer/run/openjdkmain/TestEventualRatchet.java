@@ -85,7 +85,8 @@ public class TestEventualRatchet {
      * of the ratchet is that it cannot pass vacuously.
      */
     private static final String AAPI = "../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/";
-    private static final List<String> PRELOAD = List.of(AAPI + "jdk", AAPI + "libs/test", AAPI + "libs/log");
+    private static final List<String> PRELOAD = List.of(AAPI + "jdk", AAPI + "libs/test", AAPI + "libs/log",
+            AAPI + "libs/support");
 
     @BeforeAll
     public static void beforeAll() {

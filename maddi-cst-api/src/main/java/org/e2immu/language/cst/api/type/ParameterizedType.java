@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.api.type;
 
+import org.e2immu.annotation.Independent;
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.InfoMap;
@@ -122,6 +123,10 @@ public interface ParameterizedType {
 
     ParameterizedType erasedForFQN();
 
+    // TRUSTED LEAF (docs/eventual-design-improvements.md §4): every implementation returns a freshly
+    // built immutable set (Set.of, toUnmodifiableSet) -- shares only hidden content, a fact the analyzer
+    // cannot compute from the declared java.util.Set.
+    @Independent(hc = true)
     Set<TypeParameter> extractTypeParameters();
 
     /*
@@ -210,8 +215,15 @@ public interface ParameterizedType {
                                    TypeInfo primaryType,
                                    ParameterizedType other);
 
+    // TRUSTED LEAF (docs/eventual-design-improvements.md §4): the committed face is List.copyOf-backed
+    // (ParameterizedTypeImpl's constructor), so the exposed wrapper shares only hidden content -- a fact
+    // the analyzer cannot compute from the declared java.util.List.
+    @Independent(hc = true)
     List<ParameterizedType> parameters();
 
+    // TRUSTED LEAF (docs/eventual-design-improvements.md §4): every return is a freshly built immutable
+    // list (List.of, the staticToList collector) -- shares only hidden content.
+    @Independent(hc = true)
     List<ParameterizedType> replaceByTypeBounds();
 
     TypeInfo toBoxed(PredefinedWithoutParameterizedType runtime);

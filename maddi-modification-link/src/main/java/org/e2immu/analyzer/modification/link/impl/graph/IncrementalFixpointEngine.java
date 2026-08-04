@@ -211,14 +211,29 @@ public final class IncrementalFixpointEngine<V, L> {
                                    + " at statement " + statementIndex;
         L reverseLabel = reverse.apply(label);
         graph.addSymmetricEdge(from, to, label, reverseLabel);
-        return incrementalUpdate(Set.of(new Fact<>(from, to, label), new Fact<>(to, from, reverseLabel)),
+        // List.of, NOT Set.of: the two seeds enter the FIFO derivation queue in this order, and a
+        // 2-element Set.of iterates in per-JVM SALTED order (java.util.ImmutableCollections) — the
+        // natural-orientation-first order here was literally a coin flip per run. Seed order decides
+        // which derivation paths fire first, and derived-fact survival is order-sensitive (see
+        // completeSymmetrically's history), so this flip was a run-to-run bistability seed
+        // (docs/eventual-info-hierarchy.md §"The seed-order round").
+        return incrementalUpdate(List.of(new Fact<>(from, to, label), new Fact<>(to, from, reverseLabel)),
                 statementIndex);
     }
 
     private int incrementalUpdate(Collection<Fact<V, L>> seeds, String statementIndex) {
+        // canonical seed order at THE single entry point: derivation follows the FIFO queue, and
+        // derived-fact survival is order-sensitive, so iteration order of the caller's collection
+        // (several were per-JVM salted: Set.of pairs, toUnmodifiableSet re-adds) must not leak into
+        // the closure. Sorting here makes every update a function of the seed SET.
+        List<Fact<V, L>> sortedSeeds = new ArrayList<>(seeds);
+        sortedSeeds.sort(Comparator
+                .comparing((Fact<V, L> f) -> vertexPrinter.apply(f.source()))
+                .thenComparing(f -> vertexPrinter.apply(f.target()))
+                .thenComparing(f -> String.valueOf(f.label())));
         int newFacts = 0;
         Deque<Fact<V, L>> queue = new ArrayDeque<>();
-        for (Fact<V, L> fact : seeds) {
+        for (Fact<V, L> fact : sortedSeeds) {
             boolean added = closure.add(fact.source(), fact.target(), fact.label());
             // a seed IS a graph edge: register its direct witness even when the fact was already derived
             // (closure.add false). A direct witness beats any composite (putIfBetter), makes the fact robust

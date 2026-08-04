@@ -18,16 +18,18 @@
 # Baseline re-derived 2026-08-03 under the DEFERRAL round (docs/eventual-info-hierarchy.md section
 # "The deferral round"): the eventual family is cleared and re-derived at the terminal certification
 # point over the settled state, so the walks and the assumption ledger are a function of the fixpoint
-# alone. 68 types -- identical sets over 5 of 6 validation runs in ~/git/ws/eventual/deferral-20260803.
-# Versus the transient-world 53: +23 (the Value/ValueImpl family, FieldInspectionImpl, the
-# CompilationUnitPrinter pair, ForEachStatement, ...), -8 (ModuleInfo, Divide/Equals/Product/
-# Remainder/StringConcat, Break/ContinueStatementImpl) whose transient-world verdicts rested on
-# unwitnessed leans; recovering them honestly is a climb quest, not a regression.
-# KNOWN CAVEAT: ONE upstream link-layer wobble remains (an extra shadow edge, 1-in-6 observed,
-# uncorrelated with the EvalInequality provenance wobble): its signature is the api statement family
-# (13 types) lost en bloc -> 55 survivors. A run failing this ratchet with exactly that signature is
-# the known wobble, not a code regression. The eventual layer itself is deterministic given settled
-# links (5/6 identical, and the in-layer 39<->53 bistability is dead by construction).
+# alone.
+# BASELINE 2026-08-03b (Quest E step 1, the E6-contract-guard world): 55 types, E3/E4 byte-identical
+# (T8/T9 byte-identical; T4/T5 identical at 41 before the Element.comments cut) in
+# ~/git/ws/eventual/questT-20260803. This world preloads the libs/support AAPI (Either, SetOnce,
+# EventuallyFinal, EventuallyFinalOnDemand -- see TestEventualRatchet.PRELOAD): versus the old
+# 68-world it is a RE-ROOTED equilibrium, not a monotone step: the arithmetic api family
+# (Divide/Equals/Product/Remainder/StringConcat/BitwiseNegation) mints, while the api statement
+# family and the Value/ValueImpl family fall as cascade victims of the honest transition semantics
+# (docs/eventual-info-hierarchy.md, "Quest T, day one" and following). Recovering them honestly is
+# the climb's continuation (Quest E: the Element method excusals), not a regression.
+# The old 68-world caveat (api statement family lost en bloc -> 55, an environmental link-layer
+# coin) is moot in this world: the statement family is not in the baseline.
 org.e2immu.language.cst.api.analysis.Value
 org.e2immu.language.cst.api.analysis.Value.AssignedToField
 org.e2immu.language.cst.api.analysis.Value.Bool
@@ -57,19 +59,6 @@ org.e2immu.language.cst.api.element.MultiLineComment
 org.e2immu.language.cst.api.expression.AnnotationExpression.KV
 org.e2immu.language.cst.api.expression.TextBlock
 org.e2immu.language.cst.api.info.CompilationUnitPrinter
-org.e2immu.language.cst.api.statement.Block
-org.e2immu.language.cst.api.statement.BreakOrContinueStatement
-org.e2immu.language.cst.api.statement.BreakStatement
-org.e2immu.language.cst.api.statement.ContinueStatement
-org.e2immu.language.cst.api.statement.DoStatement
-org.e2immu.language.cst.api.statement.EmptyStatement
-org.e2immu.language.cst.api.statement.ForEachStatement
-org.e2immu.language.cst.api.statement.IfElseStatement
-org.e2immu.language.cst.api.statement.LoopStatement
-org.e2immu.language.cst.api.statement.SwitchStatementNewStyle
-org.e2immu.language.cst.api.statement.SynchronizedStatement
-org.e2immu.language.cst.api.statement.TryStatement
-org.e2immu.language.cst.api.statement.WhileStatement
 org.e2immu.language.cst.impl.analysis.ValueImpl
 org.e2immu.language.cst.impl.analysis.ValueImpl.AssignedToFieldImpl
 org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl

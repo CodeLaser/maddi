@@ -53,7 +53,7 @@ public abstract class StatementImpl extends ElementImpl implements Statement {
         this.complexity = complexity;
         this.source = source;
         this.annotations = annotations;
-        this.comments = comments;
+        this.comments = comments == null ? List.of() : List.copyOf(comments);
         this.label = label;
     }
 

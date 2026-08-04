@@ -100,7 +100,7 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
                                Source source,
                                List<AnnotationExpression> annotations,
                                List<ParameterizedType> exceptionTypes, boolean isFinal, LocalVariable catchVariable, Block block) {
-            this.comments = comments;
+            this.comments = comments == null ? List.of() : List.copyOf(comments);
             this.annotations = annotations;
             this.source = source;
             this.catchVariable = catchVariable;

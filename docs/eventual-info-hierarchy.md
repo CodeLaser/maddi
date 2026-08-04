@@ -2154,3 +2154,354 @@ run (candidate mechanisms: the on-demand recursion context of the statement lamb
 instance-selection residue the rendering tie-break cannot see) — a link-layer quest, downstream of
 nothing: the eventual layer consumes whatever it is fed, deterministically, since the deferral
 round.
+
+### The argument-links round (2026-08-03): last-write-wins lands; the variant survives one level deeper
+
+Chasing §"The edge hunt": the E1 edges are built from `LINKED_VARIABLES_ARGUMENTS` — the call-site
+argument links, an element-internal, never-persisted value whose `ListOfLinksImpl` record equality
+bottoms out in PRIMARY-ONLY `Links` equality. First-arrival retention (TolerantWrite) froze
+whichever derivation arrived first. Two fixes were tried:
+
+1. **Canonical-max retention (`strictlyRicherThan` on `ListOfLinksImpl`) — WRONG, reverted before
+   committing.** The polarity is inverted for this value: a smeared conservative fallback (derived
+   while the callee summary was incomplete) has MORE content than the precise full-context mapping,
+   and the set of derivations seen varies per run — a max over a varying set is neither precise nor
+   deterministic. First validation run: 55 (D6's digest exactly).
+2. **Last-write-wins (`ExpressionVisitor.writeArgumentLinks`) — LANDED.** The value is per-visit
+   scratch state, not an accumulating verdict; the final write of any run is the settled-state
+   derivation. Suites green.
+
+Validation (`lolret-20260803-0917`, batch externally stopped after 5 runs): L1–L4 all 68 with
+**byte-identical round-1 edge dumps** — a first. L5: 55, 18784 edges — and its diff vs L1 is
+SHAPE-IDENTICAL to the R1/R4 pair: the same 23 edges, the same two stable variants
+(InlineConditionalImpl/SwitchLabelImpl/AssertStatementImpl `<init>` param→field cross-links,
+translateAnnotations→lambda targets). Conclusion: the bistability is NOT in the stored value's
+retention — the DERIVATION itself is bistable. The E1 targets go through `project(mi, vd, …)`,
+the caller's statement-level VariableData (the `translate()` bodies' links of
+`translatedCondition/translatedIfTrue/…` to the §-faces of `this`), and THAT in-memory state has
+two stable variants, one rare (~1-in-5). Next hypothesis to test: the link engine's intra-pass
+exploration/witness-selection order (the iteration-1 LINKWORK variance measured long ago: witness
+counts 16146 vs 16610 on identical closures) leaves the final statement-level projection in one of
+two shapes — instrument the caller-side `vd` links for `InlineConditionalImpl.translate` across
+runs (LINKTRACE on that method) rather than the stored summaries, which are proven identical.
+
+### The seed-order round (2026-08-03): the salted boundary of the fixpoint engine
+
+The LINKTRACE pair (T1 bwd/55 vs T2 fwd/68, `lthunt-20260803-1006`) settled the derivation-vs-
+selection question emphatically: the traces diverge FROM THE FIRST SEED EVENTS — 10 369 differing
+lines out of ~8 000, same seed content ($__rv numbering identical), different ORDER. Seed order is
+derivation order (FIFO queue), and derived-fact survival is order-sensitive (the engine's own
+completeSymmetrically comment records the m∩copy precedent). The order was leaking from per-JVM
+SALTED collections (java.util.ImmutableCollections) at the engine's boundaries. Three fixes, all
+suites green with ZERO pin fallout (every pinned behavior already assumed the natural order — the
+salt just sometimes disagreed):
+
+1. `IncrementalFixpointEngine.addSymmetricEdge`: `Set.of(fact, mirror)` → `List.of(...)` — the
+   two seeds of every symmetric edge entered the queue in salted order, a literal per-JVM coin flip.
+   (The salt was the FIRST bistability suspect ever, exonerated for the 24↔10 retention fork by
+   SALTPROBE — it was alive one layer down all along. Alone this was measured INSUFFICIENT: the
+   next validation batch still flipped, with a new edge count 18781.)
+2. `Graph.transformToSharedVariable`: the shared-variable collapse re-added member edges iterating
+   an unmodifiableSet (salted) — now FQN-sorted.
+3. `IncrementalFixpointEngine.incrementalUpdate`: canonical seed sort (source, target, label
+   renderings) at THE single entry point — every caller's collection order is normalized in one
+   place; each update is a function of its seed SET.
+
+Audited and left alone (order-insensitive uses): ExpandSlice/MakeGraph set equality and disjoint
+checks, LinkGraph removal sets, mediatedPairs membership. Next-round candidates if variance
+persists: VirtualModificationIdenticals' salted result streams (variablesPartOf, equivalentStream).
+
+Validation on the canonical binary (`seedord-20260803-1154`): S1, S2 both 68 survivors, round-1
+edge count 18781, **byte-identical EDGEDUMPs**. The batch was externally killed at S3 and repeated
+relaunches are being killed within minutes (cause unknown — memory was 52% free with no competing
+workers), so the streak stands at 2/2; the old flip rate (1-in-5) makes that suggestive, not
+conclusive. Completing the 10-run batch is the next action once runs can survive.
+
+### The lambda-slot round and the vanishing coin (2026-08-03, afternoon)
+
+Two more layers, one confirmed and one that dissolved under observation:
+
+**The λ-slot fix (landed).** The retention round's slot-recompute covers analysis-order methods
+only; enclosed (lambda/anonymous-class) methods reached METHOD_LINKS through the on-demand
+`getOrCreate` (ExpressionVisitor, LOCK case) — the FIRST computation froze, in whatever context the
+first toucher had. Now: enclosed methods always recompute and canonical retention decides (the slot
+rule extended to non-order methods). With this plus the seed-order round, the ENGINE is proven
+reproducible at a depth never reached before: across runs, byte-identical round-1/2/3 shadow edge
+dumps (8/10, second mode 2/10) and — decisively — byte-identical 2571-edge assumption LEDGERS
+between same-outcome runs.
+
+**The residual coin (open, environmental).** With all engine layers proven identical, the 68↔55
+flip STILL occurred — including between runs with byte-identical round-1..3 edge dumps — placing it
+in the deferral leg's eventual re-derivation reading state no dump captures. Then it vanished: from
+13:52 the machine produced six consecutive 68s (instrumented, uninstrumented, and under an 8G
+memory hog), where the same binary produced 6×55/4×68 between 12:53 and 13:45. Instrumentation
+exonerated (E5-plain: 68), memory pressure exonerated (E6load: 68). The correlate is an
+UNIDENTIFIED environmental bit that changed around 13:50. Next instruments when it reappears:
+(a) diff the full JVM/env fingerprint (System properties, env, /usr/bin/time -l) of a 55-run vs a
+68-run; (b) EC_ASSUME_DEBUG is cheap and the ledger diff of a caught 55 names the first divergent
+eventual decision directly — the E1-E4 streams are the 68-reference, archived in
+~/git/ws/eventual/echunt-20260803-1346/.
+
+## The climb census (2026-08-03): the 68-world's honest blockers, measured
+
+Bart: "proceed with the normal planning towards 254." Baseline measurement before any design
+(EC_RETRACT_DEBUG on the 68-world + EC_TYPE_DEBUG/EC_SITE_DEBUG diagnostics, runs C1/C2 in
+~/git/ws/eventual/climb-20260803-1437/, ledgers in echunt-20260803-1346/):
+
+**139 retractions; every big root NEVER MINTS** (not retracted — the walks fail): ParameterizedType
+(55 leans on it), TypeInfo (40), MethodInfo (29), Element (26), ExpressionImpl (25), Runtime (20).
+Of the lost-8 vs the transient 53-world, only Sum ever minted (retracted via Runtime); the rest
+never form.
+
+**The blocker families, by census:**
+1. **The `typesReferenced(nature, detailedSources, visited)` chain** (blocks ParameterizedType /
+   TypeParameter → the 55-lean root): eup walks bail at (a) the recursive call to the ABSTRACT
+   `ParameterizedType.typesReferenced` (the union has no labels while being derived — the
+   internalCompareTo shape), (b) `Stream.flatMap/map/concat` external calls, (c) the `visited`
+   accumulator param (`java.util.Set`, doomed external), (d) `DetailedSources` (api type, no
+   eventual intent, not a candidate).
+2. **The `translateAnnotations(translationMap)` twin** (blocks the Element family): bails at
+   abstract `Expression.translate` + `Stream.map`; `TranslationMap` not a candidate.
+3. **Runtime, the keystone** (breaks Sum and the arithmetic family): api-side leans on sibling
+   interfaces `Predefined`/`Types` (not candidates — the upward closure never fires because Runtime
+   itself lacks direct intent now); impl-side `fieldHolds` refusals for the service fields
+   `e2ImmuAnnotations` (E2ImmuAnnotationsImpl) and `computeMethodOverrides`
+   (ComputeMethodOverrides); eup bails at abstract `Eval.and` + doomed `java.util.List`; the
+   `MethodCallImpl.parameterExpressions` List field (the copy-backed-accessor shape — lever (b)).
+4. **typeLevel doomed leans on raw `java.util.List`/`Function`** at Element and its lambdas.
+
+**The quest order this implies** (each honest, witnessed, measured on the dogfood + Fernflower):
+- **Quest R (Runtime keystone, lever (c) + (b))**: honest unconditional immutability-hc for the
+  service leaves (E2ImmuAnnotationsImpl is a constants holder; ComputeMethodOverrides likely
+  stateless — verify and, where uncomputable, contract), Predefined/Types candidacy via Runtime's
+  restored direct intent, `parameterExpressions()`-style trusted-leaf contracts. Expected to revive
+  Sum + the arithmetic api family (the old quest-7 constellation).
+- **Quest T (the typesReferenced chain, lever (b) + aapi)**: aapi contracts for the
+  Stream.map/flatMap/concat shapes consumed here; DetailedSources' honest classification; the
+  visited-accumulator eup semantics (an accumulator param is honestly modified — check whether the
+  walk needs eup on it at all or the label should come from elsewhere). Biggest single payoff: the
+  ParameterizedType root discharges 55 leans.
+- **Quest E (translateAnnotations)**: the Expression.translate union labels must be available to
+  the eup walk (Part A''-style, terminal-phase only); TranslationMap classification.
+Measure after each quest; re-derive the ratchet baseline per gain; Fernflower A/B per the golden
+rule before any default flips.
+
+**Census addendum (same afternoon): the quest order inverts — T is the fulcrum.** Quest R's
+impl-side leg bottoms out in the core: `E2ImmuAnnotationsImpl.annotationTypes` already IS
+`Map.copyOf`-backed (the wrapper arm's precondition holds) — it fails because the value type
+`AnnotationExpression` is `@Mutable eventual=null`, and AnnotationExpression MINTED and was
+RETRACTED leaning on TypeInfo + ExpressionImpl, which never mint, which lean on ParameterizedType,
+which the `typesReferenced` chain blocks. Every family's arrows converge there. Order: **Quest T
+first** (the typesReferenced eup chain: abstract-union label availability during the walk,
+Stream aapi shapes, the visited-accumulator semantics, DetailedSources classification), then E
+(translateAnnotations, same shapes), then R's residue (Predefined/Types candidacy,
+ComputeMethodOverrides, parameterExpressions trusted leaves) — much of R may fall out of T+E via
+the cluster closure.
+
+## Quest T, day one (2026-08-03 afternoon): the census's headline was a red herring; the real wall was Either
+
+**The eup bails were never the blocker.** The census ranked the `typesReferenced` arg-2 bails
+(126+67 on `visited`, 82 on `detailedSources`) as quest T's first target. Tracing whole walk
+instances (EC_SITE_DEBUG, runs C1/T2) showed all six bailing walk roots are the eup walks on the
+`typesReferenced` family's OWN parameters — structurally unwinnable (the label type `java.util.Set`
+is doomed external, and `TypeParameterImpl` genuinely mutates the accumulator via `visited.add(this)`,
+so no unmodified-once-L promise can exist) and consumed by nothing: all three enm walks (both impls
+and the api default) converge and WRITE their labels regardless. The bails are per-iteration re-walk
+noise, worth a cheap skip-guard someday (a parameter whose type has no committable label space can
+never land eup), but no mint depends on them.
+
+**Cut 1 — the trusted-leaf pair (the fieldModifiers precedent, applied).** The honest blocker was
+one level up: `ECTYPE ... DEPENDENT: method parameters returns java.util.List` /
+`extractTypeParameters returns java.util.Set` → after-mark independence `@Dependent` → the
+dependence cap holds afterMark at `@FinalFields` → "buys nothing" → never mints. The cut:
+`@Independent(hc = true)` TRUSTED LEAF contracts on `ParameterizedType.parameters()`,
+`extractTypeParameters()` (fresh `Set.of`/`toUnmodifiableSet` returns) and — found by the next
+trace — `replaceByTypeBounds()` (fresh `List.of`/staticToList; its unchanged-input pass-through
+hands out `typeBounds()`, which is `List.copyOf`-backed at inspection commit, so still honest);
+plus the honesty backing `this.parameters = List.copyOf(parameters)` in the PTImpl main
+constructor (no-op for the `List.of()`/`.toList()` callers). Effect, measured (T2/T3,
+EC_TYPE_DEBUG): independence reads `@Independent(hc=true)`, and **ParameterizedType computed
+`immutableAfterMark=@Immutable(hc=true)` with the full mark set
+`[parameters, typeInfo, typeParameter, wildcard]` and WROTE the verdict for the first time ever** —
+then the terminal contraction took it back: `ECRETRACT ParameterizedType <- broken:
+[Element, TypeInfo, TypeParameter]` (T3). The fulcrum now mints-and-retracts with the info family
+instead of never forming. Survivors 68→68 (T1 hit the 55 coin; T2/T3 the canonical 68).
+
+**The wall behind it: nothing materializes external-library bytecode annotations.** TypeInfo caps
+on ONE method (`compilationUnitOrEnclosingType` returning `Either<CompilationUnit,TypeInfo>`),
+TypeParameter likewise (`getOwner` returning `Either<TypeInfo,MethodInfo>`). `org.e2immu.support.Either`
+carries `@ImmutableContainer(hc=true)` in its class file — the support library is fully annotated at
+source, marks and all — but the support jar has no AAPI package, and absent-counts-as-doomed
+(`candidateDoomed`) makes every exposure of an Either or an inspection holder DEPENDENT.
+
+**Cut 2 — the `libs/support` AAPI package.** New curated hints
+`maddi-aapi-archive/.../libs/support/OrgE2immuSupport.java` mirroring the library sources verbatim:
+`Either` (`@ImmutableContainer(hc=true)`), `SetOnce` (`after="t"`), `EventuallyFinal` and
+`EventuallyFinalOnDemand` (`after="isFinal"`) with their `@Mark/@Only/@TestMark` methods — the
+compiled json carries real `eventuallyImmutableType` verdicts, so the support types enter
+`treatAsEventuallyImmutable` through the PROVEN path, exactly as the `candidateDoomed` javadoc
+anticipated. Generation: `GenerateSupportAnalysisResults` (maddi-run-openjdk test, @Disabled,
+manual re-run after editing the hints). Preload wiring: the dogfood wrapper and
+`TestEventualRatchet.PRELOAD` gained `libs/support`. NOTE: the inspection SetOnce/EventuallyFinal
+fields now have real eventual semantics — the info family's own marks ("inspection") stop reading
+as absent; expect movement well beyond ParameterizedType, and re-derive the ratchet baseline.
+
+**T4, the first support-aapi world (survivors 41): a different equilibrium, not a monotone step.**
+The preload cuts both ways. Gains: the arithmetic api family (Divide, Equals, Product, Remainder,
+StringConcat) mints — quest R's constellation arriving early, presumably through Eval/Runtime paths
+that stopped bailing on support types. And the broken-candidate census SWAPS whole families versus
+the 68-world: the api EXPRESSION family + Runtime + Factory + ParameterizedType + ExpressionImpl are
+no longer broken, while the api STATEMENT family + StatementImpl + the impl EXPRESSION family break
+instead. Losses (net −27 vs the 68-reference): the 13-statement family (the coin's shape, possibly
+caused here), the Value api+impl family (~11, all `broken: []` = cascade victims through the
+closure), FieldInspection + FieldInspectionImpl, AnnotationExpression.KV/KVI, EvalSum.Factor,
+GreaterThanZeroImpl.XBImpl, ExpressionComparator.Unwrapped. ParameterizedType STILL does not mint
+(eventual=null) — out of the broken lists but its verdict did not survive either. api.info.TypeInfo
+is WORSE: afterMark=@Mutable now (was @FinalFields), and its Either cap
+(`DEPENDENT: compilationUnitOrEnclosingType`) did NOT lift — `excused()` consults only
+`isEventual()` and `treatAsEventuallyImmutable`; there is NO a-fortiori acceptance of an
+unconditionally immutable-hc exposure (the clause `isEventuallyImmutableFieldType` has). The Either
+aapi verdict therefore never reaches the dependence check on the method side.
+
+Open, in order: (1) the excused() a-fortiori clause — small, principled, mirrors the field-side
+discharge rule; (2) root the statement/Value swap in the T4 world (its own retract census; the swap
+smells like the coin's bistability amplified, so replicate first); (3) the info-family mark
+propagation under the new honest transition semantics (methods calling setFinal/set are now
+transitions — the owners' @Mark derivation must carry what previously read as plain modification).
+
+**The chain, walked to its root (T5-T8).** T5 replicated T4 byte-identically (41): the support-aapi
+world is a stable equilibrium, not a coin face. Cut 3, the `excused()` a-fortiori clause (an
+unconditionally immutable-hc exposure shares hidden content only — the discharge rule of
+`isEventuallyImmutableFieldType`, mirrored; no lean witnessed): TypeInfo's Either cap 35→0 (T6),
+independence @Dependent→@Independent — and the cap moved to the immutable side: TypeInfo is
+MUTABLE-after-mark because super Info reads @FinalFields and `isMutable(@FinalFields)` sinks every
+sub-interface; Info in turn caps on Element. Cut 4 (T7 diagnosis → T8): Element's ONLY dependence
+cap was `comments()` returning raw `List<Comment>` (45×) — the trusted-leaf sweep: contract on
+`Element.comments()` + `List.copyOf` in the ten committed-face constructors (CompilationUnitImpl,
+ModuleInfoImpl ×3, RecordPatternImpl, CatchClauseImpl, SwitchEntryImpl, StatementImpl,
+InspectionImpl, ExpressionImpl; Builders stay raw — the before-state face). The sweep surfaced a
+latent api violation: `ExpressionImpl`'s convenience constructor stored NULL comments while the api
+declares `@NotNull comments()` — the copyOf sites are null-tolerant (`null → List.of()`), fixing
+both. Suites green after the fix. T8 = 42 (+BitwiseNegation), Element DEPENDENT 45→0,
+`independent=@Independent(hc=true)`, its unconditional verdict touching @Immutable(hc=true) in
+optimistic rounds — the honest residue is `afterMark=@FinalFields excusedM=6`: the modifying-with-
+enm-labels method family (translate, rewire, the visitor surface) fails to excuse. **Quest T's
+chain now bottoms out exactly in Quest E's territory.** The day ends 42 vs the old 68-world — the
+two worlds are not comparable by count alone: the support aapi re-rooted the equilibrium (the
+statement/expression family swap), and the climb from 42 goes through Element's method excusals
+(E), not through more trusted leaves.
+
+## Quest E, step 1 (2026-08-03, night): the E6 teleport — one collector predicate marked the whole visitor surface modifying
+
+The residue behind Element's FinalFields was NOT translate/rewire (their labels derive fine) but
+the visitor surface: visit/reject/typesReferenced(Predicate), 27 impls nonModifying=false including
+pure leaves, while the same-shaped visit(Visitor) resolved true everywhere. The reduction
+(TestVisitPredicateDisclaimer, b61603d6) PASSED — disclaimer and machinery sound in the minimal
+shape — so the corpus held an extra ingredient. MODREACH_EXPLAIN (single-substring filter; reached
+receivers only) named the whole chain:
+
+    visit(Predicate) <- Predicate.test:0:arg0 <- ExtractComponentsOfTooComplex.test:0:e
+      <- NamedType/TypeInfoImpl.asParameterizedType <- typeParameters
+      <- seed: EventuallyFinalOnDemand.get() (non-analyzed modifying callee)
+
+Every link honest but the union: get() is honestly modifying PRE-mark (the on-demand loader; its
+excuse is eventual, invisible to plain reachability); the evidence legitimately reaches the
+collector predicate's own parameter — and then the E6 union edge teleported it INTO the jdk
+abstract's parameter, past the aapi contract unmodifiedParameter=1, and back down into every
+predicate.test(this) call site. (En route the detour also verified the aapi parameter chain is
+fully live: the compiled json stores single-parameter subs under the SINGULAAR "sub" key —
+CodecImpl.E.write — and LoadAnalysisResults reads both; an earlier "compiler drops parameters"
+alarm was a reading artifact.)
+
+The cut (d51fcce7): an OUT-OF-ORDER (jar/aapi) abstract with a decided TRUE gets no E6 edge — the
+contract is authority (writeVerdicts never visits out-of-order infos, no union is computed over
+them); in-order abstracts keep their edges, the pass remains their authority. Measured: all 68
+visit(Predicate) impls true; dogfood 42 -> 55 (E3/E4 byte-identical; baseline 7a93cbf4): the
+Value/ValueImpl family + FieldInspection pair + KV/KVI return; the arithmetic api family drops out
+(-6) — its T4 mint rode Runtime/Eval leans the repaired modification world reshuffled; the NEXT
+census target. Element/Info/TypeInfo/PT still do not mint — the remaining Quest E caps sit above
+the modification layer. Fernflower A/B: eventual identical, one tightening (ConstantPool.pool
+-> @Independent).
+
+**The arithmetic census (E5/E6): the candidacy-ignition paradox, measured both ways.** Why the
+arithmetic api family fell out of the 55-world: their marks arrive via Part A'' from the impls'
+enm labels, candidacy flows upward from the impls, and candidacy is DERIVED state the
+MODREACH/deferral clears wipe. E5's timeline: DivideImpl.rewire's enm WRITES at it=19/31/42 (once
+per phase), then "no enm (null)" at it=49-51 — in the final re-derivation the cascade fails to
+ignite, because the E6-guard-improved plain layer left whole method families plain-true with no
+enm needed: FEWER ignition points, and the bootstrap (enm needs candidacy for its leans, candidacy
+needs enm) deadlocks. The api's terminal visit finds candidate=false (both BinaryOperator and
+DivideImpl) and mints nothing. THE PARADOX: improving the plain modification layer STARVES the
+eventual layer's bootstrap.
+
+The blunt fix was tried and MEASURED OUT: candidacy surviving resetForRederivation (E6 run) brings
+the arithmetic five back (+5) but costs twelve others (55 -> 48): stale candidates admit doomed
+leans whose contractions drag real winners down — exactly candidateDoomed's shadowing effect, now
+observed end to end. REVERTED. The open design fork, for the next round:
+  (a) an IGNITION PASS: after each clear, drive the enm/candidacy cascade to its own fixpoint
+      (repeat enm sweeps over the analysis order until stable) BEFORE any typeLevel consults —
+      no staleness, decouples ordering;
+  (b) intent-preserving candidacy: carry over only DIRECT candidacy whose eventual intent is
+      re-derivable in principle (e.g. re-note from the pre-clear enm/eventual method KEYS, not
+      the values), letting the hierarchy closure rebuild fresh;
+  (c) accept the 55-equilibrium and recover the arithmetic family from the other side (their
+      unconditional @Mutable comes from the hierarchy; a Runtime/Eval quest-R cut may reach them
+      without touching the bootstrap).
+Artifacts: E5 (diagnostics), E6 (the measured -7), questT-20260803/.
+
+## Quest R, the arithmetic census revisited (2026-08-03 evening): fork (c), the privacy rule, and the three roots
+
+Fork (c) was chosen: the bootstrap stays untouched; the arithmetic family is approached from its
+own caps. Two log-only instruments joined the toolbox first, because the previous round's story
+("the api's terminal visit finds candidate=false") deserved distrust before surgery:
+`EC_CAND_DEBUG=1` prints candidacy provenance -- one `ECCAND direct/super/itf` line per first-time
+cache entry per epoch, plus the `reset` markers -- and `EC_TREATAS_DEBUG=<fqn substrings>` prints
+EVERY treatAs call and result for a matching member or candidate, regardless of debugContext. The
+second instrument exists because the site filter has a structural blind spot: a treatAs call made
+under a stale or foreign context prints nothing, and silence had been read as "not called".
+
+**The candidacy story was wrong -- rightly distrusted.** R1: the terminal epoch re-ignites
+candidacy FULLY, within its first iteration (it=42: Element, Expression, BinaryOperatorImpl,
+DivideImpl all direct; Divide via the interface closure through BinaryOperator). The ignition
+paradox, as previously stated, does not survive contact with the instrument. What actually
+happened, walked to its root over R2/R3:
+
+1. BinaryOperatorImpl's FIRST terminal visit runs pre-ignition and computes a WRONG mark set
+   (`[precedence]` alone -- the other four carrier fields' types were not yet candidates); it buys
+   nothing and writes nothing. Harmless.
+2. Its SECOND visit computes the full set `[lhs, operator, parameterizedType, precedence, rhs]`,
+   `independent=@Independent(hc=true)` -- and `afterMark=@FinalFields`. That buys over the
+   unconditional @Mutable, so it WRITES -- write-once, frozen.
+3. The @FinalFields cap: the NON-PRIVATE-FIELD rule at the top of
+   `TypeImmutableAnalyzerImpl.loopOverFieldsAndMethods`. The five carrier fields are `protected
+   final`, and the rule read their types' PLAIN immutability (Expression = @Mutable) with no
+   after-mark participation -- the one rule in the loop that never joined the excusal regime.
+4. The frozen half-verdict then poisons every subtype SILENTLY: a super whose `ev.isEventual()`
+   short-circuits both `immutableSuper` and `independentSuper` BEFORE their treatAs branches, and
+   `@FinalFields.toCorrespondingIndependent()` is DEPENDENT. DivideImpl reads a PROVEN (not
+   seeded) @FinalFields/@Dependent super, caps at afterMark=@Mutable, buys nothing, never mints;
+   Part A'' has no implementor labels to give api Divide. R3 proved the short-circuit by absence:
+   zero ECTREATAS calls for the pair in the terminal epoch.
+
+**The cut (landed): the privacy rule joins the after-mark excusals.** A non-private field passes
+in after-mark mode when (i) it is in `afterMark.fields()`, (ii) it is FINAL -- finality is not
+implied by membership: a @Mark method assigns its field, and a non-private assignable field would
+let a package-mate bypass the mark discipline entirely -- and (iii) its type COMMITS at the mark:
+eventual, unconditionally immutable-hc, or the witnessed treatAs seed (`fieldTypeCommits`, the
+immutability twin of the independence side's premise re-check). Soundness: a committed referent
+bars mutation for ANY holder, so who can read the reference no longer matters; assignment is
+excluded by (ii). Gated under EVENTUALCLUSTER, off-gate byte-parity preserved.
+
+**Measured (R4/R5): formation unlocked, survival still owed to the roots.** With the cut,
+BinaryOperatorImpl computes `afterMark=@Immutable(hc=true)` and the WHOLE arithmetic family forms
+-- all five api types and their impls mint with the full mark set. The contraction then takes
+every one of them back, and the R5 ledger names the debt precisely:
+`BinaryOperatorImpl <- broken: [BinaryOperator, MethodInfo, ExpressionImpl]`, everything else pure
+cascade (`broken: []`) or the Part B lean `<- broken: [BinaryOperator]`. Survivors 55, fp
+byte-identical -- the fix is observably neutral today and structurally necessary: the family moved
+from CANNOT FORM to FORMS, AWAITING THE ROOTS. The three roots are the census's own: MethodInfo
+(the Info-family wall, quest E's residue), ExpressionImpl (abstract-class Part A: ALL analyzed
+subclasses must share a label), and api BinaryOperator (which inherits the first two). The quests
+converge where the census said they would; there is no separate arithmetic quest anymore.
+Artifacts: questR-20260803/ (R1 candidacy provenance, R2 impl-chain trace, R3 the silence proof,
+R4 the fix measured, R5 the ledger).
