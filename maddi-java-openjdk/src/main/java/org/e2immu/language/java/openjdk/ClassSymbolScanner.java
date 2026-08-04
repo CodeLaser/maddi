@@ -355,6 +355,40 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         return newTypeInfo;
     }
 
+    /**
+     * GAP #150. Compute the access of the enclosing chain TOP-DOWN, for ancestors that are mid-load on this
+     * very stack, so that {@code computeAccess} of {@code typeInfo} finds a non-null enclosing access.
+     * <p>
+     * Top-down is the whole point: {@code computeAccess} combines the enclosing's access with its own
+     * modifiers, so an inner one cannot be computed before its outer one.
+     * <p>
+     * ⚠ WHY THIS IS SAFE HERE, WHERE THE GAP RECORD SAID IT WOULD NOT BE. The record objected that computing
+     * an enclosing on demand may read {@code typeModifiers} that are not set yet, silently yielding PACKAGE.
+     * On this path {@code flagHelper.type(cs, builder)} runs BEFORE the pre-load, so any ancestor that is
+     * mid-load has its modifiers already final — and {@code recursionPrevention} is exactly the set of
+     * types that are mid-load. An ancestor that is neither computed nor mid-load has NOT had its flags set,
+     * so we compute nothing and let {@code computeAccess} throw with the type named: refusing to guess is
+     * better than a silent PACKAGE.
+     * <p>
+     * Recomputation is idempotent: the ancestor's own {@code loadType} reaches {@code computeAccess} later
+     * with the same modifiers and the same enclosing access, so it sets the identical value.
+     */
+    private void ensureEnclosingAccess(TypeInfo typeInfo) {
+        List<TypeInfo> missing = new ArrayList<>();
+        TypeInfo t = typeInfo;
+        while (t.compilationUnitOrEnclosingType().isRight()) {
+            t = t.compilationUnitOrEnclosingType().getRight();
+            // an ancestor with an access implies all of ITS ancestors have one, by construction of computeAccess
+            if (t.access() != null) break;
+            missing.add(t);
+        }
+        for (TypeInfo ancestor : missing.reversed()) {
+            if (ancestor.access() != null) continue;
+            if (!recursionPrevention.contains(ancestor)) return;
+            ancestor.builder().computeAccess();
+        }
+    }
+
     void loadType(Symbol.ClassSymbol cs, TypeInfo newTypeInfo, LoadMode loadMode) {
         if (cs == null) return;
         if (newTypeInfo.hasBeenInspected()) return;
@@ -372,6 +406,16 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     if (cs.owner instanceof Symbol.ClassSymbol enclosing) {
                         loadType(enclosing, newTypeInfo.compilationUnitOrEnclosingType().getRight(), LoadMode.LAZILY);
                     }
+                    // GAP #150. The pre-load above is a NO-OP in exactly the one case it exists for: when the
+                    // enclosing type is an ANCESTOR ALREADY ON THIS STACK, `recursionPrevention.add` returns
+                    // false and the whole body -- including its own computeAccess -- is skipped, so the
+                    // enclosing's access stays null and the computeAccess below throws.
+                    // That happens because line 421's `convert(cs.getSuperclass())` reaches back DOWN into a
+                    // nested type: for `Subject extends Base<Subject.Outer.Inner>`, loading Outer pre-loads
+                    // Subject, whose supertype clause resolves the type argument Inner, whose own pre-load of
+                    // Outer is the no-op. ⇒ the enclosing chain is established UPWARD while the supertype
+                    // conversion re-enters DOWNWARD past the type we are in the middle of.
+                    ensureEnclosingAccess(newTypeInfo);
                 }
                 builder.computeAccess();
                 if (typeAnnotationsLoaded.add(newTypeInfo)) {
@@ -835,14 +879,31 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     MethodInfo addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms, boolean synthetic) {
         if (typeInfo.hasBeenInspected()) {
-            LOGGER.error("Type {} has been committed, yet we're trying to add a method to its builder",
-                    typeInfo.descriptor());
-            LOGGER.error("Method to add: {}", ms.toString());
-            LOGGER.error("Current methods + constructors:\n{}",
-                    typeInfo.constructorAndMethodStream()
-                            .map(Info::descriptor)
-                            .collect(Collectors.joining("\n")));
-            throw new UnsupportedOperationException();
+            // GAP #12's residual. This threw a BARE UnsupportedOperationException while logging the three facts
+            // that identify the cause, so the parse's top-level verdict named neither the type nor the artifact
+            // and read as a source problem. It cost a session: 18 dropped units, 10 of them never touched by the
+            // edit. ▶ THE INFORMATION WAS NEVER MISSING — THE PRESENTATION WAS. Put it in the exception, where
+            // whoever sees the failure will actually read it, and name the stale jar plus the remedy.
+            // ⚠ javac's own ClassSymbol.classfile is what names the artifact on the INCOMING side — without it
+            // the message can only describe the committed side, and the jar is as often on the other one.
+            URI incomingOrigin = null;
+            if (ms.owner instanceof Symbol.ClassSymbol owner && owner.classfile != null) {
+                try {
+                    incomingOrigin = owner.classfile.toUri();
+                } catch (RuntimeException ignored) {
+                    // a diagnostic must never be the thing that throws
+                }
+            }
+            String message = StaleArtifactDiagnosis.message(typeInfo.descriptor(),
+                    typeInfo.compilationUnit() == null ? null : typeInfo.compilationUnit().uri(),
+                    typeInfo.compilationUnit() == null || typeInfo.compilationUnit().sourceSet() == null
+                            ? null : typeInfo.compilationUnit().sourceSet().name(),
+                    isSourceSymbol(ms),
+                    incomingOrigin,
+                    ms.toString(),
+                    typeInfo.constructorAndMethodStream().map(Info::descriptor).toList());
+            LOGGER.error("{}", message);
+            throw new UnsupportedOperationException(message);
         }
         MethodInfo inMap = methodSymbolMap.get(ms);
         if (inMap != null) return inMap;
