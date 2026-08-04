@@ -4,6 +4,10 @@ How we harden `maddi-modification-link` and `maddi-modification-analyzer` agains
 two-part code audit on 2026-07-14. Companion to `prep-analyzer hardening.md` (same house style) — read that first;
 the prep stage is already hardened and is the **template** for what follows.
 
+> **The H items are tracked as GitHub issues** — see the tracking issue #14. This document
+> remains the record: the M and L items, the sequencing, and the risks live here only.
+> Fixing an item means ticking its checkbox here in the same pull request.
+
 ## Status / framing
 
 - **Scope is robustness, not outcome.** "Never crash / degrade gracefully on real code" is the target here.
@@ -79,7 +83,7 @@ of. The two closest things fall short:
 - `RunMixedPrepAnalyzer` (`maddi-run-kotlin/.../RunMixedPrepAnalyzer.java`) — surveys real projects but **stops
   after prep** ("modification analysis has open issues on real code, handled elsewhere", `:40-43`).
 
-- [ ] **H** Build a **full-pipeline survey** (parse → prep → link → analyzer) that runs fault-tolerantly over big
+- [ ] **H** (#20) Build a **full-pipeline survey** (parse → prep → link → analyzer) that runs fault-tolerantly over big
   real corpora (JDK modules, a handful of real third-party jars) and, instead of failing, **buckets every crash**
   by `(exception type, throwing class:line, offending Info, minimal source span)`. Model it on the `TestCloneBench`
   loader/parallel harness + the `RunMixedPrepAnalyzer` survey `Main`. Output = a ranked crash inventory that feeds
@@ -126,14 +130,14 @@ rendered by the extended `ErrorReport` (see framing; `9bd209ab`). §2 is the *cr
 *findings* channel — a small catch-and-emit in the per-`Info` loop. **Pure wrapper — no analysis logic**, which is
 the one modification-subsystem change the ownership rule permits.
 
-- [ ] **H** `SingleIterationAnalyzerImpl.go` (the per-`Info` loop; today `catch (RuntimeException | AssertionError)
+- [ ] **H** (#21) `SingleIterationAnalyzerImpl.go` (the per-`Info` loop; today `catch (RuntimeException | AssertionError)
   { LOGGER.error(...); throw e; }`, `:84-108` on the kotlin trunk / `guard-mode`): on a `faultTolerant` flag, turn
   the catch into **emit a `Message`** — `Severity.ERROR`, `category("analyzer-crash")` (or `"link-crash"` when the
   throwable comes from `LinkComputerImpl`), `info()` = the offending `Info`, `source()` derived from it,
   `message()` = the exception summary, `causes()` optionally carrying the trimmed stack — into the **same `messages`
   collector** guard injected, then **continue** to the next `Info`. No new type, no `AnalyzerException` revival;
   reuse the guard `Message` path end to end.
-- [ ] **H** Because **link runs *inside* the analyzer's per-method loop** (`SingleIterationAnalyzerImpl.java:55,89`
+- [ ] **H** (#21) Because **link runs *inside* the analyzer's per-method loop** (`SingleIterationAnalyzerImpl.java:55,89`
   → `LinkComputerImpl.doMethod`; the runner never calls link directly), this single catch *also* isolates link
   crashes: a method whose linking throws is recorded and skipped, the type's other methods still analyze. Highest-
   leverage robustness change here — it converts "1 crash = 0 results" into "1 crash = 1 skipped method," and the
@@ -159,11 +163,11 @@ the one modification-subsystem change the ownership rule permits.
 `sv-integration` tree, ranked by the recon's real-world crash likelihood. Sites are in
 `maddi-modification-link/src/main/java/org/e2immu/analyzer/modification/link/`:
 
-- [ ] **H** `impl/ExpressionVisitor.java:87` — the `visit(...)` switch `default -> throw new
+- [ ] **H** (#22) `impl/ExpressionVisitor.java:87` — the `visit(...)` switch `default -> throw new
   UnsupportedOperationException("Implement: " + …)`. Any CST expression kind not enumerated aborts the method.
   Proposal: degrade to an empty `Result` (+ a recorded diagnostic) rather than throw. This is the single biggest
   real-world crash risk.
-- [ ] **H** `impl/graph/LinkGraph.java:41` — `throw new UnsupportedOperationException("cycle protection")` after a
+- [ ] **H** (#23) `impl/graph/LinkGraph.java:41` — `throw new UnsupportedOperationException("cycle protection")` after a
   hard 20-iteration cap (comment admits maddi's own code approaches it). Proposal: fall back to shallow linking for
   that method rather than abort. Regression already exists (`impl2/Test2` "cycle protection").
 - [ ] **M** Name/arity/structural assumptions that real code violates:

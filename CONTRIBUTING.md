@@ -55,6 +55,37 @@ Read [`ARCHITECTURE.md`](ARCHITECTURE.md) first for the module map and reading p
    link natures, convergence rules), update `road-to-immutability/llm-summary.md` (and the book
    chapter if affected) in the same change.
 
+## Proposing a change
+
+**Open an issue first for anything non-trivial.** A typo fix or an obviously-correct one-liner can
+go straight to a pull request; anything that changes behaviour, adds a dependency, or takes more
+than an afternoon is worth agreeing on first — maddi has strong opinions about what its
+annotations *mean*, and a technically fine PR can still be wrong about the semantics.
+
+Pull requests target **`main`**. The maintainer pushes directly; contributors open PRs. CI runs
+`./gradlew build` (compile plus everything not tagged `slow`) on every PR, and it must be green.
+
+**Sign off your commits.** maddi uses the [Developer Certificate of Origin](DCO) — a statement that
+you have the right to submit the code you are contributing. There is nothing to sign and no account
+to create: add a `Signed-off-by` line to each commit, which `git` writes for you:
+
+```bash
+git commit -s -m "your message"          # or, to fix a branch you already wrote:
+git rebase --signoff main
+```
+
+A CI job checks it. There is no CLA — contributions stay under the licence of the module you
+touched, and that licence differs by module:
+
+- **`maddi-support`** (the annotations, the only artifact your own code compiles against) is
+  **Apache-2.0** from 0.9.0 onward.
+- **Everything else** — the analyzer — is **LGPL-3.0**.
+
+Before opening the PR, the two rules most likely to send it back: an engine or performance change
+needs a byte-identical `FPDUMP` A/B run on the proving-ground corpora, and a change to what the
+analyzer *means* must update `road-to-immutability/llm-summary.md` in the same PR. Both are spelled
+out above and repeated in the pull request template.
+
 ## Names that must not appear
 
 maddi is public, and it is developed alongside closed-source CodeLaser work and exercised against

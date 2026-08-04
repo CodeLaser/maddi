@@ -116,15 +116,15 @@ homepage link. Now:
   `program-analysis`, `static-analysis`.
 - **Discussions**: enabled — questions about the *concepts* previously had nowhere to go.
 
-> **Tooling note.** The `gh` CLI on this machine is authenticated as a secondary account, which
-> has `{admin: false, push: false, pull: true}` on `CodeLaser/maddi`. Any write through `gh` fails
-> with a bare **HTTP 404** (GitHub returns 404, not 403, for repos you can read but not administer).
-> Git pushes still work because the SSH remote uses a different, privileged identity. The same
-> account limit is why Dependabot alerts could not be read in §1. Do repo administration in the web
-> UI, or `gh auth login` as the owning account first.
+> **Tooling note — resolved 2026-08-04.** `gh` was authenticated as a secondary account with
+> `{admin: false, push: false, pull: true}`, so every write returned a bare **HTTP 404** (GitHub
+> returns 404, not 403, for a repo you can read but not administer). It is now authenticated as
+> the owning account with `admin: true`, and repo administration through `gh` works — the labels
+> in §Phase 1 of `opening-up-to-contributors.md` were created that way. If writes start 404-ing
+> again, check `gh auth status` before believing anything else.
 
-- [ ] Social preview image — still unset. It is what renders whenever anyone links the repo in
-      Slack, on Mastodon/X, or in a chat client; the default is a grey placeholder.
+- [x] Social preview image — **set** (verified 2026-08-04; the repo no longer serves GitHub's
+      generated default).
 
 ## 3. CI — workflow added 2026-07-22, first run not yet observed
 
@@ -244,9 +244,9 @@ jmod-less test harness, and — positively — the first real execution of `Test
 - [ ] Optional cleanup: drop the "Report JDK layout" step now that CI is settled, or keep it as
       cheap documentation of why the distribution choice matters. Keeping it is the safer default —
       it is what makes a future jmods-related failure diagnosable from the log alone.
-- [ ] Javadoc warnings surfaced as annotations on the green run (e.g. `Commutable.java#58` "no
+- [ ] (#4) Javadoc warnings surfaced as annotations on the green run (e.g. `Commutable.java#58` "no
       comment", "no @return"). Harmless, but they are the only noise on an otherwise clean run.
-- [ ] No Gradle toolchain is declared anywhere, so the build silently uses whatever `JAVA_HOME`
+- [ ] (#5) No Gradle toolchain is declared anywhere, so the build silently uses whatever `JAVA_HOME`
       offers — the same class of latent portability bug as the heap default. Declaring one would
       make CI and local builds agree by construction.
 
@@ -278,12 +278,12 @@ a chapter of its own. Now *13. Support classes in the analyzer*, with *Other ann
 renumbered to 14. The `[#in-the-analyzer]` anchor is unchanged, so the two cross-references from
 `060-eventual.adoc` still resolve (5 `href="#in-the-analyzer"` links in the built HTML).
 
-- [ ] Decide the same question for `static/docs/manual.html`, still the 2021 e2immu manual. Unlike
+- [ ] (#11) Decide the same question for `static/docs/manual.html`, still the 2021 e2immu manual. Unlike
       the book, the manual documents *operating* a tool — and maddi has no release yet (§6), so a
       fresh render would describe CLI and plugins nobody can install. Either rebuild it
       (`./gradlew :maddi-manual:buildDocs`) at release time, or leave the old one carrying its
       archive banner until then.
-- [ ] Link the book from the repo homepage field (§2), the README, and codelaser.io.
+- [ ] (#12) Link the book from the repo homepage field (§2), the README, and codelaser.io.
 - [ ] Longer term the book wants its own stable home under a maddi domain; hosting the current
       edition on the archived predecessor's site is a stopgap, not the destination.
 
@@ -293,7 +293,7 @@ Says nothing about maddi. The OSS/commercial relationship is better stated plain
 inferred — unclear boundaries make people suspicious of exactly the projects they would otherwise
 adopt.
 
-- [ ] One paragraph: maddi is the LGPL analysis engine, Refactor is the commercial product built on
+- [ ] (#12) One paragraph: maddi is the LGPL analysis engine, Refactor is the commercial product built on
       it, maddi stays open source. The README now carries the mirror image of this.
 
 ## 6. Release 0.9.0
@@ -303,15 +303,15 @@ deliberate outward-facing runs. Until this happens, "install maddi" has no answe
 
 - [x] `maddi-support` → Maven Central. **DONE 2026-07-22: 0.9.0, Apache-2.0, verified
       dependency-free in the published POM and module metadata.**
-- [ ] Gradle plugin → Plugin Portal (needs `com.gradle.plugin-publish` applied + a Portal key).
-- [ ] CLI zips → GitHub Release via `release-cli.sh <tag>` (needs authenticated `gh`).
-- [ ] Maven plugin — untested against a real `mvn` invocation. Either test it or say so in the
+- [ ] (#7) Gradle plugin → Plugin Portal (needs `com.gradle.plugin-publish` applied + a Portal key).
+- [ ] (#8) CLI zips → GitHub Release via `release-cli.sh <tag>` (needs authenticated `gh`).
+- [ ] (#9) Maven plugin — untested against a real `mvn` invocation. Either test it or say so in the
       release notes.
 - [x] README now leads with the `io.codelaser:maddi-support:0.9.0` coordinate (commit 2ff3836f).
-- [ ] **Blocker for the CLI and plugin legs:** `gh` is authenticated as a secondary account,
-      which has `pull` only on `CodeLaser/maddi` (see §2). `release-cli.sh` runs `gh release
-      create`, which needs write access — re-auth as the owning account first, or the release
-      will fail on the upload step after doing all the build work.
+- [x] **Was a blocker for the CLI and plugin legs, cleared 2026-08-04:** `gh` had `pull` only on
+      `CodeLaser/maddi`, and `release-cli.sh` runs `gh release create`, which needs write access.
+      It is now authenticated as the owning account with `admin: true` (see §2), so the release
+      legs are no longer gated on this.
 
 ## 7. Split the licence — DECIDED 2026-07-22
 
@@ -336,7 +336,7 @@ Note the repo-root `copyright_file.txt` still holds the LGPL header, which is co
 template for the *analyzer*, which stays LGPL. Anything that applies it to `maddi-support` would
 undo this.
 
-- [ ] Say the split explicitly in the 0.9.0 release notes. **0.8.2 was published under
+- [ ] (#10) Say the split explicitly in the 0.9.0 release notes. **0.8.2 was published under
       LGPL-3.0-or-later on 2025-08-18 and stays that way** — a released version cannot be
       relicensed. Only 0.9.0 onward is Apache-2.0, and users wanting permissive terms must upgrade.
       A project that quietly relicenses part of itself invites exactly the suspicion the split is
@@ -349,7 +349,7 @@ Stop leading with the acronym — "duplication detection" appears nowhere else i
 so the first sentence a newcomer reads advertises a capability they will never find. The README no
 longer expands it at all.
 
-- [ ] Two other places still lead with the expansion, if you want them consistent:
+- [ ] (#3) Two other places still lead with the expansion, if you want them consistent:
       `maddi-manual/src/docs/asciidoc/sections/010-overview.adoc` (first line) and
       `road-to-immutability/src/docs/asciidoc/sections/010-introduction.adoc` (paragraph 1).
 

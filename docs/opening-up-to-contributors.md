@@ -57,66 +57,77 @@ document section for the why.
 
 ## 3. The plan, in four phases
 
-### Phase 1 — make the repository safe to land on
+### Phase 1 — make the repository safe to land on — DONE 2026-08-04
 
-- [ ] Decide the PR target (§1).
-- [ ] `.github/ISSUE_TEMPLATE/` — bug and question, both asking for maddi version, JDK, and whether
-      it is the javac or CongoCC front end.
-- [ ] `.github/PULL_REQUEST_TEMPLATE.md` — points at the golden rule (byte-identical `FPDUMP` A/B for
-      engine changes) and the fast/slow test split.
-- [ ] `CODE_OF_CONDUCT.md`, `SECURITY.md`.
-- [ ] Labels beyond the nine defaults: `front-end:javac`, `front-end:kotlin`, `engine:link`,
-      `engine:analyzer`, `ide`, `build/ci`, `docs`.
+- [x] PR target: **`main`**, kept current by merging `devel` → `main`. Both were pushed level
+      on 2026-08-04, which removed the "12 behind" problem this phase existed to fix.
+- [x] `.github/ISSUE_TEMPLATE/` — `analysis-verdict.yml` (the characteristic report for an
+      analyzer: computed vs expected, with a distilled type), `bug.yml` (crashes and failures),
+      and `config.yml` routing concept questions to Discussions. Both forms ask for version, JDK
+      and front end; the bug form asks whether the JDK ships `jmods/`.
+- [x] `.github/PULL_REQUEST_TEMPLATE.md` — the golden rule (byte-identical `FPDUMP` A/B for engine
+      changes), the fast/slow split, the concept-changes-land-in-the-docs rule, and the per-module
+      licence.
+- [x] `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1) and `SECURITY.md` — the latter scoped to
+      what maddi actually is: it parses untrusted input, and the IDE daemon listens locally.
+- [x] Eight labels beyond the nine defaults: `front-end:javac`, `front-end:kotlin`,
+      `engine:analyzer`, `engine:link`, `engine:prepwork`, `ide`, `build/ci`, `corpus`. No `docs`
+      label — the default `documentation` already covers it.
 
-### Phase 2 — the first ~15 issues, chosen to be landable by a stranger
+### Phase 2 — the first issues, chosen to be landable by a stranger — DONE 2026-08-04
 
-Not the backlog — the self-contained items, most of them `good first issue`:
+Eleven issues, #2–#12. Not the backlog: the self-contained items, five of them `good first issue`.
+Two planned items turned out to be **already fixed** — the social preview, and one half of the
+acronym item — which is worth noting as a habit: verify a checklist claim against the repository
+before filing it as an issue.
 
-- [ ] The three `test*plugin/README.md` files whose instructions cannot be followed
-      (`doc-audit-2026-07-30.md` §3.5).
-- [ ] Acronym-expansion inconsistency in the manual and book intros (`landing-surface-checklist.md` §8).
-- [ ] Social preview image, still unset (§2).
-- [ ] Javadoc warnings on the otherwise clean CI run (§3).
-- [ ] `eclipse-plugin-state.md` vs `maddi-eclipse/README.md` contradict each other — one is wrong
-      (`doc-audit` §3.3).
-- [ ] The four open release legs (§6): Gradle plugin → Plugin Portal, CLI zips → GitHub Release,
-      Maven plugin untested against a real `mvn`, licence split stated in the 0.9.0 release notes.
+- [x] #2 — the three `test*plugin/README.md` files whose instructions cannot be followed.
+- [x] #3 — acronym expansion still in the manual and book intros.
+- [x] Social preview image — **already done**; the checklist was stale, now corrected.
+- [x] #4 — javadoc warnings on the clean CI run. Also filed #5, the undeclared Gradle toolchain.
+- [x] #6 — `eclipse-plugin-state.md` and `maddi-eclipse/README.md` contradict each other.
+- [x] #7, #8, #9, #10 — the four release legs. Also #11 (the manual is still the 2021 edition) and
+      #12 (link the book from the README and codelaser.io).
 
-### Phase 3 — roadmaps become tracking issues, not 49 issues
+### Phase 3 — roadmaps become tracking issues, not 49 issues — DONE 2026-08-04
 
-The two hardening documents stay documents. Each gets **one tracking issue** plus **one issue per
+Sixteen issues, #13–#28. The two hardening documents stay documents. Each gets **one tracking issue** plus **one issue per
 `H` item** (~10 total). Filing 49 fine-grained M/L items on a repository with zero issues buries the
 ones a newcomer could act on. `ide-todo.md` §4's five bullets are individually issue-shaped; §§1–3
 are design and stay prose.
 
-- [ ] Tracking issue + H items for `prep-analyzer hardening.md`.
-- [ ] Tracking issue + H items for `modification-link-analyzer hardening.md`.
-- [ ] Five issues from `ide-todo.md` §4.
-- [ ] Add a fourth status label to `docs/README.md`: **tracked** — the document explains, the issues
-      track.
+- [x] #13 tracking, #15–#19 the five H items.
+- [x] #14 tracking, #20–#23 the four H items (§2's two H bullets are one change, so one issue).
+- [x] #24–#28 — the five `ide-todo.md` §4 items.
+- [x] Fourth status label in `docs/README.md`: **tracked** — the document explains, the issues track.
 
-### Phase 4 — write the rule down
+### Phase 4 — write the rule down — DONE 2026-08-04
 
-- [ ] `CONTRIBUTING.md`: a "Proposing a change" section — issue first for anything non-trivial, PR
-      against the chosen branch, CI green, engine changes need the `FPDUMP` A/B, and which licence a
-      contribution falls under per module.
-- [ ] `AGENTS.md` §Working style: amend "new design notes go in `docs/`" to "design notes go in
-      `docs/`; **open work items go to GitHub issues, not to new checkbox files**".
-- [ ] `CLAUDE.md`: two lines pointing at the above; keep it short and pointer-based.
+- [x] `CONTRIBUTING.md` §"Proposing a change" — issue first for anything non-trivial, PR against
+      `main`, CI green, DCO sign-off, the `FPDUMP` A/B rule, and the per-module licence.
+- [x] `AGENTS.md` §Working style: open work items go to GitHub issues, not to new checkbox files;
+      and do not push to `devel`/`main` or open a PR unasked.
+- [x] `CLAUDE.md`: a short header pointing at both rules, kept pointer-based.
+- [x] `DCO` at the repository root, plus a `dco` CI job that fails a PR whose commits lack
+      `Signed-off-by`.
 
 ---
 
 ## 4. Decisions that are not mine to make
 
-1. **PR target** — `main` with a regular `devel` → `main` merge, or `devel` as default. (§1)
-2. **Contributor licensing — settle before the first PR, not after.** CodeLaser ships Refactor on
-   this engine. Without a DCO or CLA, third-party contributions arrive LGPL-3.0-only from their
-   authors: workable as things stand, but it forecloses any future relicensing or dual-licensing of
-   the analyzer, and retrofitting agreement from contributors afterwards is the classic painful case.
-   A DCO (a `Signed-off-by` line, enforced by an action) is the low-friction option and the
-   recommendation; a CLA is heavier and deters casual contributors. Either way `CONTRIBUTING.md`
-   must say plainly: contributions to `maddi-support` are Apache-2.0, everything else LGPL-3.0.
-3. **Phase 3 granularity** — H items only (~10 issues), or all 49 checkboxes.
+1. ~~**PR target**~~ — **decided 2026-08-04: `main`**, kept current by merging `devel` → `main`.
+2. ~~**Contributor licensing**~~ — **decided 2026-08-04: DCO, no CLA.** Contributors sign off with
+   `git commit -s`; a CI job enforces it. Note what this deliberately does *not* buy: contributions
+   remain LGPL-3.0 from their authors, so relicensing or dual-licensing the analyzer later would
+   still need each contributor's agreement. That was accepted in exchange for not putting a signing
+   step in front of a drive-by fix. `CONTRIBUTING.md` states the per-module split: `maddi-support`
+   Apache-2.0, everything else LGPL-3.0.
+3. ~~**Phase 3 granularity**~~ — **decided 2026-08-04: H items only**, plus one tracking issue per
+   roadmap. The roadmap documents stay the full record.
+4. ~~**The scan in CI**~~ — **decided 2026-08-04: no.** Running it would mean holding the customer
+   name in GitHub Actions secrets. The commit hook covers the maintainer's machines and the `guard`
+   job blocks the term list from being committed; the residual gap is a worktree where
+   `core.hooksPath` was never set.
 
 ---
 
@@ -140,7 +151,10 @@ per clone and per worktree** — `git config core.hooksPath .githooks` — which
 together with `--no-verify` and fast-forward merges. A `--tracked` scan in `build.yml` is about six
 lines and would make it a check that cannot be skipped.
 
-- [ ] Wire the scan into CI.
+- [~] A `guard` job in `build.yml` now fails if the term list is ever committed, and if the
+      example file goes missing. The **scan itself** is not in CI: it needs the term list, which
+      would mean putting the customer's name into GitHub Actions secrets. That is a deliberate
+      open decision, not an oversight.
 
 ---
 

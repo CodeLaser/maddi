@@ -4,6 +4,11 @@ Before quoting a `slowTest` run as evidence for an engine change, read **`AGENTS
 a green corpus run can be cached, skipped, vacuous, or heap-starved, and each looks like success.
 Force the re-run and read the per-test roll-call.
 
+This repository is **public** and takes outside contributions. Two rules that follow from that,
+both detailed in `AGENTS.md` §Working style and `CONTRIBUTING.md`: the customer behind the private
+proving corpus is never named (write `closed-core` / `com.example.*`; a commit hook refuses the
+rest), and **open work items become GitHub issues rather than new checkbox `.md` files**.
+
 Orientation: **`ARCHITECTURE.md`** (pipeline, module map, reading paths by intent),
 **`AGENTS.md`** (tool-agnostic assistant guidance: commands, engine facts, working style),
 **`CONTRIBUTING.md`** (build/test workflow), **`docs/README.md`** (index of cross-module

@@ -15,6 +15,59 @@ permissions:
   contents: read
 
 jobs:
+  # The term list for the internal-names guard must never be committed: a list of the names
+  # to redact is a decoder ring for the redaction. The scan itself cannot run here without
+  # the list (see CONTRIBUTING.md), but this half needs nothing and catches the one mistake
+  # that would undo the redaction.
+  guard:
+    name: internal-names guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: The term list must not be in the repository
+        run: |
+          if git ls-files --error-unmatch .githooks/internal-names.txt >/dev/null 2>&1; then
+            echo "::error file=.githooks/internal-names.txt::The internal-names term list is committed."
+            echo "It must live outside the repository — see CONTRIBUTING.md, 'Names that must not appear'."
+            exit 1
+          fi
+          test -f .githooks/internal-names.txt.example || {
+            echo "::error::.githooks/internal-names.txt.example is missing; contributors have no format reference."
+            exit 1
+          }
+          echo "OK: term list absent, example present."
+
+  # Every commit in a pull request must carry a Signed-off-by trailer: the Developer
+  # Certificate of Origin (see DCO and CONTRIBUTING.md). `git commit -s` adds it.
+  dco:
+    name: DCO sign-off
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Every commit carries Signed-off-by
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          missing=0
+          for c in $(git rev-list --no-merges "$BASE".."$HEAD"); do
+            if ! git log -1 --format='%B' "$c" | grep -qiE '^Signed-off-by: .+ <.+@.+>'; then
+              echo "::error::$(git log -1 --format='%h %s' "$c") — no Signed-off-by"
+              missing=1
+            fi
+          done
+          if [ "$missing" = 1 ]; then
+            echo "Add sign-off with:  git commit --amend -s   (or  git rebase --signoff $BASE)"
+            echo "What you are certifying is in the DCO file at the repository root."
+            exit 1
+          fi
+          echo "OK: all commits signed off."
+
   build:
     name: build + fast tests (JDK ${{ matrix.java }})
     runs-on: ubuntu-latest

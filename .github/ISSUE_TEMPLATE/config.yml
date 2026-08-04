@@ -1,0 +1,10 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question about the concepts
+    url: https://github.com/CodeLaser/maddi/discussions
+    about: >
+      Immutability levels, hidden content, linking, independence, eventual immutability —
+      ask in Discussions. Reading The Road to Immutability first will usually answer it faster.
+  - name: The Road to Immutability
+    url: https://www.e2immu.org/docs/road-to-immutability.html
+    about: The book the analyzer implements. The condensed digest is road-to-immutability/llm-summary.md.
