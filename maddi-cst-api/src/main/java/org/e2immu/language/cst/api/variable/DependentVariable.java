@@ -25,7 +25,18 @@ import org.e2immu.language.cst.api.expression.Expression;
  */
 public interface DependentVariable extends Variable {
 
-    /** Returns the variable that holds the array being indexed. */
+    /**
+     * Returns the variable that holds the array being indexed, or {@code null} when the array expression is
+     * not a variable at all — {@code map.get(k)[0]} has an array <em>expression</em> and no array
+     * <em>variable</em>. Use {@link #arrayExpression()}, which is always present, when you need something
+     * unconditional.
+     * <p>
+     * ⚠ This nullability was undocumented while {@link #indexVariable()}'s was documented, and callers took
+     * the silence as a guarantee: {@code DependentVariableImpl} carries a comment recording two sites that
+     * had to be fixed for it, and a third (the refactor DSL's {@code AstToMap}) took down a whole corpus
+     * query with a message-less {@code NullPointerException} from a pattern switch. Stated here so the next
+     * caller does not have to read the implementation to find out.
+     */
     Variable arrayVariable();
 
     /**
