@@ -325,7 +325,7 @@ public class TestIsolateClass4Compiles {
         // and the import does not even compile: a single-static-import must name an ACCESSIBLE member, and
         // 'protected' does not cross the package boundary. "cannot find symbol: static helper".
         // 10 corpus trees, the largest cause of the 34, and the only one that is a wrong decision rather than a
-        // missing one (axis2's Stub.getFactory, closed-core' BaseSessionBean.checkAddRestrictedMessage).
+        // missing one (axis2's Stub.getFactory, closed-core's BaseSessionBean.checkAddRestrictedMessage).
         assertCompiles(tree);
     }
 

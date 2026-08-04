@@ -134,7 +134,7 @@ hack?" but are *type-based*, not string sniffs, and carry no crash risk — left
 
 ### F5 — Naming debt
 The `formatter2` package and `Formatter2Impl` were never renamed after the old formatter was
-removed (commit `26d8b553`). 18 references across 5 files. Low risk, mechanical, do with an IDE
+removed (commit `ddecc9d7`). 18 references across 5 files. Low risk, mechanical, do with an IDE
 refactor when convenient.
 
 ### F6 — (FIXED) deep nesting on a narrow page went off the rails

@@ -80,7 +80,7 @@ they are probably not even looking at.
 refines them. On a large project this changes the feel completely: the file on screen is annotated in seconds
 rather than after the whole run.
 
-**The design question — answered, and the engine half has landed.** `AnalysisValueFeed` (`ec77f8bb`, merged
+**The design question — answered, and the engine half has landed.** `AnalysisValueFeed` (`d3269c2a`, merged
 from `kotlin`) settles it: published values are **write-once and refine monotonically**, so a consumer never
 needs retraction — a displayed value can only get stronger. Streaming is sound; no "stable subset" compromise
 is needed.
@@ -100,7 +100,7 @@ Three things it imposes on a consumer:
   documents (provisional → quiet → final at `TERMINAL_CERTIFIED`) rather than presenting early values as
   settled.
 
-**Delivered** (`1ceeb223` daemon, `d68fe382` front-ends).
+**Delivered** (`1e830074` daemon, `1c38719f` front-ends).
 
 - *Daemon*: `StreamingValueFeed` turns pass boundaries into a **new non-terminal `partialResult` frame**,
   chosen over making `result` repeatable — `DaemonClient.analyze` loops until `result`/`error` and hands

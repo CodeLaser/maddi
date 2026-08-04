@@ -158,7 +158,7 @@ failure, not a trade-off — this is a representation change.
 
 # 6. Instrumentation already in place
 
-Committed with the measurement work (maddi `f035f611`), all of it usable without any downstream stack:
+Committed with the measurement work (maddi `536ade20`), all of it usable without any downstream stack:
 
 | knob | what it does |
 |---|---|

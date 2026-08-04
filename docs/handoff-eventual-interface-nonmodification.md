@@ -2,7 +2,7 @@
 
 **Audience:** a fresh model implementing this without today's session context.
 **Status:** designed, not implemented. One speculative attempt was made and reverted (see §7).
-**Base commit:** `66913f72` on branch `ws/eventual`. Tree clean.
+**Base commit:** `1634a823` on branch `ws/eventual`. Tree clean.
 **Gate:** everything here lives behind the env gate `EVENTUALCLUSTER` (set = on). Off the gate, all of it must be a no-op.
 
 ---
@@ -64,7 +64,7 @@ gated, so gate-OFF must be a literal no-op. See §8.
 
 ## 2. The observed problem (the dogfood scoreboard)
 
-Run the dogfood with `EVENTUALCLUSTER=1` (recipe in §8). Current state at base commit `66913f72`:
+Run the dogfood with `EVENTUALCLUSTER=1` (recipe in §8). Current state at base commit `1634a823`:
 
 - Log line: `EC contraction: retracted 12 optimistic eventual verdict(s)…`
 - Surviving eventual verdicts: **5** (all genuinely self-contained: `ModuleInfo.Provides`/`Uses`, `Variable`,
@@ -81,7 +81,7 @@ which the analyzer never establishes. The fix is to establish them, not to weake
 
 ## 3. Diagnostic: exactly which methods block the interfaces
 
-FPDUMP was extended (commit `66913f72`) to emit `eventuallyNonMod=[…]` and `eventual=…` on method lines. Set
+FPDUMP was extended (commit `1634a823`) to emit `eventuallyNonMod=[…]` and `eventual=…` on method lines. Set
 `FPDUMP=<file>` on the dogfood run and inspect the interface methods.
 
 For an interface (fieldless) to reach `IMMUTABLE_HC`-after-`inspection`, **every** abstract accessor that is
@@ -368,7 +368,7 @@ task (tag-gated). Compare the change vs. base with the gate **off**:
 # B = your branch, gate off (no EVENTUALCLUSTER):
 FPDUMP=/tmp/B.txt ./gradlew :maddi-run-openjdk:slowTest \
   --tests "org.e2immu.analyzer.run.openjdkmain.TestFernflower" --rerun-tasks
-# A = base commit 66913f72 (git stash your change), same command → /tmp/A.txt
+# A = base commit 1634a823 (git stash your change), same command → /tmp/A.txt
 sort /tmp/A.txt > /tmp/A.s ; sort /tmp/B.txt > /tmp/B.s ; diff /tmp/A.s /tmp/B.s | wc -l   # must be 0
 ```
 A 0-line diff is required. If non-zero, the new leniency is leaking off-gate — tighten the `EventualCluster.ENABLED`
@@ -408,7 +408,7 @@ Part B alone will **not** take the retraction to 0. Remaining, in order:
 
 ---
 
-## 10. File / symbol index (base commit `66913f72`)
+## 10. File / symbol index (base commit `1634a823`)
 
 - `maddi-modification-analyzer/src/main/java/org/e2immu/analyzer/modification/analyzer/impl/`
   - `TypeEventualAnalyzerImpl.java` — **the file to change.** Key methods: `computeEventuallyNonModifying`

@@ -128,7 +128,7 @@ Precision audit (4 parallel agents over the fernflower tiers):
   (interface default?); lambda captured-content modification conflated with reassignment.
 
 Corpus regressions triaged in the same round:
-- **timefold+langchain4j exit 2**: main's 2026-07-17 lombok commit (b75683e2) passes
+- **timefold+langchain4j exit 2**: main's 2026-07-17 lombok commit (f6ee5fd0) passes
   -processor for EVERY source set when containsLombok() (config-GLOBAL) is true; source sets
   without the lombok jar on their classpath abort ENTER ("processor not found" →
   Elements.getTypeElement ISE in indexJavaLangForJavaDocParsing). **FIXED**: per-source-set
@@ -154,7 +154,7 @@ fernflower A/B zero-line):
   analyzes 50k elements (test-classes parse since lombok processing).
 - langchain4j: lombok 1.18.30 pinned by the corpus crashes under the embedded javac
   (TypeTag.UNKNOWN reflection). Added per-source-set degrade in JavaInspectorImpl: on a
-  lombok-frame RuntimeException the scan retries without the processor (pre-b75683e2
+  lombok-frame RuntimeException the scan retries without the processor (pre-f6ee5fd0
   behavior). Corpus went 0 → 53644 elements analyzed. Second latent:
   LinkFunctionalInterface.correspondingField threw UOE when the container type has no field
   of the requested type — now degrades to the untouched translation.
@@ -201,7 +201,7 @@ unmodifiedField doc note; immutability PRECISION audit now that the positive sid
 
 ## CURRENT STATE 2026-07-18 + NEXT ACTIONS (semantic-audit follow-up)
 
-State: branch sv-integration @ 7d255f00, clean, suites green (link 393/0, analyzer 143/0).
+State: branch sv-integration @ 2adc1d4b, clean, suites green (link 393/0, analyzer 143/0).
 Proving ground: timefold/langchain4j/fernflower/guava/activemq/jenkins-core + 8 camel-core
 modules, all certified & crash-free on defaults (worklist ON, PARALLEL ON min(8,cores-2),
 TestCorpusSweep gate SWEEP=name for the rest). Semantic audit done:
@@ -266,7 +266,7 @@ silently re-ran one stale config for all modules — element counts per line now
 
 ## UPDATE 2026-07-18 — JENKINS CORE GREEN (6th corpus): exit 0, certified in 13 iterations, 12.5 min
 
-After the kotlin-side prepwork fixes (merge efb87d26: commonType raw-argument fallback,
+After the kotlin-side prepwork fixes (merge 89653b94: commonType raw-argument fallback,
 shadowed captured variable), jenkins core runs the full modification chain: exit 0,
 certified, 30,478 elements, ZERO link/analyzer crashes. Residue (task #25, narrow): 10 of
 ~1,260 TEST files dropped at scan with 'cannot find symbol: Messages' — main sources
@@ -292,7 +292,7 @@ added. Proving ground now 5 corpora: timefold, langchain4j, fernflower, guava, a
 
 ## UPDATE 2026-07-18 — GUAVA GREEN (4th corpus): 2 more engine-wide O(n^2) kills + 4 crash fixes; 72s certified
 
-Guava first contact (post kotlin-merge scanner fixes 83c0c92d) stalled the link phase
+Guava first contact (post kotlin-merge scanner fixes f46ebc93) stalled the link phase
 INDEFINITELY on a single method (~2min in, "Done 7863", one thread pinned). Two jstack
 rounds found two more all-pairs scans, both now indexed (suites + java-parser green,
 verdict-neutral by construction):
@@ -323,7 +323,7 @@ Corpus-diversity round (user has ~15 candidates in ~/git/test-oss): TestCorpusSw
 inputConfiguration.json at its root; bar = exit 0. Guava + Jenkins nominated
 (generics/immutability depth; enterprise/DI shape) — configs generated via
 maddi-mvnplugin (main's jar-file-name fix; workingDirectory absolutized in the root
-copies; merge 5be888f9 brought main in, suites green).
+copies; merge 45f5ed21 brought main in, suites green).
 
 FIRST-CONTACT FINDINGS — all SCAN-level, a layer the original 3 corpora barely exercised:
 - guava (exit 2): (a) "Duplicating type HashBiMap.$0.MapEntry" — named inner class
@@ -468,7 +468,7 @@ single element. Phase-timing + top-10-slowest-elements instrumentation added; ne
 pins the serial fraction, then: parallelize the 2nd type pass (same safety argument as the
 main loop), longest-first scheduling if a slow tail dominates, then timefold/langchain4j
 PARALLEL A/B, then the PARALLEL default decision (worklist is already default-on since
-c5d86656, opt-out NOWORKLIST=1).
+41865ea4, opt-out NOWORKLIST=1).
 
 ## UPDATE 2026-07-17 — LANGCHAIN4J ALSO CERTIFIES: both corpora reach a machine-checked fixpoint
 
@@ -496,7 +496,7 @@ corpus-dependent (timefold's abstract constraint-stream test hierarchy is the pa
 
 ## UPDATE 2026-07-17 — RUN26: FIRST CERTIFIED FIXPOINT (timefold, 41 min, verdict-exact); the "non-idempotent ~36" were a starved convergence chain, not oscillation
 
-Run26 (WORKLIST=1 NOPLATEAU=1 MLTRACE=1, with the attribution fix from commit 8475dabe):
+Run26 (WORKLIST=1 NOPLATEAU=1 MLTRACE=1, with the attribution fix from commit b2b5841d):
 - 12 narrowing iterations to quiet (the methodLinks trickle now stays in the worklist and
   SETTLES: 20→13→3→0) → verification pass 1 finds 173 → 2 cheap subset iterations →
   pass 2 finds 4 (unmodifiedField 2 + unmodifiedParameter 2, ZERO methodLinks) → 1 subset
@@ -533,7 +533,7 @@ name the set (no dependency on the link module).
 
 ## UPDATE 2026-07-17 — RUN25: WORKLIST IS VERDICT-EXACT (0-line diff vs baseline); certification blocked by ~36 non-idempotent methodLinks
 
-Resume executed as planned: suites verified commit 9f6d8719 (link 393/0, analyzer 143/0 —
+Resume executed as planned: suites verified commit 1e1c4631 (link 393/0, analyzer 143/0 —
 note: gradle's `--rerun` is PER-TASK; trailing it after two tasks only reruns the last one,
 which is part of yesterday's "unreliable" impression). Run25 (WORKLIST=1 NOPLATEAU=1,
 FPDUMP) completed exit 0.
@@ -742,7 +742,7 @@ fields by name). CloneBench never hit this: single source set.
 TestCloneBench (the full corpus, 16 directories, previously always skipped) now runs
 **BUILD SUCCESSFUL in 1m48s** (parse 9306 types + analyze with parallelism 4 in 23s), on the
 'analyzed' branch of testarchive. Three fixes:
-1. **Engine perf (commit 10e004b5)**: Function18752956_file2311713 (a ~100-arm switch in a
+1. **Engine perf (commit 98b0006a)**: Function18752956_file2311713 (a ~100-arm switch in a
    loop; equal-quality witness ties are the COMMON case) took 583s alone. Fixed in three
    layers: putIfBetter's determinism tie-break no longer prints the recursive support set
    (structural comparison via vertexComparator, no strings); CompositeWitness holds child
@@ -847,7 +847,7 @@ TestSupplierSpec Stream.generate ⊆.
 
 The recaptured log (/tmp/jfocus-test-debug.log — **compileTestJava**, not compileJava:
 TestParSeqElement lives in the TEST tree; class comment corrected) exposed a CRASH present at
-least since f0e249e0: `MakeGraph` unconditionally emits the slice edge
+least since 9022ca28: `MakeGraph` unconditionally emits the slice edge
 'mapRight.§tts[-1] ≤ mapRight.§tts' (TestConsumers,2), and PRODUCTION
 (Options.objectGraphLinks=false) excludes ≤ from the engine — assert in addSymmetricEdge.
 Every recent "bench 746ms" record was made while the log was ABSENT (bench skipped via
@@ -903,7 +903,7 @@ Debug aid added: `FLIPTRACE=1` prints flip owner + builder at collection time.
 
 A/B: link 8 (zero regressions), analyzer 122/122, bench green.
 
-## UPDATE — cast/pattern ≡ cluster CLEARED; link 12 → 9 (commit ff35e95a)
+## UPDATE — cast/pattern ≡ cluster CLEARED; link 12 → 9 (commit 5200de0c)
 
 TestCast + TestInstanceOf + TestVariablesLinkedToObject green in BOTH modules. Four mechanisms:
 1. **Co-recipient identity** (`SharedVariables.assignmentEdgeStream`, gate `NOSIBEQ`): two group
@@ -972,7 +972,7 @@ TestSupplierSpec ×2).
 
 ## UPDATE — 'context divergence' DEBUNKED; ⊇→~ re-flip root-caused; VMIDIR default-on; link 15 → 13
 
-The class-vs-full-suite context divergence **does not exist**. At `7de1d9a6` itself, isolated
+The class-vs-full-suite context divergence **does not exist**. At `cde0c472` itself, isolated
 single-test AND class runs show the test4b:357 '⊇→~ flip + r≥0:in.§$s' — identically, 3/3
 stable. The previous session's 'clean class run' was a stale-result artifact: **gradle does
 not treat env vars as test-task inputs, so toggling a gate (VMIDIR=1) without `--rerun`
@@ -1350,7 +1350,7 @@ targets (`matrix[$__sv_col]`, `∋$__sv_matrix[$__sv_col]`) — `expandRepToMemb
 bases and field scopes but not index variables; and a `∈∈`-printed nature surfaced in the same
 dump (investigate label printing for deep-element natures).
 
-## UPDATE `66be9fbd` — TestParSeqLinkBench re-run: 2 crash fixes; SPINE COST DECISION PENDING
+## UPDATE `5e6ba1fb` — TestParSeqLinkBench re-run: 2 crash fixes; SPINE COST DECISION PENDING
 
 First deep-structure bench run since the spine era. Found and fixed two production crashes
 (addVertex non-idempotence — silently clobbered vertex edges AND spun the expand loop into
@@ -1368,7 +1368,7 @@ first time). Suite 62→61 (the clobbering had been corrupting 'instanceof patte
 
 The spine is the entire explosion: it re-enables the deep §-content ∩-web on recursive
 generics — the exact O(N²) cost that made the old engine grind 8 minutes and that the
-29d597d9 reduction cut. All other session mechanisms are performance-neutral or better
+44bf0197 reduction cut. All other session mechanisms are performance-neutral or better
 (RedundantLinks speeds things up by pruning). Materialization's share only matters because
 the spine bloats the closure it scans.
 
@@ -1383,7 +1383,7 @@ through spine edges (tests need 2-3 hops; the explosion is long transitive chain
 (3) accept the cost (contradicts sv's purpose). Working rule added: **run
 TestParSeqLinkBench after every engine-level change** (needs /tmp/jfocus-test-debug.log).
 
-## UPDATE `90b06320` — fluent-setter band + reverse-pair dedup; 62 failing (historical)
+## UPDATE `deb2a23c` — fluent-setter band + reverse-pair dedup; 62 failing (historical)
 
 Applying the techniques doc: (a) fluent-setter field mirror — the source face's field
 ('this.i') is collapsed into a DIFFERENT group, so `memberFieldsOf` + a source-face
@@ -1394,7 +1394,7 @@ removal). TestStaticValues1 ×3, TestGetSet ×2 green; order-only sweeps. 66→6
 regressions. Remaining bands: statement-scoped §m faces (~4), the ≈ coarse family
 (generic factory + receiver chain), scattered structural.
 
-## UPDATE `953bf6e3` — §m source-inheritance; 71 failing (historical)
+## UPDATE `cab29581` — §m source-inheritance; 71 failing (historical)
 
 `virtualModificationEdgeStream` now rehomes VMI members of a primary's assignment
 SOURCES onto the primary (SharedVariables.assignmentSources; 'return zs' + view
@@ -1429,7 +1429,7 @@ engine also coupled its §m-modification check to RedundantLinks.modificationLin
 covers it. Porting modificationLinks for full fidelity is a candidate follow-up if the
 ≈ or the DROP[≡] band (5, missing return-side §m companions) point there.
 
-## UPDATE `9ac37d4b` — SPINE MERGED; suite 79 failing, deterministic
+## UPDATE `67615283` — SPINE MERGED; suite 79 failing, deterministic
 
 `sv-spine-wip` is merged into `sv-integration` (86 → 79, 0 regressions vs 140, verified
 run-to-run deterministic). The owner≻own-virtual-field spine is restored; the varargs ∩
@@ -1447,14 +1447,14 @@ TestSupplierSpec Stream.generate. Follow-ups worth noting: LocalVariableImpl.has
 (core CST fix would de-risk everything), and the closure-dump tests now assert
 deterministic witness text (re-baselined).
 
-## (historical) UPDATE branch `sv-spine-wip` (331b1f21) — varargs-∩ ROOT CAUSE SOLVED; integration WIP parked
+## (historical) UPDATE branch `sv-spine-wip` (929e22ae) — varargs-∩ ROOT CAUSE SOLVED; integration WIP parked
 
 **Ground truth obtained by running the OLD engine** (worktree on the `openjdk` branch,
 graph dump of TestVarargs.test3a): the old graph links every variable to its own virtual
 field — `collection ≻ collection.§is`, `0:target ≻ target.§is` — via `AddEdge.addField`,
 unconditionally. The varargs ∩ derives through
 `target.§is ~ collection.§is ≺ collection ∈ collections.§iss` (`~∘≺=∩`, `∩∘∈=∩`).
-**The sv engine's `invalidEdge` (commit `29d597d9`, a graph-size reduction) severed this
+**The sv engine's `invalidEdge` (commit `44bf0197`, a graph-size reduction) severed this
 owner≻own-virtual-field SPINE** — that one reduction is the root of the entire fan-out
 family, NOT a missing for-each edge (all 3 earlier edge-injection attempts were doomed).
 
@@ -1485,10 +1485,10 @@ and a 2-test run-to-run flip (TestSupplier test1/test5Method2). The remaining wo
 concentrated in the engine's REMOVAL SEMANTICS — a focused design pass, with the gates
 making each component independently testable.
 
-## UPDATE `cdf7cf3f` — 86 failing; remaining roots mapped
+## UPDATE `94f3e4fa` — 86 failing; remaining roots mapped
 
-Since 100: `aa5a8593`+`73551f8c` directionality attribution of a rep's incoming
-edges (100→92); `cdf7cf3f` multi-valued-assignment vs reassignment
+Since 100: `07b9c686`+`6591d30b` directionality attribution of a rep's incoming
+edges (100→92); `94f3e4fa` multi-valued-assignment vs reassignment
 (`m = cond ? a : b` keeps both `m←a` and `m←b`; 92→86). All 0-regression.
 
 Remaining 86 are scattered across many small roots (biggest class TestStaticValuesRecord
@@ -1535,7 +1535,7 @@ Remaining 86 are scattered across many small roots (biggest class TestStaticValu
 - Scattered: `DROP[] SPUR[]` (13, heterogeneous — `∈`/`∈?`, `*`-modification-marker,
   var-name), `DROP[→]` (4, TestCast), Stream/BoundTypeParameter HC (structural).
 
-## UPDATE `9c971a99`/`ea7ca0b3` — Supplier cluster CORE FIXED (112 → 100)
+## UPDATE `c4909419`/`fdca47e2` — Supplier cluster CORE FIXED (112 → 100)
 
 The Supplier/Optional `result ← optional.§x` drop was root-caused (after four
 misdirections — return summary, cross-statement carry, LinkMethodCall this.§t,
@@ -1546,7 +1546,7 @@ final-vd union — all ruled out by tracing) to **two adjacent drops in
    out of hidden content is assigned from it).
 2. the shared-variable collapse then folded `optional.§x` into x's group. Fixed:
    collapse only whole-object aliases (skip when either endpoint is virtual).
-`9c971a99` — 11 tests recovered, 0 regressions. `ea7ca0b3` — re-baselined the
+`c4909419` — 11 tests recovered, 0 regressions. `fdca47e2` — re-baselined the
 order-only `§x` assertions the fix exposed. `TestSupplier.test1` (canonical case)
 passes.
 
@@ -1559,10 +1559,10 @@ which member owns a non-group edge. Specific to stored-lambda FI shapes (inline
 lambda `test1` is clean). Fix needs per-member edge provenance or not collapsing a
 variable with its own source when it has other sources. Deferred.
 
-## UPDATE `33fa42a9` — 112 failing; the DROP[←] cluster mapped
+## UPDATE `3c09e616` — 112 failing; the DROP[←] cluster mapped
 
-Since 116: `e9779b5c` reconstructs field/element return endpoints via sibling faces
-(116→114); `33fa42a9` suppresses coarse scope-up links (copy≈0:pair) redundant with
+Since 116: `fdc89750` reconstructs field/element return endpoints via sibling faces
+(116→114); `3c09e616` suppresses coarse scope-up links (copy≈0:pair) redundant with
 reconstructed field links (114→112). Both 0-regression.
 
 **The dominant remaining cluster is DROP[←] (~35 of 112): a return summary drops a `←`
@@ -1595,22 +1595,22 @@ link that is present at statement level.** Sub-clusters:
 DROP[→]×4, DROP[≡]×3 (§m companions), SPUR[∋]×5 / SPUR[⊆]×4 / SPUR[∩]×3 (coarsening) are the
 next bands. 23 of 112 are fully-empty-got.
 
-## UPDATE `45d1046f` — 116 failing (was 144 → 140 → 120 → 116)
+## UPDATE `4e172bad` — 116 failing (was 144 → 140 → 120 → 116)
 
 Since the snapshot below (144), three things landed:
 - **Test infra / speed (not link fixes).** AAPI analysis hints are now gated on
-  classpath module presence (`d2304078`): the loader skips a primary type whose
+  classpath module presence (`31f82e91`): the loader skips a primary type whose
   module is absent instead of force-loading it. The shared test classpath is lean
   by default (java.base only; heavy = explicit `javaInspectorFactory("java.desktop"…)`)
-  (`8fd9d59c`). Link suite 2m45s → ~1m20s.
-- **Order-only re-baseline `b7e08432` (140 → 120).** 38 failing assertions differed
+  (`17fb29bb`). Link suite 2m45s → ~1m20s.
+- **Order-only re-baseline `248328c6` (140 → 120).** 38 failing assertions differed
   from expectation only in link ORDER (multiset-identical), an artifact of §m being
   synthesized inline after its parent ←/→/≡ edge rather than as a rank-sorted graph
   edge. Re-baselined to the engine's deterministic output; 20 tests went green (the
   other 18 touched tests still fail on genuine diffs). The deep fix remains
   **§m-as-a-real-edge** (would remove the artifact at source + the truly-dropped-§m
   cluster + the enum regression).
-- **Return-summary reconstruct `45d1046f` (120 → 116).** `SharedVariables.reachable`
+- **Return-summary reconstruct `4e172bad` (120 → 116).** `SharedVariables.reachable`
   now chains through bare scalar locals (not just `$__rv` intermediates), gated to the
   whole `ReturnVariable` start with a dimension guard (no array elements / field faces).
   Fixes the `return ← ttt ← tt ← 0:t` → `method←0:t` drop
@@ -1627,7 +1627,7 @@ bound-type-param HC) and the §m-as-edge work.
 
 # (historical) catalogue of the 144 remaining link failures
 
-Snapshot at `eaf67350` (`sv-integration`), full `:maddi-modification-link:test` run.
+Snapshot at `bfd876ce` (`sv-integration`), full `:maddi-modification-link:test` run.
 Baseline was 196; the reconstruct work (see `sv-engine-handoff.md` → STATUS UPDATE)
 brought it to **144/383**. This is the current, categorised to-do.
 

@@ -186,7 +186,7 @@ public class TestShadowCloneBench extends CommonTest {
         System.out.println("SHADOWBENCH totals: " + totalDiv + " divergences " + byProperty + " " + byClass
                            + ", " + totalRev + " reverse, in " + sorted.size() + " of " + counter.get() + " types");
 
-        // the phase-1 baseline (2026-07-19, engine at kotlin fba60b23): every divergence is a
+        // the phase-1 baseline (2026-07-19, engine at kotlin 5d70b47f): every divergence is a
         // frozen optimistic TRUE the reachability evidence contradicts — directly in the frozen
         // method's own converged summary ("seed": the refused-downgrade class the STRICTCERT
         // counter measures), or via multi-hop propagation (the deep-capture-chain class). A change

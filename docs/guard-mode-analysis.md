@@ -4,8 +4,8 @@ Goal: a "guard" mode where the user annotates e.g. an interface with `@Container
 analyzer verifies all implementations against that contract, warning on violation **with an
 explanation of why** the contract is broken.
 
-- **Status of this document: initially based on `openjdk` @ 348b7cf9; revised on the
-  `kotlin` branch @ bbfebcd7 (2026-07-13).** The "Current state" section below describes the
+- **Status of this document: initially based on `openjdk` @ 48ff19ff; revised on the
+  `kotlin` branch @ 99acffb9 (2026-07-13).** The "Current state" section below describes the
   openjdk branch; the "Kotlin-branch revision" section at the end records what the kotlin
   branch changes (run-level error system) and how it alters the proposal.
 - **Implementation status (branch `guard-mode`, 2026-07-14): Phases 0, 0b, 1 and a first
@@ -70,7 +70,7 @@ These early-returns also protect the **monotonic overwrite guard**
 (`PropertyValueMapImpl.setAllowControlledOverwrite:90-106` + `Value.overwriteAllowed`,
 strictly-increasing only): a lower computed value hitting a higher contracted one throws
 `UnsupportedOperationException` — a crash, not a diagnostic. (The immutableSuper fix
-bf959257 was one instance of this crash class. Guard mode turns this class of conflict
+6da88c31 was one instance of this crash class. Guard mode turns this class of conflict
 into a proper diagnostic.)
 
 ### Reusable assets
@@ -126,9 +126,9 @@ conflicting-implementation shapes already in the sweep suites.
 3. Provenance storage: side-structure (recommended) vs adding origin to PropertyValueMap in
    cst-api (cleaner long-term; touches codec + wide API surface).
 
-## Kotlin-branch revision (@ bbfebcd7)
+## Kotlin-branch revision (@ 99acffb9)
 
-Merge-base with openjdk is 348b7cf9 (i.e. kotlin contains all the modification-analyzer
+Merge-base with openjdk is 48ff19ff (i.e. kotlin contains all the modification-analyzer
 hardening work). ~500 files differ, mostly kotlin parsing; the guard-relevant deltas:
 
 ### What changed
@@ -497,7 +497,7 @@ risk is noise, targeted by floor + single-blocker + undecided-discipline + ranki
 
 ### Implemented
 
-- **Phase A — `@Container` near-miss (2026-07-18, commit `1b2c8776`).** `IteratingAnalyzer` gained
+- **Phase A — `@Container` near-miss (2026-07-18, commit `1de11234`).** `IteratingAnalyzer` gained
   `warnNearMisses()` (default false) and the `NearMissPolicy` record (strict defaults 7/1/3/1);
   `GuardAnalyzerImpl.go()` splits by flag and the guard now runs when
   `guardContracts() || warnNearMisses()`. `nearMissPass` ranks findings most-compelling-first and

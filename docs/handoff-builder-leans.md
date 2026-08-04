@@ -11,7 +11,7 @@ running record in `docs/eventual-info-hierarchy.md` (read "The interface clique 
 ("exclude builder-natured types from candidacy, or give builders their own eventual story"); this
 handoff adds the measured evidence and the constraint that rules out the easy answers.
 
-## 1. Where the arc stands (commit `b417dad7`, branch `ws/eventual`)
+## 1. Where the arc stands (commit `ed37ec72`, branch `ws/eventual`)
 
 Composed dogfood (`MODREACH=1 EVENTUALCLUSTER=1`), stable across two runs: survivors 11,
 retracted 92, and the ENTIRE flagship family (TypeInfoImpl, MethodInfoImpl, FieldInfoImpl,

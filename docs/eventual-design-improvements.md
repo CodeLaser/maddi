@@ -9,7 +9,7 @@
 > the **call-site/Builder end**. §4 (asserted contracts) and §6 (named transitions) are still proposals.
 
 **Status: proposal (2026-08-01), ready for implementation.** Distilled from the 2026-07-31/08-01
-certification arc (`docs/eventual-info-hierarchy.md`, commits `f58ed72b..4f561042`): the composed
+certification arc (`docs/eventual-info-hierarchy.md`, commits `1e020b39..54b895ab`): the composed
 dogfood went from 26 to 254 surviving eventual verdicts, and every regression and blocker along the
 way was catalogued. This note turns that experience into concrete work items. Sections 1–3 are
 specified for another thread to implement without further context; section 4 answers the
@@ -24,7 +24,7 @@ restructuring.
 
 | Incident | Cost | Idiom violated |
 |---|---|---|
-| `ProvidesImpl.addImplementationResolved` — raw `ArrayList` + adder (commit b7375c7d) | sank the whole `Element` hierarchy: dogfood 42 → 26 survivors, undetected for a week | resolve-once = `SetOnce<List<T>>` |
+| `ProvidesImpl.addImplementationResolved` — raw `ArrayList` + adder (commit 22bd062a) | sank the whole `Element` hierarchy: dogfood 42 → 26 survivors, undetected for a week | resolve-once = `SetOnce<List<T>>` |
 | `StatementImpl.propertyValueMap`, `TryStatementImpl.CatchClauseImpl.propertyValueMap` — 2 of 9 analysis stores without `@IgnoreModifications` | held the entire statement family at FinalFields-after-mark | every analysis overlay is disclaimed (road §050) |
 | `UnaryOperatorImpl.hash` — lazy memo without the slot disclaimer | blocked `UnaryOperatorImpl` and its subtypes | memo slots are `@IgnoreModifications` (the `VariableImpl.cachedFqn/cachedHash` precedent) |
 | `FactoryImpl.precedenceMap` — ctor filled a `HashMap` with `put()` | capped `FactoryImpl` (part-of-construction excludes assignments, not content calls) | build a local, `Map.copyOf` into the final field |
@@ -42,7 +42,7 @@ eventual verdict on the composed dogfood — the day it happens, not a week late
 re-derives the survivor set and diffs.
 
 - **Baseline file** `dogfood/expected-eventual-survivors.txt`: one fully-qualified type name per
-  line, sorted — the survivor set of the composed run (254 entries as of `4f561042`). Generate with
+  line, sorted — the survivor set of the composed run (254 entries as of `54b895ab`). Generate with
   `grep -E '^type .*eventual=@' <fpdump> | awk '{print $NF}' | sort`.
 - **Allowlist** `dogfood/eventual-survivor-wobble.txt` for the known boundary nondeterminism.
   Current members: `org.e2immu.language.cst.api.info.ImportComputer.ImportDetails` (flips in/out

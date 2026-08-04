@@ -7,7 +7,7 @@ reassignment/modification tracking) onto `openjdk` in small, independently-green
 
 `sv` is a **reference implementation to port from**, not a branch to merge:
 
-1. **Off the old base** (`7c331cc9`). A direct merge re-opens the whole pre-openjdk conflict
+1. **Off the old base** (`a5f15589`). A direct merge re-opens the whole pre-openjdk conflict
    surface on top of an openjdk that already contains `optimize`.
 2. **Not green.** `sv` is a research spike — it carries an unresolved *"graph is not stable"*
    observation and fluctuating red counts.

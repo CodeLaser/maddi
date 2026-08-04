@@ -2,8 +2,8 @@
 
 > **STATUS (superseded in large part):** the reconstruct half is now implemented; suite
 > is **144/383 failing** (was 196). The dominant `←`-drop cluster and the active-collapse
-> coarsening described below are **fixed** (commits `8fd6567f`, `a30fd159`, `e4bdd7e6`,
-> `bd10f936`). The "prototype outcome: reconstruct missing across the whole extraction
+> coarsening described below are **fixed** (commits `ad0ebd41`, `3b0fc4fd`, `59bdf744`,
+> `0294e5f3`). The "prototype outcome: reconstruct missing across the whole extraction
 > path" section below is now **done** — see `sv-engine-handoff.md` → STATUS UPDATE for the
 > mechanism (intra-group `assignmentEdgeStream`, `expandRepToMembers`, `rehome`+`FromPair`
 > faces, `isInvalidFieldContainment`). Remaining: §m on reconstructed edges (1 test) and

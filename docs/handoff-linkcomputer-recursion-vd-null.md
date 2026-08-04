@@ -18,7 +18,7 @@ failure: with this fix the intake reports zero LinkComputer exceptions for those
 jfocus-stdbase investigation now; this handoff's link-engine defect is closed.
 *(Resolved later the same day: the walk-phase bucket was maddi after all — `doIdentityAnalysis`'s vacuous
 allMatch certified fresh-fill factories as `@Identity`, and the jfocus walker aliased the result variable
-away. Fixed in `617cecc7`, pinned in `TestIdentity.test7`; jfocus M2 recall 66.4% → 82.1%.)*
+away. Fixed in `837994c9`, pinned in `TestIdentity.test7`; jfocus M2 recall 66.4% → 82.1%.)*
 
 **The actual mechanism, seen live after the fix**: the WARN fired on
 `com.example.core.general.util.ArrayList.<init>()` / `<init>(int)` — `ScanCompilationUnit` had failed on

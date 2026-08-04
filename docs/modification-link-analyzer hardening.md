@@ -24,7 +24,7 @@ the prep stage is already hardened and is the **template** for what follows.
   3. the analyzer **`nolink` property tests** — assert final properties, not the link representation
      (the independent-test pattern).
 - **The surfacing half of §2 is now on the trunk.** The **guard** stack (contract verification) was merged into
-  `kotlin` on 2026-07-14 (`3214206d`, from `~/git/maddi-aapi @ guard-mode`; this thread now owns it). It added a
+  `kotlin` on 2026-07-14 (`9bd209ab`, from `~/git/maddi-aapi @ guard-mode`; this thread now owns it). It added a
   **structured-finding collector threaded through the analyzer** and rendered by `ErrorReport`:
   - `Message` (`maddi-cst-api/.../analysis/Message.java`) is now a structured finding — `Severity` (WARN/ERROR),
     `source()`, `info()`, `category()` (kebab-case, e.g. `"contract-violation"`), and `causes()` (a nested
@@ -122,7 +122,7 @@ of. The two closest things fall short:
 
 **Do not build a parallel prep-style `exceptions()` channel.** The merged guard collector already threads the
 right vehicle: a `List<Message>` through every sub-analyzer, exposed via `IteratingAnalyzer.messages()` and
-rendered by the extended `ErrorReport` (see framing; `3214206d`). §2 is the *crash* producer for that existing
+rendered by the extended `ErrorReport` (see framing; `9bd209ab`). §2 is the *crash* producer for that existing
 *findings* channel — a small catch-and-emit in the per-`Info` loop. **Pure wrapper — no analysis logic**, which is
 the one modification-subsystem change the ownership rule permits.
 
@@ -146,7 +146,7 @@ the one modification-subsystem change the ownership rule permits.
 - [ ] **M** Keep the default **`faultTolerant=false`** so unit tests and direct callers keep fail-fast (prep's
   choice); the survey (§1) and the production runners flip it on.
 - **Now unblocked and trunk-ownable.** The collector, `IteratingAnalyzer.messages()`, the `ErrorReport` findings
-  surface and the ERROR→`EXIT_ANALYSER_ERROR` mapping are all merged (`3214206d`), so §2 is just the per-`Info`
+  surface and the ERROR→`EXIT_ANALYSER_ERROR` mapping are all merged (`9bd209ab`), so §2 is just the per-`Info`
   catch-and-emit + the `faultTolerant` flag on top — no cross-branch coordination left. The one remaining external
   seam is `LinkComputerImpl` (owned by `sv-integration`): distinguishing a `link-crash` from an `analyzer-crash`
   reads the throwable's origin but changes nothing in link.
@@ -225,4 +225,4 @@ surfaces.
 - `LinkGraph`'s duplicate-name assert (`:45`) is already disabled in the `PRODUCTION` preset — don't "re-enable
   for safety."
 - The `IteratingAnalyzer.Configuration` `faultTolerant` addition is now a trunk change: the guard collector +
-  `ErrorReport` findings surface are merged (`3214206d`), so §2 rides on them rather than re-inventing a channel.
+  `ErrorReport` findings surface are merged (`9bd209ab`), so §2 rides on them rather than re-inventing a channel.

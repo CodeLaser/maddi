@@ -36,7 +36,7 @@ public class TestMultiLineCommentPrint {
     public void trailingSpaceFirstLine() {
         String comment = "allowed units + Trunc(extra_units  * partial/total) \n"
                          + "  = total allowed  \n"
-                         + "  (verbatim shape from the closed-core corpus) ";
+                         + "  (whitespace shape reproduced from the closed-core corpus) ";
         MultiLineCommentImpl mlc = new MultiLineCommentImpl(null, comment, false);
         OutputBuilder ob = mlc.print(null);
         boolean sawText = false;

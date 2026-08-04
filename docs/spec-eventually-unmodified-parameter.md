@@ -26,7 +26,7 @@ whose parameter is plainly `@Modified` — the shape that currently sinks the wh
 
 ## 1. Motivation: the evidence from the honest (MODREACH) state
 
-After the P3 shadow-pass redesign and the `@IgnoreModifications` sweep (commits `23a01d71`…`6ebb7225`),
+After the P3 shadow-pass redesign and the `@IgnoreModifications` sweep (commits `110695ec`…`84de3243`),
 `Element` is unconditionally `@Immutable(hc=true)` gate-off, but under `MODREACH=1` six holdouts
 remain, and they share one shape:
 
@@ -115,7 +115,7 @@ modified and the argument is this-derived:
   `ParameterizedTypePrinter.print(...):1:parameterizedType` gets a non-empty eup;
   `ParameterizedTypeImpl.print/fullyQualifiedName/descriptor` gain enm labels;
   `Element.print(Qualification)` leaves the unlabeled-holdout list; survivors strictly above the
-  current **5**, retraction strictly below the current **63** (values at commit `6ebb7225`).
+  current **5**, retraction strictly below the current **63** (values at commit `84de3243`).
 - Gate-off: corpus FPDUMPs byte-identical (all writes gated); full module suites green.
 
 ## 7. Edges and non-goals
@@ -177,7 +177,7 @@ modified and the argument is this-derived:
 
 ### 8.2 Measured outcome (composed dogfood, MODREACH=1 EVENTUALCLUSTER=1)
 
-| metric | baseline `6ebb7225` | with eup |
+| metric | baseline `84de3243` | with eup |
 |---|---|---|
 | eup-labeled parameters | – | **265** |
 | enm-labeled methods | 548 | **567** |
@@ -208,7 +208,7 @@ modified and the argument is this-derived:
 
 Every write is gated `EVENTUALCLUSTER` (the ungated surfaces — property registration, the
 `AnnotationToProperty` parameter arm, the `DecoratorImpl` emission — are inert without the
-annotation resp. the property). Proven anyway, three-corpus A/B vs the `6ebb7225`-state dumps:
+annotation resp. the property). Proven anyway, three-corpus A/B vs the `84de3243`-state dumps:
 Fernflower = exactly the known `StatEdge.EdgeType.<init>(int)` flake line (both directions, nothing
 else), Langchain4j = **0 lines**, Timefold = 6 lines, all inside the documented base-vs-base flake
 envelope (`Testdata*Solution` independence + a `BiNeighborhoodsPredicate.$0` flip). Roll-calls
@@ -275,7 +275,7 @@ type), `poolFirstSize=∅` (owner mutates the wrapper), gate-off dormant.
 
 ### 9.2 Measured outcome (composed dogfood; run-to-run FPDUMP noise ~28-30 lines applies)
 
-| metric | `6ebb7225` baseline | + eup (§8) | + container ride-along |
+| metric | `84de3243` baseline | + eup (§8) | + container ride-along |
 |---|---|---|---|
 | enm-labeled methods | 548 | 567 | **663** |
 | eup-labeled parameters | – | 265 | 311 |

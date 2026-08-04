@@ -78,15 +78,15 @@ mostly cheap. Net: memory bought with a bounded recompute in the tail passes. Me
 
 ## 5. Phasing (each phase independently testable)
 
-- **Phase 0 (spike — the load-bearing unknown): DONE (GO), commit `9a0fab0d`.** `PrepAnalyzer.doMethod`
+- **Phase 0 (spike — the load-bearing unknown): DONE (GO), commit `398ed763`.** `PrepAnalyzer.doMethod`
   is per-method re-invocable; `TestVariableDataRegeneration` proves drop (`removeIf` VARIABLE_DATA on
   method + statements) then re-run rebuilds identical per-statement VD.
-- **Phase 1 (flatten mechanism, no wiring): DONE, commit `322e2033`.** `VariableInfoContainer.flattened()`
+- **Phase 1 (flatten mechanism, no wiring): DONE, commit `22fd00cd`.** `VariableInfoContainer.flattened()`
   collapses `Either.left(prevVic)` to `Either.right(getPreviousOrInitial())` keeping own eval/merge;
   `VariableDataImpl.flattened()` maps it. `TestVariableDataFlatten` asserts best()/getPreviousOrInitial/
   indexOfDefinition/hasEvaluation/hasMerge preserved, `isPrevious()==false`, idempotent, over both
   eval-having and previous-only containers.
-- **Phase 2 (drop + gate + regenerate): DONE, commit `4dab4377`.** `Configuration.flattenVariableData()`
+- **Phase 2 (drop + gate + regenerate): DONE, commit `8320f5c9`.** `Configuration.flattenVariableData()`
   default false. To avoid racing the parallel FieldAnalyzer reads, both operations run at **pass
   boundaries** in `SingleIterationAnalyzerImpl.go` (quiescent): flatten each method's consumed
   last-statement VD + drop intermediates at pass END; regenerate any flattened method about to be

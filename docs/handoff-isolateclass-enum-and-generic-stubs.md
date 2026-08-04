@@ -145,11 +145,11 @@ Two things to watch:
 
 | | |
 |---|---|
-| `maddi` `9bacea3b` | **Defect C fixed:** an interface field is static whichever path read it. Applied in `ScanCompilationUnit.field`, **not** in `FieldInfo.isStatic()`. |
-| `maddi` `8bd48182` | `CompilationProblems` carries its diagnostics; `TestIsolateClass4Compiles` added with all three drivers. |
+| `maddi` `29884bbd` | **Defect C fixed:** an interface field is static whichever path read it. Applied in `ScanCompilationUnit.field`, **not** in `FieldInfo.isStatic()`. |
+| `maddi` `8df20b6b` | `CompilationProblems` carries its diagnostics; `TestIsolateClass4Compiles` added with all three drivers. |
 | `jfocus-refactor-service` `1fde5cb2` | Both isolate drivers ask maddi instead of running a second javac: `ClosedCoreIsolates.compileErrors`. |
 | `jfocus-refactor-service` `91a16a7f`, `jfocus-refactor-server` `afaea7e`, `ebfeda0` | `debug.isolateClass` and its coverage; `ADDING-A-DSL-METHOD.md`. |
-| `maddi` `0cee08a5` | **Defect D fixed** (§7c): a field materialized on `ClassSymbolScanner`'s lazy path now gets its flags, so a class-file enum constant is synthetic. Includes the regenerated `JavaLangAnnotation.json`. |
+| `maddi` `c1ded38f` | **Defect D fixed** (§7c): a field materialized on `ClassSymbolScanner`'s lazy path now gets its flags, so a class-file enum constant is synthetic. Includes the regenerated `JavaLangAnnotation.json`. |
 
 **The interface-field fix is the cautionary tale of this piece of work, and it generalises to both defects
 above.** The instruction was to hard-code the JLS 9.3 rule in `FieldInfo.isStatic()`, and the justification was

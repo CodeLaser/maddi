@@ -1,23 +1,23 @@
 # maddi Eclipse plugin — state of the union
 
-Survey taken 2026-07-18 on branch `ide` (HEAD `520ca3f7`). The plugin itself has been dormant since
-`1ec8bc3e`; the branch has advanced 83 commits of analyzer work on top of it.
+Survey taken 2026-07-18 on branch `ide` (HEAD `6e94b770`). The plugin itself has been dormant since
+`f33890f9`; the branch has advanced 83 commits of analyzer work on top of it.
 
 ## 1. History
 
-Seven commits, all on `ide`, merged into `kotlin` via `a1f37782`:
+Seven commits, all on `ide`, merged into `kotlin` via `71601335`:
 
 | Commit | What |
 |---|---|
-| `c40a7b26` | Extract `maddi-ide-client` — IDE-agnostic daemon client shared by IntelliJ + Eclipse |
-| `707b10e7` | Eclipse plugin scaffold (Tycho) |
-| `57ef3016` | Preferences page + navigable findings view |
-| `3a053e4b` | Bundle the daemon distribution inside the plugin |
-| `f8d8d94f` | Headless test proving the JDT config mapping runs live |
-| `ec10a878` | Computed analysis hints → gutter markers |
-| `1ec8bc3e` | Gutter-hint filter (B) + auto-analyze on build (D) |
+| `b6d264bf` | Extract `maddi-ide-client` — IDE-agnostic daemon client shared by IntelliJ + Eclipse |
+| `5ebdbf5b` | Eclipse plugin scaffold (Tycho) |
+| `9ddc37f1` | Preferences page + navigable findings view |
+| `ec76d626` | Bundle the daemon distribution inside the plugin |
+| `49e6e6d0` | Headless test proving the JDT config mapping runs live |
+| `ce991d44` | Computed analysis hints → gutter markers |
+| `f33890f9` | Gutter-hint filter (B) + auto-analyze on build (D) |
 
-Since then only `db259ca0` (repo-wide JPMS `module-info` sweep) touched these modules.
+Since then only `570686ff` (repo-wide JPMS `module-info` sweep) touched these modules.
 
 ## 2. Layout
 

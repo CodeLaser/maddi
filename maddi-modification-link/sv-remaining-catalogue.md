@@ -8,7 +8,7 @@
 
 ## HANDOFF (2026-07-19 evening) — mechanical steps anyone (or any session) can run
 
-### UPDATE (early evening): SHADOW-PASS PRECISION — the divergence economy re-partitioned (8821a434)
+### UPDATE (early evening): SHADOW-PASS PRECISION — the divergence economy re-partitioned (8e4f8b14)
 
 Fable-session deep dive (cause-chain forensics on the fernflower cascades): the dominant
 "union conservatism" reading was WRONG for the biggest family. The engine was RIGHT to keep the
@@ -75,7 +75,7 @@ decisions. Exact commands (all from ~/git/maddi, via ./gradlew):
 4. **P2.5** is IMPLEMENTED AND VALIDATED (jenkins: round 1 = 2893 downgrades + 1016 decided,
    round 2 = exactly the 2 drift downgrades, round 3 = 0 => joint fixpoint; final invariant
    holds — 1001 divergences all immutable-guarded; 79 REV all frozen-FALSE conservative keeps).
-   NOTE the receiverChain memoization (33c9b8fc) is LOAD-BEARING: without it the chained-receiver
+   NOTE the receiverChain memoization (bb53f711) is LOAD-BEARING: without it the chained-receiver
    projection is exponential in expression nesting (jenkins hung >50 min, jstack-confirmed) —
    any big-corpus MODREACH run needs that commit.
    ROLLOUT TABLE (downgrades / nulls decided / type transitions weakened+strengthened /
@@ -89,7 +89,7 @@ decisions. Exact commands (all from ~/git/maddi, via ./gradlew):
    pass being MORE decided. ES verification (plain leg: type-null vs 23206 baseline + CONSEDGES +
    CHECKPOINT dogfood incl. wave-boundary deltas) LAUNCHED 2026-07-19 afternoon as a background
    run — results in build/es-checkpoint-2026-07-19 + the FPDUMP; the MODREACH ES leg is the one
-   remaining big A/B (run it only at 33c9b8fc or later — the memoization commit).
+   remaining big A/B (run it only at bb53f711 or later — the memoization commit).
 5. **task #43 (SOUNDNESS) — CLOSED 2026-07-19**: the loop-transform bridge dropped
    element-aliasing links (Object[] slot store + downcast + FI application) — transformed
    reference-element containers promoted unsoundly (PointM tripwire, confirmed by the transform
@@ -110,12 +110,12 @@ decisions. Exact commands (all from ~/git/maddi, via ./gradlew):
 
 ## CURRENT STATE (2026-07-19, end of the post-merge session — read this first after compaction)
 
-### UPDATE 2026-07-19 (phase-2 session, later same day) — at 5c880b3c
+### UPDATE 2026-07-19 (phase-2 session, later same day) — at e24a50f9
 
-- Reverse-divergence triage DONE (2beee0f9): 8 -> 0, one mechanism (statement-level field
+- Reverse-divergence triage DONE (5680d758): 8 -> 0, one mechanism (statement-level field
   modification via non-this scopes), channel mirrored in the shadow pass; clonebench re-pinned
   {1,8,274}/{71,212}, 0 reverse.
-- Wave-boundary checkpoint fix DONE (31a6e60c): waveCompleted feed + 60s-throttled deltas at the
+- Wave-boundary checkpoint fix DONE (8bc11f4a): waveCompleted feed + 60s-throttled deltas at the
   strata barriers; the cold first pass now checkpoints continuously. ES verification rerun is
   READY TO LAUNCH in the next quiet window (unchanged command; benefits from the wave fix).
 - Phase-2 sequencing DECIDED and written as PLAN §14: incremental cutover (fixpoint unchanged ->
@@ -166,7 +166,7 @@ decisions. Exact commands (all from ~/git/maddi, via ./gradlew):
 - New task #42 queued by the user: DOWNCAST presentation (@Modified(downcast=...) design opinion
   delivered; DecoratorImpl already half-implements it; @Modified lacks the element declaration).
 
-- Branch `sv-integration` at e2797cdf, tree clean, merged BOTH ways with origin/kotlin (incl. the
+- Branch `sv-integration` at 0a973a59, tree clean, merged BOTH ways with origin/kotlin (incl. the
   metrics thread's E7 suite + ShadowModificationPass and the kotlin thread's early-cutoff
   worklist). All suites green on the merged base.
 - DONE this session: #33 both fronts (elasticsearch SWEEP GREEN, first ever); #34 checkpoint v1
@@ -298,7 +298,7 @@ Modification-as-reachability (PLAN-modification-reachability; §11 ownership spl
   0 reverse. 208 "seed"-class = the refused-downgrade family NOW ENUMERABLE WITH NAMES (input for
   the §9.4 cross-read vs the immutability audit); 71 "propagated" = deep-capture disease in the
   wild. Lower bound (650 call sites without LINKED_VARIABLES_ARGUMENTS, 3,068 chained receivers
-  unprojected). Baseline pinned in TestShadowCloneBench vs kotlin fba60b23.
+  unprojected). Baseline pinned in TestShadowCloneBench vs kotlin 5d70b47f.
 - E7 edge-class constraints my implementation must honor (from the 8 shapes): attribution is
   EAGER and CREATION-SITE (a capturing lambda charges captured targets where created/passed, even
   when the callee provably ignores the FI); enclosing-method parameters propagate, locals filter
@@ -409,7 +409,7 @@ Checkpoint/resume + incremental (session tasks #34/#35):
 
 Extract-interface consumer (../jfocus-refactor-service extractmodule; adequacy review 2026-07-18,
 session tasks #36-#39):
-- #36 DONE 2026-07-18 (commit 494cb2bb): DEGRADED_ANALYSIS_METHOD stamped at all three rungs
+- #36 DONE 2026-07-18 (commit 9ba9518a): DEGRADED_ANALYSIS_METHOD stamped at all three rungs
   (shallow fallback, analyzer fault isolation, prep type isolation); ComputeCallGraph null-body
   guard added en route. Consumer half (pessimistic per-type gate in ComputeReplaceTypesActions)
   implemented in jfocus-refactor-service, UNCOMMITTED there for the owner thread; jfocus suite at
@@ -447,7 +447,7 @@ session tasks #36-#39):
   4th element on the [from, nature, to] wire format, appended only when mediated — unmediated
   output byte-identical, old 3-element files decode unmediated; single decoder funnel
   (MethodLinkedVariablesImpl.decodeLink); pinned in TestWriteAnalysisMediated. (a) chain-transitive
-  taint DONE same day (commit 582fb564): two-pass reachability in assignmentEdgeStream — a chain
+  taint DONE same day (commit c52b6bf3): two-pass reachability in assignmentEdgeStream — a chain
   target is mediated only when NO unmediated path reaches it (coupling wins); summary-level pin
   return<-jj<-ii<-(cast)o. ENGINE SIDE COMPLETE. Residuals: closure-composed engine facts (not
   collapse chains) carry no taint; expression casts unflagged (variable-operand scope). NEXT =
