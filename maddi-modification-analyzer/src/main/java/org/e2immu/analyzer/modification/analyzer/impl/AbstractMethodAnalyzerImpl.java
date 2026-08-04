@@ -129,7 +129,15 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
         Value.Independent fromImplementations = INDEPENDENT;
         for (MethodInfo implementation : concreteImplementations) {
             ParameterInfo pii = implementation.parameters().get(pi.index());
-            Value.Independent independentImpl = pii.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
+            Value.Independent independentImpl = pii.analysis().getOrNull(INDEPENDENT_PARAMETER,
+                    ValueImpl.IndependentImpl.class);
+            if (independentImpl == null) {
+                // an undecided implementation is not DEPENDENT: defaulting it wrote a union whose value depended
+                // on WHEN this batch ran relative to the implementations' own decisions, and the write froze
+                // (the composed-dogfood hc↔FF fork). Wait; cycle breaking decides the implementations if needed.
+                UNDECIDED.debug("AMA: Undecided independent of param {}, implementation {}", pi, implementation);
+                return;
+            }
             fromImplementations = fromImplementations.min(independentImpl);
             if (fromImplementations.isDependent()) break; // no need to try others
         }
@@ -278,8 +286,14 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
         }
         Value.Independent fromImplementations = INDEPENDENT;
         for (MethodInfo implementation : concreteImplementations) {
-            Value.Independent independentImpl = implementation.analysis().getOrDefault(INDEPENDENT_METHOD,
-                    DEPENDENT);
+            Value.Independent independentImpl = implementation.analysis().getOrNull(INDEPENDENT_METHOD,
+                    ValueImpl.IndependentImpl.class);
+            if (independentImpl == null) {
+                // same discipline as the parameter union: undecided is not DEPENDENT — wait
+                UNDECIDED.debug("AMA: Undecided independent of method {}, implementation {}", methodInfo,
+                        implementation);
+                return;
+            }
             fromImplementations = fromImplementations.min(independentImpl);
             if (fromImplementations.isDependent()) break;
         }

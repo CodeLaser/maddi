@@ -40,17 +40,33 @@ class LinkToField {
 
     /**
      * The immutability of what {@code link} reaches, when it reaches a field of the instance; {@code null} when the
-     * link does not lead to such a field, or when its nature carries no type to judge.
+     * link does not lead to such a field, when its nature carries no type to judge, or when the reached type's
+     * immutability is still UNDECIDED. The last case matters: the plain {@code typeImmutable} defaults an undecided
+     * source type to MUTABLE, so a verdict derived from it reads a transient as a fact — and the derived
+     * independence verdict is overwrite-protected, so the transient freezes (the composed-dogfood hc↔FF fork).
+     * Callers that must distinguish "no field to judge" from "field, still undecided" pair this with
+     * {@link #reachesJudgeableField}.
      */
     static Value.Immutable immutableOfLinkedField(Link link, AnalysisHelper analysisHelper) {
         Variable primaryTo = Util.firstRealVariable(link.to());
         if (!(primaryTo instanceof FieldReference fr) || !fr.scopeIsRecursivelyThis()) return null;
         ParameterizedType type = linkedType(link, primaryTo);
         if (type == null) return null;
-        Value.Immutable ofDeclaredType = analysisHelper.typeImmutable(type);
+        Value.Immutable ofDeclaredType = analysisHelper.typeImmutableNullIfUndecided(type);
+        if (ofDeclaredType == null) return null; // undecided source type: no verdict, rather than the MUTABLE default
         Value.Immutable dynamic = dynamicImmutabilityOfWholeField(link, primaryTo, fr);
-        if (dynamic == null) return ofDeclaredType;
-        return ofDeclaredType == null ? dynamic : ofDeclaredType.max(dynamic);
+        return dynamic == null ? ofDeclaredType : ofDeclaredType.max(dynamic);
+    }
+
+    /**
+     * Whether {@code link} reaches a field of the instance with a judgeable type — i.e. whether
+     * {@link #immutableOfLinkedField} could produce a verdict once the type's immutability is decided. A
+     * {@code null} verdict on a link that passes this test means UNDECIDED (wait), not "nothing to judge" (skip).
+     */
+    static boolean reachesJudgeableField(Link link) {
+        Variable primaryTo = Util.firstRealVariable(link.to());
+        return primaryTo instanceof FieldReference fr && fr.scopeIsRecursivelyThis()
+               && linkedType(link, primaryTo) != null;
     }
 
     /**
