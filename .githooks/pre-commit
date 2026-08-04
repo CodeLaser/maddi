@@ -1,0 +1,6 @@
+#!/bin/sh
+#
+# Refuse a commit that would record an internal / customer-identifying name.
+# Enabled by `git config core.hooksPath .githooks` — see CONTRIBUTING.md.
+
+exec "$(dirname "$0")/scan-internal-names.pl" --staged

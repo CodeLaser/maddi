@@ -1,0 +1,6 @@
+#!/bin/sh
+#
+# The same guard for the commit message: the log is as public as the tree.
+# Enabled by `git config core.hooksPath .githooks` — see CONTRIBUTING.md.
+
+exec "$(dirname "$0")/scan-internal-names.pl" "$1"
