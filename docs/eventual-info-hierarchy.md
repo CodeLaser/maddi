@@ -2653,3 +2653,47 @@ The warm-up sweep's determinism gate therefore still fails; candidate directions
 nature-variant emission under re-derivation, or redesign the sweep so the type-level evaluation
 never samples the re-derivation window at all (the batch-before-typeLevel ordering of the FF-cap
 section's open decision).
+
+## The re-land (2026-08-04, evening): tier-uniformity, the Predefined catch, and a deterministic terminal epoch
+
+The residual after "undecided is not a verdict" (~1-in-3 flips) traced one layer further down: the
+probe pair V1/V2 showed the SAME parameter re-deriving from method links whose CONTENT differed —
+`0:translationMap.§$s⊆this.initializers.§$s` in one world, `~this.initializers.§$s` plus
+`≤this.initializers` in the other. Adjacent natures of one content-sharing family, freely
+interchanged by the combination lattice's order — and `LinkToField.linkedType` judged `~`/`⊇` while
+silently skipping `⊆`/`≤`. The verdict fork was manufactured by the consumer's incomplete nature
+table, not by the emission variance itself. Scheduling was ruled out on principle: the forked links
+persist to the fixpoint (read unchanged at iteration 67), so no re-ordering of WHEN the type level
+samples could ever help.
+
+**The tier-uniformity fix**: `⊆` joins the `~`/`⊇` branch (same judged type). `≤`/`≥`/`∩` stay
+deliberately unjudged — `≤`'s target is the whole container, so judging it reads a DIFFERENT type
+than the face variants and would re-open the fork from the other side; extend only with a variance
+witness in hand. Result: warm-up runs 6/6 byte-identical — the coin is DEAD — at a price: 285→279,
+the whole runtime family retracted (`broken: [Predefined]` on every new ledger entry).
+
+**The Predefined catch.** The single blocking member: `Predefined.primitives()` returns
+`primitiveByName.values()` — a LIVE view; `values().remove()` mutates the map, i.e. Predefined's
+own state, before or after any mark. The 285-world's `@Immutable(hc=true)(after="isAssignableFrom2")`
+for Predefined had been resting on the analyzer's blindness to the `⊆`-link. The determinism
+campaign's closing act was the dogfood catching a real soundness hole in its own corpus. Fix in the
+corpus, not the analyzer: `primitives()` hands out `Set.copyOf(...)`, and the interface declaration
+carries the (now true) `@Independent(hc = true)` contract — the contract leg's mechanism, one more
+time. Full recovery: 285 types, membership identical to the baseline, deterministic 4/4.
+
+**The seeded-test root cause**, finally: the certification-gate hold unset `done`, but the
+verify-certify loop's own exit ("worklist dry + full verification pass clean") returns WITHOUT the
+terminal machinery and never consulted the hold — on the tiny fixture it escaped mid-window,
+skipping TERMINAL_CERTIFIED, the deferral and the contraction. The hold now also breaks `verifying`,
+re-arming the full-verification dance; when the window closes, certification exits through the stop
+block as designed. Both sentinel tests green; the dogfood output is byte-identical across the
+repair (Y1=Y2=Y3=Y4).
+
+**The deterministic terminal epoch, landed.** Final composition: 285 = 163 @Immutable(hc) + 122
+@FinalFields — between the old coin's two worlds (179/106 vs 165/120), and honestly so: the
+179-world's surplus rode the optimistic side of the fork. ModuleInfo.Provides sits at FF, the one
+honest level residual. Gates: full suite; unpatched determinism 4/4 (pre-re-land measurement);
+warm-up determinism 6/6 (279 world) and 4/4 (recovered 285 world); ratchet (membership unchanged);
+Fernflower A/B byte-identical twice (after the analyzer fix, and after the corpus+contract+hold
+package). Still open, now cosmetic: nature-variant emission itself (witness: the twoTerms anchor),
+the consumer-table audit beyond LinkToField, and the never-completed `-Xint` seed experiment.

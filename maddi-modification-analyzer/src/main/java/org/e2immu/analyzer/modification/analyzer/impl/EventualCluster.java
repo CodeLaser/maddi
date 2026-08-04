@@ -393,6 +393,34 @@ public class EventualCluster {
      * on pre-cutover optimistic modification values -- restart with it. The hierarchy map and setter cache
      * are cheap, prepwork-stable facts, but clearing them too keeps the reset trivially complete.
      */
+    // the warm-up sweep (the hc-vs-FF race, 2026-08-04): after each rederivation reset, the remainder of
+    // the reset iteration plus two full iterations recompute the monotone state -- enm walks, the abstract
+    // batches, candidacy -- with TYPE-LEVEL WRITES WITHHELD, so the write-once verdict is taken from
+    // settled excusals instead of racing them. Measured: candidacy re-ignites within the first iteration
+    // after the reset and the batches land in the second; a type-level write inside that window freezes a
+    // capped level (@FinalFields where the settled computation reaches hc) or a partial mark set.
+    private volatile int resetIteration = -1;
+
+    /** Type-level writes are withheld while the epoch's excusal state is still settling. */
+    public boolean typeLevelWarmUp() {
+        return ENABLED && resetIteration >= 0 && ITERATION <= resetIteration + 2;
+    }
+
+    /** Open the warm-up window: called at the DEFERRAL-round reset only -- the terminal epoch is where the
+     *  race lives and where the whole family is re-derived; the MODREACH resets' epochs are interim (their
+     *  writes are cleared again), and seeded/incremental runs must never see a forced extra pass. */
+    public void openWarmUpWindow() {
+        resetIteration = ITERATION;
+    }
+
+    /** Close the window: called at each analyze() entry. The cluster instance outlives a run (the seeded
+     *  incremental entry point re-analyzes on the same universe), and a stale window from a previous run's
+     *  deferral round would withhold the new run's type-level writes -- its low iteration numbers all sit
+     *  "inside" the old window. */
+    public void closeWarmUpWindow() {
+        resetIteration = -1;
+    }
+
     public void resetForRederivation() {
         if (!ENABLED) return;
         if (CAND_DEBUG) System.out.println("ECCAND it=" + ITERATION + " reset");

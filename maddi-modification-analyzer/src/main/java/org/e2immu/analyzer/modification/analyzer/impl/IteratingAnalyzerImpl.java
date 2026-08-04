@@ -418,6 +418,11 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             sia.setElementCompletedCallback(() ->
                     feed(org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed::elementCompleted));
         }
+        // a stale warm-up window from a previous run on the same universe (the seeded incremental entry
+        // point) would withhold this run's type-level writes: close it before the first iteration
+        if (EventualCluster.ENABLED && singleIterationAnalyzer instanceof SingleIterationAnalyzerImpl sia0) {
+            sia0.eventualCluster().closeWarmUpWindow();
+        }
         boolean cycleBreakingActive = false;
         int previousPropertiesChanged = Integer.MAX_VALUE;
         // reverse adjacency: dependersOf(Y) = { X | X depends on Y } — the elements to re-analyze when Y changes
@@ -473,7 +478,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         }
         while (true) {
             ++iterations;
-            EventualCluster.ITERATION = iterations; // log-only stamp for ECASSUME/ECSITE diagnostics
+            EventualCluster.ITERATION = iterations; // ECASSUME/ECSITE diagnostics AND the warm-up window arithmetic
             LOGGER.info("{}, cycle breaking active? {}", highlight("Start iteration " + iterations),
                     cycleBreakingActive);
             TolerantWrite.resetChangeCounts();
@@ -517,6 +522,26 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             // under an active worklist, a zero-change SUBSET iteration is not a fixpoint certificate — only a
             // zero-change FULL pass is; route through the verification branch below instead of stopping here
             boolean done = propertiesChanged == 0 && (dependersOf == null || verifying);
+            // the warm-up sweep (the hc-vs-FF race): type-level writes are withheld for two iterations after
+            // a rederivation reset, and the withholding itself would otherwise stall the change count and
+            // close the epoch INSIDE the window (the ide-daemon polarity fixture: converged in one post-reset
+            // iteration, eventual family empty). Hold the epoch open on the window's own ITERATION arithmetic
+            // — deterministic, unlike counting withheld writes, whose parallel-order-sensitive magnitude sent
+            // the run bistable (R25/R26, questR-20260804).
+            if (done && EventualCluster.ENABLED && !incremental
+                && singleIterationAnalyzer instanceof SingleIterationAnalyzerImpl sia
+                && sia.eventualCluster().typeLevelWarmUp()) {
+                LOGGER.info("Warm-up window open at certification point: forcing a full next iteration");
+                done = false;
+                dirty = null;
+                previousPropertiesChanged = Integer.MAX_VALUE;
+                // the verify-certify loop's own exit ("worklist dry + full verification pass clean") returns
+                // WITHOUT the terminal machinery and does not consult this hold: it fired mid-window on the
+                // seeded-analysis fixture and skipped TERMINAL_CERTIFIED, the deferral and the contraction.
+                // Breaking 'verifying' re-arms the full-verification dance instead; when the window closes,
+                // certification goes through the stop block above as designed.
+                verifying = false;
+            }
             // certification blind spot (PLAN-modification-reachability §9): refused downgrades are invisible
             // to the change count, so "no changes" can certify prematurely-frozen optimistic values. Surface
             // them; setting STRICTCERT (PRESENCE-only, any value — house convention for all engine gates)
@@ -653,6 +678,10 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                     eventualDeferralRounds++;
                     int cleared = clearEventualFamily(analysisOrder);
                     sia.eventualCluster().resetForRederivation();
+                    // the warm-up window opens HERE only: the terminal epoch re-derives the whole family and
+                    // is where the hc-vs-FF write-once race lives; the MODREACH resets' interim epochs get
+                    // cleared again anyway, and seeded runs must never see the certification-gate hold
+                    sia.eventualCluster().openWarmUpWindow();
                     LOGGER.info("EVENTUAL deferral: cleared {} eventual value(s) at the terminal "
                                 + "certification point; re-deriving over the settled state", cleared);
                     dirty = null;
