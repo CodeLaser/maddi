@@ -11,6 +11,8 @@ Each entry below is labeled:
 - **note** — a dated design/investigation note; accurate for the code as it was on that date,
   kept for the reasoning, not guaranteed to track later changes.
 - **status** — a living state-of-the-union / TODO document, updated as work progresses.
+- **tracked** — the document explains; the open items inside it are GitHub issues. New work items
+  go to issues, not to new checkbox files.
 
 **`closed-core`** throughout these documents is the closed-source ~3M-line commercial codebase used
 as a private proving corpus, and `com.example.*` stands for its packages. It is not distributable,

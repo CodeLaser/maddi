@@ -98,31 +98,35 @@ are design and stay prose.
 - [ ] Tracking issue + H items for `prep-analyzer hardening.md`.
 - [ ] Tracking issue + H items for `modification-link-analyzer hardening.md`.
 - [ ] Five issues from `ide-todo.md` §4.
-- [ ] Add a fourth status label to `docs/README.md`: **tracked** — the document explains, the issues
-      track.
+- [x] Fourth status label in `docs/README.md`: **tracked** — the document explains, the issues track.
 
 ### Phase 4 — write the rule down
 
-- [ ] `CONTRIBUTING.md`: a "Proposing a change" section — issue first for anything non-trivial, PR
-      against the chosen branch, CI green, engine changes need the `FPDUMP` A/B, and which licence a
-      contribution falls under per module.
-- [ ] `AGENTS.md` §Working style: amend "new design notes go in `docs/`" to "design notes go in
-      `docs/`; **open work items go to GitHub issues, not to new checkbox files**".
-- [ ] `CLAUDE.md`: two lines pointing at the above; keep it short and pointer-based.
+- [x] `CONTRIBUTING.md` §"Proposing a change" — issue first for anything non-trivial, PR against
+      `main`, CI green, DCO sign-off, the `FPDUMP` A/B rule, and the per-module licence.
+- [x] `AGENTS.md` §Working style: open work items go to GitHub issues, not to new checkbox files;
+      and do not push to `devel`/`main` or open a PR unasked.
+- [x] `CLAUDE.md`: a short header pointing at both rules, kept pointer-based.
+- [x] `DCO` at the repository root, plus a `dco` CI job that fails a PR whose commits lack
+      `Signed-off-by`.
 
 ---
 
 ## 4. Decisions that are not mine to make
 
-1. **PR target** — `main` with a regular `devel` → `main` merge, or `devel` as default. (§1)
-2. **Contributor licensing — settle before the first PR, not after.** CodeLaser ships Refactor on
-   this engine. Without a DCO or CLA, third-party contributions arrive LGPL-3.0-only from their
-   authors: workable as things stand, but it forecloses any future relicensing or dual-licensing of
-   the analyzer, and retrofitting agreement from contributors afterwards is the classic painful case.
-   A DCO (a `Signed-off-by` line, enforced by an action) is the low-friction option and the
-   recommendation; a CLA is heavier and deters casual contributors. Either way `CONTRIBUTING.md`
-   must say plainly: contributions to `maddi-support` are Apache-2.0, everything else LGPL-3.0.
-3. **Phase 3 granularity** — H items only (~10 issues), or all 49 checkboxes.
+1. ~~**PR target**~~ — **decided 2026-08-04: `main`**, kept current by merging `devel` → `main`.
+2. ~~**Contributor licensing**~~ — **decided 2026-08-04: DCO, no CLA.** Contributors sign off with
+   `git commit -s`; a CI job enforces it. Note what this deliberately does *not* buy: contributions
+   remain LGPL-3.0 from their authors, so relicensing or dual-licensing the analyzer later would
+   still need each contributor's agreement. That was accepted in exchange for not putting a signing
+   step in front of a drive-by fix. `CONTRIBUTING.md` states the per-module split: `maddi-support`
+   Apache-2.0, everything else LGPL-3.0.
+3. ~~**Phase 3 granularity**~~ — **decided 2026-08-04: H items only**, plus one tracking issue per
+   roadmap. The roadmap documents stay the full record.
+4. ~~**The scan in CI**~~ — **decided 2026-08-04: no.** Running it would mean holding the customer
+   name in GitHub Actions secrets. The commit hook covers the maintainer's machines and the `guard`
+   job blocks the term list from being committed; the residual gap is a worktree where
+   `core.hooksPath` was never set.
 
 ---
 

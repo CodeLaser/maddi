@@ -66,5 +66,11 @@ check all four:
   (`CONTRIBUTING.md` §Names that must not appear).
 - New cross-module design notes go in `docs/` and get an entry in
   [`docs/README.md`](docs/README.md); module-local bug notes go in the module's `notes/`.
+- **Open work items go to GitHub issues, not to new checkbox files.** The documents are the
+  reasoning record — measurements, design forks, negative results — and they stay. What gets
+  tracked is the discrete item: replace the checkbox with a link to the issue, and have the issue
+  link back to the section for the why. Do not create a new `*-TODO.md`.
+- maddi takes pull requests from outsiders. Do not push to `devel` or `main`, and do not open a PR
+  on the maintainer's behalf without being asked.
 - Documentation in `docs/` and `notes/` is dated working material — trust the maintained
   references listed in `ARCHITECTURE.md` §Documentation map when they disagree.

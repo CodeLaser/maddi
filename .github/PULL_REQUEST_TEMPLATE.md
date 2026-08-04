@@ -13,6 +13,7 @@ split, and the rules that are easy to violate and expensive to learn.
 - [ ] New or changed behaviour has a test. For link-engine behaviour, extend
       `TestLinkMethodCall` and friends rather than asserting ad hoc elsewhere.
 - [ ] Any test that parses a real-world corpus is tagged `@Tag("slow")`.
+- [ ] Every commit is signed off (`git commit -s`) — the [DCO](../DCO). A CI job checks this.
 
 ## If this touches the engine
 
@@ -38,4 +39,5 @@ absent corpus, vacuous, or heap-starved. AGENTS.md §Commands lists the four thi
 ## Licence
 
 maddi is **LGPL-3.0**, except `maddi-support` (the annotations) which is **Apache-2.0** from
-0.9.0 onward. By opening this PR you contribute under the licence of the module you touched.
+0.9.0 onward. By signing off you contribute under the licence of the module you touched. There is
+no CLA and no copyright assignment.
