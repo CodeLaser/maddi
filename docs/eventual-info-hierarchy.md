@@ -2557,3 +2557,34 @@ excusal but the ORDER excusals land in versus the write-once verdict. All four r
 eventual=null. Baseline: 56, R17/R18 byte-identical; Fernflower A/B type-line identical both
 sides; full suite green. The race is the deferral design's territory -- the next decision point,
 recorded here for the fork.
+
+## The FF-cap measurement (2026-08-04, same morning): 56 -> 285
+
+Bart said "do the measurement" on the third race shape: in after-mark mode, a @FinalFields
+supertype caps the subtype at @FinalFields through the hierarchy min instead of falling through
+the isMutable(@FinalFields) exit to MUTABLE. Soundness: the sub inherits the super's
+post-mark-mutable content, no more -- FINAL_FIELDS is the honest ceiling and the min already
+expresses it; a truly MUTABLE super still sinks, and the unconditional domain is untouched
+(after-mark + cluster gated).
+
+R19: **285 survivors** (from 56), R20 byte-identical. The sink had been holding back the entire
+api layer: one transiently capped FF write on Expression turned every subtype @Mutable, and "buys
+nothing" erased the subtree -- with the cap the subtree floors at FF instead. Composition: 194
+@FinalFields + 91 @Immutable(hc); zero Builders (the setter guards held). Element STANDS in the
+final fp at @Immutable(hc=true) with the 60-label union; Expression, ExpressionImpl, the
+arithmetic five (via Part B, @FinalFields(after=parameterizedType,testType)), the statement
+family, ModuleInfo and the Comment families are all in. Fernflower A/B: exactly one pure addition
+(SwitchOnReferenceCandidate, FF after=myTempVarAssignments), zero losses; full suite green;
+ratchet baseline re-derived at 285.
+
+The write-once/excusal-timing race is NOT gone -- its failure mode changed: a capped first write
+now lands FF where a later visit would have computed hc (the arithmetic five sit at FF for
+exactly this reason). Degradation, not erasure. Closing that gap -- batch-before-typeLevel
+ordering, or defer-while-batches-pending -- remains the deferral design's open decision, now
+worth revisiting with the stakes visible: it is the difference between FF and hc for a large
+slice of the 194.
+
+A unit pin for the cap was attempted and dropped: the terminal phase (where weak after-mark
+levels write) activates only when types remain immutability-undecided at the certification point,
+which a small self-contained fixture cannot produce -- every type decides. The 285-line ratchet
+baseline is the pin: any regression of the cap collapses the count.
