@@ -1,0 +1,75 @@
+name: Wrong analysis verdict
+description: maddi computed an annotation you believe is wrong (or refused to compute one)
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the most useful kind of report for maddi, and also the easiest to get wrong —
+        the four immutability levels are stricter than most people expect. Before filing, it is
+        worth checking the condensed reference:
+        [`road-to-immutability/llm-summary.md`](../blob/main/road-to-immutability/llm-summary.md).
+        In particular `@Immutable(hc=true)` is *not* a weaker `@Immutable`; it records that the
+        type's hidden content is of a type parameter maddi cannot see into.
+
+  - type: textarea
+    id: code
+    attributes:
+      label: The smallest code that reproduces it
+      description: >
+        A self-contained type, compilable against the JDK alone if possible. Corpus-scale
+        reports are welcome too, but a distilled example is what turns into a regression test.
+      render: java
+      placeholder: |
+        public final class Config {
+            private final Map<String, String> settings;
+            public Config(Map<String, String> settings) { this.settings = settings; }
+        }
+    validations:
+      required: true
+
+  - type: input
+    id: computed
+    attributes:
+      label: What maddi computed
+      placeholder: "@FinalFields @Container on Config"
+    validations:
+      required: true
+
+  - type: input
+    id: expected
+    attributes:
+      label: What you expected, and why
+      placeholder: "@Immutable(hc=true) — the field is final and never modified"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frontend
+    attributes:
+      label: Front end
+      description: Which parser produced the syntax tree. If unsure, leave it — the CLI reports it.
+      options:
+        - javac (openjdk) — the default
+        - CongoCC (hand-written Java parser)
+        - Kotlin (K2)
+        - not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: maddi version or commit
+      placeholder: "0.9.0, or a commit hash if built from source"
+    validations:
+      required: true
+
+  - type: input
+    id: jdk
+    attributes:
+      label: JDK
+      description: "`java -version`. The build and the analysis can use different JDKs — give the one that ran the analysis."
+      placeholder: "Temurin 26.0.1+8"
+    validations:
+      required: true

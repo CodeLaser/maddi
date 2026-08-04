@@ -15,6 +15,29 @@ permissions:
   contents: read
 
 jobs:
+  # The term list for the internal-names guard must never be committed: a list of the names
+  # to redact is a decoder ring for the redaction. The scan itself cannot run here without
+  # the list (see CONTRIBUTING.md), but this half needs nothing and catches the one mistake
+  # that would undo the redaction.
+  guard:
+    name: internal-names guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: The term list must not be in the repository
+        run: |
+          if git ls-files --error-unmatch .githooks/internal-names.txt >/dev/null 2>&1; then
+            echo "::error file=.githooks/internal-names.txt::The internal-names term list is committed."
+            echo "It must live outside the repository — see CONTRIBUTING.md, 'Names that must not appear'."
+            exit 1
+          fi
+          test -f .githooks/internal-names.txt.example || {
+            echo "::error::.githooks/internal-names.txt.example is missing; contributors have no format reference."
+            exit 1
+          }
+          echo "OK: term list absent, example present."
+
   build:
     name: build + fast tests (JDK ${{ matrix.java }})
     runs-on: ubuntu-latest

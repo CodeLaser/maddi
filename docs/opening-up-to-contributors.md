@@ -59,14 +59,20 @@ document section for the why.
 
 ### Phase 1 — make the repository safe to land on
 
-- [ ] Decide the PR target (§1).
-- [ ] `.github/ISSUE_TEMPLATE/` — bug and question, both asking for maddi version, JDK, and whether
-      it is the javac or CongoCC front end.
-- [ ] `.github/PULL_REQUEST_TEMPLATE.md` — points at the golden rule (byte-identical `FPDUMP` A/B for
-      engine changes) and the fast/slow test split.
-- [ ] `CODE_OF_CONDUCT.md`, `SECURITY.md`.
-- [ ] Labels beyond the nine defaults: `front-end:javac`, `front-end:kotlin`, `engine:link`,
-      `engine:analyzer`, `ide`, `build/ci`, `docs`.
+- [x] PR target: **`main`**, kept current by merging `devel` → `main`. Both were pushed level
+      on 2026-08-04, which removed the "12 behind" problem this phase existed to fix.
+- [x] `.github/ISSUE_TEMPLATE/` — `analysis-verdict.yml` (the characteristic report for an
+      analyzer: computed vs expected, with a distilled type), `bug.yml` (crashes and failures),
+      and `config.yml` routing concept questions to Discussions. Both forms ask for version, JDK
+      and front end; the bug form asks whether the JDK ships `jmods/`.
+- [x] `.github/PULL_REQUEST_TEMPLATE.md` — the golden rule (byte-identical `FPDUMP` A/B for engine
+      changes), the fast/slow split, the concept-changes-land-in-the-docs rule, and the per-module
+      licence.
+- [x] `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1) and `SECURITY.md` — the latter scoped to
+      what maddi actually is: it parses untrusted input, and the IDE daemon listens locally.
+- [x] Eight labels beyond the nine defaults: `front-end:javac`, `front-end:kotlin`,
+      `engine:analyzer`, `engine:link`, `engine:prepwork`, `ide`, `build/ci`, `corpus`. No `docs`
+      label — the default `documentation` already covers it.
 
 ### Phase 2 — the first ~15 issues, chosen to be landable by a stranger
 
@@ -140,7 +146,10 @@ per clone and per worktree** — `git config core.hooksPath .githooks` — which
 together with `--no-verify` and fast-forward merges. A `--tracked` scan in `build.yml` is about six
 lines and would make it a check that cannot be skipped.
 
-- [ ] Wire the scan into CI.
+- [~] A `guard` job in `build.yml` now fails if the term list is ever committed, and if the
+      example file goes missing. The **scan itself** is not in CI: it needs the term list, which
+      would mean putting the customer's name into GitHub Actions secrets. That is a deliberate
+      open decision, not an oversight.
 
 ---
 

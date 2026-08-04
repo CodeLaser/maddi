@@ -1,0 +1,69 @@
+name: Bug report
+description: A crash, a parse failure, a build problem, or anything that does not run
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a *wrong annotation* rather than a failure, use the "Wrong analysis verdict"
+        template instead — it asks for the things that make a verdict reproducible.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Include the full stack trace if there is one, and the command you ran.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where it happened
+      options:
+        - Parsing / resolution (javac front end)
+        - Parsing / resolution (Kotlin front end)
+        - Modification & immutability analysis
+        - Link engine
+        - CLI
+        - Gradle or Maven plugin
+        - IDE plugin (IntelliJ / Eclipse / VS Code)
+        - Build (Gradle / Bazel)
+        - not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: maddi version or commit
+      placeholder: "0.9.0, or a commit hash if built from source"
+    validations:
+      required: true
+
+  - type: input
+    id: jdk
+    attributes:
+      label: JDK and OS
+      description: >
+        `java -version`. Worth checking whether your JDK ships a `jmods/` directory — several
+        code paths differ between jmod and jmod-less JDKs, and that difference has caused
+        real bugs.
+      placeholder: "Temurin 26.0.1+8 (no jmods/), macOS 15"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: >
+        A project we can check out, or a minimal source file. If it only reproduces on a
+        private codebase, say so — a stack trace plus the shape of the code is still useful.
