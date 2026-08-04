@@ -93,7 +93,7 @@ than `this.get(pos)`.
 
 ## RESOLUTION (2026-07-16, kotlin trunk — GetSet analysis owner)
 
-Root cause confirmed: a refactor (`a54eb89c`, "removed … the concept of synthetic list variables") dropped the
+Root cause confirmed: a refactor (`42f6e86f`, "removed … the concept of synthetic list variables") dropped the
 hard-coded `java.util.List.get(int)`/`set(int,Object)` watcher from `GetSetUtil` (now
 `CreateSyntheticFieldsForGetSet`). That watcher was the only thing that created `_synthetic_list` on the real
 `java.util.List` at inspection time, because the JDK bytecode/openjdk sources carry no physical `@GetSet` (it

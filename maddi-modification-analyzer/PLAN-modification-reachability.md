@@ -250,13 +250,13 @@ All four corrections accepted; they improve the plan.
 4. **Audit cross-read** — agreed; classification against the audit tables beats direction-only
    checking.
 
-On the quick win (261a22e4): reviewed, correct, and the fernflower result — a CERTIFIED corpus
+On the quick win (caddc146): reviewed, correct, and the fernflower result — a CERTIFIED corpus
 carrying 11 standing refusals, 6 of them explaining the open independence-under-cycle-breaking
 anomaly — is the strongest possible justification for having done it first. One nit:
 `System.getenv("STRICTCERT") != null` enables strict mode for any value including `STRICTCERT=0`;
 the commit message says `STRICTCERT=1`. Consider checking the value, or documenting presence-only.
 
-Phase-0 red test (51d4f24f) reviewed: faithful to the repro, correctly `@Disabled` with the
+Phase-0 red test (c0618567) reviewed: faithful to the repro, correctly `@Disabled` with the
 promotion condition in the message. Mirror tripwires on the metrics side re-verified green against
 this branch (2026-07-18): `deepFieldChains` saturation pin still holds, `missingArgumentLinks==0`
 still holds — i.e., the quick win changed no analysis results, as intended (log-only default).
@@ -364,7 +364,7 @@ analysis+shadow at parallelism 4):
 - Coverage caveats, logged not silent: 650 call sites without argument links (LINKED_VARIABLES_ARGUMENTS
   absent), 3068 unprojected receivers (chained-call receivers, no E2 edge) — both mean the 279 is a
   LOWER bound on what phase-2 will surface.
-- Baseline pinned in the test (engine at kotlin `fba60b23`): a change in these numbers signals
+- Baseline pinned in the test (engine at kotlin `5d70b47f`): a change in these numbers signals
   engine movement — re-baseline and reclassify.
 
 **Shadow-pass bugs found while validating** (all fixed, each was caught by a reverse divergence or a
@@ -496,7 +496,7 @@ trackObjectCreations). Nothing changes for any consumer until it is switched on.
 
 ## 16. Cross-read of the cutover (metrics thread, 2026-07-19)
 
-Verified at the merged tip b60d505a, from this side's instruments:
+Verified at the merged tip a696f0d4, from this side's instruments:
 
 - **All pinned tripwires green, as §15 predicts for pre-default-ON**: TestShadowCloneBench
   ({1,8,274}/{71,212}, 0 reverse — the re-pinned baseline holds), TestShadowModificationPass,

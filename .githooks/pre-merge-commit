@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+# A merge does not run pre-commit, so a branch that predates the guard would
+# otherwise carry internal names back in. Same scan, same staged content.
+# Note the residual gap: a fast-forward merge creates no commit and runs no hook.
+
+exec "$(dirname "$0")/scan-internal-names.pl" --staged

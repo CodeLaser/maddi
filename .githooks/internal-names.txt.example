@@ -1,0 +1,33 @@
+# TEMPLATE. Copy to ~/.config/maddi/internal-names.txt and put the real terms there.
+#
+# The real list is deliberately NOT in this repository, and must never be added
+# to it. maddi is public, and a list of the names to redact is a decoder ring for
+# the redaction: anyone reading it learns exactly what was removed, which undoes
+# the removal. Keeping it outside is the whole point.
+#
+# The scanner (scan-internal-names.pl) looks for the list in this order:
+#
+#   1. $MADDI_INTERNAL_NAMES
+#   2. git config maddi.internalNames
+#   3. ~/.config/maddi/internal-names.txt
+#
+# With no list present it prints a notice and passes: an outside contributor
+# cannot leak names they were never given. Configured-but-missing is an error.
+#
+# FORMAT: one Perl-compatible regular expression per line, matched
+# case-insensitively. Blank lines and lines starting with '#' are ignored.
+#
+# WRITE EACH PATTERN SO IT DOES NOT MATCH ITSELF. Use a one-character class for
+# one letter: `f[o]o` matches "foo", but the line you are reading does not
+# contain "foo". Without that, the list reports itself on every scan.
+#
+# Wrap a pattern in (?-i: ) to make it case-sensitive — that is what stops a
+# short prefix from matching ordinary words. Prefer broad patterns without word
+# boundaries: a name also appears inside camel case and package segments, which
+# a boundary would miss. False positives are cheap to allow for; a leak is not.
+#
+# Examples only — these match nothing real:
+
+a[c]mecorp
+w[i]dgetworks(?!hop)
+(?-i:A[c]m[A-Z])

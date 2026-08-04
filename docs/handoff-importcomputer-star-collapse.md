@@ -1,6 +1,6 @@
 # Handoff: `ImportComputerImpl` star-collapsing changes name resolution
 
-**Written 2026-08-02.** Found on the commercial closed-core corpus via the jfocus dedup intake; the consumer
+**Written 2026-08-02.** Found on the closed-core corpus via the jfocus dedup intake; the consumer
 is fixed downstream (never collapse), this note is the upstream defect record. Status: **open**.
 
 ## The defect

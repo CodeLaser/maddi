@@ -60,6 +60,10 @@ check all four:
   corpora before they are accepted; never trade verdict changes for speed silently.
 - If you change analyzer semantics, update `road-to-immutability/llm-summary.md` in the same
   change.
+- **This repository is public.** The customer codebase behind the private proving corpus must never
+  be named — write `closed-core` and `com.example.*` instead. Quoting a stack trace, a package or a
+  class name from it into a defect write-up is the way this gets leaked; a commit hook refuses it
+  (`CONTRIBUTING.md` §Names that must not appear).
 - New cross-module design notes go in `docs/` and get an entry in
   [`docs/README.md`](docs/README.md); module-local bug notes go in the module's `notes/`.
 - Documentation in `docs/` and `notes/` is dated working material — trust the maintained

@@ -1,6 +1,6 @@
 # Regression: JDK preload fails on a jmod-less `alternativeJREDirectory`
 
-**Reported by:** the IDE thread (`maddi-ide`, branch `ide`), 2026-07-19, after merging `kotlin` at `95ed83ea`.
+**Reported by:** the IDE thread (`maddi-ide`, branch `ide`), 2026-07-19, after merging `kotlin` at `92ef626f`.
 **Status:** open. Reproduces in *this* tree — `maddi-ide-daemon`'s `WarmAnalysisServiceTest` is red here too.
 **Impact:** all three IDE front-ends (IntelliJ, Eclipse, VS Code) cannot analyse anything on this machine.
 
@@ -34,21 +34,21 @@ reached transitively (nothing in the test mentions it) and `isInterface` is aske
 ./gradlew :maddi-ide-daemon:test --tests '*WarmAnalysisServiceTest*'
 ```
 
-Red in this tree at `95ed83ea`, on a machine whose only JDK 25+ is jmod-less (see below). The test is tiny —
+Red in this tree at `92ef626f`, on a machine whose only JDK 25+ is jmod-less (see below). The test is tiny —
 it writes one class to a temp dir and analyses it — so the source under analysis is not a factor.
 
 ## What changed
 
 Two commits from this batch combine. Neither is wrong alone; together they open a path nothing had taken.
 
-1. **`43076fc8` openjdk: honour alternativeJREDirectory.** The IDE daemon has always set
+1. **`99d4c301` openjdk: honour alternativeJREDirectory.** The IDE daemon has always set
    `builder.setAlternativeJREDirectory(config.sdkHome())`
    (`maddi-ide-daemon/.../InputConfigurationAssembler.java:37`). Until this commit that was effectively
    ignored and platform types came from the running JVM. Now it is honoured, so they come from the
    configured JDK. This is the behaviour the IDEs want — they deliberately analyse against a chosen JDK 25+
    rather than the JVM the editor runs on — so the commit is doing the right thing.
 
-2. **`4a77305a` inspection: run on jmod-less JDKs by reading modules from the runtime image.** The JDK now
+2. **`fb9895d3` inspection: run on jmod-less JDKs by reading modules from the runtime image.** The JDK now
    being pointed at has no `jmods` directory, so the new runtime-image reader is what serves the preload.
    That is the path that fails.
 
@@ -89,7 +89,7 @@ your area and we would be guessing.
 
 ## What we did on our side
 
-Nothing — no workaround, no pin. The merge is committed on `ide` as-is (`05e637f6`) with the tests red, so
+Nothing — no workaround, no pin. The merge is committed on `ide` as-is (`f4518060`) with the tests red, so
 the regression stays visible rather than being papered over. The alternative was to install a JDK 25 *with*
 jmods locally, which would have hidden a bug real users will hit: jmod-less JDK images are common, and the
 IDE plugins point `sdkHome` at whatever JDK 25+ the user configures.
@@ -101,8 +101,8 @@ Happy to test a fix quickly — the daemon tests are a ~10 second run.
 **Fixed.** `:maddi-ide-daemon:test` is green again (4/4), and `:maddi-inspection-openjdk:test` stays green
 including `TestAlternativeJRE`.
 
-**Root cause — one correction to the diagnosis above.** The trigger is `43076fc8` (`--system`) alone; the
-jmod-less reader (`4a77305a`) is *not* on this path. The daemon uses the **openjdk** front-end (see the stack:
+**Root cause — one correction to the diagnosis above.** The trigger is `99d4c301` (`--system`) alone; the
+jmod-less reader (`fb9895d3`) is *not* on this path. The daemon uses the **openjdk** front-end (see the stack:
 `ClassSymbolScanner`/`ScanCompilationUnits`), which reads platform types through javac, never through the
 integration `ResourcesImpl.addModuleFromRuntimeImage`. It reproduces on a **jmod-ful** JDK too (confirmed on
 homebrew-openjdk-26). The jmod-less-ness was incidental: it is only *why* the machine's chosen `sdkHome` is

@@ -406,7 +406,7 @@ public class SharedVariables {
             for (Variable s : assignmentSources(pf)) {
                 Variable root = Util.primary(s);
                 // null: expression-based array access ('arr()[i]' has no array VARIABLE) — no root to
-                // rehome onto, so it cannot contribute sibling faces (closed-core executeBody NPE)
+                // rehome onto, so it cannot contribute sibling faces (closed-core: NPE in a loop body)
                 if (root == null || root.equals(s)) continue;
                 for (Variable sibling : allShared(root)) {
                     VariableTranslationMap toSibling = new VariableTranslationMap(runtime);

@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * inspected from jmod bytecode, which carries no physical {@code @GetSet}. CreateSyntheticFieldsForGetSet must
  * still create the {@code _synthetic_list} element field and set List.get(int)'s GET_SET_FIELD, pre-commit,
  * keyed on the interface FQN -- otherwise RuntimeImpl.getSetVariable NPEs when resolving an indexed list-getter
- * call. A refactor (a54eb89c) had dropped that hard-coded watcher; this pins it back.
+ * call. A refactor (42f6e86f) had dropped that hard-coded watcher; this pins it back.
  */
 public class TestListSyntheticGetSet extends CommonTest {
 

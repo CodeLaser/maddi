@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * passed constructor-to-constructor five levels deep, modified only at the sink — every FCi.&lt;init&gt;
  * parameter and every FCi.f must be modified. Today modification saturates two levels above the sink
  * (premature optimistic writes frozen by the upward-only overwrite policy; certification is blind to
- * the refusals — see the STRICTCERT counter, commit 261a22e4). This is the red test the reachability
+ * the refusals — see the STRICTCERT counter, commit caddc146). This is the red test the reachability
  * pass must turn green.
  */
 public class TestDeepCaptureChain extends CommonTest {

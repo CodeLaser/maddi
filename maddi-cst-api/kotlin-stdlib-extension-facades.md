@@ -67,7 +67,7 @@ exactly the cross-language inconsistency we've been careful about. Decide the AA
   `libraryExtensionCall` that tried a hardcoded per-package list of facade candidates.
 - **Result:** `findClass` returned null for all facade candidates (point 2 above); the whole attempt
   was reverted. The two shakeout bug-fixes made alongside it (non-Int constants; `map[k] = v` → `put`)
-  are unrelated and were kept (commit `49065a01`).
+  are unrelated and were kept (commit `a8b9dd9f`).
 
 ## Related
 

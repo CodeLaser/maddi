@@ -315,7 +315,7 @@ Still to do: `VARIABLE_DATA` (items 1 + 3 — `VariableDataImpl`/`VariableInfoIm
 reprioritisation (`analysis-rewiring.md`): prepwork `VARIABLE_DATA` is the *cheap* tier, so it is no longer the
 priority — the analyzer-output early-cutoff is. This carry substrate underpins both.
 
-**Blocker — RESOLVED (2026-07-18, sv-integration `eca429e0`, merged into kotlin `8a79b12c`).** The intermittent
+**Blocker — RESOLVED (2026-07-18, sv-integration `5272e776`, merged into kotlin `76af4f59`).** The intermittent
 javac NPE (`com.sun.tools.javac.code.Scope$StarImportScope.isFilled() ... tree.starImportScope is null`, thrown in
 `task.analyze()` at the parse phase, ~1 run in 4–5 across `modification-link` / `-analyzer` / `java-openjdk`) was
 **not** Gradle-daemon contention as this note previously guessed — it was a genuine data race. `CompiledTypesManagerImpl.typesLoaded`

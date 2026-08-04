@@ -135,7 +135,7 @@ carried link can legitimately outlive the anonymous type it names.
 
 ## 8. Already landed
 
-`1cbb13ee` — `InfoMapImpl.fieldInfo` and `parameterInfo` now carry the same `"Cannot find …"` message
+`0a3f3846` — `InfoMapImpl.fieldInfo` and `parameterInfo` now carry the same `"Cannot find …"` message
 their `typeInfo`/`methodInfo` siblings already had, plus owner and primary type. Message-only, no
 behaviour change. It is what turned an unattributed `NullPointerException` into a named member in a
 single run, and it is worth keeping whichever way the fix goes.

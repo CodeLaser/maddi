@@ -55,6 +55,48 @@ Read [`ARCHITECTURE.md`](ARCHITECTURE.md) first for the module map and reading p
    link natures, convergence rules), update `road-to-immutability/llm-summary.md` (and the book
    chapter if affected) in the same change.
 
+## Names that must not appear
+
+maddi is public, and it is developed alongside closed-source CodeLaser work and exercised against
+a customer codebase. **That customer, its packages and its class names must not appear anywhere in
+this repository** — not in documentation, not in comments, not in test fixtures, not in commit
+messages. Defect write-ups regularly quote a stack trace or a package name; that is exactly where
+the leak happens.
+
+Use the established stand-ins:
+
+| Instead of | Write |
+|---|---|
+| the customer's codebase | `closed-core` |
+| its packages | `com.example.*` |
+| its drivers/config classes in the private workspace | the same name with `ClosedCore` in place of the customer's |
+
+A local guard enforces this. **Enable it once per clone or worktree** — git does not do it for you:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+That installs a `pre-commit` hook (scans the staged content) and a `commit-msg` hook (scans the
+message — the log is as public as the tree). To scan by hand:
+
+```bash
+.githooks/scan-internal-names.pl --tracked    # the whole repository
+.githooks/scan-internal-names.pl --staged     # what a commit would record
+```
+
+**The term list is deliberately not in this repository.** A list of the names to redact is a decoder
+ring for the redaction — publishing it here would undo the thing it enforces. The scanner looks for
+it in `$MADDI_INTERNAL_NAMES`, then `git config maddi.internalNames`, then
+`~/.config/maddi/internal-names.txt`. [`.githooks/internal-names.txt.example`](.githooks/internal-names.txt.example)
+documents the format, including the one rule for writing a pattern: it must not match itself, or the
+list reports the repository against itself.
+
+With no list present the hook prints a notice and passes — an outside contributor cannot leak names
+they were never given. A list that is *configured but missing* is an error, so a broken maintainer
+setup fails loudly instead of silently disarming the guard. `git commit --no-verify` bypasses the
+hook entirely; there is no legitimate reason to.
+
 ## Diagnostics and gates
 
 The engine reads opt-out/diagnostic gates from the environment (via `Gate`), including:

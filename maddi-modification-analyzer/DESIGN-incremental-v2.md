@@ -23,7 +23,7 @@ v1 already provide and shrink to integration work; §3.3 is the remaining new pi
 gap (Codec fieldIndex throw when fingerprinting a single-type-analysed type whose links reference
 a modifiable field) is the same family as checkpoint v1's decode tail — one shared fix list.
 Prereqs in place: checkpoint v1 (CheckpointWriter, restoreCodec, goDirTolerant, CHECKPOINT/
-CHECKPOINT_RESTORE gates — commits 84a6003c, 49415b2e, b197b101); per-sourceset fingerprints
+CHECKPOINT_RESTORE gates — commits 0a81456a, be23b77d, 16521396); per-sourceset fingerprints
 (maddi-kotlin branch, other thread).
 
 ## 1. Problem

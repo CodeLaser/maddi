@@ -16,29 +16,29 @@ The core gap this document described (collapse without reconstruct) has been **c
 end-to-end**. The suite went **196 → 140 failing**. Foundational pins
 (`TestSimpleSharedVariable`, `staticvalues.TestSharedVariable`) are **green**. Later work
 (after the four commits below): `acceptForLinkedVariables` implemented (crashes removed) +
-array rep-expansion (`8eb8319e`); §m generated for reconstructed edges — closes the
-enum-§m regression (`6a9f8092`, 144→141); transitive intra-group chain reconstruction, WIP
-(`338fa6e1`, 141→140 — constrained to pass-through intermediates; broadening to real locals
+array rep-expansion (`297a2a51`); §m generated for reconstructed edges — closes the
+enum-§m regression (`48f1dac8`, 144→141); transitive intra-group chain reconstruction, WIP
+(`c1210751`, 141→140 — constrained to pass-through intermediates; broadening to real locals
 needs a dimension guard). See `sv-remaining-catalogue.md` for the current 140 breakdown; the
 "assignment re-baselines" there proved to be reconstruct bugs, not re-baselines. The four
 foundational commits:
 
-- `8fd6567f` **reconstruct the collapse** — record assignment *direction* on the group
+- `ad0ebd41` **reconstruct the collapse** — record assignment *direction* on the group
   (`SharedVariable.Assignment`), reconstruct `field ← param` at extraction
   (`SharedVariables.assignmentEdgeStream` → `Graph.sharedAssignmentEdgeStream`, folded in
   `WriteLinksAndModification`, mirroring `virtualModificationEdgeStream` for the `≡`
   groups); rep-aware `FollowGraph` from-side discovery (`FromPair`: query the rep's
   closure, emit keyed on the member). Fixes the both-fresh drop **and** the active-collapse
   coarsening. 196→188.
-- `a30fd159` **single-hop field-of-rep** — `Graph.expandRepToMembers` expands a rep
+- `3b0fc4fd` **single-hop field-of-rep** — `Graph.expandRepToMembers` expands a rep
   nested in a field scope (`$__sv_list1.§$s` → `a.list1.§$s`); guarded with `!e.equals(v)`
   so ordinary vertices stay on the fast path (an unguarded form corrupts the simple
   aliasing summaries). 188.
-- `e4bdd7e6` **return-alias-of-rep** — when the extracted primary is itself a rep (a
+- `59bdf744` **return-alias-of-rep** — when the extracted primary is itself a rep (a
   collapsed `return a`), match its group members' *faces* and rehome
   (`Graph.rehome`, member→rep) so `$__sv_return.list1.§$s` → `method1.list1.§$s`. The
   multi-hop composition. 188→186.
-- `bd10f936` **drop invalid field-containment** — a `field ← param` collapse groups the
+- `0294e5f3` **drop invalid field-containment** — a `field ← param` collapse groups the
   field with the value source, so expanding a `≻`/`≺` link could emit `wrap ≻ 0:y`
   (0:y is not a field of wrap). That invalid `≻` flowed into downstream *construction*
   and tripped a `Fact` assertion which, under `TestStreamMapSpec`'s shared cache,
@@ -110,7 +110,7 @@ Full link suite = 196 failing / 383. Three experiments pin the causes (all on
 | variant | failing | interpretation |
 |---|---:|---|
 | as-ported baseline | 196 | — |
-| both-fresh → normal edge (reverted candidate `973a3f2c`) | 141 | the **both-fresh drop ≈ 55** |
+| both-fresh → normal edge (reverted candidate `69eff7b7`) | 141 | the **both-fresh drop ≈ 55** |
 | all shared-var collapse off (`NOSV`, diagnostic only) | 114 | collapse off recovers **82** total |
 
 So, of the 196:
@@ -137,7 +137,7 @@ assignments are the *first* edges into an empty graph. Traced on
 dropped → `S.<init>`'s summary is **empty** → `new S(...)` links nothing → `choose`
 emits `-`.
 
-The reverted candidate `973a3f2c` (add a normal edge when both fresh) recovered these
+The reverted candidate `69eff7b7` (add a normal edge when both fresh) recovered these
 55. It is arguably correct-by-design (nothing to dedup when both are fresh) — but see
 root cause #2: it exposed coarse output, so it is not a complete fix on its own.
 
@@ -215,7 +215,7 @@ granularity — all the work is in structure-preserving collapse/reconstruct.
   and `direct assignment` passes precisely.
 - **Both-fresh probe:** the drop is the `else`-less fall-through after the two
   `transformToSharedVariable` branches (lines ~118–126). The reverted candidate is
-  commit `973a3f2c` (see `git show`).
+  commit `69eff7b7` (see `git show`).
 - **Extraction probe:** `FollowGraph.followGraph` — `fromList` now includes reps whose
   members (via `Graph.expandRepToMembers`) are `isPartOf(primary)`, and rep *faces* when
   the primary is itself a rep (`Graph.rehome`). `Graph.printEquivalence` /
@@ -237,23 +237,23 @@ granularity — all the work is in structure-preserving collapse/reconstruct.
 ## Commit trail on `sv-integration`
 
 ```
-bd10f936  drop invalid field-containment links from rep expansion  [186->144]
-e4bdd7e6  reconstruct return-alias-of-rep in extraction            [188->186]
-a30fd159  handle single-hop field-of-rep in extraction             [188]
-8fd6567f  reconstruct shared-variable collapse (fix coarsening)     [196->188]
-23379ebf  consolidated handoff/status doc                          [196 baseline]
-fd0c52ae  revert the both-fresh candidate (coarse output rejected)
-169d509e  worklist: prototype outcome + reconstruct-gap map
-973a3f2c  (reverted) both-fresh -> normal edge candidate  [196->141]
-da4ea329  root-cause the dominant cluster (shared-var collapse)
-081aca3e  semantic analysis framed on the link-explosion purpose
-a83b0514  semantic-differences analysis
-06795cc1  clear mechanical failures (@Disabled large mocks; formatting) [->196]
-abb98276  fqn-adapt sv tests to openjdk parser [219->201]
-d3eb9e5c  test reorg; main+tests compile [219/383 baseline]
-73af66ec  big-bang: swap in the sv engine; main compiles
-167b60e7  Phase-1 coupling finding, revised phasing
-736ee738  build: -PskipCloneBench
-87056b6f  Phase 0: plan + inert engine toggle
+0294e5f3  drop invalid field-containment links from rep expansion  [186->144]
+59bdf744  reconstruct return-alias-of-rep in extraction            [188->186]
+3b0fc4fd  handle single-hop field-of-rep in extraction             [188]
+ad0ebd41  reconstruct shared-variable collapse (fix coarsening)     [196->188]
+3b3c6e81  consolidated handoff/status doc                          [196 baseline]
+8dc58d71  revert the both-fresh candidate (coarse output rejected)
+20b1a142  worklist: prototype outcome + reconstruct-gap map
+69eff7b7  (reverted) both-fresh -> normal edge candidate  [196->141]
+62d685e6  root-cause the dominant cluster (shared-var collapse)
+59cf02a1  semantic analysis framed on the link-explosion purpose
+c10411b2  semantic-differences analysis
+c3051678  clear mechanical failures (@Disabled large mocks; formatting) [->196]
+d88becca  fqn-adapt sv tests to openjdk parser [219->201]
+559b7ba3  test reorg; main+tests compile [219/383 baseline]
+089d521d  big-bang: swap in the sv engine; main compiles
+a12fc001  Phase-1 coupling finding, revised phasing
+501a694e  build: -PskipCloneBench
+e72ad8e5  Phase 0: plan + inert engine toggle
 ```
 `openjdk` is the last green base (optimize already merged in there).

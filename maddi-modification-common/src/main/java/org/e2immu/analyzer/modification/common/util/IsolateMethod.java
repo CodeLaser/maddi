@@ -511,7 +511,7 @@ public class IsolateMethod {
      * have to reach the same declaration.
      * <p>
      * A type written fully qualified in the source ({@code (com.example.legacy.parameter.ParamDouble) value}) is
-     * reproduced as a namespace stub, nested {@code frame → be → closed-core → legacy → parameter}: the body is
+     * reproduced as a namespace stub, nested {@code frame → com → example → legacy → parameter}: the body is
      * verbatim text, so nothing else would keep it resolving. But a signature we reconstruct — a stub field, a
      * stub method's return or parameter type — is printed with simple names, and {@code ParamDouble} does not
      * resolve from a sibling branch of the nesting tree. Flattening the type into the frame is not an option: it

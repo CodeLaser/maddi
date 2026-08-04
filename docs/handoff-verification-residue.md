@@ -8,7 +8,7 @@
 
 **Audience:** a fresh model implementing this without the 2026-07-22 session context.
 **Status:** diagnosed at the symptom level only; the iterating-analyzer internals were NOT dug into.
-**Base commit:** `54bd9859` on branch `ws/eventual`. Tree clean.
+**Base commit:** `e4bea61a` on branch `ws/eventual`. Tree clean.
 **Gate: NONE.** Unlike the Part B work (see `docs/handoff-eventual-interface-nonmodification.md`), this is
 ungated engine-core work in `IteratingAnalyzerImpl` — every change affects default behavior, so the corpus
 byte-identity rule (§5) applies to the change itself, not to a gated no-op.
@@ -53,7 +53,7 @@ Quantified consequence in the FPDUMP (`FPDUMP=<file>` on the run): `grep -c "^me
 → **71** undecided methods. Also `grep -cE "^type"` and the per-type eventual scoreboard queries in the
 Part B handoff §8.2.
 
-## 2. Code anchors (base commit `54bd9859`)
+## 2. Code anchors (base commit `e4bea61a`)
 
 - `maddi-modification-analyzer/.../impl/IteratingAnalyzerImpl.java`:
   - ~607: `LOGGER.info("Verification-pass residue ({} elements): {}"...)` — where the residue is reported;
@@ -114,7 +114,7 @@ exactly such a diff; expect it, review it, and run Timefold + Langchain4j as wel
 
 ```
 FPDUMP=/tmp/B.txt ./gradlew :maddi-run-openjdk:slowTest --tests "...TestFernflower" --rerun-tasks
-# A side: git checkout 54bd9859 (clean tree), same command → /tmp/A.txt; back to ws/eventual
+# A side: git checkout e4bea61a (clean tree), same command → /tmp/A.txt; back to ws/eventual
 sort /tmp/A.txt > /tmp/A.s; sort /tmp/B.txt > /tmp/B.s; diff /tmp/A.s /tmp/B.s
 ```
 Known base flake: `StatEdge.EdgeType.<init>(int)` nonModifying flips between two base runs — when the diff
@@ -136,7 +136,7 @@ A green `slowTest` can be cached/vacuous — `--rerun-tasks`, then check the rol
 
 ## 7. Characterization (2026-07-22, second session) — the true diagnosis
 
-Every finding below is from dogfood runs at `38ec1152` plus env-gated, log-only diagnostics
+Every finding below is from dogfood runs at `c12d4a50` plus env-gated, log-only diagnostics
 (committed with this section: `FPDUMP_PARAMS`, `MODREACH_DEBUG`, `MODREACH_EXPLAIN`).
 
 ### 7.1 The assumed buckets do not exist
@@ -290,7 +290,7 @@ The next front is therefore **Part B coverage against the honest (modreach) modi
 callee" despite the preloaded jdk aapi (suspected per-sourceSet Info identity mismatch at the
 preload boundary; see `MODREACH_EXPLAIN` chains through `SetOfMethodInfoImpl.nice()`).
 
-**Three-corpus gate-off A/B for commit `23a01d71` (2026-07-22, night):** Fernflower **0 lines**,
+**Three-corpus gate-off A/B for commit `110695ec` (2026-07-22, night):** Fernflower **0 lines**,
 Langchain4j **0 lines**, Timefold 6 lines vs base — proven run-to-run noise by the base-vs-base
 technique (a second base run flips 6 lines of the identical class: `Testdata*Solution` /
 `ListIterableSelector` / propagator-field independence flips on this known-flaky corpus).
@@ -300,12 +300,12 @@ technique (a second base run flips 6 lines of the identical class: `Testdata*Sol
 ## 9. Second wave (2026-07-23): Stream.map resolved, default-method semantics mirrored, and the two
 ## remaining Part B quests, precisely scoped
 
-**Stream.map (commit `edb033a4`).** No identity bug: the aapi deliberately marks stream
+**Stream.map (commit `fefe3afe`).** No identity bug: the aapi deliberately marks stream
 intermediates `@Finalizer`, and `MethodModification.go` exempts finalizer callees from
 receiver-marking. The boundary seeding and the undecided-abstract mirror now carry the same guard.
 Upgrades 342→416, downgrades 1586→1377 on the dogfood.
 
-**Default-method dispatch union (commit `c198db8b`).** E6 edges now target ABSTRACT overridden
+**Default-method dispatch union (commit `9e281412`).** E6 edges now target ABSTRACT overridden
 methods only, mirroring the engine exactly (prepwork records IMPLEMENTATIONS only on abstract
 overrides; a default method's verdict is its own body). Unrestricted edges had made the shadow
 stricter than the engine — `Element.annotations()` (body `List.of()`) was being downgraded to a
@@ -339,7 +339,7 @@ with the evidence chains read end-to-end — two design decisions, not mechanica
 Everything gated (`MODREACH` / `EVENTUALCLUSTER`); module suites green at every commit; the only
 ungated surface remains the `Either` contracts certified in §8's three-corpus A/B.
 
-**§9 item 1 DONE (2026-07-23, commit `6ebb7225`):** the `@IgnoreModifications` sweep — three interface
+**§9 item 1 DONE (2026-07-23, commit `84de3243`):** the `@IgnoreModifications` sweep — three interface
 annotations on `Element` (`visit(Predicate)`/`typesReferenced`/`reject`), the parameter arm +
 override-inheritance in `SourceContractMaterializer`, and `Predicate.test:0`'s long-commented
 `@NotModified` activated in the jdk aapi (surgical one-property JSON diff). Dogfood gate-off:

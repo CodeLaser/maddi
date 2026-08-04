@@ -112,7 +112,7 @@ public class TestGetSet2 extends CommonTest {
      * Regression for notes/getset-list-element-getter-npe.md: resolving a call to a user's indexed list-getter
      * (X.get(int), whose field is a List&lt;Integer&gt;) to the variable it denotes needs java.util.List's own
      * {@code _synthetic_list} element field. That field is created by CreateSyntheticFieldsForGetSet during
-     * inspection; a refactor (a54eb89c) had dropped the hard-coded java.util.List watcher, so List loaded from
+     * inspection; a refactor (42f6e86f) had dropped the hard-coded java.util.List watcher, so List loaded from
      * bytecode/openjdk (which carries no physical @GetSet) no longer got it, and getSetVariable NPE'd at
      * RuntimeImpl:359 ("Called on wrong method"). This exercises the full getterVariable path that stdbase hits.
      */

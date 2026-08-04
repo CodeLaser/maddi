@@ -716,14 +716,14 @@ Two more pieces, both gated:
   modifies at all — `CompilationUnitStub`'s throwing `setFingerPrint` — cannot contradict the transition the
   real implementations declare, so it no longer vetoes the abstract method's `@Mark`.
 
-**Three-corpus gate-OFF A/B (2026-07-22, closing, at `54bd9859` vs base `523963fe`):** Fernflower
+**Three-corpus gate-OFF A/B (2026-07-22, closing, at `e4bea61a` vs base `f092cd6e`):** Fernflower
 **0-line diff**; Langchain4j **0-line diff**; Timefold 8 lines, every one of which flips identically
 between two BASE runs (`TestdataInvalidConstraintWeightOverridesSolution`,
 `TestdataFactorySortableSolution` independence, `ListIterableSelector`) — pre-existing run-to-run
 nondeterminism, verified with the A-vs-A2 technique. The whole session's engine surface is gate-off inert
 on the full certified proving ground.
 
-**Gate-ON stability (2026-07-22, two consecutive dogfoods at `54bd9859`):** the surviving core of **8** is
+**Gate-ON stability (2026-07-22, two consecutive dogfoods at `e4bea61a`):** the surviving core of **8** is
 identical across runs; ONE type flips in/out — `CompilationUnitPrinterImpl`, a printer-family type, i.e.
 exactly the verification-residue boundary (`docs/handoff-verification-residue.md`) — and the
 `eventuallyNonMod` method count wobbles (414 vs 402) for the same reason. Full stability is an ungate
@@ -815,7 +815,7 @@ Session artifacts, all env-gated and verdict-inert (module suite green; dogfood 
 same-state base-vs-base): `FPDUMP_PARAMS` (parameter lines in the FPDUMP), `MODREACH_DEBUG` (reverse-
 divergence dump), `MODREACH_EXPLAIN=<substring>` (BFS chain from a reached receiver back to its seed).
 
-## Design A landed: the shadow pass repairs the recursion pessimism (2026-07-22, night, commit 23a01d71)
+## Design A landed: the shadow pass repairs the recursion pessimism (2026-07-22, night, commit 110695ec)
 
 Bart approved handoff §7.5 design A; it is implemented, tested, and recorded in
 `docs/handoff-verification-residue.md` §8. In brief: primitive seeding (walkable bodies no longer seed
@@ -1141,7 +1141,7 @@ bare `this` to a static helper whose eup on parameter 1 has not landed yet -- a 
 Diagnostics added and kept (gated): the `fieldHolds refusal` and `treatAs refusal` prints that made
 the probe decisive.
 
-**Where the arc stands at session close** (nine commits, `9a2f5ea3..`): the Builder root eliminated;
+**Where the arc stands at session close** (nine commits, `672b48bf..`): the Builder root eliminated;
 the abstract-union race dead and the eventual layer fully deterministic; the honest baseline enm 849
 / eup 339 with the flagship family forming in every run; Expression's rewire/translate/withSource
 unions landed and internalCompareTo one eup-chase away; the ∅-enm decision (dispatch-honest sites)
@@ -1344,12 +1344,12 @@ survivors 42 = 42 across runs.
 ## The drift round (2026-07-31): re-baseline, the Provides adder, doomed external candidates
 
 Resuming after a week in which BOTH the engine and the cst sources moved (merges from the other
-worktree arcs): the composed dogfood at devel `e904b1b2` read **survivors 26 / retracted 166 /
+worktree arcs): the composed dogfood at devel `c16777e9` read **survivors 26 / retracted 166 /
 enm 927 / eup 387** -- down from the recorded 42, deterministic across two runs (identical survivor
 set, enm layer 0-diff). So the drop was real drift, not nondeterminism. The `EC_RETRACT_DEBUG` root
 ranking against the never-form roots decoded it into two mechanical causes, both fixed:
 
-1. **The `ProvidesImpl` adder (source drift, commit b7375c7d).** `provides X with A, B, C` support
+1. **The `ProvidesImpl` adder (source drift, commit 22bd062a).** `provides X with A, B, C` support
    gave `ModuleInfoImpl.ProvidesImpl` a plain `ArrayList` + `addImplementationResolved` adder --
    genuinely mutable state with no transition, on a type that was one of the original four gate-off
    eventual types. Its `typesReferenced(Predicate)` became the ONE unexcusable implementation
@@ -1873,7 +1873,7 @@ be prepared for the answer.
 ## The bistability investigation (2026-08-01): the dogfood is a coin flip
 
 **Symptom.** The composed dogfood run is NOT deterministic: across identical invocations at the same
-commit (`fafcf06c`), the survivor count flips between **24** (the ratchet's baseline: the statement
+commit (`12a84540`), the survivor count flips between **24** (the ratchet's baseline: the statement
 family forms) and **10** (it never forms), roughly 50/50. Every "deterministic, identical across two
 runs" claim in this document was sampling luck from 2-run checks; the enforcement round's ratchet is
 pinned to a coin flip. Established with 40+ measured runs, direct `installDist` CLI (no Gradle).
@@ -2004,7 +2004,7 @@ fork.
 ### The overnight ladder (2026-08-02/03): three retention layers closed, the timing layer named
 
 Phases E–J on the campaign dir (`~/git/ws/eventual/bistability-20260802-2135/summary.txt`; binary =
-the 8d30c2a5 lineage, see README-attribution.txt):
+the 2f298f04 lineage, see README-attribution.txt):
 
 | phase | change under test | result |
 |---|---|---|
@@ -2068,7 +2068,7 @@ loop never visits. All suites green with the new defaults (modification-analyzer
 -prepwork, run-*).
 
 **Dogfood re-validation on the fresh devel lineage** (closes README-attribution.txt's caveat — the
-campaign binary predated the fb374170 devel merge; this one is built from it, with the ungating):
+campaign binary predated the cb2376ae devel merge; this one is built from it, with the ungating):
 `~/git/ws/eventual/retention-default-20260803-0613/`, eight CLI runs plus the ratchet's in-process
 run, no env gates: **eight at 53, one at 39** (V7). 24↔10 stays dead. The 53-run survivor SETS are
 all identical, and result digests even repeat across runs (V3=V4=V6, V2=V5, V1=V8 — the first
@@ -2396,7 +2396,7 @@ statement/expression family swap), and the climb from 42 goes through Element's 
 The residue behind Element's FinalFields was NOT translate/rewire (their labels derive fine) but
 the visitor surface: visit/reject/typesReferenced(Predicate), 27 impls nonModifying=false including
 pure leaves, while the same-shaped visit(Visitor) resolved true everywhere. The reduction
-(TestVisitPredicateDisclaimer, b61603d6) PASSED — disclaimer and machinery sound in the minimal
+(TestVisitPredicateDisclaimer, 35576929) PASSED — disclaimer and machinery sound in the minimal
 shape — so the corpus held an extra ingredient. MODREACH_EXPLAIN (single-substring filter; reached
 receivers only) named the whole chain:
 
@@ -2413,10 +2413,10 @@ fully live: the compiled json stores single-parameter subs under the SINGULAAR "
 CodecImpl.E.write — and LoadAnalysisResults reads both; an earlier "compiler drops parameters"
 alarm was a reading artifact.)
 
-The cut (d51fcce7): an OUT-OF-ORDER (jar/aapi) abstract with a decided TRUE gets no E6 edge — the
+The cut (810287bf): an OUT-OF-ORDER (jar/aapi) abstract with a decided TRUE gets no E6 edge — the
 contract is authority (writeVerdicts never visits out-of-order infos, no union is computed over
 them); in-order abstracts keep their edges, the pass remains their authority. Measured: all 68
-visit(Predicate) impls true; dogfood 42 -> 55 (E3/E4 byte-identical; baseline 7a93cbf4): the
+visit(Predicate) impls true; dogfood 42 -> 55 (E3/E4 byte-identical; baseline b88c225b): the
 Value/ValueImpl family + FieldInspection pair + KV/KVI return; the arithmetic api family drops out
 (-6) — its T4 mint rode Runtime/Eval leans the repaired modification world reshuffled; the NEXT
 census target. Element/Info/TypeInfo/PT still do not mint — the remaining Quest E caps sit above

@@ -83,7 +83,7 @@ fast-forward, not a clobber.
 
 ### The README worked example is verified, not asserted
 
-The `Config` example in the README was run through the analyzer on 2026-07-22 (commit `c20ab60b`),
+The `Config` example in the README was run through the analyzer on 2026-07-22 (commit `a7f788a8`),
 not reasoned out from the rules. Verdict fingerprint:
 
 ```
@@ -116,7 +116,7 @@ homepage link. Now:
   `program-analysis`, `static-analysis`.
 - **Discussions**: enabled — questions about the *concepts* previously had nowhere to go.
 
-> **Tooling note.** The `gh` CLI on this machine is authenticated as `bart-naudts_closed-corenv`, which
+> **Tooling note.** The `gh` CLI on this machine is authenticated as a secondary account, which
 > has `{admin: false, push: false, pull: true}` on `CodeLaser/maddi`. Any write through `gh` fails
 > with a bare **HTTP 404** (GitHub returns 404, not 403, for repos you can read but not administer).
 > Git pushes still work because the SSH remote uses a different, privileged identity. The same
@@ -307,8 +307,8 @@ deliberate outward-facing runs. Until this happens, "install maddi" has no answe
 - [ ] CLI zips → GitHub Release via `release-cli.sh <tag>` (needs authenticated `gh`).
 - [ ] Maven plugin — untested against a real `mvn` invocation. Either test it or say so in the
       release notes.
-- [x] README now leads with the `io.codelaser:maddi-support:0.9.0` coordinate (commit 344ad1e4).
-- [ ] **Blocker for the CLI and plugin legs:** `gh` is authenticated as `bart-naudts_closed-corenv`,
+- [x] README now leads with the `io.codelaser:maddi-support:0.9.0` coordinate (commit 2ff3836f).
+- [ ] **Blocker for the CLI and plugin legs:** `gh` is authenticated as a secondary account,
       which has `pull` only on `CodeLaser/maddi` (see §2). `release-cli.sh` runs `gh release
       create`, which needs write access — re-auth as the owning account first, or the release
       will fail on the upload step after doing all the build work.
