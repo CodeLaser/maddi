@@ -19,17 +19,14 @@
 # "The deferral round"): the eventual family is cleared and re-derived at the terminal certification
 # point over the settled state, so the walks and the assumption ledger are a function of the fixpoint
 # alone.
-# BASELINE 2026-08-03b (Quest E step 1, the E6-contract-guard world): 55 types, E3/E4 byte-identical
-# (T8/T9 byte-identical; T4/T5 identical at 41 before the Element.comments cut) in
-# ~/git/ws/eventual/questT-20260803. This world preloads the libs/support AAPI (Either, SetOnce,
-# EventuallyFinal, EventuallyFinalOnDemand -- see TestEventualRatchet.PRELOAD): versus the old
-# 68-world it is a RE-ROOTED equilibrium, not a monotone step: the arithmetic api family
-# (Divide/Equals/Product/Remainder/StringConcat/BitwiseNegation) mints, while the api statement
-# family and the Value/ValueImpl family fall as cascade victims of the honest transition semantics
-# (docs/eventual-info-hierarchy.md, "Quest T, day one" and following). Recovering them honestly is
-# the climb's continuation (Quest E: the Element method excusals), not a regression.
-# The old 68-world caveat (api statement family lost en bloc -> 55, an environmental link-layer
-# coin) is moot in this world: the statement family is not in the baseline.
+# BASELINE 2026-08-04 (the contract-leg world): 56 types, R17/R18 byte-identical in
+# ~/git/ws/eventual/questR-20260804. Versus 2026-08-03b: +api.element.ImportStatement, unlocked by
+# the Element-surface enm contracts (@NotModified(after="inspection") on the Info-family
+# typesReferenced/print/rewire), the contracts-win clause in the enm step, the
+# Expression.translate(@Independent(hc=true)) parameter contract, and the inspector fix that stops
+# the symbol-fill branch from dropping parameter annotations (ScanCompilationUnit). The Element
+# family (Element/Expression/ElementImpl/ExpressionImpl) now FORMS transiently each terminal epoch
+# and is taken back by the write-once/excusal-timing race -- the recorded next design point.
 org.e2immu.language.cst.api.analysis.Value
 org.e2immu.language.cst.api.analysis.Value.AssignedToField
 org.e2immu.language.cst.api.analysis.Value.Bool
@@ -54,6 +51,7 @@ org.e2immu.language.cst.api.analysis.Value.SetOfStrings
 org.e2immu.language.cst.api.analysis.Value.SetOfTypeInfo
 org.e2immu.language.cst.api.analysis.Value.VariableBooleanMap
 org.e2immu.language.cst.api.analysis.Value.VariableToTypeInfoSet
+org.e2immu.language.cst.api.element.ImportStatement
 org.e2immu.language.cst.api.element.JavaDoc
 org.e2immu.language.cst.api.element.MultiLineComment
 org.e2immu.language.cst.api.expression.AnnotationExpression.KV
