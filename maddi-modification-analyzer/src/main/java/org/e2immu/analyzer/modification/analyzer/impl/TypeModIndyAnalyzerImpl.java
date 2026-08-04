@@ -313,10 +313,13 @@ normal methods: does a modification to the return value imply any modification i
                 propertyChanges.incrementAndGet();
             }
         } else if (cycleBreakingActive) {
-            boolean write = TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), PropertyImpl.INDEPENDENT_METHOD, INDEPENDENT, methodInfo);
-            assert write;
-            propertyChanges.incrementAndGet();
-            DECIDE.info("MI: Decide independent of method {} = INDEPENDENT by {}", methodInfo, CYCLE_BREAKING);
+            // only break a cycle for a value that never decided: an undecided RE-derivation (a link to a field
+            // whose immutability was cleared and not yet re-decided) must not erase a stored honest verdict
+            if (methodInfo.analysis().getOrNull(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.class) == null
+                && TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), PropertyImpl.INDEPENDENT_METHOD, INDEPENDENT, methodInfo)) {
+                propertyChanges.incrementAndGet();
+                DECIDE.info("MI: Decide independent of method {} = INDEPENDENT by {}", methodInfo, CYCLE_BREAKING);
+            }
         } else {
             UNDECIDED.debug("MI: Independent of method undecided: {}", methodInfo);
         }
@@ -328,10 +331,12 @@ normal methods: does a modification to the return value imply any modification i
                     propertyChanges.incrementAndGet();
                 }
             } else if (cycleBreakingActive) {
-                boolean write = TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.INDEPENDENT_PARAMETER, INDEPENDENT, pi);
-                assert write;
-                DECIDE.info("MI: Decide independent of parameter {} = INDEPENDENT by {}", pi, CYCLE_BREAKING);
-                propertyChanges.incrementAndGet();
+                // same rule as the method above: cycle breaking decides the never-decided, it does not overwrite
+                if (pi.analysis().getOrNull(PropertyImpl.INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.class) == null
+                    && TolerantWrite.setAllowControlledOverwrite(pi.analysis(), PropertyImpl.INDEPENDENT_PARAMETER, INDEPENDENT, pi)) {
+                    DECIDE.info("MI: Decide independent of parameter {} = INDEPENDENT by {}", pi, CYCLE_BREAKING);
+                    propertyChanges.incrementAndGet();
+                }
             } else {
                 UNDECIDED.debug("MI: Independent of parameter {} undecided", pi);
             }
@@ -357,15 +362,26 @@ normal methods: does a modification to the return value imply any modification i
         return worstLinkToFields(mlv.ofReturnValue());
     }
 
+    /**
+     * {@code null} = undecided: some link reaches a field of the instance whose immutability is not yet known.
+     * Deciding on such a sample froze whichever transient the iteration order happened to serve (empty links →
+     * INDEPENDENT, cleared-not-yet-rederived field type → MUTABLE default → DEPENDENT): the composed-dogfood
+     * hc↔FF fork of the statement family. A decided MUTABLE still concludes DEPENDENT immediately — the bottom
+     * dominates whatever the undecided links might become.
+     */
     private Independent worstLinkToFields(Links links) {
         boolean immutableHc = false;
+        boolean undecided = false;
         for (Link link : links) {
             Immutable fieldImmutable = LinkToField.immutableOfLinkedField(link, analysisHelper);
-            if (fieldImmutable != null) {
+            if (fieldImmutable == null) {
+                if (LinkToField.reachesJudgeableField(link)) undecided = true;
+            } else {
                 if (fieldImmutable.isMutable()) return DEPENDENT;
                 if (fieldImmutable.isImmutableHC()) immutableHc = true;
             }
         }
+        if (undecided) return null;
         return immutableHc ? INDEPENDENT_HC : INDEPENDENT;
     }
 

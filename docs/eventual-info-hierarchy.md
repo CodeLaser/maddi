@@ -2588,3 +2588,68 @@ A unit pin for the cap was attempted and dropped: the terminal phase (where weak
 levels write) activates only when types remain immutability-undecided at the certification point,
 which a small self-contained fixture cannot produce -- every type decides. The 285-line ratchet
 baseline is the pin: any regression of the cap collapses the count.
+
+## The independence sampling round (2026-08-04, afternoon): the seed's last measured consumer, closed
+
+The warm-up sweep (the parked epoch-extension patch, `questR-20260804/warmup-sweep-uncommitted.patch`)
+exposed a bistability the standard epoch masks: 179hc/106FF vs 165hc/120FF at identical 285
+membership, ~14 `api.statement` interfaces flipping en bloc. The forensics, run pair by run pair:
+
+- **Not retraction**: EC_RETRACT_DEBUG ledgers are five lines, identical across attractors.
+- **Not run shape**: both worlds run exactly 67 iterations with byte-identical per-iteration
+  top-10 change summaries.
+- **Not identity hashing per se**: `-XX:hashCode=3` pairs still flipped — reconfirming the trace
+  round's caveat (JIT/VM threads perturb the counter; the clean `-Xint` discriminator remains
+  unrun). The full-corpus dump diff between attractors is TWO entries: the 14 symptom verdicts,
+  and the `EvalInequality.twoTerms` methodLinks provenance anchor (97 vs 125) — the seed's
+  familiar, semantically-neutral fingerprint.
+- **The consumer, caught by probe** (EC_SITE_DEBUG prints in the abstract batch and the mod-indy
+  writer, `questR-20260804/probes-amabatch-modindy.patch`): the fork is the stored
+  `INDEPENDENT_PARAMETER` of `ForStatementImpl.translate(TranslationMap):0`. After the MODREACH
+  re-derivation reset (it≈23) it re-derives from the links state OF THAT MOMENT and the first
+  answer freezes: `@Independent` in one world, `@Dependent` in the other, unchanged to iteration
+  67 while the links themselves heal. The abstract batch's `getOrDefault(DEPENDENT)` union carries
+  it onto `Statement.translate:0`; the terminal epoch's write-once after-mark evaluation reads it;
+  DEPENDENT uncured = the FF cap; the family follows the root. Unpatched, the SAME parameter
+  already flips `@Independent(hc=true)` vs `@Independent` from iteration 1 (probed, 4 runs) — the
+  committed world's byte-identical dogfoods are consumers-not-looking, not absence of the coin.
+
+Two optimism-by-sampling holes in `TypeModIndyAnalyzerImpl.worstLinkToFields` made the sample a
+verdict: EMPTY links concluded full INDEPENDENT (the loop never ran), and a link to a field whose
+type immutability was still undecided was silently skipped — worse, the plain `typeImmutable`
+defaults an undecided SOURCE type to MUTABLE, so a cleared-not-yet-rederived field read as
+DEPENDENT. Fixed monotonicity-preserving ((b)+(c) of the design discussion; (a), same-writer
+replacement, was considered and parked because it trades the lattice termination argument for an
+empirical one):
+
+- `LinkToField.immutableOfLinkedField` now uses `typeImmutableNullIfUndecided` and reports
+  undecided as null; the new `reachesJudgeableField` lets `worstLinkToFields` distinguish
+  "nothing to judge" (skip) from "field, still undecided" (return null = wait). A decided MUTABLE
+  still concludes DEPENDENT immediately — bottom dominates.
+- The abstract batch unions (`independent`, `methodIndependent`) read implementations with
+  `getOrNull` and WAIT on any undecided implementation instead of defaulting it DEPENDENT.
+- The cycle-breaking null branches in `doIndependent` — dead code until now, since the derivation
+  could never be null — write their optimistic INDEPENDENT only for never-decided values and no
+  longer carry the `assert write`: an undecided re-derivation must not erase a stored honest
+  verdict.
+
+The first real write now happens from decided inputs only: ⊥ → decided is the only transition,
+TolerantWrite stays monotone, and whatever never decides falls to cycle breaking's deliberate,
+single-point optimism instead of an accidental freeze at a random iteration.
+
+Gates: full suite green; unpatched dogfood 4/4 byte-identical with every verdict unchanged
+(91hc/194FF at 285 — the committed world never consumed the flip); ratchet green; Fernflower A/B
+byte-identical (2 survivors both sides).
+
+**The residual, measured and named**: under the warm-up epoch extension the coin survives at
+reduced frequency (~1 in 3, was ~1 in 2). The probe pair V1/V2 shows the same parameter re-derive
+at it=23 from mlv whose CONTENT differs: `0:translationMap.§$s⊆this.initializers.§$s` in one
+world, `~this.initializers.§$s` plus `≤this.initializers` in the other — different link NATURES
+and faces for the same variable pair, honest verdicts on both sides of a forked input. The
+carrier is nature-variant link emission in the MODREACH re-derivation window (the m∩copy /
+redundancy-suppression family, at emission rather than storage), one layer below the independence
+verdicts. Both worlds' final persisted state remains identical outside the 14 eventual= levels.
+The warm-up sweep's determinism gate therefore still fails; candidate directions: canonicalize
+nature-variant emission under re-derivation, or redesign the sweep so the type-level evaluation
+never samples the re-derivation window at all (the batch-before-typeLevel ordering of the FF-cap
+section's open decision).
