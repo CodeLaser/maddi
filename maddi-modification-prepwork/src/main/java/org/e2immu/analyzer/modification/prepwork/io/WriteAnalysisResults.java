@@ -85,13 +85,40 @@ public class WriteAnalysisResults {
         write(directory, typeTrie, codec, sourceSet -> "");
     }
 
-    // NOTE: if packages are split across different source sets (jars) then all types of one package will end up in one of the source sets
+    /**
+     * Total order on the types of one package. The FQN alone is not total: {@code TypeInfoImpl.equals}
+     * distinguishes on source set as well, so a package split across jars can hold two distinct types with the
+     * same name. The source set is nullable here (the subdirectory function below is handed it as-is), hence the
+     * null-safe name.
+     */
+    private static final Comparator<TypeInfo> BY_FQN_THEN_SOURCE_SET = Comparator
+            .comparing(TypeInfo::fullyQualifiedName)
+            .thenComparing(ti -> {
+                SourceSet sourceSet = ti.compilationUnit().sourceSet();
+                return sourceSet == null ? "" : sourceSet.name();
+            });
+
+    /**
+     * A package's types are written in fully-qualified-name order. Callers typically build the trie from a
+     * {@code Set<TypeInfo>} (e.g. {@code Summary.types()}, a {@code HashSet}), so the trie's own order is the
+     * hash order: reproducible, but arbitrary. Adding, removing or renaming a single type then re-buckets the
+     * whole set and rewrites the file top to bottom, turning a one-property change into an unreadable diff --
+     * a real cost for the analyzed-package JSON that is committed and reviewed. Sorting also pins which source
+     * set names the subdirectory for a package split across several (see the NOTE below); that pick was
+     * previously whichever type the hash order happened to put first.
+     * <p>
+     * The list handed to the visitor is the trie's own, so it is copied rather than sorted in place.
+     * <p>
+     * NOTE: if packages are split across different source sets (jars) then all types of one package will end up
+     * in one of the source sets.
+     */
     public void write(File destinationDirectory, Trie<TypeInfo> typeTrie, Codec codec, Function<SourceSet, String> subDirectory) throws IOException {
         try {
             typeTrie.visitThrowing(new String[]{}, (parts, list) -> {
                 if (!list.isEmpty()) {
-                    String dir = subDirectory.apply(list.getFirst().compilationUnit().sourceSet());
-                    write(destinationDirectory, codec, parts, list, dir);
+                    List<TypeInfo> sorted = list.stream().sorted(BY_FQN_THEN_SOURCE_SET).toList();
+                    String dir = subDirectory.apply(sorted.getFirst().compilationUnit().sourceSet());
+                    write(destinationDirectory, codec, parts, sorted, dir);
                 }
             });
         } catch (RuntimeException re) {

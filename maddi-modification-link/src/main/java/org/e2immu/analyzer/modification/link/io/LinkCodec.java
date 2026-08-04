@@ -82,7 +82,85 @@ public class LinkCodec {
             super(runtime, propertyProvider, decoderProvider, typeProvider, sourceSetOfRequest);
         }
 
-        private final Set<String> encodedMarkerVariables = new HashSet<>();
+        /**
+         * One written definition of a marker variable: the element it was written under, and the definition
+         * itself, as it appears in the file (null while it is being built, see the encode side).
+         */
+        private record MarkerDef(Info owner, String definition) {
+        }
+
+        /**
+         * Marker-variable definitions, by name, then by owning element.
+         * <p>
+         * Marker variables are numbered PER METHOD by the link computer ($_ce0, $_fi0, $_afi0, ...; see the note
+         * in {@code LinkComputerImpl.SourceMethodComputer}, whose "cross-method collisions are harmless" holds
+         * inside the engine, where linking graphs are per-method, but not here, where one file carries every
+         * method of every type). Keyed by the bare name for a whole file, as this was, the first $_ce0 written
+         * won the name and every later one -- a different variable, of a different method -- decoded to it: 28
+         * of the 44 back-references in the transform-support archive resolved across elements, one of them
+         * handing a Loop method a marker typed Try.TryData.
+         * <p>
+         * So a definition belongs to the element it is written under, and only a repeat under that same element
+         * may be the bare back-reference {@code ["m", name]}. A marker that genuinely recurs under another
+         * element -- same name AND byte-identical definition -- still costs one definition: its repeats are
+         * back-references that name their owner, {@code ["m", name, owner]}. The owner is omitted exactly when
+         * it is the element being written, which is the common case.
+         */
+        private final Map<String, List<MarkerDef>> encodedMarkerVariables = new HashMap<>();
+
+        /**
+         * The element a marker variable written here belongs to. A parameter shares its method's scope: they are
+         * one evaluation, and the link computer numbers markers once per method.
+         */
+        private Info ownerOfMarkerVariables(Context context) {
+            if (context.isEmpty()) return null; // no element on the stack: one file-wide scope, as before
+            return switch (context.peek(0)) {
+                case ParameterInfo pi -> pi.methodInfo();
+                case TypeAndSorted tas -> tas.typeInfo();
+                case Info info -> info;
+                case Object o -> throw new UnsupportedOperationException("Unexpected codec context element " + o);
+            };
+        }
+
+        private EncodedValue markerBackReference(Context context, String name, Info owner) {
+            if (owner == null) {
+                return encodeList(context, List.of(encodeString(context, "m"), encodeString(context, name)));
+            }
+            return encodeList(context, List.of(encodeString(context, "m"), encodeString(context, name),
+                    encodeInfoOutOfContext(context, owner)));
+        }
+
+        private EncodedValue encodeMarkerVariableDefinition(Context context, MarkerVariable mv, String name) {
+            if (mv instanceof AppliedFunctionalInterfaceVariable afi) {
+                List<EncodedValue> list = new ArrayList<>();
+                Collections.addAll(list, encodeString(context, "a"),
+                        encodeString(context, name),
+                        encodeType(context, afi.parameterizedType()),
+                        encodeList(context, afi.params().stream()
+                                .map(r -> encodeResult(context, r)).toList()));
+                if (afi.sourceOfFunctionalInterface() != null) {
+                    list.add(encodeInfoOutOfContext(context, afi.sourceOfFunctionalInterface()));
+                }
+                return encodeList(context, list);
+            }
+            if (mv instanceof FunctionalInterfaceVariable fiv) {
+                return encodeList(context, List.of(encodeString(context, "f"),
+                        encodeString(context, name),
+                        encodeType(context, fiv.parameterizedType()),
+                        encodeResult(context, fiv.result())
+                ));
+            }
+            if (mv.isSomeValue()) {
+                return encodeList(context, List.of(encodeString(context, "M"),
+                        encodeString(context, name),
+                        encodeType(context, mv.parameterizedType())));
+            }
+            assert mv.isConstant();
+            return encodeList(context, List.of(encodeString(context, "M"),
+                    encodeString(context, name),
+                    encodeType(context, mv.parameterizedType()),
+                    encodeExpression(context, mv.assignmentExpression())));
+        }
 
         @Override
         public EncodedValue encodeVariable(Context context, Variable variable) {
@@ -101,42 +179,36 @@ public class LinkCodec {
                         encodeMethodInfo(context, rv.methodInfo())));
             }
             if (variable instanceof MarkerVariable mv) {
-                String name = mv.simpleName() + "M";
                 // because they may contain an extensive definition, we cache these marker variables
                 // the name has an "M" appended, so that it does not clash with marker variables generated from
                 // sources
-                if (encodedMarkerVariables.add(name)) {
-                    if (variable instanceof AppliedFunctionalInterfaceVariable afi) {
-                        List<EncodedValue> list = new ArrayList<>();
-                        Collections.addAll(list, encodeString(context, "a"),
-                                encodeString(context, name),
-                                encodeType(context, afi.parameterizedType()),
-                                encodeList(context, afi.params().stream()
-                                        .map(r -> encodeResult(context, r)).toList()));
-                        if (afi.sourceOfFunctionalInterface() != null) {
-                            list.add(encodeInfoOutOfContext(context, afi.sourceOfFunctionalInterface()));
-                        }
-                        return encodeList(context, list);
-                    }
-                    if (variable instanceof FunctionalInterfaceVariable fiv) {
-                        return encodeList(context, List.of(encodeString(context, "f"),
-                                encodeString(context, name),
-                                encodeType(context, fiv.parameterizedType()),
-                                encodeResult(context, fiv.result())
-                        ));
-                    }
-                    if (mv.isSomeValue()) {
-                        return encodeList(context, List.of(encodeString(context, "M"),
-                                encodeString(context, name),
-                                encodeType(context, mv.parameterizedType())));
-                    }
-                    assert mv.isConstant();
-                    return encodeList(context, List.of(encodeString(context, "M"),
-                            encodeString(context, name),
-                            encodeType(context, mv.parameterizedType()),
-                            encodeExpression(context, mv.assignmentExpression())));
+                String name = mv.simpleName() + "M";
+                Info owner = ownerOfMarkerVariables(context);
+                List<MarkerDef> defs = encodedMarkerVariables.computeIfAbsent(name, _ -> new ArrayList<>());
+                if (defs.stream().anyMatch(d -> Objects.equals(owner, d.owner()))) {
+                    return markerBackReference(context, name, null); // repeat under its own element
                 }
-                return encodeList(context, List.of(encodeString(context, "m"), encodeString(context, name)));
+                // The pending entry goes in BEFORE the definition is built, so that a self-referential marker
+                // (an applied functional interface whose own result mentions it) meets the back-reference above
+                // instead of recursing. Building can register and nest further definitions, hence the snapshot:
+                // dropping this definition below has to drop those with it, or they stand registered as written
+                // while the only copy of them goes unwritten.
+                Map<String, List<MarkerDef>> snapshot = new HashMap<>();
+                encodedMarkerVariables.forEach((k, v) -> snapshot.put(k, new ArrayList<>(v)));
+                defs.add(new MarkerDef(owner, null));
+                EncodedValue definition = encodeMarkerVariableDefinition(context, mv, name);
+                String written = ((E) definition).s();
+                MarkerDef identical = encodedMarkerVariables.get(name).stream()
+                        .filter(d -> written.equals(d.definition())).findFirst().orElse(null);
+                if (identical != null) {
+                    // the same marker, already written under another element: point at it, definition and all
+                    encodedMarkerVariables.clear();
+                    encodedMarkerVariables.putAll(snapshot);
+                    return markerBackReference(context, name, identical.owner());
+                }
+                encodedMarkerVariables.get(name).replaceAll(d ->
+                        d.definition() == null && Objects.equals(owner, d.owner()) ? new MarkerDef(owner, written) : d);
+                return definition;
             }
             // SharedVariable/IntermediateVariable have no codec branch by design: they are kept out of
             // summaries by acceptForLinkedVariables filtering. If one leaks here, the fallback would
@@ -181,7 +253,18 @@ public class LinkCodec {
             return encodeList(context, List.of(links, extra, modified));
         }
 
-        private final Map<String, MarkerVariable> decodedMarkerVariables = new HashMap<>();
+        /**
+         * Decoded marker variables, by owning element, then by name -- mirroring {@link #encodedMarkerVariables},
+         * whose note explains why the name alone is not a key. The reader pushes the same elements the writer
+         * did ({@code LoadAnalysisResults.processSub}), so the owner of an unqualified back-reference is simply
+         * the element being read.
+         */
+        private final Map<Info, Map<String, MarkerVariable>> decodedMarkerVariables = new HashMap<>();
+
+        private void putDecodedMarkerVariable(Context context, String name, MarkerVariable mv) {
+            decodedMarkerVariables.computeIfAbsent(ownerOfMarkerVariables(context), _ -> new HashMap<>())
+                    .put(name, mv);
+        }
 
         @Override
         public Variable decodeVariable(Context context, String s, List<EncodedValue> list) {
@@ -197,8 +280,11 @@ public class LinkCodec {
             }
             if ("m".equals(s)) {
                 String name = decodeString(context, list.get(1));
-                MarkerVariable mv = decodedMarkerVariables.get(name);
-                assert mv != null : "Cannot find " + name;
+                // a third element names the element the definition was written under; without it, this one
+                Info owner = list.size() > 2 ? decodeInfoOutOfContext(context, list.get(2))
+                        : ownerOfMarkerVariables(context);
+                MarkerVariable mv = decodedMarkerVariables.getOrDefault(owner, Map.of()).get(name);
+                assert mv != null : "Cannot find " + name + " under " + owner;
                 return mv;
             }
             if ("a".equals(s)) {
@@ -210,7 +296,7 @@ public class LinkCodec {
                         ? (ParameterInfo) decodeInfoOutOfContext(context, list.get(4)) : null;
                 AppliedFunctionalInterfaceVariable afi = new AppliedFunctionalInterfaceVariable(name, type, runtime,
                         source, params);
-                decodedMarkerVariables.put(name, afi);
+                putDecodedMarkerVariable(context, name, afi);
                 return afi;
             }
             if ("f".equals(s)) {
@@ -218,7 +304,7 @@ public class LinkCodec {
                 ParameterizedType type = decodeType(context, list.get(2));
                 Result result = decodeResult(context, list.get(3));
                 FunctionalInterfaceVariable fiv = new FunctionalInterfaceVariable(name, type, runtime, result);
-                decodedMarkerVariables.put(name, fiv);
+                putDecodedMarkerVariable(context, name, fiv);
                 return fiv;
             }
             if ("M".equals(s)) {
@@ -229,12 +315,12 @@ public class LinkCodec {
                     // repeated marker name, and someValue markers all share the literal name "$_v" —
                     // without this put, the second occurrence hit the "Cannot find" assert above
                     MarkerVariable emptyMv = new MarkerVariable(name, pt, runtime.newEmptyExpression());
-                    decodedMarkerVariables.put(name, emptyMv);
+                    putDecodedMarkerVariable(context, name, emptyMv);
                     return emptyMv;
                 }
                 Expression ae = decodeExpression(context, list.get(3));
                 MarkerVariable mv = new MarkerVariable(name, pt, ae);
-                decodedMarkerVariables.put(mv.simpleName(), mv);
+                putDecodedMarkerVariable(context, name, mv);
                 return mv;
             }
             return super.decodeVariable(context, s, list);
