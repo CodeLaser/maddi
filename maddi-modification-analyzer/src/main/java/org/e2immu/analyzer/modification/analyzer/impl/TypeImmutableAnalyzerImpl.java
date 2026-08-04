@@ -186,7 +186,21 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
                     stopExternal = true;
                 }
             } else {
-                if (immutableSuper.isMutable()) return MUTABLE;
+                // EXPERIMENTAL (EVENTUALCLUSTER), after-mark path only: a supertype at FINAL_FIELDS caps the
+                // subtype at FINAL_FIELDS via the min below -- the sub inherits the super's post-mark-mutable
+                // content, no more -- instead of falling through the isMutable(@FinalFields) exit to MUTABLE.
+                // The sink zeroed whole families: one transiently-capped FF write on Expression (the enm batch
+                // not yet re-run in the epoch) turned every subtype @Mutable, and "buys nothing" erased the
+                // subtree. A truly MUTABLE super still sinks; the unconditional domain is untouched.
+                boolean ffCapsAfterMark = EventualCluster.ENABLED && !afterMark.isNone()
+                                          && immutableSuper.isFinalFields();
+                if (immutableSuper.isMutable() && !ffCapsAfterMark) {
+                    if (dbg && !afterMark.isNone()) {
+                        System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
+                                           + " MUTABLE: super " + superType.typeInfo().fullyQualifiedName());
+                    }
+                    return MUTABLE;
+                }
                 immutableSuperBroken = immutableSuper;
             }
             immFromHierarchy = immutableSuperBroken.min(immFromHierarchy);
