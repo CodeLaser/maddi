@@ -62,7 +62,7 @@ public class SummaryImpl implements Summary {
     @Override
     public ParseResult parseResult() {
         if (haveErrors()) {
-            throw new UnsupportedOperationException("Can only switch to ParseResult when there are no parse exceptions");
+            throw new UnsupportedOperationException(refusalMessage());
         }
         return new ParseResultImpl(types, sourceSetsByName, Map.copyOf(sourceSetToModuleInfo));
     }
@@ -100,5 +100,40 @@ public class SummaryImpl implements Summary {
     @Override
     public synchronized boolean haveErrors() {
         return messages.stream().anyMatch(m -> m.level().isError());
+    }
+
+    /**
+     * GAP #12's residual. This refusal used to read <i>"Can only switch to ParseResult when there are no parse
+     * exceptions"</i> — the count, the units and the causes were all held right here in {@code messages}, and it
+     * named none of them. That is how a stale jar on the classpath (a distribution build's leftover, "rung 6
+     * poisons rung 1") presented as a SOURCE problem for a whole session: 18 units dropped, 10 of them never
+     * touched by the edit, and nothing in the verdict pointed at the artifact.
+     * <p>
+     * ▶ <b>A REFUSAL THAT DOES NOT NAME ITS CAUSE SENDS THE READER TO THE WRONG PLACE.</b> The individual
+     * {@link ParseException}s were logged as they happened, but by the time the run failed they were thousands
+     * of lines up, and this is the line the caller actually sees.
+     * <p>
+     * ⚠ Capped, and it says so when it caps: an unbounded dump of a parse's every error is its own way of
+     * hiding the first one.
+     */
+    private String refusalMessage() {
+        List<ParseException> errors = parseExceptions();
+        StringBuilder sb = new StringBuilder("Cannot switch to ParseResult: ").append(errors.size())
+                .append(" parse error(s)");
+        long units = errors.stream().map(ParseException::uri).filter(Objects::nonNull).distinct().count();
+        if (units > 0) sb.append(" in ").append(units).append(" compilation unit(s)");
+        sb.append(". ⚠ The units that fail need not be the ones you edited — if a type is defined BOTH in your"
+                  + " sources and in a jar on the classpath, the jar may be stale (rebuild or delete it).");
+        int max = 10;
+        int shown = 0;
+        for (ParseException pe : errors) {
+            if (shown++ == max) {
+                sb.append("\n  ... and ").append(errors.size() - max).append(" more; the full set is in")
+                        .append(" parseExceptions().");
+                break;
+            }
+            sb.append("\n  - ").append(pe.getMessage());
+        }
+        return sb.toString();
     }
 }

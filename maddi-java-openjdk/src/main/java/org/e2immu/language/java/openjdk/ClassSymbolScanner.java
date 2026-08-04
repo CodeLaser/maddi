@@ -879,14 +879,31 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     MethodInfo addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms, boolean synthetic) {
         if (typeInfo.hasBeenInspected()) {
-            LOGGER.error("Type {} has been committed, yet we're trying to add a method to its builder",
-                    typeInfo.descriptor());
-            LOGGER.error("Method to add: {}", ms.toString());
-            LOGGER.error("Current methods + constructors:\n{}",
-                    typeInfo.constructorAndMethodStream()
-                            .map(Info::descriptor)
-                            .collect(Collectors.joining("\n")));
-            throw new UnsupportedOperationException();
+            // GAP #12's residual. This threw a BARE UnsupportedOperationException while logging the three facts
+            // that identify the cause, so the parse's top-level verdict named neither the type nor the artifact
+            // and read as a source problem. It cost a session: 18 dropped units, 10 of them never touched by the
+            // edit. ▶ THE INFORMATION WAS NEVER MISSING — THE PRESENTATION WAS. Put it in the exception, where
+            // whoever sees the failure will actually read it, and name the stale jar plus the remedy.
+            // ⚠ javac's own ClassSymbol.classfile is what names the artifact on the INCOMING side — without it
+            // the message can only describe the committed side, and the jar is as often on the other one.
+            URI incomingOrigin = null;
+            if (ms.owner instanceof Symbol.ClassSymbol owner && owner.classfile != null) {
+                try {
+                    incomingOrigin = owner.classfile.toUri();
+                } catch (RuntimeException ignored) {
+                    // a diagnostic must never be the thing that throws
+                }
+            }
+            String message = StaleArtifactDiagnosis.message(typeInfo.descriptor(),
+                    typeInfo.compilationUnit() == null ? null : typeInfo.compilationUnit().uri(),
+                    typeInfo.compilationUnit() == null || typeInfo.compilationUnit().sourceSet() == null
+                            ? null : typeInfo.compilationUnit().sourceSet().name(),
+                    isSourceSymbol(ms),
+                    incomingOrigin,
+                    ms.toString(),
+                    typeInfo.constructorAndMethodStream().map(Info::descriptor).toList());
+            LOGGER.error("{}", message);
+            throw new UnsupportedOperationException(message);
         }
         MethodInfo inMap = methodSymbolMap.get(ms);
         if (inMap != null) return inMap;
