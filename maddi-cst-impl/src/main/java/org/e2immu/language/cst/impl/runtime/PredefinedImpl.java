@@ -336,7 +336,9 @@ public class PredefinedImpl implements Predefined {
 
     @Override
     public Collection<TypeInfo> primitives() {
-        return primitiveByName.values();
+        // an immutable copy: the live values() view exposed assignable state (values().remove() mutates
+        // the map), which honestly blocked the eventual-immutability of the whole Predefined family
+        return Set.copyOf(primitiveByName.values());
     }
 
     @Override
