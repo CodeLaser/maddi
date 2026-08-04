@@ -89,8 +89,13 @@ class LinkToField {
             return primaryTo.parameterizedType();
         }
         if (link.linkNature().equals(LinkNatureImpl.SHARES_ELEMENTS)
+            || link.linkNature().equals(LinkNatureImpl.IS_SUBSET_OF)
             || link.linkNature().equals(LinkNatureImpl.IS_SUPERSET_OF)) {
-            // 0:set.§cs⊇this.set.§cs, TestFieldAnalyzer,3
+            // 0:set.§cs⊇this.set.§cs, TestFieldAnalyzer,3. ⊆ is the same shared-content reach as ~/⊇
+            // seen from the other side, and the link engine's combination lattice emits either variant
+            // for the same pair depending on combination order (run-to-run): judging one while skipping
+            // the other manufactured a verdict fork out of a cosmetic emission choice
+            // (docs/eventual-info-hierarchy.md §"The independence sampling round").
             return link.to().parameterizedType().copyWithoutArrays();
         }
         if (link.linkNature().equals(LinkNatureImpl.CONTAINS_AS_MEMBER)) {
@@ -101,6 +106,10 @@ class LinkToField {
             //getFile∈this._mruFileList.§es
             return link.from().parameterizedType();
         }
+        // deliberately NOT judged: ≤/≥ (object graph) and ∩ (overlap). ≤'s to() is the whole container,
+        // so judging it reads a DIFFERENT type than the ~/⊆ face variants judge for the same pair, which
+        // would re-open the variance fork from the other side; ∩ is a speculative overlap, present
+        // identically in both measured worlds. Extend only with a concrete variance witness in hand.
         return null;
     }
 
