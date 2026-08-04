@@ -784,6 +784,17 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         if (paramTypeSource != null && !paramTypeSource.isNoSource()) {
                             dsbParam.put(parameterInfo.parameterizedType(), paramTypeSource);
                         }
+                        // The symbol path could not supply the declaration's parameter ANNOTATIONS either
+                        // (loadAnnotations on a source VarSymbol is empty at symbol-load time -- attribution
+                        // has not run), so a contract like Expression.translate's @Independent(hc=true) was
+                        // silently absent from every symbol-created method while the fresh-method path kept
+                        // it. Add them here exactly as that path does; guarded on emptiness so a symbol that
+                        // DID carry annotations is never duplicated.
+                        if (parameterInfo.annotations().isEmpty()) {
+                            for (JCTree.JCAnnotation annotation : jcVariableDecl.getModifiers().getAnnotations()) {
+                                parameterInfo.builder().addAnnotation(convertAnnotation(annotation));
+                            }
+                        }
                         setParameterSource(jcVariableDecl, parameterInfo, dsbParam,
                                 methodInfo.isConstructor(), methodInfo, currentType);
                     }

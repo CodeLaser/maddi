@@ -137,6 +137,15 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 contractReader.contracts(mi).get(EVENTUAL_METHOD) instanceof Value.Eventual e ? e : NOT_EVENTUAL);
     }
 
+    /** As {@link #eventualOf(MethodInfo)}, for {@code @NotModified(after="…")} — the enm contract. */
+    private final Map<MethodInfo, Set<String>> enmContractCache = new ConcurrentHashMap<>();
+
+    private Set<String> contractedEnm(MethodInfo methodInfo) {
+        return enmContractCache.computeIfAbsent(methodInfo, mi ->
+                contractReader.contracts(mi).get(EVENTUALLY_NON_MODIFYING_METHOD) instanceof Value.SetOfStrings s
+                        ? s.set() : Set.of());
+    }
+
     /** As {@link #eventualOf(MethodInfo)}, for the type-level {@code after="…"}. */
     private Value.EventuallyImmutable eventuallyImmutable(TypeInfo typeInfo) {
         Value.EventuallyImmutable fromAnalysis = typeInfo.analysis()
@@ -177,7 +186,13 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             if (methodInfo.analysis().haveAnalyzedValueFor(EVENTUALLY_NON_MODIFYING_METHOD)) continue;
             eventualCluster.setDebugContext("enm " + methodInfo.fullyQualifiedName());
             eventualCluster.beginAssumptionBuffer();
-            Set<String> labels = computeEventuallyNonModifying(typeInfo, methodInfo);
+            // contracts win over computation, the mirror of the EVENTUAL_METHOD loop above: an inline
+            // @NotModified(after=...) on a SOURCE method (the Info-family surface, quest E keystone) states
+            // what the walk cannot derive -- the reachability-false verdict is a dispatch union, while the
+            // author's contract speaks for this method's own body
+            Set<String> contracted = contractedEnm(methodInfo);
+            Set<String> labels = contracted.isEmpty() ? computeEventuallyNonModifying(typeInfo, methodInfo)
+                    : contracted;
             if (siteDebug()) ecsite(labels != null && !labels.isEmpty()
                     ? "WRITE enm=" + new TreeSet<>(labels) : "no enm (" + labels + ")");
             if (labels != null && !labels.isEmpty()) {

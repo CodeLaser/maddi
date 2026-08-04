@@ -339,6 +339,10 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
             if (fieldUnmodified == null) {
                 isImmutable = null;
             } else if (fieldUnmodified.isFalse()) {
+                if (!afterMark.isNone() && ecTypeDebug(typeInfo)) {
+                    System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
+                                       + " MUTABLE: field " + fieldInfo.name() + " modified");
+                }
                 return false;
             }
         }
@@ -350,6 +354,11 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
                 if (nonModifying == null) {
                     isImmutable = null;
                 } else if (nonModifying.isFalse()) {
+                    if (!afterMark.isNone() && ecTypeDebug(typeInfo)) {
+                        System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
+                                           + " MUTABLE: method " + methodInfo.name()
+                                           + (abstractMethods ? " (abstract)" : "") + " modifying, not excused");
+                    }
                     return false;
                 }
             }

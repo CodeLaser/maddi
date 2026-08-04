@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.type;
 
+import org.e2immu.annotation.NotModified;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
@@ -87,6 +88,8 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
         return inspection.get().comments();
     }
 
+    // builds a fresh mirror; receiver reads go through the inspection face only
+    @NotModified(after = "inspection")
     @Override
     public TypeParameter rewire(InfoMapView infoMap) {
         return rewire(infoMap, new HashMap<>());
@@ -188,6 +191,8 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
         return new ParameterizedTypeImpl(this, 0);
     }
 
+    // a reader over the inspection face: any receiver modification happens before the inspection commit
+    @NotModified(after = "inspection")
     @Override
     public OutputBuilder print(Qualification qualification) {
         return print(qualification, true);

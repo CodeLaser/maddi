@@ -264,7 +264,8 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
                     if (paramIndependent == null) {
                         independent = null;
                     } else if (paramIndependent.isDependent()) {
-                        if (!excused(typeInfo, afterMarkMode, beforeMarkOnly, pi.parameterizedType())) {
+                        if (!contractedIndependentHcParam(pi)
+                            && !excused(typeInfo, afterMarkMode, beforeMarkOnly, pi.parameterizedType())) {
                             if (afterMarkMode && ecTypeDebug(typeInfo)) {
                                 System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
                                                    + " DEPENDENT: parameter " + pi.fullyQualifiedName());
@@ -376,6 +377,17 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
     private boolean contractedIndependentHc(MethodInfo methodInfo) {
         return contractedIndependentCache.computeIfAbsent(methodInfo, mi ->
                         contractReader.contracts(mi).get(INDEPENDENT_METHOD) instanceof Independent i ? i : DEPENDENT)
+                .isAtLeastIndependentHc();
+    }
+
+    // the parameter twin (Expression.translate's translationMap, the quest E cap): an inline
+    // @Independent(hc = true) on an abstract method's parameter states the argument sees at most
+    // hidden content of the receiver -- a lookup key, not linked mutable state
+    private final Map<ParameterInfo, Independent> contractedParamIndependentCache = new ConcurrentHashMap<>();
+
+    private boolean contractedIndependentHcParam(ParameterInfo parameterInfo) {
+        return contractedParamIndependentCache.computeIfAbsent(parameterInfo, pi ->
+                        contractReader.contracts(pi).get(INDEPENDENT_PARAMETER) instanceof Independent i ? i : DEPENDENT)
                 .isAtLeastIndependentHc();
     }
 

@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.info;
 
+import org.e2immu.annotation.NotModified;
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.expression.Expression;
@@ -587,6 +588,8 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         throw new UnsupportedOperationException();
     }
 
+    // a reader over the inspection face: printing may force the on-demand inspection commit, and nothing after it
+    @NotModified(after = "inspection")
     @Override
     public OutputBuilder print(Qualification qualification) {
         return print(qualification, true);

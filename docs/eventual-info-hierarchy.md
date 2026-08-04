@@ -2505,3 +2505,55 @@ subclasses must share a label), and api BinaryOperator (which inherits the first
 converge where the census said they would; there is no separate arithmetic quest anymore.
 Artifacts: questR-20260803/ (R1 candidacy provenance, R2 impl-chain trace, R3 the silence proof,
 R4 the fix measured, R5 the ledger).
+
+## The contract leg (2026-08-04): seven annotations, one inspector bug, and the race that remains
+
+Bart picked "source contracts first" from the keystone fork. The leg, measured run by run
+(questR-20260804, R6-R18):
+
+**R6-R10, the veto census.** New `ECTYPE MUTABLE: method/field` prints in the immutability loop
+named the Element surface's blockers: `typesReferenced`, `print`, `rewire` -- NON_MODIFYING=false,
+not excused. The abstract enm batch (`methodEventuallyNonModifying`) was vetoed by the Info-family
+impls; a debug-only ALL-blockers enumeration (AbstractMethodAnalyzerImpl) then showed the full
+lists at once instead of one veto per run. MethodInfoImpl's falseness is pure MODREACH dispatch
+taint (its own walk demands nothing -- `no enm ([])`, the unwritable-∅ shape live in the wild);
+TypeInfoImpl's is honest (printing/typesReferenced force the on-demand inspection commit through
+EventuallyFinalOnDemand.get()).
+
+**The cut, part 1: seven `@NotModified(after = "inspection")` contracts** on the veto methods
+(MethodInfoImpl.typesReferenced, TypeInfoImpl.print, TypeParameterImpl.print+rewire,
+ParameterInfoImpl.rewire, FieldInfoImpl.typesReferenced+print -- all five Info types share the
+field name `inspection`), plus the CONTRACTS-WIN clause in the enm step (TypeEventualAnalyzerImpl):
+step 2 now mirrors step 1's contract precedence, so an inline source contract reaches
+EVENTUALLY_NON_MODIFYING exactly as an AAPI one does. Note the AnnotationToProperty semantics: the
+after= form also floors plain NON_MODIFYING at FALSE -- honest for the on-demand committers,
+conservative for the taint victims. R11: 56 (+api.element.ImportStatement); the print batch
+collapsed to its one unannotated sibling, and the typesReferenced/rewire batches WROTE their
+unions. R12: **Element computed immutableAfterMark=@Immutable(hc=true) for the first time in the
+campaign** -- all seven surface methods excused, a 60-label union mark set.
+
+**The cut, part 2: the translate parameter.** R13 named Expression's sole dependence reason, 48
+times over: `translate(TranslationMap):0:translationMap` @Dependent, TranslationMap not excusable.
+The honest classification: the map is a read-only lookup that receives the receiver as a KEY --
+hidden content -- so `@Independent(hc = true)` went onto the parameter, with the parameter twin of
+`contractedIndependentHc` wired into the independence loop. It did not bite (R14/R15: the parsed
+parameter carried NO annotations) -- which unmasked **an inspector bug**: ClassSymbolScanner
+pre-creates methods from javac class symbols (everything references Expression, so its methods are
+created early with commits deferred), and ScanCompilationUnit's FILL branch set parameter sources
+but never copied the declaration's parameter annotations; `loadAnnotations` on a source VarSymbol
+is empty before attribution. Every parameter annotation on a symbol-pre-created method was
+silently dropped in full runs -- including `@IgnoreModifications` on Element.visit/typesReferenced,
+which had been working only through the jdk-AAPI channel. Fixed in the fill branch, guarded on
+emptiness. R17: the contract reads, Expression independence lifts to @Independent(hc=true), and
+Expression computes hc-after-mark on its good visits.
+
+**What remains -- the write-once/excusal-timing race.** Expression alternates: visits where
+translate is excused compute @Immutable(hc=true); visits where the enm batch has not yet re-run
+this epoch compute @FinalFields -- and whichever WRITES first freezes, an FF write sinking the
+whole subtree through the `isMutable(@FinalFields)` hierarchy exit (ValueImpl: isMutable is true
+for value 0 AND 1). The same shape as the privacy-cap incident, one mechanism up: not a missing
+excusal but the ORDER excusals land in versus the write-once verdict. All four roots
+(Element/Expression/ElementImpl/ExpressionImpl) now FORM within every terminal epoch and end
+eventual=null. Baseline: 56, R17/R18 byte-identical; Fernflower A/B type-line identical both
+sides; full suite green. The race is the deferral design's territory -- the next decision point,
+recorded here for the fork.

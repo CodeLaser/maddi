@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.api.expression;
 
+import org.e2immu.annotation.Independent;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.info.InfoMap;
@@ -116,8 +117,10 @@ public interface Expression extends Comparable<Expression>, Element {
     /**
      * Source-to-source rewrite under the given map; returns a single expression (contrast with
      * {@link org.e2immu.language.cst.api.statement.Statement#translate}, which may expand to several).
+     * The map is a read-only lookup: it receives the receiver as a KEY (hidden content), never as
+     * mutable state to link -- the {@code @Independent(hc = true)} contract on the parameter.
      */
-    Expression translate(TranslationMap translationMap);
+    Expression translate(@Independent(hc = true) TranslationMap translationMap);
 
     /**
      * Clone this expression into a new {@code Info} graph, relinking references through the map.
