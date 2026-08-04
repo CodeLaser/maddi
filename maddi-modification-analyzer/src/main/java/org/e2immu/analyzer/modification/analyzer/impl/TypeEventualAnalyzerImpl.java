@@ -448,6 +448,19 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                                         + " weak after-mark level deferred to the terminal phase");
             return;
         }
+        // the warm-up sweep: the excusal state (enm walks, the abstract batches, candidacy) is still
+        // settling in the first iteration after a rederivation reset; a write-once verdict taken now
+        // races it -- @FinalFields frozen where the settled computation reaches hc, or a partial mark
+        // set. Withhold the write; the computation re-runs next iteration on settled state.
+        if (eventualCluster.typeLevelWarmUp()) {
+            if (dbg) System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
+                                        + " warm-up: write withheld (afterMark=" + afterMarkLevel + ")");
+            // NOTE: deliberately NOT counted as a property change. A per-withheld-write increment made the
+            // epoch's length depend on the (parallel-order-sensitive) change MAGNITUDE and the run went
+            // bistable (R25/R26, questR-20260804); the driver instead holds the epoch open with one
+            // deterministic ITERATION-based check at the certification gate.
+            return;
+        }
         String label = markLabels.stream().sorted().collect(Collectors.joining(","));
         Value.EventuallyImmutable value = new ValueImpl.EventuallyImmutableImpl(label, afterMarkLevel);
         typeInfo.analysis().set(EVENTUALLY_IMMUTABLE_TYPE, value);

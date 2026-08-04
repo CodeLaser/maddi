@@ -29,6 +29,14 @@
 # and the Comment family are all in. Fernflower A/B: one pure addition
 # (SwitchOnReferenceCandidate FF(after=myTempVarAssignments)), zero losses. The residual race now
 # degrades hc to FF instead of zeroing -- the deferral design's remaining decision.
+#
+# BASELINE 2026-08-04c (the deterministic terminal epoch): SAME 285 types, membership unchanged; the
+# warm-up sweep is now committed and the composition is 163 @Immutable(hc) + 122 @FinalFields,
+# byte-identical across every measured pair (Y1..Y4 in ~/git/ws/eventual/questR-20260804). The old
+# hc/FF coin (179/106 vs 165/120) is closed by the ⊆ tier-uniformity fix in LinkToField; the runtime
+# family survives honestly through the primitives() immutable copy + @Independent(hc=true) contract
+# (the live values() view was a real soundness hole the tier-uniform analyzer caught).
+# ModuleInfo.Provides sits at FF (honest level, membership intact).
 org.e2immu.language.cst.api.analysis.Value
 org.e2immu.language.cst.api.analysis.Value.AssignedToField
 org.e2immu.language.cst.api.analysis.Value.Bool

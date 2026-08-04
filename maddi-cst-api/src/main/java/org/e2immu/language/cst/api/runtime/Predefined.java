@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.api.runtime;
 
+import org.e2immu.annotation.Independent;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -63,6 +64,12 @@ public interface Predefined extends PredefinedWithoutParameterizedType {
 
     List<TypeInfo> predefinedObjects();
 
+    /**
+     * The primitive types, shared hidden content: the implementation hands out an immutable copy, so the
+     * only thing a caller can reach is the {@code TypeInfo} elements themselves -- the
+     * {@code @Independent(hc = true)} contract on the method.
+     */
+    @Independent(hc = true)
     Collection<TypeInfo> primitives();
 
     int primitiveTypeOrder(ParameterizedType pt);
