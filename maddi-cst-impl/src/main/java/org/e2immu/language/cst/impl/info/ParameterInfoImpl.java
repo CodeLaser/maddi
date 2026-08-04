@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.info;
 
+import org.e2immu.annotation.NotModified;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.element.*;
@@ -271,6 +272,8 @@ public class ParameterInfoImpl implements ParameterInfo {
         throw new UnsupportedOperationException("because of the back-link, translation takes place in MethodImpl");
     }
 
+    // a lookup in the map view; the receiver is a key, never modified
+    @NotModified(after = "inspection")
     @Override
     public Variable rewire(InfoMapView infoMap) {
         return infoMap.parameterInfo(this);

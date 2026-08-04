@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.info;
 
+import org.e2immu.annotation.NotModified;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
@@ -198,6 +199,8 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
         throw new UnsupportedOperationException();
     }
 
+    // a reader over the inspection face: any receiver modification happens before the inspection commit
+    @NotModified(after = "inspection")
     @Override
     public OutputBuilder print(Qualification qualification) {
         return print(qualification, false);
@@ -213,6 +216,8 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
         throw new UnsupportedOperationException();
     }
 
+    // a reader over the inspection face: any receiver modification happens before the inspection commit
+    @NotModified(after = "inspection")
     @Override
     public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
         if (reject(predicate)) return Stream.of();
