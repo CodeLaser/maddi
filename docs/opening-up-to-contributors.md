@@ -57,7 +57,7 @@ document section for the why.
 
 ## 3. The plan, in four phases
 
-### Phase 1 — make the repository safe to land on
+### Phase 1 — make the repository safe to land on — DONE 2026-08-04
 
 - [x] PR target: **`main`**, kept current by merging `devel` → `main`. Both were pushed level
       on 2026-08-04, which removed the "12 behind" problem this phase existed to fix.
@@ -74,33 +74,34 @@ document section for the why.
       `engine:analyzer`, `engine:link`, `engine:prepwork`, `ide`, `build/ci`, `corpus`. No `docs`
       label — the default `documentation` already covers it.
 
-### Phase 2 — the first ~15 issues, chosen to be landable by a stranger
+### Phase 2 — the first issues, chosen to be landable by a stranger — DONE 2026-08-04
 
-Not the backlog — the self-contained items, most of them `good first issue`:
+Eleven issues, #2–#12. Not the backlog: the self-contained items, five of them `good first issue`.
+Two planned items turned out to be **already fixed** — the social preview, and one half of the
+acronym item — which is worth noting as a habit: verify a checklist claim against the repository
+before filing it as an issue.
 
-- [ ] The three `test*plugin/README.md` files whose instructions cannot be followed
-      (`doc-audit-2026-07-30.md` §3.5).
-- [ ] Acronym-expansion inconsistency in the manual and book intros (`landing-surface-checklist.md` §8).
-- [ ] Social preview image, still unset (§2).
-- [ ] Javadoc warnings on the otherwise clean CI run (§3).
-- [ ] `eclipse-plugin-state.md` vs `maddi-eclipse/README.md` contradict each other — one is wrong
-      (`doc-audit` §3.3).
-- [ ] The four open release legs (§6): Gradle plugin → Plugin Portal, CLI zips → GitHub Release,
-      Maven plugin untested against a real `mvn`, licence split stated in the 0.9.0 release notes.
+- [x] #2 — the three `test*plugin/README.md` files whose instructions cannot be followed.
+- [x] #3 — acronym expansion still in the manual and book intros.
+- [x] Social preview image — **already done**; the checklist was stale, now corrected.
+- [x] #4 — javadoc warnings on the clean CI run. Also filed #5, the undeclared Gradle toolchain.
+- [x] #6 — `eclipse-plugin-state.md` and `maddi-eclipse/README.md` contradict each other.
+- [x] #7, #8, #9, #10 — the four release legs. Also #11 (the manual is still the 2021 edition) and
+      #12 (link the book from the README and codelaser.io).
 
-### Phase 3 — roadmaps become tracking issues, not 49 issues
+### Phase 3 — roadmaps become tracking issues, not 49 issues — DONE 2026-08-04
 
-The two hardening documents stay documents. Each gets **one tracking issue** plus **one issue per
+Sixteen issues, #13–#28. The two hardening documents stay documents. Each gets **one tracking issue** plus **one issue per
 `H` item** (~10 total). Filing 49 fine-grained M/L items on a repository with zero issues buries the
 ones a newcomer could act on. `ide-todo.md` §4's five bullets are individually issue-shaped; §§1–3
 are design and stay prose.
 
-- [ ] Tracking issue + H items for `prep-analyzer hardening.md`.
-- [ ] Tracking issue + H items for `modification-link-analyzer hardening.md`.
-- [ ] Five issues from `ide-todo.md` §4.
+- [x] #13 tracking, #15–#19 the five H items.
+- [x] #14 tracking, #20–#23 the four H items (§2's two H bullets are one change, so one issue).
+- [x] #24–#28 — the five `ide-todo.md` §4 items.
 - [x] Fourth status label in `docs/README.md`: **tracked** — the document explains, the issues track.
 
-### Phase 4 — write the rule down
+### Phase 4 — write the rule down — DONE 2026-08-04
 
 - [x] `CONTRIBUTING.md` §"Proposing a change" — issue first for anything non-trivial, PR against
       `main`, CI green, DCO sign-off, the `FPDUMP` A/B rule, and the per-module licence.

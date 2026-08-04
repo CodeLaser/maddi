@@ -128,15 +128,17 @@ hints almost immediately.
 
 ## 4. Smaller, independent of the above
 
-- **Coalesced triggers are dropped silently.** Both front-ends guard with a bare `AtomicBoolean`
+Each of these is a GitHub issue (#24–#28); this section stays the reasoning.
+
+- **(#24) Coalesced triggers are dropped silently.** Both front-ends guard with a bare `AtomicBoolean`
   (`MaddiAnalysis.RUNNING`), so a build finishing while a run is in flight is simply never computed. Needs a
   pending flag and a re-run, not a second concurrent analysis.
-- **Whole-workspace marker churn (Eclipse).** `MaddiMarkers.apply` deletes every maddi marker at
+- **(#25) Whole-workspace marker churn (Eclipse).** `MaddiMarkers.apply` deletes every maddi marker at
   `DEPTH_INFINITE` from the workspace root and recreates them all, on every run. Wasteful now; wrong once
   analysis is partial, since a partial result must not erase markers for files it did not look at.
-- **No builder / project nature (Eclipse).** Analysis is a resource-change listener, so there is no delta
+- **(#26) No builder / project nature (Eclipse).** Analysis is a resource-change listener, so there is no delta
   scoping. Related to 1: a real builder is the idiomatic place to hook incremental analysis.
-- **Quick fixes and richer hover (Eclipse).** IntelliJ has an external annotator with a why-chain tooltip;
+- **(#27) Quick fixes and richer hover (Eclipse).** IntelliJ has an external annotator with a why-chain tooltip;
   Eclipse has only the marker message. No quick fixes on either side.
-- **GUI install path unverified.** The p2 site is verified by installing with the director; nobody has driven
+- **(#28) GUI install path unverified.** The p2 site is verified by installing with the director; nobody has driven
   `Help > Install New Software` by hand, so the license page and category rendering are unconfirmed.
