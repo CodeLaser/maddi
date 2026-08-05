@@ -56,6 +56,11 @@ public abstract class CommonTest {
                 .addSources(InputConfigurationImpl.MAVEN_TEST)
                 .addRestrictSourceToPackages("io.codelaser.maddi.inspection.integration.java.importhelper.")
                 .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
+                // Two entries since the 0.9.1 split: the annotations moved to maddi-annotation while
+                // Either/SetOnce stayed in maddi-support. These are hardcoded output directories, so
+                // nothing propagates them automatically -- omitting the first makes every parse that
+                // touches an annotation fail with "Cannot find type Docstrings".
+                .addClassPath("../maddi-annotation/build/classes/java/main")
                 .addClassPath("../maddi-support/build/classes/java/main")
                 // NOTE: no access to ToolChain here; this is rather exceptional
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/junit/jupiter/api")

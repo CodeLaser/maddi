@@ -46,6 +46,13 @@ public class TestJavaInspector3RealClasspath {
         SourceSet commonsCli = new SourceSetImpl.Builder().setName(COMMONS_CLI_JAR).setUri(commonsCliJar.toUri())
                 .setLibrary(true).setExternalLibrary(true).build();
 
+        // Two parts since the 0.9.1 split: annotations in maddi-annotation, SetOnce/Either in maddi-support.
+        Path maddiAnnotationClasses = Path.of("../maddi-annotation/build/classes/java/main/");
+        assertTrue(Files.isDirectory(maddiAnnotationClasses));
+        SourceSet maddiAnnotation = new SourceSetImpl.Builder().setName("maddi-annotation")
+                .setUri(maddiAnnotationClasses.toUri())
+                .setLibrary(true).setExternalLibrary(true).build();
+
         Path maddiSupportClasses = Path.of("../maddi-support/build/classes/java/main/");
         assertTrue(Files.isDirectory(maddiSupportClasses));
         SourceSet maddiSupport = new SourceSetImpl.Builder().setName("maddi-support")
@@ -59,7 +66,7 @@ public class TestJavaInspector3RealClasspath {
 
         SourceSet sourceSet = new SourceSetImpl.Builder()
                 .setName(TEST_PROTOCOL).setUri(URI.create("file:/"))
-                .setDependencies(List.of(commonsCli, maddiSupport, slf4j))
+                .setDependencies(List.of(commonsCli, maddiAnnotation, maddiSupport, slf4j))
                 .build();
 
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
@@ -113,7 +120,8 @@ public class TestJavaInspector3RealClasspath {
         TypeInfo immutableContainer = runtime.getFullyQualified("io.codelaser.maddi.annotation.ImmutableContainer",
                 true);
         assertTrue(immutableContainer.typeNature().isAnnotation());
-        assertEquals("maddi-support", immutableContainer.compilationUnit().sourceSet().name());
+        // @ImmutableContainer moved to maddi-annotation in the 0.9.1 split
+        assertEquals("maddi-annotation", immutableContainer.compilationUnit().sourceSet().name());
     }
 
     public URL findJarInClassPath(String prefix) throws IOException {

@@ -43,20 +43,24 @@ public class TestJavaInspector2JarOnClasspath {
                 // (ClassSymbolScanner#sourceSetMap), so this needs the file name -- but not a hard-coded
                 // version: "maddi-support-0.8.2.jar" silently stopped matching when the release train
                 // moved to 0.9.0, and the unresolved annotations looked like a parser bug.
-                .addClassPath(JAR_WITH_PATH_PREFIX + maddiSupportJarName())
+                .addClassPath(JAR_WITH_PATH_PREFIX + jarNameStartingWith("maddi-annotation-"))
+                .addClassPath(JAR_WITH_PATH_PREFIX + jarNameStartingWith("maddi-support-"))
                 .addClassPath(JAR_WITH_PATH_PREFIX + "slf4j-api-2.0.17.jar")
                 .build();
         javaInspector.initialize(inputConfiguration);
         runtime = javaInspector.runtime();
     }
 
-    /** The maddi-support jar as it appears on this test's runtime classpath, version and all. */
-    private static String maddiSupportJarName() {
+    /**
+     * A jar as it appears on this test's runtime classpath, version and all. Two calls since the 0.9.1
+     * split: the annotations moved to maddi-annotation while SetOnce/Either stayed in maddi-support.
+     */
+    private static String jarNameStartingWith(String prefix) {
         for (String entry : System.getProperty("java.class.path").split(File.pathSeparator)) {
             String name = Path.of(entry).getFileName().toString();
-            if (name.startsWith("maddi-support-") && name.endsWith(".jar")) return name;
+            if (name.startsWith(prefix) && name.endsWith(".jar")) return name;
         }
-        throw new IllegalStateException("maddi-support jar not on the test classpath");
+        throw new IllegalStateException(prefix + "* jar not on the test classpath");
     }
 
     @Language("java")

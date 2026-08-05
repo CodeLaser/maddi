@@ -34,7 +34,8 @@ public class TestJavaInspector4RealClasspath {
 
         SourceSet javaBase = SourceSetImpl.javaBase();
         SourceSet annotations = sourceSetOf(NotNull.class, javaBase);
-        SourceSet maddiSupport = sourceSetOf(SetOnce.class, javaBase);
+        SourceSet maddiAnnotation = sourceSetOf(io.codelaser.maddi.annotation.Immutable.class, javaBase);
+        SourceSet maddiSupport = sourceSetOf(SetOnce.class, javaBase, maddiAnnotation);
 
         Path cstApiPath = Path.of("../maddi-cst-api/src/main/java");
         assertTrue(Files.isDirectory(cstApiPath));

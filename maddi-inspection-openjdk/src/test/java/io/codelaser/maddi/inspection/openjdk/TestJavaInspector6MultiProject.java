@@ -31,6 +31,7 @@ public class TestJavaInspector6MultiProject {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestJavaInspector6MultiProject.class);
 
     private JavaInspector javaInspector;
+    private SourceSet maddiAnnotation;
     private SourceSet maddiSupport;
     private SourceSet maddiUtil;
     private SourceSet cstApi;
@@ -68,13 +69,25 @@ public class TestJavaInspector6MultiProject {
                 .setModule(true)
                 .build();
 
+        // Two source sets since the 0.9.1 split, mirroring the real module graph: Container lives in
+        // maddi-annotation, SetOnce/Either in maddi-support, and support requires the annotations.
+        Path maddiAnnotationSrc = Path.of("../maddi-annotation/src/main/java");
+        maddiAnnotation = new SourceSetImpl.Builder()
+                .setName("maddi-annotation")
+                .setSourceDirectories(List.of(maddiAnnotationSrc))
+                .setUri(artifactOf(io.codelaser.maddi.annotation.Container.class))
+                .setLibrary(true)
+                .setModule(true)
+                .build();
+
         Path maddiSupportSrc = Path.of("../maddi-support/src/main/java");
         maddiSupport = new SourceSetImpl.Builder()
                 .setName("maddi-support")
                 .setSourceDirectories(List.of(maddiSupportSrc))
-                .setUri(artifactOf(io.codelaser.maddi.annotation.Container.class))
+                .setUri(artifactOf(io.codelaser.maddi.support.SetOnce.class))
                 .setLibrary(true)
                 .setModule(true)
+                .setDependencies(List.of(maddiAnnotation))
                 .build();
 
         Path maddUtilSrc = Path.of("../maddi-util/src/main/java");
@@ -153,6 +166,7 @@ public class TestJavaInspector6MultiProject {
 
         // only the source directories need checking; the artifacts come from this test's own class path
         assertTrue(Files.isDirectory(maddUtilSrc));
+        assertTrue(Files.isDirectory(maddiAnnotationSrc));
         assertTrue(Files.isDirectory(maddiSupportSrc));
         assertTrue(Files.isDirectory(cstApiPath));
         assertTrue(Files.isDirectory(cstAnalysisPath));
@@ -164,7 +178,7 @@ public class TestJavaInspector6MultiProject {
         SourceSet openTest = SourceSetImpl.sourceSetOf(AssertionFailedError.class);
 
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
-                .addSourceSets(cstApi, maddiSupport, cstAnalysis, maddiUtil, cstImpl, cstImplTest, cstIo)
+                .addSourceSets(cstApi, maddiAnnotation, maddiSupport, cstAnalysis, maddiUtil, cstImpl, cstImplTest, cstIo)
                 .addClassPath("jmod:java.base")
                 .addClassPathParts(orgSlf4jApi, annotations, junitJupiter, openTest)
                 .build();

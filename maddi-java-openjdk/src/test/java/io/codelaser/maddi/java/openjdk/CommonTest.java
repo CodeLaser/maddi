@@ -20,6 +20,7 @@ import io.codelaser.maddi.inspection.api.resource.ParameterNameIndex;
 import io.codelaser.maddi.inspection.resource.InfoByFqn;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.support.SetOnce;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
@@ -99,7 +100,10 @@ public class CommonTest {
             SourceSet logBackClassic = sourceSetOf(Level.class);
             SourceSet logBackCore = sourceSetOf(ch.qos.logback.core.util.CloseUtil.class);
             SourceSet annotations = sourceSetOf(NotNull.class, javaBase);
-            SourceSet maddiSupport = sourceSetOf(SetOnce.class, javaBase);
+            // maddi-annotation split out of maddi-support at 0.9.1; `annotations` above is JetBrains'
+            // @NotNull, not maddi's. Without this part every test that names a maddi annotation fails.
+            SourceSet maddiAnnotation = sourceSetOf(Immutable.class, javaBase);
+            SourceSet maddiSupport = sourceSetOf(SetOnce.class, javaBase, maddiAnnotation);
             SourceSet junitJupiter = sourceSetOf(Assertions.class, javaBase);
             SourceSet assertJ = sourceSetOf(Assert.class, javaBase);
             SourceSet lombok = sourceSetOf(Data.class, javaBase);
@@ -111,7 +115,7 @@ public class CommonTest {
                     .addSourceSets(sourceSet)
                     .addClassPathParts(javaBase, javaNetHttp)
                     .addClassPathParts(orgSlf4j, logBackClassic, logBackCore,
-                            annotations, maddiSupport, junitJupiter, assertJ, lombok)
+                            annotations, maddiAnnotation, maddiSupport, junitJupiter, assertJ, lombok)
                     .build();
             ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                     javacTask, sourceSet, infoByFqn, true, diagnostics,

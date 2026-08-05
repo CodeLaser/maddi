@@ -15,6 +15,7 @@
 package io.codelaser.maddi.ide.daemon;
 
 import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.support.SetOnce;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
@@ -71,12 +72,19 @@ public class InputConfigurationAssembler {
             builder.addRestrictSourceToPackages(restrict.toArray(new String[0]));
         }
 
-        // Supply the e2immu annotation types (@Immutable, @Container, @NotModified, …) as a real classpath part,
-        // located from the daemon's own classpath (the distribution bundles maddi-support). Required so
-        // DecoratorImpl resolves them, so projects that do NOT depend on the annotations still get hints, and so
-        // a project that DOES use them parses those imports. (The openjdk inspector does not support the
-        // jar-on-classpath: scheme that withE2ImmuSupportFromClasspath() uses.)
+        // Supply the annotation types (@Immutable, @Container, @NotModified, …) and the support types
+        // (SetOnce, Either, EventuallyFinal) as real classpath parts, located from the daemon's own classpath
+        // (the distribution bundles both). Required so DecoratorImpl resolves them, so projects that do NOT
+        // depend on the annotations still get hints, and so a project that DOES use them parses those imports.
+        // (The openjdk inspector does not support the jar-on-classpath: scheme that
+        // withE2ImmuSupportFromClasspath() uses.)
+        //
+        // TWO parts since the 0.9.1 split: sourceSetOf() resolves the ARTIFACT containing the named class, and
+        // the annotations moved to maddi-annotation while the support types stayed in maddi-support. Naming only
+        // Immutable here leaves an analyzed project that imports SetOnce unable to resolve it, which silently
+        // yields no verdicts at all rather than an error.
         builder.addClassPathParts(SourceSetImpl.sourceSetOf(Immutable.class));
+        builder.addClassPathParts(SourceSetImpl.sourceSetOf(SetOnce.class));
         // Provide java.base as a first-class source set (like the analyzer's test harness) so the runtime
         // registers its types for hint resolution — otherwise LoadAnalysisResults reports "type not on the
         // classpath" even though the openjdk parser preloaded them.

@@ -39,7 +39,8 @@ public class TestJavaInspector5RealClasspathModule {
 
         SourceSet javaBase = SourceSetImpl.javaBase();
         SourceSet annotations = sourceSetModuleOf(NotNull.class, javaBase);
-        SourceSet maddiSupport = sourceSetModuleOf(SetOnce.class, javaBase);
+        SourceSet maddiAnnotation = sourceSetModuleOf(io.codelaser.maddi.annotation.Immutable.class, javaBase);
+        SourceSet maddiSupport = sourceSetModuleOf(SetOnce.class, javaBase, maddiAnnotation);
         SourceSet maddiUtil = sourceSetModuleOf(StringUtil.class, javaBase);
 
         Path cstApiPath = Path.of("../maddi-cst-api/src/main/java");

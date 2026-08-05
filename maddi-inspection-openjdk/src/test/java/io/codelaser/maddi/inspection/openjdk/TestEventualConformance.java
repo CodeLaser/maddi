@@ -139,11 +139,19 @@ public class TestEventualConformance {
         SourceSet orgSlf4jApi = externalJar(Logger.class);
         SourceSet annotations = externalJar(NotNull.class);
 
+        // Mirrors the real module graph after the 0.9.1 split.
+        Path maddiAnnotationSrc = Path.of("../maddi-annotation/src/main/java");
+        SourceSet maddiAnnotation = new SourceSetImpl.Builder().setName("maddi-annotation")
+                .setSourceDirectories(List.of(maddiAnnotationSrc))
+                .setUri(artifactOf(io.codelaser.maddi.annotation.Container.class))
+                .setLibrary(true).setModule(true).build();
+
         Path maddiSupportSrc = Path.of("../maddi-support/src/main/java");
         SourceSet maddiSupport = new SourceSetImpl.Builder().setName("maddi-support")
                 .setSourceDirectories(List.of(maddiSupportSrc))
-                .setUri(artifactOf(io.codelaser.maddi.annotation.Container.class))
-                .setLibrary(true).setModule(true).build();
+                .setUri(artifactOf(io.codelaser.maddi.support.SetOnce.class))
+                .setLibrary(true).setModule(true)
+                .setDependencies(List.of(maddiAnnotation)).build();
 
         Path maddiUtilSrc = Path.of("../maddi-util/src/main/java");
         maddiUtil = new SourceSetImpl.Builder().setName("maddi-util")

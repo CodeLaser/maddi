@@ -1,6 +1,7 @@
 package io.codelaser.maddi.modification.common;
 
 import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.support.SetOnce;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.integration.JavaInspectorFactory;
@@ -33,7 +34,12 @@ public class CommonTest {
 
     /** Heavy opt-in: {@link #javaInspectorFactory()} plus the given extra JDK modules on the classpath. */
     public static @NonNull JavaInspectorFactory javaInspectorFactory(String... extraJdkModules) {
-        SourceSet maddiSupport = SourceSetImpl.sourceSetOf(Immutable.class);
+        // Two source sets since the 0.9.1 split: sourceSetOf() resolves the ARTIFACT containing the
+        // class. The annotations now live in maddi-annotation while Either/SetOnce stay in
+        // maddi-support, so naming only Immutable here silently drops maddi-support from the test
+        // classpath -- which is how OrgE2immuSupport stopped resolving.
+        SourceSet maddiAnnotation = SourceSetImpl.sourceSetOf(Immutable.class);
+        SourceSet maddiSupport = SourceSetImpl.sourceSetOf(SetOnce.class, maddiAnnotation);
         SourceSet slf4jApi = SourceSetImpl.sourceSetOf(org.slf4j.Logger.class);
         SourceSet logbackClassic = SourceSetImpl.sourceSetOf(Logger.class);
         SourceSet junitPlatform = SourceSetImpl.sourceSetOf(JUnitException.class);
@@ -45,7 +51,8 @@ public class CommonTest {
         return new JavaInspectorFactory() {
             @Override
             public List<SourceSet> dependencies() {
-                return List.of(maddiSupport, slf4jApi, logbackClassic, junitPlatform, jupiter, opentest4j, annotations);
+                return List.of(maddiAnnotation, maddiSupport, slf4jApi, logbackClassic, junitPlatform, jupiter,
+                        opentest4j, annotations);
             }
 
             @Override
@@ -66,7 +73,12 @@ public class CommonTest {
                                                                  List<SourceSet> extraSourceSets,
                                                                  List<String> extraJdkModules) throws IOException {
         SourceSet javaBase = SourceSetImpl.javaBase();
-        SourceSet maddiSupport = SourceSetImpl.sourceSetOf(Immutable.class);
+        // Two source sets since the 0.9.1 split: sourceSetOf() resolves the ARTIFACT containing the
+        // class. The annotations now live in maddi-annotation while Either/SetOnce stay in
+        // maddi-support, so naming only Immutable here silently drops maddi-support from the test
+        // classpath -- which is how OrgE2immuSupport stopped resolving.
+        SourceSet maddiAnnotation = SourceSetImpl.sourceSetOf(Immutable.class);
+        SourceSet maddiSupport = SourceSetImpl.sourceSetOf(SetOnce.class, maddiAnnotation);
         SourceSet slf4jApi = SourceSetImpl.sourceSetOf(org.slf4j.Logger.class);
         SourceSet logbackClassic = SourceSetImpl.sourceSetOf(Logger.class);
         SourceSet junitPlatform = SourceSetImpl.sourceSetOf(JUnitException.class);
@@ -98,7 +110,7 @@ public class CommonTest {
         javaInspector.preload("io.codelaser.maddi.annotation.");
 
         List<SourceSet> classPathParts = new ArrayList<>(List.of(javaBase,
-                maddiSupport, slf4jApi, logbackClassic, jupiter, junitPlatform, opentest4j, annotations));
+                maddiAnnotation, maddiSupport, slf4jApi, logbackClassic, jupiter, junitPlatform, opentest4j, annotations));
         for (String jdkModule : extraJdkModules) {
             classPathParts.add(SourceSetImpl.jdkModule(jdkModule));
         }
