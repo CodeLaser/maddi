@@ -83,9 +83,12 @@ public interface Info extends Element {
      * Fully qualified names of fields can be misinterpreted; in a codebase spanning multiple source sets,
      * multiple types can have the same fully qualified name, etc. This format allows no ambiguity.
      * <p>
-     * Format rules: a {@code ::} prefix carries the source-set name; enclosed types are
-     * separated by {@code $} (e.g. {@code a.b.X$Y}); a field is separated from its owner
-     * by {@code :}; type parameters are enclosed in {@code []}.
+     * Format rules: a {@code ::} prefix carries the source-set name; enclosed types are separated by a
+     * DOT (e.g. {@code main::a.b.X.Y}) — a simple name cannot contain a dot, so the separator is not
+     * needed to tell them apart; a field is separated from its owner by {@code :}; type parameters are
+     * enclosed in {@code []}. (This said {@code $} until 2026-08-05 and never matched the implementation:
+     * see {@code TypeInfoImpl.descriptor}. {@code $} is the separator of the refactor DSL's glob grammar,
+     * which is a different thing on a different layer.)
      */
     String descriptor();
 
