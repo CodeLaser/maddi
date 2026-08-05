@@ -69,6 +69,27 @@ public final class IncrementalFixpointEngine<V, L> {
     // propagation step and witness decision. Volatile, off by default; zero overhead when false.
     public static volatile boolean TRACE = false;
 
+    /*
+    Extraction-reuse dirty tracking (remedy A, review 2026-08-05): the endpoints of every CLOSURE-CONTENT
+    change (fact added, label upgraded, fact removed) since the last drain. Witness-only changes are
+    deliberately NOT tracked: extraction reads closure rows, never witnesses. Drained once per statement by
+    WriteLinksAndModification (via Graph.drainDirtyVariables), which closes the set over the link web and
+    skips re-extraction for variables outside it.
+     */
+    private final Set<V> touched = new HashSet<>();
+
+    private void touch(Fact<V, L> fact) {
+        touched.add(fact.source());
+        touched.add(fact.target());
+    }
+
+    /** Vertices whose closure content changed since the previous drain. Returns a fresh mutable set. */
+    public Set<V> drainTouched() {
+        Set<V> copy = new HashSet<>(touched);
+        touched.clear();
+        return copy;
+    }
+
     static void lt(String message) {
         System.out.println("LT " + message);
     }
@@ -97,6 +118,12 @@ public final class IncrementalFixpointEngine<V, L> {
         this.vertexPrinter = vertexPrinter;
         this.vertexComparator = vertexComparator;
         this.acceptForComposite = acceptForComposite;
+    }
+
+    // register BEFORE the first edge/vertex enters the engine: the listener only sees mutations from
+    // that point on (Graph does so in its constructor, when the graph is still empty)
+    public void setVertexListener(LabeledGraph.VertexListener<V> listener) {
+        graph.setListener(listener);
     }
 
     public Iterable<Map.Entry<V, L>> edges(V v) {
@@ -159,7 +186,10 @@ public final class IncrementalFixpointEngine<V, L> {
 
     public boolean removeVertices(Set<V> vertices) {
         if (!Gate.isSet("NOMAT")) materializeWitnessOrphans(vertices);
-        closure.removeVertices(vertices);
+        // dirty tracking: the removed vertices' knowledge vanishes, and surviving rows that lost a
+        // fact to the column sweep changed content too
+        touched.addAll(closure.removeVertices(vertices));
+        touched.addAll(vertices);
         return graph.removeVertices(vertices);
     }
 
@@ -195,6 +225,7 @@ public final class IncrementalFixpointEngine<V, L> {
             graph.addSymmetricEdge(fact.source(), fact.target(), strongest, strongestReverse);
             closure.add(fact.source(), fact.target(), strongest);
             closure.add(fact.target(), fact.source(), strongestReverse);
+            touch(fact);
             witnessIndex.putIfBetter(new Fact<>(fact.source(), fact.target(), strongest),
                     new Witness.DirectWitness<>(new Fact<>(fact.source(), fact.target(), strongest), "mat"));
             witnessIndex.putIfBetter(new Fact<>(fact.target(), fact.source(), strongestReverse),
@@ -245,6 +276,7 @@ public final class IncrementalFixpointEngine<V, L> {
             if (added) {
                 newFacts++;
                 queue.add(fact);
+                touch(fact);
             }
         }
         if (queue.isEmpty()) {
@@ -296,6 +328,7 @@ public final class IncrementalFixpointEngine<V, L> {
                                 newFact, !optimize);
                         boolean improved = witnessIndex.putIfBetter(next, candidate);
                         boolean added = closure.add(next.source(), next.target(), next.label());
+                        if (added) touch(next);
                         if (TRACE && (added || improved)) lt((optimize ? "opt-fwd " : "fwd ")
                                 + next.print(vertexPrinter) + " added=" + added + " improved=" + improved
                                 + " via " + fact.print(vertexPrinter) + " + " + newFact.print(vertexPrinter));
@@ -331,6 +364,7 @@ public final class IncrementalFixpointEngine<V, L> {
         Fact<V, L> mirror = new Fact<>(next.target(), next.source(), revLabel);
         boolean added = closure.add(mirror.source(), mirror.target(), mirror.label());
         if (added) {
+            touch(mirror);
             Fact<V, L> revRight = new Fact<>(right.target(), right.source(), reverse.apply(right.label()));
             Fact<V, L> revLeft = new Fact<>(left.target(), left.source(), reverse.apply(left.label()));
             Witness<V, L> leftW = witnessIndex.get(revRight);
@@ -376,6 +410,7 @@ public final class IncrementalFixpointEngine<V, L> {
                             // (the doesNotCreateCycle check above IS 'candidate.support() does not contain next';
                             // asserting it again would materialize every candidate's lazy support)
                             boolean added = closure.add(next.source(), next.target(), next.label());
+                            if (added) touch(next);
                             boolean improved = witnessIndex.putIfBetter(next, candidate);
                             if (TRACE && (added || improved)) lt((optimize ? "opt-bwd " : "bwd ")
                                     + next.print(vertexPrinter) + " added=" + added + " improved=" + improved
@@ -462,8 +497,9 @@ public final class IncrementalFixpointEngine<V, L> {
             // OTHER variables is not invalidated; see WriteLinksAndModification, gate NOFLIPOWN).
             if (skipStatementIndex != null && skipStatementIndex.equals(dw.statementIndex())) return Set.of();
             if (!acceptRaw.test(fact)) return Set.of();
-            return graph.replace(fact.source(), fact.target(), newLabel, reverseNewLabel)
-                    ? Set.of(fact.source(), fact.target()) : Set.of();
+            boolean replaced = graph.replace(fact.source(), fact.target(), newLabel, reverseNewLabel);
+            if (replaced) touch(fact);
+            return replaced ? Set.of(fact.source(), fact.target()) : Set.of();
         }
         if (witness instanceof Witness.CompositeWitness<V, L> cw) {
             Fact<V, L> left = cw.left();
@@ -483,6 +519,7 @@ public final class IncrementalFixpointEngine<V, L> {
         Set<V> remove = new HashSet<>(affected);
         while (true) {
             List<Fact<V, L>> removedFacts = closure.removeFacts(remove, acceptRemoval);
+            removedFacts.forEach(this::touch);
             Set<V> extra = witnessIndex.removeFacts(remove, removedFacts);
             if (!remove.addAll(extra)) break;
         }

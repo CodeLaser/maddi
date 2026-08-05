@@ -48,6 +48,50 @@ class WriteLinksAndModification {
     record WriteResult(Map<Variable, Links> newLinks, Set<Variable> modifiedOutsideVariableData, int newLinksSize) {
     }
 
+    /*
+    Extraction reuse (remedy A, review 2026-08-05; opt-out NOREUSE=1). lastExtracted holds, per variable,
+    the Links built by this variable's most recent extraction — the fresh-extraction baseline, NOT the
+    per-statement VariableData (whose merge stage holds a sub-block UNION, not a fresh extraction). A
+    variable outside this statement's dirty web (Graph.drainDirtyVariables) reuses its cached Links and
+    skips the whole assembly: followGraph's closure walk, the shared-variable reconstruction, the VMI
+    folds, dedup and redundancy suppression — all functions of graph state that did not change. The
+    modification verdict and the ⊇→~ flip collection are statement-local and always run (verdictAndFlips).
+    Soundness of skipping RedundantLinks: its guard edges come from links, links stay within one dirty
+    web, and the drain closes over webs — so a web is either entirely reused (guard interactions replayed
+    implicitly by both sides being unchanged) or entirely recomputed.
+    Returns are excluded (handleReturnVariable's marker prepend is not idempotent, and return dirt is
+    global anyway); parameters are excluded at the LAST statement (their cached links carry redundancy
+    suppression, but the summary reads them complete there — see the NORL guard).
+     */
+    private static final boolean NO_REUSE = Gate.isSet("NOREUSE");
+    private final Map<Variable, Links> lastExtracted = new HashMap<>();
+
+    static class ReuseContext {
+        final Set<Variable> dirty;
+        // variables whose reused links survived this statement untouched: candidates for sharing the
+        // previous Links INSTANCE (memory), invalidated by the flip's updateNewLinks
+        final Map<Variable, Links> untouched = new HashMap<>();
+
+        ReuseContext(Set<Variable> dirty) {
+            this.dirty = dirty;
+        }
+    }
+
+    private ReuseContext prepareReuse() {
+        if (NO_REUSE) {
+            followGraph.graph().drainRaw();
+            return null;
+        }
+        Set<Variable> dirty = followGraph.graph().drainDirtyVariables();
+        if (dirty == null) {
+            // global dirt (return rows changed): every cached extraction is suspect
+            lastExtracted.clear();
+            return null;
+        }
+        lastExtracted.keySet().removeAll(dirty);
+        return new ReuseContext(dirty);
+    }
+
     @NotNull WriteResult go(Statement statement,
                             boolean lastStatement,
                             VariableData vd,
@@ -56,6 +100,7 @@ class WriteLinksAndModification {
         Set<Variable> unmarkedModifications = new HashSet<>(modifiedDuringEvaluation.keySet());
         Map<Variable, Links.Builder> newLinkedVariables = new HashMap<>();
         List<Link> toRemove = new ArrayList<>();
+        ReuseContext reuse = prepareReuse();
         if (Gate.isSet("SVDUMP")) {
             System.out.println("SVDUMP stmt " + statement.source().index() + "\n"
                                + followGraph.graph().printShared(Object::toString));
@@ -80,7 +125,8 @@ class WriteLinksAndModification {
         Map<Link, Variable> flipOwner = new HashMap<>();
         for (VariableInfo vi : vd.variableInfoIterable(Stage.EVALUATION)) {
             List<Link> tr = doVariableReturnRecompute(statement, lastStatement, vi, unmarkedModifications,
-                    previouslyModified, expandedModifiedDuringEvaluation, newLinkedVariables, redundantLinks);
+                    previouslyModified, expandedModifiedDuringEvaluation, newLinkedVariables, redundantLinks,
+                    reuse);
             for (Link l : tr) flipOwner.putIfAbsent(l, vi.variable());
             toRemove.addAll(tr);
         }
@@ -117,13 +163,22 @@ class WriteLinksAndModification {
                 affected.add(link.from());
                 affected.add(link.to());
                 updateNewLinks(newLinkedVariables, link);
+                // a flipped builder no longer matches its reused instance
+                if (reuse != null) reuse.untouched.remove(Util.primary(link.from()));
             }
             followGraph.graph().recompute(affected, statement.source().index(), this::acceptRemoval);
         }
         Map<Variable, Links> builtNewLinkedVariables = new HashMap<>();
         int sum = newLinkedVariables.entrySet().stream().mapToInt(e -> {
-            Links links = e.getValue().sort().build();
+            Links links;
+            Links prev = reuse == null ? null : reuse.untouched.get(e.getKey());
+            if (prev != null && e.getValue().linkSet().size() == prev.size()) {
+                links = prev; // share the instance: equal content, no rebuild
+            } else {
+                links = e.getValue().sort().build();
+            }
             builtNewLinkedVariables.put(e.getKey(), links);
+            if (!NO_REUSE) lastExtracted.put(e.getKey(), links);
             return links.size();
         }).sum();
         return new WriteResult(builtNewLinkedVariables, unmarkedModifications, sum);
@@ -170,9 +225,33 @@ class WriteLinksAndModification {
                                                  Set<Variable> previouslyModified,
                                                  Map<Variable, Set<MethodInfo>> modifiedInThisEvaluation,
                                                  Map<Variable, Links.Builder> newLinkedVariables,
-                                                 RedundantLinks redundantLinks) {
+                                                 RedundantLinks redundantLinks,
+                                                 ReuseContext reuse) {
         Variable variable = vi.variable();
         unmarkedModifications.remove(variable);
+
+        // fast path (remedy A): outside the dirty web, the assembly below reproduces the previous
+        // extraction verbatim — reuse it and skip straight to the statement-local verdict. Returns always
+        // recompute (handleReturnVariable's marker prepend is not idempotent; return dirt is global
+        // anyway); parameters recompute at the LAST statement, where the summary needs them complete
+        // while cached links carry the redundancy suppression (see the NORL guard below).
+        if (reuse != null
+            && !(variable instanceof ReturnVariable)
+            && !(lastStatement && variable instanceof org.e2immu.language.cst.api.info.ParameterInfo)
+            && !reuse.dirty.contains(variable)) {
+            Links prev = lastExtracted.get(variable);
+            if (prev != null) {
+                Links.Builder fastBuilder = new LinksImpl.Builder(prev);
+                List<Link> fastToRemove = new ArrayList<>();
+                verdictAndFlips(statement, vi, variable, fastBuilder, previouslyModified,
+                        modifiedInThisEvaluation, fastToRemove);
+                if (newLinkedVariables.put(variable, fastBuilder) != null) {
+                    throw new UnsupportedOperationException("Each real variable must be a primary");
+                }
+                reuse.untouched.put(variable, prev);
+                return fastToRemove;
+            }
+        }
 
         Links.Builder builder2;
         // step one, multiple real variables map onto a single shared variable
@@ -285,49 +364,8 @@ class WriteLinksAndModification {
                 && (!lastStatement || !(variable instanceof org.e2immu.language.cst.api.info.ParameterInfo))) {
                 redundantLinks.redundantLinks(builder);
             }
-            // 'modified by THIS statement's evaluation' — directly, or through a link to something modified now.
-            // For previouslyModified variables only the direct check runs: the notLinked* probes (and
-            // notLinkedToModified's completion side effect) stay short-circuited exactly as before.
-            boolean modifiedInEval =
-                    !modifiedInThisEvaluation.isEmpty()
-                    && !assignedInThisStatement(statement, vi)
-                    && (modifiedInThisEvaluation.containsKey(variable)
-                        || !previouslyModified.contains(variable)
-                           // all the §m links
-                           && (!notLinkedToModifiedVirtualModification(variable, toFollow, modifiedInThisEvaluation)
-                               // and other links such as ≺ IS_FIELD_OF
-                               || !notLinkedToModified(builder, modifiedInThisEvaluation)));
-            boolean unmodified =
-                    variable.isIgnoreModifications()
-                    ||
-                    !previouslyModified.contains(variable) && !modifiedInEval;
-            builder.removeIf(WriteLinksAndModification::notInLinkedVariables);
-
-            if (variable instanceof This) {
-                // only keep direct links for "this", the others are replicated in its fields
-                builder.removeIf(l -> !(l.from() instanceof This));
-            }
-            Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
-            TolerantWrite.setAllowControlledOverwrite(vi.analysis(), UNMODIFIED_VARIABLE, newValue, variable);
-
-            // The ⊇→~ rewrite runs at the statement where the modification OCCURS. With the persistent graph the
-            // rewrite survives into later statements by itself; re-flipping on previouslyModified (the old
-            // engine's behavior, needed there because its per-statement graph rebuild resurrected ⊆/⊇) would
-            // permanently destroy containment knowledge that this evaluation did not invalidate.
-            // Gate NOFLIPSAME=1 restores the old re-flip.
-            if (!unmodified && (modifiedInEval || Gate.isSet("NOFLIPSAME"))) {
-                // ⊆, ⊇ become ~ after a modification
-                builder.linkSet().forEach(link -> {
-                    if (link.linkNature() == IS_SUBSET_OF || link.linkNature() == IS_SUPERSET_OF) {
-                        if (Gate.isSet("FLIPTRACE")) {
-                            System.out.println("FLIPTRACE owner=" + variable + " link=" + link
-                                               + " builder=" + builder.linkSet());
-                        }
-                        toRemove.add(link);
-                        toRemove.add(new LinksImpl.LinkImpl(link.to(), link.linkNature().reverse(), link.from()));
-                    }
-                });
-            }
+            verdictAndFlips(statement, vi, variable, builder, previouslyModified, modifiedInThisEvaluation,
+                    toRemove);
         }
         // §m-directional inheritance, consumption-aware (gate NOVMIDIR): added AFTER the modification
         // decision and the ⊇→~ rewrite collection, so these facts are OUTPUT-ONLY — emitted earlier they
@@ -381,6 +419,63 @@ class WriteLinksAndModification {
             throw new UnsupportedOperationException("Each real variable must be a primary");
         }
         return toRemove;
+    }
+
+    /*
+    The statement-local part of a non-return variable's processing: the modification verdict, the
+    UNMODIFIED write, and the ⊇→~ flip collection. Runs on both the freshly assembled builder (slow path)
+    and a reused one (fast path, remedy A) — every step here is idempotent on already-filtered links.
+     */
+    private void verdictAndFlips(Statement statement,
+                                 VariableInfo vi,
+                                 Variable variable,
+                                 Links.Builder builder,
+                                 Set<Variable> previouslyModified,
+                                 Map<Variable, Set<MethodInfo>> modifiedInThisEvaluation,
+                                 List<Link> toRemove) {
+        // 'modified by THIS statement's evaluation' — directly, or through a link to something modified now.
+        // For previouslyModified variables only the direct check runs: the notLinked* probes (and
+        // notLinkedToModified's completion side effect) stay short-circuited exactly as before.
+        boolean modifiedInEval =
+                !modifiedInThisEvaluation.isEmpty()
+                && !assignedInThisStatement(statement, vi)
+                && (modifiedInThisEvaluation.containsKey(variable)
+                    || !previouslyModified.contains(variable)
+                       // all the §m links
+                       && (!notLinkedToModifiedVirtualModification(variable, modifiedInThisEvaluation)
+                           // and other links such as ≺ IS_FIELD_OF
+                           || !notLinkedToModified(builder, modifiedInThisEvaluation)));
+        boolean unmodified =
+                variable.isIgnoreModifications()
+                ||
+                !previouslyModified.contains(variable) && !modifiedInEval;
+        builder.removeIf(WriteLinksAndModification::notInLinkedVariables);
+
+        if (variable instanceof This) {
+            // only keep direct links for "this", the others are replicated in its fields
+            builder.removeIf(l -> !(l.from() instanceof This));
+        }
+        Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
+        TolerantWrite.setAllowControlledOverwrite(vi.analysis(), UNMODIFIED_VARIABLE, newValue, variable);
+
+        // The ⊇→~ rewrite runs at the statement where the modification OCCURS. With the persistent graph the
+        // rewrite survives into later statements by itself; re-flipping on previouslyModified (the old
+        // engine's behavior, needed there because its per-statement graph rebuild resurrected ⊆/⊇) would
+        // permanently destroy containment knowledge that this evaluation did not invalidate.
+        // Gate NOFLIPSAME=1 restores the old re-flip.
+        if (!unmodified && (modifiedInEval || Gate.isSet("NOFLIPSAME"))) {
+            // ⊆, ⊇ become ~ after a modification
+            builder.linkSet().forEach(link -> {
+                if (link.linkNature() == IS_SUBSET_OF || link.linkNature() == IS_SUPERSET_OF) {
+                    if (Gate.isSet("FLIPTRACE")) {
+                        System.out.println("FLIPTRACE owner=" + variable + " link=" + link
+                                           + " builder=" + builder.linkSet());
+                    }
+                    toRemove.add(link);
+                    toRemove.add(new LinksImpl.LinkImpl(link.to(), link.linkNature().reverse(), link.from()));
+                }
+            });
+        }
     }
 
     private static boolean notInLinkedVariables(Link l) {
@@ -692,7 +787,6 @@ class WriteLinksAndModification {
     }
 
     private boolean notLinkedToModifiedVirtualModification(Variable variable,
-                                                           Variable toFollow,
                                                            Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause) {
         // Respect the ☷ pass semantics per group (mirrors the ≡-branch of notLinkedToModified): a pass-marked
         // §m-equivalence ('identical except via remove()', Iterable.iterator()) propagates a member's modification

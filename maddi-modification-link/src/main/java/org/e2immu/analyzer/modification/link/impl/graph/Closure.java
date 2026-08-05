@@ -85,8 +85,17 @@ public class Closure<V, L> {
         return result;
     }
 
-    public void removeVertices(Set<V> vertices) {
+    // returns the SURVIVING row owners that lost a fact to the column sweep: their closure content
+    // changed, which extraction-reuse dirty tracking (remedy A) must know about
+    public Set<V> removeVertices(Set<V> vertices) {
+        Set<V> affectedSurvivors = new HashSet<>();
+        for (Map.Entry<V, Map<V, L>> entry : reachable.entrySet()) {
+            if (vertices.contains(entry.getKey())) continue;
+            if (entry.getValue().keySet().removeAll(vertices)) {
+                affectedSurvivors.add(entry.getKey());
+            }
+        }
         reachable.keySet().removeAll(vertices);
-        reachable.values().forEach(map -> map.keySet().removeAll(vertices));
+        return affectedSurvivors;
     }
 }

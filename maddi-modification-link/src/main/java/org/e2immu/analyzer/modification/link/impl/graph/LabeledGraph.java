@@ -8,7 +8,33 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public final class LabeledGraph<V, L> {
+
+    // fired exactly when a vertex enters or leaves the vertex set (this map's key set) — the single
+    // ownership point. Consumers maintain derived indexes (Graph's scope-part index); without a listener
+    // every "which vertices touch X" question is a full vertex scan inside per-statement loops.
+    public interface VertexListener<V> {
+        void vertexAdded(V v);
+
+        void vertexRemoved(V v);
+    }
+
     private final Map<V, Map<V, L>> map = new LinkedHashMap<>();
+    private VertexListener<V> listener;
+
+    public void setListener(VertexListener<V> listener) {
+        this.listener = listener;
+    }
+
+    // all vertex creation routes through here so the listener never misses an implicit
+    // edge-endpoint creation
+    private Map<V, L> row(V v) {
+        Map<V, L> existing = map.get(v);
+        if (existing != null) return existing;
+        Map<V, L> fresh = new LinkedHashMap<>();
+        map.put(v, fresh);
+        if (listener != null) listener.vertexAdded(v);
+        return fresh;
+    }
 
     public Iterable<Map.Entry<V, Map<V, L>>> edges() {
         return map.entrySet();
@@ -43,8 +69,8 @@ public final class LabeledGraph<V, L> {
     }
 
     public void addSymmetricEdge(V from, V to, L label, L reverseLabel) {
-        map.computeIfAbsent(from, _ -> new LinkedHashMap<>()).put(to, label);
-        map.computeIfAbsent(to, _ -> new LinkedHashMap<>()).put(from, reverseLabel);
+        row(from).put(to, label);
+        row(to).put(from, reverseLabel);
     }
 
     public boolean addVertex(V v) {
@@ -52,20 +78,25 @@ public final class LabeledGraph<V, L> {
         // unconditional 'true' made mergeEdgeBi's self-loop guards report change forever — the MakeGraph
         // expand loop then never converged ('cycle protection' on deep structures, TestParSeqLinkBench).
         if (map.containsKey(v)) return false;
-        map.put(v, new LinkedHashMap<>());
+        row(v);
         return true;
     }
 
     public boolean removeVertices(Set<V> vertices) {
         map.values().forEach(map -> map.keySet().removeAll(vertices));
-        return map.keySet().removeAll(vertices);
+        boolean change = false;
+        for (V v : vertices) {
+            if (map.remove(v) != null) {
+                change = true;
+                if (listener != null) listener.vertexRemoved(v);
+            }
+        }
+        return change;
     }
 
     public boolean replace(V from, V to, L label, L reverseLabel) {
-        Map<V, L> outMap = map.computeIfAbsent(from, _ -> new LinkedHashMap<>());
-        L prev = outMap.put(to, label);
-        Map<V, L> inMap = map.computeIfAbsent(to, _ -> new LinkedHashMap<>());
-        inMap.put(from, reverseLabel);
+        L prev = row(from).put(to, label);
+        row(to).put(from, reverseLabel);
         return !label.equals(prev);
     }
 

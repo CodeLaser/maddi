@@ -42,6 +42,34 @@ public class VirtualModificationIdenticals {
     // modification of everything §m-equivalent to it (the TestMap reverse0 ⊆→~ flip).
     private final Map<Variable, Set<Integer>> memberToGroup = new HashMap<>();
 
+    // persistent prefix index over member faces (scope-chain variable -> member faces spelled through
+    // it), for the extraction-reuse dirty closure — rebuilding it per statement was a drain hot spot
+    // (asprof 2026-08-05). Maintained in join() (first-time member) and remove().
+    private final Map<Variable, Set<Variable>> membersByPrefix = new HashMap<>();
+
+    public Set<Variable> membersRootedAt(Variable prefix) {
+        return membersByPrefix.getOrDefault(prefix, Set.of());
+    }
+
+    private void indexMember(Variable member) {
+        membersByPrefix.computeIfAbsent(member, _ -> new LinkedHashSet<>()).add(member);
+        for (Variable p : Util.scopeVariables(member)) {
+            membersByPrefix.computeIfAbsent(p, _ -> new LinkedHashSet<>()).add(member);
+        }
+    }
+
+    private void unindexMember(Variable member) {
+        java.util.function.BiConsumer<Variable, Variable> rm = (p, m) -> {
+            Set<Variable> set = membersByPrefix.get(p);
+            if (set != null) {
+                set.remove(m);
+                if (set.isEmpty()) membersByPrefix.remove(p);
+            }
+        };
+        rm.accept(member, member);
+        for (Variable p : Util.scopeVariables(member)) rm.accept(p, member);
+    }
+
     public String print(Function<Variable, String> variablePrinter) {
         return groups.entrySet().stream()
                 .map(e -> e.getKey() + ": "
@@ -54,7 +82,9 @@ public class VirtualModificationIdenticals {
 
 
     public void remove(Set<Variable> variables) {
-        memberToGroup.keySet().removeAll(variables);
+        for (Variable v : variables) {
+            if (memberToGroup.remove(v) != null) unindexMember(v);
+        }
         groups.values().forEach(g -> g.members.removeAll(variables));
     }
 
@@ -138,7 +168,13 @@ public class VirtualModificationIdenticals {
     }
 
     private void join(Variable v, int groupId) {
-        memberToGroup.computeIfAbsent(v, _ -> new LinkedHashSet<>()).add(groupId);
+        Set<Integer> set = memberToGroup.get(v);
+        if (set == null) {
+            set = new LinkedHashSet<>();
+            memberToGroup.put(v, set);
+            indexMember(v); // first-time member
+        }
+        set.add(groupId);
     }
 
     public Stream<Variable> variables() {
