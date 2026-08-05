@@ -3007,17 +3007,34 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     ? new LocalVariable[0] : recordPatternResult.newVariables.toArray(LocalVariable[]::new);
             boolean haveExtraVariables = newVariablesArray.length > 0;
 
-            Expression whenExpression;
-            if (jcCase.getGuard() != null) {
+            /*
+            ⛔ ONE SCOPE SPANS THE GUARD AND THE BODY, because Java's flow scoping does.
+
+            In `case IntBlock ei when actual instanceof IntBlock ai -> ... ai ...` the guard introduces a
+            pattern variable of its own, and JLS 6.3.1 keeps it in scope in the arm body whenever the guard
+            is true. The previous code pushed a scope for the guard and POPPED IT before parsing the body, so
+            `ai` was created and immediately discarded: resolving it in the body threw
+            `UnsupportedOperationException: Cannot find element 'ai' on stack`, which aborts the compilation
+            unit -- and one aborted unit refuses the whole ParseResult.
+
+            The failure needed BOTH bindings to bite: with no pattern variable on the label, no scope was
+            pushed, so the guard's variable leaked into the ENCLOSING block instead and happened to resolve.
+            That leak is the same bug seen from the other side (a `case` binding outliving its arm), and one
+            arm-scoped push fixes both. Found in Elasticsearch,
+            x-pack/plugin/esql-datasource-parquet/.../PageColumnReaderCorrectnessTests.java:558.
+             */
+            boolean pushedForArm = haveExtraVariables || jcCase.getGuard() != null;
+            if (pushedForArm) {
+                Map<String, Element> map = elementStack.push();
                 if (haveExtraVariables) {
-                    Map<String, Element> map = elementStack.push();
                     recordPatternResult.newVariables.forEach(lv -> map.put(lv.simpleName(), lv));
                 }
+            }
+
+            Expression whenExpression;
+            if (jcCase.getGuard() != null) {
                 scan(jcCase.getGuard(), unused);
                 whenExpression = currentExpression;
-                if (haveExtraVariables) {
-                    elementStack.pop();
-                }
             } else {
                 whenExpression = runtime.newEmptyExpression();
             }
@@ -3030,14 +3047,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 Block parsedBlock = parseBlock(index, block, newVariablesArray);
                 statement = parsedBlock.withSource(parsedBlock.source().withIndex(statementIndex() + "." + index));
             } else if (jcCase.getBody() instanceof JCTree.JCExpression e) {
-                if (haveExtraVariables) {
-                    Map<String, Element> map = elementStack.push();
-                    recordPatternResult.newVariables.forEach(lv -> map.put(lv.simpleName(), lv));
-                }
+                // the arm scope pushed above already holds the label's pattern variables AND any the guard
+                // introduced, so this branch needs no scope of its own
                 scan(e, unused);
-                if (haveExtraVariables) {
-                    elementStack.pop();
-                }
                 Expression expression = currentExpression;
                 statement = runtime.newExpressionAsStatementBuilder()
                         .setSource(sourceForNode(e).withIndex(statementIndex() + "." + index + ".0"))
@@ -3049,6 +3061,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 } else {
                     statement = block.statements().getFirst();
                 }
+            }
+            if (pushedForArm) {
+                elementStack.pop();
             }
 
             Source source = sourceForNode(jcCase);
