@@ -1,0 +1,241 @@
+# maddi rename name-map — org.e2immu -> io.codelaser.maddi, target release 0.9.1
+#
+# FORMAT   from <TAB> to [<TAB> scope-glob]
+#          Lines starting with '#' are comments. '## SECTION <id>' opens a section.
+#          A scope-glob (fnmatch against the repo-relative path) limits a rule to
+#          matching files; absent means "every text file not frozen by section 4".
+#
+# MATCHING rename.py compiles sections 1+1b+3 into ONE alternation sorted by
+#          descending source length, so `org.e2immu.analyzer-plugin` wins over
+#          `org.e2immu.analyzer` and `org.e2immu.testwrite` over `org.e2immu.test`.
+#          Every match requires a trailing (?![A-Za-z0-9_]), so an unmapped token
+#          like `org.e2immu.wibble` is left alone and caught by `verify` rather
+#          than being silently half-renamed.
+#
+# Measured 2026-08-05: 163 source packages, 1,669 java files, zero target collisions.
+
+## SECTION 1	dotted package + JPMS module prefixes
+org.e2immu.util.external.support	io.codelaser.maddi.support
+org.e2immu.util.internal.graph	io.codelaser.maddi.graph
+org.e2immu.util.internal.util	io.codelaser.maddi.util
+org.e2immu.language	io.codelaser.maddi
+org.e2immu.analyzer	io.codelaser.maddi
+org.e2immu.testannotatedapi	io.codelaser.maddi.testannotatedapi
+org.e2immu.testwrite	io.codelaser.maddi.testwrite
+org.e2immu.annotatedapi	io.codelaser.maddi.annotatedapi
+org.e2immu.annotation	io.codelaser.maddi.annotation
+org.e2immu.support	io.codelaser.maddi.support
+org.e2immu.parser	io.codelaser.maddi.parser
+org.e2immu.bytecode	io.codelaser.maddi.bytecode
+org.e2immu.gradleplugin	io.codelaser.maddi.gradleplugin
+org.e2immu.sequence	io.codelaser.maddi.sequence
+org.e2immu.aapi	io.codelaser.maddi.aapi
+org.e2immu.example	io.codelaser.maddi.example
+org.e2immu.test	io.codelaser.maddi.test
+
+# `language` and `analyzer` are ELIDED. Safe because their children
+#   {cst, inspection, java} and {aapi, ide, modification, run}
+# are disjoint from each other AND from every top-level root above.
+
+## SECTION 1b	slash-form paths that do NOT mirror a package
+# rename.py derives a slash rule from every section-1 rule automatically.
+# Only paths with no dotted counterpart belong here.
+org/e2immu/graph	io/codelaser/maddi/graph
+
+## SECTION 2	spelling normalisation, applied AFTER section 1
+# ~50 real hits: local vars (runAnalyser), enum constants (ANALYSER_ERROR,
+# EXIT_ANALYSER_ERROR), javadoc/log text, and the graph.analyser package.
+# The ~1,424 `org.e2immu.analyser` tokens are NOT hits: section 1 never matches
+# them (analyser != analyzer) and rename.py refuses to apply section 2 to any
+# occurrence preceded by `org.e2immu.` — see section 4b.
+analyser	analyzer
+Analyser	Analyzer
+ANALYSER	ANALYZER
+
+## SECTION 3	published identifiers the prefix rules do not reach
+org.e2immu.analyzer-plugin	io.codelaser.maddi
+org.e2immu	io.codelaser	*pom.xml
+#
+# The bare groupId rule is SCOPED TO pom.xml ON PURPOSE. Unscoped it would
+# rewrite the `org.e2immu.analyser` text blocks that section 4b keeps.
+#
+# DELETE, do not rename:
+#   maddi-gradleplugin/src/main/resources/META-INF/gradle-plugins/org.e2immu.analyser.properties
+#   It declares a dead SECOND plugin id `org.e2immu.analyser` that no longer
+#   matches the gradlePlugin{} block; java-gradle-plugin generates the real one.
+#   A Gradle descriptor filename must equal "<plugin-id>.properties", so the
+#   surviving descriptor is generated as io.codelaser.maddi.properties.
+#
+# MANUAL, not scriptable:
+#   dogfood/build.gradle.kts:28 pins `version "0.8.2"` of the old plugin id;
+#     0.8.2 will not exist under the new id -> move to 0.9.1 + new id together.
+#   testmvnplugin-export/pom.xml artifactIds e2immu-external-support /
+#     -internal-util / -internal-graph -> maddi-annotation / maddi-support /
+#     maddi-util / maddi-graph.
+#   gradle.properties version 0.9.0 -> 0.9.1
+
+## SECTION 8	bare-token literals — found by the first rehearsal, not by inspection
+# `org.e2immu` with no package suffix matches no section-1 rule, so these all
+# survived the first pass. Each is scoped to its file: a global bare-token rule
+# would rewrite the section-4b text blocks that must stay.
+#
+# TestStringUtil was the sharp one: it asserts on `$` as a package separator,
+# so its EXPECTED value was renamed by section 1 while its INPUT was not, and
+# the rename turned a passing test into a failing one. Both forms, both scoped:
+org/e2immu	io/codelaser/maddi	*TestStringUtil.java
+org.e2immu	io.codelaser.maddi	*TestStringUtil.java
+#
+# Functional: a package prefix handed to AnalysisHintsWriter for the trie.
+org.e2immu	io.codelaser.maddi	*AnalysisHintsCompiler.java
+# Functional: a stack-trace frame filter.
+org.e2immu	io.codelaser.maddi	*TestGap150NestedAccessOrder.java
+# Test fixtures: synthesised package / build-unit names.
+org.e2immu	io.codelaser.maddi	*TestWriteAnalysis.java
+org.e2immu	io.codelaser.maddi	*TestStreaming.java
+# A gradle `sourcePackages` list, half-renamed on its own line.
+org.e2immu.something	io.codelaser.maddi.something
+#
+# NOT scripted — prose that the rename makes FALSE, and which needs rewording
+# rather than substituting. Fix in the same commit:
+#   ARCHITECTURE.md:10  "the root Java package is `org.e2immu.*`"
+#   README.md:144       "The root Java package is still `org.e2immu.*`"
+#   AGENTS.md:54        "The root package `org.e2immu.*` ... Do not rename packages"
+#   maddi-gradleplugin/build.gradle.kts:79  "relocating org.e2immu.* would break it"
+#
+# CORRECT AS-IS, leave alone — genuine references to the OLD e2immu project:
+#   docs/eventual-immutability.md:179       "in the e2immu analyzer (analyzer/src/...)"
+#   testmvnplugin-export/README.md:15       old published Maven coordinates
+#   docs/eventual-info-hierarchy.md:1885    EC_ASSUME_DEBUG=org.e2immu ledger note
+
+## SECTION 9	acknowledged prose — substituted, then its residue is not a gap
+# These files mention `org.e2immu` on purpose: they explain that the root package
+# USED to be org.e2immu, or they point at the genuinely separate old e2immu
+# project. Substitution still runs over them (so real package references are
+# renamed); only `verify` treats what is left as deliberate.
+# Reviewed line by line, rehearsal 2 — re-review if the count moves.
+ARCHITECTURE.md	ACKNOWLEDGED
+README.md	ACKNOWLEDGED
+AGENTS.md	ACKNOWLEDGED
+docs/eventual-immutability.md	ACKNOWLEDGED
+docs/eventual-info-hierarchy.md	ACKNOWLEDGED
+
+## SECTION 4	frozen content — never substituted
+# Opaque test data: a recorded dependency graph OF THE OLD e2immu-analyser
+# project. TestTypeDependencies asserts topology only (maxCycleSize 31,
+# actionLog 101, list 100, ...), so the node names are arbitrary labels.
+# Sections 1, 1b, 2 and 3 all SKIP these files. ~1,124 tokens survive by design.
+# Their DIRECTORY still moves (section 5); only the bytes are frozen.
+*.gml	FROZEN
+#
+# Same class, found by rehearsal 1 in jfocus-refactor-server: captured gradle and
+# maven debug output, used as fixtures for the project-config detector. The first
+# pass rewrote 1,362 lines across four of them and left each INTERNALLY
+# INCONSISTENT — `org.e2immu.<pkg>` tokens renamed, bare `org.e2immu:` groupIds
+# not, because no rule matches a bare groupId outside pom.xml. A recorded log is
+# evidence of a run that happened; rewriting it is falsification, and rewriting
+# it halfway is worse. Freeze, or re-capture against the renamed tree.
+*/test/resources/gradle*.txt	FROZEN
+*/test/resources/mvn*.txt	FROZEN
+
+## SECTION 4b	`org.e2immu.analyser` outside the .gml (~300) — kept deliberately
+# Parser test-input snippets: `package org.e2immu.analyser.resolver.testexample;`
+# inside Java text blocks, with matching FQN assertions in the same file. They
+# are sample source for the parser, not maddi identifiers. No rule matches them.
+#
+# CONSEQUENCE: do NOT add `e2immu` to .githooks/internal-names.txt, or the scrub
+# hook will refuse every commit that touches these fixtures.
+
+## SECTION 5	file/directory moves — derived from the slash rules, not textual
+#   src/{main,test,testFixtures,functionalTest,main2}/java/org/e2immu/**
+#   src/{main,test}/resources/org/e2immu/**        (38 files)
+# `rename.py move` git-mv's each file to the path the slash rules produce, then
+# prunes empty directories. Commit moves ALONE, with no content change: identical
+# content means 100%-similarity renames, which merge cleanly. Combining the move
+# and the substitution into one commit defeats git rename detection across 1,669
+# files and is what turns a replay into a conflict.
+
+## SECTION 6	non-Java carriers, same substitution
+#   *.kt 71  *.kts 13  *.md 24  *.bazel 15  *.xml 6  *.adoc 4  *.txt 2
+#   *.properties 1  *.MF 1  *.json 1  module-info.java 29
+#   maddi-eclipse/**/META-INF/MANIFEST.MF: Require-Bundle / Import-Package
+#   build args: --add-exports jdk.compiler/...=org.e2immu.language.java.openjdk
+
+## SECTION 7	artifact split: maddi-support -> maddi-annotation + maddi-support
+# DECIDED: go ahead (2026-08-05). Rehearsed; ~90% done, 8 tests outstanding — see
+# RUNBOOK "Rehearsal 3". The objection below was raised and OVERRULED: the
+# published-artifact exposure is theoretical, no consumer is known. Recorded
+# because the dependency-free invariant is still checked before every release and
+# the split changes that check — not to re-litigate the decision.
+#
+# The split was proposed to spare users a support runtime they do not need when
+# they only want @Docstring. PUBLISHING.md and maddi-support/build.gradle.kts say
+# there is no such runtime to spare them:
+#   * `io.codelaser:maddi-support` is ALREADY on Maven Central (0.9.0, 2026-07-22,
+#     Apache-2.0; 0.8.2, 2025-08-18, LGPL-3.0) and IS the user-facing annotations
+#     artifact. Users compile against exactly this coordinate today.
+#   * It is deliberately DEPENDENCY-FREE: it does not apply java-library-conventions,
+#     its module-info has NO `requires`, and the release checklist is "the POM must
+#     have no <dependencies> and all four module-metadata variants must be empty".
+#     That rule was learned the hard way publishing 0.9.0 — the internal
+#     io.codelaser:platform BOM is not on Central, so a POM carrying it is
+#     unresolvable for a consumer.
+#   * It is the only module targeting Java 17 (the rest is 25/26), precisely
+#     because it is the one library a user's own code compiles against.
+#
+# Splitting would give maddi-support a `requires` on maddi-annotation, i.e. a
+# <dependencies> entry in the published POM — breaking the invariant that is
+# checked before every release — and would move the annotations out of the
+# coordinate that consumers already depend on. The support classes are small and
+# import nothing outside java.base, so there is no weight to shed.
+#
+# Resolution: `maddi-support` gains exactly ONE dependency, on `maddi-annotation`,
+# published to Central alongside it. That POM still resolves — the invariant's real
+# purpose was to keep the UNRESOLVABLE internal `platform` BOM out. Update
+# PUBLISHING.md's "no <dependencies>" check to "no dependency outside the release
+# train" before the next release, or it will fail on a correct artifact.
+#
+# Coupling verified one-way: annotation imports only java.lang.annotation and
+# itself (zero deps); support imports annotation; nothing imports back.
+#
+# SHAPE AS BUILT:
+#   maddi-annotation  module io.codelaser.maddi.annotation  (no `requires` at all)
+#     exports annotation{,.eventual,.type,.method,.rare}, Java 17, zero deps
+#   maddi-support     module io.codelaser.maddi.support
+#     exports support, annotatedapi
+#     requires transitive io.codelaser.maddi.annotation
+#     api(project(":maddi-annotation")) in build.gradle.kts
+#
+# ⛔ THE `requires transitive` IS LOAD-BEARING. Because of it, all 21 existing
+#    `requires io.codelaser.maddi.support` clauses keep resolving the annotations,
+#    so NO consumer module-info needs to change. Drop the `transitive` and the
+#    triage table below becomes 21 mandatory edits instead of zero.
+#
+#   io.codelaser:maddi-annotation  module io.codelaser.maddi.annotation
+#     exports annotation{,.eventual,.type,.method,.rare}
+#   io.codelaser:maddi-support     module io.codelaser.maddi.support
+#     exports support, annotatedapi
+#     requires transitive io.codelaser.maddi.annotation
+#
+# 22 maddi module-info.java files `requires org.e2immu.util.external.support`.
+#
+# ⛔ DO NOT USE THIS TABLE TO DROP A `requires`. It is a TEXTUAL scan, and a module
+#    can use a type it never NAMES — maddi-cst-io reads `io.codelaser.maddi.support`
+#    as "NEITHER" here, yet calls .getRight() on an `Either` handed to it by another
+#    module's API, so dropping its requires broke the build. Tried and reverted,
+#    rehearsal 3. Only the compiler knows; the table is for deciding what a module
+#    NEEDS, never for proving what it can lose.
+#
+# `rename.py split-triage` re-derives this from the working tree and separates main
+# from test usage — only main-source usage belongs in the module descriptor; test
+# usage is a testImplementation concern.
+# Verified against the tool, 2026-08-05:
+#   BOTH:            aapi-archive cst-api cst-impl inspection-api
+#                    inspection-parser inspection-resource modification-analyzer
+#                    modification-prepwork support util
+#   ANNOTATION ONLY: cst-print ide-daemon java-bytecode modification-common
+#   SUPPORT ONLY:    inspection-integration java-parser
+#   NEITHER, drop the requires: cst-analysis cst-io graph
+#   NEITHER in main, but TEST still needs the dependency — drop from
+#   module-info AND add a testImplementation entry, or the test compile breaks:
+#                    aapi-parser java-openjdk modification-link
+# Plus ~9 more `requires` across the six private repos.
