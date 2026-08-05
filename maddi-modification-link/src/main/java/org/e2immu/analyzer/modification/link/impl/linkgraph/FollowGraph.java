@@ -48,9 +48,15 @@ public record FollowGraph(Graph graph) {
             // builder2 then rehomes to the real variable ('method1.list1.§$s').
             List<Variable> faces = primary instanceof SharedVariable sv
                     ? List.copyOf(sv.variables()) : List.of(primary);
-            for (Variable v : graph.variables()) {
+            // index lookup replaces the full graph.variables() scan (this method runs per variable, per
+            // statement); same subset, same engine-insertion order
+            for (Variable v : graph.verticesPartOf(primary)) {
+                fromList.add(new FromPair(v, v));
+            }
+            // rep-expansion branch: only vertices with a SharedVariable rep in their scope chain expand
+            // non-trivially; those part of the primary were already handled (and skipped) above
+            for (Variable v : graph.verticesWithRepInScope()) {
                 if (Util.isPartOf(primary, v)) {
-                    fromList.add(new FromPair(v, v));
                     continue;
                 }
                 // a shared-variable rep somewhere in v's scope chain, standing for a member part of a face (a
@@ -107,8 +113,8 @@ public record FollowGraph(Graph graph) {
         // For a non-return primary, read the return vertices' closures and emit the reverse
         // ('1:r.function ↗ run') keyed on the primary's face. Gate NORVREV.
         if (!(primary instanceof ReturnVariable) && !Gate.isSet("NORVREV")) {
-            for (Variable v : graph.variables()) {
-                if (!(Util.primary(v) instanceof ReturnVariable)) continue;
+            // index lookup replaces the full graph.variables() scan + primary filter
+            for (Variable v : graph.verticesWithReturnPrimary()) {
                 List<Variable> faces = primary instanceof SharedVariable sv
                         ? List.copyOf(sv.variables()) : List.of(primary);
                 graph.closureStream(v).forEach(entry -> {

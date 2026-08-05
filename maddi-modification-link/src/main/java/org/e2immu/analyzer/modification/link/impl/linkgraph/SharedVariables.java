@@ -449,6 +449,37 @@ public class SharedVariables {
         return memberToGroup.containsKey(from);
     }
 
+    /*
+    Persistent prefix index over the group members: scope-chain variable -> members spelled through it.
+    Rebuilding this per statement inside drainDirtyVariables was 46% of the drain's CPU on fernflower
+    (asprof 2026-08-05); membership mutations are rare, per-statement drains are not. Maintained in
+    add() (first-time membership only — a member's prefixes never change) and remove().
+     */
+    private final Map<Variable, java.util.Set<Variable>> membersByPrefix = new HashMap<>();
+
+    public java.util.Set<Variable> membersRootedAt(Variable prefix) {
+        return membersByPrefix.getOrDefault(prefix, java.util.Set.of());
+    }
+
+    private void indexMember(Variable member) {
+        membersByPrefix.computeIfAbsent(member, _ -> new java.util.LinkedHashSet<>()).add(member);
+        for (Variable p : Util.scopeVariables(member)) {
+            membersByPrefix.computeIfAbsent(p, _ -> new java.util.LinkedHashSet<>()).add(member);
+        }
+    }
+
+    private void unindexMember(Variable member) {
+        java.util.function.BiConsumer<Variable, Variable> rm = (p, m) -> {
+            java.util.Set<Variable> set = membersByPrefix.get(p);
+            if (set != null) {
+                set.remove(m);
+                if (set.isEmpty()) membersByPrefix.remove(p);
+            }
+        };
+        rm.accept(member, member);
+        for (Variable p : Util.scopeVariables(member)) rm.accept(p, member);
+    }
+
     public SharedVariable groupOf(Variable variable) {
         return memberToGroup.get(variable);
     }
@@ -508,6 +539,7 @@ public class SharedVariables {
 
     public void remove(Variable variable) {
         if (memberToGroup.remove(variable) != null) {
+            unindexMember(variable);
             sharedVariablesByName.values().forEach(g -> g.remove(variable));
             boolean removed = variableTranslationMap.remove(variable);
             assert removed;
@@ -538,7 +570,9 @@ public class SharedVariables {
 
     private void add(SharedVariable sharedVariable, Variable variable) {
         sharedVariable.add(variable);
-        memberToGroup.put(variable, sharedVariable);
+        if (memberToGroup.put(variable, sharedVariable) == null) {
+            indexMember(variable); // first-time membership; a member's prefixes never change
+        }
         variableTranslationMap.put(variable, sharedVariable);
     }
 
