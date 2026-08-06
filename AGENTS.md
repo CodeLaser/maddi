@@ -23,7 +23,7 @@ stay short and defer to the maintained references).
 ```
 
 The corpus tests need external corpora, each a sibling of this checkout: `test-oss` (managed by
-the `CodeLaser/maddi-oss` repo, override with `-Dtest.oss.root`) and `testarchive` for clone-bench
+the `corpus/` Taskfile in this repo, override with `-Dtest.oss.root`) and `testarchive` for clone-bench
 (override with `-Dtestarchive.root`; the former "analyzed" branch was merged into main 2026-07-26). The defaults are `../../<corpus>`, so
 a checkout one level deeper — a worktree — needs the override even when the corpora are present.
 

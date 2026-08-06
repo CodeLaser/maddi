@@ -65,7 +65,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * the java plugin's {@code SourceSet} container and the {@code compileKotlin} task, none of which a
  * multiplatform build has; and {@code --compile-log} needs the build to run, which needs an Android SDK for
  * AGP. So {@code test-oss/coil/inputConfiguration.json} is assembled directly (recipe:
- * {@code maddi-testoss}'s {@code task config:coil}). It lists only the six library jars — the JDK is not in
+ * {@code corpus/}'s {@code task config:coil}). It lists only the six library jars — the JDK is not in
  * it, because both {@link KotlinInspector} and {@code MixedProjectInspector} take {@code jdkHome} from the
  * running JVM's {@code java.home}.
  */
@@ -87,7 +87,7 @@ public class TestCoilJvmSlice {
         Assumptions.assumeTrue(Files.exists(config),
                 () -> "requires the coil corpus checkout with its input configuration at "
                       + config.toAbsolutePath().normalize()
-                      + "; generate it with `task config:coil` in test-oss/maddi-testoss");
+                      + "; generate it with `task corpus:config:coil` at the repo root");
         return config;
     }
 

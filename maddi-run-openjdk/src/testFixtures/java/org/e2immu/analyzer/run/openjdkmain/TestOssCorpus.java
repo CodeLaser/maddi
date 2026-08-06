@@ -4,7 +4,7 @@ import java.nio.file.Path;
 
 /**
  * Locates the local "test-oss" corpus of open-source projects the corpus tests run against
- * (see the CodeLaser/maddi-oss repository for how to install and build it).
+ * (see {@code corpus/} at the repository root for how to install and build it).
  * <p>
  * Resolution order for the corpus root:
  * <ol>

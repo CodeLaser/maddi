@@ -1,6 +1,8 @@
 # Taskfile.yml — build & run maddi's IDE front-ends.
 #
 #   https://taskfile.dev   (install: brew install go-task)
+#   The test-oss corpus (install, config generation, slow tests) has its own Taskfile in corpus/,
+#   included below under the `corpus:` namespace: `task corpus:doctor`, `task corpus:install:wired`, …
 #   Two plugins live here:
 #     - maddi-eclipse/  : Eclipse plugin, a Maven/Tycho reactor (OSGi bundle), separate from the Gradle build.
 #     - maddi-vscode/   : VS Code extension, TypeScript (npm + tsc), delegates to redhat.java (jdt.ls).
@@ -18,6 +20,16 @@
 # maddi) — that is ANALYSIS_JDK below, NOT the JDK the IDE itself runs on.
 
 version: '3'
+
+includes:
+  corpus:
+    taskfile: ./corpus/Taskfile.yml
+    dir: ./corpus
+
+# Task does not read an included Taskfile's dotenv, so load the corpus .env (written by
+# `task corpus:init`; optional) here — `task corpus:*` then behaves exactly like running
+# task from corpus/ itself.
+dotenv: ['corpus/.env']
 
 vars:
   ROOT:

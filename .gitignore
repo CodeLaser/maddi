@@ -21,3 +21,6 @@ user.bazelrc
 # machine-specific, non-deterministic generated input config (written to build/ by TestJavacTimefoldSolverCore)
 maddi-run-openjdk/src/test/resources/inputConfiguration/timefold-solver.json
 .githooks/internal-names.txt
+
+# per-machine corpus config (task corpus:init)
+corpus/.env

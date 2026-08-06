@@ -133,7 +133,7 @@ metrics until it was found.
 | Module | Purpose |
 |---|---|
 | `maddi-run-config` | Shared run configuration, error reporting, exit codes; used by every runner and both build plugins. |
-| `maddi-run-openjdk` | **The main CLI** (`bin/maddi`, distZip): analyzer on the javac front end. Also home of the large-corpus smoke tests (`@Tag("slow")`), which run against the external `test-oss` corpus (see `CONTRIBUTING.md` §Building and testing; managed by the `CodeLaser/maddi-oss` repo). |
+| `maddi-run-openjdk` | **The main CLI** (`bin/maddi`, distZip): analyzer on the javac front end. Also home of the large-corpus smoke tests (`@Tag("slow")`), which run against the external `test-oss` corpus (see `CONTRIBUTING.md` §Building and testing; managed by the `corpus/` Taskfile). |
 | `maddi-run-kotlin` | CLI for mixed Java+Kotlin projects (`bin/maddi-kotlin`); how Kotlin support ships (the K2 jars are not on Maven Central, they ride along in `lib/`). |
 | `maddi-run-main` | CLI on the hand-written-parser front end. |
 | `maddi-run-rewire` | Small driver for incremental/partial re-analysis (rewiring), inspector-implementation-agnostic. |

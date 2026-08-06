@@ -28,11 +28,12 @@ Read [`ARCHITECTURE.md`](ARCHITECTURE.md) first for the module map and reading p
   `-Dclonebench.parallelism=<n>` tunes the CloneBench fork.
 - **The corpus tests need the external `test-oss` corpus** — real open-source projects, cloned
   and built next to this repo. Without it they *skip silently* (JUnit assumptions): a green
-  `slowTest` does not mean the proving ground ran. Setup lives in the **maddi-oss** repository
-  (`CodeLaser/maddi-oss`): check it out *inside* the corpus root (e.g.
-  `~/git/test-oss/maddi-testoss`) and run `task install:wired` to clone + build the projects
-  the tests consume, plus `config:*` tasks to generate each project's
-  `inputConfiguration.json`. Discovery: `TestOssCorpus` (in `maddi-run-openjdk`'s tests)
+  `slowTest` does not mean the proving ground ran. Setup lives in **`corpus/`** in this repo:
+  run `task corpus:install:wired` (from the repo root; needs [go-task](https://taskfile.dev))
+  to clone + build the projects the tests consume, plus `corpus:config:*` tasks to generate
+  each project's `inputConfiguration.json` — see `corpus/Taskfile.yml` for the full menu,
+  including `corpus:test:slow` and `corpus:sweep`.
+  Discovery: `TestOssCorpus` (in `maddi-run-openjdk`'s tests)
   defaults to `../../test-oss`, i.e. a sibling of the maddi checkout; override with
   `-Dtest.oss.root=/path/to/test-oss`. `TestCorpusSweep` sweeps whatever projects are present.
 - **Bazel** builds in parallel to Gradle: `bazel build //...`,

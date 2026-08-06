@@ -68,7 +68,7 @@ public class TestDetektCorpus {
         Assumptions.assumeTrue(Files.exists(config),
                 () -> "requires the detekt corpus checkout with its input configuration at "
                       + config.toAbsolutePath().normalize()
-                      + "; generate it with `task config:detekt` in test-oss/maddi-testoss");
+                      + "; generate it with `task corpus:config:detekt` at the repo root");
         return config;
     }
 

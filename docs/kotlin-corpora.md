@@ -32,7 +32,7 @@ Neither documented route reaches a multiplatform project:
 - **`--compile-log`** needs the build to run, and coil applies the Android Gradle plugin, so its build
   cannot even configure without an Android SDK.
 
-`maddi-testoss/scripts/coil-input-configuration.py` (`task config:coil`) therefore assembles the
+`corpus/scripts/coil-input-configuration.py` (`task corpus:config:coil`) therefore assembles the
 configuration directly, resolving the slice's compile classpath from Maven Central so nothing has to build
 coil at all.
 
@@ -50,7 +50,7 @@ sets** linked by output identity, with 82 library jars and generated-source dire
 kotlin-dsl accessors) picked up, and a real dependency graph — `detekt-core` depends on 18 others. It is
 therefore also the first genuine **multi-source-set** Kotlin parse; coil is a single flattened set.
 
-Three things the capture needs (encoded in `maddi-testoss`'s `_config:gradle-log-kotlin`):
+Three things the capture needs (encoded in `corpus/Taskfile.yml`'s `_config:gradle-log-kotlin`):
 `--no-configuration-cache` (a configuration-cached run does not re-log the compiler arguments),
 `--no-build-cache --rerun-tasks` (a cached compile logs nothing), and `-Dorg.gradle.warning.mode=summary`
 (detekt sets `warning.mode=fail`, which `--debug` trips). detekt's own build needs a **JDK 17 toolchain**.
