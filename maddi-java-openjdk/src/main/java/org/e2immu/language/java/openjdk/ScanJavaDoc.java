@@ -101,13 +101,20 @@ public record ScanJavaDoc(Runtime runtime,
         }
 
 
+        /*
+        An EMPTY doc tag is legal input: `{@link }` compiles (javac warns), and so do `@throws` and `@see`
+        with nothing after them. javac then hands us a tag whose reference is NULL, and dereferencing it threw
+        a NullPointerException out of the whole parse -- one such comment in one file of 23,497 rejected an
+        entire 354-source-set Elasticsearch parse, because a parse error anywhere refuses the ParseResult.
+        The empty tag carries no information, so the content is empty; it is not an error to report.
+         */
         private String content(DocTree docTree) {
             return switch (docTree) {
                 case DCTree.DCAuthor a -> a.getName().toString();
-                case DCTree.DCThrows t -> t.getExceptionName().getSignature();
-                case DCTree.DCLink l -> l.getReference().getSignature();
+                case DCTree.DCThrows t -> t.getExceptionName() == null ? "" : t.getExceptionName().getSignature();
+                case DCTree.DCLink l -> l.getReference() == null ? "" : l.getReference().getSignature();
                 case DCTree.DCParam p -> p.getName().toString();
-                case DCTree.DCSee s -> s.getReference().stream().map(this::content)
+                case DCTree.DCSee s -> s.getReference() == null ? "" : s.getReference().stream().map(this::content)
                         .collect(Collectors.joining("; "));
                 default -> docTree.toString();
             };
@@ -147,6 +154,9 @@ public record ScanJavaDoc(Runtime runtime,
         }
 
         private Source source(DocTree docNode) {
+            // an empty tag's reference is null (see content()); guarding here rather than at each of the four
+            // call sites keeps them agreeing by construction
+            if (docNode == null) return runtime.noSource();
             long startPos = docSourcePositions.getStartPosition(compilationUnitTree, docCommentTree, docNode);
             long endPos = docSourcePositions.getEndPosition(compilationUnitTree, docCommentTree, docNode);
             if (startPos == Diagnostic.NOPOS) return runtime.noSource(); // no position available
