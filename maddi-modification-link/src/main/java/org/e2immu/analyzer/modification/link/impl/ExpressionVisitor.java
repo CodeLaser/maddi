@@ -760,6 +760,17 @@ public record ExpressionVisitor(Runtime runtime,
                 .methodCall(mc.methodInfo(), mc.concreteReturnType(), object, params, mlvTranslated2);
         Set<Variable> modified = new MethodModification(runtime, variableData, stage, mc)
                 .go(objectPrimary, params, mlvTranslated2);
+        // own-field slot assignments propagate transitively: the callee summary's assigned faces were
+        // rehomed this->objectPrimary above, so a face that still sits on a recursively-this scope chain
+        // is an own field of THIS method's receiver ('inc()' -> this.i, 'd.incJ()' -> this.d.j). Faces
+        // rehomed onto a parameter or local are not own fields and are dropped.
+        if (objectPrimary != null && !mc.methodInfo().isSAMOfStandardFunctionalInterface()) {
+            for (Variable av : mlvTranslated2.assigned()) {
+                if (av instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
+                    sourceMethodComputer.assignedInCallees.add(av);
+                }
+            }
+        }
         Set<Variable> extraModified = params.stream().flatMap(p ->
                 p.modified().keySet().stream()).collect(Collectors.toUnmodifiableSet());
         // Carry the object sub-expression's own modifications forward through the chain. Without this, a terminal

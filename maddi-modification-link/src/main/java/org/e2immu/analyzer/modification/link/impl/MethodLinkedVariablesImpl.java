@@ -30,8 +30,16 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
     private final Links ofReturnValue;
     private final List<Links> ofParameters;
     private final Set<Variable> modified;
+    private final Set<Variable> assigned;
 
     public MethodLinkedVariablesImpl(Links ofReturnValue, List<Links> ofParameters, Set<Variable> modified) {
+        this(ofReturnValue, ofParameters, modified, Set.of());
+    }
+
+    public MethodLinkedVariablesImpl(Links ofReturnValue,
+                                     List<Links> ofParameters,
+                                     Set<Variable> modified,
+                                     Set<Variable> assigned) {
         this.ofParameters = ofParameters;
         this.ofReturnValue = ofReturnValue;
         // canonical, sorted iteration order: callers hand in Set.of/Set.copyOf, whose iteration order is
@@ -40,11 +48,20 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
         // Comparable (FQN order, consistent with equals).
         this.modified = modified.isEmpty() ? modified
                 : java.util.Collections.unmodifiableSortedSet(new java.util.TreeSet<>(modified));
+        this.assigned = assigned.isEmpty() ? assigned
+                : java.util.Collections.unmodifiableSortedSet(new java.util.TreeSet<>(assigned));
     }
 
     @Override
     public boolean equals(Object object) {
         if (!(object instanceof MethodLinkedVariablesImpl that)) return false;
+        // 'assigned' is deliberately NOT part of equality: equals is the retention KEY (LinksImpl equality
+        // is primary-only), and TolerantWrite's canonical-order upgrade only runs on EQUAL values. Including
+        // assigned would make pairs differing only in assigned UNEQUAL, sending them down the
+        // plain-overwrite path — last-write retention of the whole summary, links content included,
+        // resurrecting the arrival-order bistability the canonical order exists to kill. Assigned-richer
+        // values win retention through strictlyRicherThan instead: contentCount and the tie-break
+        // rendering both include assigned.
         return Objects.equals(ofReturnValue, that.ofReturnValue)
                && Objects.equals(ofParameters, that.ofParameters)
                && Objects.equals(modified, that.modified);
@@ -62,6 +79,15 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
         list.add(codec.encodeList(context,
                 ofParameters.stream().map(l -> l.encode(codec, context)).toList()));
         modified.stream().sorted().forEach(v -> list.add(codec.encodeVariable(context, v)));
+        if (!assigned.isEmpty()) {
+            // trailing "A"-tagged list; a variable encodes as a list whose first element is one of the
+            // single-letter kind markers (see CodecImpl.encodeVariable), so the tag is unambiguous and
+            // old files (no such entry) keep decoding — same back-compat style as decodeLink's element 4
+            List<Codec.EncodedValue> aList = new ArrayList<>();
+            aList.add(codec.encodeString(context, "A"));
+            assigned.stream().sorted().forEach(v -> aList.add(codec.encodeVariable(context, v)));
+            list.add(codec.encodeList(context, aList));
+        }
         return codec.encodeList(context, list);
     }
 
@@ -73,9 +99,19 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
         List<Links> ofParams = encodedParams.stream()
                 .map(e -> decodeLinks(codec, context, e))
                 .toList();
-        Set<Variable> modifiedVariables = list.stream().skip(2).map(e ->
-                codec.decodeVariable(context, e)).collect(Collectors.toUnmodifiableSet());
-        return new MethodLinkedVariablesImpl(ofRv, ofParams, modifiedVariables);
+        Set<Variable> modifiedVariables = new java.util.HashSet<>();
+        Set<Variable> assignedVariables = new java.util.HashSet<>();
+        for (int i = 2; i < list.size(); i++) {
+            Codec.EncodedValue e = list.get(i);
+            List<Codec.EncodedValue> sub = codec.decodeList(context, e);
+            if (!sub.isEmpty() && "A".equals(codec.decodeString(context, sub.getFirst()))) {
+                sub.stream().skip(1).forEach(a -> assignedVariables.add(codec.decodeVariable(context, a)));
+            } else {
+                modifiedVariables.add(codec.decodeVariable(context, e));
+            }
+        }
+        return new MethodLinkedVariablesImpl(ofRv, ofParams, Set.copyOf(modifiedVariables),
+                Set.copyOf(assignedVariables));
     }
 
 
@@ -130,6 +166,11 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
     }
 
     @Override
+    public Set<Variable> assigned() {
+        return assigned;
+    }
+
+    @Override
     public List<Links> ofParameters() {
         return ofParameters;
     }
@@ -148,6 +189,8 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
                 ofReturnValue == null ? null : ofReturnValue.translate(translationMap),
                 ofParameters.stream().map(l -> l.translate(translationMap)).toList(),
                 modified.stream().map(translationMap::translateVariableRecursively)
+                        .collect(Collectors.toUnmodifiableSet()),
+                assigned.stream().map(translationMap::translateVariableRecursively)
                         .collect(Collectors.toUnmodifiableSet()));
     }
 
@@ -163,7 +206,7 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
                 ofReturnValue.isEmpty()
                         ? ofReturnValue
                         : ofReturnValue.removeIfTo(v -> v instanceof MarkerVariable mv && mv.isSomeValue()),
-                ofParameters, modified);
+                ofParameters, modified, assigned);
     }
 
     @Override
@@ -174,11 +217,12 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
         return modified.containsAll(newModified); // can only shrink
     }
 
-    /** Total number of link entries plus modified variables: the "content mass" of this value. */
+    /** Total number of link entries plus modified/assigned variables: the "content mass" of this value. */
     private int contentCount() {
         return (ofReturnValue == null ? 0 : (int) ofReturnValue.stream().count())
                + ofParameters.stream().mapToInt(l -> (int) l.stream().count()).sum()
-               + modified.size();
+               + modified.size()
+               + assigned.size();
     }
 
     /**
@@ -198,8 +242,10 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
         if (!(other instanceof MethodLinkedVariablesImpl o)) return false;
         int c = Integer.compare(contentCount(), o.contentCount());
         if (c != 0) return c > 0;
-        String mine = toString();
-        String theirs = o.toString();
+        // assigned participates in the canonical rendering (toString deliberately omits it): two values
+        // differing only in assigned content must still order totally
+        String mine = toString() + "|" + sortedAssignedString();
+        String theirs = o.toString() + "|" + o.sortedAssignedString();
         return mine.compareTo(theirs) < 0; // equal mass: smaller canonical rendering wins, arbitrarily but totally
     }
 
@@ -217,10 +263,11 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
     @Override
     public Value rewire(InfoMapView infoMap) {
         // carryOnRewire (METHOD_LINKS): re-point the return-value links, the per-parameter links (positional), and
-        // the modified-variable set through the infoMap.
+        // the modified- and assigned-variable sets through the infoMap.
         return new MethodLinkedVariablesImpl(
                 (Links) ofReturnValue.rewire(infoMap),
                 ofParameters.stream().map(l -> (Links) l.rewire(infoMap)).toList(),
-                modified.stream().map(v -> v.rewire(infoMap)).collect(Collectors.toUnmodifiableSet()));
+                modified.stream().map(v -> v.rewire(infoMap)).collect(Collectors.toUnmodifiableSet()),
+                assigned.stream().map(v -> v.rewire(infoMap)).collect(Collectors.toUnmodifiableSet()));
     }
 }
