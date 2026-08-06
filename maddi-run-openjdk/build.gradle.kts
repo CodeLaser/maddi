@@ -100,8 +100,10 @@ tasks.test {
     System.getenv("TEST_OSS_ROOT")?.let { environment("TEST_OSS_ROOT", it) }
     jvmArgs(
         // 6G showed heavy GC under PARALLEL=8 (8 threads allocating link graphs concurrently);
-        // TESTXMX overrides for outsized corpora (elasticsearch server closure OOM'd at 8G)
-        "-Xmx" + (System.getenv("TESTXMX") ?: "8G"),
+        // 8G was marginal for the elasticsearch-server closure: one green run pinned at the ceiling,
+        // one executor died of heap space at teardown, one rerun GC-thrashed (2026-08-06). 12G runs
+        // it with real headroom; TESTXMX still overrides in either direction.
+        "-Xmx" + (System.getenv("TESTXMX") ?: "12G"),
         "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
