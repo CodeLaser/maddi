@@ -58,6 +58,15 @@ parse (openjdk or maddi parser) → CST
 - **`MethodLinkedVariables`** (mlv) — a method's summary: `ofReturnValue()` (a `Links`, primary is a `ReturnVariable`),
   `ofParameters()` (a `List<Links>`, one per formal parameter), `modified()` (a `Set<Variable>`), `translate(tm)`.
   `sortedModifiedString()` gives a stable string of the modified set (used heavily in tests).
+  - `assigned()` (a `Set<Variable>`, `sortedAssignedString()`) — own-field **slots written** by the method:
+    fields on a recursively-`this` scope chain that are assignment targets (`this.i = 3`, `i++`, `d.j = 1`),
+    directly or transitively through calls on `this`/own-field receivers. Orthogonal to `modified()`, which
+    tracks **object** modification: a slot write only puts the *scope chain* in `modified()`, and
+    `list.add(x)` puts `this.list` in `modified()` but nothing in `assigned()`. Union them for "all own
+    fields touched". Sources: prepwork's per-variable assignment record (swept in
+    `LinkComputerImpl.go()`), plus callee summaries rehomed at the call site (`ExpressionVisitor.methodCall`).
+    Not populated across `this(...)`/`super(...)` (ECIs are not evaluated). On the wire it is a trailing
+    `["A", …]` entry in the `methodLinks` encoding, present only when non-empty (old files decode as empty).
 - **`Links` / `Link` / `LinkNature`** — a `Link` is `(from, linkNature, to)`; `Links` is a set with a `primary()`.
 - **Variable kinds you will meet** (important for reading link output):
   - `ParameterInfo` (`0:box`, `1:x` — the index prefix), `FieldReference` (`box.t`, `this.myBox`), `This`,

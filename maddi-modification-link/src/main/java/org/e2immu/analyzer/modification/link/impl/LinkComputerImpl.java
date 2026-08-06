@@ -408,6 +408,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         final Set<LocalVariable> variablesRepresentingConstants = new HashSet<>();
         final Variable returnVariable;
         final Set<Variable> modificationsOutsideVariableData = new HashSet<>();
+        // own-field slots assigned by callees invoked on 'this' or an own-field chain, rehomed to this
+        // method's receiver; see ExpressionVisitor.methodCall and MethodLinkedVariables.assigned
+        final Set<Variable> assignedInCallees = new HashSet<>();
         final Stack<Links.Builder> yieldStack = new Stack<>();
         final LinkGraph linkGraph;
         final WriteLinksAndModification writeLinksAndModification;
@@ -537,7 +540,21 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             Set<Variable> summaryModified = allModified.stream()
                     .filter(v -> !(Util.primary(v) instanceof IntermediateVariable))
                     .collect(Collectors.toUnmodifiableSet());
-            MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, summaryModified);
+            // own-field SLOT writes, orthogonal to the object-modification set above: prepwork's
+            // per-variable assignment record is the source of truth for this method's body; callee
+            // assignments on 'this'/own-field receivers arrive via assignedInCallees. The
+            // @IgnoreModifications opt-out mirrors ExpressionVisitor.assignment's modified handling.
+            Set<Variable> assignedOwnFields = Stream.concat(
+                            vd == null ? Stream.of() : vd.variableInfoStream()
+                                    .filter(vi -> vi.variable() instanceof FieldReference fr
+                                                  && fr.scopeIsRecursivelyThis()
+                                                  && !fr.fieldInfo().isIgnoreModifications()
+                                                  && !vi.assignments().isEmpty())
+                                    .map(VariableInfo::variable),
+                            assignedInCallees.stream())
+                    .collect(Collectors.toUnmodifiableSet());
+            MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, summaryModified,
+                    assignedOwnFields);
             if (Gate.isSet("BTRACE") && methodInfo.name().contains(Gate.get("BTRACE"))) {
                 System.out.println("BTRACE go() mlv=" + mlv);
             }
