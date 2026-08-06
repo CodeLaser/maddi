@@ -55,6 +55,12 @@ afterEvaluate {
         test.jvmArgs?.let { setJvmArgs(it) }
         systemProperties(test.systemProperties)
         maxParallelForks = 1
+        // Fresh JVM per slow test class: the corpus suites share one executor otherwise, and heap
+        // retained by an outsized corpus (TestElasticsearchServer, ~18 min at the 8G default) starves
+        // whichever suite runs next in the same JVM — the executor dies with "Java heap space" AFTER
+        // the big test passed, and every remaining suite is aborted. JVM startup is noise next to a
+        // corpus run; isolation buys each suite the full TESTXMX budget.
+        forkEvery = 1
     }
 }
 

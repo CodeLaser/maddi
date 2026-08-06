@@ -25,5 +25,8 @@
 */
 plugins {
     // resolved once here, applied in the subprojects
-    id("org.e2immu.analyzer-plugin") version "0.8.2" apply false
+    // the plugin only generates the input configuration here (the ratchet runs the engine in-process);
+    // its pin tracks the project version — unlike the maddi-support/maddi-util JAR pins below the
+    // subprojects, which deliberately stay at their frozen version (see expected-eventual-survivors.txt)
+    id("org.e2immu.analyzer-plugin") version "0.9.0" apply false
 }
