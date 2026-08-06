@@ -202,12 +202,23 @@ public class TestShadowCloneBench extends CommonTest {
         // immutable-typed nodes. The seed class was untouched (212 = genuine refused downgrades,
         // each in the method's own summary); the propagated class collapsed 71 -> 12 (59 were
         // shadow artifacts). Fernflower: 971 -> 452 divergences, 0 reverse throughout.
-        org.junit.jupiter.api.Assertions.assertEquals(0, totalRev,
-                "reverse divergences are shadow-pass bugs (incomplete seeds or edges)");
+        // Re-baselined 2026-08-06 for design A (110695ece, 2026-07-22, "primitive seeding + reverse
+        // upgrade"): the pass no longer seeds walkable methods' receiver-rooted summary entries (the
+        // channel that re-imported recursion pessimism), and that commit's own doctrine change —
+        // "reverse = pass bug" RETIRED — was certified on the dogfood + three corpora but this pinned
+        // diff was never updated (bisect 2026-08-06: {224, 0 reverse} -> {874, 263 reverse} exactly at
+        // 110695ece; later commits drift 874 -> 855). The 263 reverse are frozen-modified verdicts whose
+        // report-mode evidence formerly came from the retired summary-seed channel (iterator-remove ☷,
+        // lambda/method-ref receivers, array-element writes in loops); the seed class collapsed
+        // 212 -> 41 and propagated grew 12 -> 814 for the same reason: the summary evidence moved out
+        // of the seeds and into what the diff now counts as propagation-visible.
+        org.junit.jupiter.api.Assertions.assertEquals(263, totalRev,
+                "reverse divergences are expected since design A (110695ece) retired the "
+                + "walkable-summary seed channel; re-baseline deliberately, and reclassify");
         org.junit.jupiter.api.Assertions.assertEquals(
-                Map.of("nonModifyingMethod", 1, "unmodifiedField", 8, "unmodifiedParameter", 215),
+                Map.of("nonModifyingMethod", 16, "unmodifiedField", 27, "unmodifiedParameter", 812),
                 byProperty);
-        org.junit.jupiter.api.Assertions.assertEquals(Map.of("propagated", 12, "seed", 212), byClass);
+        org.junit.jupiter.api.Assertions.assertEquals(Map.of("propagated", 814, "seed", 41), byClass);
     }
 
     private volatile int totalMethods, totalSeeds, totalEdges, totalMissingArgLinks, totalUnprojectedReceivers;
