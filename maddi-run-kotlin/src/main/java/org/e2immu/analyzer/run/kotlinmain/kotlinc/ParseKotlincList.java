@@ -1,19 +1,15 @@
 package org.e2immu.analyzer.run.kotlinmain.kotlinc;
 
+import org.e2immu.analyzer.run.config.compile.CompileListToInputConfiguration;
 import org.e2immu.analyzer.run.config.compile.CompileInvocation;
 import org.e2immu.analyzer.run.config.compile.CompileListToSourceSets;
-import org.e2immu.analyzer.run.config.util.JavaModules;
-import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -38,34 +34,14 @@ public class ParseKotlincList {
         return inputConfiguration(kotlincLines(kotlincLogFile), extraJmods);
     }
 
+    /**
+     * ⚠ THE ASSEMBLY IS SHARED WITH THE JAVA FRONT-END. This method used to be a verbatim copy of
+     * {@code ParseJavacList}'s, so anything added to one silently did not hold for the other; both now call
+     * {@link CompileListToInputConfiguration}, which is also where the TYPE_USE annotation closure lives.
+     */
     public InputConfiguration inputConfiguration(List<? extends CompileInvocation> kotlincList, List<String> extraJmods) {
         CompileListToSourceSets.Result result = new CompileListToSourceSets().compute(kotlincList);
-        InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder();
-        Set<String> closure = new HashSet<>(JavaModules.jmodDependencyClosure("java.se"));
-        if (extraJmods != null) {
-            extraJmods.forEach(jm -> {
-                closure.add(jm);
-                closure.addAll(JavaModules.jmodDependencyClosure(jm));
-            });
-        }
-        // sorted() so the jmod classpath parts have a deterministic order (a HashSet's iteration order is not
-        // stable across runs, which otherwise shuffles the serialized InputConfiguration)
-        closure.stream().sorted().forEach(jmod -> builder.addClassPathParts(
-                new SourceSetImpl.Builder().setName(jmod)
-                        .setSourceDirectories(List.of())
-                        .setUri(URI.create("jmod:" + jmod))
-                        .setLibrary(true)
-                        .setExternalLibrary(true)
-                        .setPartOfJdk(true)
-                        .setModule(true)
-                        .build()));
-        for (CompileListToSourceSets.JSourceSet js : result.jSourceSets()) {
-            builder.addSourceSets(js.sourceSet());
-        }
-        for (SourceSet sourceSet : result.jars()) {
-            builder.addClassPathParts(sourceSet);
-        }
-        return builder.build();
+        return CompileListToInputConfiguration.build(result, extraJmods);
     }
 
     public List<Kotlinc> kotlincLines(Path kotlincLogFile) throws IOException {
