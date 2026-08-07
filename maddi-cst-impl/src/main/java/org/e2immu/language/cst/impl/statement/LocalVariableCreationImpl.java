@@ -241,8 +241,18 @@ public class LocalVariableCreationImpl extends StatementImpl implements LocalVar
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         if (reject(predicate)) return Stream.of();
+        // A `var` declaration's type is INFERRED, not written, and TypeReference's own contract makes that the
+        // difference between the two natures: IMPLICIT means typeToImport() is null, i.e. this reference earns no
+        // import. Reporting an inferred type as EXPLICIT made every consumer believe the name appears in the source.
+        // Measured consequence in a downstream refactoring tool: a move's import reconciler ADDED `import c.Widget`
+        // to a file whose only mention of Widget is `var w = Factory.create()` -- an import that is dead the moment
+        // it is written. On a large open-source corpus that was its biggest single style-gate family, 942 unused
+        // imports in one run.
+        // ⚠ Only the DECLARED type turns implicit. The initialiser is walked as before, so `var w = new Widget()`
+        // still reports Widget -- written there, and it does earn the import.
+        TypeReferenceNature declaredTypeNature = isVar() ? TypeReferenceNature.IMPLICIT : TypeReferenceNature.EXPLICIT;
         Stream<Element.TypeReference> trStream = localVariable.parameterizedType()
-                .typesReferenced(TypeReferenceNature.EXPLICIT, source() == null ? null : source().detailedSources());
+                .typesReferenced(declaredTypeNature, source() == null ? null : source().detailedSources());
         Stream<Element.TypeReference> fromAnnotations = annotations().stream()
                 .flatMap(annotationExpression -> annotationExpression.typesReferenced(predicate));
         return Stream.concat(fromAnnotations,
