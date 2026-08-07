@@ -65,8 +65,7 @@ public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
         MethodInfo theMethod = parameterizedType.typeInfo().singleAbstractMethod();
         if (theMethod == null) {
             if (complain) {
-                throw new UnsupportedOperationException("Cannot find a single abstract method in the interface "
-                                                        + parameterizedType.detailedString());
+                throw new UnsupportedOperationException(noSingleAbstractMethod(parameterizedType));
             }
             return null;
         }
@@ -81,6 +80,42 @@ public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
             assert map != null; // the method must be somewhere in the hierarchy
         }
         return newMethodTypeParameterMap(theMethod, map);
+    }
+
+    /**
+     * Why there is no single abstract method, in terms a caller can act on.
+     * <p>
+     * The bare "Cannot find a single abstract method in the interface java.util.function.IntPredicate" reads
+     * as a parser bug — {@code IntPredicate} plainly has one — and has been mistaken for one repeatedly. The
+     * usual cause is not the interface: it is that the type is <b>resolvable but not loaded</b>. A lazily
+     * loaded {@code TypeInfo} carries no methods and never reaches {@code commit()}, so the scanner's
+     * {@code computeSAM} was never run on it ({@code ClassSymbolScanner}, the {@code loadMode != LAZILY}
+     * branch). Anything that builds a method reference or a lambda asks for the SAM, so a consumer that
+     * writes such code against types it has only resolved has to preload them first —
+     * {@code javaInspector.preload("java.base::java.util.function")}.
+     * <p>
+     * The other two cases are real answers about the type and worth separating from that one: it is not an
+     * interface at all, or it is one and has the wrong number of abstract methods.
+     */
+    private static String noSingleAbstractMethod(ParameterizedType parameterizedType) {
+        TypeInfo typeInfo = parameterizedType.typeInfo();
+        String what = parameterizedType.detailedString();
+        if (!typeInfo.hasBeenInspected()) {
+            return "No single abstract method in " + what + ": the type is resolvable but NOT LOADED, so it"
+                   + " has no methods to choose from. Preload its package before asking for a functional"
+                   + " interface, e.g. preload(\"java.base::java.util.function\").";
+        }
+        if (!typeInfo.isInterface()) {
+            return "No single abstract method in " + what + ": it is not an interface ("
+                   + typeInfo.typeNature() + ").";
+        }
+        List<MethodInfo> abstractMethods = typeInfo.methods().stream()
+                .filter(m -> !m.isStatic() && !m.isDefault() && !m.isOverloadOfJLOMethod())
+                .toList();
+        return "No single abstract method in " + what + ": it is a loaded interface with "
+               + abstractMethods.size() + " abstract method(s)"
+               + (abstractMethods.isEmpty() ? "" : " " + abstractMethods.stream().map(MethodInfo::name)
+                .collect(Collectors.toList())) + ", so it is not a functional interface.";
     }
 
     private Map<NamedType, ParameterizedType> makeTypeParameterMap(MethodInfo methodInfo,
