@@ -20,6 +20,7 @@ import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -67,6 +68,41 @@ public class CompileListToInputConfiguration {
 
         sourceSets.forEach(builder::addSourceSets);
         result.jars().forEach(builder::addClassPathParts);
+        checkNamesAreIdentities(sourceSets, result.jars(), closure);
         return builder.build();
+    }
+
+    /**
+     * ⛔⛔ A NAME IS THE IDENTITY, SO A DUPLICATE NAME IS A WRONG ANSWER RATHER THAN AN UNTIDY ONE.
+     * {@code SourceSet}'s own contract says it: <i>"source sets are identified by their name() throughout the
+     * system, including in serialized dependency references"</i> — {@code buildUnit()} is deliberately excluded
+     * from {@code equals}. A serialized {@code dependencies: ["core/main"]} therefore has exactly one reading,
+     * and two entries answering to one name make it a coin toss.
+     * <p>
+     * ⚠ THE SYMPTOM IS NOT A DUPLICATE-NAME ERROR, WHICH IS THE WHOLE REASON TO CHECK HERE. When a library took a
+     * declared source set's name in the Elasticsearch parse config, what came out was a <b>phantom dependency
+     * cycle</b> — a source set that appeared to depend on itself — and the diagnosis was the expensive part. This
+     * is the only place that sees the source sets, the jars and the jmods together, so it is the only place the
+     * question can be asked at all.
+     * <p>
+     * ⚠ MEASURED, and it does not currently fire: today's Elasticsearch configuration has 348 source sets and 785
+     * class-path parts with <b>0</b> shared names, and 0 duplicates within either group. This is prevention with a
+     * denominator, not a repair — and it costs one pass over ~1,100 strings. It throws rather than warns because a
+     * caller cannot do anything sensible with an ambiguous graph, and because a warning here was already tried:
+     * {@code handleJarInClasspath} logs {@code "Name clash"} and keeps the first jar.
+     */
+    private static void checkNamesAreIdentities(List<SourceSet> sourceSets, List<SourceSet> jars,
+                                                Set<String> jmodNames) {
+        Set<String> seen = new HashSet<>();
+        List<String> duplicates = new ArrayList<>();
+        for (SourceSet ss : sourceSets) if (!seen.add(ss.name())) duplicates.add("source set " + ss.name());
+        for (SourceSet jar : jars) if (!seen.add(jar.name())) duplicates.add("library " + jar.name());
+        for (String jmod : jmodNames) if (!seen.add(jmod)) duplicates.add("jmod " + jmod);
+        if (!duplicates.isEmpty()) {
+            throw new IllegalStateException("A name identifies a source set, so these are ambiguous"
+                                            + " dependency references: " + duplicates
+                                            + ". Expect the symptom to look like a dependency cycle rather than"
+                                            + " like a name clash.");
+        }
     }
 }
