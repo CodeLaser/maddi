@@ -237,6 +237,22 @@ public class CompileListToSourceSets {
         return null;
     }
 
+    /**
+     * The build tool's output directory itself ({@code .../core/target}, {@code .../deployment/build}), or
+     * {@code null} when the destination does not sit inside one. The counterpart of {@link #computeBuildUnit},
+     * which returns the module directory above it; both are here so that {@link #BUILD_OUTPUT_NAMES} stays the
+     * single place that knows what a build output directory is called.
+     */
+    static Path buildOutputDirectory(String destination) {
+        String[] split = destination.split(SEPARATOR);
+        for (int i = split.length - 1; i > 0; --i) {
+            if (BUILD_OUTPUT_NAMES.contains(split[i])) {
+                return Path.of(combine(split, 0, i + 1));
+            }
+        }
+        return null;
+    }
+
     private SourceSet createSourceSet(CompileInvocation inv,
                                       Map<String, Integer> countSuffix,
                                       Map<String, SourceSet> sourceSetsByPath,

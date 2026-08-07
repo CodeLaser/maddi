@@ -24,10 +24,13 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * Assembles a {@link CompileListToSourceSets.Result} into an {@link InputConfiguration}: the JDK module closure,
- * the source sets, the libraries.
+ * the source sets, the libraries, and the two repairs neither front-end can make on its own — the generated
+ * classes an output directory holds ({@link AnnotationProcessorOutput}) and the TYPE_USE annotations a compile
+ * classpath does not close over ({@link TypeUseAnnotationClosure}).
  *
  * <p>⚠ THIS EXISTS BECAUSE THERE WERE TWO COPIES OF IT. {@code ParseJavacList} and {@code ParseKotlincList} each
  * carried the same twenty lines, so anything added to one silently did not hold for the other — and a defect
@@ -63,12 +66,21 @@ public class CompileListToInputConfiguration {
 
         List<SourceSet> sourceSets = result.jSourceSets().stream()
                 .map(CompileListToSourceSets.JSourceSet::sourceSet).toList();
+
+        // An output directory that has become a source set carries the classes an annotation processor generated
+        // during that compile, and those belong to nothing at all once the directory leaves the classpath.
+        // Detection only: the source sets keep their identity until the closure below has run over them.
+        AnnotationProcessorOutput.Result generated = new AnnotationProcessorOutput().materialise(sourceSets);
+        List<SourceSet> classPathParts = Stream.concat(result.jars().stream(), generated.libraries().stream())
+                .toList();
+
         // A compile classpath is not a closure over the TYPE_USE annotations its dependencies carry.
-        sourceSets = new TypeUseAnnotationClosure().close(sourceSets, result.jars()).sourceSets();
+        sourceSets = new TypeUseAnnotationClosure().close(sourceSets, classPathParts).sourceSets();
+        sourceSets = generated.attach(sourceSets);
 
         sourceSets.forEach(builder::addSourceSets);
-        result.jars().forEach(builder::addClassPathParts);
-        checkNamesAreIdentities(sourceSets, result.jars(), closure);
+        classPathParts.forEach(builder::addClassPathParts);
+        checkNamesAreIdentities(sourceSets, classPathParts, closure);
         return builder.build();
     }
 
