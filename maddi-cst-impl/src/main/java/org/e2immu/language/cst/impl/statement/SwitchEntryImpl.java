@@ -132,6 +132,23 @@ public class SwitchEntryImpl implements SwitchEntry {
                 outputBuilder.add(condition.print(QualificationImpl.SIMPLE_ONLY));
             }
         }
+        // A pattern label carries its pattern in patternVariable, NOT in conditions, which is empty for
+        // 'case Type t ->'. Printing only the conditions therefore emitted a bare 'case ->' and dropped the
+        // binding the arm body goes on to use -- code that does not compile, produced silently. The same
+        // held for the 'when' guard, which is worse: 'case Type t when p ->' printed as 'case Type t ->'
+        // COMPILES and changes behaviour. Found on timefold's MoveSelectorFactory (17 pattern arms) 2026-08-07;
+        // the existing tests assert patternVariable().toString(), i.e. the pattern's own printing, and never
+        // the entry's, so neither was covered.
+        if (patternVariable != null) {
+            if (!first) {
+                outputBuilder.add(SymbolEnum.COMMA);
+            }
+            outputBuilder.add(patternVariable.print(qualification));
+            if (whenExpression != null && !whenExpression.isEmpty()) {
+                outputBuilder.add(SpaceEnum.ONE).add(KeywordImpl.WHEN).add(SpaceEnum.ONE)
+                        .add(whenExpression.print(qualification));
+            }
+        }
         outputBuilder.add(SymbolEnum.LAMBDA);
         outputBuilder.add(statement().print(qualification));
         return outputBuilder;

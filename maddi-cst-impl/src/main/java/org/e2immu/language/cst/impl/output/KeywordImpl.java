@@ -65,6 +65,8 @@ public record KeywordImpl(String keyword) implements Keyword {
     public static final Keyword TRY = new KeywordImpl("try");
     public static final Keyword VAR = new KeywordImpl("var");
     public static final Keyword VOLATILE = new KeywordImpl("volatile");
+    // contextual keyword, guard of a switch pattern label: case Type t when <expr> ->
+    public static final Keyword WHEN = new KeywordImpl("when");
     public static final Keyword WHILE = new KeywordImpl("while");
     public static final Keyword YIELD = new KeywordImpl("yield");
 
