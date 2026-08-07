@@ -26,6 +26,7 @@ import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.runtime.Predefined;
 import org.e2immu.language.cst.api.runtime.PredefinedWithoutParameterizedType;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -271,6 +272,23 @@ public interface ParameterizedType {
 
     Map<NamedType, ParameterizedType> formalToConcrete(ParameterizedType forwardedReturnType);
 
-    boolean typeBoundsAreSet(TypeParameter self);
+    /**
+     * Convenience entry point: {@code self} is the type parameter whose bounds are being verified, and
+     * seeds the recursion guard.
+     */
+    default boolean typeBoundsAreSet(TypeParameter self) {
+        Set<TypeParameter> visited = new HashSet<>();
+        visited.add(self);
+        return typeBoundsAreSet(visited);
+    }
+
+    /**
+     * Returns {@code true} if the bounds of every type parameter reachable from this type have been set.
+     *
+     * @param visited recursion protection. F-bounded type parameters make the bound graph cyclic
+     *                ({@code X extends C<X>}, or mutually, {@code A extends C<B>, B extends D<A>}); a type
+     *                parameter already on the stack contributes no new information and is treated as set.
+     */
+    boolean typeBoundsAreSet(Set<TypeParameter> visited);
 
 }

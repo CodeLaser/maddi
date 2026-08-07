@@ -24,6 +24,7 @@ import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.support.Either;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -48,7 +49,19 @@ public interface TypeParameter extends NamedType, Info {
      * Type bounds may be set after the initial inspection commit if the bound types
      * are discovered during hierarchy resolution.
      */
-    boolean typeBoundsAreSet();
+    default boolean typeBoundsAreSet() {
+        return typeBoundsAreSet(new HashSet<>());
+    }
+
+    /**
+     * Returns {@code true} once this parameter's bounds, and those of every type parameter reachable
+     * from them, have been set.
+     *
+     * @param visited recursion protection. F-bounded type parameters make the bound graph cyclic
+     *                ({@code X extends C<X>}, or mutually, {@code A extends C<B>, B extends D<A>}); a type
+     *                parameter already on the stack contributes no new information and is treated as set.
+     */
+    boolean typeBoundsAreSet(Set<TypeParameter> visited);
 
     /** Returns the zero-based index of this type parameter within the owner's declaration. */
     int getIndex();
