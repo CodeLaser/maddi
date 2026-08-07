@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.SwitchEntry;
 import org.e2immu.language.cst.api.statement.SwitchStatementNewStyle;
 import org.e2immu.language.cst.api.statement.SwitchStatementOldStyle;
+import org.e2immu.language.cst.impl.output.QualificationImpl;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
@@ -115,6 +116,30 @@ public class TestSwitch extends CommonTest {
         assertEquals("8-13:8-51", s2.source().compact2());
         assertEquals("8-18:8-22", s2.patternVariable().source().compact2());
         assertEquals("8-29:8-34", s2.whenExpression().source().compact2());
+    }
+
+    @DisplayName("a pattern label PRINTS its pattern and its when-guard")
+    @Test
+    public void test4Print() {
+        // Every other assertion in this file reads patternVariable() -- the pattern's OWN printing -- and
+        // none reads the ENTRY's. That gap hid two defects until timefold's MoveSelectorFactory, whose
+        // create() is a 17-arm pattern switch, was re-emitted by extract.extractCompanion as 17 bare
+        // 'case ->' arms that did not compile. The when-guard was worse: dropping it still COMPILES.
+        TypeInfo typeInfo = scan("a.b.X", INPUT4);
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 1);
+        SwitchStatementNewStyle ns = (SwitchStatementNewStyle) methodInfo.methodBody().lastStatement();
+
+        String s0 = ns.entries().getFirst().print(QualificationImpl.SIMPLE_NAMES).toString();
+        assertTrue(s0.startsWith("case String s->"), s0);
+
+        String s1 = ns.entries().get(1).print(QualificationImpl.SIMPLE_NAMES).toString();
+        assertTrue(s1.startsWith("case List<?> list->"), s1);
+
+        String s2 = ns.entries().get(2).print(QualificationImpl.SIMPLE_NAMES).toString();
+        assertTrue(s2.startsWith("case int i when i>10->"), s2);
+
+        String s3 = ns.entries().get(3).print(QualificationImpl.SIMPLE_NAMES).toString();
+        assertTrue(s3.startsWith("default->"), s3);
     }
 
     @Language("java")
