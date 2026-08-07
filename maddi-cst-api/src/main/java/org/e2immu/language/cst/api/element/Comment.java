@@ -31,7 +31,22 @@ import org.e2immu.language.cst.api.translate.TranslationMap;
  */
 public interface Comment extends Element {
 
-    /** Returns the raw text of the comment as it appears in source. */
+    /**
+     * The comment's CONTENT, not its source text. The implementations strip the delimiters on construction —
+     * {@code // a} yields {@code " a"}, {@code /* a *}{@code /} yields {@code " a "} — and a {@link JavaDoc}
+     * is normalised further still: its per-line {@code *} prefixes are gone and its tags are held separately,
+     * so {@code comment()} returns the prose, not the paragraph the author typed.
+     * <p>
+     * ⛔ <b>THIS WAS DOCUMENTED AS "the raw text of the comment as it appears in source", WHICH IT IS NOT, AND
+     * A CALLER BELIEVED IT.</b> A refactoring lever writing a moved method into another file rebuilt its
+     * javadoc from {@code comment()} and emitted the prose and the {@code @param} tags in class-body position:
+     * nine javac errors and a broken build, from reading the contract and trusting it.
+     * <p>
+     * ▶ <b>NOTHING RECONSTRUCTED FROM THE CST IS THE AUTHOR'S TEXT</b>, and adding a method that looked as
+     * though it were would only move the trap: the {@code *} prefixes a javadoc lost at parse time cannot be
+     * put back. A caller that must write a comment into a source file has to take the SOURCE LINES —
+     * {@link #source()} spans the content only, so widen it to whole lines. Everything else is for reading.
+     */
     String comment();
 
     default Comment rewire(InfoMapView infoMap) {
