@@ -591,8 +591,20 @@ public class ParameterizedTypeImpl implements ParameterizedType {
                 if (pt != null && pt.isUnboundWildcard() && !parameter.typeParameter().typeBounds().isEmpty()) {
                     // replace '?' by '? extends X', with 'X' the first type bound, see TypeParameter_3
                     // but never do this for JLO (see e.g. issues described in MethodCall_73)
-                    TypeInfo bound = parameter.typeParameter().typeBounds().getFirst().typeInfo();
-                    if (bound.isJavaLangObject()) {
+                    ParameterizedType firstBound = parameter.typeParameter().typeBounds().getFirst();
+                    TypeInfo bound = firstBound.typeInfo();
+                    if (bound == null) {
+                        /*
+                        ⛔ A BOUND CAN ITSELF BE A TYPE PARAMETER, AND THEN IT HAS NO TypeInfo. 'Pair<T, U
+                        extends T>' is ordinary Java, and reading typeInfo() unguarded here was an NPE --
+                        one that only surfaced on a corpus-wide member sweep, 28 minutes in, after which
+                        nothing was written at all. One type of this shape anywhere loses the whole run.
+                        The intent is unchanged: a bound that is a type parameter is still a bound worth
+                        carrying, so it becomes '? extends T' the only way a type parameter can -- by
+                        putting the wildcard on the bound rather than rebuilding it from a TypeInfo.
+                         */
+                        recursive = firstBound.withWildcard(WildcardEnum.EXTENDS);
+                    } else if (bound.isJavaLangObject()) {
                         recursive = WILDCARD_PARAMETERIZED_TYPE;
                     } else {
                         recursive = new ParameterizedTypeImpl(bound, WildcardEnum.EXTENDS);
