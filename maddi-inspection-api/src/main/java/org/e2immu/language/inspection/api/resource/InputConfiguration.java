@@ -17,12 +17,51 @@ package org.e2immu.language.inspection.api.resource;
 import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.element.SourceSet;
 
+import java.net.URI;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 public interface InputConfiguration {
+
+    /**
+     * A class path entry that is not a file but a <em>selector</em> into the running process' own class path:
+     * either a package folder ({@code jar-on-classpath:org/e2immu/annotation}) or a jar file name
+     * ({@code jar-on-classpath:slf4j-api-2.0.17.jar}). The front end resolves it to the real jar or exploded
+     * directory at scan time — see {@code ClassSymbolScanner} — because the entry does not carry the physical
+     * identity of the library, and its version is not known until we look.
+     */
+    String JAR_ON_CLASSPATH_PREFIX = "jar-on-classpath:";
+
+    /**
+     * The selector of a {@link #JAR_ON_CLASSPATH_PREFIX} class path entry, or null when {@code sourceSet} is
+     * not one.
+     * <p>
+     * <b>Both the name and the URI are accepted, and that is the point of this method existing.</b> The two
+     * ways of building such an entry disagreed about where the prefix goes:
+     * {@code Builder.addClassPath(JAR_ON_CLASSPATH_PREFIX + "org/e2immu/annotation")} puts it on the name
+     * (the URI follows), while {@code withSupportFromClasspath} puts it on the URI and names the set after
+     * the caller's map key — the key being the point of that API. Every recognition site tested only the
+     * name, so a set built the second way was never recognised, fell through to {@code Path.of(uri)} on an
+     * opaque {@code jar-on-classpath:} URI, and died with
+     * {@code FileSystemNotFoundException: Provider "jar-on-classpath" not installed}. That made
+     * {@code withSupportFromClasspath} and {@code withE2ImmuSupportFromClasspath} unusable as written.
+     * <p>
+     * Asking the entry rather than its name settles it without taking the naming freedom away.
+     */
+    static String jarOnClasspathSelector(SourceSet sourceSet) {
+        if (sourceSet == null) return null;
+        String name = sourceSet.name();
+        if (name != null && name.startsWith(JAR_ON_CLASSPATH_PREFIX)) {
+            return name.substring(JAR_ON_CLASSPATH_PREFIX.length());
+        }
+        URI uri = sourceSet.uri();
+        if (uri != null && "jar-on-classpath".equals(uri.getScheme())) {
+            return uri.getSchemeSpecificPart();
+        }
+        return null;
+    }
 
     default SourceSet javaBase() {
         return classPathParts().stream()

@@ -146,9 +146,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
         for (SourceSet cpp : inputConfiguration.classPathParts()) {
             SourceSet toAdd;
-            if (cpp.name().startsWith("jar-on-classpath:")) {
-                int colon = cpp.name().indexOf(':');
-                String selector = cpp.name().substring(colon + 1);
+            // the selector may sit on the name or on the URI; see InputConfiguration#jarOnClasspathSelector
+            String selector = InputConfiguration.jarOnClasspathSelector(cpp);
+            if (selector != null) {
                 toAdd = resolveJarOnClassPath(cpp, selector, prefixes);
             } else {
                 toAdd = cpp;

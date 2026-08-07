@@ -140,7 +140,8 @@ public class JavaInspectorImpl implements JavaInspector {
         javaCompiler = ToolProvider.getSystemJavaCompiler();
     }
 
-    public static final String JAR_WITH_PATH_PREFIX = "jar-on-classpath:";
+    /** @see InputConfiguration#JAR_ON_CLASSPATH_PREFIX — kept as the name this front end has always used. */
+    public static final String JAR_WITH_PATH_PREFIX = InputConfiguration.JAR_ON_CLASSPATH_PREFIX;
     public static final String E2IMMU_SUPPORT = JAR_WITH_PATH_PREFIX + "org/e2immu/annotation";
     // how reloadSources' in-memory sources are keyed, as in the in-house inspector: "test-protocol:a.b.X"
     public static final String TEST_PROTOCOL_PREFIX = TEST_PROTOCOL + ":";
@@ -841,7 +842,8 @@ public class JavaInspectorImpl implements JavaInspector {
             for (SourceSet classPathPart : sourceSet.dependencies()) {
                 // ignore jmod:, ignore jar-on-classpath: they are handled by the ClassSymbolScanner
                 if (classPathPart.externalLibrary()
-                    && !classPathPart.name().startsWith(JAR_WITH_PATH_PREFIX) && !classPathPart.partOfJdk()) {
+                    && InputConfiguration.jarOnClasspathSelector(classPathPart) == null
+                    && !classPathPart.partOfJdk()) {
                     try {
                         File file = Path.of(classPathPart.uri()).toFile();
                         // Route to the module path only when THIS source set is itself a module (has a module-info):
@@ -1147,9 +1149,9 @@ public class JavaInspectorImpl implements JavaInspector {
     private List<File> resolveJarOnClassPathDependencies(SourceSet sourceSet) {
         List<File> jars = new ArrayList<>();
         for (SourceSet dependency : sourceSet.dependencies()) {
-            if (dependency.partOfJdk() || !dependency.name().startsWith(JAR_WITH_PATH_PREFIX)) continue;
-            int colon = dependency.name().indexOf(':');
-            File jar = ClassSymbolScanner.jarOnClassPathFile(dependency.name().substring(colon + 1));
+            String selector = InputConfiguration.jarOnClasspathSelector(dependency);
+            if (dependency.partOfJdk() || selector == null) continue;
+            File jar = ClassSymbolScanner.jarOnClassPathFile(selector);
             if (jar != null) jars.add(jar);
         }
         return jars;
