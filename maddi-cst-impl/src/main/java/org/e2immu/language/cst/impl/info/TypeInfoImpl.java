@@ -72,6 +72,27 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         this(enclosingType, "$" + index);
     }
 
+    /**
+     * The rewire copy of a type declared inside a method body, where the fully qualified name cannot be
+     * recomputed from {@code enclosingType + "." + simpleName}: a local class is named
+     * {@code <enclosingType>.<index>$<method>$<SimpleName>} by
+     * {@link #TypeInfoImpl(MethodInfo, String, int)}, and it keeps its written simple name. Carrying the
+     * name over is the BASIC RULE OF REWIRING (see {@code InfoMapImpl}) — the copy must be equal to the
+     * original, equality being fqn + source set, or nothing can look it up again.
+     * <p>
+     * The index is therefore not a parameter: re-deriving it would mean re-incrementing the enclosing
+     * type's anonymous-type counter, which would hand the copy a different name every time.
+     */
+    private TypeInfoImpl(TypeInfo enclosingType, MethodInfo enclosingMethod, String simpleName,
+                         String fullyQualifiedName) {
+        this.simpleName = simpleName;
+        this.fullyQualifiedName = fullyQualifiedName;
+        this.compilationUnitOrEnclosingType = Either.right(enclosingType);
+        TypeInspectionImpl.Builder builder = new TypeInspectionImpl.Builder(this);
+        builder.setEnclosingMethod(enclosingMethod);
+        inspection.setVariable(builder);
+    }
+
     public TypeInfoImpl(MethodInfo enclosingMethod, String simpleName, int index) {
         this.simpleName = simpleName;
         fullyQualifiedName = enclosingMethod.typeInfo().fullyQualifiedName() + "."
@@ -747,7 +768,23 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         if (compilationUnitOrEnclosingType.isLeft()) {
             typeInfo = new TypeInfoImpl(compilationUnit(), simpleName);
         } else {
-            typeInfo = new TypeInfoImpl(infoMap.typeInfo(newEnclosingType), simpleName);
+            TypeInfo rewiredEnclosing = infoMap.typeInfo(newEnclosingType);
+            /*
+             Nested and anonymous types reproduce their own name from enclosing + simpleName ("Sub", "$0"),
+             so the plain constructor gives the copy the original's fqn, as the BASIC RULE OF REWIRING
+             requires. A LOCAL CLASS does not: it is named <enclosing>.<index>$<method>$<SimpleName> while
+             keeping "SimpleName" as its simple name, so recomputing would produce <enclosing>.SimpleName --
+             a copy under a different fqn, which the map (keyed on fqn) can never hand back. The symptom is
+             not a wrong name, it is an unbounded recursion: rewirePhase1 asks the map for the type it has
+             just registered, misses, and the on-demand registration in InfoMapImpl tries again forever.
+             */
+            String recomputed = rewiredEnclosing.fullyQualifiedName() + "." + simpleName;
+            if (fullyQualifiedName.equals(recomputed)) {
+                typeInfo = new TypeInfoImpl(rewiredEnclosing, simpleName);
+            } else {
+                typeInfo = new TypeInfoImpl(rewiredEnclosing, infoMap.methodInfo(enclosingMethod()),
+                        simpleName, fullyQualifiedName);
+            }
         }
         infoMap.put(typeInfo);
         TypeInfo.Builder builder = typeInfo.builder();
