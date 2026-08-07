@@ -155,9 +155,11 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
     }
 
     @Override
-    public boolean typeBoundsAreSet() {
+    public boolean typeBoundsAreSet(Set<TypeParameter> visited) {
+        // already on the stack: the bounds are being verified higher up, so there is nothing to add here
+        if (!visited.add(this)) return true;
         if (!inspection.get().typeBoundsAreSet()) return false;
-        return inspection.get().typeBounds().stream().allMatch(pt -> pt.typeBoundsAreSet(this));
+        return inspection.get().typeBounds().stream().allMatch(pt -> pt.typeBoundsAreSet(visited));
     }
 
     @Override

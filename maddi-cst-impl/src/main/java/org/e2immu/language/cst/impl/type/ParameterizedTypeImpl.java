@@ -985,12 +985,14 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     }
 
     @Override
-    public boolean typeBoundsAreSet(TypeParameter self) {
-        if (typeParameter != null && !typeParameter.equals(self)) {
-            return typeParameter.typeBoundsAreSet();
+    public boolean typeBoundsAreSet(Set<TypeParameter> visited) {
+        if (typeParameter != null && !visited.contains(typeParameter)) {
+            // pass `visited` on; the no-argument overload would start a fresh guard and never terminate
+            // on a mutual F-bound
+            return typeParameter.typeBoundsAreSet(visited);
         }
         for (ParameterizedType param : parameters) {
-            if (!param.typeBoundsAreSet(self)) return false;
+            if (!param.typeBoundsAreSet(visited)) return false;
         }
         return true;
     }

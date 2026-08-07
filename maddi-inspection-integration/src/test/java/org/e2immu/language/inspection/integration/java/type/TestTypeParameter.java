@@ -397,4 +397,32 @@ public class TestTypeParameter extends CommonTest {
                 .distinct().toList().toString());
         assertEquals(OUTPUT9, javaInspector.print2(C.compilationUnit()));
     }
+
+    @Language("java")
+    public static final String INPUT10 = """
+            package a.b;
+            class X {
+                static abstract class Config<C_ extends Config<C_>> {
+                    abstract C_ copyConfig();
+                }
+                static abstract class PhaseConfig<P_ extends PhaseConfig<P_>> extends Config<P_> { }
+                // mutual F-bound: neither parameter's bounds can be verified without the other's
+                static abstract class Left<L_ extends Left<L_, R_>, R_ extends Right<R_, L_>> { }
+                static abstract class Right<R_ extends Right<R_, L_>, L_ extends Left<L_, R_>> { }
+            }
+            """;
+
+    @DisplayName("mutually F-bounded type parameters do not send typeBoundsAreSet into infinite recursion")
+    @Test
+    public void test10() {
+        TypeInfo typeInfo = javaInspector.parse(INPUT10);
+        for (TypeInfo sub : typeInfo.subTypes()) {
+            for (TypeParameter tp : sub.typeParameters()) {
+                assertTrue(tp.typeBoundsAreSet(), tp.simpleName() + " of " + sub.simpleName());
+            }
+        }
+        TypeInfo left = typeInfo.findSubType("Left");
+        assertEquals("[Type a.b.X.Left<L_ extends a.b.X.Left<L_,R_>,R_ extends a.b.X.Right<R_,L_>>]",
+                left.typeParameters().getFirst().typeBounds().toString());
+    }
 }
