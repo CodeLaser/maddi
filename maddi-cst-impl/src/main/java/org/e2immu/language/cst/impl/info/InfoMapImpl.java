@@ -117,7 +117,7 @@ public class InfoMapImpl implements InfoMap {
         Map<Info, Info> map = setOfPrimaryTypesToRewire.get(typeInfo.primaryType());
         if (map == null) return typeInfo;
         TypeInfo result = (TypeInfo) map.get(typeInfo);
-        if (result == null && registerAnonymousOnDemand(typeInfo)) {
+        if (result == null && registerMethodEnclosedOnDemand(typeInfo)) {
             result = (TypeInfo) map.get(typeInfo);
         }
         if (result == null && isRebuilt(typeInfo.primaryType())) return typeInfo;
@@ -192,7 +192,7 @@ public class InfoMapImpl implements InfoMap {
         Map<Info, Info> map = setOfPrimaryTypesToRewire.get(owner.primaryType());
         if (map == null) return methodInfo;
         MethodInfo result = (MethodInfo) map.get(methodInfo);
-        if (result == null && registerAnonymousOnDemand(owner)) {
+        if (result == null && registerMethodEnclosedOnDemand(owner)) {
             result = (MethodInfo) map.get(methodInfo);
         }
         if (result == null && isRebuilt(owner.primaryType())) return methodInfo;
@@ -233,7 +233,7 @@ public class InfoMapImpl implements InfoMap {
         Map<Info, Info> map = setOfPrimaryTypesToRewire.get(owner.primaryType());
         if (map == null) return fieldInfo;
         FieldInfo result = (FieldInfo) map.get(fieldInfo);
-        if (result == null && registerAnonymousOnDemand(owner)) {
+        if (result == null && registerMethodEnclosedOnDemand(owner)) {
             result = (FieldInfo) map.get(fieldInfo);
         }
         if (result == null && isRebuilt(owner.primaryType())) return fieldInfo;
@@ -249,7 +249,7 @@ public class InfoMapImpl implements InfoMap {
         Map<Info, Info> map = setOfPrimaryTypesToRewire.get(owner.primaryType());
         if (map == null) return parameterInfo;
         ParameterInfo result = (ParameterInfo) map.get(parameterInfo);
-        if (result == null && registerAnonymousOnDemand(owner)) {
+        if (result == null && registerMethodEnclosedOnDemand(owner)) {
             result = (ParameterInfo) map.get(parameterInfo);
         }
         if (result == null && isRebuilt(owner.primaryType())) return parameterInfo;
@@ -269,29 +269,39 @@ public class InfoMapImpl implements InfoMap {
     }
 
     /**
-     * Anonymous and lambda types are not part of {@code subTypes()}, so the structural rewire phases
-     * ({@code rewirePhase0/1}) never register them: they are rewired lazily, when the constructor call in the
-     * method body or field initializer that creates them is rewired ({@code ConstructorCallImpl.rewire} ->
+     * A type declared inside a method body — anonymous, lambda, or a <em>local class</em> — is not part of
+     * {@code subTypes()}, so the structural rewire phases ({@code rewirePhase0/1}) never register it: it is
+     * rewired lazily, when the thing that declares it is rewired ({@code ConstructorCallImpl.rewire} for an
+     * anonymous type, {@code LocalTypeDeclarationImpl.rewire} for a local class, both via
      * {@link #typeInfoRecurseAllPhases}). A carried analysis value (e.g. {@code METHOD_LINKS}) can name such a
      * member <em>before</em> that body has been rewired — across types in the rewire cone, or simply because
      * within a type methods are rewired before fields ({@code TypeInfoImpl.rewirePhase3}). Rather than fail the
-     * lookup, register the anonymous owner on demand here. {@link #typeInfoRecurseAllPhases} is idempotent and
-     * recurses through the enclosing chain, so a fully-rewired outermost anonymous ancestor registers every
-     * nested anonymous type and subtype beneath it.
+     * lookup, register the owner on demand here. {@link #typeInfoRecurseAllPhases} is idempotent and recurses
+     * through the enclosing chain, so a fully-rewired outermost method-enclosed ancestor registers every nested
+     * type and subtype beneath it.
+     * <p>
+     * The test is {@code enclosingMethod() != null}, which is what "declared inside a method body" means
+     * ({@link TypeInfo#enclosingMethod()}: "the method whose body syntactically contains this type
+     * declaration"). It used to be {@code isAnonymous()}, which is narrower — that is
+     * {@code simpleName.startsWith("$")}, true for anonymous and lambda types only, while a local class keeps
+     * its written name ({@code TypeInfoImpl(MethodInfo, String, int)}). A local class was therefore never
+     * registered and the lookup failed with "Should have been present". It surfaces only when something
+     * rewrites the enclosing method — an ordinary parse never asks — which is why it outlived the anonymous
+     * case. Measured on a decompiler corpus: 21 methods across 3 types, each losing a whole primary type.
      *
      * @return true if it registered something, so the caller should retry its lookup.
      */
-    private boolean registerAnonymousOnDemand(TypeInfo owner) {
+    private boolean registerMethodEnclosedOnDemand(TypeInfo owner) {
         TypeInfo primary = owner.primaryType();
         if (!toRewire.contains(primary)) return false; // rebuilt/seeded types are new objects, never rewired
         Map<Info, Info> map = setOfPrimaryTypesToRewire.get(primary);
-        TypeInfo outermostAbsentAnon = null;
+        TypeInfo outermostAbsent = null;
         for (TypeInfo t = owner; t != null;
              t = t.compilationUnitOrEnclosingType().isRight() ? t.compilationUnitOrEnclosingType().getRight() : null) {
-            if (t.isAnonymous() && map.get(t) == null) outermostAbsentAnon = t;
+            if (t.enclosingMethod() != null && map.get(t) == null) outermostAbsent = t;
         }
-        if (outermostAbsentAnon == null) return false;
-        typeInfoRecurseAllPhases(outermostAbsentAnon);
+        if (outermostAbsent == null) return false;
+        typeInfoRecurseAllPhases(outermostAbsent);
         return true;
     }
 }
