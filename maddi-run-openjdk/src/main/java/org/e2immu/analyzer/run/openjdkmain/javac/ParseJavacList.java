@@ -1,17 +1,13 @@
 package org.e2immu.analyzer.run.openjdkmain.javac;
 
-import org.e2immu.analyzer.run.config.util.JavaModules;
-import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.analyzer.run.config.compile.CompileListToInputConfiguration;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -32,34 +28,14 @@ public class ParseJavacList {
         return inputConfiguration(javacList, extraJmods);
     }
 
+    /**
+     * ⚠ THE ASSEMBLY IS SHARED WITH THE KOTLIN FRONT-END ({@code ParseKotlincList}), which used to carry a
+     * verbatim copy of it. Everything {@link CompileListToInputConfiguration} does — the jmod closure, and the
+     * TYPE_USE annotation closure over each source set's classpath — therefore holds for both by construction.
+     */
     public InputConfiguration inputConfiguration(List<Javac> javacList, List<String> extraJmods) throws IOException {
         JavacListToSourceSets.Result result = new JavacListToSourceSets().compute(javacList);
-        InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder();
-        Set<String> closure = new HashSet<>(JavaModules.jmodDependencyClosure("java.se"));
-        if (extraJmods != null) {
-            extraJmods.forEach(jm -> {
-                closure.add(jm);
-                closure.addAll(JavaModules.jmodDependencyClosure(jm));
-            });
-        }
-        // sorted() so the jmod classpath parts have a deterministic order (a HashSet's iteration order is not
-        // stable across runs, which otherwise shuffles the serialized InputConfiguration)
-        closure.stream().sorted().forEach(jmod -> builder.addClassPathParts(
-                new SourceSetImpl.Builder().setName(jmod)
-                        .setSourceDirectories(List.of())
-                        .setUri(URI.create("jmod:" + jmod))
-                        .setLibrary(true)
-                        .setExternalLibrary(true)
-                        .setPartOfJdk(true)
-                        .setModule(true)
-                        .build()));
-        for (JavacListToSourceSets.JSourceSet js : result.jSourceSets()) {
-            builder.addSourceSets(js.sourceSet());
-        }
-        for (SourceSet sourceSet : result.jars()) {
-            builder.addClassPathParts(sourceSet);
-        }
-        return builder.build();
+        return CompileListToInputConfiguration.build(result, extraJmods);
     }
 
     public List<Javac> javacLines(Path javacLogFile) throws IOException {

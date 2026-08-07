@@ -6,6 +6,9 @@ module org.e2immu.analyzer.run.config {
     requires org.e2immu.language.inspection.resource;
     requires org.e2immu.util.internal.graph;
 
+    // TypeUseAnnotationClosure reads the type-annotation attributes of classpath bytecode
+    requires org.objectweb.asm;
+
     requires com.fasterxml.jackson.annotation;
     requires com.fasterxml.jackson.core;
     requires com.fasterxml.jackson.databind;
