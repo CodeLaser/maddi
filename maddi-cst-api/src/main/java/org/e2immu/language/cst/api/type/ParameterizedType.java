@@ -28,6 +28,7 @@ import org.e2immu.language.cst.api.runtime.PredefinedWithoutParameterizedType;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -56,8 +57,14 @@ public interface ParameterizedType {
 
     ParameterizedType rewire(InfoMapView infoMap, Map<TypeParameter, TypeParameter> rewiredTypeParameters);
 
+    /**
+     * Starts a rewire traversal with a fresh, <b>mutable</b> map of already-rewired type parameters. It has
+     * to be mutable: a type parameter reached along the way enters itself into the map before rewiring its
+     * bounds, which is what makes a self-referential bound terminate. {@code Map.of()} was correct only
+     * while nothing wrote to it.
+     */
     default ParameterizedType rewire(InfoMapView infoMap) {
-        return rewire(infoMap, Map.of());
+        return rewire(infoMap, new HashMap<>());
     }
 
     int arrays();

@@ -852,8 +852,16 @@ public class ParameterizedTypeImpl implements ParameterizedType {
         }
         if (typeParameter != null) {
             assert parameters.isEmpty();
+            /*
+            The two-argument rewire, so the map of already-rewired parameters is CARRIED rather than
+            recreated. Element#rewire(infoMap) starts an empty one, which is right at the top of a traversal
+            and wrong here: a type parameter is entered into the map before its bounds are rewired, so
+            beginning afresh throws away the entry that makes a self-referential bound terminate. Mutually
+            F-bounded parameters (`A extends Foo<B>`, `B extends Foo<A>`) then recurse until the stack ends
+            -- measured on timefold-solver, whose config and score hierarchies are full of them.
+             */
             TypeParameter rewiredTp = Objects.requireNonNullElseGet(rewiredTypeParameters.get(typeParameter),
-                    () -> (TypeParameter) typeParameter.rewire(infoMap));
+                    () -> typeParameter.rewire(infoMap, rewiredTypeParameters));
             return new ParameterizedTypeImpl(null, rewiredTp, List.of(), arrays, wildcard);
         }
         return this;
