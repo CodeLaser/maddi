@@ -36,11 +36,27 @@ import java.net.URI;
 import java.util.*;
 
 public class PredefinedImpl implements Predefined {
+    /**
+     * The synthetic source set the primitives and the {@code java.lang} types belong to.
+     * <p>
+     * ⛔ <b>IT IS NAMED {@code java.base}, AND THE NAME IS LOAD-BEARING.</b> A JDK source set is named after its
+     * JPMS module — that is what {@code SourceSetImpl.jdkModule(name)} establishes — and any consumer mapping a
+     * source set to a module reads {@code name()} when {@link #partOfJdk()} is true, because there is no other
+     * source for it. This one used to answer {@code "<predefined>"} while still claiming {@code partOfJdk()},
+     * so it was the single counter-example to that convention, and a placeholder in angle brackets travelled
+     * out as a module name.
+     * <p>
+     * Downstream that produced a {@code requires <predefined>;} in a generated {@code module-info.java} — a
+     * declaration that does not even lex — reported as a success. Every type held here is a primitive, which
+     * needs no {@code requires} at all, or a {@code java.lang} type, which is in {@code java.base}; so
+     * {@code java.base} is the accurate answer rather than a convenient one, and the convention holds again
+     * with no consumer needing to special-case this object.
+     */
     public static final SourceSet PREDEFINED_SOURCESET = new SourceSet() {
 
         @Override
         public String name() {
-            return "<predefined>";
+            return "java.base";
         }
 
         @Override
