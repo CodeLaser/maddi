@@ -39,6 +39,25 @@ public class CompileListToSourceSets {
     public record JSourceSet(CompileInvocation invocation, SourceSet sourceSet) {
     }
 
+    /**
+     * The same output directory, under the same name, as a library: readable by everyone, parsed by nobody.
+     * <p>
+     * ⚠ ONE READER. Both places that stop parsing a source set need exactly this — the absorbed sets here, and
+     * the {@code build.exclude_source_sets} demotion in {@link CompileListToInputConfiguration} — and a second
+     * copy of it is how the two would drift. A DEFECT FIXED IN ONE READER IS NOT FIXED.
+     */
+    static SourceSet asLibrary(SourceSet sourceSet) {
+        return new SourceSetImpl.Builder()
+                .setName(sourceSet.name())
+                .setBuildUnit(sourceSet.buildUnit())
+                .setSourceDirectories(List.of())
+                .setUri(sourceSet.uri())
+                .setSourceEncoding(sourceSet.sourceEncoding())
+                .setLibrary(true)
+                .setExternalLibrary(true)
+                .build();
+    }
+
     private final String configuredBuildRoot;
 
     /** The build root is derived from the run; see {@link #CompileListToSourceSets(String)} for why to pass it. */
@@ -105,17 +124,41 @@ public class CompileListToSourceSets {
         Map<String, Integer> duplicateNamePrevention = new HashMap<>();
 
         List<JSourceSet> jSourceSets = new LinkedList<>();
+        // ⛔⛔ ABSORBED, NOT GONE. The containment rule below drops a source set whose source directories another
+        // invocation also compiles -- and TWO INVOCATIONS OVER ONE SOURCE TREE HAVE TWO DESTINATIONS. Everything
+        // that was compiled against the loser's output directory still names it, so it has to remain readable,
+        // as a library. Measured on elasticsearch: `libs/native` is compiled twice from the same 38 files, once
+        // for real and once with `-proc:only`; the second absorbed the first, and `libs/native/main` -- named by
+        // 208 of 348 source sets -- existed nowhere in the configuration. Nothing said so. The parse said so, a
+        // day later: org.elasticsearch.nativeaccess does not exist, one compilation unit dropped, and
+        // Summary.parseResult() refuses the WHOLE ParseResult over it.
+        Map<String, SourceSet> absorbed = new LinkedHashMap<>();
         for (CompileInvocation inv : list) {
             SourceSet sourceSet = createSourceSet(inv, buildRoot, buildUnitByDestination, sourceSetsByPath,
                     sourceSetsByDestination, jarFileToDestinationModuleJars, duplicateNamePrevention);
 
             Set<Path> sourceDirSet = new HashSet<>(sourceSet.sourceDirectories());
             // we remove source sets that are fully contained in this one
-            jSourceSets.removeIf(set -> sourceDirSet.containsAll(set.sourceSet.sourceDirectories()));
+            jSourceSets.removeIf(set -> {
+                if (!sourceDirSet.containsAll(set.sourceSet.sourceDirectories())) return false;
+                absorbed.put(set.sourceSet.name(), asLibrary(set.sourceSet));
+                return true;
+            });
             jSourceSets.add(new JSourceSet(inv, sourceSet));
             sourceSetsByPath.put(inv.destination(), sourceSet);
             // we remove classpath parts that are the output of source sets
             classPath.remove(inv.destination());
+        }
+        // ⚠ A set absorbed EARLY can be re-created later under the same name (the containment rule is per
+        // invocation, and the list is walked once), so only those with no surviving namesake become libraries.
+        Set<String> survivors = jSourceSets.stream().map(js -> js.sourceSet.name()).collect(Collectors.toSet());
+        List<SourceSet> demoted = absorbed.entrySet().stream().filter(e -> !survivors.contains(e.getKey()))
+                .map(Map.Entry::getValue).toList();
+        if (!demoted.isEmpty()) {
+            LOGGER.info("{} source set(s) were absorbed by another invocation over the same sources; each stays"
+                        + " readable as a library, because its output directory is on other source sets'"
+                        + " class paths: {}", demoted.size(), demoted.stream().map(SourceSet::name).toList());
+            demoted.forEach(library -> classPath.put(library.uri().toString(), library));
         }
         return new Result(jSourceSets, classPath.values().stream().sorted(Comparator.comparing(SourceSet::name)).toList());
     }

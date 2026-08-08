@@ -103,6 +103,7 @@ public class CompileListToInputConfiguration {
         sourceSets.forEach(builder::addSourceSets);
         classPathParts.forEach(builder::addClassPathParts);
         checkNamesAreIdentities(sourceSets, classPathParts, closure);
+        checkEveryDependencyResolves(sourceSets, classPathParts, closure);
         return builder.build();
     }
 
@@ -189,17 +190,13 @@ public class CompileListToInputConfiguration {
         return sb.toString();
     }
 
-    /** The same output directory, under the same name, as a library: readable by everyone, parsed by nobody. */
+    /**
+     * The same output directory, under the same name, as a library: readable by everyone, parsed by nobody.
+     * ⚠ Shared with the absorbed-source-set demotion in {@link CompileListToSourceSets}, deliberately — two
+     * copies of this is how the two demotions would come to disagree.
+     */
     private static SourceSet asLibrary(SourceSet sourceSet) {
-        return new SourceSetImpl.Builder()
-                .setName(sourceSet.name())
-                .setBuildUnit(sourceSet.buildUnit())
-                .setSourceDirectories(List.of())
-                .setUri(sourceSet.uri())
-                .setSourceEncoding(sourceSet.sourceEncoding())
-                .setLibrary(true)
-                .setExternalLibrary(true)
-                .build();
+        return CompileListToSourceSets.asLibrary(sourceSet);
     }
 
     /**
@@ -221,6 +218,48 @@ public class CompileListToInputConfiguration {
      * caller cannot do anything sensible with an ambiguous graph, and because a warning here was already tried:
      * {@code handleJarInClasspath} logs {@code "Name clash"} and keeps the first jar.
      */
+    /**
+     * ⛔⛔ <b>A DEPENDENCY NAMES SOMETHING, OR THE PACKAGES IT PROVIDES SIMPLY DO NOT EXIST.</b> A serialized
+     * configuration refers to dependencies by name, so a name present on an edge and absent from both lists is
+     * not an untidy reference — it is a set of types that will not resolve, and the parse says so in a way that
+     * points at the victim rather than the cause.
+     * <p>
+     * ⚠ <b>MEASURED, AND IT WOULD HAVE FIRED.</b> On the Elasticsearch configuration generated 2026-08-08,
+     * {@code libs/native/main} was named by <b>208 of 348</b> source sets and existed nowhere: two invocations
+     * compile its 38 files (one real, one {@code -proc:only}) and the containment rule kept only one
+     * destination. What surfaced, a day later and 214 s into a run, was
+     * <i>"package org.elasticsearch.nativeaccess does not exist"</i> in {@code Spawner.java}, one dropped
+     * compilation unit, and {@code Summary.parseResult()} refusing the whole {@code ParseResult}.
+     * ▶ <b>THE COST OF THE MISSING CHECK WAS NOT THE DEFECT, IT WAS THE DISTANCE FROM THE DEFECT.</b> Six
+     * reconciliation checks passed over that configuration — names, counts, test flags, a topological sort,
+     * class-path parts, generated classes — and not one of them asked whether an edge pointed at anything.
+     * <p>
+     * ⚠ It runs over the FINAL lists, after the exclusion demotion, the generated-class attachment and the
+     * TYPE_USE closure, because each of those rewrites edges. Cost: one pass over ~27,000 edges.
+     */
+    private static void checkEveryDependencyResolves(List<SourceSet> sourceSets, List<SourceSet> classPathParts,
+                                                     Set<String> jmodNames) {
+        Set<String> known = new HashSet<>(jmodNames);
+        sourceSets.forEach(ss -> known.add(ss.name()));
+        classPathParts.forEach(part -> known.add(part.name()));
+        Map<String, List<String>> dangling = new LinkedHashMap<>();
+        for (SourceSet sourceSet : sourceSets) {
+            for (SourceSet dependency : sourceSet.dependencies()) {
+                if (!known.contains(dependency.name())) {
+                    dangling.computeIfAbsent(dependency.name(), n -> new ArrayList<>()).add(sourceSet.name());
+                }
+            }
+        }
+        if (!dangling.isEmpty()) {
+            StringBuilder sb = new StringBuilder("These dependencies name nothing in the configuration, so the"
+                                                 + " packages they provide will not resolve and the compilation"
+                                                 + " units using them are dropped:");
+            dangling.forEach((name, users) -> sb.append("\n  '").append(name).append("' <- ").append(users.size())
+                    .append(" source set(s), e.g. ").append(users.stream().limit(3).toList()));
+            throw new IllegalStateException(sb.toString());
+        }
+    }
+
     private static void checkNamesAreIdentities(List<SourceSet> sourceSets, List<SourceSet> jars,
                                                 Set<String> jmodNames) {
         Set<String> seen = new HashSet<>();
