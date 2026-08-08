@@ -813,6 +813,17 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         Info c = info;
         int guard = 0;
         while (c != null && !orderSet.contains(c) && guard++ < 10) {
+            /*
+            A MODULE DESCRIPTOR IS NOT AN ORDER ELEMENT, AND ASKING IT FOR ITS TYPE THROWS.
+            ModuleInfoImpl.typeInfo() is an UnsupportedOperationException, not a null, so the walk below
+            terminated the analysis rather than the loop: every corpus carrying a module-info.java failed
+            MODIFICATION_ANALYSIS outright -- measured on timefold, which has ten of them, where it took
+            structure.demoteDeclaredTypes and its suggestion half down with it.
+            Dropping it is the correct answer and not merely the safe one: a module descriptor declares no
+            member, so no value analysis depends on it and nothing downstream can be lost by leaving it out
+            of the dirty set.
+             */
+            if (c instanceof org.e2immu.language.cst.api.element.ModuleInfo) return null;
             org.e2immu.language.cst.api.info.TypeInfo t =
                     c instanceof org.e2immu.language.cst.api.info.TypeInfo ti ? ti : c.typeInfo();
             c = t == null ? null : t.enclosingMethod();
