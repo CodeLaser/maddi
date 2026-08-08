@@ -33,7 +33,22 @@ public class ParseModuleInfo extends CommonParse {
         super(runtime, parsers);
     }
 
-    public ModuleInfo parse(ModularCompilationUnit mcu, CompilationUnit compilationUnit, Context context) {
+    /**
+     * ⛔⛔ IT TAKES THE COMPILATION-UNIT <b>BUILDER</b>, BECAUSE THE IMPORTS BELONG IN IT. This method used to
+     * receive a finished {@code CompilationUnit} and skip the import declarations on its way to the
+     * {@code module} keyword — the comment below even says what they are for. So every module descriptor came
+     * out with an EMPTY import list, and a short name in {@code uses}/{@code provides} could not be resolved by
+     * anyone: a module declaration has no package, so the imports are the only resolution rule there is
+     * (gap {@code #201}). Building the unit here is what keeps the two halves — the directives and the imports
+     * they are written against — in one object.
+     */
+    public ModuleInfo parse(ModularCompilationUnit mcu,
+                            CompilationUnit.Builder compilationUnitBuilder,
+                            Context context) {
+        for (ImportDeclaration id : mcu.childrenOfType(ImportDeclaration.class)) {
+            compilationUnitBuilder.addImportStatement(parseImportDeclaration(id));
+        }
+        CompilationUnit compilationUnit = compilationUnitBuilder.build();
         ModuleInfo.Builder builder = runtime.newModuleInfoBuilder();
         DetailedSources.Builder detailedSourcesBuilder = context.newDetailedSourcesBuilder();
         int i = 0;

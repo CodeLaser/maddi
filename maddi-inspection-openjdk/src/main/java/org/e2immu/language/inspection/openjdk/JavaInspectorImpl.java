@@ -32,6 +32,7 @@ import org.e2immu.language.inspection.api.resource.MD5FingerPrint;
 import org.e2immu.language.inspection.api.resource.ParameterNameIndex;
 import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.e2immu.language.inspection.resource.InfoByFqn;
+import org.e2immu.language.inspection.resource.ResolveModuleDirectives;
 import org.e2immu.language.inspection.resource.SummaryImpl;
 import org.e2immu.language.java.openjdk.ClassSymbolScanner;
 import org.e2immu.language.java.openjdk.InMemoryJavaFileObject;
@@ -343,6 +344,10 @@ public class JavaInspectorImpl implements JavaInspector {
         } else {
             reparse(summary, sourcesByFqn, parseOptions, linearization, parseOptions.invalidated());
         }
+        // ⛔⛔ #201: this inspector never resolved a module directive, so apiResolved() was null for EVERY
+        // `uses`/`provides` and ComputeCallGraph lost every module→service edge in silence. It runs here, once,
+        // after all source sets are scanned: a descriptor may name a type that lives in another source set.
+        ResolveModuleDirectives.go(summary, compiledTypesManager);
         return summary;
     }
 
@@ -490,6 +495,7 @@ public class JavaInspectorImpl implements JavaInspector {
                         "Cannot set up/parse source set: " + ioe.getMessage(), ioe));
             }
         }
+        ResolveModuleDirectives.go(summary, compiledTypesManager);   // #201, as in parse()
         return summary;
     }
 
@@ -1267,12 +1273,12 @@ public class JavaInspectorImpl implements JavaInspector {
             parser.ModularCompilationUnit();
             Node root = parser.rootNode();
             if (!(root instanceof ModularCompilationUnit mcu)) return null;
-            CompilationUnit compilationUnit = runtime.newCompilationUnitBuilder()
-                    .setURI(uri).setSourceSet(sourceSet).build();
+            CompilationUnit.Builder compilationUnitBuilder = runtime.newCompilationUnitBuilder()
+                    .setURI(uri).setSourceSet(sourceSet);
             var resolver = new ResolverImpl(runtime.computeMethodOverrides(), new ParseHelperImpl(runtime), false);
             var typeContext = new TypeContextImpl(runtime, compiledTypesManager, false);
             var context = ContextImpl.create(runtime, compiledTypesManager, summary, resolver, typeContext, true, false);
-            return new ParseModuleInfo(runtime, null).parse(mcu, compilationUnit, context);
+            return new ParseModuleInfo(runtime, null).parse(mcu, compilationUnitBuilder, context);
         } catch (RuntimeException re) {
             LOGGER.warn("Could not parse module descriptor {}: {}", uri, re.toString());
             return null;

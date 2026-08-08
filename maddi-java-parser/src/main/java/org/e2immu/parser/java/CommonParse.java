@@ -16,6 +16,7 @@ package org.e2immu.parser.java;
 
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.element.Comment;
+import org.e2immu.language.cst.api.element.ImportStatement;
 import org.e2immu.language.cst.api.element.RecordPattern;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.*;
@@ -30,6 +31,10 @@ import org.e2immu.language.inspection.api.parser.ForwardType;
 import org.e2immu.parser.java.util.JavaDocParser;
 import org.parsers.java.Node;
 import org.parsers.java.Token;
+import org.parsers.java.ast.Delimiter;
+import org.parsers.java.ast.ImportDeclaration;
+import org.parsers.java.ast.KeyWord;
+import org.parsers.java.ast.Operator;
 import org.parsers.java.ast.*;
 import org.parsers.java.ast.MultiLineComment;
 import org.parsers.java.ast.SingleLineComment;
@@ -134,6 +139,29 @@ public abstract class CommonParse {
     }
 
     // also called for local type declarations
+    /**
+     * An {@code import} declaration, as an {@link ImportStatement}.
+     * <p>
+     * ⚠ ONE READER, deliberately. Both an ordinary compilation unit and a {@code module-info.java} carry
+     * imports, and a module descriptor's imports are LOAD-BEARING: a module declaration has no package, so a
+     * short name in {@code uses}/{@code provides} resolves through them and nothing else (gap {@code #201}).
+     */
+    protected ImportStatement parseImportDeclaration(ImportDeclaration id) {
+        boolean isStatic = id.get(1) instanceof KeyWord kw && Token.TokenType.STATIC.equals(kw.getType());
+        int i = isStatic ? 2 : 1;
+        String importString = id.get(i).getSource().replaceAll("\\s+", "");
+        ImportStatement.Builder builder = runtime.newImportStatementBuilder();
+        builder.setSource(source(id))
+                .addComments(comments(id))
+                .setIsStatic(isStatic);
+
+        if (id.get(i + 1) instanceof Delimiter d && Token.TokenType.DOT.equals(d.getType())
+            && id.get(i + 2) instanceof Operator o && Token.TokenType.STAR.equals(o.getType())) {
+            return builder.setImport(importString + ".*").build();
+        }
+        return builder.setImport(importString).build();
+    }
+
     protected Node handleTypeModifiers(TypeDeclaration td, TypeInfo typeInfo, boolean addDetailedSources) {
         DetailedSources.Builder detailedSourcesBuilder = addDetailedSources ? runtime.newDetailedSourcesBuilder() : null;
 

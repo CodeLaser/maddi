@@ -17,7 +17,9 @@ package org.e2immu.language.cst.api.element;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Represents the contents of a Java 9+ {@code module-info.java} file.
@@ -48,6 +50,57 @@ public interface ModuleInfo extends Info {
 
     /** Returns {@code true} if this is an {@code open module} declaration. */
     boolean open();
+
+    /**
+     * Simple name → fully qualified name, for every single-type import of this descriptor.
+     * <p>
+     * ⭐ <b>A MODULE DECLARATION HAS NO PACKAGE, so a short name in a directive can only come from an import</b>
+     * (JLS 7.7) — and the imports are right there in the same compilation unit. This is the whole resolution
+     * rule, and it lives here so that everything answering <i>"which type does this directive name?"</i> answers
+     * it the same way.
+     * <p>
+     * ⚠ Neither a static import nor an on-demand ({@code .*}) import can name a service type, so both are
+     * skipped. Empty when the descriptor has no written compilation unit — a short name is then unresolvable,
+     * and {@link #resolveDirectiveName} says so by returning it unchanged rather than guessing a package.
+     */
+    default Map<String, String> importedShortNames() {
+        if (compilationUnit() == null) return Map.of();
+        Map<String, String> map = new HashMap<>();
+        for (ImportStatement is : compilationUnit().importStatements()) {
+            if (is.isStatic() || is.isStar()) continue;
+            String fqn = is.importString();
+            int dot = fqn.lastIndexOf('.');
+            if (dot > 0) map.put(fqn.substring(dot + 1), fqn);
+        }
+        return map;
+    }
+
+    /**
+     * The fully qualified name a directive names, whatever it is <em>written</em> as. A name that is already
+     * qualified is returned unchanged; a short name is looked up among {@link #importedShortNames()}; anything
+     * else is returned as written.
+     * <p>
+     * ⛔ <b>THE WRITTEN FORM IS NOT A MISTAKE TO BE NORMALISED AWAY.</b> {@code Uses#api()} and
+     * {@code Provides#api()} deliberately return the source text, because a refactoring that retargets a
+     * directive must be able to rewrite it as its author wrote it. Resolution is therefore a separate question,
+     * asked here, rather than something the parse decides on everyone's behalf.
+     */
+    default String resolveDirectiveName(String written) {
+        return resolveDirectiveName(written, importedShortNames());
+    }
+
+    /**
+     * {@link #resolveDirectiveName(String)} against an import map the caller already built — the map is per
+     * descriptor and a caller typically resolves every directive of one descriptor in a row.
+     * <p>
+     * ⚠ It exists so that the convenience and the loop cannot drift: <b>this is the only place the rule is
+     * written</b>, and the instance method delegates to it. A second copy "for performance" is how two readers
+     * of one question start disagreeing.
+     */
+    static String resolveDirectiveName(String written, Map<String, String> importedShortNames) {
+        if (written == null || written.indexOf('.') >= 0) return written;
+        return importedShortNames.getOrDefault(written, written);
+    }
 
     /** Builder for constructing a {@link ModuleInfo} during parsing. */
     interface Builder extends Element.Builder<Builder> {
@@ -170,7 +223,15 @@ public interface ModuleInfo extends Info {
      */
     interface Uses extends Element {
 
-        /** Returns the fully qualified name of the service interface or abstract class. */
+        /**
+         * Returns the service interface <b>exactly as written</b> in the directive — which may be a simple name
+         * resolved through one of the descriptor's imports, and on Elasticsearch is, 2 times in 19.
+         * <p>
+         * ⚠ This javadoc used to promise <i>"the fully qualified name"</i>, and the parse never did that: it
+         * stores {@code apiNode.getSource()}. A DOCUMENTED BEHAVIOUR IS A CLAIM LIKE ANY OTHER. The written form
+         * is kept on purpose — a refactoring rewrites the directive as its author wrote it — so ask
+         * {@link ModuleInfo#resolveDirectiveName} for the qualified name, or {@link #apiResolved()} for the type.
+         */
         String api();
 
         /**
@@ -189,7 +250,10 @@ public interface ModuleInfo extends Info {
      */
     interface Provides extends Element {
 
-        /** Returns the fully qualified name of the service interface or abstract class. */
+        /**
+         * Returns the service interface <b>exactly as written</b>. See {@link Uses#api()}: the parse stores the
+         * source text, and on Elasticsearch 17 of 70 {@code provides} directives name their api short.
+         */
         String api();
 
         /**
@@ -202,9 +266,10 @@ public interface ModuleInfo extends Info {
         TypeInfo apiResolved();
 
         /**
-         * Returns the fully qualified names of the service implementation classes, in declaration order.
+         * Returns the service implementation classes <b>exactly as written</b>, in declaration order.
          * A {@code provides <api> with A, B, C} directive lists more than one; a plain {@code provides <api> with A}
-         * lists exactly one.
+         * lists exactly one. ⚠ As {@link Uses#api()}, these are source text and not necessarily qualified — 18 of
+         * Elasticsearch's 126 implementation names are short.
          */
         List<String> implementations();
 

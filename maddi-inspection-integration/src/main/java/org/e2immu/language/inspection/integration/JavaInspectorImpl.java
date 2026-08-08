@@ -36,6 +36,7 @@ import org.e2immu.language.inspection.impl.parser.ContextImpl;
 import org.e2immu.language.inspection.impl.parser.ResolverImpl;
 import org.e2immu.language.inspection.impl.parser.TypeContextImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
+import org.e2immu.language.inspection.resource.ResolveModuleDirectives;
 import org.e2immu.language.inspection.resource.SummaryImpl;
 import org.e2immu.parser.java.*;
 import org.e2immu.support.Either;
@@ -741,25 +742,12 @@ public class JavaInspectorImpl implements JavaInspector {
                              List<ParseTypeDeclaration.DelayedParsingInformation> delayed) {
     }
 
+    /**
+     * Gap {@code #201}: one implementation, shared with the openjdk inspector — which had none at all, so every
+     * module→service edge was missing on the path every real run takes.
+     */
     private void resolveModuleInfo(Summary summary) {
-        for (Map.Entry<SourceSet, ModuleInfo> entry : summary.sourceSetToModuleInfoMap().entrySet()) {
-            SourceSet sourceSet = entry.getKey();
-            ModuleInfo moduleInfo = entry.getValue();
-            for (ModuleInfo.Uses uses : moduleInfo.uses()) {
-                TypeInfo resolved = compiledTypesManager.get(uses.api(), sourceSet);
-                if (resolved != null) uses.setApiResolved(resolved);
-            }
-            for (ModuleInfo.Provides provides : moduleInfo.provides()) {
-                TypeInfo r0 = compiledTypesManager.get(provides.api(), sourceSet);
-                if (r0 != null) provides.setApiResolved(r0);
-                List<TypeInfo> implementationsResolved = new ArrayList<>();
-                for (String implementation : provides.implementations()) {
-                    TypeInfo r1 = compiledTypesManager.get(implementation, sourceSet);
-                    if (r1 != null) implementationsResolved.add(r1);
-                }
-                provides.setImplementationsResolved(implementationsResolved);
-            }
-        }
+        ResolveModuleDirectives.go(summary, compiledTypesManager);
     }
 
     /**
@@ -788,9 +776,9 @@ public class JavaInspectorImpl implements JavaInspector {
             parser.ModularCompilationUnit();
             Node root = parser.rootNode();
             if (!(root instanceof ModularCompilationUnit mcu)) return null;
-            CompilationUnit compilationUnit = runtime.newCompilationUnitBuilder()
-                    .setURI(moduleInfoFile.toUri()).build();
-            return new ParseModuleInfo(runtime, null).parse(mcu, compilationUnit, context);
+            CompilationUnit.Builder compilationUnitBuilder = runtime.newCompilationUnitBuilder()
+                    .setURI(moduleInfoFile.toUri());
+            return new ParseModuleInfo(runtime, null).parse(mcu, compilationUnitBuilder, context);
         } catch (RuntimeException re) {
             LOGGER.warn("Could not parse module descriptor {}: {}", moduleInfoFile, re.toString());
             return null;
@@ -804,10 +792,10 @@ public class JavaInspectorImpl implements JavaInspector {
         parser.ModularCompilationUnit();
         Node root = parser.rootNode();
         if (root instanceof ModularCompilationUnit mcu) {
-            CompilationUnit compilationUnit = runtime.newCompilationUnitBuilder()
+            CompilationUnit.Builder compilationUnitBuilder = runtime.newCompilationUnitBuilder()
                     .setURI(sourceFile.uri())
-                    .setSourceSet(sourceFile.sourceSet()).build();
-            return new ParseModuleInfo(runtime, null).parse(mcu, compilationUnit, rootContext);
+                    .setSourceSet(sourceFile.sourceSet());
+            return new ParseModuleInfo(runtime, null).parse(mcu, compilationUnitBuilder, rootContext);
         }
         return null;
     }
