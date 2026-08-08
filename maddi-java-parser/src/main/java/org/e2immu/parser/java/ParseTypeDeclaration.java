@@ -114,7 +114,7 @@ public class ParseTypeDeclaration extends CommonParse {
                         return typeInfo;
                     },
                     classDeclaration, false).getLeft();
-        } catch (RuntimeException | AssertionError e) {
+        } catch (RuntimeException | AssertionError | StackOverflowError e) {
             LOGGER.error("Caught exception", e);
             throw e;
         }

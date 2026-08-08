@@ -262,7 +262,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
             LOGGER.debug("Finished bytecode inspection of {}", fqn);
             typeData.updateByteCodeInspectorData(new DataImpl(Status.DONE, typeParameterContext));
             return typeInfo;
-        } catch (RuntimeException | AssertionError re) {
+        } catch (RuntimeException | AssertionError | StackOverflowError re) {
             LOGGER.error("Path = {}", typeData.sourceFile());
             LOGGER.error("FQN  = {}", typeData.typeInfo().fullyQualifiedName());
             LOGGER.error("Number of compiled types = {}", compiledTypesManager.typesLoaded(true).size());

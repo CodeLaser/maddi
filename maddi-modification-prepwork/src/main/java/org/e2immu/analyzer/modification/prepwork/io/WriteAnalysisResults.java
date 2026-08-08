@@ -164,7 +164,7 @@ public class WriteAnalysisResults {
                                                     org.e2immu.language.cst.api.analysis.PropertyValueMap.PropertyValue pv) {
         try {
             return codec.encode(context, pv.property(), pv.value());
-        } catch (RuntimeException | AssertionError e) {
+        } catch (RuntimeException | AssertionError | StackOverflowError e) {
             ++skippedValues;
             LOGGER.warn("Skipping unencodable value for property {} ({}): {}", pv.property().key(),
                     pv.value().getClass().getSimpleName(), e.toString());

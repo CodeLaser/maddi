@@ -140,7 +140,7 @@ public class ResolverImpl implements Resolver {
             try {
                 AnnotationExpression ae = parseAnnotationExpression(annotationTodo);
                 annotationTodo.infoBuilder.setAnnotationExpression(annotationTodo.indexInAnnotationList, ae);
-            } catch (RuntimeException | AssertionError re) {
+            } catch (RuntimeException | AssertionError | StackOverflowError re) {
                 registerResolutionFailure(annotationTodo.context, annotationTodo.infoBuilder, re);
             }
         });
@@ -149,7 +149,7 @@ public class ResolverImpl implements Resolver {
             try {
                 JavaDoc resolved = resolveJavaDoc(javaDocToDo);
                 javaDocToDo.infoBuilder.setJavaDoc(resolved);
-            } catch (RuntimeException | AssertionError re) {
+            } catch (RuntimeException | AssertionError | StackOverflowError re) {
                 registerResolutionFailure(javaDocToDo.context, javaDocToDo.info, re);
             }
         });
@@ -160,14 +160,14 @@ public class ResolverImpl implements Resolver {
             if (todo.infoBuilder instanceof FieldInfo.Builder builder) {
                 try {
                     resolveField(todo, builder);
-                } catch (RuntimeException | AssertionError re) {
+                } catch (RuntimeException | AssertionError | StackOverflowError re) {
                     registerResolutionFailure(todo.context, todo.info, re);
                 }
                 todo.context.summary().addType(todo.context.enclosingType().primaryType());
             } else if (todo.infoBuilder instanceof MethodInfo.Builder builder) {
                 try {
                     resolveMethod(todo, builder);
-                } catch (RuntimeException | AssertionError re) {
+                } catch (RuntimeException | AssertionError | StackOverflowError re) {
                     registerResolutionFailure(todo.context, todo.info, re);
                 }
                 todo.context.summary().addType(todo.context.enclosingType().primaryType());

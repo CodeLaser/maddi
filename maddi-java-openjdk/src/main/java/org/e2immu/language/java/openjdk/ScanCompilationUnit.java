@@ -1683,7 +1683,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 }
             }
             return null;
-        } catch (RuntimeException | AssertionError e) {
+        } catch (RuntimeException | AssertionError | StackOverflowError e) {
             LOGGER.error("Caught exception in visitVariable " + node + "; source " + sourceForNode(node));
             throw e;
         }
@@ -2602,7 +2602,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
             super.visitMemberSelect(node, unused);
             return null;
-        } catch (RuntimeException | AssertionError e) {
+        } catch (RuntimeException | AssertionError | StackOverflowError e) {
             LOGGER.error("Caught exception in visitMemberSelect " + node + "; source " + sourceForNode(node));
             throw e;
         }

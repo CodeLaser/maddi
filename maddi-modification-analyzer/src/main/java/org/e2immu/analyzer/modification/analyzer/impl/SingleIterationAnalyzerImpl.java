@@ -341,7 +341,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                 clearAllVariableData(mi);
                 try {
                     prep.doMethod(mi);
-                } catch (RuntimeException | AssertionError e) {
+                } catch (RuntimeException | AssertionError | StackOverflowError e) {
                     LOGGER.error("VariableData regeneration failed for {}", mi, e);
                 }
             }
@@ -353,7 +353,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         if (failed.contains(mi) || !flattenedMethods.add(mi)) return;
         try {
             if (!flattenOneMethod(mi)) flattenedMethods.remove(mi); // nothing flattened: don't track
-        } catch (RuntimeException | AssertionError e) {
+        } catch (RuntimeException | AssertionError | StackOverflowError e) {
             LOGGER.error("VariableData flatten failed for {}; keeping full VD", mi, e);
             flattenedMethods.remove(mi);
         }

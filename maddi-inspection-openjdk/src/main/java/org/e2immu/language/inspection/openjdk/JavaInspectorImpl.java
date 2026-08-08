@@ -664,7 +664,7 @@ public class JavaInspectorImpl implements JavaInspector {
                     scanCompilationUnits.classSymbolScanner().commitType(typeInfo);
                 }
                 compiledTypesManager.addTypeInfo(null, typeInfo);
-            } catch (RuntimeException | AssertionError e) {
+            } catch (RuntimeException | AssertionError | StackOverflowError e) {
                 // committing a type whose references were dropped by fault isolation can fail. fail-fast: rethrow;
                 // accumulate: skip the type and record it, so the run still completes over what did commit.
                 if (!ignoreErrors) throw e;

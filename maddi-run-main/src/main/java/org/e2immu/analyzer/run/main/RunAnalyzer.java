@@ -202,7 +202,7 @@ public class RunAnalyzer implements Runnable {
             IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(javaInspector, modConfig);
             try {
                 analyzer.analyze(order);
-            } catch (RuntimeException | AssertionError analyzerError) {
+            } catch (RuntimeException | AssertionError | StackOverflowError analyzerError) {
                 terminalError = analyzerError;
                 exitValue = Main.EXIT_ANALYSER_ERROR;
                 return;

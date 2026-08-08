@@ -41,7 +41,7 @@ public class CompositeValueFeed implements AnalysisValueFeed {
         for (AnalysisValueFeed d : delegates) {
             try {
                 d.passCompleted(iteration, fullPass, analyzed);
-            } catch (RuntimeException | AssertionError e) {
+            } catch (RuntimeException | AssertionError | StackOverflowError e) {
                 LOGGER.warn("value feed {} threw on passCompleted; ignoring", d.getClass().getSimpleName(), e);
             }
         }
@@ -52,7 +52,7 @@ public class CompositeValueFeed implements AnalysisValueFeed {
         for (AnalysisValueFeed d : delegates) {
             try {
                 d.waveCompleted(iteration, wave, analyzed);
-            } catch (RuntimeException | AssertionError e) {
+            } catch (RuntimeException | AssertionError | StackOverflowError e) {
                 LOGGER.warn("value feed {} threw on waveCompleted; ignoring", d.getClass().getSimpleName(), e);
             }
         }
@@ -64,7 +64,7 @@ public class CompositeValueFeed implements AnalysisValueFeed {
         for (AnalysisValueFeed d : delegates) {
             try {
                 d.elementCompleted();
-            } catch (RuntimeException | AssertionError e) {
+            } catch (RuntimeException | AssertionError | StackOverflowError e) {
                 LOGGER.warn("value feed {} threw on elementCompleted; ignoring", d.getClass().getSimpleName(), e);
             }
         }
@@ -75,7 +75,7 @@ public class CompositeValueFeed implements AnalysisValueFeed {
         for (AnalysisValueFeed d : delegates) {
             try {
                 d.phase(phase, iteration);
-            } catch (RuntimeException | AssertionError e) {
+            } catch (RuntimeException | AssertionError | StackOverflowError e) {
                 LOGGER.warn("value feed {} threw on phase; ignoring", d.getClass().getSimpleName(), e);
             }
         }

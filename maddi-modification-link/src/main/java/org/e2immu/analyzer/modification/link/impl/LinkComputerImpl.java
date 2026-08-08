@@ -232,7 +232,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             TypeInfo typeInfo = method.typeInfo();
             boolean shallow = options.forceShallow() || method.isAbstract() || typeInfo.compilationUnit().externalLibrary();
             return doMethod(method, shallow, false, true);
-        } catch (RuntimeException | AssertionError e) {
+        } catch (RuntimeException | AssertionError | StackOverflowError e) {
             LOGGER.error("Caught exception computing {}", method, e);
             throw e;
         }
@@ -250,7 +250,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             TypeInfo typeInfo = method.typeInfo();
             boolean shallow = options.forceShallow() || typeInfo.compilationUnit().externalLibrary();
             return doMethod(method, shallow, true, true);
-        } catch (RuntimeException | AssertionError e) {
+        } catch (RuntimeException | AssertionError | StackOverflowError e) {
             LOGGER.error("Caught exception recursively computing {}", method, e);
             throw e;
         }
@@ -692,7 +692,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 } else {
                     try {
                         vd = doStatement(statement, vd, firstStatementOfBlock, lastStatement);
-                    } catch (RuntimeException | AssertionError re) {
+                    } catch (RuntimeException | AssertionError | StackOverflowError re) {
                         LOGGER.error("Caught exception in statement {} of {}: {}", statement.source(), methodInfo,
                                 re.getMessage());
                         throw re;

@@ -18,6 +18,7 @@ import org.e2immu.annotation.Fluent;
 import org.e2immu.annotation.NotNull;
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
+import org.e2immu.language.cst.api.info.InfoMapView;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.type.NamedType;
@@ -26,6 +27,7 @@ import org.e2immu.support.Either;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -142,6 +144,25 @@ public interface TypeParameter extends NamedType, Info {
     Stream<Element.TypeReference> typesReferenced(TypeReferenceNature typeReferenceNature,
                                                   DetailedSources detailedSources,
                                                   Set<TypeParameter> visited);
+
+    /**
+     * Rewire this type parameter, carrying the map of parameters already rewired.
+     * <p>
+     * The map is what makes the traversal terminate, and it must be threaded rather than recreated: a type
+     * parameter is entered into it <em>before</em> its bounds are rewired, so a bound that leads back to it
+     * finds it there. {@link Element#rewire(InfoMapView)} starts an empty one, which is correct only at the
+     * top of a traversal — mutually F-bounded parameters ({@code A extends Foo<B>}, {@code B extends Foo<A>})
+     * recurse forever if each nested call begins afresh. Same hazard the {@code visited} set of
+     * {@link #typesReferenced} guards against, on a different traversal.
+     * <p>
+     * The default ignores the map and delegates, which is the behaviour that predates this method: it keeps
+     * outside implementations compiling, and is correct for a decorator that forwards to a parameter which
+     * does honour the map. An implementation that owns its bounds should override.
+     */
+    @NotNull
+    default TypeParameter rewire(InfoMapView infoMap, Map<TypeParameter, TypeParameter> rewiredTypeParameters) {
+        return (TypeParameter) rewire(infoMap);
+    }
 
     /** Builder for constructing a {@link TypeParameter} during the inspection phase. */
     interface Builder extends Info.Builder<Builder> {

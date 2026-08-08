@@ -142,7 +142,7 @@ public class CheckpointWriter implements AnalysisValueFeed {
                     }
                 }
                 ok++;
-            } catch (IOException | RuntimeException | AssertionError e) {
+            } catch (IOException | RuntimeException | AssertionError | StackOverflowError e) {
                 failed++;
                 LOGGER.debug("Checkpoint skip {} after {}: {}", primary, label, e.toString());
             } finally {

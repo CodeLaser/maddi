@@ -364,7 +364,7 @@ public class RunAnalyzer implements Runnable {
                 } else {
                     analyzer.analyze(order, ccg.graph()); // graph enables worklist narrowing (default ON, NOWORKLIST=1 opts out)
                 }
-            } catch (RuntimeException | AssertionError analyzerError) {
+            } catch (RuntimeException | AssertionError | StackOverflowError analyzerError) {
                 terminalError = analyzerError;
                 exitValue = Main.EXIT_ANALYSER_ERROR;
                 return;
@@ -384,7 +384,7 @@ public class RunAnalyzer implements Runnable {
                     // reverse = the pass missed something frozen-modified: a shadow-pass gap, must be
                     // triaged to zero before the pass can gate phase 2 (its own soundness contract)
                     report.reverseDivergences().forEach(d -> LOGGER.info("SHADOWDIFF REV {}", d));
-                } catch (RuntimeException | AssertionError e) {
+                } catch (RuntimeException | AssertionError | StackOverflowError e) {
                     LOGGER.error("SHADOWDIFF failed: {}", e.toString());
                 }
             }
