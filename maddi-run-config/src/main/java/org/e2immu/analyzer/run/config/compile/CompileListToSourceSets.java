@@ -33,7 +33,16 @@ public class CompileListToSourceSets {
 
     private static final String SEPARATOR = FileSystems.getDefault().getSeparator();
 
-    public record Result(List<JSourceSet> jSourceSets, List<SourceSet> jars) {
+    /**
+     * @param buildRoot the directory the build ran from — the InputConfiguration's working directory, and what
+     *                  every relative path in the configuration resolves against. ⛔ It is carried HERE because
+     *                  this is where it is decided (configured or derived), and a configuration that does not
+     *                  know it defaults to {@code "."}, i.e. the JVM's own directory: measured on
+     *                  elasticsearch, that made {@code writeModuleInfo} refuse the corpus with
+     *                  <i>"Refusing to write outside the project: …/es-phase3/libs/core resolves outside
+     *                  …/codelaser-refactor-graalpy"</i> — the analysed tree reported as foreign to itself.
+     */
+    public record Result(List<JSourceSet> jSourceSets, List<SourceSet> jars, String buildRoot) {
     }
 
     public record JSourceSet(CompileInvocation invocation, SourceSet sourceSet) {
@@ -160,7 +169,8 @@ public class CompileListToSourceSets {
                         + " class paths: {}", demoted.size(), demoted.stream().map(SourceSet::name).toList());
             demoted.forEach(library -> classPath.put(library.uri().toString(), library));
         }
-        return new Result(jSourceSets, classPath.values().stream().sorted(Comparator.comparing(SourceSet::name)).toList());
+        return new Result(jSourceSets,
+                classPath.values().stream().sorted(Comparator.comparing(SourceSet::name)).toList(), buildRoot);
     }
 
     private Map<String, String> computeModuleJars(String buildRoot, Map<String, String> buildUnitByDestination,

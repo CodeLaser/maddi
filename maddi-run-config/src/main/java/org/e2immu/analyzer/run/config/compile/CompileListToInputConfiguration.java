@@ -62,6 +62,14 @@ public class CompileListToInputConfiguration {
     public static InputConfiguration build(CompileListToSourceSets.Result result, List<String> extraJmods,
                                            List<String> excludedSourceSets) {
         InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder();
+        // ⛔⛔ THE ANALYSED TREE MUST NOT BE FOREIGN TO ITSELF. Without this the working directory stays at its
+        // default "." -- the JVM's own directory -- and every lever that resolves a path against the project
+        // root refuses the corpus it is analysing. Measured on elasticsearch: writeModuleInfo answered
+        // "Refusing to write outside the project: .../es-phase3/libs/core resolves outside
+        // .../codelaser-refactor-graalpy". The build root is known here; it was simply never passed on.
+        if (result.buildRoot() != null && !result.buildRoot().isBlank()) {
+            builder.setWorkingDirectory(result.buildRoot());
+        }
         Set<String> closure = new HashSet<>(JavaModules.jmodDependencyClosure("java.se"));
         if (extraJmods != null) {
             extraJmods.forEach(jm -> {

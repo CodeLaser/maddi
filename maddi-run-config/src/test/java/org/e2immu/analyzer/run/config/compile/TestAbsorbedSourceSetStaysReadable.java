@@ -150,7 +150,8 @@ public class TestAbsorbedSourceSetStaysReadable {
 
         IllegalStateException e = assertThrows(IllegalStateException.class, () ->
                 CompileListToInputConfiguration.build(new CompileListToSourceSets.Result(
-                        List.of(new CompileListToSourceSets.JSourceSet(null, consumer)), List.of()), List.of()));
+                        List.of(new CompileListToSourceSets.JSourceSet(null, consumer)), List.of(), null),
+                        List.of()));
 
         assertTrue(e.getMessage().contains("libs/native/main"), e.getMessage());
         assertTrue(e.getMessage().contains("will not resolve"), e.getMessage());

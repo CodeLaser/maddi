@@ -64,7 +64,8 @@ public class TestNamesAreIdentities {
 
     private static CompileListToSourceSets.Result result(List<SourceSet> sourceSets, List<SourceSet> jars) {
         return new CompileListToSourceSets.Result(
-                sourceSets.stream().map(ss -> new CompileListToSourceSets.JSourceSet(null, ss)).toList(), jars);
+                sourceSets.stream().map(ss -> new CompileListToSourceSets.JSourceSet(null, ss)).toList(), jars,
+                null);
     }
 
     /** ⚠ CONTROL FIRST: an ordinary configuration must build, or the check below proves nothing. */
