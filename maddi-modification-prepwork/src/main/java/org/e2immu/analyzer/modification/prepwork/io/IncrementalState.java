@@ -78,7 +78,7 @@ public record IncrementalState(Map<String, String> analysisFingerprints,
             try {
                 FingerPrint fp = AnalysisFingerprint.of(runtime, pt);
                 if (!fp.isNoFingerPrint()) fingerprints.put(pt.fullyQualifiedName(), fp.toString());
-            } catch (RuntimeException | AssertionError e) {
+            } catch (RuntimeException | AssertionError | StackOverflowError e) {
                 // the known codec tail (fieldIndex & friends): a type without a fingerprint is
                 // simply always-recomputed on resume — degraded, never wrong
                 LOGGER.debug("No fingerprint for {}: {}", pt, e.toString());

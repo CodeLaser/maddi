@@ -657,7 +657,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                             continue;
                         }
                         LOGGER.info("MODREACH joint fixpoint after {} round(s)", modReachRounds);
-                    } catch (RuntimeException | AssertionError e) {
+                    } catch (RuntimeException | AssertionError | StackOverflowError e) {
                         LOGGER.error("MODREACH pass failed; modification properties keep their "
                                      + "fixpoint values (unfrozen)", e);
                     }

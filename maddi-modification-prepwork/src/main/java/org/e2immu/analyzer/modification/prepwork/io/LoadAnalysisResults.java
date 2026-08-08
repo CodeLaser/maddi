@@ -170,7 +170,7 @@ public class LoadAnalysisResults {
             for (Path jsonFile : jsonFiles.toList()) {
                 try {
                     countPrimaryTypes += go(codec, jsonFile);
-                } catch (IOException | RuntimeException | AssertionError e) {
+                } catch (IOException | RuntimeException | AssertionError | StackOverflowError e) {
                     ++skippedFiles;
                     LOGGER.warn("Skipping unreadable analysis file {}: {}", jsonFile, e.toString());
                 }

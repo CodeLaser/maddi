@@ -237,7 +237,7 @@ public class ScanCompilationUnits {
                 classSymbolScanner.registerSourceCompilationUnit(scu.currentCompilationUnit());
                 scanners.add(scu);
                 unitList.add(unit);
-            } catch (RuntimeException | AssertionError e) {
+            } catch (RuntimeException | AssertionError | StackOverflowError e) {
                 // fail-fast: preserve the historical abort. accumulate: drop this unit and keep going, so one
                 // unresolved reference (partial classpath) no longer kills the whole source set.
                 if (!diagnosticCollector.ignoreErrors()) {
@@ -256,7 +256,7 @@ public class ScanCompilationUnits {
                 scu.scanBodies(unitList.get(i));
                 primaryTypes.addAll(scu.types());
                 modules.addAll(scu.modules());
-            } catch (RuntimeException | AssertionError e) {
+            } catch (RuntimeException | AssertionError | StackOverflowError e) {
                 // fail-fast: preserve the historical abort. accumulate: drop this unit's (partial) types and keep
                 // going, so the run reports every problem file instead of dying on the first.
                 if (!diagnosticCollector.ignoreErrors()) {
@@ -275,7 +275,7 @@ public class ScanCompilationUnits {
             if (!primaryType.hasBeenInspected()) {
                 try {
                     scanJavaDocsAndCommit(primaryType);
-                } catch (RuntimeException | AssertionError e) {
+                } catch (RuntimeException | AssertionError | StackOverflowError e) {
                     // a type we could not commit (e.g. a malformed supertype set after dropped units). fail-fast:
                     // rethrow; accumulate: drop the type and keep going, so it is not returned to the analysis.
                     if (!diagnosticCollector.ignoreErrors()) throw e;
@@ -483,7 +483,7 @@ public class ScanCompilationUnits {
                         fieldInfo.builder().setJavaDoc(resolveJavaDoc.resolve(anon, null, fieldInfo.javaDoc()));
                     }
                 }
-            } catch (RuntimeException | AssertionError e) {
+            } catch (RuntimeException | AssertionError | StackOverflowError e) {
                 LOGGER.warn("Cannot resolve javadoc of anonymous type in {}: {}", typeInfo, e.toString());
             }
             resolveJavaDocOfAnonymousTypes(anon);
