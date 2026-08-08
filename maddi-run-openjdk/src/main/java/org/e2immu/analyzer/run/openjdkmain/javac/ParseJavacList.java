@@ -43,8 +43,18 @@ public class ParseJavacList {
      *                  {@link org.e2immu.analyzer.run.config.compile.CompileListToSourceSets#CompileListToSourceSets(String)}.
      */
     public InputConfiguration inputConfiguration(List<Javac> javacList, List<String> extraJmods, String buildRoot) {
+        return inputConfiguration(javacList, extraJmods, buildRoot, List.of());
+    }
+
+    /**
+     * @param excludedSourceSets source sets to keep out of the parse; a compile task list cannot express this,
+     *                           because Gradle compiles a requested task's dependencies whether you asked for
+     *                           them or not. See {@code CompileListToInputConfiguration#exclude}.
+     */
+    public InputConfiguration inputConfiguration(List<Javac> javacList, List<String> extraJmods, String buildRoot,
+                                                 List<String> excludedSourceSets) {
         JavacListToSourceSets.Result result = new JavacListToSourceSets(buildRoot).compute(javacList);
-        return CompileListToInputConfiguration.build(result, extraJmods);
+        return CompileListToInputConfiguration.build(result, extraJmods, excludedSourceSets);
     }
 
     public List<Javac> javacLines(Path javacLogFile) throws IOException {

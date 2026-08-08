@@ -46,8 +46,15 @@ public class ParseKotlincList {
     /** @param buildRoot the directory the build was run from; it decides the source-set names. */
     public InputConfiguration inputConfiguration(List<? extends CompileInvocation> kotlincList,
                                                  List<String> extraJmods, String buildRoot) {
+        return inputConfiguration(kotlincList, extraJmods, buildRoot, List.of());
+    }
+
+    /** @param excludedSourceSets source sets to keep out of the parse; see the java front-end for why. */
+    public InputConfiguration inputConfiguration(List<? extends CompileInvocation> kotlincList,
+                                                 List<String> extraJmods, String buildRoot,
+                                                 List<String> excludedSourceSets) {
         CompileListToSourceSets.Result result = new CompileListToSourceSets(buildRoot).compute(kotlincList);
-        return CompileListToInputConfiguration.build(result, extraJmods);
+        return CompileListToInputConfiguration.build(result, extraJmods, excludedSourceSets);
     }
 
     public List<Kotlinc> kotlincLines(Path kotlincLogFile) throws IOException {

@@ -22,7 +22,11 @@ import org.e2immu.language.inspection.resource.SourceSetImpl;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -38,12 +42,25 @@ import java.util.stream.Stream;
  * front-ends BY CONSTRUCTION rather than by remembering.
  */
 public class CompileListToInputConfiguration {
+    private static final org.slf4j.Logger LOGGER =
+            org.slf4j.LoggerFactory.getLogger(CompileListToInputConfiguration.class);
+
 
     /**
      * @param result     the source-set graph reconstructed from the compile invocations
      * @param extraJmods JDK modules to add on top of the {@code java.se} closure, each with its own closure
      */
     public static InputConfiguration build(CompileListToSourceSets.Result result, List<String> extraJmods) {
+        return build(result, extraJmods, List.of());
+    }
+
+    /**
+     * @param result               the source-set graph reconstructed from the compile invocations
+     * @param extraJmods           JDK modules to add on top of the {@code java.se} closure
+     * @param excludedSourceSets   names of source sets to keep OUT of the parse; see {@link #exclude}
+     */
+    public static InputConfiguration build(CompileListToSourceSets.Result result, List<String> extraJmods,
+                                           List<String> excludedSourceSets) {
         InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder();
         Set<String> closure = new HashSet<>(JavaModules.jmodDependencyClosure("java.se"));
         if (extraJmods != null) {
@@ -67,12 +84,17 @@ public class CompileListToInputConfiguration {
         List<SourceSet> sourceSets = result.jSourceSets().stream()
                 .map(CompileListToSourceSets.JSourceSet::sourceSet).toList();
 
+        // ⚠ EXCLUSION FIRST, so nothing below spends time on a source set that is not going to be parsed --
+        // and so an excluded set's own classpath never enters the configuration, which is the point of it.
+        Excluded excluded = exclude(sourceSets, excludedSourceSets);
+        sourceSets = excluded.kept();
+
         // An output directory that has become a source set carries the classes an annotation processor generated
         // during that compile, and those belong to nothing at all once the directory leaves the classpath.
         // Detection only: the source sets keep their identity until the closure below has run over them.
         AnnotationProcessorOutput.Result generated = new AnnotationProcessorOutput().materialise(sourceSets);
-        List<SourceSet> classPathParts = Stream.concat(result.jars().stream(), generated.libraries().stream())
-                .toList();
+        List<SourceSet> classPathParts = Stream.of(result.jars(), generated.libraries(), excluded.libraries())
+                .flatMap(List::stream).toList();
 
         // A compile classpath is not a closure over the TYPE_USE annotations its dependencies carry.
         sourceSets = new TypeUseAnnotationClosure().close(sourceSets, classPathParts).sourceSets();
@@ -82,6 +104,102 @@ public class CompileListToInputConfiguration {
         classPathParts.forEach(builder::addClassPathParts);
         checkNamesAreIdentities(sourceSets, classPathParts, closure);
         return builder.build();
+    }
+
+    /**
+     * @param kept      the source sets that stay in the parse, with their dependency edges re-pointed
+     * @param libraries the excluded source sets, demoted to external libraries
+     */
+    private record Excluded(List<SourceSet> kept, List<SourceSet> libraries) {
+    }
+
+    /**
+     * Keeps named source sets OUT of the parse — <b>by demoting them to libraries, not by deleting them.</b>
+     *
+     * <p>⛔⛔ <b>A COMPILE TASK LIST CANNOT EXPRESS THIS, WHICH IS WHY THE PROPERTY EXISTS.</b> Gradle compiles a
+     * requested task's dependencies whether you asked for them or not, and every compile emits a javac line, so
+     * every dependency becomes a source set. Measured on elasticsearch: a task list naming exactly the 348
+     * wanted source sets brought <b>23 unwanted ones</b> in as dependencies — {@code modules/repository-gcs}
+     * (whose jars carry four classes that cannot be committed, and one bad compilation unit refuses the whole
+     * {@code ParseResult}) pulled in by {@code x-pack/plugin/stateless}, {@code test/fixtures/aws-fixture-utils}
+     * by eleven dependents. A list says "do not compile this"; only this can say <b>"compile it, but do not
+     * parse it"</b>.
+     *
+     * <p>⭐ <b>DEMOTED, NOT DROPPED, AND THAT IS THE WHOLE DESIGN.</b> The excluded set's output directory
+     * becomes an ordinary external library under the same name, so:
+     * <ul>
+     *   <li>its types still resolve for everything that depends on it — dependency edges are re-pointed at the
+     *       library, so an exclusion does <b>not</b> have to be closed under "who depends on this", which is the
+     *       trap the hand-written generator this replaces kept falling into;</li>
+     *   <li>its own classpath never enters the configuration — which is exactly what makes excluding
+     *       {@code repository-gcs} work: the four uncommittable jars come in with <i>its</i> classpath, and it
+     *       no longer has one here;</li>
+     *   <li>no lever can edit it, because nothing edits a library.</li>
+     * </ul>
+     *
+     * <p>⛔ <b>AND AN ENTRY THAT MATCHES NOTHING IS REFUSED, NOT IGNORED.</b> An exclusion that silently does
+     * nothing gives you a <i>wider</i> parse than you asked for, and the reason it stops matching is almost
+     * always a rename — the elasticsearch switch renamed 338 of 348 source sets in one step. A warning in a log
+     * is not enough for that: the caller asked for a narrower parse and would get a wider one with a zero exit.
+     * The message lists the source sets whose name ends the same way, because after a rename that is the answer.
+     */
+    private static Excluded exclude(List<SourceSet> sourceSets, List<String> excludedSourceSets) {
+        if (excludedSourceSets == null || excludedSourceSets.isEmpty()) return new Excluded(sourceSets, List.of());
+        Set<String> wanted = new LinkedHashSet<>(excludedSourceSets);
+        Map<String, SourceSet> demoted = new LinkedHashMap<>();
+        for (SourceSet sourceSet : sourceSets) {
+            if (wanted.contains(sourceSet.name())) demoted.put(sourceSet.name(), asLibrary(sourceSet));
+        }
+        List<String> unmatched = wanted.stream().filter(n -> !demoted.containsKey(n)).toList();
+        if (!unmatched.isEmpty()) {
+            throw new IllegalStateException("These source sets were to be excluded and do not exist: " + unmatched
+                                            + ". An exclusion that matches nothing widens the parse silently."
+                                            + nearMisses(unmatched, sourceSets));
+        }
+        List<SourceSet> kept = new ArrayList<>(sourceSets.size() - demoted.size());
+        for (SourceSet sourceSet : sourceSets) {
+            if (demoted.containsKey(sourceSet.name())) continue;
+            // ⛔ "HAS ANYTHING CHANGED?" CANNOT BE ASKED WITH equals HERE. A SourceSet's equality is its NAME --
+            // the contract says so, and it is why a name is an identity -- so the demoted library compares EQUAL
+            // to the source set it replaces, and a `dependencies.equals(old)` guard silently keeps the original.
+            boolean demotedDependency = sourceSet.dependencies().stream().anyMatch(d -> demoted.containsKey(d.name()));
+            if (demotedDependency) {
+                kept.add(sourceSet.withDependencies(sourceSet.dependencies().stream()
+                        .map(d -> demoted.getOrDefault(d.name(), d)).toList()));
+            } else {
+                kept.add(sourceSet);
+            }
+        }
+        LOGGER.info("Excluded {} source set(s), each demoted to a library so its dependents still resolve: {}",
+                demoted.size(), demoted.keySet());
+        return new Excluded(List.copyOf(kept), List.copyOf(demoted.values()));
+    }
+
+    /** After a rename, the set you meant is the one whose name ends the same way. */
+    private static String nearMisses(List<String> unmatched, List<SourceSet> sourceSets) {
+        StringBuilder sb = new StringBuilder();
+        for (String name : unmatched) {
+            String leaf = name.substring(name.lastIndexOf('/') + 1);
+            String tail = name.contains("/") ? name.substring(name.indexOf('/')) : "/" + leaf;
+            List<String> similar = sourceSets.stream().map(SourceSet::name)
+                    .filter(n -> n.endsWith(tail) || n.endsWith("/" + leaf) && n.contains(leaf)).sorted().limit(4)
+                    .toList();
+            if (!similar.isEmpty()) sb.append(" Did you mean, for '").append(name).append("': ").append(similar);
+        }
+        return sb.toString();
+    }
+
+    /** The same output directory, under the same name, as a library: readable by everyone, parsed by nobody. */
+    private static SourceSet asLibrary(SourceSet sourceSet) {
+        return new SourceSetImpl.Builder()
+                .setName(sourceSet.name())
+                .setBuildUnit(sourceSet.buildUnit())
+                .setSourceDirectories(List.of())
+                .setUri(sourceSet.uri())
+                .setSourceEncoding(sourceSet.sourceEncoding())
+                .setLibrary(true)
+                .setExternalLibrary(true)
+                .build();
     }
 
     /**
