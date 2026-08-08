@@ -289,6 +289,23 @@ public class CompileListToSourceSets {
         return outputDirectory.toLowerCase().endsWith("test") ? outputDirectory : null;
     }
 
+    /**
+     * The source set's kind, which for Gradle is simply the output directory: the directory a Gradle source set
+     * compiles into IS its name.
+     *
+     * <p>⛔ IT IS NOT "main OR a test kind", and assuming so collided six source sets on elasticsearch. A
+     * multi-release project has {@code build/classes/java/main} alongside {@code main22}, {@code main25},
+     * {@code main26}, {@code main27} — real, separately compiled source sets whose leaves are neither
+     * {@code main} nor test-shaped. Folding them all to {@code main} handed out {@code entitlement/main2},
+     * {@code main3}, {@code main4} by arrival order, throwing away the one thing the directory was telling us.
+     *
+     * <p>Maven is the only translation: it writes production classes to {@code target/classes}, which is
+     * {@code main} everywhere else in this system. {@code target/test-classes} keeps its own name, as it did.
+     */
+    private static String sourceSetKind(String outputDirectory) {
+        return "classes".equals(outputDirectory) ? "main" : outputDirectory;
+    }
+
     // the directory a build tool writes its compiled output into, directly inside the module directory
     private static final Set<String> BUILD_OUTPUT_NAMES = Set.of("target", "build", "out");
 
@@ -449,11 +466,12 @@ public class CompileListToSourceSets {
     private static ComputeNameResult computeName(String buildRoot, Map<String, String> buildUnitByDestination,
                                                  String destination) {
         String[] split = destination.split(SEPARATOR);
-        String testName = testSourceSetName(split[split.length - 1]);
+        String leaf = split[split.length - 1];
+        String testName = testSourceSetName(leaf);
         String language = language(split);
         String name = module(buildRoot, buildUnitByDestination.get(destination), split)
                       + "/" + (DEFAULT_LANGUAGE.equals(language) ? "" : language + "/")
-                      + (testName != null ? testName : "main");
+                      + sourceSetKind(leaf);
         LOGGER.debug("{} -> {}", destination, name);
         return new ComputeNameResult(name, testName);
     }

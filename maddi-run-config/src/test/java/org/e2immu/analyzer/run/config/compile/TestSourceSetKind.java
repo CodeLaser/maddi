@@ -98,6 +98,9 @@ public class TestSourceSetKind {
             "/x-pack/plugin/ccr/build/classes/java/main",
             "/x-pack/plugin/ccr/build/classes/java/internalClusterTest",
             "/x-pack/plugin/ccr/build/classes/java/javaRestTest",
+            "/libs/entitlement/build/classes/java/main",
+            "/libs/entitlement/build/classes/java/main25",
+            "/libs/entitlement/build/classes/java/main26",
             "/x-pack/plugin/esql/compute/test/build/classes/java/main",
             "/x-pack/plugin/esql/qa/testFixtures/build/classes/java/main",
             "/test/framework/build/classes/java/main",
@@ -229,5 +232,24 @@ public class TestSourceSetKind {
 
         assertEquals("proj/main", mixed.get(ROOT + "/proj/build/classes/java/main").name());
         assertEquals("proj/kotlin/main", mixed.get(ROOT + "/proj/build/classes/kotlin/main").name());
+    }
+
+    /**
+     * ⛔⛔ A MULTI-RELEASE PROJECT'S EXTRA SOURCE SETS ARE SOURCE SETS. Elasticsearch's {@code libs/entitlement}
+     * compiles into {@code build/classes/java/main}, {@code main25}, {@code main26} and {@code main27} — four
+     * separately compiled Gradle source sets whose output directories are neither {@code main} nor test-shaped.
+     * Folding "not a test kind" to {@code main} collided all four and handed out {@code entitlement/main2},
+     * {@code main3}, {@code main4} <i>in arrival order</i>, discarding the release the directory named. Found on
+     * the real corpus: six source sets across {@code entitlement}, {@code cli-terminal}, {@code foreign-adapter}
+     * and {@code native}.
+     */
+    @DisplayName("a multi-release project's mainNN source sets keep their own names")
+    @Test
+    public void multiReleaseSourceSets() {
+        assertEquals("libs/entitlement/main", set("/libs/entitlement/build/classes/java/main").name());
+        assertEquals("libs/entitlement/main25", set("/libs/entitlement/build/classes/java/main25").name());
+        assertEquals("libs/entitlement/main26", set("/libs/entitlement/build/classes/java/main26").name());
+        // ⚠ and none of them is a test set: `main25` is production code for a newer runtime
+        assertFalse(set("/libs/entitlement/build/classes/java/main25").test());
     }
 }
