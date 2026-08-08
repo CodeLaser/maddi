@@ -8,4 +8,13 @@ import org.e2immu.analyzer.run.config.compile.CompileListToSourceSets;
  * its inherited nested types ({@code JavacListToSourceSets.Result} / {@code .JSourceSet}) available to callers.
  */
 public class JavacListToSourceSets extends CompileListToSourceSets {
+
+    public JavacListToSourceSets() {
+        super(null);
+    }
+
+    /** @param buildRoot see {@link CompileListToSourceSets#CompileListToSourceSets(String)}: it decides the names. */
+    public JavacListToSourceSets(String buildRoot) {
+        super(buildRoot);
+    }
 }

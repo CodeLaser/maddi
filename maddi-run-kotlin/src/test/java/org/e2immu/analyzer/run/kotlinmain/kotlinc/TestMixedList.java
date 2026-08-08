@@ -44,8 +44,9 @@ public class TestMixedList {
         assertEquals(2, invocations.size(), "one kotlinc + one javac invocation");
 
         InputConfiguration config = new ParseMixedList().parse(logFile);
-        SourceSet kotlinSet = config.sourceSets().stream().filter(s -> "kotlin/main".equals(s.name())).findFirst().orElseThrow();
-        SourceSet javaSet = config.sourceSets().stream().filter(s -> "java/main".equals(s.name())).findFirst().orElseThrow();
+        // ⚠ ONE MODULE, ONE KIND, TWO SOURCE SETS: java is the unmarked language, kotlin takes the segment
+        SourceSet kotlinSet = config.sourceSets().stream().filter(s -> "proj/kotlin/main".equals(s.name())).findFirst().orElseThrow();
+        SourceSet javaSet = config.sourceSets().stream().filter(s -> "proj/main".equals(s.name())).findFirst().orElseThrow();
         assertTrue(javaSet.dependencies().contains(kotlinSet),
                 "the Java source set links to the Kotlin source set by output identity");
         // each source set kept its own inferred root

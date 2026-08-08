@@ -88,8 +88,10 @@ public class TestKotlinc {
         SourceSet mainSet = result.jSourceSets().getFirst().sourceSet();
         SourceSet testSet = result.jSourceSets().getLast().sourceSet();
 
-        assertEquals("kotlin/main", mainSet.name());
-        assertEquals("kotlin/test", testSet.name());
+        // ⭐ the name carries the MODULE and the language, not just the language: the old rule named both sets
+        // after the "kotlin" directory Gradle inserts, which says nothing about which module they belong to
+        assertEquals("maddi-x/kotlin/main", mainSet.name());
+        assertEquals("maddi-x/kotlin/test", testSet.name());
         assertFalse(mainSet.test());
         assertTrue(testSet.test(), "friend-paths presence marks the test set");
         assertTrue(testSet.dependencies().contains(mainSet), "test must depend on main");
@@ -133,8 +135,10 @@ public class TestKotlinc {
         assertTrue(test.classpath().contains("/proj/kmvn/target/classes"), "main output is on the test classpath");
 
         var ic = new ParseKotlincList().inputConfiguration(list, List.of());
-        SourceSet mainSet = ic.sourceSets().stream().filter(s -> "target/main".equals(s.name())).findFirst().orElseThrow();
-        SourceSet testSet = ic.sourceSets().stream().filter(s -> "target/test-classes".equals(s.name())).findFirst().orElseThrow();
+        // ⛔ these used to be "target/main" and "target/test-classes" -- a source set named after the BUILD
+        // OUTPUT DIRECTORY, which every maven module in the reactor shares
+        SourceSet mainSet = ic.sourceSets().stream().filter(s -> "kmvn/main".equals(s.name())).findFirst().orElseThrow();
+        SourceSet testSet = ic.sourceSets().stream().filter(s -> "kmvn/test-classes".equals(s.name())).findFirst().orElseThrow();
         assertFalse(mainSet.test());
         assertTrue(testSet.test(), "target/test-classes is recognized as a test set");
         assertTrue(testSet.dependencies().contains(mainSet), "test depends on main via classpath output-identity");
@@ -149,7 +153,7 @@ public class TestKotlinc {
         Files.writeString(log, GRADLE_MAIN + "\n");
         var inputConfiguration = new ParseKotlincList().parse(log);
         assertEquals(1, inputConfiguration.sourceSets().size());
-        assertEquals("kotlin/main", inputConfiguration.sourceSets().getFirst().name());
+        assertEquals("maddi-x/kotlin/main", inputConfiguration.sourceSets().getFirst().name());
         // the two classpath jars survive as external libraries (plus the java.se jmod closure)
         assertTrue(inputConfiguration.classPathParts().stream().anyMatch(s -> s.name().equals("a.jar")));
         assertTrue(inputConfiguration.classPathParts().stream().anyMatch(s -> s.name().equals("b.jar")));
