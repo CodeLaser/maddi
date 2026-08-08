@@ -34,7 +34,16 @@ public class ParseJavacList {
      * TYPE_USE annotation closure over each source set's classpath — therefore holds for both by construction.
      */
     public InputConfiguration inputConfiguration(List<Javac> javacList, List<String> extraJmods) throws IOException {
-        JavacListToSourceSets.Result result = new JavacListToSourceSets().compute(javacList);
+        return inputConfiguration(javacList, extraJmods, null);
+    }
+
+    /**
+     * @param buildRoot the directory the build was run from; it decides the source-set names, so a caller that
+     *                  knows it should pass it — see
+     *                  {@link org.e2immu.analyzer.run.config.compile.CompileListToSourceSets#CompileListToSourceSets(String)}.
+     */
+    public InputConfiguration inputConfiguration(List<Javac> javacList, List<String> extraJmods, String buildRoot) {
+        JavacListToSourceSets.Result result = new JavacListToSourceSets(buildRoot).compute(javacList);
         return CompileListToInputConfiguration.build(result, extraJmods);
     }
 

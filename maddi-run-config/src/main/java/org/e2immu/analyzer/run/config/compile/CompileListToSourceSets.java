@@ -39,22 +39,64 @@ public class CompileListToSourceSets {
     public record JSourceSet(CompileInvocation invocation, SourceSet sourceSet) {
     }
 
-    private static Map<String, Integer> makeComponentStats(List<? extends CompileInvocation> list) {
-        Map<String, Integer> countSuffix = new HashMap<>();
-        for (CompileInvocation inv : list) {
-            String destination = inv.destination();
-            String[] split = destination.split(SEPARATOR);
-            for (int i = 1; i < split.length - 1; ++i) {
-                String suffix = combine(split, i, split.length);
-                countSuffix.merge(suffix, 1, Integer::sum);
+    private final String configuredBuildRoot;
+
+    /** The build root is derived from the run; see {@link #CompileListToSourceSets(String)} for why to pass it. */
+    public CompileListToSourceSets() {
+        this(null);
+    }
+
+    /**
+     * @param buildRoot the directory the build was run from, or {@code null} to derive it as the longest common
+     *                  ancestor of this run's build units.
+     *                  <p>⛔⛔ PASS IT WHENEVER THE CALLER KNOWS IT. Source-set names are the build unit's path
+     *                  below this root, so the root decides them — and the derived one is a function of WHICH
+     *                  modules were compiled: a run over {@code libs/core} and {@code libs/x-content} alone has
+     *                  common ancestor {@code .../libs} and names them {@code core/main}, where the full build
+     *                  names them {@code libs/core/main}. Narrowing a parse would silently rename every source
+     *                  set it kept. The build directory is already configured, and it does not move.
+     */
+    public CompileListToSourceSets(String buildRoot) {
+        this.configuredBuildRoot = buildRoot == null || buildRoot.isBlank() ? null
+                : buildRoot.endsWith(SEPARATOR) ? buildRoot.substring(0, buildRoot.length() - SEPARATOR.length())
+                : buildRoot;
+    }
+
+    /**
+     * The directory every compiled module sits under: the longest common ancestor of this run's build units. It
+     * is what makes a module's own path — and therefore its source sets' names — readable rather than absolute.
+     * {@code null} when no build unit could be determined at all.
+     */
+    private static String commonBuildRoot(Map<String, String> buildUnitByDestination) {
+        String[] first = null;
+        int common = 0;
+        for (String buildUnit : new TreeSet<>(buildUnitByDestination.values())) {
+            String[] parts = buildUnit.split(SEPARATOR);
+            if (first == null) {
+                first = parts;
+                common = parts.length;
+                continue;
             }
+            int i = 0;
+            while (i < common && i < parts.length && parts[i].equals(first[i])) ++i;
+            common = i;
         }
-        return countSuffix;
+        return first == null ? null : combine(first, 0, common);
     }
 
     public Result compute(List<? extends CompileInvocation> list) {
-        Map<String, Integer> countSuffix = makeComponentStats(list);
-        Map<String, String> jarFileToDestinationModuleJars = computeModuleJars(countSuffix, list);
+        // computed once: computeBuildUnit warns when it cannot decide, and it should say so once per destination
+        Map<String, String> buildUnitByDestination = new LinkedHashMap<>();
+        for (CompileInvocation inv : list) {
+            buildUnitByDestination.computeIfAbsent(inv.destination(), CompileListToSourceSets::computeBuildUnit);
+        }
+        String derived = commonBuildRoot(buildUnitByDestination);
+        String buildRoot = configuredBuildRoot == null ? derived : configuredBuildRoot;
+        LOGGER.info("Build root of {} build unit(s): {} ({})", new HashSet<>(buildUnitByDestination.values()).size(),
+                buildRoot, configuredBuildRoot == null ? "derived; pass one to keep names stable across a narrower"
+                        + " parse" : "configured, derived would have been " + derived);
+        Map<String, String> jarFileToDestinationModuleJars = computeModuleJars(buildRoot, buildUnitByDestination,
+                list);
 
         Map<String, SourceSet> sourceSetsByPath = new HashMap<>();
         Map<String, SourceSet> classPath = handleClasspath(list, sourceSetsByPath, jarFileToDestinationModuleJars);
@@ -64,8 +106,8 @@ public class CompileListToSourceSets {
 
         List<JSourceSet> jSourceSets = new LinkedList<>();
         for (CompileInvocation inv : list) {
-            SourceSet sourceSet = createSourceSet(inv, countSuffix, sourceSetsByPath, sourceSetsByDestination,
-                    jarFileToDestinationModuleJars, duplicateNamePrevention);
+            SourceSet sourceSet = createSourceSet(inv, buildRoot, buildUnitByDestination, sourceSetsByPath,
+                    sourceSetsByDestination, jarFileToDestinationModuleJars, duplicateNamePrevention);
 
             Set<Path> sourceDirSet = new HashSet<>(sourceSet.sourceDirectories());
             // we remove source sets that are fully contained in this one
@@ -78,13 +120,22 @@ public class CompileListToSourceSets {
         return new Result(jSourceSets, classPath.values().stream().sorted(Comparator.comparing(SourceSet::name)).toList());
     }
 
-    private Map<String, String> computeModuleJars(Map<String, Integer> countSuffix, List<? extends CompileInvocation> list) {
+    private Map<String, String> computeModuleJars(String buildRoot, Map<String, String> buildUnitByDestination,
+                                                  List<? extends CompileInvocation> list) {
         Map<String, String> moduleJarToDestination = new HashMap<>();
         Map<String, String> moduleNameToDestination = new HashMap<>();
         for (CompileInvocation inv : list) {
             String destination = inv.destination();
-            ComputeNameResult cnr = computeName(countSuffix, destination);
+            ComputeNameResult cnr = computeName(buildRoot, buildUnitByDestination, destination);
             moduleNameToDestination.put(cnr.name, destination);
+            // ⚠ AND UNDER ITS LEAF FORM TOO. computeModuleName below matches a jar file name against
+            // "<module>/main", and a nested module's name now carries its whole path ("libs/core/main"), which no
+            // jar file name ever looks like. Registering the leaf keeps that match working for both layouts.
+            int slash = cnr.name.lastIndexOf('/');
+            if (slash > 0) {
+                moduleNameToDestination.putIfAbsent(lastPart(cnr.name.substring(0, slash)) + cnr.name.substring(slash),
+                        destination);
+            }
 
             if (inv.modulePath() != null) {
                 for (String modulePart : inv.modulePath()) {
@@ -284,13 +335,14 @@ public class CompileListToSourceSets {
     }
 
     private SourceSet createSourceSet(CompileInvocation inv,
-                                      Map<String, Integer> countSuffix,
+                                      String buildRoot,
+                                      Map<String, String> buildUnitByDestination,
                                       Map<String, SourceSet> sourceSetsByPath,
                                       Map<String, SourceSet> sourceSetsByDestination,
                                       Map<String, String> jarFileToDestinationModulePath,
                                       Map<String, Integer> duplicateNamePrevention) {
         String destination = inv.destination();
-        ComputeNameResult result = computeName(countSuffix, destination);
+        ComputeNameResult result = computeName(buildRoot, buildUnitByDestination, destination);
         URI uri = URI.create("file:" + inv.destination());
         // sourcePath() may be null (javac with no -sourcepath); source dirs are then inferred from source files
         List<String> sourcePath = inv.sourcePath();
@@ -357,7 +409,7 @@ public class CompileListToSourceSets {
         boolean isModule = !test && inv.modulePath() != null && !inv.modulePath().isEmpty();
         SourceSet sourceSet = new SourceSetImpl.Builder()
                 .setName(name)
-                .setBuildUnit(computeBuildUnit(destination))
+                .setBuildUnit(buildUnitByDestination.get(destination))
                 .setSourceDirectories(List.copyOf(sourceDirs))
                 .setUri(uri)
                 .setSourceEncoding(encoding)
@@ -369,21 +421,66 @@ public class CompileListToSourceSets {
         return sourceSet;
     }
 
-    private static ComputeNameResult computeName(Map<String, Integer> countSuffix, String destination) {
-        String name = "/main";
+    /** The language directory Gradle inserts as {@code build/classes/<language>/<kind>}; javac's is the default. */
+    private static final String DEFAULT_LANGUAGE = "java";
+
+    /**
+     * The source set's name: <b>{@code <module>/<kind>}</b>, where the module is its build unit's path below the
+     * build root and the kind is its output directory ({@code libs/core/main},
+     * {@code x-pack/plugin/analytics/internalClusterTest}, {@code core/test-classes}).
+     *
+     * <p>⛔⛔ <b>THE NAME IS THE IDENTITY, SO IT MUST BE A PROPERTY OF THE SOURCE SET.</b> {@link SourceSet}'s own
+     * contract says so — <i>"source sets are identified by their name() throughout the system, including in
+     * serialized dependency references"</i>. What stood here was a frequency heuristic: it walked up the
+     * destination until a path suffix occurred at most twice <i>across the whole run</i>, so the name depended on
+     * which other projects happened to be compiled beside it. Measured on elasticsearch, that produced
+     * {@code es-phase3/main} for {@code :server} — <b>the name of the checkout directory</b> — handed
+     * {@code server/main} to a different source set, and gave 54 of 348 sets an order-dependent counter
+     * ({@code core/main2}). Adding one unrelated project renamed existing ones.
+     *
+     * <p>The build unit is already computed, already required to be unique across the build, and cannot be
+     * changed by compiling something else. Taken relative to the build root it is short, readable, and stable.
+     *
+     * <p>⚠ <b>THE ONE DISCRIMINATOR THAT IS KEPT IS THE LANGUAGE</b>, because a mixed module really does compile
+     * one Gradle source set twice: {@code proj/build/classes/kotlin/main} and {@code proj/build/classes/java/main}
+     * are one module, one kind, two source sets with different parsers. Java is the unmarked case, so a Java-only
+     * build never carries a language segment and the Kotlin set becomes {@code proj/kotlin/main}.
+     */
+    private static ComputeNameResult computeName(String buildRoot, Map<String, String> buildUnitByDestination,
+                                                 String destination) {
         String[] split = destination.split(SEPARATOR);
-        // the kind comes from the output directory alone; the loop below only looks for a distinguishing PREFIX
         String testName = testSourceSetName(split[split.length - 1]);
-        for (int i = split.length - 1; i > 0; --i) {
-            String suffix = combine(split, i, split.length);
-            Integer freq = countSuffix.get(suffix);
-            if (freq != null && freq <= 2) {
-                name = split[i] + (testName != null ? "/" + testName : "/main");
-                LOGGER.info("{} -> {}", destination, name);
-                break;
-            }
-        }
+        String language = language(split);
+        String name = module(buildRoot, buildUnitByDestination.get(destination), split)
+                      + "/" + (DEFAULT_LANGUAGE.equals(language) ? "" : language + "/")
+                      + (testName != null ? testName : "main");
+        LOGGER.debug("{} -> {}", destination, name);
         return new ComputeNameResult(name, testName);
+    }
+
+    /** {@code .../build/classes/<language>/<kind>}, else the default: maven and kotlinc jars have no such level. */
+    private static String language(String[] destination) {
+        return destination.length >= 3 && "classes".equals(destination[destination.length - 3])
+                ? destination[destination.length - 2] : DEFAULT_LANGUAGE;
+    }
+
+    /**
+     * The build unit's path below the build root. Falls back to the leaf when the two coincide (a single-module
+     * build, or the root project itself), and to the directory holding the build output when the build unit could
+     * not be determined at all — {@link #computeBuildUnit} has already said so.
+     */
+    private static String module(String buildRoot, String buildUnit, String[] destination) {
+        if (buildUnit == null) {
+            return destination.length >= 2 ? destination[destination.length - 2] : destination[0];
+        }
+        if (buildRoot == null || buildRoot.isEmpty() || buildUnit.equals(buildRoot)) return lastPart(buildUnit);
+        if (buildUnit.startsWith(buildRoot + SEPARATOR)) {
+            return buildUnit.substring(buildRoot.length() + SEPARATOR.length());
+        }
+        // outside the build root: a configured root can be wrong or partial, and an absolute path is not a name
+        LOGGER.warn("Build unit {} is not below the build root {}; naming it after its own directory", buildUnit,
+                buildRoot);
+        return lastPart(buildUnit);
     }
 
     private record ComputeNameResult(String name, String testName) {

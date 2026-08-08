@@ -91,13 +91,24 @@ public class TestCompileLogCli {
         assertTrue(byBuildUnit.size() > 10, "expected a multi-module reactor, got " + byBuildUnit.size());
         assertTrue(byBuildUnit.size() < own.size(), "expected build units to group several source sets");
 
-        // the module directory groups main with its own test set, which the counter-suffixed names do not
+        // ⭐ THE NAMES NOW GROUP THE MODULE TOO, which is the point of deriving them from the build unit. This
+        // assertion used to read `quarkus/main2` + `quarkus/test-classes`: the name came from a frequency
+        // heuristic over the whole run, so it neither said which module it belonged to nor stayed put when
+        // another project joined — and the `2` was handed out by a collision counter, in arrival order.
         String deployment = byBuildUnit.keySet().stream()
                 .filter(bu -> bu.endsWith("/quarkus/deployment")).findFirst().orElseThrow(
                         () -> new AssertionError("no quarkus/deployment build unit in " + byBuildUnit.keySet()));
-        assertEquals(List.of("quarkus/main2", "quarkus/test-classes"),
+        assertEquals(List.of("quarkus-integration/quarkus/deployment/main",
+                        "quarkus-integration/quarkus/deployment/test-classes"),
                 byBuildUnit.get(deployment).stream().sorted().toList());
+        assertTrue(byBuildUnit.get(deployment).stream().allMatch(n -> deployment.endsWith(moduleOf(n))),
+                "and the name's module part must be the build unit's own path: " + byBuildUnit.get(deployment));
         assertFalse(deployment.contains("/target"), "the build output directory must be stripped: " + deployment);
+    }
+
+    /** {@code a/b/c/main} -> {@code a/b/c}: the module part of a source set's name. */
+    private static String moduleOf(String sourceSetName) {
+        return sourceSetName.substring(0, sourceSetName.lastIndexOf('/'));
     }
 
     /**

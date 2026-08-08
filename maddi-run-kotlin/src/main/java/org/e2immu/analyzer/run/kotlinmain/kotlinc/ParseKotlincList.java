@@ -40,7 +40,13 @@ public class ParseKotlincList {
      * {@link CompileListToInputConfiguration}, which is also where the TYPE_USE annotation closure lives.
      */
     public InputConfiguration inputConfiguration(List<? extends CompileInvocation> kotlincList, List<String> extraJmods) {
-        CompileListToSourceSets.Result result = new CompileListToSourceSets().compute(kotlincList);
+        return inputConfiguration(kotlincList, extraJmods, null);
+    }
+
+    /** @param buildRoot the directory the build was run from; it decides the source-set names. */
+    public InputConfiguration inputConfiguration(List<? extends CompileInvocation> kotlincList,
+                                                 List<String> extraJmods, String buildRoot) {
+        CompileListToSourceSets.Result result = new CompileListToSourceSets(buildRoot).compute(kotlincList);
         return CompileListToInputConfiguration.build(result, extraJmods);
     }
 

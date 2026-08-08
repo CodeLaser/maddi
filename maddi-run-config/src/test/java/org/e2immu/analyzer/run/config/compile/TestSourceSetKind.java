@@ -81,11 +81,10 @@ public class TestSourceSetKind {
     private static final String ROOT = "/checkout/elasticsearch";
 
     /**
-     * ⚠ THE FIXTURE IS A WHOLE BUILD, NOT ONE INVOCATION, because {@code computeName} is a function of the whole
-     * run: it walks up the destination until a path suffix is rare (frequency ≤ 2) across ALL destinations. Ask
-     * it about a single project and {@code .../build/classes/java/internalClusterTest} is already unique at
-     * {@code java/}, so the name comes out as {@code java/internalClusterTest}. These are the destinations of a
-     * plausible multi-project build, so the heuristic climbs to the project directory as it does on a real one.
+     * ⚠ THE FIXTURE IS A WHOLE BUILD, NOT ONE INVOCATION. It has to be: the defect being pinned is that a
+     * module's {@code main} and its extra test sets used to collide into {@code main}/{@code main2}, which only
+     * one module with several source sets can show. It is also the shape that would have exposed the naming
+     * heuristic this class replaced — see {@link #theNameDoesNotDependOnTheRestOfTheRun()}.
      */
     private static final List<String> BUILD = List.of(
             "/x-pack/plugin/analytics/build/classes/java/main",
@@ -107,8 +106,12 @@ public class TestSourceSetKind {
             "/server/build/classes/java/test");
 
     private static Map<String, SourceSet> compute(List<String> destinations) {
+        return compute(destinations, ROOT);
+    }
+
+    private static Map<String, SourceSet> compute(List<String> destinations, String buildRoot) {
         List<Invocation> list = destinations.stream().map(d -> new Invocation(ROOT + d)).toList();
-        return new CompileListToSourceSets().compute(list).jSourceSets().stream()
+        return new CompileListToSourceSets(buildRoot).compute(list).jSourceSets().stream()
                 .collect(Collectors.toMap(js -> js.invocation().destination(),
                         CompileListToSourceSets.JSourceSet::sourceSet));
     }
@@ -144,7 +147,8 @@ public class TestSourceSetKind {
         for (String kind : List.of("internalClusterTest", "javaRestTest")) {
             SourceSet sourceSet = set("/x-pack/plugin/analytics/build/classes/java/" + kind);
             assertTrue(sourceSet.test(), kind + " must be a test source set");
-            assertEquals("analytics/" + kind, sourceSet.name(), "and the kind must reach the NAME too");
+            assertEquals("x-pack/plugin/analytics/" + kind, sourceSet.name(),
+                    "and the kind must reach the NAME too");
         }
     }
 
@@ -176,37 +180,54 @@ public class TestSourceSetKind {
                 .filter(e -> e.getKey().contains("/plugin/analytics/"))
                 .map(e -> e.getValue().name()).sorted().toList();
 
-        assertEquals(List.of("analytics/internalClusterTest", "analytics/javaRestTest", "analytics/main",
-                "analytics/test"), analytics);
+        assertEquals(List.of("x-pack/plugin/analytics/internalClusterTest", "x-pack/plugin/analytics/javaRestTest",
+                "x-pack/plugin/analytics/main", "x-pack/plugin/analytics/test"), analytics);
         assertEquals(3, SETS.entrySet().stream()
                 .filter(e -> e.getKey().contains("/plugin/analytics/"))
                 .filter(e -> e.getValue().test()).count());
     }
 
     /**
-     * ⛔⛔ PINNED BECAUSE IT IS A DEFECT, NOT BECAUSE IT IS RIGHT — and it is the reason the two tests above need
-     * a whole build rather than one invocation.
+     * ⭐⭐ THE PROPERTY THE NAMING RULE EXISTS FOR, and it is asserted rather than assumed: <b>a source set's name
+     * does not depend on what else was compiled beside it.</b>
      *
-     * <p>{@code computeName} walks up the destination until a path suffix is rare across <b>all</b> destinations
-     * in the run (frequency ≤ 2). So <b>a source set's name is a function of which other projects were compiled
-     * beside it</b>: the very same output directory is {@code java/internalClusterTest} in a build where it is
-     * the only one of its kind, and {@code analytics/internalClusterTest} once three projects have one. Adding an
-     * unrelated project renames an existing source set.
+     * <p>What stood here was a frequency heuristic — it walked up the destination until a path suffix was rare
+     * across the whole run — so the same output directory was {@code java/internalClusterTest} in a build where
+     * it was the only one of its kind and {@code analytics/internalClusterTest} once three projects had one, and
+     * on elasticsearch {@code :server} came out named after the CHECKOUT DIRECTORY. {@link SourceSet}'s contract
+     * says the name IS the identity; an identity that depends on the rest of the run is not one.
      *
-     * <p>⚠ {@code SourceSet}'s own contract says the name IS the identity — <i>"source sets are identified by
-     * their name() throughout the system, including in serialized dependency references"</i>. An identity that
-     * depends on the rest of the run is not an identity. This test exists so the day that is fixed, it fails and
-     * says what changed.
+     * <p>⚠ AND THAT IS WHY THE BUILD ROOT IS AN INPUT. Derived, it is the common ancestor of the modules that
+     * happened to compile, so narrowing a parse to two sibling modules would shorten it and rename everything it
+     * kept — the second half of this test. Given the build directory, nothing moves.
      */
-    @DisplayName("PINNED DEFECT: the same output directory gets a different name in a different build")
+    @DisplayName("a name does not depend on what else was compiled, once the build root is given")
     @Test
-    public void theNameIsAFunctionOfTheWholeRun() {
+    public void theNameDoesNotDependOnTheRestOfTheRun() {
         String destination = "/x-pack/plugin/analytics/build/classes/java/internalClusterTest";
 
         SourceSet alone = compute(List.of(destination)).get(ROOT + destination);
-        assertEquals("java/internalClusterTest", alone.name());
+        assertEquals("x-pack/plugin/analytics/internalClusterTest", alone.name());
+        assertEquals(alone.name(), set(destination).name(), "the same set, in a build of twelve");
 
-        assertEquals("analytics/internalClusterTest", set(destination).name());
-        assertTrue(alone.test() && set(destination).test(), "the KIND, at least, does not drift");
+        // ⚠ THE CONTROL FOR THE INPUT ITSELF: without a build root the name is only as stable as the module set
+        SourceSet derived = compute(List.of(destination), null).get(ROOT + destination);
+        assertEquals("analytics/internalClusterTest", derived.name());
+    }
+
+    /**
+     * ⚠ A MIXED MODULE COMPILES ONE GRADLE SOURCE SET TWICE, with two compilers and two parsers, so the two
+     * outputs must stay two source sets. Java is the unmarked case — a Java-only build never carries a language
+     * segment — and the Kotlin output takes one rather than an arrival-order counter.
+     */
+    @DisplayName("a mixed module's java and kotlin outputs are distinguished by language, not by a counter")
+    @Test
+    public void mixedModuleKeepsTwoSourceSets() {
+        Map<String, SourceSet> mixed = compute(List.of(
+                "/proj/build/classes/java/main", "/proj/build/classes/kotlin/main",
+                "/other/build/classes/java/main"));
+
+        assertEquals("proj/main", mixed.get(ROOT + "/proj/build/classes/java/main").name());
+        assertEquals("proj/kotlin/main", mixed.get(ROOT + "/proj/build/classes/kotlin/main").name());
     }
 }
