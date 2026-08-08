@@ -59,7 +59,7 @@ public class TestExcludeSourceSets {
                 new CompileListToSourceSets.Result(
                         List.of(PRODUCER, CONSUMER, OTHER).stream()
                                 .map(s -> new CompileListToSourceSets.JSourceSet(null, s)).toList(),
-                        List.of()),
+                        List.of(), null),
                 List.of(), excluded);
     }
 
