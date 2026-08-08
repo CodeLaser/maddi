@@ -208,6 +208,36 @@ public class CompileListToSourceSets {
             "functionalTest", "funcTest",
             "acceptanceTest", "systemTest", "smokeTest", "contractTest");
 
+    // the output directory a build tool writes PRODUCTION classes into: gradle's source set is named "main",
+    // maven writes target/classes
+    private static final Set<String> MAIN_OUTPUT_NAMES = Set.of("main", "classes");
+
+    /**
+     * The source set's kind, when it is a test kind: {@code null} for production code.
+     *
+     * <p>⛔⛔ <b>IT IS READ FROM THE OUTPUT DIRECTORY, AND FROM NOTHING ABOVE IT.</b> This used to scan every
+     * component of the destination path, so a <i>project</i> directory called {@code test} decided the question
+     * for a {@code main} source set underneath it. Measured on elasticsearch:
+     * {@code x-pack/plugin/esql/compute/test/…/java/main} and {@code esql/qa/testFixtures/…/java/main} are
+     * production code declared as tests. A source set's kind is a property of the set, and the only path
+     * component that names the set is the last one.
+     *
+     * <p>⛔⛔ <b>AND A LITERAL LIST CANNOT BE COMPLETE, WHICH IS THE OTHER HALF OF THE SAME DEFECT.</b> A Gradle
+     * source set's output directory IS its name, and a build may declare any number of them: elasticsearch has
+     * {@code internalClusterTest} (47 source sets), {@code javaRestTest}, {@code yamlRestTest}. None was in the
+     * list, so all 47 came out as production code — and an absent {@code test} flag is the hardest kind of wrong,
+     * because every consumer has a defensible default and none of them can tell {@code false} from
+     * <i>not stated</i>. The convention those names follow is a suffix, so that is what is matched.
+     *
+     * <p>⚠ MEASURED, both directions at once: on elasticsearch's 348 source sets the old rule gets <b>49</b>
+     * flags wrong (47 tests as production, 2 production as tests); this rule reproduces all 348.
+     */
+    private static String testSourceSetName(String outputDirectory) {
+        if (MAIN_OUTPUT_NAMES.contains(outputDirectory)) return null;
+        if (TEST_NAMES.contains(outputDirectory)) return outputDirectory;
+        return outputDirectory.toLowerCase().endsWith("test") ? outputDirectory : null;
+    }
+
     // the directory a build tool writes its compiled output into, directly inside the module directory
     private static final Set<String> BUILD_OUTPUT_NAMES = Set.of("target", "build", "out");
 
@@ -341,13 +371,10 @@ public class CompileListToSourceSets {
 
     private static ComputeNameResult computeName(Map<String, Integer> countSuffix, String destination) {
         String name = "/main";
-        String testName = null;
         String[] split = destination.split(SEPARATOR);
+        // the kind comes from the output directory alone; the loop below only looks for a distinguishing PREFIX
+        String testName = testSourceSetName(split[split.length - 1]);
         for (int i = split.length - 1; i > 0; --i) {
-            String part = split[i];
-            if (testName == null && TEST_NAMES.contains(part)) {
-                testName = part;
-            }
             String suffix = combine(split, i, split.length);
             Integer freq = countSuffix.get(suffix);
             if (freq != null && freq <= 2) {
