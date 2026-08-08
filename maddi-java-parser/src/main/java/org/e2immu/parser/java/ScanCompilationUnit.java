@@ -172,19 +172,4 @@ public class ScanCompilationUnit extends CommonParse {
         }
     }
 
-    private ImportStatement parseImportDeclaration(ImportDeclaration id) {
-        boolean isStatic = id.get(1) instanceof KeyWord kw && Token.TokenType.STATIC.equals(kw.getType());
-        int i = isStatic ? 2 : 1;
-        String importString = id.get(i).getSource().replaceAll("\\s+", "");
-        ImportStatement.Builder builder = runtime.newImportStatementBuilder();
-        builder.setSource(source(id))
-                .addComments(comments(id))
-                .setIsStatic(isStatic);
-
-        if (id.get(i + 1) instanceof Delimiter d && Token.TokenType.DOT.equals(d.getType())
-            && id.get(i + 2) instanceof Operator o && Token.TokenType.STAR.equals(o.getType())) {
-            return builder.setImport(importString + ".*").build();
-        }
-        return builder.setImport(importString).build();
-    }
 }
