@@ -13,6 +13,7 @@ import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.output.TypeNameRequired;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
+import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation;
 import org.e2immu.language.cst.api.statement.LocalTypeDeclaration;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.TryStatement;
@@ -1184,6 +1185,20 @@ abstract class IsolationCore {
                 // visitMethod. 21 of the 37 units still failing on the hundred-class corpus were this.
                 case TryStatement ts -> ts.catchClauses().forEach(cc ->
                         cc.exceptionTypes().forEach(et -> ensureTypes(et, ds(ts))));
+                // 'super(enabledLogging)' in a kept constructor. An explicit constructor invocation is neither a
+                // MethodCall nor a ConstructorCall, so nothing reached it, and the supertype stub was left with
+                // only its implicit no-arg constructor: "constructor Base cannot be applied to given types".
+                // addDefaultConstructorsWhereExtended is the mirror image of this -- it supplies the NO-ARG
+                // constructor a stub needs when it declares others -- and neither covers the other's case.
+                // Measured on the closed-core class-isolate corpus, 2026-08-09: 24 of the 54 trees that did not
+                // compile, 9 of them subclasses of a single base class.
+                case ExplicitConstructorInvocation eci -> {
+                    // 'this(...)' targets a constructor of the isolated type itself, which keeps its own
+                    // constructors verbatim, so only the 'super' direction needs a stub
+                    if (eci.isSuper() && eci.methodInfo() != null) {
+                        ensureMethodInfo(superTypeStubOf(eci.methodInfo()), eci.methodInfo());
+                    }
+                }
                 case ConstructorCall cc -> {
                     if (cc.anonymousClass() != null) {
                         // the supertype is what the verbatim text names ('new Comparator<X>() {...}'), and an
