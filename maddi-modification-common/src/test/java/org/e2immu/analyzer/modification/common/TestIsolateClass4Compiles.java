@@ -853,4 +853,52 @@ public class TestIsolateClass4Compiles {
         // REFERENCES does. One corpus tree (a Comparator declared inside ContractCtrlBean).
         assertCompiles(tree);
     }
+
+    @Language("java")
+    private static final String BASE_WITH_CONSTRUCTOR = """
+            package p.q;
+            public class BaseUtil {
+                private final boolean logging;
+                public BaseUtil(boolean logging) {
+                    this.logging = logging;
+                }
+                public static long stateOf(String name) {
+                    return name.length();
+                }
+            }
+            """;
+
+    @Language("java")
+    private static final String CALLS_SUPER_CONSTRUCTOR = """
+            package a.b;
+            import p.q.BaseUtil;
+            public class CallsSuperConstructor extends BaseUtil {
+                public CallsSuperConstructor(boolean enabledLogging) {
+                    super(enabledLogging);
+                }
+                public long state(String name) {
+                    return stateOf(name);
+                }
+            }
+            """;
+
+    @DisplayName("a 'super(...)' in a kept constructor stubs that constructor on the supertype")
+    @Test
+    public void superConstructorInvocation() throws IOException {
+        Map<String, String> tree = isolate(Map.of("p.q.BaseUtil", BASE_WITH_CONSTRUCTOR,
+                "a.b.CallsSuperConstructor", CALLS_SUPER_CONSTRUCTOR), "a.b.CallsSuperConstructor");
+        // An ExplicitConstructorInvocation is neither a MethodCall nor a ConstructorCall, and the visitor had no
+        // case for it, so nothing reached the supertype's constructor: the stub kept only the members that were
+        // CALLED (here 'stateOf'), and with no declared constructor it got the implicit no-arg one. javac then
+        // says "constructor BaseUtil in class p.q.BaseUtil cannot be applied to given types; required: no
+        // arguments, found: boolean".
+        //
+        // ⚠ addDefaultConstructorsWhereExtended is the MIRROR IMAGE and does not cover this: it supplies the
+        // no-arg constructor a stub needs when it declares others, i.e. it fixes an implicit 'super()' against a
+        // stub that has parameters. Neither pass sees the other's case.
+        //
+        // The dominant cause on the closed-core class-isolate corpus, measured 2026-08-09: 24 of the 54 trees
+        // that did not compile, 9 of them subclasses of a single base class, which is the shape this reduces.
+        assertCompiles(tree);
+    }
 }
