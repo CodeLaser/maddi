@@ -305,6 +305,9 @@ public class TestCallGraph2 extends CommonTest {
             assertFalse(eci.isSynthetic());
         } else fail();
 
+        // ▶ the super(..) below carries SR, not S: an explicit constructor invocation is a CALL as well as a
+        // structural ordering constraint, and while only S was set, every consumer filtering on isReference()
+        // was blind to constructor delegation. See TestCallGraphExplicitConstructorInvocation.
         assertEquals("""
                 a.b.X->S->a.b.X.<init>(java.util.Map)
                 a.b.X->S->a.b.X.attributes
@@ -313,7 +316,7 @@ public class TestCallGraph2 extends CommonTest {
                 a.b.Y->H->a.b.X
                 a.b.Y->S->a.b.Y.<init>(java.util.Map)
                 a.b.Y->S->a.b.Y.getEmail()
-                a.b.Y.<init>(java.util.Map)->S->a.b.X.<init>(java.util.Map)
+                a.b.Y.<init>(java.util.Map)->SR->a.b.X.<init>(java.util.Map)
                 a.b.Y.getEmail()->R->a.b.X.attributes
                 a.b.Y.getEmail()->S->a.b.X.getEmail()
                 d.e.A->S->d.e.A.<init>()
