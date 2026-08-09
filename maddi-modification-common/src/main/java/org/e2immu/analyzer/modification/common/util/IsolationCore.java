@@ -582,6 +582,30 @@ abstract class IsolationCore {
      *
      * @param typeArguments substitutions to apply to the bounds, for a supertype implemented with type arguments
      */
+    /**
+     * The isolated type's own type parameters, on the type that stands in for it. The method-level counterpart
+     * is {@link #reproduceMethodTypeParameters}, and the two passes are deliberately the same shape: declare all
+     * of them first, registering each in {@code typeParameterMap} so that every later use translates, and only
+     * then set the bounds — a bound may name a sibling parameter ({@code <T, B extends List<T>>}), which cannot
+     * resolve until both exist.
+     */
+    void reproduceTypeParameters(TypeInfo original, TypeInfo isolated) {
+        List<TypeParameter> origTps = original.typeParameters();
+        if (origTps.isEmpty()) return;
+        List<TypeParameter> newTps = new ArrayList<>(origTps.size());
+        for (TypeParameter origTp : origTps) {
+            TypeParameter newTp = runtime.newTypeParameter(origTp.getIndex(), origTp.simpleName(), isolated);
+            typeParameterMap.put(origTp, newTp);
+            isolated.builder().addOrSetTypeParameter(newTp);
+            newTps.add(newTp);
+        }
+        for (int i = 0; i < newTps.size(); i++) {
+            List<ParameterizedType> newBounds = origTps.get(i).typeBounds().stream()
+                    .map(this::ensureTypes).toList();
+            newTps.get(i).builder().setTypeBounds(newBounds).commit();
+        }
+    }
+
     private void reproduceMethodTypeParameters(MethodInfo original, MethodInfo newMethod,
                                                Map<NamedType, ParameterizedType> typeArguments) {
         List<TypeParameter> origTps = original.typeParameters();

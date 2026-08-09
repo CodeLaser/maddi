@@ -223,6 +223,20 @@ public class IsolateClass {
         ClassStubs data = new ClassStubs(typeInfo, isolated);
         Map<MethodInfo, MethodInfo> markers = new LinkedHashMap<>();
 
+        // ⛔ BEFORE the parent class, the interfaces and every member walk: all three can NAME these parameters.
+        // 'class X<E> extends AbstractSerializer<E>' was emitted as 'class X extends AbstractSerializer<E>' --
+        // the USE survived because it comes from the supertype's own text, while the DECLARATION was never
+        // reproduced, so every 'T'/'V'/'E' in a kept signature or body was "cannot find symbol".
+        data.reproduceTypeParameters(typeInfo, isolated);
+
+        // an isolated type that declares abstract methods must itself be abstract: the members are kept
+        // verbatim, 'protected abstract V getValue(...)' included, and a plain 'class' declaring them is
+        // "X is not abstract and does not override abstract method ... in X" -- javac naming the type twice,
+        // which reads as a puzzle until you notice the declaration lost the keyword
+        if (typeInfo.isAbstract()) {
+            isolated.builder().addTypeModifier(runtime.typeModifierAbstract());
+        }
+
         // the isolated type keeps its place in the hierarchy: an 'implements Outer.Sink<Entry>' in the verbatim
         // text has to still be there, or the @Override on its implementation does not resolve
         isolated.builder().setParentClass(data.reproducedParentClass(typeInfo));

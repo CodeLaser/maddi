@@ -882,6 +882,51 @@ public class TestIsolateClass4Compiles {
             }
             """;
 
+    @Language("java")
+    private static final String GENERIC_BASE = """
+            package p.q;
+            public abstract class Serializer<E> {
+                public abstract void write(E element);
+            }
+            """;
+
+    @Language("java")
+    private static final String GENERIC_ABSTRACT = """
+            package a.b;
+            import p.q.Serializer;
+            import java.util.List;
+            public abstract class GenericAbstract<T, V, E extends Exception> extends Serializer<T> {
+                protected abstract V getValue(T item) throws E;
+                protected abstract List<T> derive(List<Long> ids);
+                public V first(List<T> items) throws E {
+                    return getValue(items.get(0));
+                }
+            }
+            """;
+
+    @DisplayName("an isolated type keeps its own type parameters and its 'abstract'")
+    @Test
+    public void genericAbstractIsolatedType() throws IOException {
+        Map<String, String> tree = isolate(Map.of("p.q.Serializer", GENERIC_BASE,
+                "a.b.GenericAbstract", GENERIC_ABSTRACT), "a.b.GenericAbstract");
+        // The isolated type's declaration is SYNTHESISED (setTypeNature(class), addTypeModifier(public)), and it
+        // used to reproduce neither the type parameters nor 'abstract'. Two distinct failures follow, and they
+        // look unrelated until you see the emitted declaration:
+        //
+        //   'class GenericAbstract extends Serializer<T>'   -- the USE of T survives, coming from the supertype's
+        //       own text, while the DECLARATION is gone, so every T/V/E is "cannot find symbol"
+        //   'class GenericAbstract { protected abstract V getValue(T); }'  -- "GenericAbstract is not abstract
+        //       and does not override abstract method getValue in GenericAbstract", javac naming the type twice
+        //
+        // Order matters: the parameters are declared before the parent class, the interfaces and the member walk,
+        // all three of which can name them. And the bounds go on in a second pass, because a bound may name a
+        // sibling ('<T, B extends List<T>>').
+        //
+        // The largest remaining cluster on the closed-core class-isolate corpus, measured 2026-08-09: five trees
+        // of one generic abstract type at ~60 errors each, all of them this.
+        assertCompiles(tree);
+    }
+
     @DisplayName("a 'super(...)' in a kept constructor stubs that constructor on the supertype")
     @Test
     public void superConstructorInvocation() throws IOException {
