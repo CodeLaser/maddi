@@ -234,11 +234,13 @@ none — it is exactly what let the 88-tree regression through.
   returns `Object`; Java 8's `Map.remove(Object, Object)` returns `boolean`. closed-core links that jar, so it only
   ever needed *binary* compatibility; reproducing the class as **source** on a modern JDK cannot compile, whatever
   the stub contains. Every isolate of a binary-only dependency is exposed to this.
-- **`JDBCXMLReader.getProperty`** — the throws disagreement in the direction the asymmetric rule does not cover: a
-  stub built by `ensureMethodInfo` **with** the original's exceptions, overriding a dummy **without** them. Fixing
-  it in either path costs 24 trees (above). It wants a pass over the *finished* stub graph, matching each stub
-  method against what it overrides and widening the overridden one — which is a different kind of change from
-  anything here, and worth doing only alongside the next cause of the same shape.
+- ~~**`JDBCXMLReader.getProperty`**~~ — **RESOLVED 2026-08-09, see §9.** It was read here as a throws disagreement
+  needing "a pass over the *finished* stub graph, matching each stub method against what it overrides and widening
+  the overridden one". That reading was right about the symptom and wrong about the remedy, and the wrong half is
+  the instructive one: the two declarations were not two legitimate views to be reconciled. One of them was
+  **invented** — a dummy for a method the original declares itself. There is nothing to reconcile once the
+  invention stops. The prediction that it was "worth doing only alongside the next cause of the same shape" did
+  hold: the next cause of that shape was three more trees, and one change took all four.
 - **`Expression` / `SourceLocator`** — diagnosed, and fixed from the other side. `abstract class Expression
   implements Serializable, ExpressionNode, XPathVisitable`, where the stub of `ExpressionNode` still
   `extends javax.xml.transform.SourceLocator`, got no dummy for that JDK interface's four abstract methods.
@@ -321,6 +323,66 @@ All 24 trees whose *first* error was K's signature lost it: 23 became clean, and
 unrelated defect underneath surfacing as its first. P reached two strata — it moved the no-supertype stratum
 from 3 to 1 without being aimed at it, because a type with no supertype can still be generic.
 
+## 9. The 16 → 12 round, 2026-08-09: one cause, and it was hiding behind the histogram
+
+**The instrument found this one, not the reading.** §8 closed with "no cause occurs in more than one tree", and
+that was wrong. The census bucketed two ways, and each way hid the cluster on its own: *by first error* sees only
+one error per tree and folds every `cannot override` into a single coarse bucket, while *by file* counts the file
+a message lands in — and one cause spread over three trees lands in three different files. Keying on the message
+**shape** (qualified names stripped, method names kept) over *every* error of *every* tree named it immediately:
+
+```
+3  startDocument() in <T> cannot override startDocument() in <T>
+3  endDocument()   in <T> cannot override endDocument()   in <T>
+```
+
+Three trees, two methods, one cause — and the same cause as §7's `getProperty` tree, which had been filed
+separately for a year of rounds because nothing ever compared their message shapes.
+
+**The cause.** `addDummyInterfaceMethods` reads a stub's obligations off the **original** type's interfaces and
+its existing methods off the **stub**. When nothing referenced the original's own members the stub is empty, so
+the pass concludes the obligation is unmet and invents `public void startDocument() { }` — deliberately without
+a `throws` clause, which §6 shows is the right default for a dummy. But the original *declares that method
+itself*, with `throws SAXException`. The invention then contradicts every subtype that overrides it faithfully.
+
+**The fix is not to reconcile the two declarations but to stop creating the second one.** Where the original
+declares the implementation, stub *that* — exceptions, access and parameter names and all — and invent a dummy
+only where there is nothing to copy. A dummy is a guess at a declaration; this is the declaration.
+`declaredImplementation` is four lines; the guard on it is the part worth reading.
+
+⛔ **The guard: nothing generic.** A dummy is *built* for the implementing type, with `am.typeArguments`
+substituted and out-of-scope parameters erased to their bounds. Copying a declaration written against the
+*declaring* type's own type parameters is a different thing, and where the two differ they erase alike without
+overriding — javac's *"name clash: … have the same erasure, yet neither overrides the other"*. Measured: **3
+trees at 44 errors each**, all of one assertj-using shape, on the first attempt without the guard. The exchange
+is only safe where there is nothing to substitute, which is exactly the case that needed it.
+
+⚠ **Where javac points is not where the defect is.** The message names the nearest subtype that overrides
+faithfully; in three of the four trees the invented dummy sat two classes above it. An earlier attempt read the
+message literally and sent the inherited call to its declaring stub instead — which fixed 2 trees, moved the
+message one level up in the other 2, and **dropped 15 trees out of the corpus entirely**. Reverted. Two attempts,
+both green on the unit suite, both wrong; §1's rule earns its keep every round.
+
+Driver: `TestIsolateClass4Compiles.dummyNeverReplacesADeclarationTheOriginalHas`, verified to fail with the fix
+disabled.
+
+| | broken | fixed | regressed |
+|---|---:|---:|---:|
+| baseline | 16 | — | — |
+| redirect the inherited call (**reverted**) | 16 | 2 | 2, **and 15 trees dropped** |
+| stub the original's declaration, unguarded | 15 | 4 | **3** |
+| …with the generics guard | **12** | 4 | **0** |
+
+Per stratum: size 3 → **2**, plain 1 → 1, fill 12 → **9**. Tree sets identical throughout (530 = 530).
+
+**Next candidate, with its evidence.** One already-broken tree gained a second error: its parent stub is
+`abstract` in the original and declares nothing, so it still receives a throws-less dummy, while the subclass now
+carries the real signature. §7's own argument says an abstract class owes no implementations — yet
+`addDummyInterfaceMethods` skips only interfaces and annotations, never abstract classes. Skipping them is the
+obvious next rule and has a **large blast radius**: §7 reproduced `abstract` on stubs and recorded that it "did
+not change the count", so today's dummies on abstract stubs are load-bearing in ways nobody has measured. A round
+of its own, not a tack-on.
+
 ## State, so a later run can tell drift from regression
 
 Measured 2026-07-28, top 100 closed-core types by total statement count:
@@ -362,24 +424,31 @@ Re-measured 2026-07-30 after §6, same knobs and the same closed-core parse:
 | what is left | §7: three trees, one error each |
 | `MAX_TREES_NOT_COMPILING` | **3** (was 43 at the start of the day) |
 
-Re-measured 2026-08-09 after §8. ⛔ **Not comparable to the rows above**: the corpus is now three strata and
-530 trees, not the top 100, and each stratum ratchets separately. Read the strata, not the total.
+Re-measured 2026-08-09 after §8, and again the same day after §9. ⛔ **Not comparable to the rows above**: the
+corpus is now three strata and 530 trees, not the top 100, and each stratum ratchets separately. Read the strata,
+not the total.
 
-| stratum | trees | not compiling, before | after |
-|---|---:|---:|---:|
-| biggest types | 100 | 3 | **3** |
-| biggest with no supertype | 30 | 3 | **1** |
-| most fill sites | 400 | 48 | **12** |
-| **all** | **530** | **54** | **16** |
+| stratum | trees | before | after §8 | after §9 |
+|---|---:|---:|---:|---:|
+| biggest types | 100 | 3 | 3 | **2** |
+| biggest with no supertype | 30 | 3 | 1 | **1** |
+| most fill sites | 400 | 48 | 12 | **9** |
+| **all** | **530** | **54** | 16 | **12** |
 
 | | |
 |---|---|
-| trees produced / requested | **530 / 530**, no membership change across either fix |
-| trees that COMPILE | **514 / 530** |
-| regressions | **0**, per-tree set difference on both rounds |
-| what is left | §7's three (the size stratum, unchanged) plus 13 across the two newer strata, no cause in more than one file |
+| trees produced / requested | **530 / 530**, no membership change across any of the three fixes |
+| trees that COMPILE | **518 / 530** |
+| regressions | **0**, per-tree set difference on every round |
+| what is left | §7's two, both unfixable here, plus 10 across the two newer strata |
+| largest remaining cluster | `cannot find symbol`, 6 trees — a residue category, not yet a cause |
 | runtime | ~5 min for the regeneration, ~2 min for the census |
-| `IsolateClass` unit drivers | 18, 0 failures |
+| `IsolateClass` unit drivers | 19, 0 failures; whole `maddi-modification-common` 84, 0 failures |
+
+⚠ Both reports now go to a **file** (`build/isolate-census.txt`, `build/isolate-verify.txt`). The inspector logs
+at DEBUG throughout, and on a 530-tree run that flood truncates the JUnit XML's `<system-out>` long before either
+report is reached — 755 MB of scanner chatter and not one census line. The per-stratum counts were previously
+stated only in an assertion message, so a run that *passed* left the next round nothing to set a ratchet from.
 
 ⚠ **Anything measured on this corpus before 2026-08-09 is not comparable to anything measured after.** 38 trees
 changed state, and a tree that does not compile contributes fewer units — a unit whose symbols do not resolve is
