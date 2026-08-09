@@ -783,7 +783,10 @@ abstract class IsolationCore {
                 stub.methodStream().forEach(m -> present.add(erasureKey(m)));
                 for (AbstractMethod am : required.values()) {
                     if (present.add(erasureKey(am.method, am.typeArguments, runtime))) {
-                        addDummyImplementation(stub, am);
+                        // the original may already have the very implementation we are about to invent; see below
+                        MethodInfo real = declaredImplementation(original, am);
+                        if (real != null) ensureMethodInfo(stub, real);
+                        else addDummyImplementation(stub, am);
                     }
                 }
             }
@@ -845,6 +848,52 @@ abstract class IsolationCore {
         if (parent != null) {
             collectAbstractMethodsOfJdkAncestors(parent.applyTranslation(runtime, typeArguments), result);
         }
+    }
+
+    /**
+     * The implementation {@code original} <b>already declares</b> for an inherited abstract method, if it declares
+     * one. A dummy is a guess at a declaration; this is the declaration, and where it exists it is strictly better.
+     * <p>
+     * The dummy pass reaches a type whose own members were never referenced, so its stub is empty and the pass
+     * concludes the interface obligation is unmet — while the original satisfies it in its own text, complete with
+     * a {@code throws} clause. Inventing one WITHOUT that clause (which is the right default, §6: giving dummies
+     * the interface's exceptions costs 24 trees) then contradicts every subtype that overrides the method
+     * faithfully: <i>"startDocument() in X cannot override startDocument() in Y; overridden method does not throw
+     * org.xml.sax.SAXException"</i>. Four trees of the closed-core corpus, one of which {@code isolate-class.md}
+     * §7 had filed as needing a reconciling pass over the finished stub graph. No reconciling is needed once the
+     * two declarations are the SAME declaration.
+     * <p>
+     * Only the type's own methods, deliberately. A concrete implementation further up is inherited by the original
+     * too, and stubbing it here would declare an override the original never wrote — the ancestor gets its own
+     * turn in the fixpoint if it is stubbed at all.
+     * <p>
+     * ⛔ <b>Nothing generic.</b> A dummy is BUILT for the implementing type — {@code am.typeArguments} substituted,
+     * out-of-scope parameters erased to their bounds — while this copies a declaration written against the
+     * declaring type's own type parameters. Where those differ the two erase alike without overriding, which is
+     * javac's <i>"name clash: allMatch(Predicate&lt;ELEMENT&gt;) … have the same erasure, yet neither overrides the
+     * other"</i>: 3 trees at 44 errors each, all assertj, the first time this was tried without the guard. The
+     * exchange is only safe when there is nothing to substitute, so the two would agree on every type anyway —
+     * which is exactly the case the corpus needed it for ({@code startDocument()}, {@code getProperty(String)}).
+     *
+     * @return null when nothing is declared here, i.e. when a dummy really is the only thing available
+     */
+    private MethodInfo declaredImplementation(TypeInfo original, AbstractMethod am) {
+        if (am.raw || !am.typeArguments.isEmpty()) return null;
+        String key = erasureKey(am.method, am.typeArguments, runtime);
+        return original.methodStream()
+                .filter(m -> !m.isAbstract() && !m.isStatic() && m.typeParameters().isEmpty()
+                             && erasureKey(m).equals(key) && noTypeParameters(m))
+                .findFirst().orElse(null);
+    }
+
+    /** neither the return type nor any parameter mentions a type parameter, at any depth */
+    private static boolean noTypeParameters(MethodInfo m) {
+        return !mentionsTypeParameter(m.returnType())
+               && m.parameters().stream().noneMatch(pi -> mentionsTypeParameter(pi.parameterizedType()));
+    }
+
+    private static boolean mentionsTypeParameter(ParameterizedType pt) {
+        return pt.typeParameter() != null || pt.parameters().stream().anyMatch(IsolationCore::mentionsTypeParameter);
     }
 
     private void addDummyImplementation(TypeInfo stub, AbstractMethod am) {

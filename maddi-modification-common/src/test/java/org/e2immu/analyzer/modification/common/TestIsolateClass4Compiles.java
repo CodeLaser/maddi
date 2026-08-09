@@ -946,4 +946,79 @@ public class TestIsolateClass4Compiles {
         // that did not compile, 9 of them subclasses of a single base class, which is the shape this reduces.
         assertCompiles(tree);
     }
+
+    // ---------------------------------------------------------------------------------------------------------
+
+    @Language("java")
+    private static final String SINK = """
+            package p.q;
+            import java.io.IOException;
+            public interface Sink {
+                void write() throws IOException;
+            }
+            """;
+
+    @Language("java")
+    private static final String SINK_BASE = """
+            package p.q;
+            import java.io.IOException;
+            public class SinkBase implements Sink {
+                public void write() throws IOException { }
+                public void flush() throws IOException { }
+            }
+            """;
+
+    @Language("java")
+    private static final String CALLS_INHERITED_THROWER = """
+            package a.b;
+            import p.q.SinkBase;
+            import java.io.IOException;
+            public class CallsInheritedThrower extends SinkBase {
+                public void unqualified() {
+                    try {
+                        write();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+                public void qualified() {
+                    try {
+                        this.flush();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("a dummy is not invented for a method the original type declares itself")
+    @Test
+    public void dummyNeverReplacesADeclarationTheOriginalHas() throws IOException {
+        Map<String, String> tree = isolate(Map.of("p.q.Sink", SINK, "p.q.SinkBase", SINK_BASE,
+                "a.b.CallsInheritedThrower", CALLS_INHERITED_THROWER), "a.b.CallsInheritedThrower");
+        // 'write()' and 'this.flush()' are calls to methods the isolated type INHERITS, so each is stubbed on the
+        // isolated type with the original's throws clause. Nothing referenced SinkBase's own members, so its stub
+        // is empty, and the dummy pass — reading 'implements Sink' off the ORIGINAL and the method list off the
+        // STUB — concludes the obligation is unmet and invents 'public void write() { }'. Deliberately without a
+        // throws clause, and rightly so (§6 of docs/isolate-class.md: giving the dummy path the interface's
+        // exceptions costs 24 trees). But SinkBase declares that method itself, WITH its exceptions, so the
+        // invention contradicts the real thing in the one direction the language forbids:
+        //
+        //   "write() in a.b.CallsInheritedThrower cannot override write() in p.q.SinkBase;
+        //    overridden method does not throw java.io.IOException"
+        //
+        // The fix is not to reconcile the two declarations but to stop creating the second one: where the original
+        // declares the implementation, stub THAT — exceptions, access and all — and invent a dummy only where
+        // there is nothing to copy. A dummy is a guess at a declaration; this is the declaration.
+        //
+        // Four trees of the closed-core class-isolate corpus, measured 2026-08-09: three XML handlers on
+        // startDocument()/endDocument(), and the getProperty() tree that §7 had filed as needing a pass over the
+        // finished stub graph. It does not need one.
+        //
+        // ⚠ Note where the error is REPORTED. javac names the nearest subtype that overrides faithfully, which is
+        // rarely the type at fault: in three of the four corpus trees the invented dummy sat two classes above the
+        // type javac named, and an earlier attempt at this — sending the inherited call to its declaring stub —
+        // only moved the message one level up while dropping 15 trees elsewhere.
+        assertCompiles(tree);
+    }
 }
