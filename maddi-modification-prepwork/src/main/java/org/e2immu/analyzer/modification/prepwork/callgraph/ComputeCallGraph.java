@@ -349,6 +349,27 @@ public class ComputeCallGraph {
                 // cover Object, Enum, Record, Annotation, etc.
                 !eci.methodInfo().typeInfo().packageName().startsWith("java.lang")) {
                 builder.mergeEdge(info, eci.methodInfo(), CODE_STRUCTURE); // S
+                // ⛔ AND ALSO D: `this(..)` / `super(..)` IS A CALL, and for a long time only the S bit said so.
+                // The class comment defines D as "from method body to any method referenced (as method call,
+                // constructor call, method reference)", and an explicit constructor invocation is exactly that
+                // -- but it was recorded as CODE STRUCTURE alone, which is what the analysis ORDER needs and
+                // not what the edge IS. Every consumer that asks "is this a genuine call" with isReference()
+                // (rather than isAtLeastReference(), which admits structure) therefore could not see it: gap
+                // #124 measured fieldsMethodsThatCall(C(String,int)) returning THE EMPTY SET for a sibling
+                // `this("n", n)`, while the parse modelled the invocation with a methodInfo() and a source
+                // range. A lever trusting that answer deletes the constructor, leaves the sibling naming it,
+                // and reports "1 call site rewritten" while two existed.
+                // ▶ The S edge is kept exactly as it was, for BOTH kinds: the ordering argument for it has not
+                // changed. handleMethodCall adds the R bit under the SAME accept()/recursion rules as every
+                // other call, so an invocation of an out-of-parse supertype constructor stays structure-only.
+                // ⛔⛔ ONLY WHAT THE AUTHOR WROTE IS A CALL. An IMPLICIT super() is synthesised for every
+                // constructor that does not write one, so counting synthetic invocations as references gives
+                // EVERY subclass a use-edge to its parent -- measured on the 500-type clustering stress model
+                // (TestTypesIntoPackagesStress): 182 type-use edges that no planted call justifies, and 334
+                // weights moved with them, because a callee's weight is diluted by its number of users. The
+                // hierarchy is already an edge (B) and the implementation graph already models it; a written
+                // this(..)/super(..) is a call site a lever can rewrite, and a synthesised one is not.
+                if (!eci.isSynthetic()) handleMethodCall(info, eci.methodInfo()); // D
             }
             if (e instanceof ConstructorCall cc) {
                 TypeInfo anonymousType = cc.anonymousClass();
