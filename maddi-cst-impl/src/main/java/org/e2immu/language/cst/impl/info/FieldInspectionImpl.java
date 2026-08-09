@@ -86,8 +86,39 @@ public class FieldInspectionImpl extends InspectionImpl implements FieldInspecti
            setJavaDoc(fi.javaDoc());
         }
 
+        /**
+         * ⛔ <b>JLS 9.3: EVERY FIELD DECLARED IN THE BODY OF AN INTERFACE IS IMPLICITLY PUBLIC, STATIC AND
+         * FINAL</b>, and the modifier list carries only what was WRITTEN — so a constant declared
+         * {@code int X = 1;} arrived here with no modifiers and was recorded as PACKAGE.
+         * <p>
+         * The rule was already applied twice in this package and to two of the three member kinds:
+         * {@link MethodInspectionImpl.Builder#computeAccess} makes an interface method PUBLIC without a
+         * modifier, a nested type carries a materialised PUBLIC modifier, and {@code FieldInfoImpl.isPropertyFinal}
+         * quotes this very sentence of the JLS — ten lines from the accessor that got it wrong. Only the field's
+         * ACCESS was missed.
+         * <p>
+         * ⛔⛔ <b>AND IT IS GUARDED ON {@code isSynthetic()}, WHICH IS NOT A DETAIL: THE JLS TALKS ABOUT FIELDS
+         * DECLARED IN THE BODY OF AN INTERFACE, AND MADDI ALSO ATTACHES FIELDS TO ONE.</b>
+         * {@code CreateSyntheticFieldsForGetSet} gives {@code java.util.List} a non-static
+         * {@code _synthetic_list}, and {@code FieldInfoImpl.isStatic}'s javadoc already records that this is
+         * exactly why the implicit-STATIC rule is applied where the declaration is read rather than in the
+         * accessor — <i>"an accessor cannot tell those from a constant"</i>. The BUILDER can: {@code setSynthetic}
+         * runs before {@code computeAccess} on that path. Measured, and it is why the guard is here: without it a
+         * full maddi test run <b>rewrote the annotated-API archive</b>, giving {@code java.util.List} a new
+         * {@code F_synthetic_list} entry — a modelling artefact promoted into the published API annotations.
+         * <p>
+         * ⚠ Like the method rule, this does NOT combine with the owner's access. The two are different
+         * questions: {@code access()} answers "what does this declaration say", and whether the enclosing type
+         * can be reached is the caller's to ask. Combining would report an interface constant as PACKAGE
+         * whenever the interface itself is package-private, which is the answer that produced gap {@code #173} —
+         * a pre-widen that "widens" a member already as public as Java allows.
+         */
         @Override
         public Builder computeAccess() {
+            if (fieldInfo.owner().isInterface() && !isSynthetic()) {
+                setAccess(AccessEnum.PUBLIC);
+                return this;
+            }
             Access fromType = fieldInfo.owner().access();
             Access fromModifier = accessFromFieldModifier();
             Access combined = fromModifier.combine(fromType);
