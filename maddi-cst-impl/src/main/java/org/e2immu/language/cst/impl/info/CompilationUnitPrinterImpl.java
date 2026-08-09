@@ -66,6 +66,32 @@ public record CompilationUnitPrinterImpl(CompilationUnit compilationUnit, boolea
         OutputBuilder outputBuilder = new OutputBuilderImpl();
         compilationUnit.comments().forEach(c -> outputBuilder.add(c.print(qualification)));
 
+        /*
+        A package-info.java has no type declaration, so its javadoc and its package annotations belong to the
+        PACKAGE DECLARATION and must be printed between the compilation unit's comments -- the project's licence
+        header -- and the `package` keyword. That is why they are emitted here and not in the loop over types()
+        below: by the time that loop runs, the package declaration has already been printed, and the branch
+        there could only prepend its annotations to the whole file, ahead of the licence header.
+
+        The javadoc arrives on the TypeInfo (ScanCompilationUnit sets it) while a regular type's javadoc arrives
+        in comments(), which TypePrinterImpl prints. ONE FACT, TWO CARRIERS: the read side learned about the
+        package-info carrier and this printer was never told, so a lever that reprinted the file reduced it to
+        its package declaration. Measured on Elasticsearch: package-info.java files went from a licence header
+        plus package documentation to a single `package p;` line.
+         */
+        TypeInfo packageInfo = compilationUnit.types().stream()
+                .filter(t -> t.typeNature().isPackageInfo()).findFirst().orElse(null);
+        if (packageInfo != null) {
+            if (packageInfo.javaDoc() != null) {
+                outputBuilder.add(packageInfo.javaDoc().print(qualification));
+            }
+            // a JavaDoc is a Comment, so filter it out rather than print it twice if it is carried both ways
+            packageInfo.comments().stream().filter(c -> c != packageInfo.javaDoc())
+                    .forEach(c -> outputBuilder.add(c.print(qualification)));
+            packageInfo.annotations().forEach(ae -> outputBuilder.add(ae.print(qualification))
+                    .add(SpaceEnum.NEWLINE));
+        }
+
         String packageName = compilationUnit.packageName();
         if (!packageName.isEmpty()) {
             outputBuilder.add(KeywordImpl.PACKAGE).add(SpaceEnum.ONE).add(new TextImpl(packageName))
@@ -81,12 +107,10 @@ public record CompilationUnitPrinterImpl(CompilationUnit compilationUnit, boolea
         });
 
         for (TypeInfo typeInfo : compilationUnit.types()) {
-            // special case: the package-info.java file
+            // special case: the package-info.java file -- fully printed above, and it has no type body
             if (typeInfo.typeNature().isPackageInfo()) {
-                OutputBuilder annotationStream = typeInfo.annotations().stream()
-                        .map(ae -> ae.print(qualification))
-                        .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE));
-                return annotationStream.add(SpaceEnum.NEWLINE).add(outputBuilder);
+                compilationUnit.trailingComments().forEach(c -> outputBuilder.add(c.print(qualification)));
+                return outputBuilder;
             }
             if (qualification.decorator() != null) {
                 qualification.decorator().comments(typeInfo)
