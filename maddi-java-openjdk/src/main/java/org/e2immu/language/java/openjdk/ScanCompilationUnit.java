@@ -2245,6 +2245,19 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         JCTree.JCLambda lambda = (JCTree.JCLambda) node;
         Source source = sourceForNode(node);
 
+        // ⛔ 'target' is the functional interface javac inferred for this lambda, and it is NULL when there was
+        // nothing to infer it from: the enclosing call did not resolve, so its method symbol is an error symbol with
+        // no parameter types. Everything below dereferences it (convert(lambda.target), then findInstantiatedSAM),
+        // and the null used to travel into convert() and surface as `Cannot invoke "Type.toString()" because "type"
+        // is null` -- a javac internal, one frame away from the site, naming neither the lambda nor the call that
+        // failed to resolve. It is an unresolved symbol, so it is reported as one: the unit is dropped with a
+        // warning and the run proceeds. Found on 'EnterpriseService.loadOrNull(b -> ...)' where EnterpriseService
+        // itself was not on the (partial) classpath.
+        if (lambda.target == null) {
+            throw new UnresolvedSymbolException("No target type for lambda '" + node
+                                                + "'; the call it is an argument of did not resolve");
+        }
+
         TypeInfo enclosingType = typeStack.getLast();
         int typeIndex = enclosingType.builder().getAndIncrementAnonymousTypes();
         TypeInfo anonymousType = runtime.newAnonymousType(enclosingType, typeIndex);
