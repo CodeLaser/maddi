@@ -509,11 +509,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                                         TypeParameter newTp) {
         List<ParameterizedType> bounds = new ArrayList<>();
         if (typeParameter.type instanceof Type.TypeVar tv) {
+            // the LOWER bound is never null: every javac TypeVar constructor does Assert.checkNonNull(lower), and a
+            // type variable without a 'super' bound gets syms.botType, whose kind is NULL. The UPPER bound is a
+            // different matter entirely -- see upperBoundOrUnresolved.
             Type lowerBound = tv.getLowerBound();
             if (lowerBound.getKind() != TypeKind.NULL) {
                 throw new UnsupportedOperationException();
             } else {
-                Type upperBound = tv.getUpperBound();
+                Type upperBound = upperBoundOrUnresolved(tv,
+                        "type parameter '" + newTp.simpleName() + "' of " + newTypeInfo);
                 if (upperBound.getKind() != TypeKind.NULL) {
                     if (upperBound.tsym == cs) {
                         // self reference, as in java.lang.Enum<E extends Enum<E>>
@@ -545,6 +549,49 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
         }
         newTp.builder().addAnnotations(loadAnnotations(typeParameter)).setTypeBounds(List.copyOf(bounds)).commit();
+    }
+
+    /**
+     * A type variable's upper bound, guaranteed non-null.
+     * <p>
+     * ⛔ {@code Type.TypeVar.getUpperBound()} is a bare field read — there is no lazy completion behind it — and the
+     * field starts out <b>null</b>: {@code TypeVar(Name, Symbol, Type lower)} explicitly calls
+     * {@code setUpperBound(null)}, and the bound is filled in a later pass ({@code ClassReader.sigToTypeParams}'
+     * second phase for a class-file type, {@code TypeEnter.HeaderPhase} for a source type). So a null here says
+     * "the declaring symbol's header has not been attributed", which happens for two very different reasons:
+     * <ol>
+     *   <li>it simply has not been completed yet — completing the owner fills the bound, so that is tried first;</li>
+     *   <li>its header <em>cannot</em> be attributed, because a supertype or a bound did not resolve. javac has
+     *       already reported "cannot find symbol" / "package X does not exist" for it, and the type variable stays
+     *       bound-less for the rest of the run.</li>
+     * </ol>
+     * ⛔ Case 2 must NOT be turned into an empty bound list, which is what a plain null-guard here would produce:
+     * {@code T extends Selector<…>} would silently become an unbounded {@code T}, and every assignability answer
+     * derived from it would widen — a wrong result no gate can see. It is an unresolved symbol, so it is reported as
+     * one ({@link UnresolvedSymbolException}): the compilation unit is dropped with a warning naming the type
+     * parameter, the run proceeds over what did resolve, and the diagnostic points at the classpath instead of at
+     * this scanner.
+     * <p>
+     * Found on a timefold corpus whose parse configuration predated a module split, so three modules were compiled
+     * without the module holding their supertypes: 3 units died on {@code "upperBound" is null} /
+     * {@code "type" is null} (the latter being this same null one frame on, inside {@link #convert}), where the
+     * remaining 11 were already dropped as unresolved symbols.
+     */
+    private Type upperBoundOrUnresolved(Type.TypeVar tv, String context) {
+        Type upperBound = tv.getUpperBound();
+        if (upperBound != null) return upperBound;
+        Symbol owner = tv.tsym == null ? null : tv.tsym.owner;
+        if (owner != null) {
+            try {
+                owner.complete();
+            } catch (Symbol.CompletionFailure completionFailure) {
+                diagnosticCollector.reportMissingClassFile(completionFailure);
+            }
+            upperBound = tv.getUpperBound();
+            if (upperBound != null) return upperBound;
+        }
+        throw new UnresolvedSymbolException("No upper bound for " + context + ": its declaration did not resolve"
+                                           + (owner == null ? "" : " (owner " + owner + ")"));
     }
 
     // looks up faithful parameter names for the method being built, keyed on its (erased) signature; null when
@@ -1114,6 +1161,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     private ParameterizedType convert(Type type, Set<Type> visited) {
+        // no caller may legitimately pass null: a null javac Type is always some getXxx() that returned null because
+        // attribution never filled it. Say so here rather than letting it fall through to the 'none' test at the
+        // bottom, which reports `Cannot invoke "Type.toString()" because "type" is null` and names no caller.
+        if (type == null) {
+            throw new UnsupportedOperationException("Cannot convert a null javac type; the caller's symbol or"
+                                                    + " target type was never attributed");
+        }
         if (type instanceof Type.JCPrimitiveType primitiveType) {
             return primitiveType(primitiveType.getKind());
         }
@@ -1167,22 +1221,19 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                             () -> findTypeParameter(ms, typeParameterName));
                 } else throw new UnsupportedOperationException();
             } else if (typeVar.isCaptured()) {
-                if (typeVar.getUpperBound() != null) {
-                    Set<Type> visitedNotNull = visited == null ? new HashSet<>() : visited;
-                    if (visitedNotNull.add(typeVar)) {
-                        ParameterizedType upperPt = convert(typeVar.getUpperBound(), visitedNotNull);
-                        assert upperPt != null;
-                        TypeInfo upper = upperPt.typeInfo();
-                        // preserve the bound's array dimension and type arguments: e.g. the captured 'CAP extends
-                        // byte[]' from byte[].getClass() must stay byte[] (an array), not collapse to the primitive
-                        // byte (an illegal type argument)
-                        return runtime.newParameterizedType(upper, upperPt.arrays(), runtime.wildcardExtends(),
-                                upperPt.parameters());
-                    }
-                    return runtime.parameterizedTypeWildcard();
-                } else {
-                    throw new UnsupportedOperationException();
+                Type upperBound = upperBoundOrUnresolved(typeVar, "captured type variable '" + typeParameterName + "'");
+                Set<Type> visitedNotNull = visited == null ? new HashSet<>() : visited;
+                if (visitedNotNull.add(typeVar)) {
+                    ParameterizedType upperPt = convert(upperBound, visitedNotNull);
+                    assert upperPt != null;
+                    TypeInfo upper = upperPt.typeInfo();
+                    // preserve the bound's array dimension and type arguments: e.g. the captured 'CAP extends
+                    // byte[]' from byte[].getClass() must stay byte[] (an array), not collapse to the primitive
+                    // byte (an illegal type argument)
+                    return runtime.newParameterizedType(upper, upperPt.arrays(), runtime.wildcardExtends(),
+                            upperPt.parameters());
                 }
+                return runtime.parameterizedTypeWildcard();
             } else {
                 String fullyQualifiedName = typeVar.tsym.owner.toString();
                 TypeInfo owner = getType(fullyQualifiedName);
@@ -1287,7 +1338,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
             if (identifier.type instanceof Type.TypeVar tv) {
                 if (tv.isCaptured()) {
-                    ParameterizedType pt = convert(tv.getUpperBound());
+                    // the null bound used to travel INTO convert() and NPE one frame on, at 'type.toString()',
+                    // naming a javac internal instead of the unresolved type that caused it
+                    ParameterizedType pt = convert(upperBoundOrUnresolved(tv,
+                            "captured type variable in '" + identifier.getName() + "'"));
                     return pt.withWildcard(runtime.wildcardExtends());
                 }
                 String typeParameterName = identifier.getName().toString();

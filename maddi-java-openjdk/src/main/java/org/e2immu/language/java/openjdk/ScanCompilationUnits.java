@@ -363,6 +363,10 @@ public class ScanCompilationUnits {
         boolean tolerable = hasCause(e, UnresolvedSymbolException.class);
         String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
         LOGGER.warn("Dropping compilation unit {} ({}): {}", uri, tolerable ? "unresolved symbol" : "error", detail);
+        // the stack, at DEBUG: an intolerable drop is reported to the caller as a one-line message, and finding the
+        // site it came from otherwise costs a patched build and a re-run (three NPEs on the timefold corpus cost
+        // exactly that, and javac's fast-throw had stripped the stack of one of them by the time it was logged)
+        LOGGER.debug("Stack of the dropped compilation unit {}", uri, e);
         failures.add(new CompilationUnitFailure(uri, detail, tolerable, e));
     }
 
