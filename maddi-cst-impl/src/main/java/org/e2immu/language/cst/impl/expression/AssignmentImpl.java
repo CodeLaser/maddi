@@ -263,7 +263,13 @@ public class AssignmentImpl extends ExpressionImpl implements Assignment {
 
         Assignment a = new AssignmentImpl(comments(), source(), translatedTarget,
                 translatedValue, assignmentOperator, assignmentOperatorIsPlus, binaryOperator, prefixPrimitiveOperator);
-        Expression result = translationMap.translateAgain() ? a.translate(translationMap) : a;
+        // Re-translate only while the result still CHANGES, exactly as MethodCallImpl does. The identity check
+        // above is not a termination guarantee: it compares against this.target/this.value, while every pass
+        // rebuilds `a` from freshly translated children. A sub-translation that returns an equal-but-new object
+        // therefore fails the identity test forever, and the unconditional `a.translate(...)` that used to stand
+        // here recursed until the stack ran out -- 944 of 1024 frames were this method, on fernflower.
+        Expression result = translationMap.translateAgain() && !this.equals(a)
+                ? a.translate(translationMap) : a;
         return translationMap.postTranslationHandler(this, result);
     }
 

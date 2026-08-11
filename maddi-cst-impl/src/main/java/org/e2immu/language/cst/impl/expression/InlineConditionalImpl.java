@@ -215,7 +215,14 @@ public class InlineConditionalImpl extends ExpressionImpl implements InlineCondi
         InlineConditional result = tc instanceof Negation negation
                 ? new InlineConditionalImpl(comments(), source(), negation.expression(), tf, tt, commonType)
                 : new InlineConditionalImpl(comments(), source(), tc, tt, tf, commonType);
-        Expression result2 = translationMap.translateAgain() ? result.translate(translationMap) : result;
+        // Same termination guard as MethodCallImpl and AssignmentImpl: re-translate only while the result still
+        // changes by value. The identity check above compares against this.condition/ifTrue/ifFalse, but every
+        // pass rebuilds `result` from freshly translated children, so a sub-translation returning an
+        // equal-but-new object would never satisfy it and the recursion would not terminate.
+        // Note the Negation branch swaps ifTrue/ifFalse, so `result` can legitimately differ from `this` on the
+        // first pass and be stable from the second: equals() settles that, identity cannot.
+        Expression result2 = translationMap.translateAgain() && !this.equals(result)
+                ? result.translate(translationMap) : result;
         return translationMap.postTranslationHandler(this, result2);
     }
 
