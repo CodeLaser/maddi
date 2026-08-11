@@ -321,6 +321,9 @@ public class IsolateMethod {
      * references — hence {@link Placement} and the probe round.
      */
     class MethodStubs extends IsolationCore {
+        // a method isolate has exactly ONE isolated type, so IsolationCore's set is a singleton here and this is
+        // its element; it is also, always, the core's currentOriginalType
+        private final TypeInfo originalType;
         private final TypeInfo frame;
         // what this round observes; becomes the 'known' of the next round
         final Placement observed = new Placement();
@@ -343,6 +346,7 @@ public class IsolateMethod {
 
         MethodStubs(MethodInfo originalMethod, TypeInfo frame, Placement known) {
             super(IsolateMethod.this.javaInspector, originalMethod.primaryType());
+            this.originalType = originalMethod.primaryType();
             this.frame = frame;
             this.known = known;
             originalType.recursiveSubTypeStream()
@@ -475,7 +479,9 @@ public class IsolateMethod {
 
         // the stub bearing the original type's simple name, nested in the frame, to host members referenced through
         // that name (e.g. the static 'C.DAYS' inside class C, isolated into 'C_method'). Lazily created on first use
-        TypeInfo originalTypeStub() {
+        @Override
+        TypeInfo originalTypeStub(TypeInfo original) {
+            assert original == originalType : "a method isolate has one isolated type";
             if (originalTypeStub == null) {
                 originalTypeStub = runtime.newTypeInfo(frame, originalType.simpleName());
                 originalTypeStub.builder()
