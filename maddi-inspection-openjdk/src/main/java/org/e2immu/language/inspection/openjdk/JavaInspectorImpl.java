@@ -514,16 +514,50 @@ public class JavaInspectorImpl implements JavaInspector {
         return parse(Map.of(fqn, input), parseOptions).parseResult().firstType();
     }
 
+    /**
+     * The order in which the source sets are scanned. Edges come from {@link SourceSet#dependencies()}, but only
+     * the non-external ones — and a build tool that hands us a multi-module project typically expresses a sibling
+     * module as its <em>artifact</em> ({@code timefold-solver-core-999-SNAPSHOT.jar}, an external library part),
+     * not as the sibling's source set. Such a graph has NO edges at all, and the whole order is then decided by
+     * the tie-breaker.
+     * <p>
+     * ⛔ Which is why the tie-breaker is the input configuration's own order and not the name. Scanning a source
+     * set BEFORE one it depends on is not an error, but it is expensive and lossy: the dependency's types are
+     * materialized from its class files, and when its sources are scanned later, {@code InfoByFqn} keeps both
+     * ("Create multi") — the analysis then reads a mixture of the two. It is also where the parse breaks. On
+     * timefold (2026-08-11) a new module {@code constraint-streams} sorted alphabetically before the {@code core}
+     * it depends on, and two of core's compilation units were dropped, both at a nested type whose members the
+     * class-file pass had already created: {@code AssertionError: Duplicating FieldInfo …SupplyWithDemandCount
+     * .supply} and an {@code UnsupportedOperationException} out of {@code ParameterInfoImpl.builder()}. The three
+     * earlier modules peeled off the same corpus ({@code util}, {@code search}, {@code neighborhood}) had all
+     * sorted after {@code core} — the order was right by accident, and the accident ran out.
+     * <p>
+     * A build tool lists its modules in dependency order (Maven's reactor is topologically sorted), so the
+     * declared order is exactly the information the artifact-shaped dependencies threw away. It is no less
+     * deterministic than sorting by name.
+     */
     private List<SourceSet> computeScanOrder() {
+        return computeScanOrder(inputConfiguration.sourceSets());
+    }
+
+    // package-private, static and taking its input: the order is decided by the source-set list alone, and a test
+    // should be able to state one and read the order back without a corpus on disk.
+    static List<SourceSet> computeScanOrder(List<SourceSet> sourceSets) {
         G.Builder<SourceSet> builder = new ImmutableGraph.Builder<>(Long::sum);
-        for (SourceSet set : inputConfiguration.sourceSets()) {
+        Map<SourceSet, Integer> declarationOrder = new HashMap<>();
+        int index = 0;
+        for (SourceSet set : sourceSets) {
             builder.add(set, set.dependencies().stream().filter(d -> !d.externalLibrary()).toList());
+            declarationOrder.put(set, index++);
         }
         Linearize.Result<SourceSet> lin = Linearize.linearize(builder.build());
         if (!lin.remainingCycles().isEmpty()) {
             throw new UnsupportedOperationException("Cycles in the source set graph");
         }
-        return lin.asList(Comparator.comparing(SourceSet::name));
+        // a dependency that is not itself a source set can turn up as a node; sort those last, by name
+        return lin.asList(Comparator.<SourceSet, Integer>comparing(s ->
+                        declarationOrder.getOrDefault(s, Integer.MAX_VALUE))
+                .thenComparing(SourceSet::name));
     }
 
     // single file
