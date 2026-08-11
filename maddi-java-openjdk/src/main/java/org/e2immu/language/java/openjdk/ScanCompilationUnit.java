@@ -1311,7 +1311,20 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         if (node.getVariable() instanceof JCTree.JCVariableDecl variableDecl) {
             String name = variableDecl.name.toString();
             List<AnnotationExpression> annotations = new ArrayList<>();
-            ParameterizedType type = convertTypeWithAnnotations(node.getVariable().getType(), dsb, annotations::add);
+            // Same rule as visitVariable, which this loop was missing: for 'var' javac fills in the INFERRED type,
+            // but the tree it hangs it on still carries the position of the 'var' keyword. Measured on
+            // `for (var s : list)` at line 6 column 9, the span it yields is 6-14:6-18 -- from the 'v' to the 's',
+            // i.e. FIVE characters, the keyword plus the first letter of the variable name. A token editor handed
+            // that span writes the new type over 'var s', which is how timefold's
+            // `for (var termination : solverTerminationList)` became
+            // `for (SolverLifecycleListenerermination : solverTerminationList)`: eight compilation errors out of
+            // four loops. There is no written type token in a 'var' declaration to rewrite at all, so resolve the
+            // type but throw its detailed sources away, and let the callers that ask "is there a token here?"
+            // (jfocus' hasWrittenTypeToken, on both the suggestion and the apply half) get the honest no.
+            DetailedSources.Builder typeDsb = variableDecl.declaredUsingVar()
+                    ? runtime.newDetailedSourcesBuilder() : dsb;
+            ParameterizedType type = convertTypeWithAnnotations(node.getVariable().getType(), typeDsb,
+                    annotations::add);
             currentExpression = runtime.newEmptyExpression();
             lvc = continueLocalVariableCreation(variableDecl, name, type, dsb, annotations);
         } else throw new UnsupportedOperationException(unexpected("for-each loop variable", node.getVariable()));

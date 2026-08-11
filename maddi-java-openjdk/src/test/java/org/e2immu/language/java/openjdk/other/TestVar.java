@@ -14,6 +14,7 @@
 
 package org.e2immu.language.java.openjdk.other;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -193,4 +194,59 @@ public class TestVar extends CommonTest {
         assertEquals("6-18:6-23", p0.source().detailedSources().detail(associated).compact2());
     }
 
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            import java.util.List;
+
+            class X {
+                void method(List<String> list) {
+                    for (var s : list) {
+                        System.out.println(s);
+                    }
+                    for (String t : list) {
+                        System.out.println(t);
+                    }
+                }
+            }
+            """;
+
+    /**
+     * A for-each loop variable declared with {@code var} must carry NO detailed source for its type, exactly as a
+     * {@code var} local outside a loop already did (see visitVariable). javac hands us the inferred type on a tree
+     * that still holds the position of the {@code var} keyword, and whose end position falls one character INSIDE
+     * the variable name. A token editor handed that span overwrites {@code var t} rather than a type, which is how
+     * {@code for (var termination : solverTerminationList)} became
+     * {@code for (SolverLifecycleListenerermination : solverTerminationList)} on timefold-solver -- eight
+     * compilation errors out of four loops. There is no written type token in a {@code var} declaration, so the
+     * absence below is the honest answer, not a gap.
+     * <p>
+     * The explicit-type loop in the same method is the control: it must still yield the exact span of its written
+     * token, or the fix would have bought correctness by making the feature useless.
+     */
+    @Test
+    public void test5() {
+        TypeInfo typeInfo = scan("a.b.X", INPUT5);
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 1);
+
+        ForEachStatement withVar = (ForEachStatement) methodInfo.methodBody().statements().getFirst();
+        LocalVariableCreation varLvc = withVar.initializer();
+        assertTrue(varLvc.isVar());
+        ParameterizedType varType = varLvc.localVariable().parameterizedType();
+        assertEquals("Type String", varType.toString());
+        DetailedSources varDs = varLvc.source().detailedSources();
+        assertTrue(varDs == null || varDs.detail(varType) == null,
+                "a 'var' declaration has no written type token, so it must offer no span for one");
+        assertTrue(varDs == null || varDs.detail(varType.typeInfo()) == null,
+                "and none keyed by the type either");
+
+        ForEachStatement explicit = (ForEachStatement) methodInfo.methodBody().statements().get(1);
+        LocalVariableCreation explicitLvc = explicit.initializer();
+        assertFalse(explicitLvc.isVar());
+        ParameterizedType explicitType = explicitLvc.localVariable().parameterizedType();
+        DetailedSources explicitDs = explicitLvc.source().detailedSources();
+        assertNotNull(explicitDs);
+        // line 9, the written 'String' token and nothing more
+        assertEquals("9-14:9-19", explicitDs.detail(explicitType).compact2());
+    }
 }
