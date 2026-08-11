@@ -479,9 +479,11 @@ abstract class IsolationCore {
             return;
         }
         // 'values()' and 'valueOf(String)' are declared by the compiler for every enum, so a stub of them is
-        // "values() is already defined in Kind". They are real, non-synthetic methods when the enum reached maddi
-        // from a class file, which is where an 'E.values()' in the pasted text finds them; name()/ordinal() and the
-        // rest come from java.lang.Enum, which the isJdkType test above already drops.
+        // "values() is already defined in Kind"; an 'E.values()' in the pasted text finds the compiler's own.
+        // name()/ordinal() and the rest come from java.lang.Enum, which the isJdkType test above already drops.
+        // This used to be the ONLY thing that dropped them on the class-file path, where they arrived
+        // non-synthetic; ClassSymbolScanner.isCompilerGeneratedEnumMethod now flags them on every path, so a
+        // synthetic test would catch them too. Kept because it states the intent independently of that flag.
         if (enumStubs.contains(owner) && methodInfo.isStatic()
             && ("values".equals(methodInfo.name()) || "valueOf".equals(methodInfo.name()))) {
             return;
