@@ -24,24 +24,28 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * <b>{@code Constraint @NonNull [] defineConstraints(@NonNull ConstraintFactory f)} — the JSpecify array
  * form, where the type-use annotation sits BETWEEN the element type and the brackets (JLS 9.7.4).</b>
  *
- * <h2>⚠ WHAT THIS CLASS ESTABLISHES IS A NEGATIVE, AND THAT IS THE POINT</h2>
- * On timefold-solver, {@code ai.timefold.solver.core.api.score.stream.ConstraintProvider} commits FROM
- * SOURCE as {@code defineConstraints()} — <b>with no parameters at all</b>, while the file declares one.
- * Measured 2026-08-11 on {@code core/main} <i>alone</i>: zero parse errors, the source set's own
- * {@code target/classes} redirected away, and the parameter is still gone. Downstream it costs <b>100
- * dropped compilation units</b>: every unit writing a {@code ConstraintProvider} lambda reaches the type
- * through a class-file load of the real one-parameter method, which cannot be added to a committed type.
+ * <h2>The four shapes that are FINE, and the one condition that is not</h2>
+ * On timefold-solver, {@code ai.timefold.solver.core.api.score.stream.ConstraintProvider} committed with a
+ * {@code defineConstraints} carrying <b>no return type and no parameters</b>, and 100 compilation units were
+ * dropped behind it. None of the shapes below reproduces that — the annotated array with a source-local
+ * annotation, timefold's declaration verbatim, the annotation arriving from a JAR, a lambda implementing the
+ * interface in the same source set — and they are worth keeping, because ruling the declaration out is what
+ * pointed at the parse.
  * <p>
- * Four shapes were tried here and <b>none of them reproduces it</b>: the annotated array in a source-local
- * annotation, timefold's declaration verbatim, the annotation arriving from a JAR instead of a source file,
- * and a lambda implementing the interface in the same source set. So the trigger is something else in that
- * source set, and these tests stand as the shapes not to try again. The next step is a bisection over
- * {@code core/main}'s compilation units; see {@code HANDOFF-SLOWTEST-FAILURES.md} §E.
+ * ⛔ <b>The condition is that the annotation does not RESOLVE.</b> Timefold's {@code module-info.java} says
+ * {@code requires org.jspecify}, and its generated input configuration puts all 557 dependencies on the
+ * CLASS path with not one entry flagged as a JPMS module. Parsed with {@code ignoreModule=false} the
+ * compilation is a named module, a classpath jar sits in the unnamed one, and javac answers <i>"package
+ * org.jspecify.annotations is not visible"</i> — 95 times, beside 173 × "Type NonNull not found" and 516 ×
+ * "Type NullMarked not found", every one of them a tolerable WARNING. Same corpus, same configuration,
+ * {@code ignoreModule=true}: all 65 source sets, <b>0 errors</b>, {@code @NonNull} resolves from the jar and
+ * {@code defineConstraints} has its parameter and its return type. See {@code HANDOFF-SLOWTEST-FAILURES.md} §E.
  */
 public class TestAnnotatedArrayReturnType extends CommonTest {
 
@@ -175,6 +179,33 @@ public class TestAnnotatedArrayReturnType extends CommonTest {
                 }
             }
             """;
+
+    /** The same declaration with an annotation that resolves to NOTHING: javac's unresolved-symbol shape. */
+    @Language("java")
+    private static final String UNRESOLVED_ANNOTATION = """
+            package a.b;
+            import org.nowhere.Missing;
+            public interface Unresolved {
+                String @Missing [] define(@Missing Factory factory);
+            }
+            """;
+
+    /**
+     * ⛔ <b>AN UNRESOLVABLE ANNOTATION COSTS THE WHOLE COMPILATION UNIT</b>, quietly: the scan drops the type
+     * and the run proceeds over what parsed. That is the accumulate-mode contract, and it is the reason a
+     * classpath problem reads downstream as a modelling problem.
+     * <p>
+     * ⚠ The corpus's variant of the same cause loses LESS and is therefore worse: where javac says
+     * <i>"package … is not visible"</i> (a JPMS wall rather than a missing symbol) timefold's
+     * {@code ConstraintProvider} is committed with a {@code defineConstraints} carrying <b>no return type and
+     * no parameters</b> — a shell that every later reader believes.
+     */
+    @DisplayName("an unresolvable annotation drops the compilation unit that uses it")
+    @Test
+    public void unresolvedAnnotation() {
+        Map<String, TypeInfo> types = scan(true, "a.b.Factory", FACTORY, "a.b.Unresolved", UNRESOLVED_ANNOTATION);
+        assertNull(types.get("a.b.Unresolved"), "the unit is dropped, not repaired: " + types.keySet());
+    }
 
     @DisplayName("timefold's ConstraintProvider, verbatim: one method, one parameter")
     @Test
