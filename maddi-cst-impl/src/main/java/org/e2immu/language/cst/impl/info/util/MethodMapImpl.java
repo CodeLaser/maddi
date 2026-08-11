@@ -96,12 +96,33 @@ public class MethodMapImpl implements TypeInspection.MethodMap {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public MethodInfo get(String name, int numParams, Supplier<String> paramFqnCsv) {
+        MethodInfo methodInfo = getOrNull(name, numParams, paramFqnCsv);
+        if (methodInfo == null) {
+            throw new NoSuchElementException("name: " + name + ", num params: " + numParams + ", paramsCsv: "
+                                             + (paramFqnCsv == null ? "<no supplier>" : paramFqnCsv.get()));
+        }
+        return methodInfo;
+    }
+
+    /**
+     * ⛔ <b>THE ONE-METHOD SHORTCUT USED TO IGNORE THE PARAMETER COUNT, and an {@code assert} is not a
+     * check.</b> With a single method under a name it returned that method for <em>every</em> arity: a test
+     * JVM ({@code -ea}) got an {@code AssertionError}, and a production run got a method it had not asked
+     * for — the silent half being the worse one. Arity is part of a method's identity; a different one is a
+     * MISS, which this method is allowed to say.
+     * <p>
+     * Measured on timefold-solver: <b>99 of 100</b> remaining dropped compilation units were this assertion,
+     * every one of them a class-file load of a method the type does not declare — for which the loader's own
+     * contract ({@code ClassSymbolScanner.getMethod} → null → {@code getOrLoadMethod} → load it) is exactly
+     * what the no-method-map branch beside it does.
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public MethodInfo getOrNull(String name, int numParams, Supplier<String> paramFqnCsv) {
         Object o = byName.get(name);
         if (o instanceof MethodInfo mi) {
-            assert mi.parameters().size() == numParams;
-            return mi;
+            return mi.parameters().size() == numParams ? mi : null;
         }
         if (o instanceof Map numParamMap) {
             Object o2 = ((Map<Integer, Object>) numParamMap).get(numParams);
@@ -120,7 +141,6 @@ public class MethodMapImpl implements TypeInspection.MethodMap {
                 }
             }
         }
-        throw new NoSuchElementException("name: " + name + ", num params: " + numParams + ", paramsCsv: "
-                                         + (paramFqnCsv == null ? "<no supplier>" : paramFqnCsv.get()));
+        return null;
     }
 }

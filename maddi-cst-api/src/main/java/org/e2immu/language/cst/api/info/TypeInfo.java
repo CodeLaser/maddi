@@ -146,6 +146,12 @@ public interface TypeInfo extends NamedType, Info {
     /**
      * Finds the unique method with the given name and parameter count, using the comma-separated
      * FQN list supplied by {@code paramFqnCsv} to disambiguate when multiple overloads exist.
+     * <p>
+     * ⚠ Unlike {@link #findUniqueMethod(String, int)} this variant <b>answers {@code null}</b> when the type
+     * has no such method. Its caller is a class-file load, whose next step is to create what is missing; a
+     * throw there turns "not loaded yet" into a dropped compilation unit.
+     *
+     * @return the method, or {@code null} when the type declares none with that name and parameter list
      */
     MethodInfo findUniqueMethod(String methodName, int numParams, Supplier<String> paramFqnCsv);
 

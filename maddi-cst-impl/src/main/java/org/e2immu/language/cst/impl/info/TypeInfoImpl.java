@@ -188,7 +188,7 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
 
     @Override
     public MethodInfo findUniqueMethod(String methodName, int numParams, Supplier<String> paramFqnCsv) {
-        return inspection.get().methodMap().get(methodName, numParams, paramFqnCsv);
+        return inspection.get().methodMap().getOrNull(methodName, numParams, paramFqnCsv);
     }
 
     @Override
