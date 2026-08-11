@@ -1485,6 +1485,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             return anonymousClassType(cs, visited);
         }
         TypeInfo typeInfo = classTypeInfo(ct);
+        if (typeInfo == null) {
+            // a bare NullPointerException here says only "typeInfo is null", which is what 15 of 50 trees in a
+            // splitclass CDI corpus run reported -- identical, and naming nothing to go on. javac resolved this
+            // type; we could not map it. Say which.
+            throw new UnsupportedOperationException("Cannot map javac's type '" + ct + "' (tsym "
+                                                    + (ct.tsym == null ? "null" : ct.tsym.getQualifiedName()
+                                                       + ", owner " + ct.tsym.owner) + ") onto a TypeInfo");
+        }
         if (ct.getTypeArguments().isEmpty()) {
             return typeInfo.asSimpleParameterizedType();
         }
