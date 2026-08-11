@@ -383,6 +383,91 @@ obvious next rule and has a **large blast radius**: §7 reproduced `abstract` on
 not change the count", so today's dummies on abstract stubs are load-bearing in ways nobody has measured. A round
 of its own, not a tack-on.
 
+## 10. Isolating a SET of types, 2026-08-11
+
+`isolate(List<TypeInfo>)` keeps every type of the set verbatim. That is not the same tree as running the
+single-type isolate once per type and merging: a reference from one member of the set to another resolves to the
+**real** type — its body, its fields, its type parameters, its own supertypes — where a single isolate reduces it
+to a stub. `class B extends A` keeps a real `A`; `a.render()` reaches the kept body rather than a `return null;`.
+`isolate(TypeInfo)` is now that method on a singleton, and the single-type path is unchanged: every branch added
+below is degenerate when the set has one element — which is an argument, not a measurement, so the 530-tree corpus
+was re-run to check it. **Identical to §9 in every stratum**, ratchets included:
+
+| stratum | trees | compiling | ratchet |
+|---|---:|---:|---:|
+| biggest types | 100 | 98 | 2 |
+| biggest with no supertype | 30 | 29 | 1 |
+| most fill sites | 400 | 391 | 9 |
+| **all** | **530** | **518** | |
+
+70907 of 70913 compilation units parse back, 525 of 530 trees whole; ~6 min at 16G, written to a throwaway
+directory (`-Dtest.split.classDir=…`) so the shared corpus other drivers read was left alone. Unit drivers: 83 in
+`maddi-modification-common`, 0 failures.
+
+**The one design point is that `originalType` was two things.** Every `== originalType` in `IsolationCore` meant
+one of two different questions, and which one was never visible in the code:
+
+- *is this type kept verbatim somewhere in the emitted tree* — `isIsolated`, a set membership. It decides that a
+  reference resolves to the real type and that `ensureMethodInfo` must not stub what is already declared;
+- *which type is `this` in the text being pasted right now* — `currentOriginalType`, one element, moved by the
+  isolator before each member walk. It decides where an unqualified call, an unqualified static member and
+  `super.` land, and it is what `selfType()` answers.
+
+Split them and the rest follows almost mechanically. `originalTypeStub()` becomes `originalTypeStub(TypeInfo)`,
+`isolatedTypeInherits` takes the type it is asking about, and `IsolateMethod` keeps its single original in a field
+of its own — its behaviour cannot change, since its set is a singleton by construction.
+
+### The three phases, and which barrier each one is
+
+`isolate` runs three passes over the set, and each has to be complete before the next begins. Two of the three are
+load-bearing, verified by breaking them:
+
+| | phase | why it is a barrier | breaking it |
+|---|---|---|---|
+| 0 | the stand-in types exist and are registered | a stub's placement is fixed when it is constructed, so a reference from one isolate to another that arrives before its target is registered creates a stub that cannot be taken back | structurally impossible to reach in the current code |
+| 1 | each isolate's own declaration: type parameters, hierarchy, **fields** | the field map is seeded for ALL of them, so a body reading a sibling's field — or its own, inherited from a sibling — finds it declared | **no driver fails.** The later `fieldMap.put` wins and the orphan field is never added to any type, so this one is correct by structure rather than by ordering. Written down because it is not obvious |
+| 2 | the member walk, every kept member of every isolate registered up front | §1's "register before the walk", now over the set: `alreadyDeclaredWithoutStub` is what stops a call across the set producing a body-less duplicate | **three drivers fail** when the registration moves inside the walk |
+
+⚠ **The characteristic failure of a group isolate is not a compile error.** A body-less
+`public String prefix() { return null; }` written onto a subtype that inherits the verbatim declaration is a
+*legal override*, and a duplicated field a legal shadow — `assertCompiles` sees neither. `TestIsolateClass5Group`
+asserts on the emitted text for exactly those two, and the set in its fixture is ordered so that a sibling is
+referenced before it is reached in the list.
+
+**`alreadyDeclaredWithoutStub` had to widen, and not in the direction it looks.** The rule is *is this method kept
+verbatim, and is the owner one of the isolated types* — deliberately not *is the owner the type that declares it*.
+An unqualified self-call in `B extends A` arrives with the owner set to B's stand-in while A declares the method,
+so keying on the declaring type stubs it onto B: the duplicate this hook exists to prevent, one inheritance level
+away. Verified: narrowing it to the declaring type fails the driver.
+
+### What else the set touches
+
+- **Simple-name arbitration** gains a claimant. A sibling isolate is as unrespellable as a stub named simply, and
+  it is the one claimant that is itself a unit of verbatim text, so it wins the name ahead of §3's
+  single-import rule. Sibling isolates are candidates **only when the set has more than one element**: a candidate
+  is a type some OTHER unit may have to import, and with one isolate nothing can name it — adding it there would
+  let it steal a simple name from a stub that really is imported.
+- **The explicit import list is now per unit.** `toImport` is a property of the isolate as a whole; handing all of
+  it to every isolated unit put `import a.b.Client` at the top of `p/q/Base.java`. Each isolated type therefore
+  records what its own traversal reached (`IsolationCore.reachedPerIsolatedType`), which is over-inclusive by
+  construction — a type reached only by a reconstructed signature is in it too — and that is the safe direction,
+  since the text cannot name what the traversal never reached. Same for the static imports.
+- ⛔ **Per-unit bookkeeping is keyed by the emitted TYPE, never by its compilation unit.**
+  `CompilationUnit.equals` is `(uri, sourceSet)`, and an isolated unit inherits the URI of the file its original
+  came from. Two isolated types declared in **one** file — two top-level types, or two member types of an outer
+  that is not itself isolated — then produce two units that are *equal*, and a map keyed by them hands both
+  whichever entry was written last: one unit is emitted without the import its verbatim text needs, and is
+  dropped. Driver: `twoIsolatesFromOneFile`, verified to fail with the compilation-unit key.
+
+### Two shapes the set rejects
+
+`checkedIsolationSet` throws rather than emit a tree that cannot be right:
+
+- **one isolate enclosing another.** An isolate is lifted to the top level of its package, so the enclosing type's
+  verbatim `Outer.Inner` would name the nested stub while the emitted `Inner.java` sits beside it;
+- **two isolates that would share a path** (`p.A.X` and `p.B.X` both emit `p/X.java`). `print` keys its result by
+  path, so the second silently overwrote the first and the caller got a tree one file short.
+
 ## State, so a later run can tell drift from regression
 
 Measured 2026-07-28, top 100 closed-core types by total statement count:

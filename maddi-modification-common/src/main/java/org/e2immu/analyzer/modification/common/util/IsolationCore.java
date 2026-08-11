@@ -47,20 +47,52 @@ abstract class IsolationCore {
 
     protected final JavaInspector javaInspector;
     protected final Runtime runtime;
-    /** the type whose code is being isolated: its own members are pasted verbatim, everything else is stubbed */
-    final TypeInfo originalType;
+    /**
+     * The types whose code is being isolated: their own members are pasted verbatim, everything else is stubbed.
+     * A method isolate has exactly one; a class isolate has one or more.
+     * <p>
+     * The set is what makes a <b>group</b> isolate different from N separate ones: a reference from one member of
+     * the set to another resolves to the REAL, kept type — not to a stub of it. Everything that used to compare a
+     * type against "the" original type therefore splits in two, and which of the two is meant is never obvious from
+     * the old code: {@link #isIsolated} asks "is this type kept verbatim somewhere in the emitted tree", while
+     * {@link #currentOriginalType} answers "which type is {@code this} in the text being pasted right now".
+     */
+    final List<TypeInfo> originalTypes;
+    private final Set<TypeInfo> originalTypeSet;
+    /**
+     * The isolated type whose member is being visited: {@code this.field}, an unqualified call and an unqualified
+     * static member all resolve against IT, not against the set as a whole. Set before each member walk by the
+     * isolator; with a single isolated type it never changes.
+     */
+    TypeInfo currentOriginalType;
 
     IsolationCore(JavaInspector javaInspector, TypeInfo originalType) {
+        this(javaInspector, List.of(originalType));
+    }
+
+    IsolationCore(JavaInspector javaInspector, List<TypeInfo> originalTypes) {
+        assert !originalTypes.isEmpty();
         this.javaInspector = javaInspector;
         this.runtime = javaInspector.runtime();
-        this.originalType = originalType;
+        this.originalTypes = List.copyOf(originalTypes);
+        this.originalTypeSet = new HashSet<>(this.originalTypes);
+        this.currentOriginalType = this.originalTypes.getFirst();
+    }
+
+    /** Is {@code typeInfo} one of the types being isolated, i.e. kept verbatim rather than stubbed? */
+    boolean isIsolated(TypeInfo typeInfo) {
+        return originalTypeSet.contains(typeInfo);
     }
 
     /** Create the stub for {@code original} — already placed where this isolator wants it, not yet populated. */
     abstract TypeInfo placeStub(TypeInfo original, DetailedSources ds);
 
-    /** The type standing in for {@link #originalType}, which self-references in the pasted text resolve to. */
-    abstract TypeInfo originalTypeStub();
+    /**
+     * The type standing in for one of the {@link #originalTypes}, which references to it in the pasted text
+     * resolve to. A class isolate answers the isolated type itself (it keeps its name); a method isolate has
+     * renamed its frame, so it answers a separate stub carrying the original name.
+     */
+    abstract TypeInfo originalTypeStub(TypeInfo original);
 
     /** The type owning an unqualified self-reference ({@code helper()}, {@code this.field}). */
     abstract TypeInfo selfType();
@@ -81,6 +113,14 @@ abstract class IsolationCore {
      * placement depends on the spelling has anything to record — see {@code IsolateMethod.MethodStubs}.
      */
     void recordPlacementEvidence(TypeInfo typeInfo, DetailedSources ds) {
+    }
+
+    /**
+     * Told how a reference to another ISOLATED type is spelled. Placement is not in question for those — they are
+     * where the original was — but the import list is: an isolated unit naming a sibling isolate by its simple name
+     * needs that import, and needs to win the simple name if two types claim it.
+     */
+    void recordIsolatedReference(TypeInfo typeInfo, DetailedSources ds) {
     }
 
     /**
@@ -179,11 +219,37 @@ abstract class IsolationCore {
     // only readable once it has been committed, which is long after these decisions are taken
     final Set<TypeInfo> enumStubs = new HashSet<>();
 
+    /**
+     * Per isolated type, everything its own traversal reached: the types whose simple name its pasted text may
+     * spell, and therefore the ones its unit may have to import.
+     * <p>
+     * With a single isolated type this is the whole graph and says nothing. With several it is what keeps one
+     * unit's imports out of another's: {@code toImport} is a property of the isolate as a whole, and offering all
+     * of it to every unit put {@code import a.b.Client} at the top of {@code p/q/Base.java}. Over-inclusive by
+     * construction, which is the safe direction: the text cannot name what the traversal did not reach, so
+     * nothing that is needed is missing. Two ways it over-includes, both harmless — a type reached only by a
+     * reconstructed signature is in here too (the import computer would have worked that one out for itself),
+     * and whatever the dummy/constructor passes reach afterwards is attributed to whichever isolate ran last,
+     * those passes having no current type of their own. The cost of either is an unused import.
+     */
+    final Map<TypeInfo, Set<TypeInfo>> reachedPerIsolatedType = new HashMap<>();
+
+    void recordReached(TypeInfo typeInfo) {
+        reachedPerIsolatedType.computeIfAbsent(currentOriginalType, _ -> new HashSet<>()).add(typeInfo);
+    }
+
     TypeInfo ensureType(TypeInfo typeInfo, DetailedSources ds) {
         if (typeInfo.isPrimitive()) return typeInfo;
-        // the original type, referenced by its own name (a 'C' parameter/local, 'new C()', 'C.staticMethod()'),
-        // resolves to the stub carrying that name -- the frame has been renamed and no longer answers to 'C'
-        if (typeInfo == originalType) return originalTypeStub();
+        // an isolated type, referenced by its own name (a 'C' parameter/local, 'new C()', 'C.staticMethod()'),
+        // resolves to the type standing in for it -- for IsolateMethod the stub carrying that name, since the frame
+        // has been renamed and no longer answers to 'C'; for IsolateClass the kept type itself. A reference from one
+        // isolated type to another lands here too, and this is what keeps it pointing at the real type
+        if (isIsolated(typeInfo)) {
+            recordIsolatedReference(typeInfo, ds);
+            TypeInfo standIn = originalTypeStub(typeInfo);
+            recordReached(standIn);
+            return standIn;
+        }
         if (isJdkType(typeInfo)) {
             // written out in the pasted text, and without its package: that simple name is now spoken for
             if (ds != null && ds.detail(typeInfo.packageName()) == null) {
@@ -197,9 +263,13 @@ abstract class IsolationCore {
         recordPlacementEvidence(typeInfo, ds);
 
         TypeInfo inMap = typeMap.get(typeInfo);
-        if (inMap != null) return inMap;
+        if (inMap != null) {
+            recordReached(inMap);
+            return inMap;
+        }
         LOGGER.info("Creating type {}", typeInfo);
         TypeInfo stub = placeStub(typeInfo, ds);
+        recordReached(stub);
         typeMap.put(typeInfo, stub); // before recursion: type bounds / fields may refer back to this stub
         boolean isInterface = typeInfo.isInterface() && !typeInfo.isAnnotation();
         boolean isEnum = typeInfo.typeNature().isEnum();
@@ -259,16 +329,16 @@ abstract class IsolationCore {
 
 
     /**
-     * Does the isolated type inherit from {@code owner}, so that a member of it is in scope unqualified?
+     * Does {@code isolated} inherit from {@code owner}, so that a member of it is in scope unqualified?
      * <p>
      * Reads the ORIGINAL hierarchy, declared parent and interfaces, walked by hand. Deliberately not
      * {@code recursiveSuperTypeStream()}: on a nested type that also answers the ENCLOSING types, which is a
      * different relation and would make an unqualified reference to an outer class's static member look inherited.
      */
-    boolean isolatedTypeInherits(TypeInfo owner) {
+    boolean isolatedTypeInherits(TypeInfo isolated, TypeInfo owner) {
         Set<TypeInfo> seen = new HashSet<>();
         Deque<TypeInfo> todo = new ArrayDeque<>();
-        todo.add(originalType);
+        todo.add(isolated);
         while (!todo.isEmpty()) {
             TypeInfo t = todo.poll();
             if (!seen.add(t)) continue;
@@ -438,11 +508,13 @@ abstract class IsolationCore {
         TypeInfo declaring = methodInfo.typeInfo();
         TypeInfo stub = typeMap.get(declaring);
         if (stub != null) return stub;
-        if (declaring != originalType) {
+        // an isolated type is not in the typeMap, but 'super.m()' inside a subtype that is isolated TOO must still
+        // reach it: ensureType answers the kept type, and the declaration is already there, verbatim
+        if (declaring != currentOriginalType) {
             TypeInfo created = ensureType(declaring, null);
             if (created != declaring) return created;
         }
-        ParameterizedType parent = originalType.parentClass();
+        ParameterizedType parent = currentOriginalType.parentClass();
         if (parent != null && parent.typeInfo() != null) {
             TypeInfo parentStub = typeMap.get(parent.typeInfo());
             if (parentStub != null) return parentStub;
@@ -724,7 +796,7 @@ abstract class IsolationCore {
         // readable at this point, so asking the stubs found nothing at all and this pass silently did nothing
         Set<TypeInfo> extended = new HashSet<>();
         Set<TypeInfo> originals = new HashSet<>(typeMap.keySet());
-        originals.add(originalType);
+        originals.addAll(originalTypes);
         for (TypeInfo original : originals) {
             ParameterizedType parent = original.parentClass();
             if (parent == null || parent.typeInfo() == null) continue;
@@ -993,7 +1065,10 @@ abstract class IsolationCore {
         // parser then invents a stub type 'Map.Entry' with no methods and the call 'entry.getKey()' is
         // unresolved, taking the whole frame with it.
         for (TypeInfo t = owner; t != null; ) {
-            if (!"java.lang".equals(t.packageName())) jdkTypesToImport.add(t);
+            if (!"java.lang".equals(t.packageName())) {
+                jdkTypesToImport.add(t);
+                recordReached(t);
+            }
             var enclosing = t.compilationUnitOrEnclosingType();
             t = enclosing.isRight() ? enclosing.getRight() : null;
         }
@@ -1185,9 +1260,10 @@ abstract class IsolationCore {
             TypeInfo scope = erasedOwner(scopeType);
             TypeInfo declaring = methodInfo.typeInfo();
             if (declaring.enclosingMethod() != null || isJdkType(declaring)) return scope;
-            // reached through the original type's own name: the stub carrying that name owns it (IsolateMethod
-            // renames the frame, so its self-stub and its frame are two different types)
-            if (declaring == originalType) return originalTypeStub();
+            // reached through an isolated type's own name: the type standing in for it owns the method (IsolateMethod
+            // renames the frame, so its self-stub and its frame are two different types). For a sibling isolate the
+            // declaration is kept verbatim there, and ensureMethodInfo will decline to stub it a second time
+            if (isIsolated(declaring)) return originalTypeStub(declaring);
             return ensureType(declaring, null);
         }
 
@@ -1230,7 +1306,9 @@ abstract class IsolationCore {
                 // type here so an implicit self-qualifier ('staticMethod()', 'LOGGER') does not materialise an empty
                 // 'class X' stub; other types still get stubbed (e.g. a written 'Other.member')
                 case TypeExpression te -> {
-                    if (te.parameterizedType().typeInfo() != originalType) {
+                    // ... only the type we are IN: a written 'Other.member' naming a sibling isolate is evidence
+                    // for the import list, and must not be skipped
+                    if (te.parameterizedType().typeInfo() != currentOriginalType) {
                         ensureTypes(te.parameterizedType(), ds(te));
                     }
                 }
@@ -1305,7 +1383,7 @@ abstract class IsolationCore {
                         owner = superTypeStubOf(mc.methodInfo());
                     } else if ((mc.object() == null || mc.object().source() == null)
                                && mc.methodInfo().isStatic()
-                               && mc.methodInfo().typeInfo() != originalType
+                               && mc.methodInfo().typeInfo() != currentOriginalType
                                && recordStaticImport(mc.methodInfo().typeInfo(), mc.methodInfo().name())) {
                         // taken over by a static import: stub it on its real owner, not on the isolated type
                         TypeInfo declaringStub = ensureType(mc.methodInfo().typeInfo(), null);
@@ -1313,7 +1391,7 @@ abstract class IsolationCore {
                         return true;
                     } else if (mc.object() == null
                         || mc.object().source() == null
-                           && mc.methodInfo().isStatic() && mc.methodInfo().typeInfo() == originalType
+                           && mc.methodInfo().isStatic() && mc.methodInfo().typeInfo() == currentOriginalType
                         || mc.object() instanceof VariableExpression ve && ve.variable() instanceof This) {
                         owner = selfType();
                     } else {
@@ -1327,7 +1405,7 @@ abstract class IsolationCore {
                     // written scope ('C::helper', source present) routes through the original-type stub via
                     // ensureTypes(scope); only a synthetic scope or 'this::' belongs on the frame
                     TypeInfo owner;
-                    if (mr.scope().source() == null && mr.methodInfo().typeInfo() == originalType
+                    if (mr.scope().source() == null && mr.methodInfo().typeInfo() == currentOriginalType
                         || mr.scope() instanceof VariableExpression ve && ve.variable() instanceof This) {
                         owner = selfType();
                     } else {
@@ -1351,7 +1429,7 @@ abstract class IsolationCore {
                         // does not extend that stub. The MethodCall branch above already treats 'this.' this way;
                         // this branch did not (closed-core ExportJob.insertRecords).
                         if (fr.isDefaultScope() && fr.fieldInfo().isStatic()
-                            && fr.fieldInfo().owner() != originalType
+                            && fr.fieldInfo().owner() != currentOriginalType
                             && recordStaticImport(fr.fieldInfo().owner(), fr.fieldInfo().name())) {
                             // 'REMOVE_SHARES' with no scope, declared on FormulaOperatorConstant: a
                             // static import is the only thing that makes the verbatim spelling resolve
@@ -1368,9 +1446,9 @@ abstract class IsolationCore {
                             // supertype stub when the same field is later accessed there
                             ensureTypes(fr.scope().parameterizedType(), ds(fr.scope()));
                             TypeInfo declaringType = fr.fieldInfo().owner();
-                            // a field reached through the original type's own name ('C.DAYS') must land on a stub
+                            // a field reached through an isolated type's own name ('C.DAYS') must land on the type
                             // carrying that name, not on the renamed frame, or the verbatim 'C.DAYS' will not resolve
-                            owner = declaringType == originalType ? originalTypeStub()
+                            owner = isIsolated(declaringType) ? originalTypeStub(declaringType)
                                     : ensureType(declaringType, null);
                         }
                         ensureField(owner, fr.fieldInfo());
