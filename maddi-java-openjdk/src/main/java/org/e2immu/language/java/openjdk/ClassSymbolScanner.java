@@ -933,6 +933,26 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 .findFirst().orElse(null);
     }
 
+    /**
+     * {@code values()} and {@code valueOf(String)} are declared by the compiler for every enum, so they have no
+     * source of their own and cannot be edited as text. Whether they came out synthetic used to depend on which
+     * path materialized them first: the JavaCC front-end builds them through {@code EnumSynthetics} (synthetic,
+     * {@code noSource}), while here the generic member scan created them as ordinary methods with
+     * {@code synthetic=false}, and the enum-specific fix-up in {@code ScanCompilationUnit} then found them
+     * already present and handed back the existing, unflagged instance. Same "which path loaded it decided the
+     * answer" shape as the enum constants in {@link #ensureField}, and the same remedy: decide it here, at the
+     * one place every path goes through, rather than patching it afterwards.
+     */
+    private static boolean isCompilerGeneratedEnumMethod(TypeInfo typeInfo, Symbol.MethodSymbol ms) {
+        var nature = typeInfo.typeNature();
+        if (nature == null || !nature.isEnum()) return false;
+        String name = ms.getSimpleName().toString();
+        if ("values".equals(name)) return ms.params == null || ms.params.isEmpty();
+        return "valueOf".equals(name)
+               && ms.params != null && ms.params.size() == 1
+               && ms.params.head.type.tsym.flatName().contentEquals("java.lang.String");
+    }
+
     MethodInfo addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms, boolean synthetic) {
         if (typeInfo.hasBeenInspected()) {
             // GAP #12's residual. This threw a BARE UnsupportedOperationException while logging the three facts
@@ -1042,7 +1062,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
         flagHelper.method(ms.flags(), builder);
         builder.addAnnotations(loadAnnotations(ms));
-        if (synthetic) {
+        if (synthetic || isCompilerGeneratedEnumMethod(typeInfo, ms)) {
             builder.setSynthetic(true);
         }
         // exception types
@@ -1302,7 +1322,27 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         if (owner.compilationUnitOrEnclosingType().isRight()) {
             return findTypeParameter(owner.compilationUnitOrEnclosingType().getRight(), typeParameterName);
         }
-        throw new UnsupportedOperationException();
+        // ⛔⛔ TYPED AND NAMED, AND BOTH HALVES ARE LOAD-BEARING. This used to be a bare
+        // `throw new UnsupportedOperationException()`, and the two consequences compounded:
+        //
+        //  * NO MESSAGE. ScanCompilationUnits#addFailure falls back to the exception's CLASS NAME when
+        //    getMessage() is null, so every failure here surfaced as the bare word
+        //    "UnsupportedOperationException" — no type parameter, no owner, no location. Summary carried the
+        //    throwable and printed only that word, so the cause was unreachable from any log.
+        //  * NOT TYPED. hasCause(e, UnresolvedSymbolException.class) was false, so fault isolation classified
+        //    it a hard ERROR rather than a tolerable warning, and SummaryImpl then refuses to produce a
+        //    ParseResult at all when any parse exception exists — however many units parsed cleanly.
+        //
+        // Measured on trino (2026-08-12): SIX units in plugin/trino-hive's parquet code, all six with this
+        // identical frame, cost the entire 209-source-set parse. Nothing else failed.
+        //
+        // UnresolvedSymbolException exists for exactly this: it extends UnsupportedOperationException, so every
+        // existing catch clause is unaffected, and it is typed so the compilation-unit-level fault isolation can
+        // downgrade it to a warning — the unit is still dropped, but the run proceeds over what parsed. A type
+        // parameter that cannot be resolved by name belongs in the same category as a type that cannot: both are
+        // normal on the deliberately partial classpath maddi runs on.
+        throw new UnresolvedSymbolException("Type parameter '" + typeParameterName + "' not found in "
+                                            + owner.fullyQualifiedName() + ", nor in any enclosing type");
     }
 
     @Override

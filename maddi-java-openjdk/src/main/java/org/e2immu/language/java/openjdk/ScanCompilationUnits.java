@@ -360,21 +360,32 @@ public class ScanCompilationUnits {
     }
 
     private static void addFailure(List<CompilationUnitFailure> failures, URI uri, Throwable e) {
-        boolean tolerable = hasCause(e, UnresolvedSymbolException.class);
+        boolean tolerable = UnresolvedSymbolException.isTolerable(e);
         String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
         LOGGER.warn("Dropping compilation unit {} ({}): {}", uri, tolerable ? "unresolved symbol" : "error", detail);
-        // the stack, at DEBUG: an intolerable drop is reported to the caller as a one-line message, and finding the
-        // site it came from otherwise costs a patched build and a re-run (three NPEs on the timefold corpus cost
-        // exactly that, and javac's fast-throw had stripped the stack of one of them by the time it was logged)
-        LOGGER.debug("Stack of the dropped compilation unit {}", uri, e);
-        failures.add(new CompilationUnitFailure(uri, detail, tolerable, e));
-    }
-
-    private static boolean hasCause(Throwable t, Class<? extends Throwable> type) {
-        for (Throwable c = t; c != null; c = c.getCause()) {
-            if (type.isInstance(c)) return true;
+        // ⛔ THE STACK OF A NON-TOLERABLE FAILURE IS THE ONE THING THE CALLER CANNOT REACH. It is captured into
+        // CompilationUnitFailure and carried all the way into Summary.ParseException#cause, and no logger ever
+        // prints it: `detail` degrades to the exception's CLASS NAME when getMessage() is null, so a whole class
+        // of failures surfaces as the bare word "UnsupportedOperationException" with no location inside the unit.
+        // A non-tolerable failure aborts the entire parse (SummaryImpl refuses to produce a ParseResult when any
+        // parse EXCEPTION exists, however many units succeeded), so this is not a debug convenience — it is the
+        // only evidence of why a 209-source-set project produced nothing. Measured on trino: six units in
+        // plugin/trino-hive's parquet code, cause unobtainable without this line.
+        // Tolerable failures stay terse on purpose: they are expected on a partial classpath and are already
+        // reported as warnings; a stack each would bury the errors that actually stop the run.
+        // See SummaryImpl#refusalMessage: "A REFUSAL THAT DOES NOT NAME ITS CAUSE SENDS THE READER TO THE WRONG
+        // PLACE" — same lesson, one layer deeper.
+        if (!tolerable) {
+            LOGGER.error("Cause of the non-tolerable failure in {}", uri, e);
+        } else {
+            // the stack of a TOLERABLE drop, at DEBUG: it is reported to the caller as a one-line message, and
+            // finding the site it came from otherwise costs a patched build and a re-run (three NPEs on the
+            // timefold corpus cost exactly that, and javac's fast-throw had stripped the stack of one of them by
+            // the time it was logged). DEBUG, and only on this branch, keeps the terseness the comment above asks
+            // for: at default levels nothing is buried, and a non-tolerable drop still logs its stack exactly once.
+            LOGGER.debug("Stack of the dropped compilation unit {}", uri, e);
         }
-        return false;
+        failures.add(new CompilationUnitFailure(uri, detail, tolerable, e));
     }
 
     // create the scanner for one unit (builder + construction). The constructor registers it as the current source

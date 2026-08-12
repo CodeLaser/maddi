@@ -809,7 +809,11 @@ public class JavaInspectorImpl implements JavaInspector {
                 } catch (RuntimeException ignore) {
                     uri = null;
                 }
-                boolean tolerable = hasCause(e, UnresolvedSymbolException.class);
+                // Same authority as the scan-time drop in ScanCompilationUnits: the two used to test this
+                // independently and could drift. A CompletionFailure here is a class file that a CLASSPATH type
+                // refers to and that is absent — see UnresolvedSymbolException#isTolerable for why that is
+                // routine rather than fatal, and what it cost on trino when it was not.
+                boolean tolerable = UnresolvedSymbolException.isTolerable(e);
                 String detail = "commit: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
                 if (tolerable) {
                     summary.addParseWarning(new Summary.ParseException(uri, typeInfo.fullyQualifiedName(),
@@ -840,13 +844,6 @@ public class JavaInspectorImpl implements JavaInspector {
                             + " class output", sourceSet.name());
             }
         }
-    }
-
-    private static boolean hasCause(Throwable t, Class<? extends Throwable> type) {
-        for (Throwable c = t; c != null; c = c.getCause()) {
-            if (type.isInstance(c)) return true;
-        }
-        return false;
     }
 
     /**

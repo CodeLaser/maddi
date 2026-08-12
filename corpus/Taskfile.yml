@@ -124,7 +124,7 @@ tasks:
     silent: true
     cmds:
       - |
-        for p in activemq camel elasticsearch fernflower guava jenkins langchain4j timefold-solver; do
+        for p in activemq camel elasticsearch fernflower guava jenkins langchain4j timefold-solver trino; do
           d="{{.TEST_OSS_ROOT}}/$p"
           cloned=$([ -d "$d/.git" ] && echo yes || echo NO)
           cfg=$([ -f "$d/inputConfiguration.json" ] && echo yes || echo no)
@@ -286,11 +286,23 @@ tasks:
       - { task: _clone, vars: { NAME: tomcat, URL: 'https://github.com/apache/tomcat.git' } }
       - { task: _build, vars: { NAME: tomcat, BUILD: 'ant' } }
 
+  # ⚠ CHECK THE JDK BEFORE BUILDING. Trino pins its build JDK hard and moves it often; the
+  # `-Duse.jdk17=true` below is inherited from an older revision and is very likely stale. Read
+  # `.java-version` / `pom.xml` in the clone first, and pass the matching JDK rather than assuming the
+  # JDK 26 that `task doctor` checks for. Unlike Elasticsearch (Gradle toolchains, which provision the
+  # right JDK themselves) Maven will not fix this for you — it will simply fail, or worse, build with
+  # the wrong release level.
+  #
+  # ⚠ `install`, not `test-compile`, and deliberately. Measured on camel: `test-compile` over the whole
+  # reactor died at module 126 because camel-spring-xml unpacks a SOURCES jar of a sibling module, and
+  # only `install` publishes those to ~/.m2. Large Maven reactors routinely have such steps; assume
+  # `install` is required until proven otherwise. Note this writes trino's artifacts into the global
+  # ~/.m2 — a side effect a compile-only build would not have.
   trino:
-    desc: 'trino — Maven wrapper; uses the Temurin build + -Duse.jdk17=true'
+    desc: 'trino — Maven wrapper; check the required JDK in the clone first (see comment)'
     cmds:
       - { task: _clone, vars: { NAME: trino, URL: 'https://github.com/trinodb/trino.git' } }
-      - { task: _build, vars: { NAME: trino, BUILD: './mvnw clean install -DskipTests=true -Duse.jdk17=true' } }
+      - { task: _build, vars: { NAME: trino, BUILD: './mvnw clean install -DskipTests=true' } }
 
   wildfly:
     desc: 'wildfly — Maven wrapper. NOTE: needs a commons-collections license edit first (see java_kotlin_refactoring_projects.md).'
@@ -397,6 +409,56 @@ tasks:
     desc: 'timefold-solver config (Maven compile-log, whole 65-source-set reactor)'
     cmds: [{ task: _config:maven-log, vars: { NAME: timefold-solver, TASKS: test-compile } }]
 
+  # One pass builds AND captures: `install` is what trino's reactor needs (see the trino task), and the
+  # -X log of that same run is what maddi consumes. Do NOT run `task trino` first and then this — the
+  # second `clean` throws away the first build for nothing.
+  # ⛔ TRINO ENFORCES THE JDK **VENDOR**, NOT ONLY THE VERSION, and it fails 30 s into the build with a
+  # maven-enforcer stack trace rather than anything readable:
+  #     Rule 8: RequireJavaVendor -- "Trino requires Temurin or Oracle JDK for development."
+  # A distribution OpenJDK (java.vendor = Ubuntu / Debian / Red Hat) is REJECTED at the correct version.
+  # .java-version pins 25, and .mvn/jvm.config asks for 8G.
+  #
+  # Finding one: Gradle's toolchain auto-provisioning downloads Temurin builds into
+  # <gradle-user-home>/jdks/eclipse_adoptium-<v>-amd64-linux.N — elasticsearch's build pulls them, so a
+  # usable Temurin may already be on the machine. Otherwise install one from adoptium.net.
+  # The precondition below checks the vendor so this fails immediately, with a message that says what
+  # to do, instead of after a clean+enforce cycle.
+  config:trino:
+    desc: 'trino config (Maven compile-log, whole reactor — long; needs Temurin/Oracle JDK 25)'
+    vars:
+      TRINO_JAVA_HOME: '{{.TRINO_JAVA_HOME | default "/usr/lib/jvm/java-25-openjdk-amd64"}}'
+    preconditions:
+      - sh: 'test -x "{{.TRINO_JAVA_HOME}}/bin/javac"'
+        msg: 'No javac at {{.TRINO_JAVA_HOME}}/bin — set TRINO_JAVA_HOME to a Temurin or Oracle JDK 25.'
+      - sh: '"{{.TRINO_JAVA_HOME}}/bin/java" -XshowSettings:properties -version 2>&1 | grep -qE "java.vendor = (Eclipse Adoptium|Oracle)"'
+        msg: >-
+          {{.TRINO_JAVA_HOME}} is not a Temurin or Oracle JDK, and trino's maven-enforcer rejects any
+          other vendor. Set TRINO_JAVA_HOME — try <gradle-user-home>/jdks/eclipse_adoptium-25-amd64-linux.*
+          if elasticsearch has been built here, else install one from adoptium.net.
+    # ⚠ trino-docs is EXCLUDED, and not for convenience. It shells out to Sphinx (a Python doc tool)
+    # via exec-maven-plugin, which exits 127 "command not found" unless Sphinx is installed, and that
+    # aborts the whole reactor at ~module 100 of 110 — after ten minutes of real compilation. It is a
+    # documentation module: nothing depends on it (only its own pom names trino-docs) and it contains
+    # no Java we want to parse, so excluding it costs no coverage at all.
+    #
+    # ⛔ `test-compile`, NOT `install`, and this is the opposite of camel's lesson — do not "fix" it by
+    # copying camel. `install` publishes each module to ~/.m2, after which later modules in the reactor
+    # resolve their siblings from the JAR rather than from target/classes. The captured -classpath then
+    # names the jar, and the parse sees 74 of trino's own modules defined TWICE: once as a parsed source
+    # set, once as a classpath jar. That is the duplication maddi's own error warns about ("if a type is
+    # defined BOTH in your sources and in a jar on the classpath"). timefold is configured with
+    # test-compile and has no such duplication, which is why it loads.
+    #
+    # trino-server / trino-server-core are excluded too: they use `provisio` packaging and depend on
+    # each other as a tar.gz, which only exists after `package`. Under test-compile they abort the
+    # reactor with "Could not find artifact io.trino:trino-server-core:tar.gz". They are distribution
+    # assembly modules holding ONE Java file each, and neither is a parsed source set (the Java lives
+    # in trino-server-main / trino-server-dev), so excluding them costs nothing measurable.
+    cmds:
+      - task: _config:maven-log
+        vars: { NAME: trino, TASKS: "test-compile -pl '!:trino-docs,!:trino-server,!:trino-server-core'",
+                BUILD_JAVA_HOME: '{{.TRINO_JAVA_HOME}}', MVN_XMX: '8G' }
+
   _config:maven:
     internal: true
     requires: { vars: [NAME, MODULE] }
@@ -424,9 +486,25 @@ tasks:
     dir: '{{.TEST_OSS_ROOT}}/{{.NAME}}'
     cmds:
       - 'echo ">>> {{.NAME}}: capturing Maven compile log (clean {{.TASKS}}) — full rebuild, slow"'
-      - MAVEN_OPTS="$MADDI_EXPORTS -Xmx6G" ./mvnw -X clean {{.TASKS}} > compile.log 2>&1
+      # ⚠ TWO DIFFERENT JDKs IN ONE TASK. The project's build may pin a JDK that is NOT the one maddi
+      # runs on (trino: .java-version says 25; maddi needs 26). BUILD_JAVA_HOME applies to the Maven
+      # step only — the maddi step below deliberately keeps the ambient JAVA_HOME. Unset, the project
+      # builds on whatever is on PATH, which is right for the projects that do not pin one.
+      # MVN_XMX exists because a project's own .mvn/jvm.config may ask for more than the 6G default
+      # (trino asks for 8G) and the last -Xmx wins.
+      - '{{if .BUILD_JAVA_HOME}}JAVA_HOME={{.BUILD_JAVA_HOME}} {{end}}MAVEN_OPTS="$MADDI_EXPORTS -Xmx{{.MVN_XMX | default "6G"}}" ./mvnw -X clean {{.TASKS}} > compile.log 2>&1'
+      # ⛔ FILTER BEFORE FEEDING IT TO maddi, ALWAYS. ParseJavacList does Files.readString on the whole
+      # file, so a log over ~2 GB dies with "OutOfMemoryError: Required array size too large" — that is
+      # the JVM's maximum array size, not a heap setting, and no -Xmx fixes it. Measured on camel:
+      # 1607 compile invocations produced a 2.5 GB -X log. The .gz branch decompresses into one array
+      # too, so gzipping does not help either.
+      # Filtering is EQUIVALENT input, not a shortcut: ParseJavacList matches every line whole against
+      # MAVEN_PATTERN "\[DEBUG] (-d (.+))" and discards the rest, so the surviving lines are exactly
+      # what it would have consumed. 2.5 GB -> 11 MB on camel, same 1607 invocations.
+      - grep -aE '^\[DEBUG] -d ' compile.log > compile.javac.log
+      - 'echo ">>> {{.NAME}}: $(wc -l < compile.javac.log) compile invocations captured"'
       - 'echo ">>> {{.NAME}}: maddi --compile-log -> inputConfiguration.json"'
-      - '{{.MADDI_REPO}}/gradlew -p {{.MADDI_REPO}} :maddi-run-openjdk:run --args="--compile-log {{.TEST_OSS_ROOT}}/{{.NAME}}/compile.log --write-input-configuration {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
+      - '{{.MADDI_REPO}}/gradlew -p {{.MADDI_REPO}} :maddi-run-openjdk:run --args="--compile-log {{.TEST_OSS_ROOT}}/{{.NAME}}/compile.javac.log --write-input-configuration {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
       - 'echo "Wrote {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
 
   # The Kotlin sibling of _config:gradle-log. Three differences, all forced by the corpus:
