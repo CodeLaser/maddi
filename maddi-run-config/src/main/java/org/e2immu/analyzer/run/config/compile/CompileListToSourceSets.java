@@ -123,11 +123,14 @@ public class CompileListToSourceSets {
         LOGGER.info("Build root of {} build unit(s): {} ({})", new HashSet<>(buildUnitByDestination.values()).size(),
                 buildRoot, configuredBuildRoot == null ? "derived; pass one to keep names stable across a narrower"
                         + " parse" : "configured, derived would have been " + derived);
-        Map<String, String> jarFileToDestinationModuleJars = computeModuleJars(buildRoot, buildUnitByDestination,
-                list);
+        // a sibling's PACKAGED jar, wherever it is named (classpath or module path); keyed by path, see below
+        Map<String, String> jarFileToDestination = computePackagedJars(list);
+        // ⚠ THE --module-path MAPPING WINS WHERE BOTH FIRE. It is the older rule and the one the modular corpora
+        // are validated against, so the addition above can only ever ADD edges, never re-point an existing one.
+        jarFileToDestination.putAll(computeModuleJars(buildRoot, buildUnitByDestination, list));
 
         Map<String, SourceSet> sourceSetsByPath = new HashMap<>();
-        Map<String, SourceSet> classPath = handleClasspath(list, sourceSetsByPath, jarFileToDestinationModuleJars);
+        Map<String, SourceSet> classPath = handleClasspath(list, sourceSetsByPath, jarFileToDestination);
 
         Map<String, SourceSet> sourceSetsByDestination = new HashMap<>();
         Map<String, Integer> duplicateNamePrevention = new HashMap<>();
@@ -144,7 +147,7 @@ public class CompileListToSourceSets {
         Map<String, SourceSet> absorbed = new LinkedHashMap<>();
         for (CompileInvocation inv : list) {
             SourceSet sourceSet = createSourceSet(inv, buildRoot, buildUnitByDestination, sourceSetsByPath,
-                    sourceSetsByDestination, jarFileToDestinationModuleJars, duplicateNamePrevention);
+                    sourceSetsByDestination, jarFileToDestination, duplicateNamePrevention);
 
             Set<Path> sourceDirSet = new HashSet<>(sourceSet.sourceDirectories());
             // we remove source sets that are fully contained in this one
@@ -171,6 +174,55 @@ public class CompileListToSourceSets {
         }
         return new Result(jSourceSets,
                 classPath.values().stream().sorted(Comparator.comparing(SourceSet::name)).toList(), buildRoot);
+    }
+
+    /**
+     * A reactor sibling's PACKAGED jar, mapped back to the destination that produced it — keyed by PATH.
+     *
+     * <p>⛔ <b>BY PATH, BECAUSE THE NAME CANNOT WORK ON MAVEN.</b> {@link #computeModuleName} matches a jar's file
+     * name against {@code <module>/main}, which holds for gradle (artifact name = module name) and is simply false
+     * for maven, where the artifactId and the module directory are different strings — jenkins ships
+     * {@code jenkins-core-2.574-SNAPSHOT.jar} out of a module directory named {@code core}, and no prefix of the
+     * file name is ever {@code core}. The signal that IS reliable is already in hand: a build tool writes a
+     * module's jar into the same directory it writes that module's classes into ({@code <mod>/target/classes} and
+     * {@code <mod>/target/x.jar}).
+     *
+     * <p>⚠ Keying on the output ROOT rather than on "somewhere under the module" is what keeps a jar VENDORED
+     * inside a module ({@code <mod>/lib/foo.jar}) from being mistaken for that module's own output.
+     *
+     * <p>Only MAIN destinations are candidates: a packaged jar is a module's production output, never its tests.
+     */
+    private static Map<String, String> computePackagedJars(List<? extends CompileInvocation> list) {
+        Map<String, String> mainDestinationByOutputRoot = new HashMap<>();
+        for (CompileInvocation inv : list) {
+            String destination = inv.destination();
+            int lastSeparator = destination.lastIndexOf(SEPARATOR);
+            if (lastSeparator < 0) continue;
+            if (testSourceSetName(lastPart(destination)) != null) continue;
+            mainDestinationByOutputRoot.putIfAbsent(destination.substring(0, lastSeparator), destination);
+        }
+        Map<String, String> jarToDestination = new HashMap<>();
+        for (CompileInvocation inv : list) {
+            for (List<String> paths : Arrays.asList(inv.classpath(), inv.modulePath())) {
+                if (paths == null) continue;
+                for (String part : paths) {
+                    if (!part.endsWith(".jar")) continue;
+                    int lastSeparator = part.lastIndexOf(SEPARATOR);
+                    if (lastSeparator < 0) continue;
+                    String destination = mainDestinationByOutputRoot.get(part.substring(0, lastSeparator));
+                    // a module's own jar on its own classpath is not a dependency on itself
+                    if (destination != null && !destination.equals(inv.destination())) {
+                        jarToDestination.putIfAbsent(part, destination);
+                    }
+                }
+            }
+        }
+        if (!jarToDestination.isEmpty()) {
+            LOGGER.info("Computed {} packaged-jar -> source-set entries (a reactor sibling named as a jar rather"
+                        + " than as a class directory): {}", jarToDestination.size(),
+                    jarToDestination.keySet().stream().map(CompileListToSourceSets::lastPart).sorted().toList());
+        }
+        return jarToDestination;
     }
 
     private Map<String, String> computeModuleJars(String buildRoot, Map<String, String> buildUnitByDestination,
@@ -224,7 +276,7 @@ public class CompileListToSourceSets {
 
     private static Map<String, SourceSet> handleClasspath(List<? extends CompileInvocation> list,
                                                           Map<String, SourceSet> sourceSetsByPath,
-                                                          Map<String, String> jarFileToDestinationModuleJars) {
+                                                          Map<String, String> jarFileToDestination) {
         // A jar is a module iff it appears on some invocation's --module-path. Precompute this over ALL invocations
         // so the flag is correct regardless of the order we first meet the jar, or whether it also sits on some
         // classpath elsewhere: a modular dependency must reach the module path for its module's requires to resolve.
@@ -240,7 +292,11 @@ public class CompileListToSourceSets {
             if (inv.classpath() != null) {
                 for (String part : inv.classpath()) {
                     if (part.endsWith(".jar")) {
-                        handleJarInClasspath(sourceSetsByPath, part, classPath, destination, moduleJarNames);
+                        // ⛔ a sibling's packaged jar is that sibling's SOURCE SET, not a library: making it one
+                        // puts every type it holds in the parse twice, once from source and once from bytecode.
+                        if (!jarFileToDestination.containsKey(part)) {
+                            handleJarInClasspath(sourceSetsByPath, part, classPath, destination, moduleJarNames);
+                        }
                     } else {
                         Path path = Path.of(part);
                         if (Files.isDirectory(path)) {
@@ -252,7 +308,7 @@ public class CompileListToSourceSets {
             if (inv.modulePath() != null) {
                 for (String part : inv.modulePath()) {
                     if (part.endsWith(".jar")) {
-                        if (!jarFileToDestinationModuleJars.containsKey(part)) {
+                        if (!jarFileToDestination.containsKey(part)) {
                             handleJarInClasspath(sourceSetsByPath, part, classPath, destination, moduleJarNames);
                         }
                     }
@@ -409,7 +465,7 @@ public class CompileListToSourceSets {
                                       Map<String, String> buildUnitByDestination,
                                       Map<String, SourceSet> sourceSetsByPath,
                                       Map<String, SourceSet> sourceSetsByDestination,
-                                      Map<String, String> jarFileToDestinationModulePath,
+                                      Map<String, String> jarFileToDestination,
                                       Map<String, Integer> duplicateNamePrevention) {
         String destination = inv.destination();
         ComputeNameResult result = computeName(buildRoot, buildUnitByDestination, destination);
@@ -428,7 +484,16 @@ public class CompileListToSourceSets {
                     if (sourceSet != null) {
                         dependencies.add(sourceSet);
                     } else {
-                        if (!classpathPart.contains("resources")) {
+                        // ⛔ THE SAME FALLBACK THE MODULE-PATH BRANCH BELOW ALWAYS HAD. A sibling named as a
+                        // packaged jar is the same edge as one named as a class directory; only the spelling
+                        // differs, and which spelling a build uses is not the analysed project's decision.
+                        String srcModule = jarFileToDestination.get(classpathPart);
+                        SourceSet srcDependency = srcModule == null ? null : sourceSetsByDestination.get(srcModule);
+                        if (srcDependency != null) {
+                            // ⚠ deduplicated, unlike the module-path branch: a build may name BOTH a sibling's
+                            // class directory and its jar on one classpath, and they are one dependency.
+                            if (!dependencies.contains(srcDependency)) dependencies.add(srcDependency);
+                        } else if (!classpathPart.contains("resources")) {
                             LOGGER.warn("Cannot find classpath part {}", classpathPart);
                         }
                     }
@@ -443,7 +508,7 @@ public class CompileListToSourceSets {
                     if (sourceSet != null) {
                         dependencies.add(sourceSet);
                     } else {
-                        String srcModule = jarFileToDestinationModulePath.get(modulePart);
+                        String srcModule = jarFileToDestination.get(modulePart);
                         SourceSet srcDependency = srcModule == null ? null : sourceSetsByDestination.get(srcModule);
                         if (srcDependency != null) {
                             dependencies.add(srcDependency);
