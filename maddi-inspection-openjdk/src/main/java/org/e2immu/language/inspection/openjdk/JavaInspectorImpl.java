@@ -111,6 +111,8 @@ public class JavaInspectorImpl implements JavaInspector {
     // audit -- ~8 production call sites pass javaInspector.mainSources(), which is an arbitrary pick, not the set
     // that is actually asking.
     private boolean strictSourceSetLoading;
+    // census for the strict-mode audit; see recordFallBack. Concurrent: getOrLoad runs on parallel analyzer threads.
+    private final Set<String> fallBackResolutions = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     /**
      * How to stand up a {@link #loaderUnits} equivalent to the scan task that generation destroyed: the same source
@@ -287,7 +289,29 @@ public class JavaInspectorImpl implements JavaInspector {
         }
         if (strictSourceSetLoading && ownUnits != null) return null;
         ScanCompilationUnits units = unitsForCompiledTypeLoading();
-        return units == null || units == ownUnits ? null : units.loadCompiledTypeOrNull(fullyQualifiedName);
+        if (units == null || units == ownUnits) return null;
+        TypeInfo viaFallBack = units.loadCompiledTypeOrNull(fullyQualifiedName);
+        if (viaFallBack != null && ownUnits != null) recordFallBack(fullyQualifiedName, sourceSetOfRequest, units);
+        return viaFallBack;
+    }
+
+    /**
+     * The census behind the strict-mode audit: a type the requesting source set could NOT resolve, which the
+     * fall-back found on another set's class path. Each one is a call site passing a source set that is not the one
+     * really asking (in practice {@code mainSources()}), and would become a miss under
+     * {@link #setStrictSourceSetLoading}. Logged once per FQN — the point is the distinct set, not the volume.
+     */
+    private void recordFallBack(String fullyQualifiedName, SourceSet sourceSetOfRequest, ScanCompilationUnits via) {
+        if (fallBackResolutions.add(fullyQualifiedName)) {
+            LOGGER.warn("SOURCE-SET FALL-BACK: {} is not on {}'s class path; resolved via {}. The caller passed a"
+                        + " source set that is not the one asking; strict mode would make this a miss.",
+                    fullyQualifiedName, sourceSetOfRequest.name(), via.sourceSet().name());
+        }
+    }
+
+    /** Distinct FQNs that only the fall-back could resolve; empty means strict mode would cost this run nothing. */
+    public Set<String> fallBackResolutions() {
+        return Set.copyOf(fallBackResolutions);
     }
 
     /**
