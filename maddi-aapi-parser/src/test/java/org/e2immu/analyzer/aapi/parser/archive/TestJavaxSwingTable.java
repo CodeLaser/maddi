@@ -30,7 +30,7 @@ public class TestJavaxSwingTable extends CommonTest {
 
     @Test
     public void setTableColumnSetPreferredWidth() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(TableColumn.class, mainSources());
+        TypeInfo typeInfo = compiledTypesManager().type(TableColumn.class, mainSources());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("setPreferredWidth", 1);
         assertTrue(methodInfo.isModifying());
         testCommutable(methodInfo);

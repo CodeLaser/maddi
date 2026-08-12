@@ -35,12 +35,12 @@ public class TestNestedTypeLoad {
         javaInspector.onlyPreload();
 
         // a nested type, requested by its dotted FQN, without loading the enclosing type first
-        TypeInfo entry = javaInspector.compiledTypesManager().getOrLoad("java.util.Map.Entry", null);
+        TypeInfo entry = javaInspector.compiledTypesManager().type("java.util.Map.Entry", null);
         assertNotNull(entry, "java.util.Map.Entry must resolve");
         assertEquals("java.util.Map.Entry", entry.fullyQualifiedName());
 
         // a doubly-nested type
-        TypeInfo simpleEntry = javaInspector.compiledTypesManager().getOrLoad("java.util.AbstractMap.SimpleEntry", null);
+        TypeInfo simpleEntry = javaInspector.compiledTypesManager().type("java.util.AbstractMap.SimpleEntry", null);
         assertNotNull(simpleEntry, "java.util.AbstractMap.SimpleEntry must resolve");
         assertEquals("java.util.AbstractMap.SimpleEntry", simpleEntry.fullyQualifiedName());
     }

@@ -50,7 +50,7 @@ public class TestSupplier extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         MethodInfo method = C.findUniqueMethod("method", 2);
 
-        TypeInfo optional = javaInspector.compiledTypesManager().get(Optional.class);
+        TypeInfo optional = javaInspector.compiledTypesManager().typeIfLoaded(Optional.class);
         MethodInfo orElseGet = optional.findUniqueMethod("orElseGet", 1);
         MethodLinkedVariables mlvOrElseGet = orElseGet.analysis().getOrCreate(METHOD_LINKS, () ->
                 tlc.doMethod(orElseGet));
@@ -241,7 +241,7 @@ public class TestSupplier extends CommonTest {
 
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
 
-        TypeInfo optional = javaInspector.compiledTypesManager().get(Optional.class);
+        TypeInfo optional = javaInspector.compiledTypesManager().typeIfLoaded(Optional.class);
         MethodInfo orElseGet = optional.findUniqueMethod("orElseGet", 1);
         MethodLinkedVariables mlvOrElseGet = orElseGet.analysis().getOrCreate(METHOD_LINKS, () ->
                 tlc.doMethod(orElseGet));

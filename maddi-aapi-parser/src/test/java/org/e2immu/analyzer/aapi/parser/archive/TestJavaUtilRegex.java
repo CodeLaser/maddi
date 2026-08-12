@@ -38,7 +38,7 @@ public class TestJavaUtilRegex extends CommonTest {
     // A compiled Pattern is a final, thread-safe immutable value.
     @Test
     public void testPatternImmutable() {
-        TypeInfo typeInfo = compiledTypesManager().get(Pattern.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Pattern.class);
         assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -47,7 +47,7 @@ public class TestJavaUtilRegex extends CommonTest {
     // MatchResult is a read-only view: a @Container, but not immutable (Matcher implements it).
     @Test
     public void testMatchResultContainer() {
-        TypeInfo typeInfo = compiledTypesManager().get(MatchResult.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(MatchResult.class);
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
 
@@ -55,7 +55,7 @@ public class TestJavaUtilRegex extends CommonTest {
     // StringBuffer/StringBuilder argument.
     @Test
     public void testMatcherNotContainer() {
-        TypeInfo typeInfo = compiledTypesManager().get(Matcher.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Matcher.class);
         assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
 }

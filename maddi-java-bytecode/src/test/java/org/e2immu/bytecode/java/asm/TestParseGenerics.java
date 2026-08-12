@@ -41,13 +41,13 @@ public class TestParseGenerics extends CommonJmodBaseTests {
 
     @Test
     public void testNormalTypeParameter() {
-        TypeInfo typeInfo = compiledTypesManager.getOrLoad(Spliterator.class);
+        TypeInfo typeInfo = compiledTypesManager.type(Spliterator.class);
         assertEquals("java.util.Spliterator", typeInfo.asParameterizedType().printForMethodFQN());
     }
 
     @Test
     public void testWildcard() {
-        TypeInfo typeInfo = compiledTypesManager.getOrLoad(Collection.class);
+        TypeInfo typeInfo = compiledTypesManager.type(Collection.class);
         assertEquals("java.util.Collection", typeInfo.asParameterizedType().printForMethodFQN());
         MethodInfo containsAll = typeInfo.methods().stream()
                 .filter(m -> m.name().equals("containsAll")).findFirst().orElseThrow();
@@ -56,7 +56,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
 
     @Test
     public void testExtends1() {
-        TypeInfo typeInfo = compiledTypesManager.getOrLoad(Collection.class);
+        TypeInfo typeInfo = compiledTypesManager.type(Collection.class);
         MethodInfo addAll = typeInfo.methods().stream().filter(m -> m.name().equals("addAll")).findFirst().orElseThrow();
         assertEquals("java.util.Collection.addAll(java.util.Collection)", addAll.fullyQualifiedName());
     }
@@ -91,7 +91,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
 
     @Test
     public void testSuper() {
-        TypeInfo sortedSet = compiledTypesManager.getOrLoad(SortedSet.class);
+        TypeInfo sortedSet = compiledTypesManager.type(SortedSet.class);
         MethodInfo comparator = sortedSet.methods().stream().filter(m -> m.name().equals("comparator"))
                 .findFirst().orElseThrow();
         assertEquals("java.util.Comparator", comparator.returnType().printForMethodFQN());
@@ -104,7 +104,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
      */
     @Test
     public void testExtends3() {
-        TypeInfo typeInfo = compiledTypesManager.getOrLoad(Spliterator.OfPrimitive.class);
+        TypeInfo typeInfo = compiledTypesManager.type(Spliterator.OfPrimitive.class);
         ParameterizedType pt = typeInfo.asParameterizedType();
         String fqn = "java.util.Spliterator.OfPrimitive<T,T_CONS,T_SPLITR extends java.util.Spliterator.OfPrimitive<T,T_CONS,T_SPLITR>>";
         assertEquals("Type " + fqn, pt.toString());
@@ -121,7 +121,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
     @Test
     public void testExtends4() {
         TypeInfo SliceSpliterator = compiledTypesManager
-                .getOrLoad("java.util.stream.StreamSpliterators.SliceSpliterator",
+                .type("java.util.stream.StreamSpliterators.SliceSpliterator",
                         compiledTypesManager.javaBase());
         assertEquals(2, SliceSpliterator.typeParameters().size());
 
@@ -171,7 +171,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
 
     @Test
     public void testEnumSet() {
-        TypeInfo enumSet = compiledTypesManager.getOrLoad(EnumSet.class);
+        TypeInfo enumSet = compiledTypesManager.type(EnumSet.class);
         MethodInfo constructor = enumSet.findConstructor(2);
         ParameterizedType p0Type = constructor.parameters().getFirst().parameterizedType();
         assertEquals("Type Class<E extends Enum<E>>", p0Type.toString());
@@ -185,7 +185,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
         assertEquals(1, enumSetProxy.typeParameters().size());
         assertEquals("E=TP#0 in SerializationProxy", enumSetProxy.typeParameters().getFirst().toString());
 
-        TypeInfo enumSetProxy2 = compiledTypesManager.getOrLoad("java.util.EnumSet.SerializationProxy", null);
+        TypeInfo enumSetProxy2 = compiledTypesManager.type("java.util.EnumSet.SerializationProxy", null);
         assertSame(enumSet, enumSetProxy2.compilationUnitOrEnclosingType().getRight());
 
         assertEquals("E=TP#0 in SerializationProxy", enumSetProxy2.typeParameters().getFirst().toString());

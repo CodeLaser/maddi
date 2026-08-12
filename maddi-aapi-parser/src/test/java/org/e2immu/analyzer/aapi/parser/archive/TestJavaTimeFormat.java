@@ -45,7 +45,7 @@ public class TestJavaTimeFormat extends CommonTest {
     public void testImmutableContainerValueTypes() {
         for (Class<?> c : new Class<?>[]{DecimalStyle.class, FormatStyle.class, ResolverStyle.class,
                 SignStyle.class, TextStyle.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE),
                     () -> c.getSimpleName() + " should be deep @Immutable");
             assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
@@ -57,7 +57,7 @@ public class TestJavaTimeFormat extends CommonTest {
     // their argument, so it is @Immutable, NOT a @Container (the Charset/String pattern).
     @Test
     public void testDateTimeFormatterImmutableNotContainer() {
-        TypeInfo typeInfo = compiledTypesManager().get(DateTimeFormatter.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(DateTimeFormatter.class);
         assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
@@ -66,7 +66,7 @@ public class TestJavaTimeFormat extends CommonTest {
     // toFormatter() reads state (non-modifying) while append*() mutate the builder.
     @Test
     public void testDateTimeFormatterBuilder() {
-        TypeInfo typeInfo = compiledTypesManager().get(DateTimeFormatterBuilder.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(DateTimeFormatterBuilder.class);
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
         MethodInfo toFormatter = typeInfo.methods().stream()
                 .filter(m -> m.name().equals("toFormatter") && m.parameters().isEmpty()).findFirst().orElseThrow();

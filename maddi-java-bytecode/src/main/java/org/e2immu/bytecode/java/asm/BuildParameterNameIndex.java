@@ -54,7 +54,7 @@ public class BuildParameterNameIndex {
         int failed = 0;
         for (String fqn : primaryFqns) {
             try {
-                TypeInfo typeInfo = compiledTypesManager.getOrLoad(fqn, sourceSet);
+                TypeInfo typeInfo = compiledTypesManager.type(fqn, sourceSet);
                 if (typeInfo != null) index.putRecursively(typeInfo);
             } catch (RuntimeException re) {
                 failed++;

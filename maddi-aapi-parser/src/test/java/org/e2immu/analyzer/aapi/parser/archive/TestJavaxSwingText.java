@@ -28,7 +28,7 @@ public class TestJavaxSwingText extends CommonTest {
 
     @Test
     public void testJTextComponentSetText() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(JTextComponent.class, mainSources());
+        TypeInfo typeInfo = compiledTypesManager().type(JTextComponent.class, mainSources());
         SourceSet set = typeInfo.compilationUnit().sourceSet();
         assertTrue(set.partOfJdk());
         assertTrue(set.externalLibrary());

@@ -41,7 +41,7 @@ public class TestJavaMath extends CommonTest {
     @Test
     public void testRoundingModeAndMathContextImmutableContainer() {
         for (Class<?> c : new Class<?>[]{RoundingMode.class, MathContext.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE),
                     () -> c.getSimpleName() + " should be deep @Immutable");
             assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),

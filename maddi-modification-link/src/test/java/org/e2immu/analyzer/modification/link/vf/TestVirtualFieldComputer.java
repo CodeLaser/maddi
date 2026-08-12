@@ -27,20 +27,20 @@ public class TestVirtualFieldComputer extends CommonTest {
         javaInspector.parse("A", "class A { }");
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(List.class);
         VirtualFields vfList = vfc.compute(list);
         assertEquals("§m - E[] §es", vfList.toString());
         assertEquals("java.util.List", vfList.mutable().owner().toString());
         assertEquals("java.util.List", vfList.hiddenContent().type().typeParameter()
                 .getOwner().getLeft().toString());
 
-        TypeInfo object = javaInspector.compiledTypesManager().getOrLoad(Object.class);
+        TypeInfo object = javaInspector.compiledTypesManager().type(Object.class);
         VirtualFields vfObject = vfc.compute(object);
         assertEquals("/ - Object §$", vfObject.toString());
 
-        TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
+        TypeInfo arrayList = javaInspector.compiledTypesManager().type(ArrayList.class);
         assertEquals("§m - E[] §es", vfc.compute(arrayList).toString());
-        TypeInfo deque = javaInspector.compiledTypesManager().getOrLoad(Deque.class);
+        TypeInfo deque = javaInspector.compiledTypesManager().type(Deque.class);
         assertEquals("§m - E[] §es", vfc.compute(deque).toString());
 
         assertEquals(2, vfc.maxMultiplicityFromMethods(arrayList));
@@ -51,7 +51,7 @@ public class TestVirtualFieldComputer extends CommonTest {
     public void test2() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
-        TypeInfo treeMap = javaInspector.compiledTypesManager().getOrLoad(TreeMap.class);
+        TypeInfo treeMap = javaInspector.compiledTypesManager().type(TreeMap.class);
         VirtualFields vfList = vfc.compute(treeMap);
         assertEquals("§m - §KV[] §kvs", vfList.toString());
         assertEquals("java.util.TreeMap", vfList.mutable().owner().toString());
@@ -71,7 +71,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         // how? Iterator<T> is also multi 2
         // recursively defined type parameters to be IGNORED
 
-        TypeInfo stream = javaInspector.compiledTypesManager().getOrLoad(Stream.class);
+        TypeInfo stream = javaInspector.compiledTypesManager().type(Stream.class);
         VirtualFields vfStream = vfc.compute(stream);
         assertEquals("§m - T[] §ts", vfStream.toString());
         assertEquals(2, vfc.maxMultiplicityFromMethods(stream));
@@ -82,7 +82,7 @@ public class TestVirtualFieldComputer extends CommonTest {
     public void test4() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
-        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
+        TypeInfo optional = javaInspector.compiledTypesManager().type(Optional.class);
         VirtualFields vfStream = vfc.compute(optional);
         assertEquals("/ - T §t", vfStream.toString());
         assertEquals(1, vfc.maxMultiplicityFromMethods(optional));
@@ -93,7 +93,7 @@ public class TestVirtualFieldComputer extends CommonTest {
     public void test4b() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
-        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
+        TypeInfo optional = javaInspector.compiledTypesManager().type(Optional.class);
         ParameterizedType os = runtime.newParameterizedType(optional, List.of(runtime.stringParameterizedType()));
         VirtualFieldComputer.VfTm vfTm = vfc.compute(os, true);
         // String is deeply @Immutable, so it has no hidden content of its own, but as the concrete element of the
@@ -107,8 +107,8 @@ public class TestVirtualFieldComputer extends CommonTest {
     @Test
     public void test4c() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        TypeInfo stringBuilder = javaInspector.compiledTypesManager().getOrLoad(StringBuilder.class);
-        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
+        TypeInfo stringBuilder = javaInspector.compiledTypesManager().type(StringBuilder.class);
+        TypeInfo optional = javaInspector.compiledTypesManager().type(Optional.class);
         ParameterizedType os = runtime.newParameterizedType(optional, List.of(stringBuilder.asParameterizedType()));
         VirtualFieldComputer.VfTm vfTm = vfc.compute(os, true);
         assertEquals("§m - StringBuilder §$", vfTm.virtualFields().toString());
@@ -133,7 +133,7 @@ public class TestVirtualFieldComputer extends CommonTest {
     @Test
     public void test5b() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        TypeInfo comparable = javaInspector.compiledTypesManager().getOrLoad(Comparable.class);
+        TypeInfo comparable = javaInspector.compiledTypesManager().type(Comparable.class);
         VirtualFields vf = vfc.compute(comparable);
         assertEquals("/ - /", vf.toString());
     }
@@ -142,7 +142,7 @@ public class TestVirtualFieldComputer extends CommonTest {
     @Test
     public void test6() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
+        TypeInfo optional = javaInspector.compiledTypesManager().type(Optional.class);
         ParameterizedType tpArray = optional.asParameterizedType().parameters().getFirst().copyWithArrays(1);
         VirtualFieldComputer.VfTm vfTmTpArray = vfc.compute(tpArray, true);
         VirtualFields vfTpArray = vfTmTpArray.virtualFields();
@@ -158,8 +158,8 @@ public class TestVirtualFieldComputer extends CommonTest {
     @Test
     public void test7() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        TypeInfo optional = javaInspector.compiledTypesManager().type(Optional.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(List.class);
         ParameterizedType tpArray = optional.asParameterizedType().parameters().getFirst().copyWithArrays(1);
         ParameterizedType listTpArray = runtime.newParameterizedType(list, List.of(tpArray));
         assertEquals("java.util.List<T[]>", listTpArray.descriptor());
@@ -193,9 +193,9 @@ public class TestVirtualFieldComputer extends CommonTest {
     public void test8() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
-        TypeInfo treeMap = javaInspector.compiledTypesManager().getOrLoad(TreeMap.class);
-        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        TypeInfo treeMap = javaInspector.compiledTypesManager().type(TreeMap.class);
+        TypeInfo optional = javaInspector.compiledTypesManager().type(Optional.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(List.class);
         ParameterizedType mapTE = runtime.newParameterizedType(treeMap, List.of(
                 optional.asParameterizedType().parameters().getFirst(),
                 list.asParameterizedType().parameters().getFirst()
@@ -227,11 +227,11 @@ public class TestVirtualFieldComputer extends CommonTest {
     public void test9() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
-        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
+        TypeInfo map = javaInspector.compiledTypesManager().type(Map.class);
         TypeInfo mapEntry = map.findSubType("Entry");
-        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
-        TypeInfo stream = javaInspector.compiledTypesManager().getOrLoad(Stream.class);
+        TypeInfo optional = javaInspector.compiledTypesManager().type(Optional.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(List.class);
+        TypeInfo stream = javaInspector.compiledTypesManager().type(Stream.class);
         ParameterizedType streamT = runtime.newParameterizedType(stream, List.of(optional.asParameterizedType().parameters().getFirst()));
         ParameterizedType streamE = runtime.newParameterizedType(stream, List.of(list.asParameterizedType().parameters().getFirst()));
 
@@ -308,12 +308,12 @@ public class TestVirtualFieldComputer extends CommonTest {
     public void test12() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
-        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
+        TypeInfo map = javaInspector.compiledTypesManager().type(Map.class);
         VirtualFields vfMap = vfc.compute(map);
         assertEquals("§m - §KV[] §kvs", vfMap.toString());
 
-        TypeInfo stringBuilder = javaInspector.compiledTypesManager().getOrLoad(StringBuilder.class);
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        TypeInfo stringBuilder = javaInspector.compiledTypesManager().type(StringBuilder.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(List.class);
         ParameterizedType mapSE = runtime.newParameterizedType(map, List.of(
                 stringBuilder.asParameterizedType(),
                 list.asParameterizedType().parameters().getFirst()

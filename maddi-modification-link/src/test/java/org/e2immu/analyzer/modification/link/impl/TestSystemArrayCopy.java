@@ -104,7 +104,7 @@ public class TestSystemArrayCopy extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        TypeInfo system = javaInspector.compiledTypesManager().getOrLoad(System.class);
+        TypeInfo system = javaInspector.compiledTypesManager().type(System.class);
         MethodInfo arrayCopy = system.findUniqueMethod("arraycopy", 5);
         ParameterInfo in = arrayCopy.parameters().getFirst();
         Value.Independent independentIn = in.analysis().getOrNull(INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.class);

@@ -51,7 +51,7 @@ public class TestForEach extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
 
-        TypeInfo iterator = javaInspector.compiledTypesManager().get(Iterator.class);
+        TypeInfo iterator = javaInspector.compiledTypesManager().typeIfLoaded(Iterator.class);
         MethodInfo next = iterator.findUniqueMethod("next", 0);
         MethodLinkedVariables mtlNext = next.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[] --> next∈this*.§es", mtlNext.toString());

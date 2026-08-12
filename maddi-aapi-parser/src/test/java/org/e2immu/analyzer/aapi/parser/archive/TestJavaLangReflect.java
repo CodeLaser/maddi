@@ -29,7 +29,7 @@ public class TestJavaLangReflect extends CommonTest {
 
     @Test
     public void testArrayGet() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(Array.class);
+        TypeInfo typeInfo = compiledTypesManager().type(Array.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("get", 2);
         assertFalse(methodInfo.allowsInterrupts());
         assertFalse(methodInfo.isModifying());
@@ -40,7 +40,7 @@ public class TestJavaLangReflect extends CommonTest {
 
     @Test
     public void testArraySet() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(Array.class);
+        TypeInfo typeInfo = compiledTypesManager().type(Array.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("set", 3);
         assertFalse(methodInfo.allowsInterrupts());
         assertFalse(methodInfo.isModifying());

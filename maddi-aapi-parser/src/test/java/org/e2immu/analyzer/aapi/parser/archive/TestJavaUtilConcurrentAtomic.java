@@ -43,7 +43,7 @@ public class TestJavaUtilConcurrentAtomic extends CommonTest {
     @Test
     public void testAtomicPrimitiveHolders() {
         for (Class<?> c : new Class<?>[]{AtomicBoolean.class, AtomicInteger.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
                     () -> c.getSimpleName() + " should be a @Container");
             assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT),
@@ -59,7 +59,7 @@ public class TestJavaUtilConcurrentAtomic extends CommonTest {
     // independence propagates INDEPENDENT_HC to the V parameters (e.g. set(V)).
     @Test
     public void testAtomicReference() {
-        TypeInfo typeInfo = compiledTypesManager().get(AtomicReference.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(AtomicReference.class);
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
         assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
 

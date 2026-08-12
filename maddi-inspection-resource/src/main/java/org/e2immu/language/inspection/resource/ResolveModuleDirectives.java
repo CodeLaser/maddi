@@ -80,7 +80,7 @@ public class ResolveModuleDirectives {
             for (ModuleInfo.Uses uses : moduleInfo.uses()) {
                 ++named;
                 String fqn = ModuleInfo.resolveDirectiveName(uses.api(), shortNames);
-                TypeInfo r = compiledTypesManager.get(fqn, sourceSet);
+                TypeInfo r = compiledTypesManager.typeIfLoaded(fqn, sourceSet);
                 if (r != null) {
                     uses.setApiResolved(r);
                     ++resolved;
@@ -90,7 +90,7 @@ public class ResolveModuleDirectives {
             for (ModuleInfo.Provides provides : moduleInfo.provides()) {
                 ++named;
                 String apiFqn = ModuleInfo.resolveDirectiveName(provides.api(), shortNames);
-                TypeInfo r0 = compiledTypesManager.get(apiFqn, sourceSet);
+                TypeInfo r0 = compiledTypesManager.typeIfLoaded(apiFqn, sourceSet);
                 if (r0 != null) {
                     provides.setApiResolved(r0);
                     ++resolved;
@@ -100,7 +100,7 @@ public class ResolveModuleDirectives {
                 for (String implementation : provides.implementations()) {
                     ++named;
                     String implFqn = ModuleInfo.resolveDirectiveName(implementation, shortNames);
-                    TypeInfo r1 = compiledTypesManager.get(implFqn, sourceSet);
+                    TypeInfo r1 = compiledTypesManager.typeIfLoaded(implFqn, sourceSet);
                     if (r1 != null) {
                         implementationsResolved.add(r1);
                         ++resolved;

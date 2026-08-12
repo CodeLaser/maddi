@@ -59,7 +59,7 @@ public class TestLinkGraph extends CommonTest {
                         this.compiledTypesManager = compiledTypesManager;
                     }
                     public TypeInfo get(String fqn) {
-                        return compiledTypesManager.get(fqn);
+                        return compiledTypesManager.typeIfLoaded(fqn);
                     }
                 }
                 static class CompiledTypesManagerImpl implements CompiledTypesManager {

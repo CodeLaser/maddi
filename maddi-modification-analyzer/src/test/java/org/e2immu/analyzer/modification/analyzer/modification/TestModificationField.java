@@ -74,7 +74,7 @@ public class TestModificationField extends CommonTest {
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
 
-        TypeInfo bufferedReader = javaInspector.compiledTypesManager().get(BufferedReader.class);
+        TypeInfo bufferedReader = javaInspector.compiledTypesManager().typeIfLoaded(BufferedReader.class);
         assertTrue(bufferedReader.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.MUTABLE).isMutable());
 
         MethodInfo brReadLine = bufferedReader.findUniqueMethod("readLine", 0);

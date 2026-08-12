@@ -40,7 +40,7 @@ public class TestJavaNet extends CommonTest {
     @Test
     public void testNetValueTypesImmutableContainers() {
         for (Class<?> c : new Class<?>[]{InetAddress.class, URI.class, URL.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             Value.Immutable imm = (Value.Immutable) typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE);
             assertTrue(imm.isAtLeastImmutableHC(), () -> c.getSimpleName() + " should be (at least) @Immutable(hc=true)");
             assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
@@ -51,7 +51,7 @@ public class TestJavaNet extends CommonTest {
     @Test
     public void testFinalNetTypesAreDeepImmutable() {
         for (Class<?> c : new Class<?>[]{URI.class, URL.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE),
                     () -> c.getSimpleName() + " should be deep @Immutable");
         }

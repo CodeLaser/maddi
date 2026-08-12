@@ -206,7 +206,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     }
 
     @Override
-    public TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+    public TypeInfo typeIfLoaded(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
         trieLock.readLock().lock();
         try {
             TypeInfo single = mapSingleTypeForFQN.get(fullyQualifiedName);
@@ -271,7 +271,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     }
 
     @Override
-    public TypeInfo getOrLoad(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+    public TypeInfo type(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
         trieLock.readLock().lock();
         TypeData typeData;
         try {

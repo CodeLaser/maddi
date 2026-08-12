@@ -32,7 +32,7 @@ public class TestJavaAwt extends CommonTest {
 
     @Test
     public void testContainerAdd() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(Container.class, mainSources());
+        TypeInfo typeInfo = compiledTypesManager().type(Container.class, mainSources());
         assertNotNull(typeInfo, "Cannot find java.awt.Container");
         MethodInfo methodInfo = typeInfo.findUniqueMethod("add", 1);
         assertTrue(methodInfo.isModifying());
@@ -41,7 +41,7 @@ public class TestJavaAwt extends CommonTest {
 
     @Test
     public void testContainerAddWithConstraints() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(Container.class, mainSources());
+        TypeInfo typeInfo = compiledTypesManager().type(Container.class, mainSources());
         MethodInfo methodInfo = typeInfo.methods().stream()
                                         .filter(m -> m.simpleName().equals("add")
                                                              && m.parameters().size() == 2
@@ -55,7 +55,7 @@ public class TestJavaAwt extends CommonTest {
 
     @Test
     public void testContainerSetLayout() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(Container.class, mainSources());
+        TypeInfo typeInfo = compiledTypesManager().type(Container.class, mainSources());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("setLayout", 1);
         assertTrue(methodInfo.isModifying());
         testCommutable(methodInfo);
@@ -63,7 +63,7 @@ public class TestJavaAwt extends CommonTest {
 
     @Test
     public void testComponentAddMouseListener() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(Component.class, mainSources());
+        TypeInfo typeInfo = compiledTypesManager().type(Component.class, mainSources());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("addMouseListener", 1);
         assertTrue(methodInfo.isModifying());
         testCommutable(methodInfo);
@@ -78,7 +78,7 @@ public class TestJavaAwt extends CommonTest {
     // @NotModified; only the mutators (setX/paint/add) modify.
     @Test
     public void testComponentGettersNonModifying() {
-        TypeInfo component = compiledTypesManager().get(Component.class);
+        TypeInfo component = compiledTypesManager().typeIfLoaded(Component.class);
         for (String g : new String[]{"getWidth", "getHeight", "getX", "getY", "isVisible", "isEnabled"}) {
             assertFalse(component.findUniqueMethod(g, 0).isModifying(), () -> "Component." + g + " must be non-modifying");
         }

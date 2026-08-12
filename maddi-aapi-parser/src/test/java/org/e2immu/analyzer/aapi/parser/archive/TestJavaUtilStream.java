@@ -41,7 +41,7 @@ public class TestJavaUtilStream extends CommonTest {
 
     @Test
     public void testCollector() {
-        TypeInfo typeInfo = compiledTypesManager().get(Collector.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Collector.class);
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -50,7 +50,7 @@ public class TestJavaUtilStream extends CommonTest {
 
     @Test
     public void testStream() {
-        TypeInfo typeInfo = compiledTypesManager().get(Stream.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Stream.class);
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -59,7 +59,7 @@ public class TestJavaUtilStream extends CommonTest {
 
     @Test
     public void testStreamMap() {
-        TypeInfo typeInfo = compiledTypesManager().get(Stream.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Stream.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("map", 1);
         assertFalse(methodInfo.allowsInterrupts());
         assertTrue(methodInfo.isModifying());
@@ -77,7 +77,7 @@ public class TestJavaUtilStream extends CommonTest {
 
     @Test
     public void testStreamOfT() {
-        TypeInfo typeInfo = compiledTypesManager().get(Stream.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Stream.class);
         MethodInfo methodInfo = typeInfo.methodStream().filter(m -> "of".equals(m.name())
                 && 0 == m.parameters().getFirst().parameterizedType().arrays()).findFirst().orElseThrow();
         assertEquals("java.util.stream.Stream.of(Object)", methodInfo.fullyQualifiedName());
@@ -100,7 +100,7 @@ public class TestJavaUtilStream extends CommonTest {
 
     @Test
     public void testStreamEmpty() {
-        TypeInfo typeInfo = compiledTypesManager().get(Stream.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Stream.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("empty", 0);
         assertFalse(methodInfo.allowsInterrupts());
         assertTrue(methodInfo.isStatic());
@@ -115,7 +115,7 @@ public class TestJavaUtilStream extends CommonTest {
 
     @Test
     public void testStreamFilter() {
-        TypeInfo typeInfo = compiledTypesManager().get(Stream.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Stream.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("filter", 1);
         assertFalse(methodInfo.allowsInterrupts());
         assertFalse(methodInfo.isStatic());
@@ -130,7 +130,7 @@ public class TestJavaUtilStream extends CommonTest {
 
     @Test
     public void testStreamFindFirst() {
-        TypeInfo typeInfo = compiledTypesManager().get(Stream.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Stream.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("findFirst", 0);
         assertFalse(methodInfo.allowsInterrupts());
         assertFalse(methodInfo.isStatic());
@@ -148,7 +148,7 @@ public class TestJavaUtilStream extends CommonTest {
     public void testAllStreamsAreContainers() {
         for (Class<?> c : new Class<?>[]{
                 BaseStream.class, Stream.class, IntStream.class, LongStream.class, DoubleStream.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
                     () -> c.getSimpleName() + " should be a @Container");
         }

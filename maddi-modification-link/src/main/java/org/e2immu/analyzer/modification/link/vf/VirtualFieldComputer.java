@@ -74,10 +74,10 @@ public class VirtualFieldComputer {
 
     public VirtualFieldComputer(JavaInspector javaInspector) {
         this.runtime = javaInspector.runtime();
-        TypeInfo atomicBoolean = javaInspector.compiledTypesManager().getOrLoad(AtomicBoolean.class);
+        TypeInfo atomicBoolean = javaInspector.compiledTypesManager().type(AtomicBoolean.class);
         this.atomicBooleanPt = atomicBoolean.asParameterizedType();
-        ParameterizedType iterable = javaInspector.compiledTypesManager().getOrLoad(Iterable.class).asParameterizedType();
-        ParameterizedType iterator = javaInspector.compiledTypesManager().getOrLoad(Iterator.class).asParameterizedType();
+        ParameterizedType iterable = javaInspector.compiledTypesManager().type(Iterable.class).asParameterizedType();
+        ParameterizedType iterator = javaInspector.compiledTypesManager().type(Iterator.class).asParameterizedType();
         this.genericsHelper = new GenericsHelperImpl(runtime);
         multi2 = Set.of(iterable.typeInfo(), iterator.typeInfo());
     }

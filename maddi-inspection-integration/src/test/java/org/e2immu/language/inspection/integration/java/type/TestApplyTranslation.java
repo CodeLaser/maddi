@@ -51,7 +51,7 @@ public class TestApplyTranslation extends CommonTest {
         TypeInfo C = javaInspector.parse(INPUT6);
         Runtime runtime = javaInspector.runtime();
 
-        TypeInfo aa = javaInspector.compiledTypesManager().getOrLoad(AbstractAssert.class);
+        TypeInfo aa = javaInspector.compiledTypesManager().type(AbstractAssert.class);
         ParameterizedType pt = aa.asParameterizedType();
         assertEquals("""
                 Type org.assertj.core.api.AbstractAssert<SELF extends org.assertj.core.api.AbstractAssert<SELF,ACTUAL>,ACTUAL>\
@@ -61,7 +61,7 @@ public class TestApplyTranslation extends CommonTest {
         ParameterizedType aa0Pt = runtime.newParameterizedType(aa0, 0, null);
         assertEquals("Type param SELF extends org.assertj.core.api.AbstractAssert<SELF,ACTUAL>",
                 aa0Pt.toString());
-        TypeInfo aoa = javaInspector.compiledTypesManager().getOrLoad(AbstractObjectAssert.class);
+        TypeInfo aoa = javaInspector.compiledTypesManager().type(AbstractObjectAssert.class);
         TypeParameter aoa0 = aoa.typeParameters().getFirst();
         TypeParameter aoa1 = aoa.typeParameters().getLast();
 
@@ -72,7 +72,7 @@ public class TestApplyTranslation extends CommonTest {
         ParameterizedType aoa1Pt = runtime.newParameterizedType(aoa1, 0, null);
         assertEquals("Type param ACTUAL", aoa1Pt.toString());
 
-        TypeInfo ata = javaInspector.compiledTypesManager().getOrLoad(AbstractThrowableAssert.class);
+        TypeInfo ata = javaInspector.compiledTypesManager().type(AbstractThrowableAssert.class);
         TypeParameter ata0 = ata.typeParameters().getFirst();
         TypeParameter ata1 = ata.typeParameters().getLast();
         ParameterizedType ata0Pt = runtime.newParameterizedType(ata0, 0, null);

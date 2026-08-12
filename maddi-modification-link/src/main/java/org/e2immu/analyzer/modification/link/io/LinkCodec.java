@@ -55,7 +55,7 @@ public class LinkCodec {
         this.typeProvider = fqn -> {
             TypeInfo primitive = javaInspector.runtime().primitiveByNameOrNull(fqn);
             if (primitive != null) return primitive;
-            return javaInspector.compiledTypesManager().getOrLoad(fqn, sourceSetOfRequest);
+            return javaInspector.compiledTypesManager().type(fqn, sourceSetOfRequest);
         };
         decoderProvider = new D();
         this.propertyProvider = new P();

@@ -109,7 +109,7 @@ public class TestAnalysisHintsComposer extends CommonTest {
         javaInspector.initialize(inputConfigurationBuilder.build());
 
         AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
-        TypeInfo typeDescriptor = javaInspector.compiledTypesManager().getOrLoad(TypeDescriptor.class);
+        TypeInfo typeDescriptor = javaInspector.compiledTypesManager().type(TypeDescriptor.class);
         Collection<TypeInfo> res = analysisHintsComposer.compose(Set.of(typeDescriptor));
         assertEquals(1, res.size());
         @Language("java")
@@ -161,7 +161,7 @@ public class TestAnalysisHintsComposer extends CommonTest {
         javaInspector.javaBase().computePriorityDependencies();
         AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
 
-        TypeInfo arrays = javaInspector.compiledTypesManager().getOrLoad(Arrays.class);
+        TypeInfo arrays = javaInspector.compiledTypesManager().type(Arrays.class);
         MethodInfo parallelSort = arrays.methodStream()
                 .filter(mi -> "parallelSort".equals(mi.name())
                               && mi.parameters().size() == 3
@@ -215,7 +215,7 @@ public class TestAnalysisHintsComposer extends CommonTest {
 
         AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
 
-        TypeInfo commandLine = javaInspector.compiledTypesManager().getOrLoad("picocli.CommandLine",
+        TypeInfo commandLine = javaInspector.compiledTypesManager().type("picocli.CommandLine",
                 javaInspector.mainSources());
         MethodInfo call = commandLine.findUniqueMethod("call", 2);
         assertEquals("picocli.CommandLine.call(java.util.concurrent.Callable,String[])",
@@ -265,7 +265,7 @@ public class TestAnalysisHintsComposer extends CommonTest {
 
         AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
         TypeInfo annotationConsumer = javaInspector.compiledTypesManager()
-                .getOrLoad("org.junit.jupiter.params.support.AnnotationConsumer",
+                .type("org.junit.jupiter.params.support.AnnotationConsumer",
                         javaInspector.mainSources());
         Collection<TypeInfo> res = analysisHintsComposer.compose(Set.of(annotationConsumer));
         assertEquals(1, res.size());
@@ -296,7 +296,7 @@ public class TestAnalysisHintsComposer extends CommonTest {
         javaInspector.initialize(inputConfigurationBuilder.build());
 
         AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
-        TypeInfo typeInfo = javaInspector.compiledTypesManager().getOrLoad(
+        TypeInfo typeInfo = javaInspector.compiledTypesManager().type(
                 "org.springframework.security.config.annotation.web.configurers.AbstractInterceptUrlConfigurer",
                 javaInspector.mainSources());
         assertNotNull(typeInfo);

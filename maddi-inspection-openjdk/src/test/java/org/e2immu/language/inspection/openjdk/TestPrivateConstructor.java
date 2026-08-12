@@ -41,7 +41,7 @@ public class TestPrivateConstructor {
         javaInspector.onlyPreload();
 
         for (String fqn : new String[]{"org.slf4j.MDC", "org.slf4j.LoggerFactory", "org.slf4j.helpers.Util"}) {
-            TypeInfo ti = javaInspector.compiledTypesManager().getOrLoad(fqn, null);
+            TypeInfo ti = javaInspector.compiledTypesManager().type(fqn, null);
             assertEquals(1, ti.constructors().size(), fqn + " should have its private constructor loaded");
             MethodInfo constructor = ti.constructors().getFirst();
             assertTrue(constructor.isConstructor());

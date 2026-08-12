@@ -129,7 +129,7 @@ public class CommonTestParse {
         }
 
         @Override
-        public TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        public TypeInfo typeIfLoaded(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
             TypeInfo inMap = typeMap.get(fullyQualifiedName);
             if (inMap != null) return inMap;
             return predefined(fullyQualifiedName, false);

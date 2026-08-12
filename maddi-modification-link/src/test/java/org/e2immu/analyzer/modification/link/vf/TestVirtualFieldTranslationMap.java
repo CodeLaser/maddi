@@ -26,10 +26,10 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
     @DisplayName("translate type parameter")
     @Test
     public void test1() {
-        TypeInfo iterable = javaInspector.compiledTypesManager().getOrLoad(Iterable.class);
+        TypeInfo iterable = javaInspector.compiledTypesManager().type(Iterable.class);
         TypeParameter iterableTp = iterable.typeParameters().getFirst();
 
-        TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
+        TypeInfo arrayList = javaInspector.compiledTypesManager().type(ArrayList.class);
         TypeParameter arrayListTp = arrayList.typeParameters().getFirst();
 
         VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMapImpl(null, runtime);
@@ -48,8 +48,8 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
     @Test
     public void test2() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        TypeInfo optional = javaInspector.compiledTypesManager().type(Optional.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(List.class);
         ParameterizedType tpArray = optional.asParameterizedType().parameters().getFirst().copyWithArrays(1);
         ParameterizedType listTpArray = runtime.newParameterizedType(list, List.of(tpArray));
         assertEquals("java.util.List<T[]>", listTpArray.descriptor());
@@ -92,7 +92,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
         }
         {
             // inject container VF into array VF
-            TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
+            TypeInfo map = javaInspector.compiledTypesManager().type(Map.class);
             ParameterizedType mapTE = runtime.newParameterizedType(map, List.of(
                     optional.asParameterizedType().parameters().getFirst(),
                     list.asParameterizedType().parameters().getFirst()
@@ -118,9 +118,9 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
     public void test3() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
-        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
-        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        TypeInfo map = javaInspector.compiledTypesManager().type(Map.class);
+        TypeInfo optional = javaInspector.compiledTypesManager().type(Optional.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(List.class);
         ParameterizedType mapTE = runtime.newParameterizedType(map, List.of(
                 optional.asParameterizedType().parameters().getFirst(),
                 list.asParameterizedType().parameters().getFirst()
@@ -226,7 +226,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
 
-        TypeInfo set = javaInspector.compiledTypesManager().getOrLoad(Set.class);
+        TypeInfo set = javaInspector.compiledTypesManager().type(Set.class);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         VirtualFields vfSet = vfc.compute(set);
         assertEquals("§m - E[] §es", vfSet.toString());

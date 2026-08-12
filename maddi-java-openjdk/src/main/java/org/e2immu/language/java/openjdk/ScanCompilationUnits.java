@@ -499,6 +499,11 @@ public class ScanCompilationUnits {
         return classSymbolScanner;
     }
 
+    /** The source set this task was built for, hence the class path it resolves compiled types against. */
+    public SourceSet sourceSet() {
+        return sourceSet;
+    }
+
     private List<TypeInfo> indexJavaLangForJavaDocParsing() throws IOException {
         JavaFileManager fm = ((BasicJavacTask) task).getContext().get(JavaFileManager.class);
         JavaFileManager.Location javaBase = fm.getLocationForModule(StandardLocation.SYSTEM_MODULES,
@@ -578,7 +583,15 @@ public class ScanCompilationUnits {
                         if (!pt.hasBeenInspected()) {
                             pt.builder().commit();
                         }
-                        list.add(pt);
+                        // the nested types come with the enclosing one (LOAD_MEMBERS/COMPLETE builds and inspects
+                        // them), so they are loaded and must be reported as such: the caller registers what it gets
+                        // here in the CompiledTypesManager, and a type left out of that registry is only reachable
+                        // through the lazy on-demand loader -- which runs on whichever source set happened to be
+                        // scanned LAST, not on the one that asked. A preload of a class-path package
+                        // (io.codelaser...support) followed by a scan of a corpus source set that does not have that
+                        // jar on its class path then lost every nested type: getOrLoad("...Loop.LoopData") missed
+                        // the registry and javac, on the corpus task, could not resolve the name either.
+                        pt.recursiveSubTypeStream().forEach(list::add);
                     }
                 } catch (Symbol.CompletionFailure e) {
                     // ignore

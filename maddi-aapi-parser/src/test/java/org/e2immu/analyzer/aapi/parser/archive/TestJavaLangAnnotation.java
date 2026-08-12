@@ -45,7 +45,7 @@ public class TestJavaLangAnnotation extends CommonTest {
 
     @Test
     public void testAnnotationAnnotationType() {
-        TypeInfo typeInfo = compiledTypesManager().get(Annotation.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Annotation.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("annotationType", 0);
         assertFalse(methodInfo.isModifying());
         assertSame(INDEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, INDEPENDENT));
@@ -58,7 +58,7 @@ public class TestJavaLangAnnotation extends CommonTest {
     // rather than via testImmutableContainer(), which expects deep independence.
     @Test
     public void testAnnotationIsImmutableHc() {
-        TypeInfo typeInfo = compiledTypesManager().get(Annotation.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Annotation.class);
         assertSame(IMMUTABLE_HC, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertTrue(typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE).isTrue());
@@ -68,7 +68,7 @@ public class TestJavaLangAnnotation extends CommonTest {
     // @ImmutableContainer must therefore land as deep IMMUTABLE (hc=false).
     @Test
     public void testElementTypeIsImmutable() {
-        TypeInfo typeInfo = compiledTypesManager().get(ElementType.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(ElementType.class);
         testImmutableContainer(typeInfo, false);
         assertFalse(typeInfo.findUniqueMethod("values", 0).isModifying());
         assertFalse(typeInfo.findUniqueMethod("valueOf", 1).isModifying());
@@ -77,7 +77,7 @@ public class TestJavaLangAnnotation extends CommonTest {
     // RetentionPolicy: same reasoning as ElementType.
     @Test
     public void testRetentionPolicyIsImmutable() {
-        TypeInfo typeInfo = compiledTypesManager().get(RetentionPolicy.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(RetentionPolicy.class);
         testImmutableContainer(typeInfo, false);
         assertFalse(typeInfo.findUniqueMethod("values", 0).isModifying());
         assertFalse(typeInfo.findUniqueMethod("valueOf", 1).isModifying());
@@ -87,14 +87,14 @@ public class TestJavaLangAnnotation extends CommonTest {
     // to override the @Modified method default. Confirm the override reaches analysis().
     @Test
     public void testAnnotationTypeMismatchExceptionAccessors() {
-        TypeInfo typeInfo = compiledTypesManager().get(AnnotationTypeMismatchException.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(AnnotationTypeMismatchException.class);
         assertFalse(typeInfo.findUniqueMethod("element", 0).isModifying());
         assertFalse(typeInfo.findUniqueMethod("foundType", 0).isModifying());
     }
 
     @Test
     public void testIncompleteAnnotationExceptionAccessors() {
-        TypeInfo typeInfo = compiledTypesManager().get(IncompleteAnnotationException.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(IncompleteAnnotationException.class);
         assertFalse(typeInfo.findUniqueMethod("annotationType", 0).isModifying());
         assertFalse(typeInfo.findUniqueMethod("elementName", 0).isModifying());
     }

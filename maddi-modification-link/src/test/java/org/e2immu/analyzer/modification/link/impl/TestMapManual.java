@@ -62,9 +62,9 @@ public class TestMapManual extends CommonTest {
         TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
-        TypeInfo atomicBoolean = javaInspector.compiledTypesManager().getOrLoad(AtomicBoolean.class);
+        TypeInfo atomicBoolean = javaInspector.compiledTypesManager().type(AtomicBoolean.class);
         assertNotNull(atomicBoolean);
-        TypeInfo map = javaInspector.compiledTypesManager().get(Map.class);
+        TypeInfo map = javaInspector.compiledTypesManager().typeIfLoaded(Map.class);
         EInfo eInfo = getThisMapEV(X, map, atomicBoolean);
 
         setMethodLinkedVariablesOfMapGet(map, eInfo);
@@ -94,13 +94,13 @@ public class TestMapManual extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        TypeInfo atomicBoolean = javaInspector.compiledTypesManager().getOrLoad(AtomicBoolean.class);
+        TypeInfo atomicBoolean = javaInspector.compiledTypesManager().type(AtomicBoolean.class);
         assertNotNull(atomicBoolean);
 
-        TypeInfo map = javaInspector.compiledTypesManager().get(Map.class);
+        TypeInfo map = javaInspector.compiledTypesManager().typeIfLoaded(Map.class);
         EInfo eInfo = getThisMapEV(X, map, atomicBoolean);
 
-        TypeInfo set = javaInspector.compiledTypesManager().get(Set.class);
+        TypeInfo set = javaInspector.compiledTypesManager().typeIfLoaded(Set.class);
         FieldInfo setM = runtime.newFieldInfo("§m", false, atomicBoolean.asParameterizedType(), set);
         ParameterizedType tsPt = runtime.newParameterizedType(set.typeParameters().getFirst(), 1, null);
         FieldInfo setTArray = runtime.newFieldInfo("tArray", false, tsPt, set);
@@ -159,9 +159,9 @@ public class TestMapManual extends CommonTest {
         TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
-        TypeInfo atomicBoolean = javaInspector.compiledTypesManager().getOrLoad(AtomicBoolean.class);
+        TypeInfo atomicBoolean = javaInspector.compiledTypesManager().type(AtomicBoolean.class);
         assertNotNull(atomicBoolean);
-        TypeInfo map = javaInspector.compiledTypesManager().get(Map.class);
+        TypeInfo map = javaInspector.compiledTypesManager().typeIfLoaded(Map.class);
         EInfo eInfo = getThisMapEV(X, map, atomicBoolean);
 
         setMethodLinkedVariablesOfMapGet(map, eInfo);
@@ -181,12 +181,12 @@ public class TestMapManual extends CommonTest {
         TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
-        TypeInfo atomicBoolean = javaInspector.compiledTypesManager().getOrLoad(AtomicBoolean.class);
+        TypeInfo atomicBoolean = javaInspector.compiledTypesManager().type(AtomicBoolean.class);
         assertNotNull(atomicBoolean);
-        TypeInfo map = javaInspector.compiledTypesManager().get(Map.class);
+        TypeInfo map = javaInspector.compiledTypesManager().typeIfLoaded(Map.class);
         EInfo eInfo = getThisMapEV(X, map, atomicBoolean);
 
-        TypeInfo set = javaInspector.compiledTypesManager().get(Set.class);
+        TypeInfo set = javaInspector.compiledTypesManager().typeIfLoaded(Set.class);
         FieldInfo setM = runtime.newFieldInfo("§m", false, atomicBoolean.asParameterizedType(), set);
         ParameterizedType tsPt = runtime.newParameterizedType(set.typeParameters().getFirst(), 1, null);
         FieldInfo setTArray = runtime.newFieldInfo("tArray", false, tsPt, set);

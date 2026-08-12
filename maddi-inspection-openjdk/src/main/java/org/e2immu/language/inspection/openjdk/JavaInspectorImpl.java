@@ -98,6 +98,21 @@ public class JavaInspectorImpl implements JavaInspector {
     private ScanCompilationUnits loaderUnits;
     // what loaderUnits must be rebuilt from, captured when the scan whose task we destroyed still knew its flags
     private LoaderSpec loaderSpec;
+    // Every source set this inspector has scanned, and what a source-free loader task on it must be built from.
+    // Recorded for ALL of them, not just the last: a compiled type has to be resolved against the class path of the
+    // source set that ASKED for it, and only the requesting set's own task carries that class path.
+    private final Map<SourceSet, LoaderSpec> loaderSpecBySourceSet = new LinkedHashMap<>();
+    // per-source-set loader tasks, built on demand from loaderSpecBySourceSet and cached for the run. A source-free
+    // task holds a file manager and a class path, no AST, so this stays cheap next to a retained scan.
+    private final Map<SourceSet, ScanCompilationUnits> loaderUnitsBySourceSet = new LinkedHashMap<>();
+    // Off: a request whose own source set cannot resolve the type falls back to the historical behaviour (the last
+    // scan's task, then the single replacement), so nothing that resolves today stops resolving. On: the requesting
+    // source set's class path is the only answer, and a type outside it is a miss. Turning this on is the follow-up
+    // audit -- ~8 production call sites pass javaInspector.mainSources(), which is an arbitrary pick, not the set
+    // that is actually asking.
+    private boolean strictSourceSetLoading;
+    // census for the strict-mode audit; see recordFallBack. Concurrent: getOrLoad runs on parallel analyzer threads.
+    private final Set<String> fallBackResolutions = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     /**
      * How to stand up a {@link #loaderUnits} equivalent to the scan task that generation destroyed: the same source
@@ -165,6 +180,8 @@ public class JavaInspectorImpl implements JavaInspector {
         lastScanUnitsGenerated = false;
         loaderUnits = null; // its file manager was in openFileManagers and has just been closed
         loaderSpec = null;
+        loaderUnitsBySourceSet.clear(); // same: every one of those file managers has just been closed
+        loaderSpecBySourceSet.clear();
         // the lazy getOrLoad path can no longer serve compiled-type misses; tell the CTM to surface them
         // (log/throw) instead of silently returning null. Re-armed by the next scan (see singleSourceSet).
         if (compiledTypesManager instanceof CompiledTypesManagerImpl ctm) ctm.setLazyLoaderDisabled(true);
@@ -248,17 +265,90 @@ public class JavaInspectorImpl implements JavaInspector {
         return infoByFqn;
     }
 
-    // load ONE compiled type by FQN on demand, via a live javac task; null before any scan has run, or when the
-    // type is not on the classpath. Injected as the CompiledTypesManager's lazy-loader so its getOrLoad works for
-    // types no scan has touched yet (e.g. requested by the Kotlin front-end).
-    private TypeInfo loadCompiledTypeOrNull(String fullyQualifiedName) {
+    /**
+     * Load ONE compiled type by FQN on demand, via a live javac task; null before any scan has run, or when the type
+     * is not on the class path. Injected as the CompiledTypesManager's lazy loader, so its {@code getOrLoad} works
+     * for types no scan has touched yet (e.g. requested by the Kotlin front-end).
+     * <p>
+     * ⛔ <b>A class path belongs to a source set.</b> {@code sourceSetOfRequest} is the set that asked, and its own
+     * task is the only one that resolves names the way that set would. Ask it first. Historically this method took
+     * only the FQN and always used {@link #unitsForCompiledTypeLoading()} — whichever set was scanned LAST — so in a
+     * multi-source-set configuration the answer depended on scan order: a class-path preload of a package, followed
+     * by the scan of a corpus source set without that jar, made every nested type of the preloaded package
+     * unresolvable (jfocus "Cannot find …Loop.LoopData", fixed on the preload side in maddi-java-openjdk).
+     * <p>
+     * The fall-back to the historical path is deliberate and keeps this change additive: a caller that passes a
+     * source set which cannot see the type (today, anything passing {@code mainSources()}) still gets the answer it
+     * got before. {@link #setStrictSourceSetLoading} removes the fall-back; see the field's comment.
+     */
+    private TypeInfo loadCompiledTypeOrNull(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        ScanCompilationUnits ownUnits = unitsForSourceSet(sourceSetOfRequest);
+        if (ownUnits != null) {
+            TypeInfo typeInfo = ownUnits.loadCompiledTypeOrNull(fullyQualifiedName);
+            if (typeInfo != null) return typeInfo;
+        }
+        if (strictSourceSetLoading && ownUnits != null) return null;
         ScanCompilationUnits units = unitsForCompiledTypeLoading();
-        return units == null ? null : units.loadCompiledTypeOrNull(fullyQualifiedName);
+        if (units == null || units == ownUnits) return null;
+        TypeInfo viaFallBack = units.loadCompiledTypeOrNull(fullyQualifiedName);
+        if (viaFallBack != null && ownUnits != null) recordFallBack(fullyQualifiedName, sourceSetOfRequest, units);
+        return viaFallBack;
+    }
+
+    /**
+     * The census behind the strict-mode audit: a type the requesting source set could NOT resolve, which the
+     * fall-back found on another set's class path. Each one is a call site passing a source set that is not the one
+     * really asking (in practice {@code mainSources()}), and would become a miss under
+     * {@link #setStrictSourceSetLoading}. Logged once per FQN — the point is the distinct set, not the volume.
+     */
+    private void recordFallBack(String fullyQualifiedName, SourceSet sourceSetOfRequest, ScanCompilationUnits via) {
+        if (fallBackResolutions.add(fullyQualifiedName)) {
+            LOGGER.warn("SOURCE-SET FALL-BACK: {} is not on {}'s class path; resolved via {}. The caller passed a"
+                        + " source set that is not the one asking; strict mode would make this a miss.",
+                    fullyQualifiedName, sourceSetOfRequest.name(), via.sourceSet().name());
+        }
+    }
+
+    /** Distinct FQNs that only the fall-back could resolve; empty means strict mode would cost this run nothing. */
+    public Set<String> fallBackResolutions() {
+        return Set.copyOf(fallBackResolutions);
+    }
+
+    /**
+     * When on, a compiled type is resolved against the requesting source set's class path and nothing else — the
+     * fall-back in {@link #loadCompiledTypeOrNull} is skipped whenever that set has a task of its own. Off by
+     * default: several callers pass a source set that is not really theirs, and would lose types they resolve today.
+     */
+    public void setStrictSourceSetLoading(boolean strictSourceSetLoading) {
+        this.strictSourceSetLoading = strictSourceSetLoading;
+    }
+
+    /**
+     * A loader task on the source set that is asking, or null when it never was scanned (so we have no class path
+     * for it) or when a task cannot be built. The last scan's own task is reused when it is that set's and still
+     * intact, so the common single-source-set case builds nothing extra.
+     * <p>
+     * Called under {@code CompiledTypesManagerImpl.getOrLoad}'s monitor, like {@link #unitsForCompiledTypeLoading}.
+     */
+    private ScanCompilationUnits unitsForSourceSet(SourceSet sourceSetOfRequest) {
+        if (sourceSetOfRequest == null) return null;
+        if (lastScanUnits != null && !lastScanUnitsGenerated
+            && sourceSetOfRequest.equals(lastScanUnits.sourceSet())) {
+            return lastScanUnits;
+        }
+        ScanCompilationUnits cached = loaderUnitsBySourceSet.get(sourceSetOfRequest);
+        if (cached != null) return cached;
+        LoaderSpec spec = loaderSpecBySourceSet.get(sourceSetOfRequest);
+        if (spec == null) return null; // never scanned: we do not know its class path
+        ScanCompilationUnits units = createLoaderUnits(spec);
+        if (units != null) loaderUnitsBySourceSet.put(sourceSetOfRequest, units);
+        return units;
     }
 
     /**
      * The javac task that may still be asked to resolve a compiled type: the most recent scan's while it is intact,
-     * otherwise a source-free replacement built on demand.
+     * otherwise a source-free replacement built on demand. Source-set agnostic — the historical behaviour, kept as
+     * the fall-back of {@link #loadCompiledTypeOrNull}.
      * <p>
      * Only generation makes the difference. Without it the retained scan task lives until
      * {@link #invalidateAllSources()} and this is exactly the historical path. With it, that task has been torn down
@@ -643,6 +733,11 @@ public class JavaInspectorImpl implements JavaInspector {
         }
         this.lastScanUnits = scanCompilationUnits; // keep the live task for on-demand getOrLoad
         this.lastScanUnitsGenerated = false;       // intact until this source set is generated, at the very end
+        // ...and remember how to rebuild a loader on THIS set once the scan has moved on to the next one: a request
+        // carrying this source set must be answered against this class path, whatever is scanned after it
+        loaderSpecBySourceSet.put(sourceSet, new LoaderSpec(sourceSet, ignoreModule, parameterNames,
+                syntheticListField));
+        loaderUnitsBySourceSet.remove(sourceSet); // a fresh scan supersedes any replacement built earlier
         // a live task can serve getOrLoad misses again: undo any earlier drop-time disable (see invalidateAllSources)
         if (compiledTypesManager instanceof CompiledTypesManagerImpl ctm) ctm.setLazyLoaderDisabled(false);
 

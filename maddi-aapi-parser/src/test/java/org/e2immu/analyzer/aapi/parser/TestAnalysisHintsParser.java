@@ -84,7 +84,7 @@ public class TestAnalysisHintsParser extends CommonTest {
         assertEquals("Independent", charInfoAnnots.getFirst().typeInfo().simpleName());
 
         // test Iterable
-        TypeInfo iterable = javaInspector.compiledTypesManager().get(Iterable.class);
+        TypeInfo iterable = javaInspector.compiledTypesManager().typeIfLoaded(Iterable.class);
         assertNotNull(iterable, "Cannot read Iterable from ctm");
         List<AnnotationExpression> iterableAnnots = analysisHintsParser.annotations(iterable);
         assertEquals("[@Container]", iterableAnnots.toString());
