@@ -32,13 +32,13 @@ public class TestPreload {
         javaInspector.initialize(inputConfiguration);
         javaInspector.onlyPreload();
 
-        TypeInfo logger = javaInspector.compiledTypesManager().get(Logger.class);
+        TypeInfo logger = javaInspector.compiledTypesManager().typeIfLoaded(Logger.class);
         assertSame(slf4j, logger.compilationUnit().sourceSet());
         assertTrue(slf4j.externalLibrary());
 
 
         TypeInfo number = javaInspector.compiledTypesManager()
-                .getOrLoad("java.lang.Number", null);
+                .type("java.lang.Number", null);
         // sorted: javac's member iteration order (Elements.getAllMembers) is unspecified and not stable across
         // runs for sibling methods (byteValue/shortValue occasionally flip), so do not assert the load order
         assertEquals("byteValue, doubleValue, floatValue, intValue, longValue, shortValue",

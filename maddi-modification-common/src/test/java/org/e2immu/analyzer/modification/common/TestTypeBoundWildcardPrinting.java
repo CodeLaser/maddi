@@ -16,11 +16,11 @@ public class TestTypeBoundWildcardPrinting extends CommonIsolateMethodTest {
     @Test
     public void boundWildcardNotPrinted() {
         parse("a.b.X", "package a.b; class X {}"); // initialize the inspector
-        TypeInfo enumMap = javaInspector.compiledTypesManager().getOrLoad(java.util.EnumMap.class);
+        TypeInfo enumMap = javaInspector.compiledTypesManager().type(java.util.EnumMap.class);
         assertEquals("K extends Enum<K>", enumMap.typeParameters().getFirst()
                 .print(javaInspector.runtime().qualificationSimpleNames(), true).toString());
 
-        TypeInfo collections = javaInspector.compiledTypesManager().getOrLoad(java.util.Collections.class);
+        TypeInfo collections = javaInspector.compiledTypesManager().type(java.util.Collections.class);
         MethodInfo sort = collections.methodStream()
                 .filter(m -> m.name().equals("sort") && m.parameters().size() == 1)
                 .findFirst().orElseThrow();

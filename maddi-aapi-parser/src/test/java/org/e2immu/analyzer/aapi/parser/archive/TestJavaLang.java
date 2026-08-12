@@ -38,13 +38,13 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testObject() {
-        TypeInfo typeInfo = compiledTypesManager().get(Object.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Object.class);
         testImmutableContainer(typeInfo, true);
     }
 
     @Test
     public void testObjectToString() {
-        TypeInfo typeInfo = compiledTypesManager().get(Object.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Object.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("toString", 0);
         assertSame(FALSE,  methodInfo.analysis().getOrDefault(CONTAINER_METHOD, FALSE));
         assertSame(NOT_NULL, methodInfo.analysis().getOrDefault(NOT_NULL_METHOD, NULLABLE));
@@ -55,14 +55,14 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testString() {
-        TypeInfo typeInfo = compiledTypesManager().get(String.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(String.class);
         assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
     }
 
     @Test
     public void testStringGetBytes() {
-        TypeInfo typeInfo = compiledTypesManager().get(String.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(String.class);
         MethodInfo getBytes = typeInfo.findUniqueMethod("getBytes", 4);
         assertEquals(1, getBytes.annotations().size());
         assertEquals("@Deprecated(since=\"1.1\")", getBytes.annotations().getFirst().toString());
@@ -71,7 +71,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testStringToLowerCase() {
-        TypeInfo typeInfo = compiledTypesManager().get(String.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(String.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("toLowerCase", 0);
         assertFalse(methodInfo.allowsInterrupts());
         assertTrue(methodInfo.isPublic());
@@ -83,7 +83,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testStringBuilder() {
-        TypeInfo typeInfo = compiledTypesManager().get(StringBuilder.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(StringBuilder.class);
         assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         // NOT a @Container: getChars(...,char[] dst,...) fills its array argument. The read parameters
         // (append(Object) etc.) carry @NotModified directly instead - see testStringBuildersAppendNotModified.
@@ -105,7 +105,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testStringBuilderAppendBoolean() {
-        TypeInfo typeInfo = compiledTypesManager().get(StringBuilder.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(StringBuilder.class);
 
         MethodInfo methodInfo = typeInfo.findUniqueMethod("append", runtime().booleanTypeInfo());
         assertSame(TRUE, methodInfo.analysis().getOrDefault(FLUENT_METHOD, FALSE));
@@ -122,7 +122,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testStringBuilderAppendString() {
-        TypeInfo typeInfo = compiledTypesManager().get(StringBuilder.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(StringBuilder.class);
 
         MethodInfo methodInfo = typeInfo.findUniqueMethod("append", runtime().stringTypeInfo());
         assertSame(TRUE, methodInfo.analysis().getOrDefault(FLUENT_METHOD, FALSE));
@@ -139,7 +139,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testCharSequence() {
-        TypeInfo typeInfo = compiledTypesManager().get(CharSequence.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(CharSequence.class);
         // @Immutable(hc=true) but NOT a @Container: the getChars(...,char[] dst,...) default method fills
         // its array argument, so dst is @Modified (and no longer forced @NotModified onto String/
         // StringBuilder/StringBuffer.getChars via override).
@@ -152,7 +152,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testClass() {
-        TypeInfo typeInfo = compiledTypesManager().get(Class.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Class.class);
         testImmutableContainer(typeInfo, false);
         TypeParameter tp = typeInfo.typeParameters().getFirst();
         assertSame(INDEPENDENT, tp.analysis().getOrDefault(INDEPENDENT_TYPE_PARAMETER, DEPENDENT));
@@ -161,7 +161,7 @@ public class TestJavaLang extends CommonTest {
     //AnnotatedType[] getAnnotatedInterfaces()
     @Test
     public void testClassGetAnnotatedInterfaces() {
-        TypeInfo typeInfo = compiledTypesManager().get(Class.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Class.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("getAnnotatedInterfaces", 0);
         assertSame(FALSE, methodInfo.analysis().getOrDefault(FLUENT_METHOD, FALSE));
         assertFalse(methodInfo.isModifying());
@@ -171,7 +171,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testClassGetCanonicalName() {
-        TypeInfo typeInfo = compiledTypesManager().get(Class.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Class.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("getCanonicalName", 0);
         assertSame(FALSE, methodInfo.analysis().getOrDefault(FLUENT_METHOD, FALSE));
         assertFalse(methodInfo.isModifying());
@@ -180,19 +180,19 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testEnum() {
-        TypeInfo typeInfo = compiledTypesManager().get(Enum.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Enum.class);
         testImmutableContainer(typeInfo, true);
     }
 
     @Test
     public void testComparable() {
-        TypeInfo typeInfo = compiledTypesManager().get(Comparable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Comparable.class);
         testImmutableContainer(typeInfo, true);
     }
 
     @Test
     public void testComparableCompareTo() {
-        TypeInfo typeInfo = compiledTypesManager().get(Comparable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Comparable.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("compareTo", 1);
         assertSame(FALSE, methodInfo.analysis().getOrDefault(FLUENT_METHOD, FALSE));
         assertSame(FALSE, methodInfo.analysis().getOrDefault(IDENTITY_METHOD, FALSE));
@@ -212,13 +212,13 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testThrowable() {
-        TypeInfo typeInfo = compiledTypesManager().get(Throwable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Throwable.class);
         assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
     }
 
     @Test
     public void testThrowablePrintStackTrace() {
-        TypeInfo typeInfo = compiledTypesManager().get(Throwable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Throwable.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("printStackTrace", 0);
         assertFalse(methodInfo.isFluent());
         assertTrue(methodInfo.isIgnoreModification());
@@ -227,7 +227,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testThrowableConstructor2() {
-        TypeInfo typeInfo = compiledTypesManager().get(Throwable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Throwable.class);
         MethodInfo methodInfo = typeInfo.findConstructor(2);
         ParameterInfo pi1 = methodInfo.parameters().get(1);
         assertSame(DEPENDENT, pi1.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
@@ -235,7 +235,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testAutoCloseable() {
-        TypeInfo typeInfo = compiledTypesManager().get(AutoCloseable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(AutoCloseable.class);
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -244,7 +244,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testAppendable() {
-        TypeInfo typeInfo = compiledTypesManager().get(Appendable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Appendable.class);
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -252,7 +252,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testAppendableAppend() {
-        TypeInfo typeInfo = compiledTypesManager().get(Appendable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Appendable.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("append", 3);
         assertTrue(methodInfo.overrides().isEmpty());
         assertTrue(methodInfo.isModifying());
@@ -263,7 +263,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testIterable() {
-        TypeInfo typeInfo = compiledTypesManager().get(Iterable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Iterable.class);
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -272,7 +272,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testIterableIterator() {
-        TypeInfo typeInfo = compiledTypesManager().get(Iterable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Iterable.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("iterator", 0);
         assertTrue(methodInfo.overrides().isEmpty());
         Independent independent = methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT);
@@ -281,7 +281,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testIterableForEach() {
-        TypeInfo typeInfo = compiledTypesManager().get(Iterable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Iterable.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("forEach", 1);
         assertTrue(methodInfo.overrides().isEmpty());
         assertEquals("java.lang.Iterable.forEach(java.util.function.Consumer)",
@@ -304,7 +304,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testSystem() {
-        TypeInfo typeInfo = compiledTypesManager().get(System.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(System.class);
         Value.Immutable immutable = typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE);
         // immutable because there are @IgnoreModifications on the exposed fields!
         assertTrue(immutable.isMutable());
@@ -312,7 +312,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testSystemOut() {
-        TypeInfo typeInfo = compiledTypesManager().get(System.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(System.class);
         FieldInfo out = typeInfo.getFieldByName("out", true);
         assertTrue(out.hasBeenInspected());
         assertTrue(out.isPropertyNotNull());
@@ -325,7 +325,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testSystemArrayCopy() {
-        TypeInfo typeInfo = compiledTypesManager().get(System.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(System.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("arraycopy", 5);
         ParameterInfo p0 = methodInfo.parameters().getFirst();
         assertEquals("arg0", p0.name());
@@ -345,26 +345,26 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testSystemSetSecurityManager() {
-        TypeInfo typeInfo = compiledTypesManager().get(System.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(System.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("setSecurityManager", 1);
         assertTrue(methodInfo.isModifying());
     }
 
     @Test
     public void testBoolean() {
-        TypeInfo typeInfo = compiledTypesManager().get(Boolean.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Boolean.class);
         testImmutableContainer(typeInfo, false);
     }
 
     @Test
     public void testInteger() {
-        TypeInfo typeInfo = compiledTypesManager().get(Integer.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Integer.class);
         testImmutableContainer(typeInfo, false);
     }
 
     @Test
     public void testIntegerToString() {
-        TypeInfo typeInfo = compiledTypesManager().get(Integer.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Integer.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("toString", 0);
         assertEquals(1, methodInfo.overrides().size());
         assertEquals("java.lang.Object.toString()",
@@ -377,7 +377,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testIntegerToStringStatic() {
-        TypeInfo typeInfo = compiledTypesManager().get(Integer.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Integer.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("toString", 1);
         assertTrue(methodInfo.isStatic());
         assertTrue(methodInfo.overrides().isEmpty());
@@ -394,7 +394,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testNumberDoubleValue() {
-        TypeInfo typeInfo = compiledTypesManager().get(Number.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Number.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("doubleValue", 0);
         assertFalse(methodInfo.isModifying());
     }
@@ -402,7 +402,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testProcessHandle() {
-        TypeInfo typeInfo = compiledTypesManager().get(ProcessHandle.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(ProcessHandle.class);
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -410,7 +410,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testReadable() {
-        TypeInfo typeInfo = compiledTypesManager().get(Readable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Readable.class);
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -418,7 +418,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testReadableRead() {
-        TypeInfo typeInfo = compiledTypesManager().get(Readable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Readable.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("read", 1);
         assertTrue(methodInfo.isModifying());
         assertSame(INDEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
@@ -445,7 +445,7 @@ public class TestJavaLang extends CommonTest {
     @Test
     public void testStringBuildersAppendNotModified() {
         for (Class<?> c : new Class<?>[]{StringBuilder.class, StringBuffer.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
                     () -> c.getSimpleName() + " must not be a @Container");
             ParameterInfo p0 = appendObject(typeInfo).parameters().getFirst();
@@ -458,7 +458,7 @@ public class TestJavaLang extends CommonTest {
     @Test
     public void testByteShortImmutableContainer() {
         for (Class<?> c : new Class<?>[]{Byte.class, Short.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE),
                     () -> c.getSimpleName() + " should be deep @Immutable");
             assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
@@ -469,7 +469,7 @@ public class TestJavaLang extends CommonTest {
     // Character is immutable but has toChars(int,char[],int) filling its array -> @Immutable, not @Container.
     @Test
     public void testCharacterImmutableNotContainer() {
-        TypeInfo typeInfo = compiledTypesManager().get(Character.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Character.class);
         assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
@@ -478,7 +478,7 @@ public class TestJavaLang extends CommonTest {
     // mutators (setName/start/interrupt) and interrupted() (clears the flag) stay @Modified.
     @Test
     public void testThreadGettersNonModifying() {
-        TypeInfo thread = compiledTypesManager().get(Thread.class);
+        TypeInfo thread = compiledTypesManager().typeIfLoaded(Thread.class);
         for (String g : new String[]{"getName", "getPriority", "isAlive", "isDaemon", "getState"}) {
             assertFalse(thread.findUniqueMethod(g, 0).isModifying(), () -> "Thread." + g + " must be non-modifying");
         }
@@ -488,7 +488,7 @@ public class TestJavaLang extends CommonTest {
 
     @Test
     public void testStackTraceElementImmutableContainer() {
-        TypeInfo typeInfo = compiledTypesManager().get(StackTraceElement.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(StackTraceElement.class);
         assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }

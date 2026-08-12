@@ -224,8 +224,8 @@ public class TestList extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        TypeInfo collection = javaInspector.compiledTypesManager().getOrLoad(Collection.class);
-        TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
+        TypeInfo collection = javaInspector.compiledTypesManager().type(Collection.class);
+        TypeInfo arrayList = javaInspector.compiledTypesManager().type(ArrayList.class);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         assertEquals("§m - E[] §es", vfc.compute(arrayList).toString());
 
@@ -339,7 +339,7 @@ public class TestList extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        TypeInfo collections = javaInspector.compiledTypesManager().getOrLoad(Collections.class);
+        TypeInfo collections = javaInspector.compiledTypesManager().type(Collections.class);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         assertEquals("/ - /", vfc.compute(collections).toString());
 

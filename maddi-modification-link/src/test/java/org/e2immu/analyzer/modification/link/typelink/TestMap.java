@@ -65,7 +65,7 @@ public class TestMap extends CommonTest {
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
 
-        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
+        TypeInfo map = javaInspector.compiledTypesManager().type(Map.class);
         MethodInfo mapGet = map.findUniqueMethod("get", 1);
         ParameterInfo mapGet0 = mapGet.parameters().getFirst();
         Value.Independent mapGet0Independent = mapGet0.analysis().getOrNull(PropertyImpl.INDEPENDENT_PARAMETER,

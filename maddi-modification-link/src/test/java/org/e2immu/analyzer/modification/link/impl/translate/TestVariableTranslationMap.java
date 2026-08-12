@@ -27,9 +27,9 @@ public class TestVariableTranslationMap extends CommonTest {
     @Test
     public void test() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        TypeInfo set = javaInspector.compiledTypesManager().getOrLoad(Set.class);
+        TypeInfo set = javaInspector.compiledTypesManager().type(Set.class);
         This thisSet = runtime.newThis(set.asSimpleParameterizedType());
-        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
+        TypeInfo map = javaInspector.compiledTypesManager().type(Map.class);
         This thisMap = runtime.newThis(map.asSimpleParameterizedType());
 
         VirtualFields vfSet = vfc.compute(set);

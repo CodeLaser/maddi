@@ -32,9 +32,9 @@ public class TestIsAssignableFrom2 extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo closeable = javaInspector.compiledTypesManager().getOrLoad(Closeable.class);
+        TypeInfo closeable = javaInspector.compiledTypesManager().type(Closeable.class);
         assertEquals("java.io.Closeable", closeable.fullyQualifiedName());
-        TypeInfo iterable = javaInspector.compiledTypesManager().get(Iterable.class);
+        TypeInfo iterable = javaInspector.compiledTypesManager().typeIfLoaded(Iterable.class);
         assertEquals("java.lang.Iterable", iterable.fullyQualifiedName());
         ParameterizedType closeablePt = runtime.newParameterizedType(closeable, 0);
         ParameterizedType iterableCloseable = runtime.newParameterizedType(iterable, List.of(closeablePt));
@@ -78,13 +78,13 @@ public class TestIsAssignableFrom2 extends CommonTest {
     @Test
     public void test3() {
         ParameterizedType stringPt = runtime.stringParameterizedType();
-        TypeInfo longPredicate = javaInspector.compiledTypesManager().get(LongPredicate.class);
+        TypeInfo longPredicate = javaInspector.compiledTypesManager().typeIfLoaded(LongPredicate.class);
         assertNotNull(longPredicate);
         ParameterizedType longPredicatePt = longPredicate.asParameterizedType();
         assertFalse(runtime.isAssignableFrom(longPredicatePt, stringPt));
         assertFalse(runtime.isAssignableFrom(stringPt, longPredicatePt));
 
-        TypeInfo comparable = javaInspector.compiledTypesManager().get(Comparable.class);
+        TypeInfo comparable = javaInspector.compiledTypesManager().typeIfLoaded(Comparable.class);
         ParameterizedType erasedComparable = comparable.asSimpleParameterizedType();
         assertFalse(runtime.isAssignableFrom(erasedComparable, longPredicatePt));
         assertFalse(runtime.isAssignableFrom(longPredicatePt, erasedComparable));
@@ -92,9 +92,9 @@ public class TestIsAssignableFrom2 extends CommonTest {
 
     @Test
     public void test4() {
-        TypeInfo longPredicate = javaInspector.compiledTypesManager().get(LongPredicate.class);
+        TypeInfo longPredicate = javaInspector.compiledTypesManager().typeIfLoaded(LongPredicate.class);
         assertNotNull(longPredicate);
-        TypeInfo longConsumer = javaInspector.compiledTypesManager().get(LongConsumer.class);
+        TypeInfo longConsumer = javaInspector.compiledTypesManager().typeIfLoaded(LongConsumer.class);
         assertNotNull(longConsumer);
         ParameterizedType longPredicatePt = longPredicate.asSimpleParameterizedType();
         ParameterizedType longConsumerPt = longConsumer.asSimpleParameterizedType();
@@ -196,7 +196,7 @@ public class TestIsAssignableFrom2 extends CommonTest {
         ParameterizedType boxedLongPt = runtime.boxedLongTypeInfo().asParameterizedType();
         ParameterizedType characterPt = runtime.characterTypeInfo().asParameterizedType();
         ParameterizedType boxedBooleanPt = runtime.boxedBooleanTypeInfo().asParameterizedType();
-        ParameterizedType numberPt = javaInspector.compiledTypesManager().getOrLoad(Number.class).asParameterizedType();
+        ParameterizedType numberPt = javaInspector.compiledTypesManager().type(Number.class).asParameterizedType();
         ParameterizedType objectPt = runtime.objectParameterizedType();
 
         // matched primitive <-> wrapper, both directions
@@ -234,8 +234,8 @@ public class TestIsAssignableFrom2 extends CommonTest {
         ParameterizedType intArray = runtime.intParameterizedType().copyWithArrays(1);
         ParameterizedType longArray = runtime.longParameterizedType().copyWithArrays(1);
 
-        TypeInfo serializable = javaInspector.compiledTypesManager().getOrLoad(java.io.Serializable.class);
-        TypeInfo cloneable = javaInspector.compiledTypesManager().getOrLoad(Cloneable.class);
+        TypeInfo serializable = javaInspector.compiledTypesManager().type(java.io.Serializable.class);
+        TypeInfo cloneable = javaInspector.compiledTypesManager().type(Cloneable.class);
 
         // reference array covariance
         assertTrue(assignable(stringArray, stringArray));
@@ -396,7 +396,7 @@ public class TestIsAssignableFrom2 extends CommonTest {
     @Test
     public void testTypeParameterAsFrom() {
         TypeInfo X = javaInspector.parse(INPUT_GENERICS);
-        ParameterizedType number = javaInspector.compiledTypesManager().getOrLoad(Number.class).asParameterizedType();
+        ParameterizedType number = javaInspector.compiledTypesManager().type(Number.class).asParameterizedType();
         ParameterizedType integer = runtime.integerTypeInfo().asParameterizedType();
         ParameterizedType object = runtime.objectParameterizedType();
 
@@ -432,9 +432,9 @@ public class TestIsAssignableFrom2 extends CommonTest {
     // typeIntersection: '? extends A & B', built directly via the factory
     @Test
     public void testIntersection() {
-        TypeInfo number = javaInspector.compiledTypesManager().getOrLoad(Number.class);
-        TypeInfo comparable = javaInspector.compiledTypesManager().getOrLoad(Comparable.class);
-        TypeInfo runnable = javaInspector.compiledTypesManager().getOrLoad(Runnable.class);
+        TypeInfo number = javaInspector.compiledTypesManager().type(Number.class);
+        TypeInfo comparable = javaInspector.compiledTypesManager().type(Comparable.class);
+        TypeInfo runnable = javaInspector.compiledTypesManager().type(Runnable.class);
         ParameterizedType numberPt = number.asParameterizedType();
         ParameterizedType comparablePt = comparable.asSimpleParameterizedType();
         ParameterizedType runnablePt = runnable.asParameterizedType();
@@ -487,8 +487,8 @@ public class TestIsAssignableFrom2 extends CommonTest {
     @Test
     public void testMultiBoundTypeParameter() {
         TypeInfo X = javaInspector.parse(INPUT_GENERICS);
-        ParameterizedType number = javaInspector.compiledTypesManager().getOrLoad(Number.class).asParameterizedType();
-        ParameterizedType comparable = javaInspector.compiledTypesManager().getOrLoad(Comparable.class)
+        ParameterizedType number = javaInspector.compiledTypesManager().type(Number.class).asParameterizedType();
+        ParameterizedType comparable = javaInspector.compiledTypesManager().type(Comparable.class)
                 .asSimpleParameterizedType();
         ParameterizedType string = runtime.stringParameterizedType();
 

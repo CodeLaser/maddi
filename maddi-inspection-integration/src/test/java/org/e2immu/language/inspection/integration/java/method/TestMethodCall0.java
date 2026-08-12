@@ -104,7 +104,7 @@ public class TestMethodCall0 extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo consumer = javaInspector.compiledTypesManager().get(Consumer.class);
+        TypeInfo consumer = javaInspector.compiledTypesManager().typeIfLoaded(Consumer.class);
         assertNotNull(consumer);
         assertTrue(consumer.hasBeenInspected());
 

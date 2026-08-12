@@ -21,14 +21,28 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
 /**
- * Lifts one <b>type</b> out of its project into a small standalone source tree that compiles against the JDK
- * alone: the type itself with its members' bodies verbatim, and everything it references reduced to stubs.
+ * Lifts one <b>type</b>, or a small set of them, out of its project into a standalone source tree that compiles
+ * against the JDK alone: the types themselves with their members' bodies verbatim, and everything they reference
+ * reduced to stubs.
+ *
+ * <h2>Isolating a set rather than one type</h2>
+ * {@link #isolate(List)} keeps every type of the set verbatim, and that is not the same tree as running
+ * {@link #isolate(TypeInfo)} once per type. A reference from one member of the set to another resolves to the
+ * <b>real</b> type — its fields, its methods, its type parameters, its own supertypes — where a single isolate
+ * would have reduced it to a stub. So {@code class B extends A} keeps a real {@code A} when both are asked for,
+ * a call {@code a.render()} reaches the kept body rather than a {@code return null;}, and a static import of a
+ * sibling's member still names something that is declared where the original declared it.
+ * <p>
+ * Every rule below holds per emitted unit and is unchanged; what the set adds is that <b>which types are kept</b>
+ * is now a set membership rather than one identity, and that simple-name arbitration and the static imports have
+ * one more claimant to consider (the sibling isolates themselves).
  *
  * <h2>What it emits, and why it is a project rather than one file</h2>
  * {@link IsolateMethod} has a single compilation unit to work with, so every stub has to be nested inside the
@@ -84,24 +98,52 @@ public class IsolateClass {
     }
 
     /**
-     * @param isolated     the compilation unit of the isolated type itself
-     * @param stubs        one compilation unit per stubbed dependency, in the package its original came from
-     * @param markers      marker method -> the original method whose source replaces it
-     * @param toImport     stub and JDK types the isolated unit may import
-     * @param toQualify    types that lost a simple-name clash and must be printed fully qualified
-     * @param staticImports fully-qualified {@code owner.member} names the isolated unit must import statically
+     * @param isolatedUnits one compilation unit per isolated type, in the order they were asked for
+     * @param stubs         one compilation unit per stubbed dependency, in the package its original came from
+     * @param markers       marker method -> the original method whose source replaces it, over all isolated units
+     * @param toImport      stub, sibling-isolate and JDK types an isolated unit may import
+     * @param toQualify     types that lost a simple-name clash and must be printed fully qualified
+     * @param staticImportsPerType the fully-qualified {@code owner.member} names each isolated type's unit must
+     *                             import statically. Per type, not one list: two isolated types rarely need the
+     *                             same ones, and a single-static-import of a FIELD that the unit does not use is
+     *                             at best noise and at worst a clash with another import of the same simple name
+     * @param reachedPerType       what each isolated type's own traversal reached, i.e. which of {@code toImport}
+     *                             its unit may actually have to name; see {@code IsolationCore.reachedPerIsolatedType}
      */
-    public record Result(CompilationUnit isolated,
+    public record Result(List<CompilationUnit> isolatedUnits,
                          List<CompilationUnit> stubs,
                          Map<MethodInfo, MethodInfo> markers,
                          Set<TypeInfo> toImport,
                          Set<TypeInfo> toQualify,
-                         Set<String> staticImports) {
+                         Map<TypeInfo, Set<String>> staticImportsPerType,
+                         Map<TypeInfo, Set<TypeInfo>> reachedPerType) {
 
-        /** every compilation unit of the emitted project, the isolated type first */
+        /** the isolated unit, for the (usual) single-type isolate */
+        public CompilationUnit isolated() {
+            return isolatedUnits.getFirst();
+        }
+
+        /** every static import the emitted project needs, over all its isolated units */
+        public Set<String> staticImports() {
+            return staticImportsPerType.values().stream().flatMap(Set::stream)
+                    .collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new));
+        }
+
+        /**
+         * ⛔ Keyed by the emitted TYPE, not by its compilation unit, and that is not a matter of taste:
+         * {@code CompilationUnit.equals} is {@code (uri, sourceSet)}, and an isolated unit inherits the URI of the
+         * source its original came from. Two isolated types declared in ONE file — two top-level types, or two
+         * member types of an outer that is not itself isolated — therefore produce two units that are equal, so a
+         * map keyed by them hands both of them whichever entry was written last. A TypeInfo key is the emitted
+         * fully-qualified name, which {@code checkedIsolationSet} has already made unique.
+         */
+        private static <T> Set<T> forUnit(Map<TypeInfo, Set<T>> perType, CompilationUnit cu) {
+            return cu.types().isEmpty() ? Set.of() : perType.getOrDefault(cu.types().getFirst(), Set.of());
+        }
+
+        /** every compilation unit of the emitted project, the isolated types first */
         public List<CompilationUnit> all() {
-            List<CompilationUnit> result = new ArrayList<>();
-            result.add(isolated);
+            List<CompilationUnit> result = new ArrayList<>(isolatedUnits);
             result.addAll(stubs);
             return result;
         }
@@ -114,15 +156,18 @@ public class IsolateClass {
      * did there.
      */
     private class ClassStubs extends IsolationCore {
-        private final TypeInfo isolatedStub;
+        // original -> the type that stands in for it in the emitted tree: same package, same simple name, its
+        // members pasted verbatim. Built before anything is resolved, so that the FIRST reference from one
+        // isolated type to another already finds the real type rather than creating a stub of it
+        private final Map<TypeInfo, TypeInfo> isolatedTypes;
         // one compilation unit per primary stub type, in declaration order. Not one per package: a stub is
         // public (it is referenced across package boundaries), and a public type has to live in a file named
         // after it
         final Map<TypeInfo, CompilationUnit> compilationUnitPerStub = new LinkedHashMap<>();
 
-        ClassStubs(TypeInfo originalType, TypeInfo isolatedStub) {
-            super(IsolateClass.this.javaInspector, originalType);
-            this.isolatedStub = isolatedStub;
+        ClassStubs(List<TypeInfo> originalTypes, Map<TypeInfo, TypeInfo> isolatedTypes) {
+            super(IsolateClass.this.javaInspector, originalTypes);
+            this.isolatedTypes = isolatedTypes;
         }
 
         // originals the verbatim text names by their simple name; that spelling is fixed, so on a simple-name
@@ -137,7 +182,8 @@ public class IsolateClass {
         // 'owner.member' pairs the verbatim text names WITHOUT a scope, and that some other type declares: they
         // need an 'import static'. The import computer has no notion of static imports (its own source says
         // "IMPROVE static fields and methods"), so they are emitted alongside its output.
-        final Set<String> staticImports = new java.util.TreeSet<>();
+        // Keyed by the isolated type whose text needs them: an import belongs in ONE unit, the one being pasted
+        final Map<TypeInfo, Set<String>> staticImports = new LinkedHashMap<>();
 
         @Override
         boolean recordStaticImport(TypeInfo owner, String memberName) {
@@ -150,8 +196,9 @@ public class IsolateClass {
             // not compile, and the only one that was a wrong decision rather than a missing one.
             // Returning false sends the caller down its ordinary path, which puts the member on the stub of the
             // type that declares it -- where the isolated type inherits it from, exactly as in the original.
-            if (isolatedTypeInherits(owner)) return false;
-            staticImports.add(owner.fullyQualifiedName() + "." + memberName);
+            if (isolatedTypeInherits(currentOriginalType, owner)) return false;
+            staticImports.computeIfAbsent(currentOriginalType, _ -> new java.util.TreeSet<>())
+                    .add(owner.fullyQualifiedName() + "." + memberName);
             return true;
         }
 
@@ -160,26 +207,41 @@ public class IsolateClass {
             if (ds != null && ds.detail(typeInfo.packageName()) == null) namedSimplyInSource.add(typeInfo);
         }
 
+        // a sibling isolate named simply is exactly as unrespellable as a stub named simply, and claims its simple
+        // name on the same evidence
         @Override
-        TypeInfo selfType() {
-            return isolatedStub;
+        void recordIsolatedReference(TypeInfo typeInfo, DetailedSources ds) {
+            recordPlacementEvidence(typeInfo, ds);
         }
 
-        // the isolated type's own members, which are printed verbatim and so need no stub; identity, because two
+        @Override
+        TypeInfo selfType() {
+            return isolatedTypes.get(currentOriginalType);
+        }
+
+        // the isolated types' own members, which are printed verbatim and so need no stub; identity, because two
         // overloads of one name are different members and only the exact one is already declared
         final Set<MethodInfo> keptVerbatim =
                 java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
+        /**
+         * The test is "is this method kept verbatim, and is the owner a type that has it", NOT "is the owner the
+         * type that declares it": an unqualified self-call in {@code B extends A} arrives with {@code owner ==}
+         * the stand-in for B while A declares the method. Sending it down the stubbing path would write a
+         * body-less override of a kept declaration into B — precisely the duplicate this hook exists to prevent,
+         * one inheritance level away. Every owner reaching here is either the declaring stand-in itself
+         * ({@code declaringOwner}) or a self-reference, which by construction inherits it.
+         */
         @Override
         boolean alreadyDeclaredWithoutStub(TypeInfo owner, MethodInfo methodInfo) {
-            return owner == isolatedStub && keptVerbatim.contains(methodInfo);
+            return keptVerbatim.contains(methodInfo) && isolatedTypes.containsValue(owner);
         }
 
         @Override
-        TypeInfo originalTypeStub() {
-            // the isolated type keeps its own name, so a self-reference written 'C.DAYS' resolves to it directly;
+        TypeInfo originalTypeStub(TypeInfo original) {
+            // an isolated type keeps its own name, so a reference written 'C.DAYS' resolves to it directly;
             // IsolateMethod needs a separate stub for this only because it renames the frame to 'C_method'
-            return isolatedStub;
+            return isolatedTypes.get(original);
         }
 
         @Override
@@ -187,9 +249,9 @@ public class IsolateClass {
             var enclosing = typeInfo.compilationUnitOrEnclosingType();
             if (enclosing.isRight()) {
                 // a member type: nest it in its enclosing type's stub, as in the original. 'Outer.Inner' and a
-                // simply-named 'Inner' (via an import) then both resolve, which in one flat unit they cannot
-                TypeInfo enclosingStub = enclosing.getRight() == originalType
-                        ? isolatedStub : ensureType(enclosing.getRight(), ds);
+                // simply-named 'Inner' (via an import) then both resolve, which in one flat unit they cannot.
+                // ensureType answers the isolated stand-in when the enclosing type is itself isolated
+                TypeInfo enclosingStub = ensureType(enclosing.getRight(), ds);
                 return runtime.newTypeInfo(enclosingStub, typeInfo.simpleName());
             }
             String packageName = typeInfo.packageName();
@@ -208,21 +270,192 @@ public class IsolateClass {
      * @param typeInfo the type to isolate; its methods and constructors keep their bodies
      */
     public Result isolate(TypeInfo typeInfo) {
-        CompilationUnit isolatedCu = runtime.newCompilationUnitBuilder()
-                .setPackageName(typeInfo.packageName())
-                .setSourceSet(typeInfo.compilationUnit().sourceSet())
-                .setURI(typeInfo.compilationUnit().uri())
-                .build();
-        TypeInfo isolated = runtime.newTypeInfo(isolatedCu, typeInfo.simpleName());
-        isolated.builder().setSource(runtime.noSource())
-                .setTypeNature(runtime.typeNatureClass())
-                .setParentClass(runtime.objectParameterizedType())
-                .addTypeModifier(runtime.typeModifierPublic())
-                .computeAccess();
+        return isolate(List.of(typeInfo));
+    }
 
-        ClassStubs data = new ClassStubs(typeInfo, isolated);
+    /**
+     * Isolate a set of types <b>together</b>: all of them keep their members' bodies, and a reference from one to
+     * another resolves to the real type rather than to a stub of it. Everything else is stubbed exactly as for a
+     * single isolate.
+     * <p>
+     * The order of the three phases below is the whole of what the set costs. Each phase has to be complete over
+     * the set before the next begins:
+     * <ol>
+     *     <li>the stand-in types exist, and are registered — so the first reference from one isolate to another
+     *     finds the real type instead of creating a stub of it, which is irreversible: a stub's placement is
+     *     fixed when it is constructed;</li>
+     *     <li>every isolate's own declaration: type parameters, hierarchy and fields. The field map is seeded
+     *     here for ALL of them, so that a body reading a sibling's field (or its own, inherited from a sibling)
+     *     finds it declared rather than declaring it a second time;</li>
+     *     <li>the member walk, with every kept member of every isolate registered up front — the single-type rule
+     *     of "register before the walk", now over the set, and the reason a call across the set does not produce
+     *     a body-less duplicate of a declaration that is kept verbatim elsewhere.</li>
+     * </ol>
+     *
+     * @param typeInfos the types to isolate; duplicates are ignored, and the order decides the order of
+     *                  {@link Result#isolatedUnits()}
+     */
+    public Result isolate(List<TypeInfo> typeInfos) {
+        List<TypeInfo> originals = checkedIsolationSet(typeInfos);
+
+        // PHASE 0 -- one compilation unit and one type per isolate, all of them before anything is resolved
+        Map<TypeInfo, CompilationUnit> unitPerIsolatedType = new LinkedHashMap<>();
+        Map<TypeInfo, TypeInfo> isolatedTypes = new LinkedHashMap<>();
+        for (TypeInfo original : originals) {
+            CompilationUnit isolatedCu = runtime.newCompilationUnitBuilder()
+                    .setPackageName(original.packageName())
+                    .setSourceSet(original.compilationUnit().sourceSet())
+                    .setURI(original.compilationUnit().uri())
+                    .build();
+            TypeInfo isolated = runtime.newTypeInfo(isolatedCu, original.simpleName());
+            isolated.builder().setSource(runtime.noSource())
+                    .setTypeNature(runtime.typeNatureClass())
+                    .setParentClass(runtime.objectParameterizedType())
+                    .addTypeModifier(runtime.typeModifierPublic())
+                    .computeAccess();
+            unitPerIsolatedType.put(original, isolatedCu);
+            isolatedTypes.put(original, isolated);
+        }
+
+        ClassStubs data = new ClassStubs(originals, isolatedTypes);
         Map<MethodInfo, MethodInfo> markers = new LinkedHashMap<>();
+        Set<FieldInfo> ownFields = new HashSet<>();
 
+        // PHASE 1 -- each isolate's own declaration
+        Map<TypeInfo, List<MethodInfo>> keptPerType = new LinkedHashMap<>();
+        for (TypeInfo original : originals) {
+            data.currentOriginalType = original;
+            declareIsolatedType(data, original, isolatedTypes.get(original), ownFields);
+            keptPerType.put(original, allMembers(original));
+        }
+        // the whole list is registered BEFORE any walk: a body reaching a member declared further down -- in this
+        // type or in a sibling isolate -- would otherwise be stubbed, and the stub and the verbatim declaration
+        // would collide
+        keptPerType.values().forEach(data.keptVerbatim::addAll);
+
+        // PHASE 2 -- one marker method per kept member, standing in for its verbatim source; visitMethod is what
+        // pulls everything that member references into the stub graph
+        int ordinal = 0;
+        for (TypeInfo original : originals) {
+            data.currentOriginalType = original;
+            TypeInfo isolated = isolatedTypes.get(original);
+            for (MethodInfo methodInfo : keptPerType.get(original)) {
+                data.visitMethod(methodInfo);
+                // a kept method that overrides something needs that something to exist: an '@Override' in the
+                // verbatim text does not resolve against an empty interface stub, and the unit is dropped. This is
+                // the class-isolate counterpart of IsolateMethod's createOverrideSupertype -- but here the supertype
+                // is real and stubbed, so the declaration only has to be added to it
+                for (MethodInfo overridden : methodInfo.overrides()) {
+                    TypeInfo declaring = overridden.typeInfo();
+                    if (declaring == original) continue;
+                    TypeInfo declaringStub = data.ensureType(declaring, null);
+                    if (declaringStub != null && declaringStub != declaring) {
+                        data.ensureMethodInfo(declaringStub, overridden);
+                    }
+                }
+                MethodInfo marker = runtime.newMethod(isolated, MEMBER_MARKER_PREFIX + ordinal++,
+                        runtime.methodTypeMethod());
+                marker.builder().setSource(runtime.noSource())
+                        .setMethodBody(runtime.emptyBlock())
+                        .setReturnType(runtime.voidParameterizedType())
+                        .setAccess(runtime.accessPackage())
+                        .computeAccess().commit();
+                isolated.builder().addMethod(marker);
+                markers.put(marker, methodInfo);
+            }
+        }
+        data.addDummyInterfaceMethods();
+        data.addDefaultConstructorsWhereExtended();
+
+        data.fieldMap.values().stream().sorted(Comparator.comparing(FieldInfo::name))
+                // exclude exactly the ones added in phase 1, NOT everything an isolated type owns: a field
+                // inherited from a stubbed supertype and read unqualified ('_service') is placed here by
+                // ensureField, and filtering on the owner threw it away -- four Axis2 isolates died on
+                // "Type _service not found"
+                .filter(field -> !ownFields.contains(field))
+                .forEach(field -> field.owner().builder().addField(field));
+
+        // deepest first, so a nested stub is committed and attached before its (still open) enclosing stub -- and
+        // all of them before the isolated types, which is what an enclosing stub may turn out to be
+        List<TypeInfo> allStubs = new ArrayList<>(data.typeMap.values());
+        allStubs.stream()
+                .sorted(Comparator.comparingInt(IsolationCore::enclosingDepth).reversed()
+                        .thenComparing(TypeInfo::simpleName))
+                .forEach(stub -> {
+                    stub.builder().commit();
+                    var enclosing = stub.compilationUnitOrEnclosingType();
+                    if (enclosing.isRight()) enclosing.getRight().builder().addSubType(stub);
+                });
+        List<CompilationUnit> isolatedUnits = new ArrayList<>();
+        unitPerIsolatedType.forEach((original, cu) -> {
+            TypeInfo isolated = isolatedTypes.get(original);
+            isolated.builder().commit();
+            cu.setTypes(List.of(isolated));
+            isolatedUnits.add(cu);
+        });
+
+        List<CompilationUnit> stubUnits = new ArrayList<>();
+        data.compilationUnitPerStub.forEach((stub, cu) -> {
+            cu.setTypes(List.of(stub));
+            stubUnits.add(cu);
+        });
+        LOGGER.info("Isolated {} type(s) into {} stub compilation unit(s)", originals.size(), stubUnits.size());
+
+        Set<TypeInfo> importable = arbitrateJdkImports(data);
+        Set<TypeInfo> notImportable = new HashSet<>(data.jdkTypesToImport);
+        notImportable.removeAll(importable);
+        // The pasted bodies are raw text, so the import computer cannot see that they name 'Helper' or 'Value'.
+        // Every stub the isolate reaches has to be offered to it explicitly, or the isolated unit compiles
+        // against types it never imports. IsolateMethod never needed this: its stubs are nested in the frame.
+        Map<Boolean, Set<TypeInfo>> imports = arbitrateImports(data);
+        Map<TypeInfo, Set<String>> staticImports = new LinkedHashMap<>();
+        data.staticImports.forEach((original, si) ->
+                staticImports.put(isolatedTypes.get(original), Set.copyOf(si)));
+        Map<TypeInfo, Set<TypeInfo>> reachedPerType = new LinkedHashMap<>();
+        data.reachedPerIsolatedType.forEach((original, reached) ->
+                reachedPerType.put(isolatedTypes.get(original), Set.copyOf(reached)));
+        return new Result(List.copyOf(isolatedUnits), stubUnits, markers,
+                imports.get(Boolean.TRUE), imports.get(Boolean.FALSE), Map.copyOf(staticImports),
+                Map.copyOf(reachedPerType));
+    }
+
+    /**
+     * The isolation set, de-duplicated and order-preserving, rejecting the two shapes this cannot emit.
+     * <p>
+     * <b>One isolate enclosing another</b>: a member type is lifted to the top level of its package, so the
+     * enclosing isolate's verbatim {@code Outer.Inner} would name the nested STUB while the emitted
+     * {@code Inner.java} sits beside it — two declarations of one type, and the text picks the wrong one.
+     * <b>Two isolates that would share a path</b>: {@code p.A.X} and {@code p.B.X} both emit {@code p/X.java},
+     * and the second silently overwrote the first in the map {@link #print} returns.
+     */
+    private static List<TypeInfo> checkedIsolationSet(List<TypeInfo> typeInfos) {
+        List<TypeInfo> originals = new ArrayList<>(new LinkedHashSet<>(typeInfos));
+        if (originals.isEmpty()) throw new UnsupportedOperationException("Nothing to isolate");
+        Map<String, TypeInfo> byEmittedPath = new HashMap<>();
+        for (TypeInfo original : originals) {
+            TypeInfo clash = byEmittedPath.put(original.packageName() + "." + original.simpleName(), original);
+            if (clash != null) {
+                throw new UnsupportedOperationException("Isolating both " + clash + " and " + original
+                                                        + " would emit two types with the same name in one package");
+            }
+            for (TypeInfo t = IsolationCore.enclosingTypeOrNull(original); t != null;
+                 t = IsolationCore.enclosingTypeOrNull(t)) {
+                if (originals.contains(t)) {
+                    throw new UnsupportedOperationException("Cannot isolate " + original + " together with its"
+                                                            + " enclosing type " + t);
+                }
+            }
+        }
+        return List.copyOf(originals);
+    }
+
+    /**
+     * One isolate's own declaration: its type parameters, its place in the hierarchy, and its fields. Everything
+     * here can reach a sibling isolate — a bound, a supertype, a field type — and gets the real type for it,
+     * because phase 0 has registered them all.
+     */
+    private void declareIsolatedType(ClassStubs data, TypeInfo typeInfo, TypeInfo isolated,
+                                     Set<FieldInfo> ownFields) {
         // ⛔ BEFORE the parent class, the interfaces and every member walk: all three can NAME these parameters.
         // 'class X<E> extends AbstractSerializer<E>' was emitted as 'class X extends AbstractSerializer<E>' --
         // the USE survived because it comes from the supertype's own text, while the DECLARATION was never
@@ -253,7 +486,6 @@ public class IsolateClass {
         // their errors. 'final' and the initializer are kept or dropped TOGETHER: a final field with no
         // initializer is "variable X not initialized in the default constructor", which is why the initializer
         // cannot simply be dropped from a field that keeps its modifiers
-        Set<FieldInfo> ownFields = new HashSet<>();
         for (FieldInfo fieldInfo : typeInfo.fields()) {
             ParameterizedType newType = data.ensureTypes(fieldInfo.type(),
                     IsolationCore.detailedSources(fieldInfo.source()));
@@ -269,81 +501,11 @@ public class IsolateClass {
             newField.builder().commit();
             isolated.builder().addField(newField);
             ownFields.add(newField);
-            // seed the map: a body that reads 'this.value' would otherwise have ensureField declare it a second
-            // time, package-private and without the modifiers we just reproduced
+            // seed the map: a body that reads 'this.value' -- or a sibling isolate's body reading 'x.value' --
+            // would otherwise have ensureField declare it a second time, package-private and without the
+            // modifiers we just reproduced
             data.fieldMap.put(fieldInfo, newField);
         }
-
-        // one marker method per kept member, standing in for its verbatim source; visitMethod is what pulls
-        // everything that member references into the stub graph.
-        // The whole list is registered BEFORE the walk: a body reaching a member declared further down would
-        // otherwise be stubbed, and the stub and the verbatim declaration would collide.
-        List<MethodInfo> kept = allMembers(typeInfo);
-        data.keptVerbatim.addAll(kept);
-        int ordinal = 0;
-        for (MethodInfo methodInfo : kept) {
-            data.visitMethod(methodInfo);
-            // a kept method that overrides something needs that something to exist: an '@Override' in the
-            // verbatim text does not resolve against an empty interface stub, and the unit is dropped. This is
-            // the class-isolate counterpart of IsolateMethod's createOverrideSupertype -- but here the supertype
-            // is real and stubbed, so the declaration only has to be added to it
-            for (MethodInfo overridden : methodInfo.overrides()) {
-                TypeInfo declaring = overridden.typeInfo();
-                if (declaring == typeInfo) continue;
-                TypeInfo declaringStub = data.ensureType(declaring, null);
-                if (declaringStub != null && declaringStub != declaring) {
-                    data.ensureMethodInfo(declaringStub, overridden);
-                }
-            }
-            MethodInfo marker = runtime.newMethod(isolated, MEMBER_MARKER_PREFIX + ordinal++,
-                    runtime.methodTypeMethod());
-            marker.builder().setSource(runtime.noSource())
-                    .setMethodBody(runtime.emptyBlock())
-                    .setReturnType(runtime.voidParameterizedType())
-                    .setAccess(runtime.accessPackage())
-                    .computeAccess().commit();
-            isolated.builder().addMethod(marker);
-            markers.put(marker, methodInfo);
-        }
-        data.addDummyInterfaceMethods();
-        data.addDefaultConstructorsWhereExtended();
-
-        data.fieldMap.values().stream().sorted(Comparator.comparing(FieldInfo::name))
-                // exclude exactly the ones added above, NOT everything the isolated type owns: a field inherited
-                // from a stubbed supertype and read unqualified ('_service') is placed here by ensureField, and
-                // filtering on the owner threw it away -- four Axis2 isolates died on "Type _service not found"
-                .filter(field -> !ownFields.contains(field))
-                .forEach(field -> field.owner().builder().addField(field));
-
-        // deepest first, so a nested stub is committed and attached before its (still open) enclosing stub
-        List<TypeInfo> allStubs = new ArrayList<>(data.typeMap.values());
-        allStubs.stream()
-                .sorted(Comparator.comparingInt(IsolationCore::enclosingDepth).reversed()
-                        .thenComparing(TypeInfo::simpleName))
-                .forEach(stub -> {
-                    stub.builder().commit();
-                    var enclosing = stub.compilationUnitOrEnclosingType();
-                    if (enclosing.isRight()) enclosing.getRight().builder().addSubType(stub);
-                });
-        isolated.builder().commit();
-        isolatedCu.setTypes(List.of(isolated));
-
-        List<CompilationUnit> stubUnits = new ArrayList<>();
-        data.compilationUnitPerStub.forEach((stub, cu) -> {
-            cu.setTypes(List.of(stub));
-            stubUnits.add(cu);
-        });
-        LOGGER.info("Isolated {} into {} stub compilation unit(s)", typeInfo, stubUnits.size());
-
-        Set<TypeInfo> importable = arbitrateJdkImports(data);
-        Set<TypeInfo> notImportable = new HashSet<>(data.jdkTypesToImport);
-        notImportable.removeAll(importable);
-        // The pasted bodies are raw text, so the import computer cannot see that they name 'Helper' or 'Value'.
-        // Every stub the isolate reaches has to be offered to it explicitly, or the isolated unit compiles
-        // against types it never imports. IsolateMethod never needed this: its stubs are nested in the frame.
-        Map<Boolean, Set<TypeInfo>> imports = arbitrateImports(data);
-        return new Result(isolatedCu, stubUnits, markers,
-                imports.get(Boolean.TRUE), imports.get(Boolean.FALSE), Set.copyOf(data.staticImports));
     }
 
     /**
@@ -359,13 +521,25 @@ public class IsolateClass {
      * @return TRUE -> may be imported, FALSE -> must be printed fully qualified
      */
     private static Map<Boolean, Set<TypeInfo>> arbitrateImports(ClassStubs data) {
-        Set<String> singleImportedByOriginal = data.originalType.compilationUnit() == null ? Set.of()
-                : data.originalType.compilationUnit().importStatements().stream()
+        Set<String> singleImportedByOriginal = data.originalTypes.stream()
+                .map(TypeInfo::compilationUnit).filter(java.util.Objects::nonNull)
+                .flatMap(cu -> cu.importStatements().stream())
                 .filter(is -> !is.isStar())
                 .map(is -> is.importString())
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
         // candidate -> was it named by its simple name in the verbatim text?
         Map<TypeInfo, Boolean> candidates = new LinkedHashMap<>();
+        // The sibling isolates, and ONLY when there is more than one: a candidate is a type some OTHER unit may
+        // have to import, and with a single isolate nothing can name it. Adding it there would let it steal a
+        // simple name from a stub that really is imported, for no gain.
+        Set<TypeInfo> isolatedCandidates = new HashSet<>();
+        if (data.originalTypes.size() > 1) {
+            data.originalTypes.forEach(original -> {
+                TypeInfo isolated = data.originalTypeStub(original);
+                isolatedCandidates.add(isolated);
+                candidates.put(isolated, data.namedSimplyInSource.contains(original));
+            });
+        }
         data.typeMap.forEach((original, stub) -> {
             // NOT just the primary stubs: a member type is named by its simple name in the verbatim text just as
             // readily ('new RowFilter<...>()' for DataUtil.RowFilter), and needs its own
@@ -390,12 +564,15 @@ public class IsolateClass {
             // sorted first, so the outcome does not depend on the iteration order of a hash set
             List<TypeInfo> sorted = claimants.stream()
                     .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
-            // The original file compiled, so what IT single-imported is what that simple name meant there. This
+            // An isolated type first: it is real where the others are stubs, and it is the one claimant that is
+            // ALSO a unit of verbatim text -- losing the name would leave its own bodies naming something else.
+            // The original file compiled, so what IT single-imported is what that simple name meant there. That
             // decides the case where several claimants are all named simply -- 'Assert.assertEquals(...)' with
             // both org.junit.Assert and org.assertj.core.api.Assert stubbed, where falling back to alphabetical
             // order picked assertj's Assert, which has no assertEquals.
-            TypeInfo winner = sorted.stream().filter(t -> singleImportedByOriginal.contains(t.fullyQualifiedName()))
-                    .findFirst()
+            TypeInfo winner = sorted.stream().filter(isolatedCandidates::contains).findFirst()
+                    .or(() -> sorted.stream()
+                            .filter(t -> singleImportedByOriginal.contains(t.fullyQualifiedName())).findFirst())
                     .orElseGet(() -> sorted.stream().filter(t -> Boolean.TRUE.equals(candidates.get(t)))
                             .findFirst().orElse(sorted.getFirst()));
             LOGGER.info("Simple name '{}' claimed by {}; importing {}, qualifying the rest",
@@ -508,11 +685,16 @@ public class IsolateClass {
                 .filter(t -> t.primaryType().compilationUnit() != cu)
                 .filter(t -> !t.isPrimaryType() && cu.packageName().equals(t.packageName()))
                 .forEach(importComputer::add);
-        if (cu == result.isolated) {
-            // only the isolated unit holds verbatim text, which the import computer cannot read; a stub unit's
+        boolean isolatedUnit = result.isolatedUnits.contains(cu);
+        if (isolatedUnit) {
+            // only an isolated unit holds verbatim text, which the import computer cannot read; a stub unit's
             // references are real CST, so it works those out for itself and an explicit list would only add
-            // unused imports
+            // unused imports.
+            // 'toImport' is the isolate's whole import list, and with more than one isolated type that is more
+            // than this unit's: what THIS unit's traversal reached is the part its text can name
+            Set<TypeInfo> reached = Result.forUnit(result.reachedPerType, cu);
             result.toImport.stream()
+                    .filter(reached::contains)
                     .filter(t -> !declaredSimpleNames.contains(t.simpleName()))
                     // a stub declared in this very unit needs no import; a member type of another unit does,
                     // even when its package matches, because the simple name does not reach across types
@@ -520,11 +702,11 @@ public class IsolateClass {
                     .forEach(importComputer::add);
         }
         result.toQualify.forEach(importComputer::doNotImport);
-        if (cu != result.isolated) {
+        if (!isolatedUnit) {
             // a stub unit has no verbatim text in it, so the ordinary printer is enough
             return javaInspector.print2(cu, runtime.qualificationSimpleNames(), importComputer);
         }
-        // the isolated unit: every marker method is replaced by the verbatim source of the member it stands for
+        // an isolated unit: every marker method is replaced by the verbatim source of the member it stands for
         TypePrinter.MethodPrinterFactory methodPrinterFactory = (owner, mi, formatter2) -> {
             MethodInfo original = result.markers.get(mi);
             if (original != null) {
@@ -538,6 +720,6 @@ public class IsolateClass {
                         runtime::newTypePrinter, methodPrinterFactory,
                         runtime::newFieldPrinter, runtime::newTypePrinter);
         String printed = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build()).write(ob);
-        return withStaticImports(printed, result.staticImports);
+        return withStaticImports(printed, Result.forUnit(result.staticImportsPerType, cu));
     }
 }

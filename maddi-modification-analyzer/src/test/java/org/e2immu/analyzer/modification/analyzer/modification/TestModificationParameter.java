@@ -108,7 +108,7 @@ public class TestModificationParameter extends CommonTest {
     public void test2() {
         TypeInfo X = javaInspector.parse("BundleJSONParser", INPUT2);
 
-        TypeInfo readerType = javaInspector.compiledTypesManager().getOrLoad(Reader.class);
+        TypeInfo readerType = javaInspector.compiledTypesManager().type(Reader.class);
         MethodInfo readMethod = readerType.findUniqueMethod("read", 3);
         assertTrue(readMethod.isModifying());
 
@@ -157,7 +157,7 @@ public class TestModificationParameter extends CommonTest {
     public void test3() {
         TypeInfo B = javaInspector.parse("Function18024_file101780", INPUT3);
 
-        TypeInfo file = javaInspector.compiledTypesManager().getOrLoad(File.class);
+        TypeInfo file = javaInspector.compiledTypesManager().type(File.class);
         MethodInfo listFiles = file.findUniqueMethod("listFiles", 0);
         assertTrue(listFiles.isNonModifying());
 

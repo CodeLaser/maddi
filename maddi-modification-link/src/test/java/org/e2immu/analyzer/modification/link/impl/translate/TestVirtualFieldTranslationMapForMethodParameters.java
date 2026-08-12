@@ -33,8 +33,8 @@ public class TestVirtualFieldTranslationMapForMethodParameters extends CommonTes
         // result of Generics.translateMap:
         //     T=TP#0 in Collectors.toList -> Type String
 
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
-        TypeInfo collectors = javaInspector.compiledTypesManager().getOrLoad(Collectors.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(List.class);
+        TypeInfo collectors = javaInspector.compiledTypesManager().type(Collectors.class);
         MethodInfo toList = collectors.findUniqueMethod("toList", 0);
         assertEquals("Type java.util.stream.Collector<T,?,java.util.List<T>>",
                 toList.returnType().toString());
@@ -71,7 +71,7 @@ public class TestVirtualFieldTranslationMapForMethodParameters extends CommonTes
         // result of Generics.translateMap:
         //     T=TP#0 in Comparator -> Type java.util.Map.Entry<CompiledTypesManager.TypeData,Integer>
 
-        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
+        TypeInfo map = javaInspector.compiledTypesManager().type(Map.class);
         TypeInfo entry = map.findSubType("Entry");
         MethodInfo comparingByValue = entry.findUniqueMethod("comparingByValue", 0);
         assertEquals("Type java.util.Comparator<java.util.Map.Entry<K,V extends Comparable<? super V>>>",

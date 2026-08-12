@@ -34,7 +34,7 @@ class KotlinCompiledTypesManager(
 
     override fun javaBase(): SourceSet = javaBase
 
-    override fun get(fullyQualifiedName: String, sourceSetOfRequest: SourceSet?): TypeInfo? =
+    override fun typeIfLoaded(fullyQualifiedName: String, sourceSetOfRequest: SourceSet?): TypeInfo? =
         infoByFqn.getType(fullyQualifiedName, sourceSetOfRequest ?: defaultSourceSet)
 
     override fun typeDataOrNull(

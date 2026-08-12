@@ -18,7 +18,7 @@ public class TestGenericsHelper extends CommonTest {
     @DisplayName("recursion in translateMap")
     @Test
     public void test1() {
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(List.class);
         Runtime runtime = javaInspector.runtime();
         ParameterizedType listListFormal = runtime.newParameterizedType(list, List.of(list.asParameterizedType()));
         assertEquals("Type java.util.List<java.util.List<E>>", listListFormal.toString());
@@ -33,7 +33,7 @@ public class TestGenericsHelper extends CommonTest {
     @DisplayName("basic translateMap")
     @Test
     public void test2() {
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(List.class);
         Runtime runtime = javaInspector.runtime();
         ParameterizedType listFormal = list.asParameterizedType();
         assertEquals("Type java.util.List<E>", listFormal.toString());

@@ -36,13 +36,13 @@ public class TestRuntimeImageFallback {
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfiguration); // indexes java.base from the runtime image (no .jmod on disk)
 
-        TypeInfo string = javaInspector.compiledTypesManager().getOrLoad(String.class);
+        TypeInfo string = javaInspector.compiledTypesManager().type(String.class);
         assertNotNull(string, "java.lang.String must load from the runtime image");
         assertTrue(string.hasBeenInspected());
         // a real member proves actual bytecode was read, not a stub
         assertNotNull(string.findUniqueMethod("length", 0));
 
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(java.util.List.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(java.util.List.class);
         assertNotNull(list);
         assertTrue(list.hasBeenInspected());
     }

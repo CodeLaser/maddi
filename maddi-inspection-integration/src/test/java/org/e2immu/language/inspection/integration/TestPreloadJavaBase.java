@@ -44,11 +44,11 @@ public class TestPreloadJavaBase {
 
         // NOTE: this may be very dependent on the current JDK and pre-loading settings.
 
-        TypeInfo consumer = javaInspector.compiledTypesManager().get(Consumer.class);
+        TypeInfo consumer = javaInspector.compiledTypesManager().typeIfLoaded(Consumer.class);
         assertNotNull(consumer);
         assertTrue(consumer.hasBeenInspected());
 
-        TypeInfo iterable = javaInspector.compiledTypesManager().get(Iterable.class);
+        TypeInfo iterable = javaInspector.compiledTypesManager().typeIfLoaded(Iterable.class);
         assertNotNull(iterable);
         assertTrue(iterable.hasBeenInspected());
         MethodInfo iterator = iterable.singleAbstractMethod();
@@ -57,28 +57,28 @@ public class TestPreloadJavaBase {
         ParameterInfo forEach0 = forEach.parameters().getFirst();
         assertSame(consumer, forEach0.parameterizedType().typeInfo());
 
-        TypeInfo biConsumer = javaInspector.compiledTypesManager().get(BiConsumer.class);
+        TypeInfo biConsumer = javaInspector.compiledTypesManager().typeIfLoaded(BiConsumer.class);
         assertNotNull(biConsumer);
         assertTrue(biConsumer.hasBeenInspected());
         
-        TypeInfo list = javaInspector.compiledTypesManager().get(List.class);
+        TypeInfo list = javaInspector.compiledTypesManager().typeIfLoaded(List.class);
         assertNotNull(list);
         assertTrue(list.hasBeenInspected());
 
-        TypeInfo map = javaInspector.compiledTypesManager().get(Map.class);
+        TypeInfo map = javaInspector.compiledTypesManager().typeIfLoaded(Map.class);
         assertNotNull(map);
         //in re-implementation end of September 2025
         TypeInfo entry = map.findSubType("Entry");
         assertTrue(entry.hasBeenInspected());
         assertFalse(entry.haveOnDemandInspection());
 
-        TypeInfo string = javaInspector.compiledTypesManager().get(String.class);
+        TypeInfo string = javaInspector.compiledTypesManager().typeIfLoaded(String.class);
         assertFalse(string.isExtensible());
 
-        TypeInfo asb = javaInspector.compiledTypesManager().get("java.lang.AbstractStringBuilder", null);
+        TypeInfo asb = javaInspector.compiledTypesManager().typeIfLoaded("java.lang.AbstractStringBuilder", null);
         assertFalse(asb.isPublic());
 
-        TypeInfo comparable = javaInspector.compiledTypesManager().get(Comparable.class);
+        TypeInfo comparable = javaInspector.compiledTypesManager().typeIfLoaded(Comparable.class);
         MethodInfo compareTo = comparable.findUniqueMethod("compareTo", 1);
         assertTrue(compareTo.isAbstract());
         assertTrue(compareTo.isPublic());
@@ -93,7 +93,7 @@ public class TestPreloadJavaBase {
         javaInspector.initialize(inputConfiguration);
         javaInspector.preload("java.util.stream");
 
-        TypeInfo spinedBuffer = javaInspector.compiledTypesManager().get("java.util.stream.SpinedBuffer",
+        TypeInfo spinedBuffer = javaInspector.compiledTypesManager().typeIfLoaded("java.util.stream.SpinedBuffer",
                 null);
         assertNotNull(spinedBuffer);
         assertFalse(spinedBuffer.isPublic());
@@ -116,10 +116,10 @@ public class TestPreloadJavaBase {
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfiguration);
         javaInspector.preload("java.net.http");
-        TypeInfo httpResponse = javaInspector.compiledTypesManager().get("java.net.http.HttpResponse",
+        TypeInfo httpResponse = javaInspector.compiledTypesManager().typeIfLoaded("java.net.http.HttpResponse",
                 null);
         assertNotNull(httpResponse);
-        TypeInfo bodyHandler = javaInspector.compiledTypesManager().get("java.net.http.HttpResponse.BodyHandler",
+        TypeInfo bodyHandler = javaInspector.compiledTypesManager().typeIfLoaded("java.net.http.HttpResponse.BodyHandler",
                 null);
         assertNotNull(bodyHandler);
     }

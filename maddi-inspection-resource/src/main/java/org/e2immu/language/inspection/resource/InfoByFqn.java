@@ -137,9 +137,19 @@ public class InfoByFqn {
 
     public void put(String fqn, TypeInfo typeInfo, SourceSet sourceSetOfCurrentTask) {
         loadedForThisSourceSet.add(typeInfo);
+        if (isStub(typeInfo)) {
+            // A STUB is not a definition, so it does not displace one: register it only where nothing better
+            // stands. Every branch below reads the source set of what it finds, and a stub has none.
+            TypeInfo present = singleTypeByFqn.get(fqn);
+            if ((present == null || isStub(present)) && !multiTypeByFqn.containsKey(fqn)) {
+                singleTypeByFqn.put(fqn, typeInfo);
+            }
+            return;
+        }
         TypeInfo prev = singleTypeByFqn.put(fqn, typeInfo);
+        // ...and a properly loaded type DOES displace a stub, silently: nothing was known about that name.
+        if (prev != null && isStub(prev)) prev = null;
         List<TypeInfo> list;
-        // NOTE that the sourceSet can be null, when the type was not properly loaded
         if (sourceSetOfCurrentTask.equals(typeInfo.compilationUnit().sourceSet())) {
             if (prev != null) {
                 if (!prev.compilationUnit().sourceSet().equals(typeInfo.compilationUnit().sourceSet())) {
@@ -163,6 +173,27 @@ public class InfoByFqn {
             singleTypeByFqn.keySet().removeIf(key -> key.startsWith(prefix));
             multiTypeByFqn.keySet().removeIf(key -> key.startsWith(prefix));
         }
+    }
+
+    /**
+     * ⛔ <b>A TYPE WITHOUT A SOURCE SET IS A STUB, AND EVERY DECISION BELOW IS ABOUT SOURCE SETS.</b>
+     * {@code ClassSymbolScanner} mints one ({@code newCompilationUnitStub}, logged as "Creating stub type
+     * for …") when a class file names a type that is not on the class path; GAP #163 fixes null as the
+     * representation of "no input set" rather than a sentinel to be compared.
+     * <p>
+     * This method's own comment said so — <i>"the sourceSet can be null, when the type was not properly
+     * loaded"</i> — and the next line called {@code equals} on it. The overwrite branch even logged the
+     * state it was about to fail on: {@code Overwriting type unnamed package.XmlAdapter, null -> null}.
+     * Because the guard was an {@code assert}, it fired only under {@code -ea}: parsing timefold-solver in a
+     * test JVM dropped <b>133 compilation units</b> — none of them the ones naming the missing types — while
+     * the same parse from the CLI was clean. See {@code TestStubTypeRegistration}.
+     * <p>
+     * Two stubs of one name are interchangeable (neither knows anything), a real type supersedes a stub, and
+     * a stub never supersedes a real type. None of the three is a "duplicate definition", and none of them
+     * belongs in {@link #multiTypeByFqn}, whose {@link #distance} ordering reads {@code sourceSet.name()}.
+     */
+    private static boolean isStub(TypeInfo typeInfo) {
+        return typeInfo.compilationUnit().sourceSet() == null;
     }
 
     public TypeInfo getType(String fullyQualifiedName, SourceSet sourceSetOfCurrentTask) {

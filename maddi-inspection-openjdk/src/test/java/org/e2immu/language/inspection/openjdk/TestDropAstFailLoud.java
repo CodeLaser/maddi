@@ -22,7 +22,9 @@ public class TestDropAstFailLoud {
     private static CompiledTypesManagerImpl newCtm(java.util.function.Function<String, TypeInfo> loader) {
         SourceSet javaBase = new SourceSetImpl.Builder().setName("java.base").setUri(URI.create("file:/")).build();
         CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(javaBase, new InfoByFqn());
-        ctm.setLazyLoader(loader);
+        // the loader takes the requesting source set too; these tests are about surfacing misses after the AST
+        // drop, and pass null for it throughout. TestLazyLoaderSourceSet covers the source set's own contract.
+        ctm.setLazyLoader((fqn, sourceSetOfRequest) -> loader.apply(fqn));
         return ctm;
     }
 
@@ -31,7 +33,7 @@ public class TestDropAstFailLoud {
         AtomicInteger calls = new AtomicInteger();
         CompiledTypesManagerImpl ctm = newCtm(fqn -> { calls.incrementAndGet(); return null; });
 
-        assertNull(ctm.getOrLoad("a.b.Absent", null)); // not on the classpath: normal, benign
+        assertNull(ctm.type("a.b.Absent", null)); // not on the classpath: normal, benign
         assertEquals(1, calls.get());
         assertEquals(0, ctm.distinctMissesAfterDrop());
         assertEquals(0, ctm.totalMissesAfterDrop());
@@ -42,9 +44,9 @@ public class TestDropAstFailLoud {
         CompiledTypesManagerImpl ctm = newCtm(fqn -> null); // loader can no longer serve anything
         ctm.setLazyLoaderDisabled(true);
 
-        assertNull(ctm.getOrLoad("a.b.Gone", null));
-        assertNull(ctm.getOrLoad("a.b.Gone", null));   // repeat: counts, but stays one distinct FQN
-        assertNull(ctm.getOrLoad("a.b.Other", null));
+        assertNull(ctm.type("a.b.Gone", null));
+        assertNull(ctm.type("a.b.Gone", null));   // repeat: counts, but stays one distinct FQN
+        assertNull(ctm.type("a.b.Other", null));
 
         assertEquals(2, ctm.distinctMissesAfterDrop());
         assertEquals(3, ctm.totalMissesAfterDrop());
@@ -58,7 +60,7 @@ public class TestDropAstFailLoud {
         ctm.setLazyLoaderDisabled(true);
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> ctm.getOrLoad("a.b.Gone", null));
+                () -> ctm.type("a.b.Gone", null));
         assertTrue(ex.getMessage().contains("a.b.Gone"));
     }
 
@@ -66,11 +68,11 @@ public class TestDropAstFailLoud {
     public void reEnablingClearsSurfacing() {
         CompiledTypesManagerImpl ctm = newCtm(fqn -> null);
         ctm.setLazyLoaderDisabled(true);
-        assertNull(ctm.getOrLoad("a.b.Gone", null));
+        assertNull(ctm.type("a.b.Gone", null));
         assertEquals(1, ctm.distinctMissesAfterDrop());
 
         ctm.setLazyLoaderDisabled(false); // a fresh scan revived the task
-        assertNull(ctm.getOrLoad("a.b.StillAbsent", null)); // benign again, not surfaced
+        assertNull(ctm.type("a.b.StillAbsent", null)); // benign again, not surfaced
         assertEquals(1, ctm.distinctMissesAfterDrop()); // unchanged
     }
 }

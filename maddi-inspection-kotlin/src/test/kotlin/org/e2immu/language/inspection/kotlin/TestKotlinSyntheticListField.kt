@@ -58,7 +58,7 @@ class TestKotlinSyntheticListField {
         val javaInspector = openjdkWithJavaUtil()
         val ctm = javaInspector.compiledTypesManager()
 
-        val javaList = ctm.getOrLoad("java.util.List", javaInspector.javaBase())
+        val javaList = ctm.type("java.util.List", javaInspector.javaBase())
         assertNotNull(javaList, "the Java front-end should have preloaded java.util.List")
 
         // Kotlin's `List<Int>` maps to java.util.List; its TypeInfo comes from the shared manager

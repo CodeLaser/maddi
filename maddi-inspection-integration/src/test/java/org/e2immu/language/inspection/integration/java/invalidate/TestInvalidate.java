@@ -114,7 +114,7 @@ public class TestInvalidate extends CommonTest2 {
         TypeInfo nested1 = processor1.subTypes().getFirst();
         assertEquals("a.b.util.Processor.ProcessResult", nested1.fullyQualifiedName());
         SourceSet sourceSet = processor1.compilationUnit().sourceSet();
-        assertSame(nested1, javaInspector.compiledTypesManager().get(nested1.fullyQualifiedName(), sourceSet));
+        assertSame(nested1, javaInspector.compiledTypesManager().typeIfLoaded(nested1.fullyQualifiedName(), sourceSet));
 
         JavaInspector.ParseOptions po = new JavaInspector.ParseOptions.Builder()
                 .setInvalidated(t -> switch (t.simpleName()) {
@@ -126,7 +126,7 @@ public class TestInvalidate extends CommonTest2 {
 
         TypeInfo nested2 = pr2.findType(PROCESSOR_FQN).subTypes().getFirst();
         assertNotSame(nested1, nested2, "the rewire builds a new nested type");
-        assertSame(nested2, javaInspector.compiledTypesManager().get(nested1.fullyQualifiedName(), sourceSet),
+        assertSame(nested2, javaInspector.compiledTypesManager().typeIfLoaded(nested1.fullyQualifiedName(), sourceSet),
                 "the registry must hand out the nested type the rewired Processor actually holds");
     }
 

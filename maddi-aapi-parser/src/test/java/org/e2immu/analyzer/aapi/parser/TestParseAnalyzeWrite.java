@@ -116,7 +116,7 @@ public class TestParseAnalyzeWrite extends CommonTest {
                 Assertions.class, ThrowingSupplier.class, Executable.class);
         Stream<TypeInfo> extra = extraClasses.stream()
                 .map(c -> {
-                    TypeInfo ti = javaInspector.compiledTypesManager().getOrLoad(c, javaInspector.mainSources());
+                    TypeInfo ti = javaInspector.compiledTypesManager().type(c, javaInspector.mainSources());
                     if (ti == null) {
                         LOGGER.warn("Cannot load " + c);
                     }

@@ -64,7 +64,7 @@ class TestSharedJdkCore {
         val javaInspector = openjdkWithJavaUtil()
         val ctm = javaInspector.compiledTypesManager()
 
-        val javaList = ctm.getOrLoad("java.util.List", javaInspector.javaBase())
+        val javaList = ctm.type("java.util.List", javaInspector.javaBase())
         assertNotNull(javaList, "the Java front-end should have preloaded java.util.List")
 
         // Kotlin's `List<String>` maps to java.util.List; its TypeInfo comes from the shared manager
@@ -78,16 +78,16 @@ class TestSharedJdkCore {
         val ctm = javaInspector.compiledTypesManager()
 
         // java.time was NOT preloaded -- nothing has loaded LocalDate yet
-        assertNull(ctm.get("java.time.LocalDate", javaInspector.javaBase()), "precondition: not yet loaded")
+        assertNull(ctm.typeIfLoaded("java.time.LocalDate", javaInspector.javaBase()), "precondition: not yet loaded")
 
-        // a Kotlin reference to java.time.LocalDate forces getOrLoad -> a lazy bytecode load via the shared manager
+        // a Kotlin reference to java.time.LocalDate forces type() past the registry -> a lazy bytecode load
         val kotlinLocalDate = kotlinParamType(
             javaInspector.runtime(), ctm, "class K { fun f(d: java.time.LocalDate) {} }\n"
         )
         assertEquals("java.time.LocalDate", kotlinLocalDate.fullyQualifiedName())
 
         // it is now bytecode-loaded and cached in the shared manager -- the SAME instance
-        assertSame(kotlinLocalDate, ctm.get("java.time.LocalDate", javaInspector.javaBase()),
+        assertSame(kotlinLocalDate, ctm.typeIfLoaded("java.time.LocalDate", javaInspector.javaBase()),
             "the lazily loaded type is cached and shared")
     }
 }

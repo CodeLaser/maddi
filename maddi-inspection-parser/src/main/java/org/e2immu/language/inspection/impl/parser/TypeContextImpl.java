@@ -181,7 +181,7 @@ public class TypeContextImpl implements TypeContext {
             LOGGER.debug("Need to parse package {}", fullyQualified);
             String packageName = data.compilationUnit.packageName();
             if (!fullyQualified.equals(packageName)) { // would be our own package; they are already there
-                TypeInfo typeInfo = data.compiledTypesManager.getOrLoad(fullyQualified, sourceSet());
+                TypeInfo typeInfo = data.compiledTypesManager.type(fullyQualified, sourceSet());
                 if (typeInfo != null) {
                     // we must add all the subtypes
                     for (TypeInfo sub : typeInfo.subTypes()) {
@@ -197,7 +197,7 @@ public class TypeContextImpl implements TypeContext {
                 }
             }
         } else {
-            TypeInfo typeInfo = data.compiledTypesManager.getOrLoad(importStatement.importString(), sourceSet());
+            TypeInfo typeInfo = data.compiledTypesManager.type(importStatement.importString(), sourceSet());
             if (typeInfo != null) {
                 addToContext(typeInfo, IMPORT_PRIORITY);
             } else {
@@ -208,7 +208,7 @@ public class TypeContextImpl implements TypeContext {
     }
 
     private TypeInfo loadTypeDoNotImport(String fqn) {
-        TypeInfo typeInfo = data.compiledTypesManager.getOrLoad(fqn, sourceSet());
+        TypeInfo typeInfo = data.compiledTypesManager.type(fqn, sourceSet());
         if (typeInfo == null) {
             // not on the (partial) classpath: a tolerable warning, not a fatal error (see UnresolvedTypeException)
             LOGGER.debug("Cannot find type '{}'", fqn);
@@ -243,7 +243,7 @@ public class TypeContextImpl implements TypeContext {
      * @return the type
      */
     private TypeInfo getFullyQualified(String fullyQualifiedName) {
-        return data.compiledTypesManager.getOrLoad(fullyQualifiedName, sourceSet());
+        return data.compiledTypesManager.type(fullyQualifiedName, sourceSet());
     }
 
     /*
@@ -319,7 +319,7 @@ public class TypeContextImpl implements TypeContext {
         }
 
         // have been pre-loaded, so we can use "get" and continue with null if it wasn't the one we're looking for
-        NamedType javaLang = data.compiledTypesManager.get("java.lang." + name,
+        NamedType javaLang = data.compiledTypesManager.typeIfLoaded("java.lang." + name,
                 data.compiledTypesManager.javaBase());
         if (javaLang != null) return List.of(javaLang);
         if (data.allowCreationOfStubTypes()) {

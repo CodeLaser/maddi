@@ -190,7 +190,7 @@ public class TestMethodCall8 extends CommonTest {
 
     @Test
     public void test3() {
-        // Original: after parsing INPUT3, called javaInspector.compiledTypesManager().getOrLoad(
+        // Original: after parsing INPUT3, called javaInspector.compiledTypesManager().type(
         //   "org.assertj.core.api.AbstractCollectionAssert", null) and then javaInspector.print2() to
         // assert the printed form of the assertj byte-code type. compiledTypesManager is not available
         // here; the scan call is kept to verify the parse succeeds.

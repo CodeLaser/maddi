@@ -377,6 +377,13 @@ public class ScanCompilationUnits {
         // PLACE" — same lesson, one layer deeper.
         if (!tolerable) {
             LOGGER.error("Cause of the non-tolerable failure in {}", uri, e);
+        } else {
+            // the stack of a TOLERABLE drop, at DEBUG: it is reported to the caller as a one-line message, and
+            // finding the site it came from otherwise costs a patched build and a re-run (three NPEs on the
+            // timefold corpus cost exactly that, and javac's fast-throw had stripped the stack of one of them by
+            // the time it was logged). DEBUG, and only on this branch, keeps the terseness the comment above asks
+            // for: at default levels nothing is buried, and a non-tolerable drop still logs its stack exactly once.
+            LOGGER.debug("Stack of the dropped compilation unit {}", uri, e);
         }
         failures.add(new CompilationUnitFailure(uri, detail, tolerable, e));
     }
@@ -503,6 +510,11 @@ public class ScanCompilationUnits {
         return classSymbolScanner;
     }
 
+    /** The source set this task was built for, hence the class path it resolves compiled types against. */
+    public SourceSet sourceSet() {
+        return sourceSet;
+    }
+
     private List<TypeInfo> indexJavaLangForJavaDocParsing() throws IOException {
         JavaFileManager fm = ((BasicJavacTask) task).getContext().get(JavaFileManager.class);
         JavaFileManager.Location javaBase = fm.getLocationForModule(StandardLocation.SYSTEM_MODULES,
@@ -582,7 +594,15 @@ public class ScanCompilationUnits {
                         if (!pt.hasBeenInspected()) {
                             pt.builder().commit();
                         }
-                        list.add(pt);
+                        // the nested types come with the enclosing one (LOAD_MEMBERS/COMPLETE builds and inspects
+                        // them), so they are loaded and must be reported as such: the caller registers what it gets
+                        // here in the CompiledTypesManager, and a type left out of that registry is only reachable
+                        // through the lazy on-demand loader -- which runs on whichever source set happened to be
+                        // scanned LAST, not on the one that asked. A preload of a class-path package
+                        // (io.codelaser...support) followed by a scan of a corpus source set that does not have that
+                        // jar on its class path then lost every nested type: getOrLoad("...Loop.LoopData") missed
+                        // the registry and javac, on the corpus task, could not resolve the name either.
+                        pt.recursiveSubTypeStream().forEach(list::add);
                     }
                 } catch (Symbol.CompletionFailure e) {
                     // ignore

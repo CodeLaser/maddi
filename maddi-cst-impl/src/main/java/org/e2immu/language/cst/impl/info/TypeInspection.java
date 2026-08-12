@@ -27,7 +27,14 @@ import java.util.stream.Stream;
 public interface TypeInspection extends Inspection {
 
     interface MethodMap {
+        /** @throws java.util.NoSuchElementException when the type has no such method */
         MethodInfo get(String name, int numParams, Supplier<String> paramFqnCsv);
+
+        /**
+         * As {@link #get}, answering {@code null} instead of throwing — for the callers whose next step is to
+         * LOAD what is not there yet, and for whom "absent" is therefore an answer rather than a failure.
+         */
+        MethodInfo getOrNull(String name, int numParams, Supplier<String> paramFqnCsv);
     }
 
     MethodMap methodMap();

@@ -15,6 +15,7 @@
 package org.e2immu.language.cst.api.info;
 
 import org.e2immu.annotation.Fluent;
+import org.e2immu.annotation.Independent;
 import org.e2immu.annotation.NotNull;
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
@@ -62,8 +63,11 @@ public interface TypeParameter extends NamedType, Info {
      * @param visited recursion protection. F-bounded type parameters make the bound graph cyclic
      *                ({@code X extends C<X>}, or mutually, {@code A extends C<B>, B extends D<A>}); a type
      *                parameter already on the stack contributes no new information and is treated as set.
+     *                The receiver enters the set as a lookup KEY (hidden content), never as mutable state
+     *                to link -- the {@code @Independent(hc = true)} contract, the
+     *                {@link org.e2immu.language.cst.api.expression.Expression#translate} precedent.
      */
-    boolean typeBoundsAreSet(Set<TypeParameter> visited);
+    boolean typeBoundsAreSet(@Independent(hc = true) Set<TypeParameter> visited);
 
     /** Returns the zero-based index of this type parameter within the owner's declaration. */
     int getIndex();

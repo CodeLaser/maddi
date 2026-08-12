@@ -16,6 +16,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Tag;
 
 @Tag("slow")
+// Only READS the shared timefold checkout -- but two tests in jfocus-refactor-service (TestTimefoldDeadCode,
+// TestTimefoldRandomRenames) rewrite that same tree in place, and a reader parsing a half-edited corpus fails just as
+// hard as two writers colliding. Same claim, so the nightly scheduler keeps all three apart; Gradle ignores the tag.
+@Tag("corpus-timefold-solver")
 public class TestTimefoldSolver {
 
     @BeforeAll

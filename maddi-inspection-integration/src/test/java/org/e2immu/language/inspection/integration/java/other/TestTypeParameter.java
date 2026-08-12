@@ -408,7 +408,7 @@ public class TestTypeParameter extends CommonTest {
             assertEquals(expect, print);
         }
         {
-            TypeInfo typeDescriptor = javaInspector.compiledTypesManager().getOrLoad(TypeDescriptor.class);
+            TypeInfo typeDescriptor = javaInspector.compiledTypesManager().type(TypeDescriptor.class);
             TypeInfo ofField = typeDescriptor.findSubType("OfField");
             assertEquals("Type java.lang.invoke.TypeDescriptor.OfField<F extends java.lang.invoke.TypeDescriptor.OfField<F>>",
                     ofField.asParameterizedType().toString());
@@ -440,7 +440,7 @@ public class TestTypeParameter extends CommonTest {
             assertSame(tp1, tb1p1.typeParameter());
         }
         {
-            TypeInfo arrays = javaInspector.compiledTypesManager().getOrLoad(Arrays.class);
+            TypeInfo arrays = javaInspector.compiledTypesManager().type(Arrays.class);
             MethodInfo parallelSort = arrays.methodStream()
                     .filter(mi -> "parallelSort".equals(mi.name())
                                   && mi.parameters().size() == 3

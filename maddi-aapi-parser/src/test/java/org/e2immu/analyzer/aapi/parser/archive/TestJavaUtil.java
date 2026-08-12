@@ -39,7 +39,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testArrayList() {
-        TypeInfo typeInfo = compiledTypesManager().get(ArrayList.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(ArrayList.class);
         assertFalse(typeInfo.isInterface());
         assertFalse(typeInfo.isAtLeastImmutableHC());
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
@@ -49,8 +49,8 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testArrayListCollectionConstructor() {
-        TypeInfo typeInfo = compiledTypesManager().get(ArrayList.class);
-        TypeInfo collectionTypeInfo = compiledTypesManager().get(Collection.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(ArrayList.class);
+        TypeInfo collectionTypeInfo = compiledTypesManager().typeIfLoaded(Collection.class);
         MethodInfo methodInfo = typeInfo.findConstructor(collectionTypeInfo);
         assertEquals("java.util.ArrayList.<init>(java.util.Collection)", methodInfo.fullyQualifiedName());
     }
@@ -58,7 +58,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testArraysEquals() {
-        TypeInfo typeInfo = compiledTypesManager().get(Arrays.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Arrays.class);
         MethodInfo methodInfo = typeInfo.methodStream()
                 .filter(mi -> mi.parameters().size() == 2
                               && "equals".equals(mi.name())
@@ -75,7 +75,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testArraysDeepToString() {
-        TypeInfo typeInfo = compiledTypesManager().get(Arrays.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Arrays.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("deepToString", 1);
         assertFalse(methodInfo.isModifying());
 
@@ -85,7 +85,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testCollection() {
-        TypeInfo typeInfo = compiledTypesManager().get(Collection.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Collection.class);
         assertTrue(typeInfo.isInterface());
         assertFalse(typeInfo.isAtLeastImmutableHC());
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
@@ -95,7 +95,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testCollectionAdd() {
-        TypeInfo typeInfo = compiledTypesManager().get(Collection.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Collection.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("add", 1);
         assertTrue(methodInfo.overrides().isEmpty());
         assertFalse(methodInfo.allowsInterrupts());
@@ -110,7 +110,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testCollectionSize() {
-        TypeInfo typeInfo = compiledTypesManager().get(Collection.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Collection.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("size", 0);
         assertTrue(methodInfo.overrides().isEmpty());
         assertFalse(methodInfo.allowsInterrupts());
@@ -119,7 +119,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testCollectionIterator() {
-        TypeInfo typeInfo = compiledTypesManager().get(Collection.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Collection.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("iterator", 0);
         assertEquals("[java.lang.Iterable.iterator()]", methodInfo.overrides().toString());
         assertFalse(methodInfo.allowsInterrupts());
@@ -132,7 +132,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testListIterator() {
-        TypeInfo typeInfo = compiledTypesManager().get(List.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(List.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("iterator", 0);
         assertEquals("java.lang.Iterable.iterator(), java.util.Collection.iterator()",
                 methodInfo.overrides().stream().map(Object::toString).sorted()
@@ -148,7 +148,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testIterableIterator() {
-        TypeInfo typeInfo = compiledTypesManager().get(Iterable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Iterable.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("iterator", 0);
         assertTrue(methodInfo.overrides().isEmpty());
         assertFalse(methodInfo.allowsInterrupts());
@@ -162,7 +162,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testCollectionRemove() {
-        TypeInfo typeInfo = compiledTypesManager().get(Collection.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Collection.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("remove", 1);
         assertTrue(methodInfo.overrides().isEmpty());
         assertFalse(methodInfo.allowsInterrupts());
@@ -176,7 +176,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testCollectionStream() {
-        TypeInfo typeInfo = compiledTypesManager().get(Collection.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Collection.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("stream", 0);
         assertTrue(methodInfo.overrides().isEmpty());
         assertFalse(methodInfo.allowsInterrupts());
@@ -189,7 +189,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testCollections() {
-        TypeInfo typeInfo = compiledTypesManager().get(Collections.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Collections.class);
         assertFalse(typeInfo.isInterface());
         // NOTE at the moment: @UtilityClass does not enforce @Immutable (without hc)
         assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
@@ -199,7 +199,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testCollectionsAddAll() {
-        TypeInfo typeInfo = compiledTypesManager().get(Collections.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Collections.class);
         MethodInfo addAll = typeInfo.findUniqueMethod("addAll", 2);
 
         ParameterInfo p0 = addAll.parameters().getFirst();
@@ -217,7 +217,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testList() {
-        TypeInfo typeInfo = compiledTypesManager().get(List.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(List.class);
         assertTrue(typeInfo.isInterface());
         assertFalse(typeInfo.isAtLeastImmutableHC());
         ParameterizedType collection = typeInfo.interfacesImplemented().getFirst();
@@ -232,7 +232,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testListAdd() {
-        TypeInfo typeInfo = compiledTypesManager().get(List.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(List.class);
         MethodInfo add = typeInfo.findUniqueMethod("add", 1);
         assertEquals(1, add.overrides().size());
         MethodInfo override = add.overrides().stream().findFirst().orElseThrow();
@@ -243,7 +243,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testListRemoveInt() {
-        TypeInfo typeInfo = compiledTypesManager().get(List.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(List.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("remove", runtime().intTypeInfo());
         assertTrue(methodInfo.overrides().isEmpty());
         assertFalse(methodInfo.allowsInterrupts());
@@ -259,7 +259,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testListRemoveObject() {
-        TypeInfo typeInfo = compiledTypesManager().get(List.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(List.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("remove", runtime().objectTypeInfo());
         assertEquals("[java.util.Collection.remove(Object)]", methodInfo.overrides().toString());
         assertFalse(methodInfo.allowsInterrupts());
@@ -273,7 +273,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testListGet() {
-        TypeInfo typeInfo = compiledTypesManager().get(List.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(List.class);
         MethodInfo get = typeInfo.findUniqueMethod("get", 1);
         assertTrue(get.overrides().isEmpty());
         assertSame(TRUE, get.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE));
@@ -282,7 +282,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testListSet() {
-        TypeInfo typeInfo = compiledTypesManager().get(List.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(List.class);
         MethodInfo set = typeInfo.findUniqueMethod("set", 2);
         assertTrue(set.overrides().isEmpty());
         assertSame(FALSE, set.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE));
@@ -290,7 +290,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testListOf() {
-        TypeInfo typeInfo = compiledTypesManager().get(List.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(List.class);
         MethodInfo of = typeInfo.methods().stream()
                 .filter(m -> "of".equals(m.name()) && 1 == m.parameters().size() && 0 == m.parameters().getFirst().parameterizedType().arrays())
                 .findFirst().orElseThrow();
@@ -307,7 +307,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testArrayListGet() {
-        TypeInfo typeInfo = compiledTypesManager().get(ArrayList.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(ArrayList.class);
         MethodInfo get = typeInfo.findUniqueMethod("get", 1);
         assertFalse(get.overrides().isEmpty());
         assertSame(TRUE, get.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE));
@@ -315,7 +315,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testArrayListSet() {
-        TypeInfo typeInfo = compiledTypesManager().get(ArrayList.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(ArrayList.class);
         MethodInfo set = typeInfo.findUniqueMethod("set", 2);
         assertFalse(set.overrides().isEmpty());
         assertSame(FALSE, set.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE));
@@ -323,7 +323,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testLinkedListGet() {
-        TypeInfo typeInfo = compiledTypesManager().get(LinkedList.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(LinkedList.class);
         MethodInfo get = typeInfo.findUniqueMethod("get", 1);
         assertFalse(get.overrides().isEmpty());
         assertSame(TRUE, get.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE));
@@ -332,8 +332,8 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testLinkedListConstructor() {
-        TypeInfo typeInfo = compiledTypesManager().get(LinkedList.class);
-        MethodInfo constructor = typeInfo.findConstructor(compiledTypesManager().get(Collection.class));
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(LinkedList.class);
+        MethodInfo constructor = typeInfo.findConstructor(compiledTypesManager().typeIfLoaded(Collection.class));
         assertTrue(constructor.overrides().isEmpty());
         ParameterInfo p0 = constructor.parameters().getFirst();
         assertSame(TRUE, p0.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE));
@@ -341,7 +341,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testAbstractListGet() {
-        TypeInfo typeInfo = compiledTypesManager().get(AbstractList.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(AbstractList.class);
         MethodInfo get = typeInfo.findUniqueMethod("get", 1);
         assertEquals("java.util.List.get(int)",
                 get.overrides().stream().map(Objects::toString).sorted().collect(Collectors.joining(",")));
@@ -352,7 +352,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testVectorGet() {
-        TypeInfo typeInfo = compiledTypesManager().get(Vector.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Vector.class);
         MethodInfo get = typeInfo.findUniqueMethod("get", 1);
         assertEquals("java.util.Vector.get(int)", get.fullyQualifiedName());
         assertEquals("java.util.AbstractList.get(int),java.util.List.get(int)",
@@ -362,7 +362,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testAbstractCollectionSize() {
-        TypeInfo typeInfo = compiledTypesManager().get(AbstractCollection.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(AbstractCollection.class);
         MethodInfo get = typeInfo.findUniqueMethod("size", 0);
         assertEquals("java.util.Collection.size()",
                 get.overrides().stream().map(Objects::toString).sorted().collect(Collectors.joining(",")));
@@ -371,7 +371,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testVectorSize() {
-        TypeInfo typeInfo = compiledTypesManager().get(Vector.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Vector.class);
         MethodInfo get = typeInfo.findUniqueMethod("size", 0);
         assertEquals("java.util.AbstractCollection.size(),java.util.Collection.size(),java.util.List.size()",
                 get.overrides().stream().map(Objects::toString).sorted().collect(Collectors.joining(",")));
@@ -382,8 +382,8 @@ public class TestJavaUtil extends CommonTest {
     // the source collection, and only shares hidden content (the elements), so @Independent(hc=true).
     @Test
     public void testVectorCollectionConstructor() {
-        TypeInfo typeInfo = compiledTypesManager().get(Vector.class);
-        MethodInfo constructor = typeInfo.findConstructor(compiledTypesManager().get(Collection.class));
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Vector.class);
+        MethodInfo constructor = typeInfo.findConstructor(compiledTypesManager().typeIfLoaded(Collection.class));
         ParameterInfo p0 = constructor.parameters().getFirst();
         assertSame(TRUE, p0.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE));
         assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
@@ -391,7 +391,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testAbstractSetContainer() {
-        TypeInfo typeInfo = compiledTypesManager().get(AbstractSet.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(AbstractSet.class);
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
 
@@ -399,13 +399,13 @@ public class TestJavaUtil extends CommonTest {
     // missing the type-level annotation and so computed CONTAINER=false.
     @Test
     public void testLinkedListContainer() {
-        TypeInfo typeInfo = compiledTypesManager().get(LinkedList.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(LinkedList.class);
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
 
     @Test
     public void testVectorContainer() {
-        TypeInfo typeInfo = compiledTypesManager().get(Vector.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Vector.class);
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
 
@@ -417,7 +417,7 @@ public class TestJavaUtil extends CommonTest {
                 SortedSet.class, NavigableSet.class, Queue.class, Deque.class,
                 AbstractQueue.class, AbstractSequentialList.class,
                 TreeSet.class, LinkedHashSet.class, ArrayDeque.class, PriorityQueue.class, Stack.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
                     () -> c.getSimpleName() + " should be a @Container");
         }
@@ -429,8 +429,8 @@ public class TestJavaUtil extends CommonTest {
     public void testNewCollectionCopyConstructors() {
         for (Class<?> c : new Class<?>[]{
                 TreeSet.class, LinkedHashSet.class, ArrayDeque.class, PriorityQueue.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
-            MethodInfo constructor = typeInfo.findConstructor(compiledTypesManager().get(Collection.class));
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
+            MethodInfo constructor = typeInfo.findConstructor(compiledTypesManager().typeIfLoaded(Collection.class));
             ParameterInfo p0 = constructor.parameters().getFirst();
             assertSame(TRUE, p0.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE),
                     () -> c.getSimpleName() + "(Collection) param must be @NotModified");
@@ -441,7 +441,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testHashMap() {
-        TypeInfo typeInfo = compiledTypesManager().get(HashMap.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(HashMap.class);
         assertFalse(typeInfo.isInterface());
         assertFalse(typeInfo.isAtLeastImmutableHC());
 
@@ -453,12 +453,12 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testHashMapEntryIterator() {
-        TypeInfo typeInfo = compiledTypesManager().get(HashMap.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(HashMap.class);
     }
 
     @Test
     public void testMapPut() {
-        TypeInfo typeInfo = compiledTypesManager().get(Map.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Map.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("put", 2);
         assertFalse(methodInfo.isStatic());
         assertTrue(methodInfo.isModifying());
@@ -480,7 +480,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testMapGetOrDefault() {
-        TypeInfo typeInfo = compiledTypesManager().get(Map.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Map.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("getOrDefault", 2);
         assertFalse(methodInfo.isStatic());
         assertFalse(methodInfo.isModifying());
@@ -504,7 +504,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testMapCopyOf() {
-        TypeInfo typeInfo = compiledTypesManager().get(Map.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Map.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("copyOf", 1);
         assertTrue(methodInfo.isStatic());
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -520,7 +520,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testMapKeySetEntrySetValues() {
-        TypeInfo typeInfo = compiledTypesManager().get(Map.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Map.class);
         for (String name : new String[]{"keySet", "values", "entrySet"}) {
             MethodInfo methodInfo = typeInfo.findUniqueMethod(name, 0);
             assertTrue(methodInfo.overrides().isEmpty());
@@ -533,7 +533,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testTreeMapFirstEntry() {
-        TypeInfo typeInfo = compiledTypesManager().get(TreeMap.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(TreeMap.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("firstEntry", 0);
         int expectOverrides = 2;
         assertEquals(expectOverrides, methodInfo.overrides().size());
@@ -548,7 +548,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testMapEntry() {
-        TypeInfo typeInfo = compiledTypesManager().get(Map.class).findSubType("Entry");
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Map.class).findSubType("Entry");
         assertTrue(typeInfo.isInterface());
         assertFalse(typeInfo.isAtLeastImmutableHC());
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
@@ -558,7 +558,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testSortedMapValues() {
-        TypeInfo typeInfo = compiledTypesManager().get(SortedMap.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(SortedMap.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("values", 0);
         assertEquals(1, methodInfo.overrides().size());
         MethodInfo override = methodInfo.overrides().stream().findFirst().orElseThrow();
@@ -569,8 +569,8 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testHashSetConstructor1() {
-        TypeInfo collection = compiledTypesManager().get(Collection.class);
-        TypeInfo typeInfo = compiledTypesManager().get(HashSet.class);
+        TypeInfo collection = compiledTypesManager().typeIfLoaded(Collection.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(HashSet.class);
         MethodInfo methodInfo = typeInfo.findConstructor(collection);
         ParameterInfo p0 = methodInfo.parameters().getFirst();
         assertFalse(p0.isModified());
@@ -580,8 +580,8 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testHashMapConstructor1() {
-        TypeInfo map = compiledTypesManager().get(Map.class);
-        TypeInfo typeInfo = compiledTypesManager().get(HashMap.class);
+        TypeInfo map = compiledTypesManager().typeIfLoaded(Map.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(HashMap.class);
         MethodInfo methodInfo = typeInfo.findConstructor(map);
         ParameterInfo p0 = methodInfo.parameters().getFirst();
         assertFalse(p0.isModified());
@@ -592,7 +592,7 @@ public class TestJavaUtil extends CommonTest {
     // LinkedHashMap was absent; it extends HashMap and must be a @Container like it.
     @Test
     public void testLinkedHashMapContainer() {
-        TypeInfo typeInfo = compiledTypesManager().get(LinkedHashMap.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(LinkedHashMap.class);
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
 
@@ -601,9 +601,9 @@ public class TestJavaUtil extends CommonTest {
     // and unmodified. TreeMap's were previously @Dependent (annotation only in a comment).
     @Test
     public void testMapCopyConstructors() {
-        TypeInfo mapType = compiledTypesManager().get(Map.class);
+        TypeInfo mapType = compiledTypesManager().typeIfLoaded(Map.class);
         for (Class<?> c : new Class<?>[]{HashMap.class, TreeMap.class, LinkedHashMap.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             MethodInfo constructor = typeInfo.findConstructor(mapType);
             ParameterInfo p0 = constructor.parameters().getFirst();
             assertFalse(p0.isModified(), () -> c.getSimpleName() + "(Map) param must be @NotModified");
@@ -620,7 +620,7 @@ public class TestJavaUtil extends CommonTest {
                 ListIterator.class, Spliterator.class, Enumeration.class, SequencedSet.class,
                 EnumSet.class, EnumMap.class, Hashtable.class, Properties.class,
                 IdentityHashMap.class, WeakHashMap.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
                     () -> c.getSimpleName() + " should be a @Container");
         }
@@ -630,10 +630,10 @@ public class TestJavaUtil extends CommonTest {
     // parameter is @Independent(hc=true) and unmodified, like HashMap/TreeMap.
     @Test
     public void testLegacyMapCopyConstructors() {
-        TypeInfo mapType = compiledTypesManager().get(Map.class);
+        TypeInfo mapType = compiledTypesManager().typeIfLoaded(Map.class);
         for (Class<?> c : new Class<?>[]{
                 Hashtable.class, IdentityHashMap.class, WeakHashMap.class, EnumMap.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             MethodInfo constructor = typeInfo.findConstructor(mapType);
             ParameterInfo p0 = constructor.parameters().getFirst();
             assertFalse(p0.isModified(), () -> c.getSimpleName() + "(Map) param must be @NotModified");
@@ -647,7 +647,7 @@ public class TestJavaUtil extends CommonTest {
     @Test
     public void testImmutableValueTypes() {
         for (Class<?> c : new Class<?>[]{Locale.class, Currency.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE),
                     () -> c.getSimpleName() + " should be deep @Immutable");
             assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT),
@@ -661,7 +661,7 @@ public class TestJavaUtil extends CommonTest {
     @Test
     public void testMutableContainerUtilities() {
         for (Class<?> c : new Class<?>[]{BitSet.class, StringJoiner.class, StringTokenizer.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
                     () -> c.getSimpleName() + " should be a @Container");
         }
@@ -670,19 +670,19 @@ public class TestJavaUtil extends CommonTest {
     // Their read methods must be non-modifying, while the mutating ones stay @Modified.
     @Test
     public void testMutableContainerUtilityQueries() {
-        assertFalse(compiledTypesManager().get(BitSet.class).findUniqueMethod("cardinality", 0).isModifying());
-        assertFalse(compiledTypesManager().get(BitSet.class).findUniqueMethod("get", 1).isModifying());
-        assertTrue(compiledTypesManager().get(BitSet.class).findUniqueMethod("flip", 1).isModifying());
-        assertFalse(compiledTypesManager().get(StringJoiner.class).findUniqueMethod("length", 0).isModifying());
-        assertTrue(compiledTypesManager().get(StringJoiner.class).findUniqueMethod("add", 1).isModifying());
-        assertFalse(compiledTypesManager().get(StringTokenizer.class).findUniqueMethod("countTokens", 0).isModifying());
-        assertTrue(compiledTypesManager().get(StringTokenizer.class).findUniqueMethod("nextToken", 0).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(BitSet.class).findUniqueMethod("cardinality", 0).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(BitSet.class).findUniqueMethod("get", 1).isModifying());
+        assertTrue(compiledTypesManager().typeIfLoaded(BitSet.class).findUniqueMethod("flip", 1).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(StringJoiner.class).findUniqueMethod("length", 0).isModifying());
+        assertTrue(compiledTypesManager().typeIfLoaded(StringJoiner.class).findUniqueMethod("add", 1).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(StringTokenizer.class).findUniqueMethod("countTokens", 0).isModifying());
+        assertTrue(compiledTypesManager().typeIfLoaded(StringTokenizer.class).findUniqueMethod("nextToken", 0).isModifying());
     }
 
     @Test
     public void testTreeMapSortedMapConstructor() {
-        TypeInfo typeInfo = compiledTypesManager().get(TreeMap.class);
-        MethodInfo constructor = typeInfo.findConstructor(compiledTypesManager().get(SortedMap.class));
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(TreeMap.class);
+        MethodInfo constructor = typeInfo.findConstructor(compiledTypesManager().typeIfLoaded(SortedMap.class));
         ParameterInfo p0 = constructor.parameters().getFirst();
         assertFalse(p0.isModified());
         assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
@@ -690,7 +690,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testObjectsRequireNonNull() {
-        TypeInfo typeInfo = compiledTypesManager().get(Objects.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Objects.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("requireNonNull", 1);
         assertTrue(methodInfo.isIdentity());
         assertFalse(methodInfo.isFluent());
@@ -708,7 +708,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testObjectsHash() {
-        TypeInfo typeInfo = compiledTypesManager().get(Objects.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Objects.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("hash", 1);
         assertEquals("java.util.Objects.hash(Object[])", methodInfo.fullyQualifiedName());
         assertTrue(methodInfo.isStatic());
@@ -730,7 +730,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testIterator() {
-        TypeInfo typeInfo = compiledTypesManager().get(Iterator.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Iterator.class);
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -738,7 +738,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testIteratorNext() {
-        TypeInfo typeInfo = compiledTypesManager().get(Iterator.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Iterator.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("next", 0);
         assertTrue(methodInfo.overrides().isEmpty());
         assertFalse(methodInfo.allowsInterrupts());
@@ -751,7 +751,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testIteratorHasNext() {
-        TypeInfo typeInfo = compiledTypesManager().get(Iterator.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Iterator.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("hasNext", 0);
         assertTrue(methodInfo.overrides().isEmpty());
         assertFalse(methodInfo.allowsInterrupts());
@@ -764,7 +764,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testIteratorRemove() {
-        TypeInfo typeInfo = compiledTypesManager().get(Iterator.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Iterator.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("remove", 0);
         assertTrue(methodInfo.overrides().isEmpty());
         assertFalse(methodInfo.allowsInterrupts());
@@ -777,7 +777,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testIteratorForEachRemaining() {
-        TypeInfo typeInfo = compiledTypesManager().get(Iterator.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Iterator.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("forEachRemaining", 1);
         assertTrue(methodInfo.overrides().isEmpty());
         assertFalse(methodInfo.allowsInterrupts());
@@ -797,7 +797,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testRandomNextInt() {
-        TypeInfo typeInfo = compiledTypesManager().get(Random.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Random.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("nextInt", 0);
         assertFalse(methodInfo.overrides().isEmpty());
         assertFalse(methodInfo.allowsInterrupts());
@@ -810,7 +810,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testRandomNextBytes() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(Random.class);
+        TypeInfo typeInfo = compiledTypesManager().type(Random.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("nextBytes", 1);
         assertTrue(methodInfo.isModifying());
 
@@ -821,7 +821,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testOptional() {
-        TypeInfo typeInfo = compiledTypesManager().get(Optional.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Optional.class);
         assertSame(IMMUTABLE_HC, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -829,7 +829,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testOptionalEmpty() {
-        TypeInfo typeInfo = compiledTypesManager().get(Optional.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Optional.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("empty", 0);
         assertTrue(methodInfo.overrides().isEmpty());
         assertFalse(methodInfo.allowsInterrupts());
@@ -842,7 +842,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testOptionalGet() {
-        TypeInfo typeInfo = compiledTypesManager().get(Optional.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Optional.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("get", 0);
         assertTrue(methodInfo.overrides().isEmpty());
         assertFalse(methodInfo.allowsInterrupts());
@@ -856,7 +856,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testTreeMap() {
-        TypeInfo typeInfo = compiledTypesManager().get(TreeMap.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(TreeMap.class);
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));

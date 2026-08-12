@@ -74,7 +74,7 @@ public class TestGrpcStub {
                 .build();
         want67.computePriorityDependencies();
 
-        TypeInfo clientCalls67 = ctm.getOrLoad("io.grpc.stub.ClientCalls", want67);
+        TypeInfo clientCalls67 = ctm.type("io.grpc.stub.ClientCalls", want67);
         assertEquals(16, clientCalls67.methods().size());
         assertEquals("""
                 io.grpc.stub.ClientCalls.asyncUnaryCall(io.grpc.ClientCall,Object,io.grpc.stub.StreamObserver)
@@ -104,7 +104,7 @@ public class TestGrpcStub {
                 .build();
         want73.computePriorityDependencies();
 
-        TypeInfo clientCalls73 = ctm.getOrLoad("io.grpc.stub.ClientCalls", want73);
+        TypeInfo clientCalls73 = ctm.type("io.grpc.stub.ClientCalls", want73);
         assertNotEquals(clientCalls67, clientCalls73);
 
         assertEquals(19, clientCalls73.methods().size());
