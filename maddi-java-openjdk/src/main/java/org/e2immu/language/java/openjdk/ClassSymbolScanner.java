@@ -1765,7 +1765,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 Symbol.ClassSymbol cs = (Symbol.ClassSymbol) typeElement;
                 loadType(cs, typeInfo, LoadMode.COMPLETE);
             } catch (RuntimeException | AssertionError | StackOverflowError re) {
-                LOGGER.error("Caught exception committing type {}", typeInfo);
+                // ⛔ THE THROWABLE GOES IN. Without it the stack is discarded here and never printed anywhere
+                // above: the ErrorReport carries the message alone, so an operator sees "Inspection of X has
+                // already been committed" with no location at all. A root cause established from a SHAPE is not
+                // a LOCATION -- and the one gap that reasoned from the shape (#150) named the wrong code site.
+                LOGGER.error("Caught exception committing type {}", typeInfo, re);
                 throw re;
             }
         }
