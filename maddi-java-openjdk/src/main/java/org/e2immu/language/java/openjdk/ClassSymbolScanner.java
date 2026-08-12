@@ -1242,7 +1242,27 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         if (owner.compilationUnitOrEnclosingType().isRight()) {
             return findTypeParameter(owner.compilationUnitOrEnclosingType().getRight(), typeParameterName);
         }
-        throw new UnsupportedOperationException();
+        // ⛔⛔ TYPED AND NAMED, AND BOTH HALVES ARE LOAD-BEARING. This used to be a bare
+        // `throw new UnsupportedOperationException()`, and the two consequences compounded:
+        //
+        //  * NO MESSAGE. ScanCompilationUnits#addFailure falls back to the exception's CLASS NAME when
+        //    getMessage() is null, so every failure here surfaced as the bare word
+        //    "UnsupportedOperationException" — no type parameter, no owner, no location. Summary carried the
+        //    throwable and printed only that word, so the cause was unreachable from any log.
+        //  * NOT TYPED. hasCause(e, UnresolvedSymbolException.class) was false, so fault isolation classified
+        //    it a hard ERROR rather than a tolerable warning, and SummaryImpl then refuses to produce a
+        //    ParseResult at all when any parse exception exists — however many units parsed cleanly.
+        //
+        // Measured on trino (2026-08-12): SIX units in plugin/trino-hive's parquet code, all six with this
+        // identical frame, cost the entire 209-source-set parse. Nothing else failed.
+        //
+        // UnresolvedSymbolException exists for exactly this: it extends UnsupportedOperationException, so every
+        // existing catch clause is unaffected, and it is typed so the compilation-unit-level fault isolation can
+        // downgrade it to a warning — the unit is still dropped, but the run proceeds over what parsed. A type
+        // parameter that cannot be resolved by name belongs in the same category as a type that cannot: both are
+        // normal on the deliberately partial classpath maddi runs on.
+        throw new UnresolvedSymbolException("Type parameter '" + typeParameterName + "' not found in "
+                                            + owner.fullyQualifiedName() + ", nor in any enclosing type");
     }
 
     @Override
