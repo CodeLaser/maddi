@@ -188,7 +188,18 @@ public class MethodAnalyzer {
             if (statement.label() != null) {
                 labelToStatementIndex.put(statement.label(), index);
             }
-            if (statement instanceof SwitchStatementOldStyle || statement instanceof LoopStatement) {
+            // ⛔ THE NEW-STYLE SWITCH BELONGS ON THIS STACK TOO. The stack models "what an unlabeled break can
+            // target", and an ARROW-FORM SWITCH STATEMENT is such a target: `break;` inside `case X -> { ... }`
+            // is legal Java and exits the switch (it is only a switch EXPRESSION that forbids break). Leaving it
+            // off made the peek below throw EmptyStackException on the first such break with no enclosing loop.
+            // Measured on pulsar 5.0.0-M1, 2026-08-12: PersistentTopic.close(boolean,boolean) statement 15.0.1
+            // (PersistentTopic.java:1864) is exactly that shape, and it killed the whole prep analysis --
+            // 2,591 primary types in before it threw.
+            // ⚠ It also makes breakTargetsNearestOldStyleSwitch() STRICTER, which is the point: an unlabeled
+            // break inside a new-style switch nested in an old-style one targets the INNER switch, and was
+            // previously attributed to the outer switch's break variable.
+            if (statement instanceof SwitchStatementOldStyle || statement instanceof SwitchStatementNewStyle
+                || statement instanceof LoopStatement) {
                 loopSwitchStack.push(statement);
             } else if (statement instanceof BreakStatement bs) {
                 // the break's TARGET is goToLabel(), not label() (which is the statement's own label, almost
@@ -219,7 +230,10 @@ public class MethodAnalyzer {
         }
 
         void endHandleStatement(Statement statement) {
-            if (statement instanceof SwitchStatementOldStyle || statement instanceof LoopStatement) {
+            // ⚠ MUST MIRROR handleStatement EXACTLY, or the stack drifts and every later break resolves against
+            // the wrong target -- a silent wrong answer rather than an exception.
+            if (statement instanceof SwitchStatementOldStyle || statement instanceof SwitchStatementNewStyle
+                || statement instanceof LoopStatement) {
                 loopSwitchStack.pop();
             }
         }
