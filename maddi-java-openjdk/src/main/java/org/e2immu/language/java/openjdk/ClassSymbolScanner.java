@@ -877,6 +877,26 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 .findFirst().orElse(null);
     }
 
+    /**
+     * {@code values()} and {@code valueOf(String)} are declared by the compiler for every enum, so they have no
+     * source of their own and cannot be edited as text. Whether they came out synthetic used to depend on which
+     * path materialized them first: the JavaCC front-end builds them through {@code EnumSynthetics} (synthetic,
+     * {@code noSource}), while here the generic member scan created them as ordinary methods with
+     * {@code synthetic=false}, and the enum-specific fix-up in {@code ScanCompilationUnit} then found them
+     * already present and handed back the existing, unflagged instance. Same "which path loaded it decided the
+     * answer" shape as the enum constants in {@link #ensureField}, and the same remedy: decide it here, at the
+     * one place every path goes through, rather than patching it afterwards.
+     */
+    private static boolean isCompilerGeneratedEnumMethod(TypeInfo typeInfo, Symbol.MethodSymbol ms) {
+        var nature = typeInfo.typeNature();
+        if (nature == null || !nature.isEnum()) return false;
+        String name = ms.getSimpleName().toString();
+        if ("values".equals(name)) return ms.params == null || ms.params.isEmpty();
+        return "valueOf".equals(name)
+               && ms.params != null && ms.params.size() == 1
+               && ms.params.head.type.tsym.flatName().contentEquals("java.lang.String");
+    }
+
     MethodInfo addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms, boolean synthetic) {
         if (typeInfo.hasBeenInspected()) {
             // GAP #12's residual. This threw a BARE UnsupportedOperationException while logging the three facts
@@ -986,7 +1006,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
         flagHelper.method(ms.flags(), builder);
         builder.addAnnotations(loadAnnotations(ms));
-        if (synthetic) {
+        if (synthetic || isCompilerGeneratedEnumMethod(typeInfo, ms)) {
             builder.setSynthetic(true);
         }
         // exception types
