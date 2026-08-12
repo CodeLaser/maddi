@@ -842,12 +842,21 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 }
             }
         } else if (member instanceof Symbol.ClassSymbol cs && cs.owner == owner) {
-            boolean isNotPrivate = (cs.flags() & Flags.PRIVATE) == 0;
-            if (isNotPrivate) {
-                TypeInfo enclosed = addEnclosedTypeToType(typeInfo, cs, loadMode);
-                if (!enclosed.hasBeenInspected()) {
-                    enclosed.builder().computeAccess().commit();
-                }
+            // load nested types even when private: like constructors and fields (see above), a nested type is part
+            // of its owner's shape, and -- unlike them -- skipping it is not merely lossy but FATAL, because the
+            // owner then COMMITS without it and a later reference has nowhere to put it. Measured on
+            // jenkins-test-harness: MockAuthorizationStrategy holds
+            //   private final List<Grant.GrantOn.GrantOnTo> grantsOnTo
+            // whose leaf is recorded `private GrantOnTo of GrantOn` in the InnerClasses attribute. The private
+            // nested type was skipped here, GrantOn committed, and loading that very field then reached
+            // lazilyLoadTypeFromClassFile -> owner.builder() on an immutable GrantOn:
+            //   AssertionError: Inspection of ...Grant.GrantOn.GrantOnTo has already been committed
+            // One such type refused the WHOLE ParseResult for a 493-file source set.
+            // ⚠ A private MEMBER of a class file is reachable from outside its declaring type in exactly the way a
+            // private nested type is: through the signature of another member that is itself loaded.
+            TypeInfo enclosed = addEnclosedTypeToType(typeInfo, cs, loadMode);
+            if (!enclosed.hasBeenInspected()) {
+                enclosed.builder().computeAccess().commit();
             }
         }
     }
@@ -1765,7 +1774,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 Symbol.ClassSymbol cs = (Symbol.ClassSymbol) typeElement;
                 loadType(cs, typeInfo, LoadMode.COMPLETE);
             } catch (RuntimeException | AssertionError | StackOverflowError re) {
-                LOGGER.error("Caught exception committing type {}", typeInfo);
+                // ⛔ THE THROWABLE GOES IN. Without it the stack is discarded here and never printed anywhere
+                // above: the ErrorReport carries the message alone, so an operator sees "Inspection of X has
+                // already been committed" with no location at all. A root cause established from a SHAPE is not
+                // a LOCATION -- and the one gap that reasoned from the shape (#150) named the wrong code site.
+                LOGGER.error("Caught exception committing type {}", typeInfo, re);
                 throw re;
             }
         }
