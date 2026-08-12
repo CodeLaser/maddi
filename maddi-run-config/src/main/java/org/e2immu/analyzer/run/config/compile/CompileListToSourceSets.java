@@ -283,15 +283,18 @@ public class CompileListToSourceSets {
         Set<String> moduleJarNames = list.stream()
                 .filter(inv -> inv.modulePath() != null)
                 .flatMap(inv -> inv.modulePath().stream())
-                .filter(p -> p.endsWith(".jar"))
+                .filter(SourceSetImpl::isArchive)
                 .map(CompileListToSourceSets::lastPart)
                 .collect(Collectors.toSet());
+        Set<String> skippedClassPathParts = new TreeSet<>();
         Map<String, SourceSet> classPath = new HashMap<>();
         for (CompileInvocation inv : list) {
             String destination = inv.destination();
             if (inv.classpath() != null) {
                 for (String part : inv.classpath()) {
-                    if (part.endsWith(".jar")) {
+                    // ⛔ NOT endsWith(".jar"): see SourceSetImpl.ARCHIVE_EXTENSIONS. A .nar on pulsar's classpath
+                    // matched neither branch below and was dropped WITHOUT A WORD, costing 1,831 compilation units.
+                    if (SourceSetImpl.isArchive(part)) {
                         // ⛔ a sibling's packaged jar is that sibling's SOURCE SET, not a library: making it one
                         // puts every type it holds in the parse twice, once from source and once from bytecode.
                         if (!jarFileToDestination.containsKey(part)) {
@@ -301,19 +304,29 @@ public class CompileListToSourceSets {
                         Path path = Path.of(part);
                         if (Files.isDirectory(path)) {
                             handleDirectoryInClasspath(sourceSetsByPath, part, classPath);
+                        } else {
+                            // ⚠ AND IT SAYS SO. This branch used to be the silence: whatever javac was given and
+                            // maddi has no case for now leaves a trace in the log rather than a missing package
+                            // 40,000 lines later.
+                            skippedClassPathParts.add(part);
                         }
                     }
                 }
             }
             if (inv.modulePath() != null) {
                 for (String part : inv.modulePath()) {
-                    if (part.endsWith(".jar")) {
+                    if (SourceSetImpl.isArchive(part)) {
                         if (!jarFileToDestination.containsKey(part)) {
                             handleJarInClasspath(sourceSetsByPath, part, classPath, destination, moduleJarNames);
                         }
                     }
                 }
             }
+        }
+        if (!skippedClassPathParts.isEmpty()) {
+            LOGGER.warn("Skipped {} classpath part(s): neither a known archive {} nor an existing directory."
+                        + " If javac reports a missing package, look here FIRST: {}",
+                    skippedClassPathParts.size(), SourceSetImpl.ARCHIVE_EXTENSIONS, skippedClassPathParts);
         }
         return classPath;
     }

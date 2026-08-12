@@ -343,7 +343,9 @@ public class JavaInspectorImpl implements JavaInspector {
                     null));
             case "file" -> {
                 File file = toAbsoluteFile(workingDirectory, path);
-                if (path.endsWith(".jar")) {
+                // ⚠ a classpath archive is a zip, whatever it is called: .nar (bookkeeper's circe-checksum,
+                // cpu-affinity) opens exactly like a .jar. See SourceSetImpl.ARCHIVE_EXTENSIONS.
+                if (SourceSetImpl.isArchive(path)) {
                     try {
                         // "jar:file:build/libs/equivalent.jar!/"
                         URL jarUrl = URI.create("jar:file:" + file.getPath() + "!/").toURL();
@@ -356,7 +358,8 @@ public class JavaInspectorImpl implements JavaInspector {
                         LOGGER.info("Adding {} to {}", file.getAbsolutePath(), msg);
                         resources.addDirectoryFromFileSystem(file, sourceSet);
                     } else {
-                        String msgString = msg + " part '" + path + "' is not a .jar file, and not a directory: ignored";
+                        String msgString = msg + " part '" + path + "' is not a classpath archive "
+                                           + SourceSetImpl.ARCHIVE_EXTENSIONS + ", and not a directory: ignored";
                         LOGGER.warn(msgString);
                         initializationProblems.add(new InitializationProblem(msgString, null));
                     }
