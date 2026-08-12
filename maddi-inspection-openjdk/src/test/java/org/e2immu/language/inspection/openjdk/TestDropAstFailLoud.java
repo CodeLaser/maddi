@@ -22,7 +22,9 @@ public class TestDropAstFailLoud {
     private static CompiledTypesManagerImpl newCtm(java.util.function.Function<String, TypeInfo> loader) {
         SourceSet javaBase = new SourceSetImpl.Builder().setName("java.base").setUri(URI.create("file:/")).build();
         CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(javaBase, new InfoByFqn());
-        ctm.setLazyLoader(loader);
+        // the loader takes the requesting source set too; these tests are about surfacing misses after the AST
+        // drop, and pass null for it throughout. TestLazyLoaderSourceSet covers the source set's own contract.
+        ctm.setLazyLoader((fqn, sourceSetOfRequest) -> loader.apply(fqn));
         return ctm;
     }
 

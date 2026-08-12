@@ -499,6 +499,11 @@ public class ScanCompilationUnits {
         return classSymbolScanner;
     }
 
+    /** The source set this task was built for, hence the class path it resolves compiled types against. */
+    public SourceSet sourceSet() {
+        return sourceSet;
+    }
+
     private List<TypeInfo> indexJavaLangForJavaDocParsing() throws IOException {
         JavaFileManager fm = ((BasicJavacTask) task).getContext().get(JavaFileManager.class);
         JavaFileManager.Location javaBase = fm.getLocationForModule(StandardLocation.SYSTEM_MODULES,

@@ -29,7 +29,11 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     private final InfoByFqn infoByFqn;
     // a javac-FREE callback (so this class retains no OpenJDK references): the driver injects one that loads a
     // single compiled type by FQN from bytecode on demand (JavaInspectorImpl -> ScanCompilationUnits).
-    private java.util.function.Function<String, TypeInfo> lazyLoader;
+    // It takes the REQUESTING source set: a compiled type must be resolved against the class path of the set that
+    // asked for it. Passing only the FQN left the driver free to answer from whichever source set it happened to
+    // have a javac task for -- in practice the one scanned last -- so in a multi-source-set configuration the
+    // answer depended on scan order (see JavaInspectorImpl.unitsForCompiledTypeLoading).
+    private java.util.function.BiFunction<String, SourceSet, TypeInfo> lazyLoader;
 
     // Once the javac AST is dropped (JavaInspectorImpl.invalidateAllSources on a heavy-analysis run, DROP_AST),
     // the lazy loader can no longer serve any compiled type it had not already cached. A getOrLoad miss then
@@ -46,7 +50,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         this.infoByFqn = infoByFqn;
     }
 
-    public void setLazyLoader(java.util.function.Function<String, TypeInfo> lazyLoader) {
+    public void setLazyLoader(java.util.function.BiFunction<String, SourceSet, TypeInfo> lazyLoader) {
         this.lazyLoader = lazyLoader;
     }
 
@@ -146,7 +150,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
             synchronized (this) {
                 TypeInfo raced = typesLoaded.get(fullyQualifiedName);
                 if (raced != null) return raced;
-                TypeInfo loaded = lazyLoader.apply(fullyQualifiedName);
+                TypeInfo loaded = lazyLoader.apply(fullyQualifiedName, sourceSetOfRequest);
                 if (loaded != null) {
                     addTypeInfo(null, loaded); // cache; the loader already registered it in InfoByFqn
                     return loaded;
