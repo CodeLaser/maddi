@@ -309,7 +309,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             compilationUnit.setTypes(collectedPrimaryTypes);
             return null;
         } catch (RuntimeException | AssertionError | StackOverflowError re) {
-            LOGGER.error("Caught exception in compilation unit {}", compilationUnit);
+            // ⛔ THE THROWABLE GOES IN. Same defect, same week, as ClassSymbolScanner's: these five sites all
+            // rethrow, so the stack is not lost -- but the REPORT above only records the exception's class
+            // name, and pulsar's day-zero parse produced 1,826 errors of which 1,820 were one
+            // UnsupportedOperationException with not a single frame anywhere in the log. A census that
+            // cannot name a frame cannot find the defect.
+            LOGGER.error("Caught exception in compilation unit {}", compilationUnit, re);
             throw re;
         }
     }
@@ -375,7 +380,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             // don't commit yet, happens at the end of ScanCompilationUnits, after JavaDoc resolution
             return null;
         } catch (RuntimeException | AssertionError | StackOverflowError re) {
-            LOGGER.error("Caught exception in type {}", node.getSimpleName());
+            LOGGER.error("Caught exception in type {}", node.getSimpleName(), re);
             throw re;
         }
     }
@@ -948,7 +953,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             // don't commit yet, happens at the end of ScanCompilationUnits, after JavaDoc resolution
             return null;
         } catch (RuntimeException | AssertionError | StackOverflowError re) {
-            LOGGER.error("Caught exception in method {}", node.getName().toString());
+            LOGGER.error("Caught exception in method {}", node.getName().toString(), re);
             throw re;
         }
     }
@@ -1697,7 +1702,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
             return null;
         } catch (RuntimeException | AssertionError | StackOverflowError e) {
-            LOGGER.error("Caught exception in visitVariable " + node + "; source " + sourceForNode(node));
+            LOGGER.error("Caught exception in visitVariable " + node + "; source " + sourceForNode(node), e);
             throw e;
         }
     }
@@ -2629,7 +2634,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             super.visitMemberSelect(node, unused);
             return null;
         } catch (RuntimeException | AssertionError | StackOverflowError e) {
-            LOGGER.error("Caught exception in visitMemberSelect " + node + "; source " + sourceForNode(node));
+            LOGGER.error("Caught exception in visitMemberSelect " + node + "; source " + sourceForNode(node), e);
             throw e;
         }
     }

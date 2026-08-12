@@ -61,7 +61,7 @@ public class TestStreaming {
 
         sourceSet2.setAnalysisFingerPrint(MD5FingerPrint.compute("there"));
         InputConfiguration inputConfiguration = new InputConfigurationImpl(Path.of("."),
-                List.of(sourceSet, sourceSet2), List.of(), Path.of("/"));
+                List.of(sourceSet, sourceSet2), List.of(), Path.of("/"), 0);
         String json = objectMapper.writeValueAsString(inputConfiguration);
         System.out.println(json);
 
@@ -97,10 +97,25 @@ public class TestStreaming {
 
         ObjectMapper objectMapper = JsonStreaming.objectMapper();
         InputConfiguration inputConfiguration = new InputConfigurationImpl(Path.of("."),
-                List.of(), List.of(runtimeOnly), Path.of("/"));
+                List.of(), List.of(runtimeOnly), Path.of("/"), 21);
         String json = objectMapper.writeValueAsString(inputConfiguration);
         InputConfiguration copy = objectMapper.readerFor(InputConfiguration.class).readValue(json);
         Assertions.assertTrue(copy.classPathParts().getFirst().runtimeOnly());
+        // the corpus's --release must survive the round trip: it decides which JDK API the parse compiles
+        // against, and losing it silently reinstates "whatever JDK maddi runs on"
+        Assertions.assertEquals(21, copy.sourceRelease());
+    }
+
+    @Test
+    public void testSourceReleaseAbsentReadsAsZero() throws JsonProcessingException {
+        // ⚠ AND AN OLDER CONFIGURATION MUST STILL READ. sourceRelease is omitted when unknown, so a file
+        // written before this field existed has no such key; it must come back as 0 ("use the running JDK")
+        // rather than fail to deserialize.
+        ObjectMapper objectMapper = JsonStreaming.objectMapper();
+        String json = "{\"workingDirectory\":\".\",\"classPathParts\":[],\"sourceSets\":[],"
+                      + "\"alternativeJREDirectory\":null}";
+        InputConfiguration copy = objectMapper.readerFor(InputConfiguration.class).readValue(json);
+        Assertions.assertEquals(0, copy.sourceRelease());
     }
 
     @Test

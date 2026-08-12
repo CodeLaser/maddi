@@ -1077,9 +1077,23 @@ public class JavaInspectorImpl implements JavaInspector {
                 options.add("--system");
                 options.add(altJre.toString());
             } else {
-                options.add("--enable-preview");
+                // ⛔⛔ THE CORPUS'S RELEASE, NOT OURS, WHEN THE CORPUS SAID ONE. javac --release N is "compile
+                // against N's API", and the running JDK is not the corpus's platform: an API removed after N is
+                // simply absent, so the parse reports 'cannot find symbol' against source whose own build is
+                // green. Measured on pulsar 5.0.0-M1 (all 105 invocations --release 17, maddi on JDK 26):
+                // Thread.suspend()/resume() are gone in 26, three copies of bookkeeper's ZooKeeperUtil call
+                // them, javac stopped attributing and the units behind them were dropped.
+                // ⚠ --enable-preview is only legal for the release we RUN on; a corpus release is by definition
+                // an older one, and javac refuses the combination.
                 // java.lang.Runtime: the maddi CST 'Runtime' is imported in this file and would shadow it
-                options.add("--release=" + java.lang.Runtime.version().feature());
+                int running = java.lang.Runtime.version().feature();
+                int configured = inputConfiguration == null ? 0 : inputConfiguration.sourceRelease();
+                if (configured > 0 && configured != running) {
+                    options.add("--release=" + configured);
+                } else {
+                    options.add("--enable-preview");
+                    options.add("--release=" + running);
+                }
             }
             return (JavacTask) javaCompiler.getTask(null, fm, diagnostics, options, null, allCompilationUnits);
         }

@@ -33,6 +33,29 @@ public interface CompileInvocation {
     /** The source encoding, or {@code null} for the default. */
     String encoding();
 
+    /** javac's {@code --release}; {@code <= 0} when the invocation did not pass one. */
+    default int release() {
+        return 0;
+    }
+
+    /** javac's {@code -source}; {@code <= 0} when the invocation did not pass one. */
+    default int sourceRelease() {
+        return 0;
+    }
+
+    /**
+     * The Java API level this invocation compiled against, or {@code <= 0} when it said nothing.
+     *
+     * <p>⛔ It was parsed and then thrown away. {@code Javac} has held {@code release}, {@code sourceRelease} and
+     * {@code targetRelease} since it was written, {@code CompileInvocation} exposed none of them, and nothing
+     * downstream ever asked — so the parse always used the release of the JDK it happened to run on. See
+     * {@code InputConfiguration.sourceRelease()} for what that costs when the two differ.
+     */
+    default int effectiveRelease() {
+        int r = release();
+        return r > 0 ? r : sourceRelease();
+    }
+
     /** The compiler's module name ({@code -module-name}); {@code null} for javac. */
     default String moduleName() {
         return null;

@@ -132,7 +132,20 @@ public class CodecImpl implements Codec {
             if (skipExistingValues() && pvm.haveAnalyzedValueFor(pv.property())) return;
             // the GET_SET_FIELD property can already be set (by GetSetUtil) at byte-code loading
             if (!pv.property().equals(PropertyImpl.GET_SET_FIELD) || !pvm.haveAnalyzedValueFor(PropertyImpl.GET_SET_FIELD)) {
-                pvm.set(pv.property(), pv.value());
+                try {
+                    pvm.set(pv.property(), pv.value());
+                } catch (IllegalArgumentException iae) {
+                    // ⛔ A COLLISION IS A DECODER PROBLEM, NOT A REASON TO LOSE THE ARCHIVE. PropertyValueMap
+                    // refuses to overwrite, and rightly so — but reaching this point means two encoded elements
+                    // resolved onto ONE Info, which is exactly what a stale index does when the decoder's view of
+                    // a type differs from the encoder's (see decodeSubType). Raw, it aborts the whole jar and
+                    // every hint in it; as a DecoderException it is what LoadAnalysisResults already handles:
+                    // drop THIS element's hints, count them in skippedUnresolvableHints, name it in a warning.
+                    // ⚠ The value is NOT overwritten either way: first writer wins, which is the same rule the
+                    // checkpoint-restore branch above applies deliberately.
+                    throw new DecoderException("cannot apply property '" + pv.property().key() + "': "
+                                               + iae.getMessage());
+                }
             }
         });
     }
@@ -437,11 +450,42 @@ public class CodecImpl implements Codec {
     private TypeInfo decodeSubType(TypeAndSorted typeAndSorted, String nameIndex) {
         Matcher m = NAME_INDEX_PATTERN.matcher(nameIndex);
         if (m.matches()) {
+            String name = m.group(1);
             int index = Integer.parseInt(m.group(2));
-            assert typeAndSorted != null;
-            TypeInfo subType = typeAndSorted.sortedSubTypes().get(index);
-            assert subType.simpleName().equals(m.group(1));
-            return subType;
+            if (typeAndSorted == null) {
+                throw new DecoderException("no current type while decoding sub-type '" + nameIndex + "'");
+            }
+            List<TypeInfo> sorted = typeAndSorted.sortedSubTypes();
+            // Fast path: the encoded index still points at the right sub-type (its name matches). This holds
+            // whenever the sub-type set the decoder loaded matches what the encoder saw.
+            if (index < sorted.size() && sorted.get(index).simpleName().equals(name)) {
+                return sorted.get(index);
+            }
+            // ⛔⛔ INDEX STALE, AND THIS USED TO BE TWO DEFECTS AT ONCE — the only one of the five decoders that
+            // did not follow the rule its siblings follow (decodeFieldInfo, decodeMethodInfo, decodeConstructor,
+            // decodeParameterInfo all bounds-check and fall back to the name):
+            //   1. out of range threw a raw ArrayIndexOutOfBoundsException, which LoadAnalysisResults' tolerance
+            //      does not catch — it catches DecoderException — so ONE unresolvable nested type aborted the
+            //      WHOLE archive, and with it every analysis hint in it;
+            //   2. in range but shifted returned the WRONG sub-type, because the name was only checked by an
+            //      `assert`. With assertions off — every production run — that is a silent wrong answer.
+            // ⚠ THE CASE IS REAL AND NOT EXOTIC: the archive is encoded against the JDK the encoder ran on, and a
+            // parse that uses the corpus's own `javac --release` sees a DIFFERENT JDK API, so a platform type's
+            // nested-type list is a different list. Measured on Apache Pulsar 5.0.0-M1 (--release 17, maddi on
+            // JDK 26): "Index 0 out of bounds for length 0" out of maddi-aapi-archive.
+            // ⇒ Sub-type simple names are unique within their enclosing type (javac requires it), so resolving by
+            // name is exact, and it is backward-compatible: the name has always been encoded.
+            for (TypeInfo subType : sorted) {
+                if (subType.simpleName().equals(name)) return subType;
+            }
+            // Genuinely absent from this parse. A DecoderException is the contract LoadAnalysisResults already
+            // implements: it drops THIS element's hints, counts it in skippedUnresolvableHints, names it in a
+            // warning, and lets the rest of the archive load.
+            throw new DecoderException("sub-type '" + name + "' (encoded index " + index + ") does not exist in "
+                                       + typeAndSorted.typeInfo() + ", which has " + sorted.size()
+                                       + " sub-type(s) " + sorted.stream().map(TypeInfo::simpleName).toList()
+                                       + "; the archive was encoded against a different shape of this type"
+                                       + " (a different JDK release will do it)");
         } else {
             throw new UnsupportedOperationException();
         }
