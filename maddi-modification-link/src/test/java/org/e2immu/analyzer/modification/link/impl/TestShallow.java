@@ -128,7 +128,7 @@ public class TestShallow extends CommonTest {
     @DisplayName("Analyze 'Optional', multiplicity 1, 1 type parameter")
     @Test
     public void test2() {
-        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
+        TypeInfo optional = javaInspector.compiledTypesManager().type(Optional.class);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(optional);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
@@ -166,7 +166,7 @@ public class TestShallow extends CommonTest {
     @Test
     public void test3() {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(List.class);
 
         MethodInfo toArrayTs = list.methodStream()
                 .filter(mi -> "toArray".equals(mi.name()) && mi.parameters().size() == 1
@@ -238,7 +238,7 @@ public class TestShallow extends CommonTest {
     @Test
     public void test3b() {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
-        TypeInfo collection = javaInspector.compiledTypesManager().getOrLoad(Collection.class);
+        TypeInfo collection = javaInspector.compiledTypesManager().type(Collection.class);
 
         MethodInfo toArrayFunction = collection.methodStream()
                 .filter(mi -> "toArray".equals(mi.name()) && mi.parameters().size() == 1
@@ -254,7 +254,7 @@ public class TestShallow extends CommonTest {
     @Test
     public void test3c() {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
-        TypeInfo iterable = javaInspector.compiledTypesManager().getOrLoad(Iterable.class);
+        TypeInfo iterable = javaInspector.compiledTypesManager().type(Iterable.class);
 
         MethodInfo forEach = iterable.findUniqueMethod("forEach", 1);
         MethodLinkedVariables mlvForEach = linkComputer.doMethod(forEach);
@@ -273,7 +273,7 @@ public class TestShallow extends CommonTest {
     @Test
     public void test4() {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
-        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
+        TypeInfo map = javaInspector.compiledTypesManager().type(Map.class);
 
         // ---
 
@@ -329,7 +329,7 @@ public class TestShallow extends CommonTest {
     @Test
     public void test5() {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
-        TypeInfo stream = javaInspector.compiledTypesManager().getOrLoad(Stream.class);
+        TypeInfo stream = javaInspector.compiledTypesManager().type(Stream.class);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         assertEquals("§m - T[] §ts", vfc.compute(stream).toString());
 
@@ -379,8 +379,8 @@ public class TestShallow extends CommonTest {
     @Test
     public void test6() {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
-        TypeInfo collection = javaInspector.compiledTypesManager().getOrLoad(Collection.class);
-        TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
+        TypeInfo collection = javaInspector.compiledTypesManager().type(Collection.class);
+        TypeInfo arrayList = javaInspector.compiledTypesManager().type(ArrayList.class);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         assertEquals("§m - E[] §es", vfc.compute(arrayList).toString());
 
@@ -423,7 +423,7 @@ public class TestShallow extends CommonTest {
     @Test
     public void test8() {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
-        TypeInfo collections = javaInspector.compiledTypesManager().getOrLoad(Collections.class);
+        TypeInfo collections = javaInspector.compiledTypesManager().type(Collections.class);
         MethodInfo addAll = collections.findUniqueMethod("addAll", 2);
         assertEquals("java.util.Collections.addAll(java.util.Collection,Object[])",
                 addAll.fullyQualifiedName());
@@ -435,7 +435,7 @@ public class TestShallow extends CommonTest {
     @Test
     public void test8b() {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
-        TypeInfo collections = javaInspector.compiledTypesManager().getOrLoad(Collections.class);
+        TypeInfo collections = javaInspector.compiledTypesManager().type(Collections.class);
         MethodInfo sort = collections.findUniqueMethod("sort", 2);
         assertEquals("java.util.Collections.sort(java.util.List,java.util.Comparator)",
                 sort.fullyQualifiedName());
@@ -552,7 +552,7 @@ public class TestShallow extends CommonTest {
     @Test
     public void test11() {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
-        TypeInfo objects = javaInspector.compiledTypesManager().getOrLoad(Objects.class);
+        TypeInfo objects = javaInspector.compiledTypesManager().type(Objects.class);
         MethodInfo requireNonNull = objects.findUniqueMethod("requireNonNull", 1);
         assertTrue(requireNonNull.isIdentity());
         MethodLinkedVariables mlv = requireNonNull.analysis().getOrCreate(METHOD_LINKS,

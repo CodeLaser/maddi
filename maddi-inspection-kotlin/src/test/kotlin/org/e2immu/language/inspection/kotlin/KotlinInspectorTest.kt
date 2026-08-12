@@ -46,7 +46,7 @@ class KotlinInspectorTest {
 
         // the CompiledTypesManager is a view over the same InfoByFqn: it returns the SAME instance
         // (identity invariant), with the hierarchy the scan loaded.
-        val uuidFromManager = inspector.compiledTypesManager().get("java.util.UUID", sourceSet)
+        val uuidFromManager = inspector.compiledTypesManager().typeIfLoaded("java.util.UUID", sourceSet)
         assertSame(uuidFromMethod, uuidFromManager)
         assertEquals("java.util.UUID", uuidFromManager!!.fullyQualifiedName())
     }

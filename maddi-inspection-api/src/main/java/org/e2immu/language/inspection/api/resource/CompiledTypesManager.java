@@ -50,24 +50,84 @@ public interface CompiledTypesManager {
         throw new UnsupportedOperationException();
     }
 
+    /** @deprecated renamed to {@link #typeIfLoaded(Class)} — note it is the PEEK, not {@link #type(Class)}. */
+    @Deprecated
     default TypeInfo get(Class<?> clazz) {
-        return get(clazz.getCanonicalName(), javaBase());
+        return typeIfLoaded(clazz.getCanonicalName(), javaBase());
     }
 
     void addTypeInfo(SourceFile sourceFile, TypeInfo typeInfo);
 
     default void setRewiredType(TypeInfo typeInfo) { throw new UnsupportedOperationException(); }
 
-    TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest);
+    /**
+     * The type only if it has already been loaded, without loading anything. ⛔ A null means "not registered
+     * (yet)", NOT "no such type" — which is rarely the question a caller wants answered, so prefer
+     * {@link #type(String, SourceSet)}. This is the method an implementation provides; everything else here is
+     * expressed in terms of it.
+     * <p>
+     * {@code sourceSetOfRequest} is the set that is asking, and an implementation is expected to honour it: when
+     * one fully-qualified name is held by more than one source set, the answer is the one nearest the requester.
+     */
+    TypeInfo typeIfLoaded(String fullyQualifiedName, SourceSet sourceSetOfRequest);
 
-    default TypeInfo getOrLoad(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
-        return get(fullyQualifiedName, sourceSetOfRequest);
+    /** The peek by class literal; {@link #javaBase()} is the right source set for the JDK types it is used on. */
+    default TypeInfo typeIfLoaded(Class<?> clazz) {
+        return typeIfLoaded(clazz.getCanonicalName(), javaBase());
     }
 
+    /**
+     * @deprecated the name reads like the general accessor and is not: it answers only from what has already been
+     * registered, and says nothing for everything else. Call {@link #type(String, SourceSet)} to resolve a type,
+     * or {@link #typeIfLoaded(String, SourceSet)} when the question really is "is it already here?".
+     */
+    @Deprecated
+    default TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        return typeIfLoaded(fullyQualifiedName, sourceSetOfRequest);
+    }
+
+    /**
+     * The type this fully-qualified name denotes for the given source set, or null: the accessor to reach for.
+     * Answers from the registry when the type is already there and loads it from bytecode otherwise, so a caller
+     * does not have to know which of the two applies — that is an implementation's business, and in the openjdk
+     * front end the load is a rare tail (single digits over a whole test module; zero over most).
+     * <p>
+     * {@code sourceSetOfRequest} is the set that is asking. It decides which class path the name is resolved
+     * against, and which of two same-named types is the nearer one — see
+     * {@code JavaInspectorImpl.loadCompiledTypeOrNull}.
+     */
+    default TypeInfo type(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        // no loading of its own: an implementation that cannot read bytecode (the stubs this interface is full of)
+        // answers from the registry, exactly as the old getOrLoad default did. Overridden where a load is possible.
+        return typeIfLoaded(fullyQualifiedName, sourceSetOfRequest);
+    }
+
+    default TypeInfo type(Class<?> clazz, SourceSet sourceSetOfRequest) {
+        return type(clazz.getCanonicalName(), sourceSetOfRequest);
+    }
+
+    /** The JDK types a caller reaches for by class literal; {@link #javaBase()} is the right source set for those. */
+    default TypeInfo type(Class<?> clazz) {
+        return type(clazz.getCanonicalName(), javaBase());
+    }
+
+    /**
+     * @deprecated renamed to {@link #type(String, SourceSet)}: "OrLoad" names a rare tail (the bytecode load) in
+     * what is the primary accessor, which is why it reads wrong at every call site.
+     */
+    @Deprecated
+    default TypeInfo getOrLoad(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        return type(fullyQualifiedName, sourceSetOfRequest);
+    }
+
+    /** @deprecated renamed to {@link #type(Class, SourceSet)}. */
+    @Deprecated
     default TypeInfo getOrLoad(Class<?> clazz, SourceSet sourceSetOfRequest) {
         return getOrLoad(clazz.getCanonicalName(), sourceSetOfRequest);
     }
 
+    /** @deprecated renamed to {@link #type(Class)}. */
+    @Deprecated
     default TypeInfo getOrLoad(Class<?> clazz) {
         return getOrLoad(clazz.getCanonicalName(), javaBase());
     }

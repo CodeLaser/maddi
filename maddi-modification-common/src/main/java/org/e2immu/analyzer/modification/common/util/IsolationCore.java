@@ -292,7 +292,7 @@ abstract class IsolationCore {
         if (typeInfo.isAnnotation()) {
             // an annotation type must implement java.lang.annotation.Annotation (asserted on commit)
             TypeInfo annotation = javaInspector.compiledTypesManager()
-                    .getOrLoad(java.lang.annotation.Annotation.class);
+                    .type(java.lang.annotation.Annotation.class);
             stub.builder().addInterfaceImplemented(annotation.asSimpleParameterizedType());
         } else {
             // reproduce implemented/extended interfaces, so the subtype edges they create hold in the stubs
@@ -372,7 +372,7 @@ abstract class IsolationCore {
      * every stub of an enum was a class.
      */
     private ParameterizedType enumParentOf(TypeInfo enumStub) {
-        TypeInfo enumType = javaInspector.compiledTypesManager().getOrLoad(Enum.class);
+        TypeInfo enumType = javaInspector.compiledTypesManager().type(Enum.class);
         return runtime.newParameterizedType(enumType, List.of(enumStub.asSimpleParameterizedType()));
     }
 

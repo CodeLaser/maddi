@@ -51,7 +51,7 @@ public class RuntimeWithCompiledTypesManager extends RuntimeImpl {
 
     @Override
     public TypeInfo getFullyQualified(String name, boolean complain, SourceSet sourceSetOfRequest) {
-        TypeInfo typeInfo = compiledTypesManager.getOrLoad(name, sourceSetOfRequest);
+        TypeInfo typeInfo = compiledTypesManager.type(name, sourceSetOfRequest);
         if (typeInfo == null && complain) {
             throw new UnsupportedOperationException(
                     "Cannot find " + name + "; request by source set " + sourceSetOfRequest);
@@ -80,14 +80,14 @@ public class RuntimeWithCompiledTypesManager extends RuntimeImpl {
                 default -> null;
             };
         }
-        if (clazz != null) return compiledTypesManager.getOrLoad(clazz);
+        if (clazz != null) return compiledTypesManager.type(clazz);
         return generateSyntheticFunction(inputParameters, hasReturnValue);
     }
 
     private TypeInfo generateSyntheticFunction(int inputParameters, boolean hasReturnValue) {
         String name = hasReturnValue ? SYNTHETIC_FUNCTION : SYNTHETIC_CONSUMER;
         String fqn = "_internal_." + name;
-        TypeInfo get = compiledTypesManager.get(fqn, null);
+        TypeInfo get = compiledTypesManager.typeIfLoaded(fqn, null);
         if (get != null) return get;
 
         CompilationUnit cu = newCompilationUnitBuilder()

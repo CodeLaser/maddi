@@ -108,7 +108,7 @@ public class TestStreamMapSpec extends CommonTest {
             LinkComputerImpl lc = new LinkComputerImpl(javaInspector);
             cache = new HashMap<>();
             c.methodStream().forEach(m -> cache.put(m.name(), lc.doMethod(m)));
-            MethodInfo mapM = javaInspector.compiledTypesManager().get(Stream.class).findUniqueMethod("map", 1);
+            MethodInfo mapM = javaInspector.compiledTypesManager().typeIfLoaded(Stream.class).findUniqueMethod("map", 1);
             cache.put("Stream.map", mapM.analysis().getOrCreate(MethodLinkedVariablesImpl.METHOD_LINKS,
                     () -> lc.doMethod(mapM)));
         }

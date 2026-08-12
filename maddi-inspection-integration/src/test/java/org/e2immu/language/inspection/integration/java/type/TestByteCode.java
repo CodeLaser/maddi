@@ -75,7 +75,7 @@ public class TestByteCode extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = javaInspector.compiledTypesManager().getOrLoad(AbstractMockMvcBuilder.class,
+        TypeInfo typeInfo = javaInspector.compiledTypesManager().type(AbstractMockMvcBuilder.class,
                 javaInspector.mainSources());
         assertEquals("""
                 B=TP#0 in AbstractMockMvcBuilder [Type org.springframework.test.web.servlet.setup.AbstractMockMvcBuilder<\
@@ -92,7 +92,7 @@ public class TestByteCode extends CommonTest {
 
     @Test
     public void testThrows() {
-        TypeInfo typeInfo = javaInspector.compiledTypesManager().getOrLoad(FileOutputStream.class);
+        TypeInfo typeInfo = javaInspector.compiledTypesManager().type(FileOutputStream.class);
         MethodInfo close = typeInfo.findUniqueMethod("close", 0);
         assertEquals("java.io.FileOutputStream.close()", close.fullyQualifiedName());
         assertEquals("Type java.io.IOException", close.exceptionTypes().getFirst().toString());
@@ -100,7 +100,7 @@ public class TestByteCode extends CommonTest {
 
     @Test
     public void testThrows2() {
-        TypeInfo typeInfo = javaInspector.compiledTypesManager().getOrLoad("java.lang.ScopedValue",
+        TypeInfo typeInfo = javaInspector.compiledTypesManager().type("java.lang.ScopedValue",
                 null);
         TypeInfo carrier = typeInfo.findSubType("Carrier");
         MethodInfo close = carrier.findUniqueMethod("call", 1);
@@ -110,7 +110,7 @@ public class TestByteCode extends CommonTest {
 
     @Test
     public void testLongRotateRight() {
-        TypeInfo typeInfo = javaInspector.compiledTypesManager().getOrLoad(Long.class);
+        TypeInfo typeInfo = javaInspector.compiledTypesManager().type(Long.class);
         MethodInfo rotateRight = typeInfo.findUniqueMethod("rotateRight", 2);
         assertEquals("java.lang.Long.rotateRight(long,int)", rotateRight.fullyQualifiedName());
         assertEquals("i", rotateRight.parameters().getFirst().name());
@@ -120,7 +120,7 @@ public class TestByteCode extends CommonTest {
 
     @Test
     public void testOverrides() {
-        TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
+        TypeInfo arrayList = javaInspector.compiledTypesManager().type(ArrayList.class);
         assertEquals("java.util.AbstractList<E>", arrayList.parentClass().fullyQualifiedName());
         assertEquals("""
                 Type Cloneable, Type java.io.Serializable, Type java.util.List<E>, Type java.util.RandomAccess\

@@ -49,7 +49,7 @@ public class TestIndependentOfEnum extends CommonTest {
         FieldInfo A = E.getFieldByName("A", true);
         assertFalse(A.type().typeInfo().isExtensible());
 
-        TypeInfo enumType = javaInspector.compiledTypesManager().getOrLoad(Enum.class);
+        TypeInfo enumType = javaInspector.compiledTypesManager().type(Enum.class);
         assertTrue(enumType.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT).isIndependent());
 
         List<Info> ao = prepWork(E);

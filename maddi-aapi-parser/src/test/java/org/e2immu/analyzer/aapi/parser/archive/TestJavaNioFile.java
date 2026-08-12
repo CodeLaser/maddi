@@ -38,7 +38,7 @@ public class TestJavaNioFile extends CommonTest {
 
     @Test
     public void testFilesWalkFileTree() {
-        TypeInfo typeInfo = compiledTypesManager().get(Files.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Files.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("walkFileTree", 4);
         assertTrue(methodInfo.allowsInterrupts());
         assertFalse(methodInfo.isModifying());
@@ -50,7 +50,7 @@ public class TestJavaNioFile extends CommonTest {
 
     @Test
     public void testFilesCreateFile() {
-        TypeInfo typeInfo = compiledTypesManager().get(Files.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Files.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("createFile", 2);
         assertTrue(methodInfo.allowsInterrupts());
         assertTrue(methodInfo.isModifying());
@@ -58,7 +58,7 @@ public class TestJavaNioFile extends CommonTest {
 
     @Test
     public void testFilesExists() {
-        TypeInfo typeInfo = compiledTypesManager().get(Files.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Files.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("exists", 2);
         assertTrue(methodInfo.allowsInterrupts());
         assertFalse(methodInfo.isModifying());

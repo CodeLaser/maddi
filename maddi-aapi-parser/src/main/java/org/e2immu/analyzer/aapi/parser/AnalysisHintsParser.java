@@ -102,7 +102,7 @@ public class AnalysisHintsParser implements AnnotationProvider {
         if (typeInfo.simpleName().endsWith("$")) {
             String simpleNameWithoutDollar = typeInfo.simpleName().substring(0, typeInfo.simpleName().length() - 1);
             String fqn = apiPackage + "." + simpleNameWithoutDollar;
-            TypeInfo targetType = compiledTypesManager.getOrLoad(fqn, typeInfo.compilationUnit().sourceSet());
+            TypeInfo targetType = compiledTypesManager.type(fqn, typeInfo.compilationUnit().sourceSet());
             if (targetType != null) {
                 assert targetType.compilationUnit().sourceSet().externalLibrary();
                 annotatedTypes++;

@@ -250,7 +250,7 @@ internal class KotlinTypeMapper(
             // getOrLoad lazily loads from bytecode), so java.* is ONE TypeInfo instance across the Java and
             // Kotlin front-ends. Cache it locally; fall back to the K2-based load when absent (standalone) or
             // when the manager doesn't know the type (a Kotlin-only stdlib type).
-            compiledTypesManager?.getOrLoad(jvmFqn, librarySourceSet)?.also {
+            compiledTypesManager?.type(jvmFqn, librarySourceSet)?.also {
                 // only register if absent: a SHARED registry (mixed setup) already holds this instance under its
                 // own (java.base) source set via the openjdk load, and re-putting the same instance trips the
                 // InfoByFqn duplicate assertion. Standalone: getType is null on first use, so we still cache.
@@ -354,7 +354,7 @@ internal class KotlinTypeMapper(
         // Rebuilding it here then commits a second time: "Trying to overwrite final value". This path was
         // reachable only once the manager actually had contents; while its lazy loader was dead in Kotlin-only
         // runs it always missed, which is why a `Type.staticMember` access never tripped it before.
-        compiledTypesManager?.getOrLoad(jvmFqn, librarySourceSet)?.let {
+        compiledTypesManager?.type(jvmFqn, librarySourceSet)?.let {
             if (infoByFqn.getType(jvmFqn, librarySourceSet) == null) infoByFqn.put(jvmFqn, it, librarySourceSet)
             return it
         }

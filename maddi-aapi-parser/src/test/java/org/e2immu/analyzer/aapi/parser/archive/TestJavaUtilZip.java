@@ -27,7 +27,7 @@ public class TestJavaUtilZip extends CommonTest {
 
     @Test
     public void testZipOutputStreamClose() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(ZipOutputStream.class);
+        TypeInfo typeInfo = compiledTypesManager().type(ZipOutputStream.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("close", 0);
 
         // must be "false" when the class is not present in the AAPI, and true otherwise
@@ -37,7 +37,7 @@ public class TestJavaUtilZip extends CommonTest {
 
     @Test
     public void testZipOutputStreamPutNextEntry() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(ZipOutputStream.class);
+        TypeInfo typeInfo = compiledTypesManager().type(ZipOutputStream.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("putNextEntry", 1);
         assertTrue(methodInfo.isModifying());
     }

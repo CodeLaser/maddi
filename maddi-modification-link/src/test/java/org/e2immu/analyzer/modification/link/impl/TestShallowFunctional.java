@@ -32,7 +32,7 @@ public class TestShallowFunctional extends CommonTest {
     @Test
     public void test5() {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
-        TypeInfo stream = javaInspector.compiledTypesManager().getOrLoad(BiFunction.class);
+        TypeInfo stream = javaInspector.compiledTypesManager().type(BiFunction.class);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         assertEquals("/ - /", vfc.compute(stream).toString());
 

@@ -30,7 +30,7 @@ public class TestJavaUtilRandom extends CommonTest {
 
     @Test
     public void testRandomGeneratorNextBytes() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(RandomGenerator.class);
+        TypeInfo typeInfo = compiledTypesManager().type(RandomGenerator.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("nextBytes", 1);
         assertTrue(methodInfo.isModifying());
 

@@ -50,7 +50,7 @@ public class TestPrefix extends CommonTest {
         MethodInfo one = C.findUniqueMethod("one", 2);
 
         // test Stream.of()
-        TypeInfo stream = javaInspector.compiledTypesManager().get(Stream.class);
+        TypeInfo stream = javaInspector.compiledTypesManager().typeIfLoaded(Stream.class);
         MethodInfo of1 = stream.methodStream()
                 .filter(m -> "of".equals(m.name()) && 1 == m.parameters().size()
                              && m.parameters().getFirst().parameterizedType().arrays() == 0)
@@ -62,7 +62,7 @@ public class TestPrefix extends CommonTest {
         // test SimpleEntry constructor
         // get(nested.class) resolves by canonical name, which the openjdk loader does not key nested types on;
         // fetch the enclosing type and navigate to the sub-type instead
-        TypeInfo simpleEntry = javaInspector.compiledTypesManager().get(AbstractMap.class).findSubType("SimpleEntry");
+        TypeInfo simpleEntry = javaInspector.compiledTypesManager().typeIfLoaded(AbstractMap.class).findSubType("SimpleEntry");
         MethodInfo constructor1 = simpleEntry.findConstructor(2);
         assertEquals("java.util.AbstractMap.SimpleEntry.<init>(Object,Object)", constructor1.fullyQualifiedName());
         MethodLinkedVariables tlvConstructor1 = constructor1.analysis()

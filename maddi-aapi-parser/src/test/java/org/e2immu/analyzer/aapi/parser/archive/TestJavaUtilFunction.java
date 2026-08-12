@@ -36,7 +36,7 @@ public class TestJavaUtilFunction extends CommonTest {
 
     @Test
     public void testConsumer() {
-        TypeInfo typeInfo = compiledTypesManager().get(Consumer.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Consumer.class);
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -45,7 +45,7 @@ public class TestJavaUtilFunction extends CommonTest {
 
     @Test
     public void testConsumerAccept() {
-        TypeInfo typeInfo = compiledTypesManager().get(Consumer.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Consumer.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("accept", 1);
         assertFalse(methodInfo.allowsInterrupts());
         assertTrue(methodInfo.isModifying());
@@ -61,7 +61,7 @@ public class TestJavaUtilFunction extends CommonTest {
 
     @Test
     public void testFunction() {
-        TypeInfo typeInfo = compiledTypesManager().get(Function.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Function.class);
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -70,7 +70,7 @@ public class TestJavaUtilFunction extends CommonTest {
 
     @Test
     public void testFunctionAccept() {
-        TypeInfo typeInfo = compiledTypesManager().get(Function.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Function.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("apply", 1);
         assertFalse(methodInfo.allowsInterrupts());
         assertTrue(methodInfo.isModifying());
@@ -87,7 +87,7 @@ public class TestJavaUtilFunction extends CommonTest {
 
     @Test
     public void testSupplier() {
-        TypeInfo typeInfo = compiledTypesManager().get(Supplier.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Supplier.class);
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -96,7 +96,7 @@ public class TestJavaUtilFunction extends CommonTest {
 
     @Test
     public void testSupplierGet() {
-        TypeInfo typeInfo = compiledTypesManager().get(Supplier.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Supplier.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("get", 0);
         assertFalse(methodInfo.allowsInterrupts());
         assertTrue(methodInfo.isModifying());
@@ -105,7 +105,7 @@ public class TestJavaUtilFunction extends CommonTest {
 
     @Test
     public void testPredicateTest() {
-        TypeInfo typeInfo = compiledTypesManager().get(Predicate.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Predicate.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("test", 1);
         assertFalse(methodInfo.allowsInterrupts());
         assertTrue(methodInfo.isModifying());
@@ -124,7 +124,7 @@ public class TestJavaUtilFunction extends CommonTest {
 
     @Test
     public void testBiConsumerAccept() {
-        TypeInfo typeInfo = compiledTypesManager().get(BiConsumer.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(BiConsumer.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("accept", 2);
         assertEquals("java.util.function.BiConsumer.accept(Object,Object)", methodInfo.fullyQualifiedName());
         ParameterizedType u = methodInfo.parameters().get(1).parameterizedType();
@@ -136,20 +136,20 @@ public class TestJavaUtilFunction extends CommonTest {
     // be non-modifying (unlike the SAM apply/accept/test, which may modify their input argument).
     @Test
     public void testDefaultHelpersNonModifying() {
-        assertFalse(compiledTypesManager().get(Function.class).findUniqueMethod("andThen", 1).isModifying());
-        assertFalse(compiledTypesManager().get(Function.class).findUniqueMethod("compose", 1).isModifying());
-        assertFalse(compiledTypesManager().get(Consumer.class).findUniqueMethod("andThen", 1).isModifying());
-        assertFalse(compiledTypesManager().get(BiConsumer.class).findUniqueMethod("andThen", 1).isModifying());
-        assertFalse(compiledTypesManager().get(Predicate.class).findUniqueMethod("and", 1).isModifying());
-        assertFalse(compiledTypesManager().get(Predicate.class).findUniqueMethod("or", 1).isModifying());
-        assertFalse(compiledTypesManager().get(Predicate.class).findUniqueMethod("negate", 0).isModifying());
-        assertFalse(compiledTypesManager().get(BiPredicate.class).findUniqueMethod("negate", 0).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(Function.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(Function.class).findUniqueMethod("compose", 1).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(Consumer.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(BiConsumer.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(Predicate.class).findUniqueMethod("and", 1).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(Predicate.class).findUniqueMethod("or", 1).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(Predicate.class).findUniqueMethod("negate", 0).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(BiPredicate.class).findUniqueMethod("negate", 0).isModifying());
     }
 
     // Predicate was missing the type-level @Independent(hc=true) all its siblings carry.
     @Test
     public void testPredicateIndependentHc() {
-        TypeInfo typeInfo = compiledTypesManager().get(Predicate.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Predicate.class);
         assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
     }
 
@@ -162,7 +162,7 @@ public class TestJavaUtilFunction extends CommonTest {
                 IntPredicate.class, LongPredicate.class, DoublePredicate.class,
                 IntUnaryOperator.class, LongUnaryOperator.class, DoubleUnaryOperator.class,
                 IntConsumer.class, LongConsumer.class, DoubleConsumer.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT),
                     () -> c.getSimpleName() + " should be @Independent(hc=true)");
         }
@@ -183,7 +183,7 @@ public class TestJavaUtilFunction extends CommonTest {
                 ObjLongConsumer.class, Predicate.class, Supplier.class, ToDoubleBiFunction.class,
                 ToDoubleFunction.class, ToIntBiFunction.class, ToIntFunction.class, ToLongBiFunction.class,
                 ToLongFunction.class, UnaryOperator.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT),
                     () -> c.getSimpleName() + " should be @Independent(hc=true)");
         }
@@ -194,24 +194,24 @@ public class TestJavaUtilFunction extends CommonTest {
     // ObjIntConsumer stays unmodified.
     @Test
     public void testGenericInputSamsAreModified() {
-        assertTrue(compiledTypesManager().get(ToIntFunction.class).findUniqueMethod("applyAsInt", 1)
+        assertTrue(compiledTypesManager().typeIfLoaded(ToIntFunction.class).findUniqueMethod("applyAsInt", 1)
                 .parameters().getFirst().isModified());
-        ParameterInfo p0 = compiledTypesManager().get(ObjIntConsumer.class).findUniqueMethod("accept", 2)
+        ParameterInfo p0 = compiledTypesManager().typeIfLoaded(ObjIntConsumer.class).findUniqueMethod("accept", 2)
                 .parameters().getFirst();
         assertTrue(p0.isModified(), "ObjIntConsumer.accept T param must be @Modified");
-        assertTrue(compiledTypesManager().get(ToIntBiFunction.class).findUniqueMethod("applyAsInt", 2)
+        assertTrue(compiledTypesManager().typeIfLoaded(ToIntBiFunction.class).findUniqueMethod("applyAsInt", 2)
                 .parameters().get(1).isModified());
     }
 
     @Test
     public void testBiFunctionAndFriendsDefaultHelpersNonModifying() {
-        assertFalse(compiledTypesManager().get(BiFunction.class).findUniqueMethod("andThen", 1).isModifying());
-        assertFalse(compiledTypesManager().get(IntPredicate.class).findUniqueMethod("and", 1).isModifying());
-        assertFalse(compiledTypesManager().get(IntPredicate.class).findUniqueMethod("negate", 0).isModifying());
-        assertFalse(compiledTypesManager().get(IntUnaryOperator.class).findUniqueMethod("andThen", 1).isModifying());
-        assertFalse(compiledTypesManager().get(IntUnaryOperator.class).findUniqueMethod("compose", 1).isModifying());
-        assertFalse(compiledTypesManager().get(DoubleConsumer.class).findUniqueMethod("andThen", 1).isModifying());
-        assertFalse(compiledTypesManager().get(LongPredicate.class).findUniqueMethod("or", 1).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(BiFunction.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(IntPredicate.class).findUniqueMethod("and", 1).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(IntPredicate.class).findUniqueMethod("negate", 0).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(IntUnaryOperator.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(IntUnaryOperator.class).findUniqueMethod("compose", 1).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(DoubleConsumer.class).findUniqueMethod("andThen", 1).isModifying());
+        assertFalse(compiledTypesManager().typeIfLoaded(LongPredicate.class).findUniqueMethod("or", 1).isModifying());
     }
 
 }

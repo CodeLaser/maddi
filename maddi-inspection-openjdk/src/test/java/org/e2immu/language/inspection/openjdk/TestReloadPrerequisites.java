@@ -132,6 +132,6 @@ public class TestReloadPrerequisites {
     }
 
     private TypeInfo ctmGet(String fqn) {
-        return javaInspector.compiledTypesManager().get(fqn, sourceSet);
+        return javaInspector.compiledTypesManager().typeIfLoaded(fqn, sourceSet);
     }
 }

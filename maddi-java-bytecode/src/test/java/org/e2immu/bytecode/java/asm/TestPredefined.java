@@ -25,7 +25,7 @@ public class TestPredefined extends CommonJmodBaseTests {
     @Test
     public void test() {
         TypeInfo string = runtime.stringTypeInfo();
-        TypeInfo string2 = compiledTypesManager.get(String.class);
+        TypeInfo string2 = compiledTypesManager.typeIfLoaded(String.class);
         assertSame(string, string2);
         CompiledTypesManager.TypeData typeData = compiledTypesManager.typeDataOrNull("java.lang.String",
                 compiledTypesManager.javaBase(), null, false);

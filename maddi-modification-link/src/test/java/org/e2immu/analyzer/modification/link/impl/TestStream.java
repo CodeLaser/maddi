@@ -56,9 +56,9 @@ public class TestStream extends CommonTest {
     @Test
     public void test1() {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(List.class);
         linkComputer.doPrimaryType(list);
-        TypeInfo stream = javaInspector.compiledTypesManager().getOrLoad(Stream.class);
+        TypeInfo stream = javaInspector.compiledTypesManager().type(Stream.class);
         linkComputer.doPrimaryType(stream);
 
         TypeInfo X = javaInspector.parse("a.b.X", INPUT1);

@@ -47,7 +47,7 @@ public class TestFunction extends CommonTest {
         tlc.doPrimaryType(C);
 
         MethodInfo method = C.findUniqueMethod("method", 1);
-        TypeInfo optional = javaInspector.compiledTypesManager().get(Optional.class);
+        TypeInfo optional = javaInspector.compiledTypesManager().typeIfLoaded(Optional.class);
         MethodInfo map = optional.findUniqueMethod("map", 1);
         MethodLinkedVariables tlvMap = map.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);

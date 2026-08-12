@@ -220,7 +220,7 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
     }
 
     private void testImmutable(TypeInfo X) {
-        TypeInfo exception = javaInspector.compiledTypesManager().get(Exception.class);
+        TypeInfo exception = javaInspector.compiledTypesManager().typeIfLoaded(Exception.class);
         assertTrue(exception.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE).isMutable());
 
         TypeInfo exit = X.findSubType("Exit");

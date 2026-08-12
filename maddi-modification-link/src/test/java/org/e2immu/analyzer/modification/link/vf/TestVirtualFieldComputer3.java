@@ -29,7 +29,7 @@ public class TestVirtualFieldComputer3 extends CommonTest {
     @Test
     public void mutablePlainClass() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        TypeInfo stringBuilder = javaInspector.compiledTypesManager().getOrLoad(StringBuilder.class);
+        TypeInfo stringBuilder = javaInspector.compiledTypesManager().type(StringBuilder.class);
         VirtualFields vf = vfc.compute(stringBuilder);
         assertNotNull(vf.mutable(), "StringBuilder is mutable -> §m expected");
         assertEquals("java.lang.StringBuilder", vf.mutable().owner().fullyQualifiedName());
@@ -41,9 +41,9 @@ public class TestVirtualFieldComputer3 extends CommonTest {
     @Test
     public void immutablePlainClass() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        TypeInfo string = javaInspector.compiledTypesManager().getOrLoad(String.class);
+        TypeInfo string = javaInspector.compiledTypesManager().type(String.class);
         assertNull(vfc.compute(string).mutable(), "String is immutable -> no §m");
-        TypeInfo integer = javaInspector.compiledTypesManager().getOrLoad(Integer.class);
+        TypeInfo integer = javaInspector.compiledTypesManager().type(Integer.class);
         assertNull(vfc.compute(integer).mutable(), "Integer is immutable -> no §m");
     }
 
@@ -53,7 +53,7 @@ public class TestVirtualFieldComputer3 extends CommonTest {
     @Test
     public void utilityClass() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        TypeInfo math = javaInspector.compiledTypesManager().getOrLoad(Math.class);
+        TypeInfo math = javaInspector.compiledTypesManager().type(Math.class);
         assertEquals(VirtualFields.NONE, vfc.compute(math));
     }
 
@@ -84,7 +84,7 @@ public class TestVirtualFieldComputer3 extends CommonTest {
     @Test
     public void functionalInterfaceOutsideJavaUtilFunction() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        TypeInfo runnable = javaInspector.compiledTypesManager().getOrLoad(Runnable.class);
+        TypeInfo runnable = javaInspector.compiledTypesManager().type(Runnable.class);
         assertTrue(runnable.isFunctionalInterface(), "Runnable is a functional interface");
 
         // INCONSISTENCY #3 (see virtual-fields.md), deliberately left in place: compute() only short-circuits the
@@ -103,7 +103,7 @@ public class TestVirtualFieldComputer3 extends CommonTest {
     @Test
     public void needsVirtualFunctionInJavaUtilFunction() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        TypeInfo function = javaInspector.compiledTypesManager().getOrLoad(java.util.function.Function.class);
+        TypeInfo function = javaInspector.compiledTypesManager().type(java.util.function.Function.class);
         assertEquals(VirtualFields.NONE, vfc.compute(function));
         assertFalse(Util.needsVirtual(function.asParameterizedType()));
     }
@@ -113,7 +113,7 @@ public class TestVirtualFieldComputer3 extends CommonTest {
     public void functionalInterfaceInJavaUtilFunction() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         TypeInfo function = javaInspector.compiledTypesManager()
-                .getOrLoad(java.util.function.Function.class);
+                .type(java.util.function.Function.class);
         assertEquals(VirtualFields.NONE, vfc.compute(function));
     }
 
@@ -123,7 +123,7 @@ public class TestVirtualFieldComputer3 extends CommonTest {
     @Test
     public void comparable() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        TypeInfo comparable = javaInspector.compiledTypesManager().getOrLoad(Comparable.class);
+        TypeInfo comparable = javaInspector.compiledTypesManager().type(Comparable.class);
         assertEquals(0, vfc.maxMultiplicityFromMethods(comparable));
         assertEquals(VirtualFields.NONE, vfc.compute(comparable));
     }
@@ -195,13 +195,13 @@ public class TestVirtualFieldComputer3 extends CommonTest {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
         // List<E> -> hidden content E[] -> {E}
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(List.class);
         Set<TypeParameter> listTps = VirtualFieldComputer.collectTypeParametersFromVirtualField(
                 vfc.compute(list).hiddenContent().type());
         assertEquals(Set.of("E"), listTps.stream().map(TypeParameter::simpleName).collect(Collectors.toSet()));
 
         // Map<K,V> -> hidden content §KV[] (container with §k:K, §v:V) -> {K, V}
-        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
+        TypeInfo map = javaInspector.compiledTypesManager().type(Map.class);
         Set<TypeParameter> mapTps = VirtualFieldComputer.collectTypeParametersFromVirtualField(
                 vfc.compute(map).hiddenContent().type());
         assertEquals(Set.of("K", "V"), mapTps.stream().map(TypeParameter::simpleName).collect(Collectors.toSet()));

@@ -78,7 +78,7 @@ public class TestIndependentRewire extends CommonTest {
 
         // a method of a type that was not rewired passes through untouched -- the java.lang.Iterable case
         MethodInfo libraryMethod = javaInspector.compiledTypesManager()
-                .getOrLoad("java.util.Iterator", null).findUniqueMethod("remove", 0);
+                .type("java.util.Iterator", null).findUniqueMethod("remove", 0);
         Value.Independent viaLibrary = new ValueImpl.IndependentImpl(2, Map.of(), List.of(libraryMethod));
         assertSame(libraryMethod, ((Value.Independent) viaLibrary.rewire(infoMap)).dependentMethods().getFirst());
     }

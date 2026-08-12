@@ -49,7 +49,7 @@ public class TestJavaUtilConcurrent extends CommonTest {
         for (Class<?> c : new Class<?>[]{
                 ConcurrentHashMap.class, ConcurrentMap.class, CompletableFuture.class, CompletionStage.class,
                 Future.class, Executor.class, ExecutorService.class, ThreadFactory.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
                     () -> c.getSimpleName() + " should be a @Container");
         }
@@ -59,7 +59,7 @@ public class TestJavaUtilConcurrent extends CommonTest {
     @Test
     public void testFuturesIndependentHc() {
         for (Class<?> c : new Class<?>[]{Future.class, CompletableFuture.class, CompletionStage.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT),
                     () -> c.getSimpleName() + " should be @Independent(hc=true)");
         }
@@ -70,26 +70,26 @@ public class TestJavaUtilConcurrent extends CommonTest {
     @Test
     public void testFutureQueriesNonModifying() {
         for (Class<?> c : new Class<?>[]{Future.class, CompletableFuture.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertFalse(typeInfo.findUniqueMethod("isDone", 0).isModifying(),
                     () -> c.getSimpleName() + ".isDone() must be non-modifying");
             assertFalse(typeInfo.findUniqueMethod("get", 0).isModifying(),
                     () -> c.getSimpleName() + ".get() must be non-modifying");
         }
-        TypeInfo cf = compiledTypesManager().get(CompletableFuture.class);
+        TypeInfo cf = compiledTypesManager().typeIfLoaded(CompletableFuture.class);
         assertFalse(cf.findUniqueMethod("join", 0).isModifying(), "CompletableFuture.join() must be non-modifying");
         assertTrue(cf.findUniqueMethod("complete", 1).isModifying(), "CompletableFuture.complete() modifies");
 
         // ConcurrentHashMap's own read methods (not inherited from Map) must also be non-modifying.
-        TypeInfo chm = compiledTypesManager().get(ConcurrentHashMap.class);
+        TypeInfo chm = compiledTypesManager().typeIfLoaded(ConcurrentHashMap.class);
         assertFalse(chm.findUniqueMethod("mappingCount", 0).isModifying(), "mappingCount() must be non-modifying");
     }
 
     // ConcurrentHashMap(Map) copies entries, so the source-map parameter is @Independent(hc=true).
     @Test
     public void testConcurrentHashMapCopyConstructor() {
-        TypeInfo typeInfo = compiledTypesManager().get(ConcurrentHashMap.class);
-        MethodInfo constructor = typeInfo.findConstructor(compiledTypesManager().get(Map.class));
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(ConcurrentHashMap.class);
+        MethodInfo constructor = typeInfo.findConstructor(compiledTypesManager().typeIfLoaded(Map.class));
         ParameterInfo p0 = constructor.parameters().getFirst();
         assertFalse(p0.isModified());
         assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));

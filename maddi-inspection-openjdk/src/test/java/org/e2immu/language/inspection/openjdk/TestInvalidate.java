@@ -340,7 +340,7 @@ public class TestInvalidate {
         TypeInfo anonymousInBody = anonymousClassIn(pr2.findType(USER_FQN), "supplier");
         assertNotNull(anonymousInBody);
         assertEquals("c.d.User.$0", anonymousInBody.fullyQualifiedName());
-        assertSame(anonymousInBody, javaInspector.compiledTypesManager().get("c.d.User.$0", dependent),
+        assertSame(anonymousInBody, javaInspector.compiledTypesManager().typeIfLoaded("c.d.User.$0", dependent),
                 "the registry must hand out the anonymous type that the rewired body actually holds");
     }
 
@@ -384,7 +384,7 @@ public class TestInvalidate {
         ParseResult pr2 = reparse(ti -> "User".equals(ti.simpleName()) ? REWIRE : UNCHANGED);
         TypeInfo user2 = pr2.findType(USER_FQN);
 
-        assertSame(user2, javaInspector.compiledTypesManager().get(USER_FQN, dependent),
+        assertSame(user2, javaInspector.compiledTypesManager().typeIfLoaded(USER_FQN, dependent),
                 "the CompiledTypesManager must resolve to the rewired object");
     }
 }

@@ -52,8 +52,8 @@ public class TestTranslate extends CommonTest {
     @Test
     public void test1() {
         TypeInfo X = javaInspector.parse(INPUT1);
-        TypeInfo clazz = javaInspector.compiledTypesManager().getOrLoad(Class.class);
-        TypeInfo typeDescriptor = javaInspector.compiledTypesManager().getOrLoad(TypeDescriptor.class);
+        TypeInfo clazz = javaInspector.compiledTypesManager().type(Class.class);
+        TypeInfo typeDescriptor = javaInspector.compiledTypesManager().type(TypeDescriptor.class);
         TypeInfo typeDescriptorOfField = typeDescriptor.findSubType("OfField");
         assertTrue(clazz.interfacesImplemented().stream()
                 .anyMatch(ii -> ii.typeInfo() == typeDescriptorOfField));

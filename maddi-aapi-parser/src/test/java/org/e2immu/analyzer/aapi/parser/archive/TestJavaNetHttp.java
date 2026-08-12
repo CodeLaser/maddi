@@ -38,7 +38,7 @@ public class TestJavaNetHttp extends CommonTest {
 
     @Test
     public void testHttpRequestNewBuilder() {
-        TypeInfo typeInfo = compiledTypesManager().get(HttpRequest.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(HttpRequest.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("newBuilder", 0);
         assertFalse(methodInfo.allowsInterrupts());
         assertFalse(methodInfo.isModifying());
@@ -48,8 +48,8 @@ public class TestJavaNetHttp extends CommonTest {
 
     @Test
     public void testHttpRequestNewBuilderUri() {
-        TypeInfo uri = compiledTypesManager().get(URI.class);
-        TypeInfo typeInfo = compiledTypesManager().get(HttpRequest.class);
+        TypeInfo uri = compiledTypesManager().typeIfLoaded(URI.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(HttpRequest.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("newBuilder", uri);
 
         assertFalse(methodInfo.allowsInterrupts());
@@ -64,7 +64,7 @@ public class TestJavaNetHttp extends CommonTest {
 
     @Test
     public void testHttpRequestBuilderGET() {
-        TypeInfo typeInfo = compiledTypesManager().get(HttpRequest.class).findSubType("Builder");
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(HttpRequest.class).findSubType("Builder");
         MethodInfo methodInfo = typeInfo.findUniqueMethod("GET", 0);
         testFluent(methodInfo);
         testCommutable(methodInfo);
@@ -72,7 +72,7 @@ public class TestJavaNetHttp extends CommonTest {
 
     @Test
     public void testHttpRequestBuilderUri() {
-        TypeInfo typeInfo = compiledTypesManager().get(HttpRequest.class).findSubType("Builder");
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(HttpRequest.class).findSubType("Builder");
         MethodInfo methodInfo = typeInfo.findUniqueMethod("uri", 1);
         testFluent(methodInfo);
         testCommutable(methodInfo);
@@ -80,7 +80,7 @@ public class TestJavaNetHttp extends CommonTest {
 
     @Test
     public void testHttpRequestBuilderTimeout() {
-        TypeInfo typeInfo = compiledTypesManager().get(HttpRequest.class).findSubType("Builder");
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(HttpRequest.class).findSubType("Builder");
         MethodInfo methodInfo = typeInfo.findUniqueMethod("timeout", 1);
         testFluent(methodInfo);
         testCommutable(methodInfo);
@@ -97,7 +97,7 @@ public class TestJavaNetHttp extends CommonTest {
     // HttpResponse<T> is an immutable read-only view of a response -> @Immutable(hc=true) + @Container.
     @Test
     public void testHttpResponseImmutableContainer() {
-        TypeInfo typeInfo = compiledTypesManager().get(HttpResponse.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(HttpResponse.class);
         Value.Immutable imm = (Value.Immutable) typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE);
         assertTrue(imm.isAtLeastImmutableHC());
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));

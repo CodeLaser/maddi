@@ -85,7 +85,7 @@ public class TestLazyLoaderSourceSet {
     @Test
     public void requestingSetsOwnClassPathIsUsed() throws IOException {
         Fixture f = parse();
-        TypeInfo slf4j = f.javaInspector.compiledTypesManager().getOrLoad(SLF4J_TYPE, f.withSlf4j);
+        TypeInfo slf4j = f.javaInspector.compiledTypesManager().type(SLF4J_TYPE, f.withSlf4j);
         assertNotNull(slf4j, SLF4J_TYPE + " is on with-slf4j's class path and must resolve for it, whatever was"
                              + " scanned last");
     }
@@ -98,7 +98,7 @@ public class TestLazyLoaderSourceSet {
     @Test
     public void aTypeOutsideTheRequestingSetsClassPathIsAMiss() throws IOException {
         Fixture f = parse();
-        TypeInfo slf4j = f.javaInspector.compiledTypesManager().getOrLoad(OTHER_SLF4J_TYPE, f.withOpentest4j);
+        TypeInfo slf4j = f.javaInspector.compiledTypesManager().type(OTHER_SLF4J_TYPE, f.withOpentest4j);
         assertNull(slf4j, OTHER_SLF4J_TYPE + " is not on with-opentest4j's class path");
     }
 
@@ -106,15 +106,15 @@ public class TestLazyLoaderSourceSet {
     @Test
     public void theLastScannedSetKeepsItsOwnClassPath() throws IOException {
         Fixture f = parse();
-        assertNotNull(f.javaInspector.compiledTypesManager().getOrLoad(OPENTEST4J_TYPE, f.withOpentest4j));
+        assertNotNull(f.javaInspector.compiledTypesManager().type(OPENTEST4J_TYPE, f.withOpentest4j));
     }
 
     /** java.base is on both class paths: neither set may lose it. */
     @Test
     public void aSharedDependencyResolvesForEitherSet() throws IOException {
         Fixture f = parse();
-        assertNotNull(f.javaInspector.compiledTypesManager().getOrLoad("java.util.List", f.withSlf4j));
-        assertNotNull(f.javaInspector.compiledTypesManager().getOrLoad("java.util.Map", f.withOpentest4j));
+        assertNotNull(f.javaInspector.compiledTypesManager().type("java.util.List", f.withSlf4j));
+        assertNotNull(f.javaInspector.compiledTypesManager().type("java.util.Map", f.withOpentest4j));
     }
 
     /**
@@ -125,10 +125,10 @@ public class TestLazyLoaderSourceSet {
     public void nestedTypesFollowTheRequestingSetToo() throws IOException {
         Fixture f = parse();
         TypeInfo nested = f.javaInspector.compiledTypesManager()
-                .getOrLoad("org.slf4j.spi.LoggingEventBuilder", f.withSlf4j);
+                .type("org.slf4j.spi.LoggingEventBuilder", f.withSlf4j);
         assertNotNull(nested, "a with-slf4j-only type in a sub-package must resolve for with-slf4j");
         TypeInfo enclosed = f.javaInspector.compiledTypesManager()
-                .getOrLoad("org.slf4j.event.Level", f.withSlf4j);
+                .type("org.slf4j.event.Level", f.withSlf4j);
         assertNotNull(enclosed);
     }
 
@@ -145,14 +145,14 @@ public class TestLazyLoaderSourceSet {
 
         // with-slf4j is NOT the last-scanned set, so without strict mode a type only IT can see is still found
         // through its own task; and a type only the LAST set can see is found through the fall-back.
-        assertNotNull(impl.compiledTypesManager().getOrLoad(SLF4J_TYPE, f.withSlf4j));
-        assertNotNull(impl.compiledTypesManager().getOrLoad(OPENTEST4J_TYPE, f.withSlf4j),
+        assertNotNull(impl.compiledTypesManager().type(SLF4J_TYPE, f.withSlf4j));
+        assertNotNull(impl.compiledTypesManager().type(OPENTEST4J_TYPE, f.withSlf4j),
                 "the fall-back to the last scan's task is what keeps this change additive");
 
         impl.setStrictSourceSetLoading(true);
-        assertNull(impl.compiledTypesManager().getOrLoad("org.opentest4j.MultipleFailuresError", f.withSlf4j),
+        assertNull(impl.compiledTypesManager().type("org.opentest4j.MultipleFailuresError", f.withSlf4j),
                 "strict mode: with-slf4j's own class path is the only answer");
-        assertNotNull(impl.compiledTypesManager().getOrLoad(THIRD_SLF4J_TYPE, f.withSlf4j),
+        assertNotNull(impl.compiledTypesManager().type(THIRD_SLF4J_TYPE, f.withSlf4j),
                 "strict mode must not cost a set the types it can see itself");
     }
 }

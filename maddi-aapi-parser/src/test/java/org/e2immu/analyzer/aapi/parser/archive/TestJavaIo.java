@@ -35,13 +35,13 @@ import static org.junit.jupiter.api.Assertions.*;
 public class TestJavaIo extends CommonTest {
     @Test
     public void testSerializable() {
-        TypeInfo typeInfo = compiledTypesManager().get(Serializable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Serializable.class);
         testImmutableContainer(typeInfo, true);
     }
 
     @Test
     public void testPrintStream() {
-        TypeInfo typeInfo = compiledTypesManager().get(PrintStream.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(PrintStream.class);
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -49,7 +49,7 @@ public class TestJavaIo extends CommonTest {
 
     @Test
     public void testPrintStreamPrintInt() {
-        TypeInfo typeInfo = compiledTypesManager().get(PrintStream.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(PrintStream.class);
         TypeInfo intTypeInfo = runtime().intTypeInfo();
         MethodInfo methodInfo = typeInfo.findUniqueMethod("print", intTypeInfo);
         assertTrue(methodInfo.allowsInterrupts());
@@ -65,7 +65,7 @@ public class TestJavaIo extends CommonTest {
 
     @Test
     public void testPrintStreamPrintlnObject() {
-        TypeInfo typeInfo = compiledTypesManager().get(PrintStream.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(PrintStream.class);
         TypeInfo objectTypeInfo = runtime().objectTypeInfo();
         MethodInfo methodInfo = typeInfo.findUniqueMethod("println", objectTypeInfo);
         assertTrue(methodInfo.allowsInterrupts());
@@ -87,7 +87,7 @@ public class TestJavaIo extends CommonTest {
 
     @Test
     public void testWriterAppendChar() {
-        TypeInfo typeInfo = compiledTypesManager().get(Writer.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Writer.class);
         TypeInfo charTypeInfo = runtime().charTypeInfo();
         MethodInfo methodInfo = typeInfo.findUniqueMethod("append", charTypeInfo);
         assertEquals("java.io.Writer.append(char)", methodInfo.fullyQualifiedName());
@@ -98,7 +98,7 @@ public class TestJavaIo extends CommonTest {
 
     @Test
     public void testFilterOutputStream() {
-        TypeInfo typeInfo = compiledTypesManager().get(FilterOutputStream.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(FilterOutputStream.class);
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -106,7 +106,7 @@ public class TestJavaIo extends CommonTest {
 
     @Test
     public void testFilterOutputStreamConstructor() {
-        TypeInfo typeInfo = compiledTypesManager().get(FilterOutputStream.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(FilterOutputStream.class);
         MethodInfo methodInfo = typeInfo.findConstructor(1);
         assertTrue(methodInfo.isConstructor());
         assertFalse(methodInfo.isCompactConstructor());
@@ -120,7 +120,7 @@ public class TestJavaIo extends CommonTest {
 
     @Test
     public void testByteArrayOutputStreamToByteArray() {
-        TypeInfo typeInfo = compiledTypesManager().get(ByteArrayOutputStream.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(ByteArrayOutputStream.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("toByteArray", 0);
         assertFalse(methodInfo.allowsInterrupts());
 
@@ -132,7 +132,7 @@ public class TestJavaIo extends CommonTest {
 
     @Test
     public void testWriterWriteCharArray() {
-        TypeInfo typeInfo = compiledTypesManager().get(Writer.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Writer.class);
         MethodInfo methodInfo = typeInfo.methodStream()
                 .filter(mi -> "write".equals(mi.name())
                               && mi.parameters().size() == 1
@@ -151,7 +151,7 @@ public class TestJavaIo extends CommonTest {
 
     @Test
     public void testDataInputStreamReadUTF() {
-        TypeInfo typeInfo = compiledTypesManager().get(DataInputStream.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(DataInputStream.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("readUTF", 0);
 
         assertTrue(methodInfo.isModifying());
@@ -159,7 +159,7 @@ public class TestJavaIo extends CommonTest {
 
     @Test
     public void testInputStreamAvailable() {
-        TypeInfo typeInfo = compiledTypesManager().get(InputStream.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(InputStream.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("available", 0);
 
         assertFalse(methodInfo.isModifying());
@@ -171,7 +171,7 @@ public class TestJavaIo extends CommonTest {
     @Test
     public void testBufferedReaderWriterAreDependent() {
         for (Class<?> c : new Class<?>[]{BufferedReader.class, BufferedWriter.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE),
                     () -> c.getSimpleName() + " is mutable");
             assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT),
@@ -181,7 +181,7 @@ public class TestJavaIo extends CommonTest {
         }
 
         // the wrapped Reader parameter is itself dependent (it is linked into the BufferedReader)
-        TypeInfo br = compiledTypesManager().get(BufferedReader.class);
+        TypeInfo br = compiledTypesManager().typeIfLoaded(BufferedReader.class);
         MethodInfo constructor = br.findConstructor(1);
         ParameterInfo in = constructor.parameters().getFirst();
         assertSame(DEPENDENT, in.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));

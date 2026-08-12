@@ -289,7 +289,7 @@ public class TestIdentity extends CommonTest {
         List<Info> ao = prepWork(X);
         analyzer.go(ao);
 
-        TypeInfo objects = javaInspector.compiledTypesManager().getOrLoad(Objects.class);
+        TypeInfo objects = javaInspector.compiledTypesManager().type(Objects.class);
         MethodInfo requireNonNull = objects.findUniqueMethod("requireNonNull", 1);
         assertTrue(requireNonNull.isIdentity());
         MethodLinkedVariables mlvRnn = requireNonNull.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);

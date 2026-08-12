@@ -146,9 +146,9 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
     private void addLogField(TypeInfo typeInfo, String logClass, String logFactoryClassName, String logFactoryMethodName, boolean addGetName) {
         Source source = runtime.noSource();
         SourceSet sourceSetOfRequest = typeInfo.compilationUnit().sourceSet();
-        TypeInfo logType = compiledTypesManager.getOrLoad(logClass, sourceSetOfRequest);
+        TypeInfo logType = compiledTypesManager.type(logClass, sourceSetOfRequest);
         assert logType != null;
-        TypeInfo logFactory = compiledTypesManager.getOrLoad(logFactoryClassName, sourceSetOfRequest);
+        TypeInfo logFactory = compiledTypesManager.type(logFactoryClassName, sourceSetOfRequest);
         assert logFactory != null;
         TypeInfo expectedParameterType = addGetName ? runtime.stringTypeInfo() : runtime.classTypeInfo();
         ClassExpression typeClass = runtime.newClassExpressionBuilder(typeInfo.asParameterizedType()).setSource(source).build();

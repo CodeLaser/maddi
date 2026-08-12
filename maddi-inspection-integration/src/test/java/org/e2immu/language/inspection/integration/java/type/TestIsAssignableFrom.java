@@ -33,9 +33,9 @@ public class TestIsAssignableFrom extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo closeable = javaInspector.compiledTypesManager().getOrLoad(Closeable.class);
+        TypeInfo closeable = javaInspector.compiledTypesManager().type(Closeable.class);
         assertEquals("java.io.Closeable", closeable.fullyQualifiedName());
-        TypeInfo iterable = javaInspector.compiledTypesManager().get(Iterable.class);
+        TypeInfo iterable = javaInspector.compiledTypesManager().typeIfLoaded(Iterable.class);
         assertEquals("java.lang.Iterable", iterable.fullyQualifiedName());
         ParameterizedType closeablePt = runtime.newParameterizedType(closeable, 0);
         ParameterizedType iterableCloseable = runtime.newParameterizedType(iterable, List.of(closeablePt));
@@ -68,7 +68,7 @@ public class TestIsAssignableFrom extends CommonTest {
         assertTrue(parent.asParameterizedType().isAssignableFrom(runtime, child.asParameterizedType()));
 
         assertEquals("rRYs3LDF1ia1MgjUQEW0Aw==", X.compilationUnit().fingerPrintOrNull().toString());
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(List.class);
         assertSame(MD5FingerPrint.NO_FINGERPRINT, list.compilationUnit().fingerPrintOrNull());
         assertSame(MD5FingerPrint.NO_FINGERPRINT, list.compilationUnit().sourceSet().fingerPrintOrNull());
     }
@@ -76,13 +76,13 @@ public class TestIsAssignableFrom extends CommonTest {
     @Test
     public void test3() {
         ParameterizedType stringPt = runtime.stringParameterizedType();
-        TypeInfo longPredicate = javaInspector.compiledTypesManager().get(LongPredicate.class);
+        TypeInfo longPredicate = javaInspector.compiledTypesManager().typeIfLoaded(LongPredicate.class);
         assertNotNull(longPredicate);
         ParameterizedType longPredicatePt = longPredicate.asParameterizedType();
         assertFalse(longPredicatePt.isAssignableFrom(runtime, stringPt));
         assertFalse(stringPt.isAssignableFrom(runtime, longPredicatePt));
 
-        TypeInfo comparable = javaInspector.compiledTypesManager().get(Comparable.class);
+        TypeInfo comparable = javaInspector.compiledTypesManager().typeIfLoaded(Comparable.class);
         ParameterizedType erasedComparable = comparable.asSimpleParameterizedType();
         assertEquals(-1, new IsAssignableFrom(runtime, erasedComparable, longPredicatePt)
                 .execute(true, false, IsAssignableFrom.Mode.COVARIANT_ERASURE));
@@ -92,9 +92,9 @@ public class TestIsAssignableFrom extends CommonTest {
 
     @Test
     public void test4() {
-        TypeInfo longPredicate = javaInspector.compiledTypesManager().get(LongPredicate.class);
+        TypeInfo longPredicate = javaInspector.compiledTypesManager().typeIfLoaded(LongPredicate.class);
         assertNotNull(longPredicate);
-        TypeInfo longConsumer = javaInspector.compiledTypesManager().get(LongConsumer.class);
+        TypeInfo longConsumer = javaInspector.compiledTypesManager().typeIfLoaded(LongConsumer.class);
         assertNotNull(longConsumer);
         ParameterizedType longPredicatePt = longPredicate.asSimpleParameterizedType();
         ParameterizedType longConsumerPt = longConsumer.asSimpleParameterizedType();

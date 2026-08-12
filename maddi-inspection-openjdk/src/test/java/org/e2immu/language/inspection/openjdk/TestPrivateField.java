@@ -40,7 +40,7 @@ public class TestPrivateField {
         javaInspector.onlyPreload();
 
         // org.slf4j.helpers.BasicMarker: private String name; private final List<Marker> referenceList;
-        TypeInfo basicMarker = javaInspector.compiledTypesManager().getOrLoad("org.slf4j.helpers.BasicMarker", null);
+        TypeInfo basicMarker = javaInspector.compiledTypesManager().type("org.slf4j.helpers.BasicMarker", null);
         Set<String> fields = basicMarker.fields().stream().map(f -> f.name()).collect(Collectors.toSet());
         assertTrue(fields.contains("name"), "private field 'name' must be loaded, have: " + fields);
         assertTrue(fields.contains("referenceList"), "private field 'referenceList' must be loaded, have: " + fields);

@@ -395,7 +395,7 @@ public class TestStream extends CommonTest {
         // test SimpleEntry constructor x, y
         // get(nested.class) resolves by canonical name, which the openjdk loader does not key nested types on;
         // fetch the enclosing type and navigate to the sub-type instead
-        TypeInfo simpleEntry = javaInspector.compiledTypesManager().get(AbstractMap.class).findSubType("SimpleEntry");
+        TypeInfo simpleEntry = javaInspector.compiledTypesManager().typeIfLoaded(AbstractMap.class).findSubType("SimpleEntry");
         MethodInfo constructor1 = simpleEntry.findConstructor(2);
         assertEquals("java.util.AbstractMap.SimpleEntry.<init>(Object,Object)", constructor1.fullyQualifiedName());
         MethodLinkedVariables tlvConstructor1 = constructor1.analysis().getOrNull(METHOD_LINKS,
@@ -427,7 +427,7 @@ public class TestStream extends CommonTest {
         Links tlvStream1 = viStream1.linkedVariablesOrEmpty();
         assertEquals("stream1.§xys⊆entries.§xys", tlvStream1.toString()); // stream1.§xys⊆0:map.§xys dropped
 
-        TypeInfo stream = javaInspector.compiledTypesManager().get(Stream.class);
+        TypeInfo stream = javaInspector.compiledTypesManager().typeIfLoaded(Stream.class);
         MethodInfo map = stream.findUniqueMethod("map", 1);
         MethodLinkedVariables tlvMap = map.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(map));
         assertEquals("[-] --> map.§rs⊆Λ0:function", tlvMap.toString());

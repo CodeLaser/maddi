@@ -65,7 +65,7 @@ public class TestJavaTime extends CommonTest {
                 ZonedDateTime.class, ChronoLocalDate.class, ChronoLocalDateTime.class, ChronoZonedDateTime.class,
                 ChronoUnit.class, Temporal.class, TemporalAccessor.class, TemporalAdjuster.class,
                 TemporalAmount.class, TemporalUnit.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             Value.Immutable imm = (Value.Immutable) typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE);
             assertTrue(imm.isAtLeastImmutableHC(), () -> c.getSimpleName() + " should be (at least) @Immutable(hc=true)");
             assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE),
@@ -77,7 +77,7 @@ public class TestJavaTime extends CommonTest {
     // static final Map constant (formally mutable) inside the immutable ZoneId, and must come out immutable.
     @Test
     public void testZoneIdShortIdsFieldImmutable() {
-        TypeInfo zoneId = compiledTypesManager().get(ZoneId.class);
+        TypeInfo zoneId = compiledTypesManager().typeIfLoaded(ZoneId.class);
         FieldInfo shortIds = zoneId.getFieldByName("SHORT_IDS", true);
         Value.Immutable imm = (Value.Immutable) shortIds.analysis().getOrDefault(IMMUTABLE_FIELD, MUTABLE);
         assertTrue(imm.isAtLeastImmutableHC(),
@@ -89,7 +89,7 @@ public class TestJavaTime extends CommonTest {
     public void testFinalTimeTypesAreDeepImmutable() {
         for (Class<?> c : new Class<?>[]{
                 DayOfWeek.class, Instant.class, LocalDate.class, LocalDateTime.class, ChronoUnit.class}) {
-            TypeInfo typeInfo = compiledTypesManager().get(c);
+            TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(c);
             assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE),
                     () -> c.getSimpleName() + " should be deep @Immutable");
         }
@@ -97,7 +97,7 @@ public class TestJavaTime extends CommonTest {
 
     @Test
     public void testDurationOfMillis() {
-        TypeInfo typeInfo = compiledTypesManager().get(Duration.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Duration.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("ofMillis", 1);
         assertFalse(methodInfo.allowsInterrupts());
         assertFalse(methodInfo.isModifying());

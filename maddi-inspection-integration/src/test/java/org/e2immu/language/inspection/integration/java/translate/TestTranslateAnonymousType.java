@@ -68,7 +68,7 @@ public class TestTranslateAnonymousType extends CommonTest {
     @Test
     public void test1() {
         TypeInfo X = javaInspector.parse(INPUT1);
-        TypeInfo fileVisitResult = javaInspector.compiledTypesManager().getOrLoad(FileVisitResult.class);
+        TypeInfo fileVisitResult = javaInspector.compiledTypesManager().type(FileVisitResult.class);
         FieldInfo continueField = fileVisitResult.getFieldByName("CONTINUE", true);
         FieldInfo siblingsField = fileVisitResult.getFieldByName("SKIP_SIBLINGS", true);
         FieldReference frContinue = javaInspector.runtime().newFieldReference(continueField);

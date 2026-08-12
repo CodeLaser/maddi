@@ -35,7 +35,7 @@ public class TestJavaSecurity extends CommonTest {
 
     @Test
     public void testSecureRandomNextBytes() {
-        TypeInfo typeInfo = compiledTypesManager().get(SecureRandom.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(SecureRandom.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("nextBytes", 1);
         assertFalse(methodInfo.allowsInterrupts());
         assertTrue(methodInfo.isModifying());
@@ -45,7 +45,7 @@ public class TestJavaSecurity extends CommonTest {
 
     @Test
     public void testMessageDigestUpdate() {
-        TypeInfo typeInfo = compiledTypesManager().get(MessageDigest.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(MessageDigest.class);
         assertEquals("""
                 java.security.MessageDigest.update(byte), java.security.MessageDigest.update(byte[]), \
                 java.security.MessageDigest.update(byte[],int,int), java.security.MessageDigest.update(java.nio.ByteBuffer)\
@@ -62,7 +62,7 @@ public class TestJavaSecurity extends CommonTest {
 
     @Test
     public void testMessageDigestDigest() {
-        TypeInfo typeInfo = compiledTypesManager().get(MessageDigest.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(MessageDigest.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("digest", 3);
         assertFalse(methodInfo.allowsInterrupts());
         assertTrue(methodInfo.isModifying());
@@ -72,7 +72,7 @@ public class TestJavaSecurity extends CommonTest {
 
     @Test
     public void testMessageDigestGetDigestLength() {
-        TypeInfo typeInfo = compiledTypesManager().get(MessageDigest.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(MessageDigest.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("getDigestLength", 0);
         assertFalse(methodInfo.allowsInterrupts());
         assertFalse(methodInfo.isModifying());
@@ -82,7 +82,7 @@ public class TestJavaSecurity extends CommonTest {
     // parameter, so it is a @Container.
     @Test
     public void testPrincipalContainer() {
-        TypeInfo typeInfo = compiledTypesManager().get(Principal.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Principal.class);
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
 }

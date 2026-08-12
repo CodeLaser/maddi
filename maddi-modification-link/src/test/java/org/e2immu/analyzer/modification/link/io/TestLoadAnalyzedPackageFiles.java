@@ -57,7 +57,7 @@ public class TestLoadAnalyzedPackageFiles {
         LoadAnalysisResults lar = new LoadAnalysisResults(javaInspector.runtime(), sourceSet);
         lar.go(ANALYZED_RESULTS);
 
-        TypeInfo object = javaInspector.compiledTypesManager().get(Object.class);
+        TypeInfo object = javaInspector.compiledTypesManager().typeIfLoaded(Object.class);
         assertNotNull(object);
         MethodInfo objectToString = object.findUniqueMethod("toString", 0);
         // assertSame(TRUE, methodInfo.analysis().getOrDefault(CONTAINER_METHOD, FALSE));
@@ -66,7 +66,7 @@ public class TestLoadAnalyzedPackageFiles {
         assertSame(IMMUTABLE, objectToString.analysis().getOrDefault(IMMUTABLE_METHOD, MUTABLE));
         assertSame(INDEPENDENT, objectToString.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
 
-        TypeInfo list = javaInspector.compiledTypesManager().get(List.class);
+        TypeInfo list = javaInspector.compiledTypesManager().typeIfLoaded(List.class);
         MethodInfo listIterator = list.findUniqueMethod("iterator", 0);
         assertEquals("java.lang.Iterable.iterator(), java.util.Collection.iterator()",
                 listIterator.overrides().stream().map(Object::toString).sorted()

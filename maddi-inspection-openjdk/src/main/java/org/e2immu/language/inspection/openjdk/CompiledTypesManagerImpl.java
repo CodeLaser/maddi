@@ -132,23 +132,48 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                 .toList();
     }
 
+    /**
+     * ⛔ <b>{@code typesLoaded} is keyed by FQN alone, so it cannot answer "which of the two".</b> When one name is
+     * held by more than one source set it keeps whichever was registered last — an arbitrary winner, and the same
+     * class of scan-order dependence that {@code getOrLoad}'s lazy loader had. {@link InfoByFqn} is the registry
+     * that models (FQN, source set) and orders same-named types by distance to the requester, so ask it first and
+     * let it disambiguate.
+     * <p>
+     * Deliberately narrow: {@code infoByFqn} only gets to CHOOSE, never to widen or narrow the answer. It is
+     * consulted only when the flat map already has something (so a name unknown here stays unknown), and its
+     * answer is ignored when it is a stub — a type with no source set, which {@code InfoByFqn} registers where
+     * nothing better stands and which would otherwise displace a real type the flat map holds.
+     */
     @Override
-    public TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
-        return typesLoaded.get(fullyQualifiedName);
+    public TypeInfo typeIfLoaded(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        TypeInfo flat = typesLoaded.get(fullyQualifiedName);
+        if (flat == null || sourceSetOfRequest == null) return flat;
+        TypeInfo sourceSetAware = infoByFqn.getType(fullyQualifiedName, sourceSetOfRequest);
+        if (sourceSetAware == null || sourceSetAware.compilationUnit().sourceSet() == null) return flat;
+        if (!flat.equals(sourceSetAware)) {
+            // TypeInfo equality is (fqn, source set), so this is exactly the same-name-in-two-source-sets case:
+            // the flat map's arbitrary winner was about to be handed to a caller that asked as another set
+            LOGGER.warn("SOURCE-SET DISAMBIGUATION: {} exists in more than one source set; {} asked, answering with"
+                        + " {} rather than the flat registry's {}", fullyQualifiedName, sourceSetOfRequest.name(),
+                    sourceSetAware.compilationUnit().sourceSet().name(),
+                    flat.compilationUnit().sourceSet() == null ? "stub" : flat.compilationUnit().sourceSet().name());
+        }
+        return sourceSetAware;
     }
 
-    // lazily load a compiled type from bytecode on a miss (via the injected loader), so a type first requested
-    // by another front-end resolves to the same bytecode-authoritative TypeInfo the Java scan would build.
+    // registry first, then a lazy load from bytecode (via the injected loader), so a type first requested by
+    // another front-end resolves to the same bytecode-authoritative TypeInfo the Java scan would build. The load
+    // is the rare tail: single digits over a whole test module in this front end, zero over most of them.
     @Override
-    public TypeInfo getOrLoad(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
-        TypeInfo typeInfo = typesLoaded.get(fullyQualifiedName);
+    public TypeInfo type(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        TypeInfo typeInfo = typeIfLoaded(fullyQualifiedName, sourceSetOfRequest);
         if (typeInfo != null) return typeInfo;
         if (lazyLoader != null) {
             // the loader runs on the scan's live JavacTask, and javac is not thread-safe: unsynchronized
             // concurrent loads from PARALLEL analyzer threads corrupted javac's process-wide state, surfacing
             // as the intermittent StarImportScope NPE / CompilationProblems in LATER parses of the same JVM
             synchronized (this) {
-                TypeInfo raced = typesLoaded.get(fullyQualifiedName);
+                TypeInfo raced = typeIfLoaded(fullyQualifiedName, sourceSetOfRequest);
                 if (raced != null) return raced;
                 TypeInfo loaded = lazyLoader.apply(fullyQualifiedName, sourceSetOfRequest);
                 if (loaded != null) {
@@ -162,6 +187,13 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         // analysis genuinely needed is now unresolvable. Surface it rather than corrupt the analysis silently.
         if (lazyLoaderDisabled) reportMissAfterDrop(fullyQualifiedName);
         return null;
+    }
+
+    /** @deprecated renamed to {@link #type(String, SourceSet)}; kept so existing callers keep compiling. */
+    @Deprecated
+    @Override
+    public TypeInfo getOrLoad(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        return type(fullyQualifiedName, sourceSetOfRequest);
     }
 
     private void reportMissAfterDrop(String fullyQualifiedName) {

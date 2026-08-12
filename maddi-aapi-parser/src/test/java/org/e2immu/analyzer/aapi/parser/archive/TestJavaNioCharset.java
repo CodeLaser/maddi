@@ -37,7 +37,7 @@ public class TestJavaNioCharset extends CommonTest {
     // It is NOT a @Container: encode(CharBuffer)/decode(ByteBuffer) modify their buffer argument.
     @Test
     public void testCharsetImmutableNotContainer() {
-        TypeInfo typeInfo = compiledTypesManager().get(Charset.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Charset.class);
         assertSame(IMMUTABLE_HC, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));

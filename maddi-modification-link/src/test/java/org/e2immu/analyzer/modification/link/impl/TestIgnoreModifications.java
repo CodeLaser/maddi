@@ -32,7 +32,7 @@ public class TestIgnoreModifications extends CommonTest {
     @Test
     public void test1a() {
         TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
-        TypeInfo system = javaInspector.compiledTypesManager().getOrLoad(System.class);
+        TypeInfo system = javaInspector.compiledTypesManager().type(System.class);
         FieldInfo out = system.getFieldByName("out", true);
         assertTrue(out.isIgnoreModifications());
 

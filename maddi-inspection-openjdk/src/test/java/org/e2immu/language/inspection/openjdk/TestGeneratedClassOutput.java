@@ -259,13 +259,13 @@ public class TestGeneratedClassOutput {
 
         // a JDK type no preload touched, so it can only come through the lazy loader
         for (String fqn : List.of("java.util.StringJoiner", "java.util.BitSet")) {
-            TypeInfo loaded = inspector.compiledTypesManager().getOrLoad(fqn, null);
+            TypeInfo loaded = inspector.compiledTypesManager().type(fqn, null);
             assertNotNull(loaded, fqn + " must load through the source-free loader task");
             assertEquals(fqn, loaded.fullyQualifiedName());
             assertTrue(loaded.hasBeenInspected(), fqn + " must be complete, not a stub");
         }
         // and a nested type, which the loader resolves through its top-level enclosing type
-        TypeInfo entry = inspector.compiledTypesManager().getOrLoad("java.util.Map.Entry", null);
+        TypeInfo entry = inspector.compiledTypesManager().type("java.util.Map.Entry", null);
         assertNotNull(entry, "a nested type must load too");
     }
 

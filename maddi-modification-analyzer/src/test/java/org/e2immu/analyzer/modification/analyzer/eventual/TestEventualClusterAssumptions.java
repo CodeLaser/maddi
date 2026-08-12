@@ -90,7 +90,7 @@ public class TestEventualClusterAssumptions extends CommonTest {
             // discharge at the contraction is an unconditional verdict of at least immutable-hc. ArrayDeque
             // stands in for the java.util.Set shape: eventual "intent" (faked here), no hc verdict -- every
             // lean on it is doomed mass, so the optimism must be refused and no edge recorded.
-            TypeInfo deque = javaInspector.compiledTypesManager().getOrLoad(java.util.ArrayDeque.class);
+            TypeInfo deque = javaInspector.compiledTypesManager().type(java.util.ArrayDeque.class);
             assertTrue(deque.compilationUnit().externalLibrary(), "harness sanity: ArrayDeque is external");
             deque.findUniqueMethod("addFirst", 1).analysis()
                     .set(PropertyImpl.EVENTUAL_METHOD, ValueImpl.EventualImpl.mark("elements"));
@@ -102,7 +102,7 @@ public class TestEventualClusterAssumptions extends CommonTest {
 
             // contrast: an external candidate whose decided verdict is at least immutable-hc discharges a
             // fortiori at the contraction, so the optimism stays admissible (and is witnessed as usual)
-            TypeInfo string = javaInspector.compiledTypesManager().getOrLoad(String.class);
+            TypeInfo string = javaInspector.compiledTypesManager().type(String.class);
             string.findUniqueMethod("intern", 0).analysis()
                     .set(PropertyImpl.EVENTUAL_METHOD, ValueImpl.EventualImpl.mark("hash"));
             if (string.analysis().getOrNull(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.class) == null) {

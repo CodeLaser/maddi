@@ -33,7 +33,7 @@ public class TestParameterNameIndex extends CommonJmodBaseTests {
     @Test
     public void test() throws IOException {
         ParameterNameIndex index = new ParameterNameIndex();
-        TypeInfo integer = compiledTypesManager.getOrLoad(Integer.class);
+        TypeInfo integer = compiledTypesManager.type(Integer.class);
         index.putRecursively(integer);
 
         // real names, read from the LocalVariableTable: Integer.parseInt(String s, int radix)
@@ -60,7 +60,7 @@ public class TestParameterNameIndex extends CommonJmodBaseTests {
                       && sf.fullyQualifiedNameFromPath().indexOf('.', "java.lang.".length()) < 0);
         assertTrue(index.size() > 100, "expected many methods, got " + index.size());
 
-        TypeInfo integer = compiledTypesManager.getOrLoad(Integer.class);
+        TypeInfo integer = compiledTypesManager.type(Integer.class);
         MethodInfo parseInt = integer.findUniqueMethod("parseInt", 2);
         assertEquals(List.of("s", "radix"), index.parameterNames(ParameterNameIndex.key(parseInt)));
     }

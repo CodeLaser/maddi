@@ -64,7 +64,7 @@ public class TestConstructor extends CommonTest {
             MethodInfo methodB = X.findUniqueMethod("methodB", 1);
             MethodLinkedVariables mlvB = methodB.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(methodB));
 
-            TypeInfo list = javaInspector.compiledTypesManager().get(List.class);
+            TypeInfo list = javaInspector.compiledTypesManager().typeIfLoaded(List.class);
             MethodInfo removeFirst = list.findUniqueMethod("removeFirst", 0);
             MethodLinkedVariables removeFirstMtl = removeFirst.analysis().getOrNull(METHOD_LINKS,
                     MethodLinkedVariablesImpl.class);

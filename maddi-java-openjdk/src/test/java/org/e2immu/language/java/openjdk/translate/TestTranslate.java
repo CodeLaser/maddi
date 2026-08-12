@@ -54,7 +54,7 @@ public class TestTranslate extends CommonTest {
     @Test
     public void test1() {
         scan("a.b.X", INPUT1);
-        // Original: javaInspector.compiledTypesManager().getOrLoad(Class.class) / getOrLoad(TypeDescriptor.class)
+        // Original: javaInspector.compiledTypesManager().type(Class.class) / getOrLoad(TypeDescriptor.class)
         // — loads types from compiled bytecode. Replaced with classSymbolScanner.getType(), which retrieves
         // types that javac resolved during the preceding scan call. Works here because scanning INPUT1
         // causes javac to reference java.lang.Class and java.lang.invoke.TypeDescriptor internally.

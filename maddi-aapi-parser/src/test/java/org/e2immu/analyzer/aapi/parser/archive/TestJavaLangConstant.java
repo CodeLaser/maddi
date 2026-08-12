@@ -35,7 +35,7 @@ public class TestJavaLangConstant extends CommonTest {
 
     @Test
     public void testConstable() {
-        TypeInfo typeInfo = compiledTypesManager().get(Constable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Constable.class);
         assertSame(IMMUTABLE_HC, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
@@ -43,7 +43,7 @@ public class TestJavaLangConstant extends CommonTest {
 
     @Test
     public void testConstableDescribeConstable() {
-        TypeInfo typeInfo = compiledTypesManager().get(Constable.class);
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Constable.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("describeConstable", 0);
         assertFalse(methodInfo.isModifying());
         assertSame(INDEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));

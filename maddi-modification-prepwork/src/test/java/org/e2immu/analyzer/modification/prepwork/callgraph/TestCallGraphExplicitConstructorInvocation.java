@@ -122,7 +122,7 @@ public class TestCallGraphExplicitConstructorInvocation extends CommonTest {
         TypeInfo l = X.findSubType("L");
         MethodInfo constructor = constructor(l, 1, "int");
         MethodInfo arrayListConstructor = javaInspector.compiledTypesManager()
-                .get(java.util.ArrayList.class).constructors().stream()
+                .typeIfLoaded(java.util.ArrayList.class).constructors().stream()
                 .filter(c -> c.parameters().size() == 1
                              && "int".equals(c.parameters().getFirst().parameterizedType()
                         .typeInfo().fullyQualifiedName()))

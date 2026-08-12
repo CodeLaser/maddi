@@ -165,7 +165,7 @@ public class TestMethodCall7 extends CommonTest {
     @DisplayName("empty varargs")
     @Test
     public void test6() {
-        TypeInfo fileSystem = javaInspector.compiledTypesManager().getOrLoad(FileSystem.class, javaInspector.mainSources());
+        TypeInfo fileSystem = javaInspector.compiledTypesManager().type(FileSystem.class, javaInspector.mainSources());
         MethodInfo getPath = fileSystem.findUniqueMethod("getPath", 2);
         ParameterInfo pi1 = getPath.parameters().get(1);
         assertTrue(pi1.isVarArgs());
