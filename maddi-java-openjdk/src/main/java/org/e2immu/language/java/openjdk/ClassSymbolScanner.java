@@ -349,7 +349,23 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             newTypeInfo = runtime.newTypeInfo(cu, simpleName);
         }
         put(newTypeInfo);
-        if (!internal) {
+        if (internal) {
+            // ⛔ A STUB STILL HAS TO ANSWER THE FIRST QUESTION ASKED OF IT. Skipping loadType is the point of
+            // this branch, but it left typeNature and parentClass NULL, and the very next thing anyone does
+            // with a type is ask what kind it is: addMethodToType calls isInterface() to pick the method type,
+            // and TypeInfoImpl.isInterface() asserts rather than guessing.
+            // ⚠ Measured on pulsar 5.0.0-M1, 2026-08-12: testmocks' PulsarMockBookKeeperReadEvent extends
+            // jdk.jfr.Event, whose supertype IS jdk.internal.event.Event, so loading the JFR type reaches the
+            // internal one and the parse died with "Type nature of jdk.internal.event.Event has not been set".
+            // One unloadable JDK-internal supertype dropped the compilation unit -- and, because the SERVER
+            // refuses a parse with any error at all, the whole project with it.
+            // ⇒ Give the stub the same minimal shape anonymousTypeStub() already gives its own (nature +
+            // Object parent), from the symbol's flags via the ONE definition of that rule. Deliberately NOT
+            // committed: addMethodToType refuses an inspected type, and members may still be attached here.
+            newTypeInfo.builder()
+                    .setTypeNature(flagHelper.typeNature(cs))
+                    .setParentClass(runtime.objectParameterizedType());
+        } else {
             loadType(cs, newTypeInfo, LoadMode.LAZILY);
         }
         return newTypeInfo;

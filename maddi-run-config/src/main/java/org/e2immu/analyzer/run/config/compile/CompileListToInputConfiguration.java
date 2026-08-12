@@ -28,6 +28,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -112,7 +114,51 @@ public class CompileListToInputConfiguration {
         classPathParts.forEach(builder::addClassPathParts);
         checkNamesAreIdentities(sourceSets, classPathParts, closure);
         checkEveryDependencyResolves(sourceSets, classPathParts, closure);
+        setSourceRelease(result, builder);
         return builder.build();
+    }
+
+    /**
+     * Carry the corpus's own {@code javac --release} into the configuration, so the parse compiles against the
+     * platform the corpus was built for rather than the platform maddi happens to run on.
+     *
+     * <p>⛔ <b>ONLY WHEN THE ANSWER IS UNAMBIGUOUS.</b> A reactor may compile its modules against different
+     * releases, and there is no single right answer then: picking the maximum hides a removed API from the
+     * module that still uses it, picking the minimum invents compile errors in the module that does not.
+     * So a mixed corpus is left on today's behaviour and <b>says so</b> — the operator can set
+     * {@code --jre}/{@code alternativeJREDirectory} deliberately, which is the more specific instruction and
+     * wins in {@code JavaInspectorImpl} either way.
+     *
+     * <p>⚠ An invocation that passes no {@code --release} and no {@code -source} contributes nothing rather
+     * than a zero: absent is not "release 0", and letting it into the set would make every corpus look mixed.
+     */
+    private static void setSourceRelease(CompileListToSourceSets.Result result,
+                                         InputConfigurationImpl.Builder builder) {
+        // ⚠ A JSourceSet MAY CARRY A NULL INVOCATION: the source set is the subject, the invocation is how it
+        // was discovered, and callers that build a configuration directly (every fixture in
+        // TestNamesAreIdentities and TestExcludeSourceSets) pass none. Four green tests turned red on the first
+        // run of this method for want of one null check.
+        Set<Integer> releases = result.jSourceSets().stream()
+                .map(CompileListToSourceSets.JSourceSet::invocation)
+                .filter(java.util.Objects::nonNull)
+                .map(CompileInvocation::effectiveRelease)
+                .filter(r -> r > 0)
+                .collect(Collectors.toCollection(TreeSet::new));
+        if (releases.size() == 1) {
+            int release = releases.iterator().next();
+            builder.setSourceRelease(release);
+            LOGGER.info("All {} compile invocation(s) that state one target Java release {}; the parse will use"
+                        + " it rather than the JDK it runs on ({})", result.jSourceSets().size(), release,
+                    Runtime.version().feature());
+        } else if (releases.size() > 1) {
+            LOGGER.warn("Compile invocations target {} different Java releases {}: leaving sourceRelease unset,"
+                        + " so the parse uses the running JDK ({}). If that JDK is newer than the lowest release"
+                        + " here, expect 'cannot find symbol' on APIs removed since.", releases.size(), releases,
+                    Runtime.version().feature());
+        } else {
+            LOGGER.info("No compile invocation states a Java release; the parse uses the running JDK ({})",
+                    Runtime.version().feature());
+        }
     }
 
     /**
