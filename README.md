@@ -138,6 +138,13 @@ Gradle and Maven plugins, configuration and exit codes are covered in the user m
 
 Cross-module design notes and plans are indexed in [`docs/README.md`](docs/README.md).
 
+### Note on the small test projects
+
+The Gradle test projects (`testgradleplugin-analyzer`, `testgradleplugin-writeaapi`) are run from
+their own directory — there is no `analyzer-run` directory — and the Gradle task is
+`e2immu-analyzer`, not `e2immu`. `testmvnplugin-export` uses the `maddi-mvnplugin` artifact
+(formerly `e2immu-run-mvnplugin`).
+
 ## Background
 
 maddi re-implements [e2immu](https://www.e2immu.org), which ran from 2020 until it was archived.
