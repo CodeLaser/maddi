@@ -368,6 +368,7 @@ tasks:
       - { task: config:timefold }
       - { task: config:coil }
       - { task: config:detekt }
+      - { task: config:pulsar }
 
   # --- Kotlin/JVM: the ordinary compile-log route, kotlinc markers instead of javac ones ---
   config:detekt:
@@ -404,6 +405,16 @@ tasks:
   config:elasticsearch:
     desc: 'elasticsearch config (Gradle compile-log, ~27 source sets)'
     cmds: [{ task: _config:gradle-log, vars: { NAME: elasticsearch, TASKS: 'compileTestJava' } }]
+
+  # pulsar's build refuses JDK 26 without the opt-out, exactly as in `task pulsar` above; the flag
+  # rides along in TASKS because _config:gradle-log interpolates it straight into the gradlew line.
+  # Regenerating this one MATTERS: the committed config was produced ad hoc inside a ws/ workspace
+  # and pins ~/git/ws/python/.gradle-home-pulsar/caches/... — a workspace-private Gradle home that
+  # `ws rm python` would delete. A run here, with the ambient GRADLE_USER_HOME, replaces those 561
+  # library paths with ordinary ~/.gradle ones.
+  config:pulsar:
+    desc: 'pulsar config (Gradle compile-log; needs -PskipJavaVersionCheck on JDK 26)'
+    cmds: [{ task: _config:gradle-log, vars: { NAME: pulsar, TASKS: 'compileTestJava -PskipJavaVersionCheck' } }]
 
   config:timefold:
     desc: 'timefold-solver config (Maven compile-log, whole 65-source-set reactor)'
