@@ -68,10 +68,40 @@ tasks.register("printCp") {
 """
 
 
+def find_gradle():
+    """A Gradle to run the throwaway resolver project with, or None.
+
+    Every other corpus builds through an in-tree wrapper (./gradlew, ./mvnw). Coil is the one that
+    cannot: the resolver below is a project this script MAKES, in a temp dir, so there is no
+    wrapper in it. That used to mean a standalone `gradle` on PATH, which is a system dependency
+    the rest of the corpus setup does not have -- and it is exactly what it cost on a fresh Linux
+    box (2026-08-14): every other corpus configured green and coil alone failed.
+
+    maddi's own wrapper solves it. `gradlew -p <dir>` runs against any project directory, taking
+    the distribution from maddi's gradle-wrapper.properties, so the version is pinned by this repo
+    rather than by whatever the machine happens to have.
+
+    Order: $GRADLE (explicit), maddi's wrapper, then PATH.
+    """
+    explicit = os.environ.get("GRADLE")
+    if explicit:
+        return [explicit]
+    wrapper = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__)))), "gradlew")
+    if os.access(wrapper, os.X_OK):
+        return [wrapper]
+    if shutil.which("gradle"):
+        return ["gradle"]
+    return None
+
+
 def resolve_jars():
     """Resolve COORDINATES into the normal Gradle cache, and return the jar paths."""
-    if not shutil.which("gradle"):
-        sys.exit("gradle is not on PATH; it is needed to resolve coil's compile classpath")
+    gradle = find_gradle()
+    if not gradle:
+        sys.exit("no Gradle found to resolve coil's compile classpath. Tried $GRADLE, maddi's own "
+                 "./gradlew, and `gradle` on PATH. Set GRADLE=/path/to/gradle, or run this from a "
+                 "maddi checkout whose gradlew is executable.")
     tmp = tempfile.mkdtemp(prefix="coil-libs-")
     try:
         deps = "\n".join('    implementation("%s")' % c for c in COORDINATES)
@@ -79,8 +109,11 @@ def resolve_jars():
             f.write(BUILD % deps)
         with open(os.path.join(tmp, "settings.gradle.kts"), "w") as f:
             f.write('rootProject.name = "coil-libs"\n')
-        out = subprocess.run(["gradle", "-q", "--no-daemon", "--console=plain", "printCp"],
-                             cwd=tmp, capture_output=True, text=True, check=True).stdout
+        # -p <tmp>, not cwd=tmp: the wrapper resolves its distribution relative to ITSELF, so it
+        # must be invoked where it lives and pointed at the project.
+        out = subprocess.run(gradle + ["-q", "--no-daemon", "--console=plain", "-p", tmp,
+                                       "printCp"],
+                             capture_output=True, text=True, check=True).stdout
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     jars = [ln.strip() for ln in out.splitlines()
