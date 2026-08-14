@@ -281,11 +281,25 @@ def measure_parse(entry):
     proc = subprocess.run(cmd, shell=True, cwd=project_dir(entry),
                           capture_output=True, text=True)
     blob = proc.stdout + proc.stderr
-    counts = {m.group(2): int(m.group(1)) for m in _COLLECTED.finditer(blob)}
-    if proc.returncode != 0 or not counts:
+    reported = {m.group(2): int(m.group(1)) for m in _COLLECTED.finditer(blob)}
+    if proc.returncode != 0 or not reported:
         tail = '\n'.join(blob.splitlines()[-15:])
         raise RuntimeError(f"{entry['name']}: parse-only run failed "
-                           f'(rc={proc.returncode}, {len(counts)} source sets seen)\n{tail}')
+                           f'(rc={proc.returncode}, {len(reported)} source sets seen)\n{tail}')
+
+    # Seed EVERY source set the config declares at 0, then overlay what the parse reported. A
+    # source set with no class symbols never logs a line -- timefold's spring-boot-starter/main
+    # holds a single module-info.java and nothing else -- so without the seed its row would simply
+    # be absent, and "this source set is empty" would be indistinguishable from "this source set
+    # is gone". One is normal; the other is a config that lost a module.
+    counts = {name: 0 for name, _ in source_sets(entry)}
+    unknown = sorted(set(reported) - set(counts))
+    if unknown:
+        # The parse saw a source set the config does not declare: either the regex drifted or the
+        # run read a different config. Either way the table would be wrong, so refuse it.
+        raise RuntimeError(f"{entry['name']}: parse reported source sets absent from the config: "
+                           f'{unknown}')
+    counts.update(reported)
     return counts
 
 
