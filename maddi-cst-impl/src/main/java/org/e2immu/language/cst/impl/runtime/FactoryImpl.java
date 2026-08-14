@@ -416,6 +416,21 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     }
 
     @Override
+    public MethodInfo newArrayCloneMethod(ParameterizedType arrayType) {
+        // owner is the element type's TypeInfo, as newArrayCreationConstructor does for the same reason:
+        // an array type has no TypeInfo of its own, it is a ParameterizedType with arrays() > 0.
+        MethodInfo mi = newMethod(arrayType.typeInfo(), "clone", methodTypeMethod());
+        mi.builder()
+                .setReturnType(arrayType)
+                .addMethodModifier(methodModifierPublic())
+                .setMethodBody(emptyBlock())
+                .setMissingData(methodMissingMethodBody())
+                .computeAccess();
+        mi.builder().setSource(noSource()).commitParameters().commit();
+        return mi;
+    }
+
+    @Override
     public MethodInfo newArrayCreationConstructor(ParameterizedType type) {
         MethodInfo mi = newMethod(type.typeInfo(), MethodInfoImpl.CONSTRUCTOR_NAME, methodTypeSyntheticArrayConstructor());
         mi.builder()

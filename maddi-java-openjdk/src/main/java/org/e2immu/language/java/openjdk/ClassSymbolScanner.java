@@ -255,7 +255,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             case null -> throw new UnsupportedOperationException("Null owner for type " + cs.fullname);
             default -> {
                 if (cs.owner.kind == Kinds.Kind.NIL) {
-                    throw new UnresolvedSymbolException("Type " + cs.fullname + " not found");
+                    // ⚠ NAME THE SUBJECT. javac's error symbol for a type it could not resolve carries an
+                    // EMPTY name, so this used to read "Type  not found" -- an error that cannot say what it
+                    // failed on. Measured on trino 2026-08-13: two units dropped with exactly that text and
+                    // nothing else to go on. Report the symbol's kind and owner too, so a blank name is still
+                    // actionable.
+                    throw new UnresolvedSymbolException("Type '" + cs.fullname + "' not found"
+                                                        + " [symbol kind " + cs.kind
+                                                        + ", class " + cs.getClass().getSimpleName()
+                                                        + ", owner " + cs.owner + " kind " + cs.owner.kind + "]");
                 }
                 throw new UnsupportedOperationException();
             }
@@ -1191,6 +1199,30 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         if (type instanceof Type.JCPrimitiveType primitiveType) {
             return primitiveType(primitiveType.getKind());
         }
+        if (type instanceof Type.UnionClassType uct
+            && (uct.tsym == null || uct.tsym.name.toString().isEmpty())) {
+            // ⛔ A MULTI-CATCH PARAMETER'S TYPE HAS A NAMELESS SYMBOL. 'catch (A | B e)' is typed by javac as
+            // the least upper bound of the alternatives, and Types#makeCompoundType mints a ClassSymbol with
+            // names.empty owned by syms.noSymbol to carry it. UnionClassType extends ClassType DIRECTLY -- not
+            // IntersectionClassType -- so it slipped past the branch below into classTypeInfo, which tried to
+            // resolve a type whose name is the empty string and threw "Type '' not found": an error unable to
+            // name its own subject, dropping the whole compilation unit.
+            // Measured on trino 2026-08-13, the last two dropped units of nine:
+            //   GlueHiveMetastore:1430        catch (EntityNotFoundException | AccessDeniedException e)
+            //   GlueIcebergTableOperations:206 catch (EntityNotFoundException | InvalidInputException | ...)
+            // ⚠ ONLY when the lub is that nameless compound. Usually it is a perfectly ordinary class --
+            // lub(IOException, AssertionError) is Throwable -- and the ClassType branch below already gets
+            // that right. Unwrapping unconditionally regressed TestTryCatch#test2 from Throwable to Object.
+            // Resolve to the lub's supertype, exactly as the intersection branch does.
+            if (uct.supertype_field != null) {
+                return convert(uct.supertype_field, visited);
+            }
+            for (Type alternative : uct.getAlternativeTypes()) {
+                return convert(alternative, visited);
+            }
+            throw new UnsupportedOperationException(unexpectedJavacType("convert (union type without"
+                                                                       + " supertype_field or alternatives)", type));
+        }
         if (type instanceof Type.IntersectionClassType ict) {
             if (ict.supertype_field != null) {
                 return convert(ict.supertype_field, visited);
@@ -1587,6 +1619,27 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 } else {
                     typeInfo = known;
                 }
+            } else if (knownCu.sourceSet() == null && (topCs = primary(cs)).classfile != null) {
+                // ⛔ A STUB MUST NOT SHADOW THE REAL TYPE ONCE A LATER SOURCE SET CAN RESOLVE IT.
+                // 'sourceSet() == null' IS the stub predicate (InfoByFqn#isStub): ClassSymbolScanner mints one
+                // when a class file names a type absent from the CURRENT source set's class path. Source sets are
+                // scanned in turn and each has its own class path, so the very same type is routinely resolvable
+                // in a later one -- and until now the stub, found by name, was simply returned instead.
+                //
+                // Measured on trino (2026-08-13): scanning lib/trino-hive-formats/test-classes, which does not
+                // depend on parquet-hadoop, stubbed org.apache.parquet.hadoop.ParquetOutputFormat. Twenty-six
+                // seconds later plugin/trino-hive/test-classes -- which DOES depend on it -- met the stub, whose
+                // javac symbol was never completed and therefore carries no type parameters, and every use of
+                // ParquetOutputFormat<T> threw "Type parameter 'T' not found". SIX compilation units dropped,
+                // and a dropped unit is invisible to the refactoring levers too, so their edits silently skip
+                // its call sites. That run minted 114 stubs; the others survived only because nothing happened
+                // to ask them for a type parameter.
+                //
+                // InfoByFqn already states the intended rule -- "a real type supersedes a stub, and a stub never
+                // supersedes a real type" -- but it can only apply to a load that is actually attempted. This is
+                // that attempt. Loading is safe here precisely because cs.classfile != null: javac has the class
+                // file in hand for the source set being scanned right now.
+                typeInfo = lazilyLoadTypeFromClassFile(cs);
             } else if (knownCu.sourceSet() != null // badly loaded type
                        && !knownCu.sourceSet().partOfJdk()
                        && knownCu.sourceSet().externalLibrary()

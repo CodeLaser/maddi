@@ -164,6 +164,17 @@ public interface Factory {
 
     TypeInfo newAnonymousType(TypeInfo enclosingType, int index);
 
+    /**
+     * The synthetic {@code clone()} of an array type, for {@code long[]::clone}. Arrays declare exactly one
+     * member of their own -- javac attributes it to a synthetic {@code Array} symbol owned by nothing -- so
+     * it needs a synthetic MethodInfo, as array construction does. Every other member reachable on an array
+     * ({@code equals}, {@code hashCode}, {@code toString}) resolves to {@code java.lang.Object} and needs
+     * nothing here.
+     *
+     * @param arrayType the array type itself, e.g. {@code long[]}; also the return type of the clone
+     */
+    MethodInfo newArrayCloneMethod(ParameterizedType arrayType);
+
     MethodInfo newArrayCreationConstructor(ParameterizedType returnType);
 
     ArrayInitializer.Builder newArrayInitializerBuilder();

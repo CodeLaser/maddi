@@ -2510,7 +2510,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         Expression scope;
 
         if (mr.sym instanceof Symbol.MethodSymbol ms) {
-            if (ms.isConstructor() && "Array".equals(ms.owner.getQualifiedName().toString())) {
+            // javac models an array type's own members on a synthetic ClassSymbol named 'Array', owned by
+            // nothing (Kinds.Kind.NIL). It must never reach getOrLoadMethod/lazilyLoadTypeFromClassFile,
+            // which would try to resolve 'Array' as a named type and throw UnresolvedSymbolException
+            // ("Type Array not found"), dropping the whole compilation unit -- and a dropped unit is
+            // invisible to the refactoring levers too, so their edits silently skip its call sites.
+            boolean arrayOwner = "Array".equals(ms.owner.getQualifiedName().toString());
+            if (ms.isConstructor() && arrayOwner) {
                 // array construction. For a primitive component ('byte[]::new', elasticsearch zstd) the
                 // qualifier scan yields no expression: derive the array type from javac's own type instead.
                 if (evaluatedScope == null) {
@@ -2527,6 +2533,26 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 TypeInfo intFunction = convertType.convert(((Symbol.ClassSymbol) typeElement).type).typeInfo();
                 concreteFunctionalType = runtime.newParameterizedType(intFunction, List.of(concreteReturnType));
                 concreteParameterTypes = List.of(runtime.intParameterizedType());
+            } else if (arrayOwner) {
+                // 'long[]::clone' -- the only member javac attributes to the Array symbol; equals/hashCode/
+                // toString on an array resolve to java.lang.Object and take the ordinary path below.
+                // As for array construction, a primitive component yields no scope expression, so derive
+                // the array type from javac's own type (ClassSymbolScanner converts Type.ArrayType already).
+                ParameterizedType arrayType = evaluatedScope == null
+                        ? convertType.convert(((JCTree) mr.getQualifierExpression()).type)
+                        : evaluatedScope.parameterizedType();
+                scope = runtime.newTypeExpressionBuilder().setDiamond(runtime.diamondNo())
+                        .setSource(evaluatedScope == null ? sourceForNode(node, dsb) : evaluatedScope.source())
+                        .addComments(evaluatedScope == null ? List.of() : evaluatedScope.comments())
+                        .setParameterizedType(arrayType).build();
+                method = runtime.newArrayCloneMethod(arrayType);
+                concreteFunctionalType = convertType.convert(mr.type);
+                Type cloneDescriptor = types.findDescriptorType(mr.type);
+                Type.MethodType cloneSam = cloneDescriptor instanceof Type.ForAll forAll
+                        ? (Type.MethodType) forAll.qtype
+                        : (Type.MethodType) cloneDescriptor;
+                concreteReturnType = convertType.convert(cloneSam.getReturnType());
+                concreteParameterTypes = cloneSam.getParameterTypes().stream().map(convertType::convert).toList();
             } else {
                 method = typeData.getOrLoadMethod(ms);
                 concreteFunctionalType = convertType.convert(mr.type);
