@@ -25,6 +25,8 @@ CATALOGUE DIRECTORIES
     catalogue.py check-provides <name>        assert build.provides exists  (exit 1 if not)
     catalogue.py check-jdk <name>             assert build.jdk is satisfied (exit 1 if not)
     catalogue.py baseline <name> [--record]   source-set inventory: diff against the recorded one
+    catalogue.py dir    <name>                where its phases run (absolute; private entries
+                                              live outside the corpus root)
     catalogue.py generates [<name>...]        every artefact we write into the corpus checkouts
 
 `plan` prints rather than executes: Task runs the command so that its output streams and its exit
@@ -538,6 +540,19 @@ def cmd_doctor(args):
     return rc
 
 
+def cmd_dir(args):
+    """Where a phase has to run, absolute.
+
+    Exists for the Taskfile. Task's `dir:` is a static template, so it can only compose
+    TEST_OSS_ROOT/<name> and cannot ask the catalogue — wrong for a private entry, whose
+    distinguishing mark is precisely an absolute `dir` outside the corpus root. Worse, Task
+    CREATES a missing `dir:` instead of failing, so the wrong answer was silent: an empty new
+    directory in the corpus root, and the build running inside it.
+    """
+    print(project_dir(load_one(args.name)))
+    return 0
+
+
 def cmd_generates(args):
     """The preserve-list, as paths under TEST_OSS_ROOT — feed it to whatever must not delete them."""
     all_ = load_all()
@@ -580,6 +595,7 @@ def main():
     p.set_defaults(f=lambda a: check_provides(load_one(a.name)))
     p = sub.add_parser('check-jdk'); p.add_argument('name')
     p.set_defaults(f=lambda a: check_jdk(load_one(a.name)))
+    p = sub.add_parser('dir'); p.add_argument('name'); p.set_defaults(f=cmd_dir)
     p = sub.add_parser('generates'); p.add_argument('names', nargs='*')
     p.set_defaults(f=cmd_generates)
     p = sub.add_parser('baseline'); p.add_argument('name'); p.add_argument('--record', action='store_true')

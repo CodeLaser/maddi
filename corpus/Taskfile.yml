@@ -586,12 +586,20 @@ tasks:
   _cat:
     internal: true
     requires: { vars: [NAME, PHASE] }
-    dir: '{{.TEST_OSS_ROOT}}/{{.NAME}}'
+    # NO `dir:`. It can only be a static template, so it could only ever compose
+    # TEST_OSS_ROOT/<name> -- and a PRIVATE entry's distinguishing mark is an absolute `dir`
+    # outside the corpus root (callforpapers: ~/git/callforpapers). Task then made the wrong
+    # answer silent by CREATING the missing directory instead of failing, so the phase ran in a
+    # brand-new empty dir in the corpus root and failed on a missing ./mvnw. Ask the catalogue,
+    # which resolves ~ and $VARS and knows relative-vs-absolute, and cd here instead.
     cmds:
       - |
+        dir="$({{.TASKFILE_DIR}}/scripts/catalogue.py dir {{.NAME}})" || exit $?
         cmd="$({{.TASKFILE_DIR}}/scripts/catalogue.py plan {{.PHASE}} {{.NAME}})" || exit $?
-        echo ">>> {{.NAME}} [{{.PHASE}}]: $cmd"
-        eval "$cmd"
+        # Not obtained yet is a normal state; say so rather than let cd's message stand alone.
+        [ -d "$dir" ] || { echo ">>> {{.NAME}}: $dir does not exist -- clone/obtain it first" >&2; exit 1; }
+        echo ">>> {{.NAME}} [{{.PHASE}}] in $dir: $cmd"
+        cd "$dir" && eval "$cmd"
 
   catalogue:list:
     desc: 'Every catalogue entry: status, and P/B/C for present/built/configured on this machine'
