@@ -25,6 +25,7 @@ CATALOGUE DIRECTORIES
     catalogue.py check-provides <name>        assert build.provides exists  (exit 1 if not)
     catalogue.py check-jdk <name>             assert build.jdk is satisfied (exit 1 if not)
     catalogue.py baseline <name> [--record]   source-set inventory: diff against the recorded one
+    catalogue.py generates [<name>...]        every artefact we write into the corpus checkouts
 
 `plan` prints rather than executes: Task runs the command so that its output streams and its exit
 code is Task's, and so that `--dry` shows something real.
@@ -62,6 +63,17 @@ except ImportError:
 HERE = Path(__file__).resolve().parent
 DEFAULT_CATALOGUE = HERE.parent / 'catalogue'
 PHASES = ('build', 'config', 'parse', 'tests')
+
+# What each config route writes into the checkout, when the entry does not say. An entry's own
+# `config.generates` wins; this exists so a new entry need not repeat the obvious, and so a
+# declared list that OMITS a route's output is reported rather than silently trusted.
+ROUTE_GENERATES = {
+    'maven-plugin': ['inputConfiguration.json'],
+    'maven-log': ['compile.log', 'compile.javac.log', 'inputConfiguration.json'],
+    'gradle-log': ['compile.log', 'inputConfiguration.json'],
+    'gradle-log-kotlin': ['compile.log', 'inputConfiguration.json'],
+    'script': ['inputConfiguration.json'],
+}
 
 
 # ---------------------------------------------------------------- loading
@@ -129,6 +141,32 @@ def source_sets(entry):
         n = s.get('name') or '?'
         out.append((n, 'test' in n.rsplit('/', 1)[-1].lower()))
     return out
+
+
+def generates(entry):
+    """-> (paths relative to the project dir, [warnings]).
+
+    Everything of OURS inside a third-party checkout. It matters because these files are untracked:
+    `git reset --hard` leaves them alone, but `git clean -fdx` deletes them — and the corpus
+    pre-flight needs a preserve-list that cannot rot. Deriving it from here is what stops that list
+    being maintained by hand, which is how it would go stale the next time a route changes.
+    """
+    cfg = entry.get('config') or {}
+    route = cfg.get('route')
+    declared = cfg.get('generates')
+    default = ROUTE_GENERATES.get(route, [])
+    warn = []
+    if declared is None:
+        paths = list(default)
+    else:
+        paths = list(declared)
+        missing = [p for p in default if p not in paths]
+        if missing:
+            warn.append(f"{entry['name']}: config.generates omits {missing}, which route "
+                        f"{route!r} writes")
+    # Artefacts of ours that no phase writes — fernflower's Eclipse-plugin-demo .project/.classpath.
+    paths += list(entry.get('generates') or [])
+    return paths, warn
 
 
 # ---------------------------------------------------------------- phases
@@ -378,6 +416,27 @@ def cmd_doctor(args):
     return rc
 
 
+def cmd_generates(args):
+    """The preserve-list, as paths under TEST_OSS_ROOT — feed it to whatever must not delete them."""
+    all_ = load_all()
+    rc = 0
+    for n in (args.names or sorted(all_)):
+        e = all_.get(n)
+        if e is None:
+            print(f'{n}: not in the catalogue', file=sys.stderr)
+            rc = 1
+            continue
+        paths, warn = generates(e)
+        for w in warn:
+            print('WARNING ' + w, file=sys.stderr)
+            rc = 1
+        d = project_dir(e)
+        for p in paths:
+            mark = '' if (d / p).exists() else '   # not present'
+            print(f"{e.get('dir') or n}/{p}{mark}")
+    return rc
+
+
 def cmd_plan(args):
     c = plan(load_one(args.name), args.phase)
     if not c:
@@ -401,6 +460,8 @@ def main():
     p.set_defaults(f=lambda a: check_provides(load_one(a.name)))
     p = sub.add_parser('check-jdk'); p.add_argument('name')
     p.set_defaults(f=lambda a: check_jdk(load_one(a.name)))
+    p = sub.add_parser('generates'); p.add_argument('names', nargs='*')
+    p.set_defaults(f=cmd_generates)
     p = sub.add_parser('baseline'); p.add_argument('name'); p.add_argument('--record', action='store_true')
     p.set_defaults(f=lambda a: baseline_cmd(load_one(a.name), a.record))
 

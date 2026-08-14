@@ -25,6 +25,10 @@ config:
   # no such line. --rerun-tasks in the helper covers that, but naming both keeps the intent legible.
   tasks: compileJava compileTestJava
   baseline: sourcesets/fernflower.tsv
+  # What this route writes into the checkout. Untracked, so `git reset --hard` leaves them
+  # alone but `git clean -fdx` would delete them; the corpus pre-flight derives its
+  # preserve-list from these rather than keeping one by hand.
+  generates: [compile.log, inputConfiguration.json]
 
 parse:
   runner: openjdk
@@ -34,3 +38,9 @@ parse:
 tests:
   # 2 source sets, 1 of them test — so there are reachable tests, and this is how to run them.
   cmd: ./gradlew test
+
+# Ours, but not written by any phase above: `.project` says so itself — "Imported for the maddi
+# Eclipse plugin demo. Generated, not part of the upstream project." Dated 2026-07-21, months
+# before this catalogue. Listed so the preserve-list is complete and so nobody mistakes them for
+# upstream files, or for output of the config route.
+generates: [.classpath, .project]

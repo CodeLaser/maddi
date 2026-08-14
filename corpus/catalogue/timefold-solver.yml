@@ -32,6 +32,10 @@ config:
   # set and once as a classpath jar. timefold is configured with test-compile and has no such
   # duplication, which is exactly why it loads. (trino is where this was diagnosed: 74 modules.)
   baseline: sourcesets/timefold-solver.tsv
+  # compile.log is the raw -X output; compile.javac.log is it filtered to the [DEBUG] -d
+  # lines, which is what maddi actually reads (the raw one reaches 2.5GB on camel and dies
+  # on the JVM's max array size).
+  generates: [compile.log, compile.javac.log, inputConfiguration.json]
 
 parse:
   runner: openjdk
