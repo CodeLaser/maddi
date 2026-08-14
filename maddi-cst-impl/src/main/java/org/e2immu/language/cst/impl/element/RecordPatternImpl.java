@@ -205,7 +205,21 @@ public class RecordPatternImpl extends ElementImpl implements RecordPattern {
         if (unnamedPattern) ob.add(SymbolEnum.UNDERSCORE);
         else if (localVariable != null) {
             ob.add(localVariable.parameterizedType().print(qualification, false, DiamondEnum.SHOW_ALL))
-                    .add(SpaceEnum.ONE).add(new TextImpl(localVariable.simpleName()));
+                    .add(SpaceEnum.ONE);
+            // ⚠ A TYPE PATTERN MAY HAVE AN UNNAMED VARIABLE: 'case Square _ ->' (Java 21). That is NOT the
+            // 'unnamedPattern' above -- this class's own invariant says that one carries no localVariable at
+            // all, and it is the bare '_' of a record deconstruction ('case Point(int x, _)'). Here the TYPE
+            // must still be printed, followed by '_'. Without this, simpleName() is the empty string and
+            // TextImpl's constructor (assert !text.isBlank()) throws, so the whole print fails.
+            // Found on trino 2026-08-13 through extract.extractCompanion, which re-prints whatever it moves:
+            // io.trino.util.variant.VariantWriter's switch came out as 'case VariantType ->', which javac
+            // rejects with "type pattern expected". ANY verb that relocates such code hits this.
+            String simpleName = localVariable.simpleName();
+            if (simpleName == null || simpleName.isBlank()) {
+                ob.add(SymbolEnum.UNDERSCORE);
+            } else {
+                ob.add(new TextImpl(simpleName));
+            }
         } else {
             ob.add(recordType.print(qualification, false, DiamondEnum.SHOW_ALL))
                     .add(patterns.stream()

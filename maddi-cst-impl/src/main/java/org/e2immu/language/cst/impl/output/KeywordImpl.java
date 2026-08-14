@@ -46,6 +46,7 @@ public record KeywordImpl(String keyword) implements Keyword {
     public static final Keyword NEW = new KeywordImpl("new");
     public static final Keyword NON_SEALED = new KeywordImpl("non-sealed");
     public static final Keyword NULL = new KeywordImpl("null");
+    public static final Keyword PERMITS = new KeywordImpl("permits");
     public static final Keyword PACKAGE = new KeywordImpl("package");
     public static final Keyword PRIVATE = new KeywordImpl("private");
     public static final Keyword PROTECTED = new KeywordImpl("protected");

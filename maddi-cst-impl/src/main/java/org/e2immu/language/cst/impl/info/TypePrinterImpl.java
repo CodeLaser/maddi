@@ -133,6 +133,17 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
                         .map(pi -> pi.print(insideType, false, DiamondEnum.SHOW_ALL))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
             }
+            // 'permits' is REQUIRED when the permitted subtypes live in other compilation units; javac infers
+            // it only when they sit alongside. It was never printed at all, so a sealed type re-written by any
+            // verb lost the clause and no longer compiled. Emitting it whenever the list is populated is always
+            // legal Java -- an explicit permits that agrees with the subtypes is valid in the nested case too.
+            List<TypeInfo> permitted = typeInfo.permittedWhenSealed();
+            if (!permitted.isEmpty()) {
+                afterAnnotations.add(SpaceEnum.ONE).add(KeywordImpl.PERMITS).add(SpaceEnum.ONE);
+                afterAnnotations.add(permitted.stream()
+                        .map(ti -> ti.asSimpleParameterizedType().print(insideType, false, DiamondEnum.SHOW_ALL))
+                        .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
+            }
         }
 
         /*
@@ -206,13 +217,21 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
             if (modifiers.contains(TypeModifierEnum.FINAL)) {
                 list.add(TypeModifierEnum.FINAL);
             }
+        } // else: records, interfaces, annotations, primitives are always static, never abstract
+
+        // ⚠ 'sealed'/'non-sealed' ARE NOT CONFINED TO CLASSES, and used to sit inside the isClass() block
+        // above, so 'sealed interface Vehicle' printed as plain 'interface Vehicle' -- silently unsealing
+        // every sealed interface any verb re-printed, while 'non-sealed class Truck' (a class) came out
+        // fine. The comment above is true of 'abstract' and 'static'; it is not true of these two.
+        // Records and enums are implicitly final and cannot carry either, so the guard is class-or-interface.
+        if (typeInfo.typeNature().isClass() || typeInfo.typeNature().isInterface()) {
             if (modifiers.contains(TypeModifierEnum.SEALED)) {
                 list.add(TypeModifierEnum.SEALED);
             }
             if (modifiers.contains(TypeModifierEnum.NON_SEALED)) {
                 list.add(TypeModifierEnum.NON_SEALED);
             }
-        } // else: records, interfaces, annotations, primitives are always static, never abstract
+        }
 
         return list;
     }
