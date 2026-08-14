@@ -57,6 +57,14 @@ def _scalar(text, where):
         return None
     if len(t) >= 2 and t[0] == t[-1] and t[0] in '"\'':
         return t[1:-1]
+    # Everything below would otherwise fall through to "plain string", which is precisely the
+    # silently-wrong outcome this parser exists to avoid. Both were caught by the self-test.
+    if t[0] in '"\'':
+        raise MiniYamlError(f'{where}: unterminated quote: {t!r}')
+    if t[0] in '&*!':
+        kind = {'&': 'anchor', '*': 'alias', '!': 'tag'}[t[0]]
+        raise MiniYamlError(f'{where}: YAML {kind}s are not supported: {t!r} '
+                            '(quote it if you meant a literal string)')
     if t in ('true', 'True', 'TRUE', 'yes', 'on'):
         return True
     if t in ('false', 'False', 'FALSE', 'no', 'off'):
@@ -225,3 +233,91 @@ def load(text, name='<catalogue>'):
         ind, content, lineno = r.peek()
         raise MiniYamlError(f'{r.where(lineno)}: trailing content {content!r}')
     return v
+
+
+# --------------------------------------------------------------------------
+# Self-test. `python3 miniyaml.py` — no network, no corpus, under a second.
+#
+# A hand-rolled parser with no test is a liability, and the failure mode that matters is not a
+# crash: it is silently producing a plausible WRONG value. So the cases below pin the shapes the
+# catalogue actually uses, and the second half asserts that unsupported syntax RAISES rather than
+# being quietly reinterpreted. When PyYAML happens to be importable, every case is also checked
+# against it, which is the only real oracle available.
+# --------------------------------------------------------------------------
+
+_CASES = [
+    ('scalars', 'a: 1\nb: 2.5\nc: true\nd: no\ne: ~\nf: plain text\ng: "quoted: colon"\n',
+     {'a': 1, 'b': 2.5, 'c': True, 'd': False, 'e': None, 'f': 'plain text',
+      'g': 'quoted: colon'}),
+    ('nested', 'top:\n  mid:\n    leaf: v\n  other: 2\n', {'top': {'mid': {'leaf': 'v'}, 'other': 2}}),
+    ('sequence', 'xs:\n  - one\n  - two\n', {'xs': ['one', 'two']}),
+    ('seq of maps', 'xs:\n  - k: 1\n    j: 2\n  - k: 3\n    j: 4\n',
+     {'xs': [{'k': 1, 'j': 2}, {'k': 3, 'j': 4}]}),
+    ('flow seq', 'steps: [prep, modification]\n', {'steps': ['prep', 'modification']}),
+    ('flow map', 'jdk: { version: 25, vendor: Oracle }\n', {'jdk': {'version': 25, 'vendor': 'Oracle'}}),
+    ('empty flow', 'a: []\nb: {}\n', {'a': [], 'b': {}}),
+    ('comments', '# lead\na: 1  # trailing\n# between\nb: 2\n', {'a': 1, 'b': 2}),
+    ('hash in string', 'a: "not # a comment"\nb: plain#nospace\n',
+     {'a': 'not # a comment', 'b': 'plain#nospace'}),
+    ('folded', 's: >-\n  one two\n  three\n', {'s': 'one two three'}),
+    ('folded paragraphs', 's: >-\n  a b\n\n  c d\n', {'s': 'a b\nc d'}),
+    ('literal', 's: |\n  line1\n  line2\n', {'s': 'line1\nline2'}),
+    ('literal keeps indent', 's: |\n  a\n    b\n', {'s': 'a\n  b'}),
+    ('block then key', 's: >-\n  text\nnext: 1\n', {'s': 'text', 'next': 1}),
+    ('empty value', 'build:\nname: x\n', {'build': None, 'name': 'x'}),
+    ('null forms', 'a: null\nb: ~\n', {'a': None, 'b': None}),
+    ('negative int', 'a: -3\n', {'a': -3}),
+    ('key with dash/dot', 'my-key: 1\nmy.key: 2\n', {'my-key': 1, 'my.key': 2}),
+]
+
+_MUST_RAISE = [
+    ('anchor', 'a: &anchor 1\nb: *anchor\n'),
+    ('nested flow', 'a: [[1, 2], 3]\n'),
+    ('unterminated flow', 'a: [1, 2\n'),
+    ('unterminated quote', "a: 'oops\n"),
+    ('bare line', 'a: 1\nnot a mapping line\n'),
+]
+
+
+def selftest():
+    failures = []
+    try:
+        import yaml as oracle
+    except ImportError:
+        oracle = None
+
+    for label, text, want in _CASES:
+        try:
+            got = load(text, label)
+        except Exception as e:                                   # noqa: BLE001
+            failures.append(f'{label}: raised {e!r}')
+            continue
+        if got != want:
+            failures.append(f'{label}: got {got!r}, want {want!r}')
+        if oracle is not None:
+            ref = oracle.safe_load(text)
+            if ref != want:
+                failures.append(f'{label}: PyYAML disagrees with the expectation: {ref!r}')
+
+    for label, text in _MUST_RAISE:
+        try:
+            got = load(text, label)
+        except MiniYamlError:
+            continue
+        except Exception as e:                                   # noqa: BLE001
+            failures.append(f'{label}: raised {type(e).__name__}, want MiniYamlError')
+            continue
+        failures.append(f'{label}: accepted unsupported syntax, returning {got!r} '
+                        '— silently wrong is the failure mode this parser must not have')
+
+    for f in failures:
+        print('FAIL ' + f)
+    total = len(_CASES) + len(_MUST_RAISE)
+    print(f'{total - len(failures)}/{total} miniyaml cases pass'
+          f"{' (cross-checked against PyYAML)' if oracle else ' (PyYAML absent; no oracle)'}")
+    return 1 if failures else 0
+
+
+if __name__ == '__main__':
+    import sys as _sys
+    _sys.exit(selftest())
