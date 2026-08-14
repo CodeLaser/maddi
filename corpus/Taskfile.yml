@@ -575,3 +575,80 @@ tasks:
         msg: 'No input configuration at {{.CONFIG}} — pass CONFIG=<path> or PROJECT=<corpus project> (generate with task config:<project>).'
     cmds:
       - ./gradlew :maddi-run-openjdk:run {{if .XMX}}-PjvmArgs="-Xmx{{.XMX}}"{{end}} --args="--input-configuration={{.CONFIG}} --parallel --analysis-steps={{.STEPS | default "prep"}} --debug=memory"
+
+  # ======================== the catalogue (new; see corpus/catalogue/) =======
+  # Generic over catalogue/<name>.yml — no per-project task. These run alongside the hand-written
+  # tasks above until `catalogue:doctor` agrees with reality for every corpus, then those go.
+  #
+  # The scripts print the command and Task runs it, so output streams, the exit code is Task's,
+  # and `task --dry` shows something real rather than an opaque python call.
+
+  _cat:
+    internal: true
+    requires: { vars: [NAME, PHASE] }
+    dir: '{{.TEST_OSS_ROOT}}/{{.NAME}}'
+    cmds:
+      - |
+        cmd="$({{.TASKFILE_DIR}}/scripts/catalogue.py plan {{.PHASE}} {{.NAME}})" || exit $?
+        echo ">>> {{.NAME}} [{{.PHASE}}]: $cmd"
+        eval "$cmd"
+
+  catalogue:list:
+    desc: 'Every catalogue entry: status, and P/B/C for present/built/configured on this machine'
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py list {{if .STATUS}}--status {{.STATUS}}{{end}}']
+
+  catalogue:doctor:
+    desc: 'Per corpus: obtained? built? configured? how many source sets, how many are tests'
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py doctor {{.CLI_ARGS}}']
+
+  catalogue:show:
+    desc: 'The resolved entry: task catalogue:show NAME=timefold-solver'
+    requires: { vars: [NAME] }
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py show {{.NAME}}']
+
+  catalogue:build:
+    desc: 'Build one corpus, then assert build.provides: task catalogue:build NAME=langchain4j'
+    requires: { vars: [NAME] }
+    cmds:
+      # JDK first: trino's enforcer fails 30s in with a stack trace, and sonarqube simply will not
+      # build on 26. Checking up front costs nothing and the message says what to install.
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py check-jdk {{.NAME}}'
+      # ⚠ `- ` prefix: a NON-ZERO EXIT IS NOT A FAILURE HERE. langchain4j's reactor stops on
+      # provider modules that do not resolve, and that is expected. The build is judged by
+      # check-provides below — what the next phase needs, not what the command returned.
+      - task: _cat
+        vars: { NAME: '{{.NAME}}', PHASE: build }
+        ignore_error: true
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py check-provides {{.NAME}}'
+
+  catalogue:config:
+    desc: 'Generate one inputConfiguration.json, then diff the source-set inventory'
+    requires: { vars: [NAME] }
+    cmds:
+      - task: _cat
+        vars: { NAME: '{{.NAME}}', PHASE: config }
+      - task: catalogue:baseline
+        vars: { NAME: '{{.NAME}}' }
+
+  catalogue:parse:
+    desc: 'Run the maddi test that consumes this corpus'
+    requires: { vars: [NAME] }
+    cmds: [{ task: _cat, vars: { NAME: '{{.NAME}}', PHASE: parse } }]
+
+  catalogue:tests:
+    desc: "Run the corpus project's own reachable tests (those in the config's test source sets)"
+    requires: { vars: [NAME] }
+    cmds: [{ task: _cat, vars: { NAME: '{{.NAME}}', PHASE: tests } }]
+
+  catalogue:baseline:
+    desc: 'Diff the source-set inventory against the recorded one; RECORD=1 to accept the diff'
+    requires: { vars: [NAME] }
+    cmds:
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py baseline {{.NAME}} {{if .RECORD}}--record{{end}}'
+
+  catalogue:provision:
+    desc: 'One corpus, end to end: build -> assert provides -> config -> inventory diff'
+    requires: { vars: [NAME] }
+    cmds:
+      - { task: catalogue:build,  vars: { NAME: '{{.NAME}}' } }
+      - { task: catalogue:config, vars: { NAME: '{{.NAME}}' } }
