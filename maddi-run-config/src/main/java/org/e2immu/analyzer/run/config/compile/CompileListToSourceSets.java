@@ -190,16 +190,34 @@ public class CompileListToSourceSets {
      * <p>⚠ Keying on the output ROOT rather than on "somewhere under the module" is what keeps a jar VENDORED
      * inside a module ({@code <mod>/lib/foo.jar}) from being mistaken for that module's own output.
      *
-     * <p>Only MAIN destinations are candidates: a packaged jar is a module's production output, never its tests.
+     * <p>⛔ <b>A PACKAGED JAR IS NOT ALWAYS PRODUCTION OUTPUT.</b> That was assumed here, and maven's
+     * {@code maven-jar-plugin:test-jar} falsifies it: a module that publishes its test fixtures writes
+     * {@code <mod>/target/<artifact>-tests.jar} into the SAME output root as its main jar. Keying on the output
+     * root alone therefore handed the test-jar to the module's MAIN source set, and the fixtures it carries —
+     * every {@code testutil} and {@code testdomain} type a sibling's tests statically import — silently left the
+     * parse. javac then reported {@code package ... does not exist}, fabricated an error symbol, and the scanner
+     * dereferenced it as a method: {@code "Unexpected symbol for unqualified call to 'assertCode'"}, 79 of them
+     * over 9 compilation units on timefold, with the true cause a hundred lines earlier in the log.
+     *
+     * <p>So both kinds are collected, and a jar carrying a TEST CLASSIFIER resolves to the test destination when
+     * the module has one. ⚠ The classifier is the reliable signal precisely because maven puts it AFTER the
+     * version: a module actually named {@code ...-integration-test} ships {@code ...-integration-test-1.0.jar},
+     * which does not end in {@code -test.jar}. Falling back to the main destination keeps the previous behaviour
+     * for every build that publishes no test-jar.
      */
     private static Map<String, String> computePackagedJars(List<? extends CompileInvocation> list) {
         Map<String, String> mainDestinationByOutputRoot = new HashMap<>();
+        Map<String, String> testDestinationByOutputRoot = new HashMap<>();
         for (CompileInvocation inv : list) {
             String destination = inv.destination();
             int lastSeparator = destination.lastIndexOf(SEPARATOR);
             if (lastSeparator < 0) continue;
-            if (testSourceSetName(lastPart(destination)) != null) continue;
-            mainDestinationByOutputRoot.putIfAbsent(destination.substring(0, lastSeparator), destination);
+            String outputRoot = destination.substring(0, lastSeparator);
+            if (testSourceSetName(lastPart(destination)) != null) {
+                testDestinationByOutputRoot.putIfAbsent(outputRoot, destination);
+            } else {
+                mainDestinationByOutputRoot.putIfAbsent(outputRoot, destination);
+            }
         }
         Map<String, String> jarToDestination = new HashMap<>();
         for (CompileInvocation inv : list) {
@@ -209,7 +227,14 @@ public class CompileListToSourceSets {
                     if (!part.endsWith(".jar")) continue;
                     int lastSeparator = part.lastIndexOf(SEPARATOR);
                     if (lastSeparator < 0) continue;
-                    String destination = mainDestinationByOutputRoot.get(part.substring(0, lastSeparator));
+                    String outputRoot = part.substring(0, lastSeparator);
+                    String destination = null;
+                    if (hasTestClassifier(lastPart(part))) {
+                        destination = testDestinationByOutputRoot.get(outputRoot);
+                    }
+                    if (destination == null) {
+                        destination = mainDestinationByOutputRoot.get(outputRoot);
+                    }
                     // a module's own jar on its own classpath is not a dependency on itself
                     if (destination != null && !destination.equals(inv.destination())) {
                         jarToDestination.putIfAbsent(part, destination);
@@ -223,6 +248,17 @@ public class CompileListToSourceSets {
                     jarToDestination.keySet().stream().map(CompileListToSourceSets::lastPart).sorted().toList());
         }
         return jarToDestination;
+    }
+
+    /**
+     * A jar file name carrying a test classifier, i.e. maven's {@code test-jar} goal or gradle's equivalent.
+     *
+     * <p>⚠ Matched on the FILE NAME's suffix, which is safe because a classifier follows the version:
+     * {@code timefold-solver-core-999-SNAPSHOT-tests.jar} is a test-jar, while a module whose artifactId ends
+     * in {@code -test} ships {@code ...-test-999-SNAPSHOT.jar} and is not.
+     */
+    private static boolean hasTestClassifier(String jarFileName) {
+        return jarFileName.endsWith("-tests.jar") || jarFileName.endsWith("-test.jar");
     }
 
     private Map<String, String> computeModuleJars(String buildRoot, Map<String, String> buildUnitByDestination,
