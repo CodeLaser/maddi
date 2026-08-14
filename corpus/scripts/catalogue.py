@@ -78,9 +78,31 @@ ROUTE_GENERATES = {
 
 # ---------------------------------------------------------------- loading
 
+def _path(s):
+    """Expand ~ AND $VARS. Task interpolates its own vars but leaves shell ones alone, so any path
+    reaching us from a Taskfile may still contain a literal $HOME."""
+    return Path(os.path.expandvars(os.path.expanduser(str(s))))
+
+
 def catalogue_dirs():
+    """The catalogue directories, in precedence order (later wins on a name collision).
+
+    expandvars AS WELL AS expanduser: Task interpolates its vars but leaves shell ones alone, so
+    an overlay setting CORPUS_CATALOGUE from a GIT_ROOT of "$HOME/git" hands us a literal $HOME.
+    With only expanduser that directory silently does not resolve, load_all() skips it, and the
+    PUBLIC catalogue disappears from every listing while the private one still works -- which looks
+    like a catalogue with one entry rather than like a broken path.
+    """
     raw = os.environ.get('CORPUS_CATALOGUE') or str(DEFAULT_CATALOGUE)
-    return [Path(p).expanduser() for p in raw.split(':') if p]
+    out = []
+    for d in raw.split(':'):
+        if not d:
+            continue
+        expanded = _path(d)
+        if '$' in str(expanded):
+            sys.exit(f'CORPUS_CATALOGUE entry {d!r} still contains an unexpanded variable')
+        out.append(expanded)
+    return out
 
 
 def load_all():
@@ -105,11 +127,14 @@ def load_one(name):
 
 
 def oss_root():
-    return Path(os.environ.get('TEST_OSS_ROOT') or (Path.home() / 'git' / 'test-oss')).expanduser()
+    return _path(os.environ.get('TEST_OSS_ROOT') or (Path.home() / 'git' / 'test-oss'))
 
 
 def project_dir(entry):
-    return oss_root() / (entry.get('dir') or entry['name'])
+    """Where the sources are. Relative to TEST_OSS_ROOT for a corpus project; a private one sets an
+    absolute `dir` (~ and $VARS expanded), because customer checkouts do not live in the corpus."""
+    d = str(_path(entry.get('dir') or entry['name']))
+    return Path(d) if os.path.isabs(d) else oss_root() / d
 
 
 # ---------------------------------------------------------------- state
@@ -121,15 +146,23 @@ def state(entry):
     return {
         'present': d.is_dir(),
         'built': bool(provides) and all((d / p).exists() for p in provides),
-        'configured': (d / 'inputConfiguration.json').is_file(),
+        'configured': config_path(entry).is_file(),
         'buildable': bool((entry.get('build') or {}).get('cmd')),
         'obtainable': (entry.get('source') or {}).get('kind') in ('git',),
     }
 
 
+def config_path(entry):
+    """Where this entry's inputConfiguration.json lives -- see config.output."""
+    c = entry.get('config') or {}
+    if c.get('output'):
+        return _path(c['output'])
+    return project_dir(entry) / 'inputConfiguration.json'
+
+
 def source_sets(entry):
     """-> [(name, is_test)] from the generated config, or [] when there is none."""
-    f = project_dir(entry) / 'inputConfiguration.json'
+    f = config_path(entry)
     if not f.is_file():
         return []
     try:
@@ -166,7 +199,15 @@ def generates(entry):
                         f"{route!r} writes")
     # Artefacts of ours that no phase writes — fernflower's Eclipse-plugin-demo .project/.classpath.
     paths += list(entry.get('generates') or [])
-    return paths, warn
+
+    # Resolve to ABSOLUTE paths, because a preserve-list of relative ones is ambiguous the moment an
+    # entry is not under TEST_OSS_ROOT. And inputConfiguration.json does not necessarily live beside
+    # the sources: a private entry writes it to config.output, the refactor server's work dir.
+    d = project_dir(entry)
+    resolved = []
+    for rel in paths:
+        resolved.append(config_path(entry) if rel == 'inputConfiguration.json' else d / rel)
+    return resolved, warn
 
 
 # ---------------------------------------------------------------- phases
@@ -191,7 +232,13 @@ def plan(entry, phase):
         if not route or route == 'none':
             return None
         maddi = Path(os.environ.get('MADDI_REPO') or HERE.parent.parent).resolve()
-        out = d / 'inputConfiguration.json'
+        # A corpus project's config sits beside its sources, where TestOssCorpus.config() looks.
+        # A private project's belongs in the refactor server's work dir, which is what
+        # ProjectServiceImpl.load reads -- so `config.output` overrides.
+        out = _path(c['output']) if c.get('output') else d / 'inputConfiguration.json'
+        # project.yml records extra_jmods per project (closed-core needs jdk.javadoc +
+        # jdk.compiler); without them those modules are simply absent from the classpath.
+        jmods = ''.join(f' --extra-jmod {j}' for j in (c.get('extra_jmods') or []))
         if route == 'maven-plugin':
             ver = os.environ.get('MADDI_PLUGIN_VERSION', '')
             return (f'MAVEN_OPTS="$MADDI_EXPORTS -Xmx{c.get("mem", "6G")}" '
@@ -204,14 +251,20 @@ def plan(entry, phase):
             # module emits no "Command line options:" line at all, so capturing over an already
             # built reactor yields a SILENTLY PARTIAL config -- measured on timefold, 22 source
             # sets instead of 65, missing core/main. Nothing downstream reveals the loss.
+            # `cmd` verbatim when the project supplies one -- private projects carry their own in
+            # project.yml, and it is not always `clean`: callforpapers uses
+            # `-Dmaven.build.cache.enabled=false` to force every module to recompile, which is the
+            # same guarantee by a different means. Composing a command over that would break it.
+            build = c.get('cmd') or f'./mvnw -X clean {c["tasks"]}{_mvn_exclusions(c)}'
             return (f'{jh}MAVEN_OPTS="$MADDI_EXPORTS -Xmx{c.get("mem", "6G")}" '
-                    f'./mvnw -X clean {c["tasks"]}{_mvn_exclusions(c)} > compile.log 2>&1; '
+                    f'{build} > compile.log 2>&1; '
                     # Filter BEFORE maddi reads it: ParseJavacList does readString on the whole
                     # file, and a >2GB log dies on the JVM's max array size, which no -Xmx fixes.
                     # Equivalent input, not a shortcut -- these are exactly the lines it keeps.
                     f"grep -aE '^\\[DEBUG] -d ' compile.log > compile.javac.log && "
                     f'{maddi}/gradlew -p {maddi} :maddi-run-openjdk:run '
-                    f'--args="--compile-log {d}/compile.javac.log --write-input-configuration {out}"')
+                    f'--args="--compile-log {d}/compile.javac.log{jmods} '
+                    f'--write-input-configuration {out}"')
         if route in ('gradle-log', 'gradle-log-kotlin'):
             target = 'maddi-run-kotlin' if route.endswith('kotlin') else 'maddi-run-openjdk'
             grep = ("grep -aE 'Compiler arguments:|\\[KOTLIN] compiler arguments:'"
@@ -220,7 +273,8 @@ def plan(entry, phase):
             return (f'./gradlew --no-build-cache --rerun-tasks {c["tasks"]}{extra} --debug 2>&1 | '
                     f'{grep} > compile.log; '
                     f'{maddi}/gradlew -p {maddi} :{target}:run '
-                    f'--args="--compile-log {d}/compile.log --write-input-configuration {out}"')
+                    f'--args="--compile-log {d}/compile.log{jmods} '
+                    f'--write-input-configuration {out}"')
         if route == 'script':
             return f'python3 {HERE / Path(c["script"]).name}'
         sys.exit(f'{name}: unknown config.route {route!r}')
@@ -232,7 +286,7 @@ def plan(entry, phase):
         # about which of the two broke -- and it costs 60x more: fernflower is 13s parse-only
         # against 13m under `modification`, timefold 25m. The analyser run is `analyse`, below.
         p = entry.get('parse') or {}
-        cfg = project_dir(entry) / 'inputConfiguration.json'
+        cfg = config_path(entry)
         maddi = Path(os.environ.get('MADDI_REPO') or HERE.parent.parent).resolve()
         mod = {'openjdk': 'maddi-run-openjdk', 'kotlin': 'maddi-run-kotlin',
                'main': 'maddi-run-main'}[p.get('runner', 'openjdk')]
@@ -387,7 +441,7 @@ def baseline_cmd(entry, record):
     if not p:
         print(f"{entry['name']}: no config.baseline declared", file=sys.stderr)
         return 1
-    if not (project_dir(entry) / 'inputConfiguration.json').is_file():
+    if not config_path(entry).is_file():
         print(f"{entry['name']}: no config on disk -- run the config phase first", file=sys.stderr)
         return 1
     try:
@@ -498,10 +552,8 @@ def cmd_generates(args):
         for w in warn:
             print('WARNING ' + w, file=sys.stderr)
             rc = 1
-        d = project_dir(e)
         for p in paths:
-            mark = '' if (d / p).exists() else '   # not present'
-            print(f"{e.get('dir') or n}/{p}{mark}")
+            print(f"{p}{'' if p.exists() else '   # not present'}")
     return rc
 
 
