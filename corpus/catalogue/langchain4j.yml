@@ -35,7 +35,7 @@ build:
 config:
   route: maven-plugin
   module: langchain4j-core
-  baseline: sourcesets/langchain4j.tsv
+  baseline: baselines/langchain4j.tsv
   # The plugin writes langchain4j-core/target/inputConfiguration.json first and the route
   # copies it up; only the copy is listed, because target/ is already gitignored upstream.
   generates: [inputConfiguration.json]

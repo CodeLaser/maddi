@@ -24,7 +24,7 @@ config:
   # greps the --debug log for 'Compiler arguments:', and a task Gradle considers up to date emits
   # no such line. --rerun-tasks in the helper covers that, but naming both keeps the intent legible.
   tasks: compileJava compileTestJava
-  baseline: sourcesets/fernflower.tsv
+  baseline: baselines/fernflower.tsv
   # What this route writes into the checkout. Untracked, so `git reset --hard` leaves them
   # alone but `git clean -fdx` would delete them; the corpus pre-flight derives its
   # preserve-list from these rather than keeping one by hand.

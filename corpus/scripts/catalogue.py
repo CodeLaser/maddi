@@ -62,7 +62,7 @@ except ImportError:
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_CATALOGUE = HERE.parent / 'catalogue'
-PHASES = ('build', 'config', 'parse', 'tests')
+PHASES = ('build', 'config', 'parse', 'analyse', 'tests')
 
 # What each config route writes into the checkout, when the entry does not say. An entry's own
 # `config.generates` wins; this exists so a new entry need not repeat the obvious, and so a
@@ -226,6 +226,22 @@ def plan(entry, phase):
         sys.exit(f'{name}: unknown config.route {route!r}')
 
     if phase == 'parse':
+        # PARSE ONLY -- `--analysis-steps=none`. This phase answers "does the config load, and
+        # does everything in it parse", which is a property of the CONFIG. Running the analyzer
+        # here instead conflates that with "is the analyzer working", so a red says nothing
+        # about which of the two broke -- and it costs 60x more: fernflower is 13s parse-only
+        # against 13m under `modification`, timefold 25m. The analyser run is `analyse`, below.
+        p = entry.get('parse') or {}
+        cfg = project_dir(entry) / 'inputConfiguration.json'
+        maddi = Path(os.environ.get('MADDI_REPO') or HERE.parent.parent).resolve()
+        mod = {'openjdk': 'maddi-run-openjdk', 'kotlin': 'maddi-run-kotlin',
+               'main': 'maddi-run-main'}[p.get('runner', 'openjdk')]
+        return (f'{maddi}/gradlew -q -p {maddi} :{mod}:run '
+                f'--args="--input-configuration={cfg} --analysis-steps=none"')
+
+    if phase == 'analyse':
+        # The maddi corpus test: the ANALYZER's regression check over this corpus, at whatever
+        # --analysis-steps the test itself declares. Expensive, and separate on purpose.
         p = entry.get('parse') or {}
         if not p.get('test'):
             return None
@@ -239,6 +255,38 @@ def plan(entry, phase):
         return (entry.get('tests') or {}).get('cmd')
 
     sys.exit(f'unknown phase {phase!r}')
+
+
+# --------------------------------------------------- parse-only measurement
+
+# What a `--analysis-steps=none` run prints per source set. This is the ONLY place the primary-type
+# count per source set is available: the analysis path logs a single total ("Running prep analyzer
+# on {} types"), which is why an earlier version of this script recorded the source-set inventory
+# instead and claimed the real thing needed a change on the maddi side. It did not.
+# (.+?)$ with re.M, NOT (\S+): Maven source-set names contain SPACES -- 'LangChain4j :: 
+# Core/main', 'Guava: Google Core Libraries for Java/test'. With \S+ every such name
+# truncated at the first space and a project's source sets collapsed into ONE key, which
+# read as a config with one source set rather than as a broken regex.
+_COLLECTED = re.compile(r'Collected (\d+) class symbols for source set (.+?)\s*$', re.M)
+
+
+def measure_parse(entry):
+    """Run the parse-only phase and return {source set: primary types}.
+
+    Raises RuntimeError with the tail of the output when the run fails -- a parse that does not
+    complete has no counts, and reporting zero for every source set would look exactly like a
+    corpus that vanished.
+    """
+    cmd = plan(entry, 'parse')
+    proc = subprocess.run(cmd, shell=True, cwd=project_dir(entry),
+                          capture_output=True, text=True)
+    blob = proc.stdout + proc.stderr
+    counts = {m.group(2): int(m.group(1)) for m in _COLLECTED.finditer(blob)}
+    if proc.returncode != 0 or not counts:
+        tail = '\n'.join(blob.splitlines()[-15:])
+        raise RuntimeError(f"{entry['name']}: parse-only run failed "
+                           f'(rc={proc.returncode}, {len(counts)} source sets seen)\n{tail}')
+    return counts
 
 
 # ---------------------------------------------------------------- checks
@@ -311,55 +359,61 @@ def baseline_path(entry):
 
 
 def baseline_cmd(entry, record):
-    """The SOURCE-SET INVENTORY of the generated config: name + whether it is a test source set.
+    """Primary types PER SOURCE SET, from a parse-only run: diff against the recorded table.
 
-    Recorded, never hand-written -- pulsar has 90 source sets and timefold 65, and a table nobody
-    maintains is worse than no table.
+    Per source set rather than one total, because a total hides coverage moving BETWEEN modules,
+    which is the drift worth catching. Recorded rather than hand-written, because timefold has 65
+    source sets and pulsar 90 -- a table nobody maintains is worse than no table.
 
-    ⚠ This is NOT yet the per-source-set PRIMARY TYPE count the design asks for. maddi logs only a
-    total ("Running prep analyzer on {} types"), so per-source-set counts need a summary output on
-    the maddi side first. What this does catch is the failure that has actually bitten: a silently
-    partial config. Capturing timefold's compile log without `clean` yields 22 source sets instead
-    of 65, missing core/main, and it loads and analyses without complaint -- invisible to every
-    other instrument. A drift in this inventory is that failure, named.
+    It also catches the failure that has actually bitten: capturing timefold's compile log without
+    `clean` yields 22 source sets instead of 65, missing core/main, and the result loads and
+    analyses without complaint. Invisible to every other instrument; a missing row here.
     """
     p = baseline_path(entry)
     if not p:
-        print(f"{entry['name']}: no parse.baseline declared", file=sys.stderr)
+        print(f"{entry['name']}: no config.baseline declared", file=sys.stderr)
         return 1
-    sets = source_sets(entry)
-    if not sets:
-        print(f"{entry['name']}: no config on disk — run the config phase first", file=sys.stderr)
+    if not (project_dir(entry) / 'inputConfiguration.json').is_file():
+        print(f"{entry['name']}: no config on disk -- run the config phase first", file=sys.stderr)
         return 1
+    try:
+        got = measure_parse(entry)
+    except RuntimeError as e:
+        print(str(e), file=sys.stderr)
+        return 1
+
     if record:
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text('# source set\tis_test — recorded by `catalogue.py baseline --record`\n'
-                     + ''.join(f'{n}\t{int(t)}\n' for n, t in sorted(sets)))
-        print(f'recorded {len(sets)} source sets -> {p}', file=sys.stderr)
+        p.write_text('# source set\tprimary types -- `catalogue.py baseline <name> --record`\n'
+                     + ''.join(f'{k}\t{v}\n' for k, v in sorted(got.items())))
+        total = sum(got.values())
+        print(f'recorded {len(got)} source sets, {total} primary types -> {p}', file=sys.stderr)
         return 0
+
     if not p.is_file():
-        print(f'{p} does not exist — record it with RECORD=1', file=sys.stderr)
+        print(f'{p} does not exist -- record it with RECORD=1', file=sys.stderr)
         return 1
     want = {}
     for line in p.read_text().splitlines():
         if line.strip() and not line.startswith('#'):
             k, _, v = line.partition('\t')
-            want[k] = v
-    got = {n: str(int(t)) for n, t in sets}
+            want[k] = int(v)
     added = sorted(set(got) - set(want))
     removed = sorted(set(want) - set(got))
     changed = sorted(k for k in set(want) & set(got) if want[k] != got[k])
     for k in removed:
-        print(f'- {k}', file=sys.stderr)
+        print(f'- {k}\t{want[k]}', file=sys.stderr)
     for k in added:
-        print(f'+ {k}', file=sys.stderr)
+        print(f'+ {k}\t{got[k]}', file=sys.stderr)
     for k in changed:
-        print(f'~ {k}: main<->test changed', file=sys.stderr)
+        print(f'~ {k}\t{want[k]} -> {got[k]}', file=sys.stderr)
     if added or removed or changed:
-        print(f"{entry['name']}: source sets drifted ({len(want)} -> {len(got)}). "
-              f'Read the diff, then accept it with RECORD=1.', file=sys.stderr)
+        print(f"{entry['name']}: parse drifted ({len(want)} source sets/{sum(want.values())} types "
+              f'-> {len(got)}/{sum(got.values())}). Read the diff, then accept it with RECORD=1.',
+              file=sys.stderr)
         return 1
-    print(f"{entry['name']}: {len(got)} source sets, unchanged", file=sys.stderr)
+    print(f"{entry['name']}: {len(got)} source sets, {sum(got.values())} primary types, unchanged",
+          file=sys.stderr)
     return 0
 
 
