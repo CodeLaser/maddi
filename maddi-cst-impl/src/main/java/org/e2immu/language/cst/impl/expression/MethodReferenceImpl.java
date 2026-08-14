@@ -27,6 +27,8 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.translate.TranslationMap;
+import org.e2immu.language.cst.api.expression.TypeExpression;
+import org.e2immu.language.cst.impl.type.DiamondEnum;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.DescendMode;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -199,8 +201,29 @@ public class MethodReferenceImpl extends ExpressionImpl implements MethodReferen
 
         Expression translatedScope = scope.translate(translationMap);
         ParameterizedType transType = translationMap.translateType(parameterizedType);
-        if (translatedScope == scope && transType == parameterizedType) return this;
-        Expression result = new MethodReferenceImpl(comments(), source(), transType, methodInfo, translatedScope,
+        // ⚠ THE METHOD ITSELF MUST BE REMAPPED, exactly as MethodCallImpl#translate does. It was not, so a
+        // relocated method's body kept 'Origin::method' after 'method' had moved -- and when the origin no
+        // longer declares it, javac refuses ("invalid method reference"). rewire() three methods below has
+        // always done this correctly (infoMap.methodInfo(methodInfo)); only translate() skipped it.
+        // Found through extract.extractCompanion on an OSS corpus, but it is not specific to that verb: every
+        // lever that relocates a member translates bodies through the same map.
+        MethodInfo translatedMethod = translationMap.translateMethodInfo(methodInfo);
+        // ⚠ AND THE SCOPE MUST FOLLOW IT. print() emits '<scope>::<name>', so the owner in the TEXT comes
+        // from the scope, not from methodInfo: remapping the method alone retargets the reference while
+        // still printing the old owner. When the method moved to a different type and the scope is that old
+        // type, rebuild it on the new one.
+        if (translatedMethod != methodInfo
+            && translatedMethod.typeInfo() != methodInfo.typeInfo()
+            && translatedScope instanceof TypeExpression te
+            && te.parameterizedType().typeInfo() == methodInfo.typeInfo()) {
+            // NO diamond: a type used as a method-reference scope carries no type arguments
+            translatedScope = new TypeExpressionImpl(translatedMethod.typeInfo().asSimpleParameterizedType(),
+                    DiamondEnum.NO);
+        }
+        if (translatedScope == scope && transType == parameterizedType && translatedMethod == methodInfo) {
+            return this;
+        }
+        Expression result = new MethodReferenceImpl(comments(), source(), transType, translatedMethod, translatedScope,
                 concreteParameterTypes.stream().map(translationMap::translateType).toList(),
                 translationMap.translateType(concreteReturnType));
         return translationMap.postTranslationHandler(this, result);
