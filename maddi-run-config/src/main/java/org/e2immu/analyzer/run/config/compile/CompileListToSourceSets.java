@@ -280,7 +280,8 @@ public class CompileListToSourceSets {
 
             if (inv.modulePath() != null) {
                 for (String modulePart : inv.modulePath()) {
-                    if (!moduleJarToDestination.containsKey(modulePart) && modulePart.endsWith(".jar")) {
+                    if (!moduleJarToDestination.containsKey(modulePart) && modulePart.endsWith(".jar")
+                        && couldBeReactorOutput(buildRoot, modulePart)) {
                         String moduleDestination = computeModuleName(modulePart, moduleNameToDestination);
                         if (moduleDestination != null) {
                             moduleJarToDestination.put(modulePart, moduleDestination);
@@ -291,6 +292,37 @@ public class CompileListToSourceSets {
         }
         LOGGER.info("Computed {} moduleJarToDestination entries", moduleJarToDestination.size());
         return moduleJarToDestination;
+    }
+
+    /**
+     * ⛔ ONLY A JAR INSIDE THE BUILD ROOT CAN BE A REACTOR MODULE'S OWN OUTPUT, and {@link #computeModuleName}
+     * matches BY NAME, which is why this guard is needed rather than nice.
+     *
+     * <p>That matcher takes each {@code [.-]}-separated prefix of a jar's file name and looks it up as
+     * {@code <prefix>/main}; module names are registered under their leaf form too, so a reactor module at
+     * {@code persistence/jackson} answers to {@code jackson/main}. External libraries then collide with it by
+     * accident of naming, and on timefold four did:
+     *
+     * <table><caption></caption>
+     * <tr><td>{@code jackson-annotations-2.22.jar}, {@code jackson-core-3.2.0.jar},
+     *         {@code jackson-databind-3.2.0.jar}</td><td>claimed by {@code persistence/jackson}</td></tr>
+     * <tr><td>{@code spring-boot-autoconfigure-4.1.0.jar}</td>
+     *     <td>claimed by {@code spring-integration/spring-boot-autoconfigure}</td></tr>
+     * </table>
+     *
+     * <p>⚠ A claimed jar is worse than an unmatched one: {@code handleClasspath} skips making it a library
+     * <em>because</em> it is claimed, so the jar leaves the parse altogether. javac then reported
+     * {@code package com.fasterxml.jackson.annotation does not exist} fifty times in one file, its error recovery
+     * truncated an annotated record header to one of its five components, and the parse refused with a message
+     * about a constructor — three removes from the cause.
+     *
+     * <p>The same reasoning already rewrote {@link #computePackagedJars} to match by PATH: a build tool writes a
+     * module's jar into the module's own output directory. Here the weaker form of that signal is enough, and it
+     * keeps the name matcher for the layouts it was written for. ⚠ When the build root is unknown the guard
+     * stands aside rather than refusing every match.
+     */
+    private static boolean couldBeReactorOutput(String buildRoot, String jarPath) {
+        return buildRoot == null || buildRoot.isEmpty() || jarPath.startsWith(buildRoot + SEPARATOR);
     }
 
     // modulePart = .../maddi-support-0.8.2.jar
@@ -562,7 +594,13 @@ public class CompileListToSourceSets {
                         if (srcDependency != null) {
                             dependencies.add(srcDependency);
                         } else {
-                            LOGGER.warn("Cannot find module path part {}", modulePart);
+                            // ⚠ NAME THE CAUSE. "Cannot find" has two of them and they need opposite fixes:
+                            // either the jar was claimed by jarFileToDestination for a destination that has no
+                            // source set (a bad name-based match, and the jar is then MISSING from the parse
+                            // entirely because handleClasspath skipped making it a library), or nothing claimed
+                            // it and it never became a library at all.
+                            LOGGER.warn("Cannot find module path part {}: claimed by destination {}", modulePart,
+                                    srcModule == null ? "(nothing)" : srcModule);
                         }
                     }
                 }
