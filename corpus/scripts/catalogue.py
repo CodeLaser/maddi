@@ -238,12 +238,19 @@ def plan(entry, phase):
         # A private project's belongs in the refactor server's work dir, which is what
         # ProjectServiceImpl.load reads -- so `config.output` overrides.
         out = _path(c['output']) if c.get('output') else d / 'inputConfiguration.json'
+        # Nothing else creates the output's directory. maddi's Main opens the file and dies with a
+        # bare `FileNotFoundException: ... (No such file or directory)` -- after the full -X rebuild,
+        # so the whole cost of the phase is paid before the failure. It never bit while every config
+        # sat beside its sources (that directory necessarily exists); the first PRIVATE entry writes
+        # into the refactor server's work/<name>/, which the SERVER creates when it registers a
+        # project and nobody creates when the corpus driver gets there first.
+        mk = f'mkdir -p {out.parent} && '
         # project.yml records extra_jmods per project (closed-core needs jdk.javadoc +
         # jdk.compiler); without them those modules are simply absent from the classpath.
         jmods = ''.join(f' --extra-jmod {j}' for j in (c.get('extra_jmods') or []))
         if route == 'maven-plugin':
             ver = os.environ.get('MADDI_PLUGIN_VERSION', '')
-            return (f'MAVEN_OPTS="$MADDI_EXPORTS -Xmx{c.get("mem", "6G")}" '
+            return mk + (f'MAVEN_OPTS="$MADDI_EXPORTS -Xmx{c.get("mem", "6G")}" '
                     f'mvn -pl {c["module"]} generate-test-sources '
                     f'io.codelaser:maddi-mvnplugin:{ver}:write-input-configuration'
                     f' && cp {c["module"]}/target/inputConfiguration.json {out}')
@@ -258,7 +265,7 @@ def plan(entry, phase):
             # `-Dmaven.build.cache.enabled=false` to force every module to recompile, which is the
             # same guarantee by a different means. Composing a command over that would break it.
             build = c.get('cmd') or f'./mvnw -X clean {c["tasks"]}{_mvn_exclusions(c)}'
-            return (f'{jh}MAVEN_OPTS="$MADDI_EXPORTS -Xmx{c.get("mem", "6G")}" '
+            return mk + (f'{jh}MAVEN_OPTS="$MADDI_EXPORTS -Xmx{c.get("mem", "6G")}" '
                     f'{build} > compile.log 2>&1; '
                     # Filter BEFORE maddi reads it: ParseJavacList does readString on the whole
                     # file, and a >2GB log dies on the JVM's max array size, which no -Xmx fixes.
@@ -272,7 +279,7 @@ def plan(entry, phase):
             grep = ("grep -aE 'Compiler arguments:|\\[KOTLIN] compiler arguments:'"
                     if route.endswith('kotlin') else "grep -a 'Compiler arguments:'")
             extra = ' --no-configuration-cache -Dorg.gradle.warning.mode=summary' if route.endswith('kotlin') else ''
-            return (f'./gradlew --no-build-cache --rerun-tasks {c["tasks"]}{extra} --debug 2>&1 | '
+            return mk + (f'./gradlew --no-build-cache --rerun-tasks {c["tasks"]}{extra} --debug 2>&1 | '
                     f'{grep} > compile.log; '
                     f'{maddi}/gradlew -p {maddi} :{target}:run '
                     f'--args="--compile-log {d}/compile.log{jmods} '
