@@ -1491,10 +1491,20 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             boolean isExtends = wc.type.isExtendsBound();
             Wildcard wildCard = isExtends ? runtime.wildcardExtends() : runtime.wildcardSuper();
             ParameterizedType base = convertTree(wc.getBound(), dsb);
+            // ⛔ THE BOUND'S ARRAYS AND TYPE ARGUMENTS ARE PART OF IT, and this branch used to drop both: it
+            // passed a literal 0 and List.of(), so '? extends Object[]' became '? extends Object' and
+            // '? extends List<String>' became a RAW '? extends List'. Every other branch of convertTree
+            // preserves dimensions -- the array branch even descends through JCAnnotatedType so
+            // 'char[] @Nullable []' counts correctly -- which is what made this one easy to miss.
+            // ⚠ It surfaced as an AssertionError only for PRIMITIVE element types: '? extends int[]' collapsed
+            // to a bare 'int', and ParameterizedTypeImpl's "no primitive type arguments" assert caught it.
+            // isPrimitiveExcludingVoid() is 'arrays == 0 && typeInfo.isPrimitiveExcludingVoid()', so for
+            // reference elements nothing fired at all and the wrong model was simply used. The crash was the
+            // lucky case; the silent corruption was the wider one.
             if (base.isTypeParameter()) {
-                return runtime.newParameterizedType(base.typeParameter(), 0, wildCard);
+                return runtime.newParameterizedType(base.typeParameter(), base.arrays(), wildCard);
             }
-            return runtime.newParameterizedType(base.typeInfo(), 0, wildCard, List.of());
+            return runtime.newParameterizedType(base.typeInfo(), base.arrays(), wildCard, base.parameters());
         }
         if (type instanceof JCTree.JCAnnotatedType at) {
             // TODO there is no room for this in maddi's model
