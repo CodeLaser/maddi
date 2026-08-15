@@ -2,6 +2,7 @@ package org.e2immu.analyzer.modification.link.impl.large;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
+import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.junit.jupiter.api.Test;
@@ -34,8 +35,33 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * </pre>
  * That takes the curve from cubic to quadratic. It is deliberately NOT asserted as linear: what remains is
  * {@code followGraph} walking the graph's variables once per statement, which is a design property rather than a
- * defect. The assertion compares the ENDPOINTS (4x the statements) because a single doubling is too noisy: a
- * cubic linker needs ~64x there and a quadratic one ~16x, so the threshold separates them with room to spare.
+ * defect.
+ * <p>
+ * ⛔⛔ <b>THIS ASSERTED WALL-CLOCK MILLISECONDS UNTIL 2026-08-15, AND THAT WAS WRONG IN BOTH DIRECTIONS.</b> It
+ * failed in CI at 31.7x against a threshold of 30 with nothing regressed — at n=100 the work is ~100 ms, and the
+ * denominator alone swings 53↔118 ms between runs on one machine, moving the ratio from 15x to 32x. That is the
+ * flakiness. The worse half is what the control showed: with the memo bypassed — a genuine return to cubic — the
+ * measured times were 135 ms → 3156 ms, a ratio of <b>23x, which PASSES a threshold of 30</b>. So the timing
+ * guard reported failure on a healthy build and success on a broken one. ▶ <b>A THRESHOLD ON A NOISY RATIO IS NOT
+ * A WEAK GUARD, IT IS AN UNRELATED ONE.</b>
+ * <p>
+ * ⭐ It now counts the CORE LOOP instead: misses on the {@code assignmentSources} memo, which is precisely the
+ * quantity the fix removed. Measured on this machine, byte-identical across three forced re-runs while the times
+ * moved by 15%:
+ * <pre>
+ *   n     computes   rebuilds        computes, memo BYPASSED (the control)
+ *   25         355         28              5 588
+ *   50       1 330         53             43 038
+ *  100       5 155        103            338 563
+ *  200      20 305        203          2 687 113
+ *  400      80 605        403         21 414 213
+ *   ratio 100→400:  15.64x  (quadratic)        63.25x  (cubic)
+ * </pre>
+ * The two regimes sit 4x apart in a deterministic integer, where the timings sat 23x vs 32x THE WRONG WAY ROUND.
+ * The threshold is 25: ~60% headroom above the healthy 15.64, and 2.5x clear of the cubic 63.25.
+ * <p>
+ * ⚠ The timings are still printed, because the growth curve is the thing being reasoned about and a human reading
+ * a regression wants them — but nothing asserts on them.
  */
 public class TestBuilderChainBench extends CommonTest {
 
@@ -68,31 +94,47 @@ public class TestBuilderChainBench extends CommonTest {
         return sb.toString();
     }
 
-    private long linkMillis(int n) {
+    /** One size: the memo misses that linking the method costs, plus the wall clock for the human reader. */
+    private record Measurement(long computes, long rebuilds, long millis) {
+    }
+
+    private Measurement link(int n) {
         TypeInfo x = javaInspector.parse("a.b.X" + n, input(n));
         new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build()).doPrimaryType(x);
+        SharedVariable.resetCoreLoopCounters();
         long t0 = System.nanoTime();
         new LinkComputerImpl(javaInspector).doPrimaryType(x);
-        return (System.nanoTime() - t0) / 1_000_000;
+        long millis = (System.nanoTime() - t0) / 1_000_000;
+        return new Measurement(SharedVariable.assignmentSourceComputations(),
+                SharedVariable.forwardAssignmentRebuilds(), millis);
     }
 
     @Test
     public void bench() {
         int[] sizes = {25, 50, 100, 200, 400};
-        long[] times = new long[sizes.length];
+        Measurement[] m = new Measurement[sizes.length];
         for (int i = 0; i < sizes.length; i++) {
-            times[i] = linkMillis(sizes[i]);
-            String ratio = i == 0 ? "-"
-                    : String.format("%.2fx for 2x statements", times[i] / (double) Math.max(1, times[i - 1]));
-            System.out.printf("PROBE n=%4d link=%6d ms   %s%n", sizes[i], times[i], ratio);
+            m[i] = link(sizes[i]);
+            System.out.printf("PROBE n=%4d computes=%8d rebuilds=%6d  (%6d ms)%n",
+                    sizes[i], m[i].computes(), m[i].rebuilds(), m[i].millis());
         }
-        // n=100 -> n=400: 4x the statements. Measured 15.7x after the fix; a return to the cubic behaviour puts
-        // this near 64x, so 30 separates them without being noise-sensitive.
+        // n=100 -> n=400 is 4x the statements: quadratic is ~16x, cubic ~64x. Endpoints rather than a single
+        // doubling, because 4x separates the two regimes twice as far as 2x does.
         int lo = sizes.length - 3, hi = sizes.length - 1;
-        double ratio = times[hi] / (double) Math.max(1, times[lo]);
-        assertTrue(ratio < 30.0,
-                "linking must not go cubic again as a straight-line method grows: n=" + sizes[lo] + " took "
-                + times[lo] + " ms, n=" + sizes[hi] + " took " + times[hi] + " ms (" + ratio
-                + "x for 4x the statements)");
+
+        double computeRatio = m[hi].computes() / (double) Math.max(1, m[lo].computes());
+        assertTrue(computeRatio < 25.0,
+                "linking must not go cubic again as a straight-line method grows: assignmentSources was computed "
+                + m[lo].computes() + " times at n=" + sizes[lo] + " and " + m[hi].computes() + " times at n="
+                + sizes[hi] + " (" + computeRatio + "x for 4x the statements; ~16x is the quadratic curve this"
+                + " guards, ~64x is the cubic one it used to have)");
+
+        // The second half of the same fix, which the wall-clock assertion never covered: the forward adjacency
+        // map is built once per group version, so its rebuild count must stay LINEAR. Measured 103 -> 403.
+        double rebuildRatio = m[hi].rebuilds() / (double) Math.max(1, m[lo].rebuilds());
+        assertTrue(rebuildRatio < 8.0,
+                "the forward-assignment map must stay memoized per group version: " + m[lo].rebuilds()
+                + " rebuilds at n=" + sizes[lo] + ", " + m[hi].rebuilds() + " at n=" + sizes[hi] + " ("
+                + rebuildRatio + "x for 4x the statements, linear is ~4x)");
     }
 }
