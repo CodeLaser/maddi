@@ -883,14 +883,28 @@ public class JavaInspectorImpl implements JavaInspector {
     // compile against the running system modules (-XDignore.symbol.file); --add-export every non-exported package
     // of the declared JDK modules to the unnamed module (the runner compiles with ignoreModule); and --limit-modules
     // to the declared ones so a JDK module's own sources (e.g. java.net.http) do not clash with the system module of
-    // the same name ("package exists in another module").
+    // the same name ("package exists in another module") -- but only when the SOURCE SET declares them, see below.
     private static List<String> jdkInternalsJavacOptions(SourceSet sourceSet, InputConfiguration inputConfiguration) {
         List<String> options = new ArrayList<>();
         options.add("-XDignore.symbol.file=true");
+        // ⛔ --limit-modules ONLY when the SOURCE SET declares the modules itself. On the class-path fallback the
+        // list is what the configuration happens to name, which is not the same claim: it is a class path, not a
+        // statement about the module graph, and it is routinely incomplete. Limiting to it REMOVES modules that
+        // resolved a moment ago.
+        //
+        // Measured on guava, same configuration, --jdk-internals throughout: the 20 jmods its class path declares
+        // are all java.*, with no jdk.unsupported. Adding --limit-modules from that list fixed MacHashFunctionTest
+        // (sun.security.jca) and simultaneously broke THREE main-source files that had been fine —
+        // LittleEndianByteArray, UnsignedBytes, AbstractFutureState, all on "Type Unsafe not found", because
+        // sun.misc.Unsafe lives in jdk.unsupported. Net 4 dropped compilation units -> 6.
+        //
+        // --add-exports is additive and safe to emit from either source: it opens packages of modules that are
+        // present, and names no module it does not also export. Only the limiting is a claim about completeness.
+        List<String> declaredBySourceSet = jdkModulesOf(sourceSet.dependencies());
         List<String> jdkModules = jdkModulesFor(sourceSet, inputConfiguration);
-        if (!jdkModules.isEmpty()) {
+        if (!declaredBySourceSet.isEmpty()) {
             options.add("--limit-modules");
-            options.add(String.join(",", jdkModules));
+            options.add(String.join(",", declaredBySourceSet));
         }
         ModuleFinder systemModules = ModuleFinder.ofSystem();
         for (String modName : jdkModules) {
@@ -934,12 +948,14 @@ public class JavaInspectorImpl implements JavaInspector {
      * ⚠ A configuration with no {@code partOfJdk} parts at all (coil, in that same catalogue) is untouched by
      * this: there is nothing to open, and the fallback returns empty just as the primary does.
      */
+    private static List<String> jdkModulesOf(Collection<? extends SourceSet> sourceSets) {
+        return sourceSets.stream().filter(SourceSet::partOfJdk).map(SourceSet::name).distinct().sorted().toList();
+    }
+
     private static List<String> jdkModulesFor(SourceSet sourceSet, InputConfiguration inputConfiguration) {
-        List<String> fromDependencies = sourceSet.dependencies().stream()
-                .filter(SourceSet::partOfJdk).map(SourceSet::name).distinct().sorted().toList();
+        List<String> fromDependencies = jdkModulesOf(sourceSet.dependencies());
         if (!fromDependencies.isEmpty() || inputConfiguration == null) return fromDependencies;
-        List<String> fromClassPath = inputConfiguration.classPathParts().stream()
-                .filter(SourceSet::partOfJdk).map(SourceSet::name).distinct().sorted().toList();
+        List<String> fromClassPath = jdkModulesOf(inputConfiguration.classPathParts());
         if (!fromClassPath.isEmpty()) {
             LOGGER.info("Source set {} declares no JDK module dependency; opening the {} JDK module(s) the"
                         + " configuration declares on the class path instead.", sourceSet.name(),
