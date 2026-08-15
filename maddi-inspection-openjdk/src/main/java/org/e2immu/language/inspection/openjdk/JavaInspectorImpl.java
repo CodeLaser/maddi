@@ -884,11 +884,10 @@ public class JavaInspectorImpl implements JavaInspector {
     // of the declared JDK modules to the unnamed module (the runner compiles with ignoreModule); and --limit-modules
     // to the declared ones so a JDK module's own sources (e.g. java.net.http) do not clash with the system module of
     // the same name ("package exists in another module").
-    private static List<String> jdkInternalsJavacOptions(SourceSet sourceSet) {
+    private static List<String> jdkInternalsJavacOptions(SourceSet sourceSet, InputConfiguration inputConfiguration) {
         List<String> options = new ArrayList<>();
         options.add("-XDignore.symbol.file=true");
-        List<String> jdkModules = sourceSet.dependencies().stream()
-                .filter(SourceSet::partOfJdk).map(SourceSet::name).distinct().sorted().toList();
+        List<String> jdkModules = jdkModulesFor(sourceSet, inputConfiguration);
         if (!jdkModules.isEmpty()) {
             options.add("--limit-modules");
             options.add(String.join(",", jdkModules));
@@ -908,6 +907,45 @@ public class JavaInspectorImpl implements JavaInspector {
             });
         }
         return options;
+    }
+
+    /**
+     * The JDK modules to open up, preferring the source set's own declared dependencies and falling back to the
+     * ones the CONFIGURATION declares as class path parts.
+     * <p>
+     * ⛔ <b>WITHOUT THE FALLBACK, {@code --jdk-internals} IS A SILENT NO-OP FOR MOST CONFIGURATIONS.</b> The
+     * {@code --add-exports} loop below is the only thing that opens a non-exported package, and it iterates this
+     * list — so an empty list means the flag drops {@code --release}/{@code --system} and then adds nothing. The
+     * failure is not silent to the user, but it is deeply misleading: {@code package sun.security.jca does not
+     * exist} (ct.sym filtering) becomes {@code package sun.security.jca is not visible}, which reads like a
+     * deliberate refusal rather than an option that was never emitted.
+     * <p>
+     * Both spellings are legitimate and both occur in the corpus catalogue. The plugin routes wire every source
+     * set to the jmods ({@code ComputeDependencies}: "every external library is dependent on all the jmods"), so
+     * {@code dependencies()} carries them; {@code CompileListToInputConfiguration} (the compile-log route) adds
+     * the same jmods through {@code addClassPathParts} only, so it does not. Measured over the 14 generated
+     * configurations in the test-oss catalogue: <b>10 of them have 20-21 {@code partOfJdk} class path parts and
+     * ZERO source sets referencing one</b> — timefold-solver (0 of 65), pulsar (0 of 90), elasticsearch (0 of 27),
+     * detekt, fernflower, the three elasticsearch single-set configs; while guava, jenkins, activemq, camel and
+     * langchain4j do carry them. ⚠ It does NOT split cleanly by route, so do not reach for "the compile-log
+     * corpora" as the rule: what decides it is how the configuration was authored, which is exactly why the fix
+     * belongs here rather than in one generator.
+     * <p>
+     * ⚠ A configuration with no {@code partOfJdk} parts at all (coil, in that same catalogue) is untouched by
+     * this: there is nothing to open, and the fallback returns empty just as the primary does.
+     */
+    private static List<String> jdkModulesFor(SourceSet sourceSet, InputConfiguration inputConfiguration) {
+        List<String> fromDependencies = sourceSet.dependencies().stream()
+                .filter(SourceSet::partOfJdk).map(SourceSet::name).distinct().sorted().toList();
+        if (!fromDependencies.isEmpty() || inputConfiguration == null) return fromDependencies;
+        List<String> fromClassPath = inputConfiguration.classPathParts().stream()
+                .filter(SourceSet::partOfJdk).map(SourceSet::name).distinct().sorted().toList();
+        if (!fromClassPath.isEmpty()) {
+            LOGGER.info("Source set {} declares no JDK module dependency; opening the {} JDK module(s) the"
+                        + " configuration declares on the class path instead.", sourceSet.name(),
+                    fromClassPath.size());
+        }
+        return fromClassPath;
     }
 
     // true when 'jre' is the JDK this analyzer is itself running on. Then --system would merely reload the running
@@ -1072,7 +1110,7 @@ public class JavaInspectorImpl implements JavaInspector {
                     LOGGER.warn("Ignoring alternative JRE {} while compiling {} against JDK internals: internals are" +
                                 " opened on the running JDK.", altJre, sourceSet.name());
                 }
-                options.addAll(jdkInternalsJavacOptions(sourceSet));
+                options.addAll(jdkInternalsJavacOptions(sourceSet, inputConfiguration));
             } else if (altJre != null) {
                 options.add("--system");
                 options.add(altJre.toString());
