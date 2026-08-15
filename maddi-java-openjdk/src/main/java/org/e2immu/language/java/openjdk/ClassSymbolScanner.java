@@ -969,6 +969,34 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                && ms.params.head.type.tsym.flatName().contentEquals("java.lang.String");
     }
 
+    /**
+     * javac's own errors for one compilation unit, for the refusal message above.
+     * <p>
+     * ⛔ <b>THE SCANNER WAS ALREADY HOLDING THESE WHEN IT THREW.</b> Without them the message could only offer a
+     * jar/no-jar verdict, and its no-jar branch ended "the member lists above are the evidence to read" — which
+     * sent two independent readers within 24 hours to the same wrong conclusion about compact record
+     * constructors, while the actual cause was a missing classpath entry 50 javac errors deep in that very file.
+     * ⚠ Same disease as the rest of GAP #12: the information was never missing, the presentation was.
+     * <p>
+     * Errors only — a MISSING_CLASS diagnostic is the routine "not on the classpath, carry on" case that every
+     * parse of an incomplete classpath produces, and including it would make this fire on healthy parses.
+     */
+    private List<String> javacErrorsFor(CompilationUnit compilationUnit) {
+        // a diagnostic must never be the thing that throws: it runs where the caller has already lost
+        if (diagnosticCollector == null || compilationUnit == null || compilationUnit.uri() == null) return List.of();
+        String path = compilationUnit.uri().getPath();
+        if (path == null || path.isBlank()) return List.of();
+        try {
+            return diagnosticCollector.diagnostics().stream()
+                    .filter(d -> MaddiDiagnosticCollector.DiagnosticKind.ERROR == d.diagnosticKind())
+                    .filter(d -> path.equals(d.path()))
+                    .map(d -> d.line() > 0 ? "line " + d.line() + ": " + d.msg() : d.msg())
+                    .toList();
+        } catch (RuntimeException ignored) {
+            return List.of();
+        }
+    }
+
     MethodInfo addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms, boolean synthetic) {
         if (typeInfo.hasBeenInspected()) {
             // GAP #12's residual. This threw a BARE UnsupportedOperationException while logging the three facts
@@ -993,7 +1021,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     isSourceSymbol(ms),
                     incomingOrigin,
                     ms.toString(),
-                    typeInfo.constructorAndMethodStream().map(Info::descriptor).toList());
+                    typeInfo.constructorAndMethodStream().map(Info::descriptor).toList(),
+                    javacErrorsFor(typeInfo.compilationUnit()));
             LOGGER.error("{}", message);
             throw new UnsupportedOperationException(message);
         }
