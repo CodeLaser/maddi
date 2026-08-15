@@ -1312,14 +1312,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 String fullyQualifiedName = typeVar.tsym.owner.toString();
                 TypeInfo owner = getType(fullyQualifiedName);
                 if (owner == null) {
-                    // the type variable is owned by a local class (declared inside a method body), which is not
-                    // registered under a canonical FQN; a named local class is registered on the element stack by
-                    // its simple name while in scope, so resolve its owner from there instead of asserting.
-                    String ownerSimpleName = typeVar.tsym.owner.getSimpleName().toString();
-                    if (!ownerSimpleName.isEmpty()
-                        && elementStack.find(ownerSimpleName) instanceof TypeInfo localOwner) {
-                        owner = localOwner;
-                    }
+                    // the type variable is owned by a type declared inside a method body, which is not registered
+                    // under a canonical FQN; resolve it through the element stack instead of asserting.
+                    owner = methodLocalType(typeVar.tsym.owner);
                 }
                 assert owner != null : "Cannot find owner " + fullyQualifiedName
                         + " of type variable " + typeParameterName;
@@ -1617,6 +1612,79 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             return runtime.objectParameterizedType();
         }
         return convert(superclass, visited);
+    }
+
+    /**
+     * A type declared inside a method body, resolved through the element stack; {@code null} when it is not one.
+     * <p>
+     * Only the method-local class ITSELF is registered there, by {@code handleLocalType}, under its simple name.
+     * ⛔ <b>The previous version looked up exactly that one name, so it resolved a local class and nothing
+     * declared INSIDE one.</b> guava's {@code TypeTokenTest:1413} nests member classes in a local class:
+     * <pre>
+     *   class Outer&lt;O&gt; {
+     *       class Sub&lt;X&gt; extends BaseWithTypeVar&lt;List&lt;X&gt;&gt; {}
+     *   }
+     * </pre>
+     * {@code X}'s owner is {@code Sub}, whose owner is {@code Outer} — a ClassSymbol, not a MethodSymbol — so the
+     * single-name lookup asked for "Sub", missed, and threw {@code Cannot find element 'Sub' on stack}, which
+     * aborts the compilation unit.
+     * <p>
+     * So: walk UP the owner chain to the class the method actually declares, resolve that one on the stack, then
+     * walk back DOWN the nested simple names. The descent is safe at this point because {@code visitClass} adds a
+     * member type to its enclosing type's subtypes before scanning its body, which is what puts us here.
+     * <p>
+     * ⚠ Returns null rather than throwing for every shape it cannot name — an anonymous class anywhere in the
+     * chain has no simple name and was never registered — leaving the decision to the caller. The old code's
+     * {@code find(...) instanceof TypeInfo} could not do that: {@code find} throws, so its fallback was dead
+     * code. Same family as the switch-guard pattern variable pinned by {@code TestSwitchGuardPatternVariable}:
+     * the element stack is missing a declaration form, and it fails by aborting the unit.
+     */
+    private TypeInfo methodLocalType(Symbol symbol) {
+        Deque<String> nested = new ArrayDeque<>();
+        Symbol s = symbol;
+        while (s instanceof Symbol.ClassSymbol cs) {
+            TypeInfo anchor = declaredInMethodBody(cs);
+            if (anchor != null) {
+                for (String n : nested) {
+                    anchor = anchor.findSubType(n, false);
+                    if (anchor == null) return null;
+                }
+                return anchor;
+            }
+            String simpleName = cs.getSimpleName().toString();
+            if (simpleName.isEmpty()) return null; // unnamed and unregistered: nothing left to key on
+            nested.addFirst(simpleName);
+            s = cs.owner;
+        }
+        return null;
+    }
+
+    /**
+     * The {@link TypeInfo} for a type the SCANNER declared inside a method body, or null if this symbol is not
+     * one. The two forms are registered in different places, which is why both are tried here:
+     * <ul>
+     *     <li>a NAMED local class — {@code handleLocalType} puts it on the element stack under its simple name,
+     *     for as long as it is in scope;</li>
+     *     <li>an ANONYMOUS class — {@code visitNewClass} registers it in {@code typeData} under the compiler's
+     *     own notation for the symbol ({@code newClass.def.sym.toString()}), before its body is scanned. It has
+     *     no simple name, so the element stack could never hold it, and a walk that only knew about the element
+     *     stack had to give up at it.</li>
+     * </ul>
+     * ⚠ The anonymous lookup is deliberately the same key the scanner writes, {@code cs.toString()} — the same
+     * one {@code anonymousTypeStub} tries first. Do not "improve" it to a canonical FQN: an anonymous class does
+     * not have one, which is the whole reason for this path.
+     */
+    private TypeInfo declaredInMethodBody(Symbol.ClassSymbol cs) {
+        String simpleName = cs.getSimpleName().toString();
+        if (simpleName.isEmpty()) {
+            TypeInfo anonymous = getType(cs.toString());
+            return anonymous == null ? getType(cs.flatName().toString()) : anonymous;
+        }
+        if (cs.owner instanceof Symbol.MethodSymbol
+            && elementStack.findOrNull(simpleName) instanceof TypeInfo local) {
+            return local;
+        }
+        return null;
     }
 
     private TypeInfo classTypeInfo(Type.ClassType ct) {
