@@ -2568,6 +2568,31 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         return null;
     }
 
+    /**
+     * Is {@code x.length} an ARRAY length rather than a field read?
+     * <p>
+     * ⛔ <b>THE DECLARED TYPE OF THE SCOPE IS NOT THE QUESTION; THE SUBSTITUTED ONE IS.</b> This used to ask
+     * {@code scope.parameterizedType().arrays() > 0}, which is the type as WRITTEN. For a field inherited from a
+     * generic supertype that is the type VARIABLE: guava's {@code ByteSourceTester extends
+     * SourceSinkTester<ByteSource, byte[], ByteSourceFactory>} reads the inherited {@code protected final T
+     * expected}, so the declared type is {@code T}, {@code arrays()} is 0, and the test failed on an expression
+     * that is plainly an array length.
+     * <p>
+     * ⚠ What made it expensive to read is where it landed. Falling through, {@code getOrLoadField} met javac's
+     * model of {@code .length} — a field of a SYNTHETIC pseudo-class named {@code Array} with no owner — tripped
+     * {@code owner.kind == NIL}, and reported {@code Type Array not found}: a symbol that appears nowhere in the
+     * source, naming neither the field nor the expression that produced it.
+     * <p>
+     * javac has already substituted, so {@code fieldAccess.selected.type} is {@code byte[]} where the declared
+     * type is {@code T} — asking it is both simpler and more correct than substituting again here. The
+     * declared-type test is kept as the fallback for the paths where javac left no attributed type.
+     */
+    private static boolean isArrayLength(JCTree.JCFieldAccess fieldAccess, Expression scope) {
+        Type selectedType = fieldAccess.selected == null ? null : fieldAccess.selected.type;
+        if (selectedType != null) return selectedType instanceof Type.ArrayType;
+        return scope.parameterizedType().arrays() > 0;
+    }
+
     @Override
     public Void visitMemberSelect(MemberSelectTree node, Void unused) {
         try {
@@ -2597,7 +2622,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     String s = node.toString();
                     Source sourceName = source.ofIndex(s, s.lastIndexOf('.') + 1, fieldName.length());
                     dsb.put(fieldName, sourceName);
-                    if ("length".equals(fieldName) && scope.parameterizedType().arrays() > 0) {
+                    if ("length".equals(fieldName) && isArrayLength(fieldAccess, scope)) {
                         currentExpression = runtime.newArrayLengthBuilder()
                                 .setSource(source.withDetailedSources(dsb.build()))
                                 .setSource(source)
