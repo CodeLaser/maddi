@@ -70,6 +70,44 @@ public class TestMemberClassOfLocalClass extends CommonTest {
             }
             """;
 
+    /**
+     * An ANONYMOUS class in the owner chain: it has no simple name, so the element stack can never hold it.
+     * {@code visitNewClass} registers it in {@code typeData} under the compiler's notation instead.
+     */
+    @Language("java")
+    private static final String ANONYMOUS = """
+            package a.b;
+            import java.util.concurrent.Callable;
+            public class Anon {
+                Object m() {
+                    return new Callable<String>() {
+                        class Nested<N> { N keep; }
+                        public String call() { return new Nested<String>().keep; }
+                    };
+                }
+            }
+            """;
+
+    /** A mixed chain: local class -> anonymous class -> member class, so the walk changes register mid-way. */
+    @Language("java")
+    private static final String MIXED = """
+            package a.b;
+            import java.util.concurrent.Callable;
+            public class Mixed {
+                Object m() {
+                    class Local<L> {
+                        Object inner() {
+                            return new Callable<String>() {
+                                class Deep<D> { D keep; }
+                                public String call() { return new Deep<String>().keep; }
+                            };
+                        }
+                    }
+                    return new Local<String>().inner();
+                }
+            }
+            """;
+
     @DisplayName("guava's shape: member classes of a method-local class, one with a recursive bound")
     @Test
     public void memberClassesOfALocalClass() {
@@ -86,21 +124,22 @@ public class TestMemberClassOfLocalClass extends CommonTest {
         assertNotNull(scan("a.b.Deeper", DEEPER));
     }
 
-    /*
-    ⚠ STILL OPEN, AND DELIBERATELY NOT ASSERTED HERE — a type-parameterised class nested inside an ANONYMOUS
-    class, which this fix does not reach:
-
-        Object m() {
-            return new Callable<String>() {
-                class Nested<N> { N keep; }
-                public String call() { return new Nested<String>().keep; }
-            };
-        }
-
-    N's owner is Nested, whose owner is the anonymous class: no simple name, so nothing to look up on the
-    element stack, and methodLocalType correctly returns null. It failed before this change too (measured:
-    'Cannot find element Nested on stack'), and still fails after, only with a more accurate message from the
-    next guard along ('Cannot find owner Nested of type variable N'). Not a regression and not fixed; recorded
-    so the next reader knows the boundary of what the descent covers rather than discovering it in a corpus.
+    /**
+     * ⛔ The unnamed link. {@code N}'s owner is {@code Nested}, whose owner is the ANONYMOUS class — no simple
+     * name, so the element stack could never hold it and a walk that only consulted the stack had to give up.
+     * The anonymous type is registered by {@code visitNewClass} in {@code typeData} under the compiler's own
+     * notation, so the walk resolves it there and descends as usual.
      */
+    @DisplayName("a type-parameterised class nested inside an anonymous class")
+    @Test
+    public void nestedInsideAnAnonymousClass() {
+        assertNotNull(scan("a.b.Anon", ANONYMOUS));
+    }
+
+    /** Local class, then anonymous, then member: the walk must change register part-way up one chain. */
+    @DisplayName("a mixed chain: local class, anonymous class, member class")
+    @Test
+    public void mixedOwnerChain() {
+        assertNotNull(scan("a.b.Mixed", MIXED));
+    }
 }

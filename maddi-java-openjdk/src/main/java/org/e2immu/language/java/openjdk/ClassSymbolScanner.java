@@ -1643,19 +1643,46 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         Deque<String> nested = new ArrayDeque<>();
         Symbol s = symbol;
         while (s instanceof Symbol.ClassSymbol cs) {
-            String simpleName = cs.getSimpleName().toString();
-            if (simpleName.isEmpty()) return null; // anonymous: never registered by name
-            if (cs.owner instanceof Symbol.MethodSymbol) {
-                if (!(elementStack.findOrNull(simpleName) instanceof TypeInfo local)) return null;
-                TypeInfo result = local;
+            TypeInfo anchor = declaredInMethodBody(cs);
+            if (anchor != null) {
                 for (String n : nested) {
-                    result = result.findSubType(n, false);
-                    if (result == null) return null;
+                    anchor = anchor.findSubType(n, false);
+                    if (anchor == null) return null;
                 }
-                return result;
+                return anchor;
             }
+            String simpleName = cs.getSimpleName().toString();
+            if (simpleName.isEmpty()) return null; // unnamed and unregistered: nothing left to key on
             nested.addFirst(simpleName);
             s = cs.owner;
+        }
+        return null;
+    }
+
+    /**
+     * The {@link TypeInfo} for a type the SCANNER declared inside a method body, or null if this symbol is not
+     * one. The two forms are registered in different places, which is why both are tried here:
+     * <ul>
+     *     <li>a NAMED local class — {@code handleLocalType} puts it on the element stack under its simple name,
+     *     for as long as it is in scope;</li>
+     *     <li>an ANONYMOUS class — {@code visitNewClass} registers it in {@code typeData} under the compiler's
+     *     own notation for the symbol ({@code newClass.def.sym.toString()}), before its body is scanned. It has
+     *     no simple name, so the element stack could never hold it, and a walk that only knew about the element
+     *     stack had to give up at it.</li>
+     * </ul>
+     * ⚠ The anonymous lookup is deliberately the same key the scanner writes, {@code cs.toString()} — the same
+     * one {@code anonymousTypeStub} tries first. Do not "improve" it to a canonical FQN: an anonymous class does
+     * not have one, which is the whole reason for this path.
+     */
+    private TypeInfo declaredInMethodBody(Symbol.ClassSymbol cs) {
+        String simpleName = cs.getSimpleName().toString();
+        if (simpleName.isEmpty()) {
+            TypeInfo anonymous = getType(cs.toString());
+            return anonymous == null ? getType(cs.flatName().toString()) : anonymous;
+        }
+        if (cs.owner instanceof Symbol.MethodSymbol
+            && elementStack.findOrNull(simpleName) instanceof TypeInfo local) {
+            return local;
         }
         return null;
     }
