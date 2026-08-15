@@ -4,7 +4,10 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * The refusal message for the one shape a parse cannot recover from and could not explain: <b>the same type
@@ -52,6 +55,39 @@ public class StaleArtifactDiagnosis {
                                  URI incomingOrigin,
                                  String memberBeingAdded,
                                  List<String> existingMembers) {
+        return message(typeDescriptor, committedOrigin, sourceSetName, incomingSymbolIsSource, incomingOrigin,
+                memberBeingAdded, existingMembers, List.of());
+    }
+
+    /**
+     * ⛔ <b>THE SECOND CAUSE, AND THE JAR/NO-JAR DICHOTOMY COULD NOT SEE IT.</b> When neither side is a jar the
+     * message used to end <i>"the member lists above are the evidence to read"</i> — and that sentence sent two
+     * independent readers, within 24 hours, to the same wrong conclusion: that a compact record constructor is
+     * modelled without its canonical parameters. It is not ({@code TestCompactConstructorProbe} pins it). The
+     * committed source had simply failed to compile: {@code jackson-annotations} was missing from that source
+     * set's parse classpath, javac reported {@code package com.fasterxml.jackson.annotation does not exist} 50
+     * times in the one file, and its ERROR RECOVERY truncated the annotated record header — so the canonical
+     * constructor was modelled with 1 of its 5 parameters and disagreed with the class file.
+     * <p>
+     * ⚠ <b>The member lists are then an ARTIFACT OF THE ERRORS, not evidence about the member being added.</b>
+     * Acting on them is expensive: synthesising the canonical constructor "to fix it" collides with the one this
+     * path already builds from javac's {@code JCMethodDecl}, 62 failures in this module alone. So the errors are
+     * hoisted ABOVE the jar verdict and the reader is steered to the classpath first.
+     * <p>
+     * Same disease as the rest of this class: retrievable facts (the scanner is holding the diagnostics when it
+     * throws), arranged so that nobody could act on them.
+     *
+     * @param javacErrorsInCommittedSource javac's own errors for the committed definition's file, each already
+     *                                     rendered as one line. Empty when that file compiled cleanly.
+     */
+    public static String message(String typeDescriptor,
+                                 URI committedOrigin,
+                                 String sourceSetName,
+                                 boolean incomingSymbolIsSource,
+                                 URI incomingOrigin,
+                                 String memberBeingAdded,
+                                 List<String> existingMembers,
+                                 List<String> javacErrorsInCommittedSource) {
         Path committedJar = jarFileOf(committedOrigin);
         Path incomingJar = incomingSymbolIsSource ? null : jarFileOf(incomingOrigin);
         StringBuilder sb = new StringBuilder();
@@ -71,6 +107,9 @@ public class StaleArtifactDiagnosis {
             sb.append("  members already present:\n");
             for (String m : existingMembers) sb.append("      ").append(m).append('\n');
         }
+        // ⛔ ABOVE the jar verdict on purpose: when the committed file did not compile, the member lists just
+        // printed are an artifact of javac's error recovery, and the reader must be told before they read them.
+        appendJavacErrors(sb, javacErrorsInCommittedSource, sourceSetName);
         // The discriminating case: ONE side is source and the OTHER is a jar, in either order.
         Path stale = committedJar != null && incomingSymbolIsSource ? committedJar
                 : committedJar == null && incomingJar != null ? incomingJar : null;
@@ -88,6 +127,11 @@ public class StaleArtifactDiagnosis {
             Path jar = committedJar != null ? committedJar : incomingJar;
             sb.append("⚠ One definition came from a JAR (").append(jar).append("). If that jar predates the")
                     .append(" sources,\n   rebuild or delete it and parse again.");
+        } else if (!javacErrorsInCommittedSource.isEmpty()) {
+            // ⚠ NOT "read the member lists": that steer is what produced two wrong diagnoses in 24 hours.
+            sb.append("⚠ Neither definition came from a jar, so this is NOT the stale-artifact case — and the")
+                    .append(" member\n   lists above are NOT the evidence to read either, because the committed")
+                    .append(" file did not compile.\n   START WITH THE JAVAC ERRORS.");
         } else {
             sb.append("⚠ Neither definition came from a jar, so this is NOT the stale-artifact case; the two")
                     .append("\n   arrivals disagree for another reason and the member lists above are the evidence")
@@ -95,6 +139,53 @@ public class StaleArtifactDiagnosis {
         }
         return sb.toString();
     }
+
+    /** How many distinct javac errors to print before summarising; a truncated list must still say what it dropped. */
+    private static final int MAX_ERRORS_SHOWN = 5;
+
+    /**
+     * ⚠ Deduplicated and capped, but never SILENTLY: one missing package produces one error per use site (50, in
+     * the case this was written for), and a reader who is shown five of them without the total cannot tell whether
+     * the file has a typo or no classpath at all. The count is the signal — "50 errors in one file" IS the
+     * diagnosis, and printing all 50 would bury the verdict below.
+     */
+    private static void appendJavacErrors(StringBuilder sb, List<String> errors, String sourceSetName) {
+        if (errors.isEmpty()) return;
+        // ⚠ Grouped by the error TEXT, not the whole line. One missing package produces the SAME message at 50
+        // different line numbers, so deduplicating whole lines would collapse nothing and the reader would see
+        // five near-identical lines with no idea that a single import is behind all of them. "50 errors, 1
+        // distinct" is the sentence that says "this file has no classpath", and it only appears if the line
+        // number is off the key. The first line carrying each text is the one shown, so a line number survives.
+        LinkedHashMap<String, String> firstLineByText = new LinkedHashMap<>();
+        for (String e : errors) firstLineByText.putIfAbsent(textOf(e), e);
+        List<String> distinct = List.copyOf(firstLineByText.values());
+        sb.append("⛔ THE COMMITTED DEFINITION'S FILE DID NOT COMPILE: ").append(errors.size())
+                .append(" javac error(s)");
+        if (distinct.size() < errors.size()) sb.append(", ").append(distinct.size()).append(" distinct");
+        sb.append('\n');
+        for (String e : distinct.stream().limit(MAX_ERRORS_SHOWN).toList()) {
+            sb.append("      ").append(e).append('\n');
+        }
+        if (distinct.size() > MAX_ERRORS_SHOWN) {
+            sb.append("      ... and ").append(distinct.size() - MAX_ERRORS_SHOWN)
+                    .append(" further distinct error(s)\n");
+        }
+        sb.append("   javac's ERROR RECOVERY models a TRUNCATED type from a file it could not resolve: a record")
+                .append("\n   header whose annotations do not resolve loses components, so a constructor can be")
+                .append(" modelled\n   with FEWER PARAMETERS than the source declares, and then disagrees with the")
+                .append(" class file.\n   ⇒ THE MEMBER LISTS ABOVE ARE AN ARTIFACT OF THESE ERRORS, not evidence")
+                .append(" about the member\n   being added. A missing dependency is the usual cause: fix the parse")
+                .append(" classpath of source set\n   ").append(sourceSetName == null ? "(unknown)" : sourceSetName)
+                .append(", then parse again.\n");
+    }
+
+    /** The error text with a leading {@code "line N: "} stripped, so the same complaint groups across line numbers. */
+    private static String textOf(String renderedError) {
+        Matcher m = LINE_PREFIX.matcher(renderedError);
+        return m.lookingAt() ? renderedError.substring(m.end()) : renderedError;
+    }
+
+    private static final Pattern LINE_PREFIX = Pattern.compile("line \\d+: ");
 
     /**
      * The jar file behind a type's origin, or null when it is not jar-backed.
