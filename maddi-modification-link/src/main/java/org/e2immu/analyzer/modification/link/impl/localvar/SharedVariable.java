@@ -93,14 +93,26 @@ public class SharedVariable extends LocalVariableImpl implements LinkVariable {
 
     /**
      * The memoized {@code assignmentSources}. {@code compute} must be a pure function of this group's assignments
-     * and members; it never re-enters this method, so {@code computeIfAbsent} is safe.
+     * and members; it never re-enters this method, so the plain get/put below is safe.
+     * <p>
+     * ⛔ <b>NOT {@code computeIfAbsent(variable, v -> { COUNTER.increment(); return compute.apply(v); })}.</b> That
+     * wrapper CAPTURES {@code compute}, so the JVM allocates it on every call — and calls outnumber misses by
+     * ~265:1 here (21 M calls against 80 605 misses at n=400), because the whole point of the memo is that it
+     * hits. Measured cost of that mistake on {@code TestBuilderChainBench}: n=400 went 1123 ms → 1372 ms, a 22%
+     * tax on the hot path to count the cold one.
+     * <p>
+     * ⚠ It was nearly missed, because the A/B that cleared it deleted the {@code increment()} and LEFT the
+     * wrapper — comparing a capturing lambda against a capturing lambda and reporting "at or below noise".
+     * ▶ <b>AN A/B ONLY PRICES WHAT IT ACTUALLY REMOVES.</b> The get/put form allocates nothing on a hit.
      */
     public Set<Variable> assignmentSources(Variable variable,
                                            java.util.function.Function<Variable, Set<Variable>> compute) {
-        return assignmentSourcesCache.computeIfAbsent(variable, v -> {
-            ASSIGNMENT_SOURCE_COMPUTATIONS.increment();
-            return compute.apply(v);
-        });
+        Set<Variable> cached = assignmentSourcesCache.get(variable);
+        if (cached != null) return cached;
+        ASSIGNMENT_SOURCE_COMPUTATIONS.increment();
+        Set<Variable> computed = compute.apply(variable);
+        assignmentSourcesCache.put(variable, computed);
+        return computed;
     }
 
     /** The forward adjacency of {@link #assignments}, shared by every query against this group. */

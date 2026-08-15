@@ -37,6 +37,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code followGraph} walking the graph's variables once per statement, which is a design property rather than a
  * defect.
  * <p>
+ * ⚠ <b>THE "after" COLUMN IS AS-OF {@code 835b0ea56} (2026-07-27) AND IS NO LONGER WHAT THIS MACHINE MEASURES —
+ * n=400 is now ~1500 ms, 1.3x that figure. IT IS NOT A REGRESSION, AND THE COUNTS PROVE IT.</b> Bisected over the
+ * 328 commits to {@code e15b1267f} "reuse per-statement extractions outside the dirty web; scope-part vertex
+ * index", confirmed by direct A/B (1219 ms at its parent, 1518 ms at it, non-overlapping over three runs each) —
+ * an OPTIMISATION whose own message measures elasticsearch-server 17-20% faster and fernflower CPU −26%. It adds
+ * caches keyed on group version, and its comment states the assumption: <i>"membership mutations are rare,
+ * per-statement drains are not"</i>. This fixture is the adversarial case for exactly that assumption — ONE group
+ * mutated at essentially every statement (the 403 rebuilds at n=400 below are one per mutation), so every such
+ * cache is cleared before it can pay off while its maintenance is paid in full. A microbenchmark of the shape a
+ * cache is invalidated by is not evidence against the cache.
+ * <p>
+ * ⭐ The reason this is stated as fact rather than suspicion: {@code computes} is <b>80 605 at n=400 at BOTH
+ * ends of those 328 commits</b>, unchanged to the digit while the wall clock moved 1.3x. The counter asserted
+ * below is blind to constant-factor drift by construction, which is precisely what makes it the right guard —
+ * and what a millisecond threshold could never have told apart from a real regression.
+ * <p>
  * ⛔⛔ <b>THIS ASSERTED WALL-CLOCK MILLISECONDS UNTIL 2026-08-15, AND THAT WAS WRONG IN BOTH DIRECTIONS.</b> It
  * failed in CI at 31.7x against a threshold of 30 with nothing regressed — at n=100 the work is ~100 ms, and the
  * denominator alone swings 53↔118 ms between runs on one machine, moving the ratio from 15x to 32x. That is the
