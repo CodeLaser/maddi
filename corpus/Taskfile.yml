@@ -407,9 +407,31 @@ tasks:
   config:camel:
     desc: 'camel config (module core/camel-core-model)'
     cmds: [{ task: _config:maven, vars: { NAME: camel, MODULE: core/camel-core-model } }]
+  # WAS the single-module plugin route on module `guava`, which could not see guava's tests AT ALL.
+  # guava's root pom sets <testSourceDirectory>test</testSourceDirectory> for every module, but the
+  # `guava` module has no test/ — its tests are a SIBLING MODULE, guava-tests, holding ~7 MB of
+  # source. So the old config declared .../guava/guava/test (absent: the one path `task corpus:verify`
+  # could not resolve, 1 of 3949) while the real test sources, guava-tests/test, appeared nowhere.
+  # Neither the phantom nor the omission was visible in a green TestGuava: a source set over a
+  # missing directory contributes nothing, so the run simply analysed main and passed.
+  #
+  # The compile-log route captures every javac invocation the reactor makes, so all five modules and
+  # both of their source kinds land in one configuration — the same reason timefold uses it.
+  # ⛔ `install`, NOT `test-compile`, and guava is the exception the trino comment does not cover.
+  # guava-testlib/src/module-info.java `requires com.google.common`, and guava's own module-info is
+  # MULTI-RELEASE (target/classes/META-INF/versions/9). A directory on -classpath exposes no module,
+  # so under test-compile javac reports "module not found: com.google.common", guava-testlib fails,
+  # and guava-tests is SKIPPED — i.e. test-compile cannot build this reactor at all, let alone its
+  # tests. Only the packaged jar makes the module visible. REWRITE_REACTOR_JARS repairs the one thing
+  # `install` breaks; see _config:maven-log.
+  #
+  # -DskipTests, not -Dmaven.test.skip: the test SOURCES must still compile, since their javac line
+  # is the whole point.
   config:guava:
-    desc: 'guava config (module guava)'
-    cmds: [{ task: _config:maven, vars: { NAME: guava, MODULE: guava } }]
+    desc: 'guava config (Maven compile-log over `install` — whole reactor, includes guava-tests)'
+    cmds:
+      - { task: _config:maven-log,
+          vars: { NAME: guava, TASKS: 'install -DskipTests', REWRITE_REACTOR_JARS: 'true' } }
   config:jenkins:
     desc: 'jenkins config (module core — this is what TestJenkinsCore consumes)'
     cmds: [{ task: _config:maven, vars: { NAME: jenkins, MODULE: core, MVN_FLAGS: '-Denforcer.skip=true' } }]
@@ -536,6 +558,37 @@ tasks:
       # MAVEN_PATTERN "\[DEBUG] (-d (.+))" and discards the rest, so the surviving lines are exactly
       # what it would have consumed. 2.5 GB -> 11 MB on camel, same 1607 invocations.
       - grep -aE '^\[DEBUG] -d ' compile.log > compile.javac.log
+      # REWRITE_REACTOR_JARS: only for reactors that MUST be captured under `install` (guava — see
+      # config:guava). Once a module is packaged, Maven hands its siblings the JAR as the resolved
+      # artifact instead of target/classes, so the captured -classpath names it. maddi then finds
+      # those types TWICE: once in the source set built from that module's own javac line, once in
+      # the jar — the duplication the trino comment above refuses `install` to avoid. Measured on
+      # guava: 8 javac invocations carrying 18 such entries.
+      #
+      # ⛔ DELETING them is WRONG, and it fails in a way that looks like a corpus problem. The
+      # classpath entry is not merely a duplicate: it is the ONLY thing linking a module to the
+      # sibling it depends on. Remove it and guava-testlib can no longer see guava at all —
+      # "package com.google.common.annotations does not exist", "Type GwtIncompatible not found",
+      # and TestGuava dies in 17 s having parsed nothing. Measured, not feared.
+      #
+      # REWRITING is the resolution: <module>/target/<a>.jar -> <module>/target/classes, and
+      # <module>/target/<a>-tests.jar -> <module>/target/test-classes. That is byte-for-byte what
+      # `test-compile` would have emitted for the same reactor, so the dependency survives and
+      # resolves to the PARSED source set instead of to bytecode. -tests first: it is the more
+      # specific pattern and the plain rule would otherwise swallow it.
+      #
+      # Anchored at the project directory, so third-party jars from ~/.m2 are untouched; `realpath`
+      # because TEST_OSS_ROOT may hold ../.. segments while the log is normalised, and a mismatched
+      # pattern would silently rewrite nothing.
+      - |
+        {{if .REWRITE_REACTOR_JARS}}d=$(realpath .)
+        before=$(grep -oE "$d/[^:]*/target/[^:]*\.jar" compile.javac.log | wc -l)
+        sed -E "s#($d/[^:]*)/target/[^:]*-tests\.jar#\1/target/test-classes#g; \
+                s#($d/[^:]*)/target/[^:]*\.jar#\1/target/classes#g" \
+            compile.javac.log > compile.javac.log.tmp && mv compile.javac.log.tmp compile.javac.log
+        after=$(grep -cE "$d/[^:]*/target/[^:]*\.jar" compile.javac.log || true)
+        echo ">>> {{.NAME}}: rewrote $before reactor-jar classpath entries to output dirs (remaining: $after)"
+        test "$after" -eq 0{{end}}
       - 'echo ">>> {{.NAME}}: $(wc -l < compile.javac.log) compile invocations captured"'
       - 'echo ">>> {{.NAME}}: maddi --compile-log -> inputConfiguration.json"'
       - '{{.MADDI_REPO}}/gradlew -p {{.MADDI_REPO}} :maddi-run-openjdk:run --args="--compile-log {{.TEST_OSS_ROOT}}/{{.NAME}}/compile.javac.log --write-input-configuration {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
