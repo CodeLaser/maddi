@@ -197,11 +197,30 @@ tasks:
       - { task: _clone, vars: { NAME: guava, URL: 'https://github.com/google/guava.git' } }
       - { task: _build, vars: { NAME: guava, BUILD: 'mvn install -DskipTests' } }
 
+  # ⚠ -Denforcer.skip is NOT optional, and it is not a linux quirk — it fails identically anywhere.
+  # jenkins/.mvn/maven.config force-activates -Pmight-produce-incrementals on EVERY mvn run in the
+  # tree. That profile adds a `requireExtensionVersion` rule supplied by
+  # io.jenkins.tools.incrementals:incrementals-enforcer-rules:1.13, whose class sits in the pre-3.x
+  # package org.apache.maven.plugins.enforcer. The parent pins maven-enforcer-plugin 3.6.3, which
+  # loads only new-API rules, so it cannot instantiate it:
+  #   Failed to create enforcer rules with name: requireExtensionVersion
+  # It dies in `validate` on jenkins-parent, i.e. before anything compiles.
+  #
+  # ⛔ NOT -P'!might-produce-incrementals', which also works: that profile ALSO runs `flatten`, and
+  # flatten is what resolves ${changelist} into concrete versions in the installed POMs. Broken
+  # sibling versions in ~/.m2 are exactly what this build exists to prevent — see config:jenkins.
+  # Skipping enforcement changes no build OUTPUT; deactivating the profile does.
+  #
+  # This build does not reach the end of the reactor: jenkins-core packages, then fails in
+  # maven-hpi-plugin:record-core-location with "No implementation for PluginWorkspaceMap was bound",
+  # so war / core-tests / coverage never run. That is tolerated deliberately — Maven installs per
+  # module, so parent, bom, websocket-{spi,jetty12-ee9} and cli are all in ~/.m2 by then, which is
+  # everything `mvn -pl core` needs. Revisit if a corpus test ever wants the war.
   jenkins:
-    desc: 'jenkins — Maven'
+    desc: 'jenkins — Maven (partial reactor: stops after core, see comment)'
     cmds:
       - { task: _clone, vars: { NAME: jenkins, URL: 'https://github.com/jenkinsci/jenkins.git' } }
-      - { task: _build, vars: { NAME: jenkins, BUILD: 'mvn install -DskipTests -Dlicense.disableCheck' } }
+      - { task: _build, vars: { NAME: jenkins, BUILD: 'mvn install -DskipTests -Dlicense.disableCheck -Denforcer.skip=true' } }
 
   langchain4j:
     desc: 'langchain4j — Maven'
@@ -393,7 +412,7 @@ tasks:
     cmds: [{ task: _config:maven, vars: { NAME: guava, MODULE: guava } }]
   config:jenkins:
     desc: 'jenkins config (module core — this is what TestJenkinsCore consumes)'
-    cmds: [{ task: _config:maven, vars: { NAME: jenkins, MODULE: core } }]
+    cmds: [{ task: _config:maven, vars: { NAME: jenkins, MODULE: core, MVN_FLAGS: '-Denforcer.skip=true' } }]
   config:langchain4j:
     desc: 'langchain4j config (module langchain4j-core)'
     cmds: [{ task: _config:maven, vars: { NAME: langchain4j, MODULE: langchain4j-core } }]
@@ -476,7 +495,11 @@ tasks:
     dir: '{{.TEST_OSS_ROOT}}/{{.NAME}}'
     cmds:
       - 'echo ">>> {{.NAME}}: write-input-configuration on module {{.MODULE}} (needs a prior `task {{.NAME}}` build + `task config:plugin`)"'
-      - MAVEN_OPTS="$MADDI_EXPORTS -Xmx6G" mvn -pl {{.MODULE}} generate-test-sources io.codelaser:maddi-mvnplugin:{{.MADDI_PLUGIN_VERSION}}:write-input-configuration
+      # MVN_FLAGS: per-project switches the project's OWN build forces on us. Empty for every project
+      # but jenkins, whose maven.config activates a profile carrying an enforcer rule that the pinned
+      # enforcer cannot load — see the `jenkins:` task for the full story. The build task and this one
+      # both need it: they are separate mvn invocations in the same tree.
+      - MAVEN_OPTS="$MADDI_EXPORTS -Xmx6G" mvn {{.MVN_FLAGS}} -pl {{.MODULE}} generate-test-sources io.codelaser:maddi-mvnplugin:{{.MADDI_PLUGIN_VERSION}}:write-input-configuration
       - cp '{{.MODULE}}/target/inputConfiguration.json' inputConfiguration.json
       - 'echo "Wrote {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
 
