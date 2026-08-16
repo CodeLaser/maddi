@@ -900,6 +900,15 @@ public class JavaInspectorImpl implements JavaInspector {
         //
         // --add-exports is additive and safe to emit from either source: it opens packages of modules that are
         // present, and names no module it does not also export. Only the limiting is a claim about completeness.
+        //
+        // ⚠ THIS IS A NARROWING, NOT A CURE, and the remaining half is measured. A source set's dependencies are
+        // a real statement about its module graph, but they are incomplete in exactly the same way: NO generator
+        // emits jdk.unsupported, and none of the corpus configurations declares it. Counted 2026-08-16 over the
+        // configurations in test-oss: camel, jenkins and langchain4j declare 21 JDK modules per source set and
+        // still take the branch below, so any sun.misc.Unsafe in those corpora fails just as guava's three files
+        // did. guava is merely out of the line of fire because its regenerated configuration takes the fallback.
+        // The durable fix is for the generators to declare the jdk.* modules the sources actually use; that needs
+        // regenerated configurations, which is why it is not done here.
         List<String> declaredBySourceSet = jdkModulesOf(sourceSet.dependencies());
         List<String> jdkModules = jdkModulesFor(sourceSet, inputConfiguration);
         if (!declaredBySourceSet.isEmpty()) {
@@ -940,10 +949,16 @@ public class JavaInspectorImpl implements JavaInspector {
      * the same jmods through {@code addClassPathParts} only, so it does not. Measured over the 14 generated
      * configurations in the test-oss catalogue: <b>10 of them have 20-21 {@code partOfJdk} class path parts and
      * ZERO source sets referencing one</b> — timefold-solver (0 of 65), pulsar (0 of 90), elasticsearch (0 of 27),
-     * detekt, fernflower, the three elasticsearch single-set configs; while guava, jenkins, activemq, camel and
-     * langchain4j do carry them. ⚠ It does NOT split cleanly by route, so do not reach for "the compile-log
-     * corpora" as the rule: what decides it is how the configuration was authored, which is exactly why the fix
-     * belongs here rather than in one generator.
+     * detekt, fernflower, guava (0 of 6), the three elasticsearch single-set configs; while jenkins, activemq,
+     * camel and langchain4j do carry them. ⚠ It does NOT split cleanly by route, so do not reach for "the
+     * compile-log corpora" as the rule: what decides it is how the configuration was authored, which is exactly
+     * why the fix belongs here rather than in one generator.
+     * <p>
+     * ⚠ A CONFIGURATION CAN CHANGE SIDES, so treat the lists above as an illustration and not as a register.
+     * guava was on the carrying side when this comment was first written and moved to the other on 2026-08-15,
+     * when {@code config:guava} switched from the single-module plugin route to the compile-log route to pick up
+     * guava-tests (b1a95656) — 47 minutes before the measurement was recorded, on the machine that recorded it.
+     * Which side a corpus sits on is a property of the last generator that ran, not of the corpus.
      * <p>
      * ⚠ A configuration with no {@code partOfJdk} parts at all (coil, in that same catalogue) is untouched by
      * this: there is nothing to open, and the fallback returns empty just as the primary does.
