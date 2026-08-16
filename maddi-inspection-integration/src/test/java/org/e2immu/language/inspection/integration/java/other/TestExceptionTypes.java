@@ -37,7 +37,7 @@ public class TestExceptionTypes extends CommonTest {
                         IOException {
                     final StringBuilder buff = new StringBuilder();
                     buff.append(baseURL);
-                    if(queryString != null) { buff.append("?"); buff.append(queryString); }
+                    if (queryString != null) { buff.append("?"); buff.append(queryString); }
                     final URL url = new URL(buff.toString());
                     return (HttpURLConnection)url.openConnection();
                 }
@@ -70,9 +70,9 @@ public class TestExceptionTypes extends CommonTest {
                         IOException {
                         final StringBuilder buff = new StringBuilder();
                         buff.append(baseURL);
-                        if(queryString != null) { buff.append("?"); buff.append(queryString); }
+                        if (queryString != null) { buff.append("?"); buff.append(queryString); }
                         final URL url = new URL(buff.toString());
-                        return (HttpURLConnection)url.openConnection();
+                        return (HttpURLConnection) url.openConnection();
                     }
                 }
                 """;
