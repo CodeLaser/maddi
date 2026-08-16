@@ -144,7 +144,7 @@ public class IfElseStatementImpl extends StatementImpl implements IfElseStatemen
     public OutputBuilder print(Qualification qualification) {
         OutputBuilder outputBuilder = outputBuilder(qualification)
                 .add(KeywordImpl.IF)
-                .add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(SymbolEnum.LEFT_PARENTHESIS_AFTER_KEYWORD)
                 .add(expression.print(qualification))
                 .add(SymbolEnum.RIGHT_PARENTHESIS)
                 .add(block.print(qualification));

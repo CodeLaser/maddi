@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.output.Formatter;
+import org.e2immu.language.cst.api.output.FormattingOptions;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -857,10 +858,13 @@ public class JavaInspectorImpl implements JavaInspector {
     @Override
     public String print2(CompilationUnit compilationUnit,
                          Qualification qualification,
-                         ImportComputer importComputer) {
+                         ImportComputer importComputer,
+                         FormattingOptions formattingOptions) {
         OutputBuilder ob = runtime.newCompilationUnitPrinter(compilationUnit, true)
                 .print(importComputer, qualification);
-        Formatter formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
+        FormattingOptions options = formattingOptions == null
+                ? new FormattingOptionsImpl.Builder().build() : formattingOptions;
+        Formatter formatter = new Formatter2Impl(runtime, options);
         return formatter.write(ob);
     }
 

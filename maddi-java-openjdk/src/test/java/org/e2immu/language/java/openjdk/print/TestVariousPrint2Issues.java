@@ -23,7 +23,7 @@ public class TestVariousPrint2Issues extends CommonTest {
                 private Exception exception;
                 private void getExceptionStackBody() {
                     System.out.println("this is a prettly long line");
-                    getException().printStackTrace((PrintWriter)null);
+                    getException().printStackTrace((PrintWriter) null);
                 }
                 public Exception getException() { return this.exception; }
             }

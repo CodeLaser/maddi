@@ -22,8 +22,6 @@ public class TestFormattingOptionsBuilder {
         FormattingOptions original = new FormattingOptionsImpl.Builder()
                 .setLengthOfLine(97)
                 .setSpacesInTab(3)
-                .setTabsForLineSplit(5)
-                .setBinaryOperatorsAtEndOfLine(false)
                 .setAllFieldsRequireThis(true)
                 .setAllStaticFieldsRequireType(true)
                 .setSkipComments(true)
@@ -34,8 +32,6 @@ public class TestFormattingOptionsBuilder {
 
         assertEquals(original.lengthOfLine(), copy.lengthOfLine());
         assertEquals(original.spacesInTab(), copy.spacesInTab());
-        assertEquals(original.tabsForLineSplit(), copy.tabsForLineSplit());
-        assertEquals(original.binaryOperatorsAtEndOfLine(), copy.binaryOperatorsAtEndOfLine());
         assertEquals(original.compact(), copy.compact());
         assertEquals(original.allFieldsRequireThis(), copy.allFieldsRequireThis());
         assertEquals(original.allStaticFieldsRequireType(), copy.allStaticFieldsRequireType());
