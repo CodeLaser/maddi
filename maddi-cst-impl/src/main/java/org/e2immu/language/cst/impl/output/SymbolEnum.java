@@ -58,11 +58,12 @@ public record SymbolEnum(String symbol, Space left, Space right, String constant
      * {@code synchronized (} — every mainstream Java style (and checkstyle's {@code WhitespaceAround} on the
      * keyword tokens) writes a space between the keyword and the parenthesis, where a METHOD CALL writes
      * none. The shared {@link #LEFT_PARENTHESIS} cannot distinguish the two, which is how {@code if(}
-     * shipped for years; the Kotlin printers already insert the space explicitly. {@code ONE}: exactly one
-     * space, and never a line break between a keyword and its parenthesis.
+     * shipped for years; the Kotlin printers already insert the space explicitly.
+     * {@code ONE_IS_NICE_NEVER_SPLIT}: nice mode writes the space, COMPACT mode stays {@code if(} —
+     * compact means smallest — and there is never a line break between a keyword and its parenthesis.
      */
     public static final Symbol LEFT_PARENTHESIS_AFTER_KEYWORD =
-            new SymbolEnum("(", ONE, NO_SPACE_SPLIT_ALLOWED, "LEFT_PARENTHESIS_AFTER_KEYWORD");
+            new SymbolEnum("(", ONE_IS_NICE_NEVER_SPLIT, NO_SPACE_SPLIT_ALLOWED, "LEFT_PARENTHESIS_AFTER_KEYWORD");
 
     /**
      * The {@code )} closing a CAST: {@code (Type) x}, with the space checkstyle's {@code WhitespaceAfter
