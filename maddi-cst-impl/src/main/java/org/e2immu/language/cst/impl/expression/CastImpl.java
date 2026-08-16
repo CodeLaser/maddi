@@ -139,7 +139,7 @@ public class CastImpl extends ExpressionImpl implements Cast {
     public OutputBuilder print(Qualification qualification) {
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
                 .add(parameterizedType.print(qualification, false, DiamondEnum.SHOW_ALL))
-                .add(SymbolEnum.RIGHT_PARENTHESIS)
+                .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST)
                 .add(outputInParenthesis(qualification, precedence(), expression));
     }
 

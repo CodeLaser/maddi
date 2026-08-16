@@ -126,7 +126,7 @@ public class DoStatementImpl extends StatementImpl implements DoStatement {
                 .add(KeywordImpl.DO)
                 .add(block.print(qualification))
                 .add(KeywordImpl.WHILE)
-                .add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(SymbolEnum.LEFT_PARENTHESIS_AFTER_KEYWORD)
                 .add(expression.print(qualification))
                 .add(SymbolEnum.RIGHT_PARENTHESIS)
                 .add(SymbolEnum.SEMICOLON);

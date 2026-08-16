@@ -124,7 +124,7 @@ public class WhileStatementImpl extends StatementImpl implements WhileStatement 
     public OutputBuilder print(Qualification qualification) {
         return outputBuilder(qualification)
                 .add(KeywordImpl.WHILE)
-                .add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(SymbolEnum.LEFT_PARENTHESIS_AFTER_KEYWORD)
                 .add(expression().print(qualification))
                 .add(SymbolEnum.RIGHT_PARENTHESIS)
                 .add(block.print(qualification));
