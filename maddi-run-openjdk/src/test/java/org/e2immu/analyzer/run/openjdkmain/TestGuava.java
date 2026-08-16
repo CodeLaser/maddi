@@ -42,6 +42,12 @@ public class TestGuava {
                 "--input-configuration=" + CONFIG
                 , "--analysis-steps=modification"
                 , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk"
+                // ⚠ REQUIRED SINCE THE CONFIG COVERS guava-tests (corpus commit b1a95656f). That module holds
+                // MacHashFunctionTest, which imports sun.security.jca.ProviderList/Providers -- a non-exported
+                // java.base package. Without this flag the unit is dropped and the run ends at
+                // EXIT_PARSER_ERROR before the analyser is reached at all, so the test would be guarding the
+                // parse and nothing else.
+                , "--jdk-internals"
         });
         assertEquals(Main.EXIT_OK, exitValue);
     }
