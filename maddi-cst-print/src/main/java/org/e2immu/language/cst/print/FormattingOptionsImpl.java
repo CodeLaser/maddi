@@ -20,8 +20,6 @@ import org.e2immu.language.cst.api.output.FormattingOptions;
 
 public record FormattingOptionsImpl(int lengthOfLine,
                                 int spacesInTab,
-                                int tabsForLineSplit,
-                                boolean binaryOperatorsAtEndOfLine,
                                 boolean compact,
                                 boolean allFieldsRequireThis,
                                 boolean allStaticFieldsRequireType,
@@ -36,8 +34,6 @@ public record FormattingOptionsImpl(int lengthOfLine,
 
         private int lengthOfLine;
         private int spacesInTab;
-        private int tabsForLineSplit;
-        private boolean binaryOperatorsAtEndOfLine;
         private boolean compact;
         private boolean allFieldsRequireThis;
         private boolean allStaticFieldsRequireType;
@@ -48,16 +44,12 @@ public record FormattingOptionsImpl(int lengthOfLine,
         public Builder() {
             this.lengthOfLine = 120;
             this.spacesInTab = 4;
-            this.tabsForLineSplit = 2;
-            this.binaryOperatorsAtEndOfLine = true;
             this.wrapStyle = FormattingOptions.WrapStyle.CHOP_DOWN;
         }
 
         public Builder(FormattingOptions options) {
             this.lengthOfLine = options.lengthOfLine();
             this.spacesInTab = options.spacesInTab();
-            this.tabsForLineSplit = options.tabsForLineSplit();
-            this.binaryOperatorsAtEndOfLine = options.binaryOperatorsAtEndOfLine();
             this.compact = options.compact();
             this.allFieldsRequireThis = options.allFieldsRequireThis();
             this.allStaticFieldsRequireType = options.allStaticFieldsRequireType();
@@ -76,20 +68,9 @@ public record FormattingOptionsImpl(int lengthOfLine,
             return this;
         }
 
-        public Builder setTabsForLineSplit(int tabsForLineSplit) {
-            this.tabsForLineSplit = tabsForLineSplit;
-            return this;
-        }
-
-        public Builder setBinaryOperatorsAtEndOfLine(boolean binaryOperatorsAtEndOfLine) {
-            this.binaryOperatorsAtEndOfLine = binaryOperatorsAtEndOfLine;
-            return this;
-        }
-
         public Builder setCompact(boolean compact) {
             this.compact = compact;
             if (compact) {
-                this.tabsForLineSplit = 0;
                 this.spacesInTab = 0;
             }
             return this;
@@ -122,7 +103,7 @@ public record FormattingOptionsImpl(int lengthOfLine,
 
         @NotModified
         public FormattingOptions build() {
-            return new FormattingOptionsImpl(lengthOfLine, spacesInTab, tabsForLineSplit, binaryOperatorsAtEndOfLine, compact,
+            return new FormattingOptionsImpl(lengthOfLine, spacesInTab, compact,
                     allFieldsRequireThis, allStaticFieldsRequireType, skipComments, wrapStyle, alwaysBreakPriorityBlocks);
         }
     }

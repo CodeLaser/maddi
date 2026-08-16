@@ -29,8 +29,6 @@ public interface FormattingOptions {
         CHOP_DOWN, GREEDY_FILL
     }
 
-    boolean binaryOperatorsAtEndOfLine();
-
     boolean compact();
 
     boolean allStaticFieldsRequireType();
@@ -42,8 +40,6 @@ public interface FormattingOptions {
     boolean skipComments();
 
     int spacesInTab();
-
-    int tabsForLineSplit();
 
     WrapStyle wrapStyle();
 

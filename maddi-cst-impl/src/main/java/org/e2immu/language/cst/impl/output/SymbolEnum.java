@@ -53,6 +53,25 @@ public record SymbolEnum(String symbol, Space left, Space right, String constant
     public static final Symbol RIGHT_PARENTHESIS = new SymbolEnum(")", NONE, RELAXED_NO_SPACE_SPLIT_ALLOWED, "RIGHT_PARENTHESIS");
     public static final Symbol OPEN_CLOSE_PARENTHESIS = new SymbolEnum("()", NONE, RELAXED_NO_SPACE_SPLIT_ALLOWED, "OPEN_CLOSE_PARENTHESIS");
 
+    /**
+     * The {@code (} of {@code if (}, {@code for (}, {@code while (}, {@code catch (}, {@code switch (},
+     * {@code synchronized (} — every mainstream Java style (and checkstyle's {@code WhitespaceAround} on the
+     * keyword tokens) writes a space between the keyword and the parenthesis, where a METHOD CALL writes
+     * none. The shared {@link #LEFT_PARENTHESIS} cannot distinguish the two, which is how {@code if(}
+     * shipped for years; the Kotlin printers already insert the space explicitly. {@code ONE}: exactly one
+     * space, and never a line break between a keyword and its parenthesis.
+     */
+    public static final Symbol LEFT_PARENTHESIS_AFTER_KEYWORD =
+            new SymbolEnum("(", ONE, NO_SPACE_SPLIT_ALLOWED, "LEFT_PARENTHESIS_AFTER_KEYWORD");
+
+    /**
+     * The {@code )} closing a CAST: {@code (Type) x}, with the space checkstyle's {@code WhitespaceAfter
+     * TYPECAST} demands and {@link #RIGHT_PARENTHESIS} (an expression's closing parenthesis, no space)
+     * cannot express. Nice mode writes the space; compact mode stays {@code (Type)x}.
+     */
+    public static final Symbol RIGHT_PARENTHESIS_AFTER_CAST =
+            new SymbolEnum(")", NONE, ONE_IS_NICE_EASY_SPLIT, "RIGHT_PARENTHESIS_AFTER_CAST");
+
     public static final Symbol LEFT_BRACE = new SymbolEnum("{", ONE_IS_NICE_EASY_SPLIT, ONE_IS_NICE_SPLIT_BEGIN_END, "LEFT_BRACE");
     public static final Symbol RIGHT_BRACE = new SymbolEnum("}", ONE_IS_NICE_SPLIT_BEGIN_END, ONE_IS_NICE_EASY_SPLIT, "RIGHT_BRACE");
 
