@@ -1257,20 +1257,24 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     @Override
     public Void visitBreak(BreakTree node, Void unused) {
         String gotoLabel = node.getLabel() == null ? null : node.getLabel().toString();
+        Source source = statementSourceForNode(node);
         addStatement(runtime.newBreakBuilder()
                 .setLabel(statementLabels.get(node))
                 .setGoToLabel(gotoLabel)
-                .setSource(statementSourceForNode(node)).build());
+                .addComments(commentsForNode(source))
+                .setSource(source).build());
         return null;
     }
 
     @Override
     public Void visitContinue(ContinueTree node, Void unused) {
         String gotoLabel = node.getLabel() == null ? null : node.getLabel().toString();
+        Source source = statementSourceForNode(node);
         addStatement(runtime.newContinueBuilder()
                 .setLabel(statementLabels.get(node))
                 .setGoToLabel(gotoLabel)
-                .setSource(statementSourceForNode(node)).build());
+                .addComments(commentsForNode(source))
+                .setSource(source).build());
         return null;
     }
 
@@ -1280,9 +1284,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         currentExpression = null;
         scan(node.getCondition(), unused);
         Expression condition = currentExpression;
+        Source source = statementSourceForNode(node);
         addStatement(runtime.newDoBuilder()
                 .setLabel(statementLabels.get(node))
-                .setSource(statementSourceForNode(node))
+                .setSource(source)
+                .addComments(commentsForNode(source))
                 .setBlock(block)
                 .setExpression(condition)
                 .build());
@@ -1396,10 +1402,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
         Block block = parseBlock("0", node.getStatement());
         elementStack.pop();
+        Source source = statementSourceForNode(node);
         addStatement(forBuilder
                 .setLabel(statementLabels.get(node))
                 .setBlock(block)
-                .setSource(statementSourceForNode(node))
+                .setSource(source)
+                .addComments(commentsForNode(source))
                 .build());
         return null;
     }
@@ -1413,9 +1421,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         Block block = parseBlock("0", node.getThenStatement());
         Block elseBlock = parseBlock("1", node.getElseStatement());
 
+        Source source = statementSourceForNode(node);
         addStatement(runtime.newIfElseBuilder()
                 .setLabel(statementLabels.get(node))
-                .setSource(statementSourceForNode(node))
+                .setSource(source)
+                .addComments(commentsForNode(source))
                 .setIfBlock(block)
                 .setElseBlock(elseBlock)
                 .setExpression(condition)
@@ -1552,10 +1562,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     public Void visitThrow(ThrowTree node, Void unused) {
         scan(node.getExpression(), unused);
         Expression expression = currentExpression;
+        Source source = statementSourceForNode(node);
         addStatement(runtime.newThrowBuilder()
                 .setLabel(statementLabels.get(node))
                 .setExpression(expression)
-                .setSource(statementSourceForNode(node))
+                .addComments(commentsForNode(source))
+                .setSource(source)
                 .build());
         return null;
     }
@@ -1639,6 +1651,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 .setBlock(block)
                 .setFinallyBlock(finallyBlock)
                 .setSource(source)
+                .addComments(commentsForNode(source))
                 .build();
         addStatement(s);
         return null;
@@ -1947,9 +1960,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         scan(node.getCondition(), unused);
         Expression condition = currentExpression;
         Block block = parseBlock("0", node.getStatement());
+        Source source = statementSourceForNode(node);
         addStatement(runtime.newWhileBuilder()
                 .setLabel(statementLabels.get(node))
-                .setSource(statementSourceForNode(node))
+                .setSource(source)
+                .addComments(commentsForNode(source))
                 .setBlock(block)
                 .setExpression(condition)
                 .build());
