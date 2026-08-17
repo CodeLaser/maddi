@@ -97,8 +97,11 @@ public class TestEventualRatchet {
     public void test() throws IOException {
         if (!Files.isRegularFile(INPUT_CONFIGURATION)) {
             fail("The dogfood input configuration " + INPUT_CONFIGURATION.toAbsolutePath() + " does not exist."
-                 + " Generate it with `cd dogfood && ../gradlew --refresh-dependencies"
-                 + " :cst-impl:e2immu-write-input-configuration` (see dogfood/README.md). This test must not"
+                 + " Run this test through `./gradlew :maddi-run-openjdk:slowTest`, whose"
+                 + " dogfoodInputConfiguration task generates it; by hand it is `cd dogfood &&"
+                 + " ../gradlew --refresh-dependencies :cst-impl:e2immu-write-input-configuration`"
+                 + " (dogfood/README.md). You are seeing this because the file is a generated, uncommitted"
+                 + " artifact and this run bypassed that task -- an IDE run, most likely. This test must not"
                  + " skip: a ratchet that silently passes when its input is missing defends nothing.");
         }
         for (String dir : PRELOAD) {

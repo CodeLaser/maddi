@@ -42,6 +42,14 @@ Carrying `:cst-api`'s sources into `:cst-impl`'s input configuration is what the
 How to run
 ----------
 
+**For the ratchet, nothing: `./gradlew :maddi-run-openjdk:slowTest` does all of it.** That task's
+`dogfoodInputConfiguration` dependency publishes the plugin, builds the jars and runs the generation
+below, so `TestEventualRatchet` provisions its own input in any checkout. It had to: the input
+configuration is generated and gitignored, so before 2026-08-17 the ratchet failed its own "does not
+exist" guard on every checkout where nobody had run the recipe by hand — a setup miss that reads, in a
+sweep, exactly like the regression the ratchet is built to catch. The steps below are for driving the
+dogfood run *yourself*, e.g. to read the aggregate counts.
+
 **Pass `--preload-analysis-results-dirs`, or every number you read will be wrong.**
 Without it the annotated-API results are not loaded, so JDK methods such as `List.copyOf` have no
 `immutableMethod` and anything that reasons from them silently infers nothing. The unit tests preload
