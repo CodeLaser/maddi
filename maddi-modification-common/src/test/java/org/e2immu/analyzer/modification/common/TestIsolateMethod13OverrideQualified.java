@@ -38,8 +38,8 @@ public class TestIsolateMethod13OverrideQualified extends CommonIsolateMethodTes
         @Language("java")
         String expected = """
                 abstract class X_cc_super {abstract X_cc.Q cc(X_cc.ST token); } public class X_cc extends X_cc_super {
-                    class Q { }
-                    class ST { }
+                    static class Q { }
+                    static class ST { }
                     @Override
                 public Q cc(ST token) {
                     return null;

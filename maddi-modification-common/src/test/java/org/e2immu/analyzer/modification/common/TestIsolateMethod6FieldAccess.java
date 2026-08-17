@@ -34,7 +34,7 @@ public class TestIsolateMethod6FieldAccess extends CommonIsolateMethodTest {
         @Language("java")
         String expected = """
                 public class X_method {
-                    class Constants { static String NAME; }
+                    static class Constants { static String NAME; }
                     String method() {
                     return Constants.NAME;
                 }
@@ -191,7 +191,7 @@ public class TestIsolateMethod6FieldAccess extends CommonIsolateMethodTest {
         @Language("java")
         String expected = """
                 public class X_method {
-                    class C { static final int A = 0; static final int B = 1; }
+                    static class C { static final int A = 0; static final int B = 1; }
                     int method(int x) {
                     switch (x) {
                         case C.A: return 1;

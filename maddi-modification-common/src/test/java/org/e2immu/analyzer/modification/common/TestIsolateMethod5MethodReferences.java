@@ -36,7 +36,7 @@ public class TestIsolateMethod5MethodReferences extends CommonIsolateMethodTest 
         String expected = """
                 import java.util.List;
                 public class X_method {
-                    class Helper {static void process(String s) { } }
+                    static class Helper {static void process(String s) { } }
                     void method(List<String> list) {
                     list.forEach(Helper::process);
                 }
@@ -109,7 +109,7 @@ public class TestIsolateMethod5MethodReferences extends CommonIsolateMethodTest 
         String expected = """
                 import java.util.function.Supplier;
                 public class X_method {
-                    class Box {Box() { } }
+                    static class Box {Box() { } }
                     Supplier<Box> method() {
                     return Box::new;
                 }

@@ -70,8 +70,8 @@ public class TestIsolateMethod16NamespaceReferences extends CommonIsolateMethodT
         @Language("java")
         String expected = """
                 public class X_method {
-                    class Holder { X_method.p.q.Value value; }
-                    class p { class q { class Value { } } }
+                    static class Holder { X_method.p.q.Value value; }
+                    static class p { static class q { static class Value { } } }
                     void method(Holder holder, Object o) {
                     holder.value = (p.q.Value) o;
                 }
@@ -116,7 +116,7 @@ public class TestIsolateMethod16NamespaceReferences extends CommonIsolateMethodT
                     holder.value = (p.q.Value) o;
                 }""";
         String out = isolate(x2, "method", 2, m);
-        assertTrue(out.contains("class p { class q { class Value"), out);
+        assertTrue(out.contains("static class p { static class q { static class Value"), out);
         assertFalse(out.contains("class Value { }\n"), "Value must not be nested directly in the frame:\n" + out);
         javaInspector.invalidateAllSources();
         assertNotNull(javaInspector.parse("X2_method", out));

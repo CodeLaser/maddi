@@ -34,7 +34,7 @@ public class TestIsolateMethod2TypeParameters extends CommonIsolateMethodTest {
         @Language("java")
         String expected = """
                 public class X_method {
-                    class Box<T> { T value; }
+                    static class Box<T> { T value; }
                     String method(Box<String> box) {
                     return box.value;
                 }
@@ -70,7 +70,7 @@ public class TestIsolateMethod2TypeParameters extends CommonIsolateMethodTest {
         String expected = """
                 import java.util.List;
                 public class X_method {
-                    class Holder<T> { T item; }
+                    static class Holder<T> { T item; }
                     String method(List<Holder<String>> list) {
                     return list.get(0).item;
                 }
@@ -104,7 +104,7 @@ public class TestIsolateMethod2TypeParameters extends CommonIsolateMethodTest {
         @Language("java")
         String expected = """
                 public class X_method {
-                    class Ext { class Pair<A, B> { A a; } }
+                    static class Ext { static class Pair<A, B> { A a; } }
                     String method(Ext.Pair<String, Integer> p) {
                     return p.a;
                 }
